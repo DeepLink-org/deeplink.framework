@@ -1,0 +1,58 @@
+#include <stdio.h>
+#include <tuple>
+
+#include <torch/library.h>
+
+#include "csrc_dipu/aten/DIPUNativeFunctions.h"
+#include "csrc_dipu/diopirt/diopi.h"
+#include "csrc_dipu/aten/util/Log.h"
+
+namespace at {
+
+namespace {
+
+namespace {
+
+at::Tensor wrapperTensorAdd(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
+    return dipu::native::DIPUNativeFunctions::add(self, other, alpha);
+}
+
+at::Tensor wrapperRelu(const at::Tensor & self) {
+    return dipu::native::DIPUNativeFunctions::relu(self);
+}
+
+at::Tensor& wrapperReluInp(at::Tensor & self) {
+    return dipu::native::DIPUNativeFunctions::relu_(self);
+}
+
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNorm(
+    const at::Tensor & input, const c10::optional<at::Tensor> & weight,
+    const c10::optional<at::Tensor> & bias,
+    const c10::optional<at::Tensor> & running_mean,
+    const c10::optional<at::Tensor> & running_var,
+    bool training, double momentum, double eps) {
+    return dipu::native::DIPUNativeFunctions::native_batch_norm(input, weight,
+        bias, running_mean, running_var, training, momentum, eps);
+}
+
+}  // inner anonymous namespace
+
+#define DIPU_LIBRARY_IMPL(opname, diopiFunc, wapperFunc) do {           \
+    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                \
+        m.impl(opname, TORCH_FN(wapperFunc));                           \
+    }  else {                                                           \
+        DIPU_LOG << #diopiFunc << " not implemented, do not register\n"; \
+    }                                                                   \
+} while (false);
+
+TORCH_LIBRARY_IMPL(aten, CUDA, m) {
+    DIPU_LIBRARY_IMPL("add.Tensor", diopiAdd222, wrapperTensorAdd);
+    DIPU_LIBRARY_IMPL("add.Tensor", diopiAdd, wrapperTensorAdd);
+    DIPU_LIBRARY_IMPL("relu", diopiRelu, wrapperRelu);
+    DIPU_LIBRARY_IMPL("relu_", diopiReluInp, wrapperReluInp);
+    DIPU_LIBRARY_IMPL("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
+}
+
+}  // outer anonymous namespace
+
+}  // namespace at

@@ -32,6 +32,7 @@ namespace diopi {
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor);
+::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor);
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar);
 ::diopiDtype_t toDiopiDtype(c10::ScalarType type);

@@ -1,4 +1,4 @@
-#include "torch_dipu/csrc/aten/util/diopi.h"
+#include "csrc_dipu/diopirt/diopi.h"
 
 #include <stdio.h>
 

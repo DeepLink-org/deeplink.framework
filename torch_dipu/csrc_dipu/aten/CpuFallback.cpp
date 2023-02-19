@@ -1,5 +1,5 @@
-#include "torch_dipu/csrc/aten/CpuFallback.h"
-#include "torch_dipu/csrc/aten/util/Log.h"
+#include "csrc_dipu/aten/CpuFallback.h"
+#include "csrc_dipu/aten/util/Log.h"
 
 #include <iostream>
 

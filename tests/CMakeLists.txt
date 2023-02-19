@@ -1,4 +1,4 @@
-set(ALL_TESTS test_tensor_add)
+set(ALL_TESTS test_tensor_add test_relu)
 
 foreach (tname ${ALL_TESTS})
     add_executable(${tname} ${tname}.cpp)

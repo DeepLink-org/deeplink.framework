@@ -1,4 +1,4 @@
-#include "torch_dipu/csrc/aten/util/diopi.h"
+#include "csrc_dipu/diopirt/diopi.h"
 
 #include <stdio.h>
 
@@ -16,6 +16,11 @@ namespace diopi {
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
     return tensor == nullptr ? nullptr : reinterpret_cast<::diopiConstTensorHandle_t>(tensor);
+}
+
+::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor) {
+    if (!tensor.has_value()) return nullptr;
+    return reinterpret_cast<::diopiConstTensorHandle_t>(&(tensor.value()));
 }
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {

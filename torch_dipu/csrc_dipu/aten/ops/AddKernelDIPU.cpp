@@ -1,8 +1,8 @@
 #include <ATen/Tensor.h>
 #include <ATen/ExpandUtils.h>
 
-#include "torch_dipu/csrc/aten/DIPUNativeFunctions.h"
-#include "torch_dipu/csrc/aten/util/diopi.h"
+#include "csrc_dipu/aten/DIPUNativeFunctions.h"
+#include "csrc_dipu/diopirt/diopi.h"
 
 namespace dipu::native {
 

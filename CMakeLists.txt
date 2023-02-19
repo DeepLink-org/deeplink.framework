@@ -5,7 +5,7 @@ option(TESTS "Whether to build tests" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(PLUGIN_NAME torch_dipu)
-set(TORCHDIPU_ROOT "${PROJECT_SOURCE_DIR}/torch_dipu/csrc")
+set(TORCHDIPU_ROOT "${PROJECT_SOURCE_DIR}/torch_dipu/csrc_dipu")
 set(TORCHDIPU_THIRD_PARTY_ROOT "${PROJECT_SOURCE_DIR}/third_party")
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
@@ -67,7 +67,7 @@ else()
 endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/torch_dipu/csrc)
+include_directories(${PROJECT_SOURCE_DIR}/torch_dipu)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/DIOPI/include)
 include_directories(${PYTORCH_INSTALL_DIR}/include)
 include_directories(${PYTORCH_INSTALL_DIR}/include/torch/csrc/api/include/)
@@ -78,10 +78,12 @@ add_definitions(-DDIOPI_ATTR_WEAK)
 
 # sources
 set(ATEN_SRCS)
+set(DIOPI_SRCS)
 
 add_subdirectory(${TORCHDIPU_ROOT}/aten)
+add_subdirectory(${TORCHDIPU_ROOT}/diopirt)
 
-set(CPP_SRCS ${ATEN_SRCS})
+set(CPP_SRCS ${ATEN_SRCS} ${DIOPI_SRCS})
 
 add_library(${PLUGIN_NAME} SHARED ${CPP_SRCS})
 # target_link_libraries(${PLUGIN_NAME} PUBLIC ${PYTORCH_INSTALL_DIR}/lib/libtorch_python.so)
