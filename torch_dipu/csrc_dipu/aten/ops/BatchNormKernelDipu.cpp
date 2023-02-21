@@ -36,16 +36,10 @@ namespace dipu::native {
     at::Tensor out = at::empty(input.sizes(), input.options());
     ::diopiTensorHandle_t out_diopi = dipu::diopi::toDiopiTensorHandle(out);
 
-    ::diopiTensorHandle_t save_mean_diopi = nullptr;
-    ::diopiTensorHandle_t save_invstd_diopi = nullptr;
-    at::Tensor save_mean = {};
-    at::Tensor save_invstd = {};
-    if (training) {
-        save_mean = at::empty(running_mean_tensor.sizes(), running_mean_tensor.options().dtype(at::kFloat));
-        save_invstd = at::empty(running_var_tensor.sizes(), running_var_tensor.options().dtype(at::kFloat));
-    }
-    save_mean_diopi = dipu::diopi::toDiopiTensorHandle(save_mean);
-    save_invstd_diopi = dipu::diopi::toDiopiTensorHandle(save_invstd);
+    at::Tensor save_mean = at::empty(running_mean_tensor.sizes(), running_mean_tensor.options().dtype(at::kFloat));
+    at::Tensor save_invstd = at::empty(running_var_tensor.sizes(), running_var_tensor.options().dtype(at::kFloat));
+    ::diopiTensorHandle_t save_mean_diopi = dipu::diopi::toDiopiTensorHandle(save_mean);
+    ::diopiTensorHandle_t save_invstd_diopi = dipu::diopi::toDiopiTensorHandle(save_invstd);
 
     ::diopiError_t ret = ::diopiBatchNorm(
         &context, out_diopi, save_mean_diopi, save_invstd_diopi,
