@@ -13,8 +13,8 @@ namespace {
 
 namespace {
 
-at::Tensor wrapperTensorAdd(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
-    return dipu::native::DIPUNativeFunctions::add(self, other, alpha);
+at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
+    return dipu::native::DIPUNativeFunctions::add_out(self, other, alpha, out);
 }
 
 at::Tensor wrapperRelu(const at::Tensor & self) {
@@ -59,8 +59,8 @@ at::Tensor& wrapperReluInp(at::Tensor & self) {
 } while (false);
 
 TORCH_LIBRARY_IMPL(aten, CUDA, m) {
-    DIPU_LIBRARY_IMPL("add.Tensor", diopiAdd222, wrapperTensorAdd);
-    DIPU_LIBRARY_IMPL("add.Tensor", diopiAdd, wrapperTensorAdd);
+    DIPU_LIBRARY_IMPL("add.out", diopiAdd222, wrapperTensorAddOut);
+    DIPU_LIBRARY_IMPL("add.out", diopiAdd, wrapperTensorAddOut);
     DIPU_LIBRARY_IMPL("relu", diopiRelu, wrapperRelu);
     DIPU_LIBRARY_IMPL("relu_", diopiReluInp, wrapperReluInp);
     DIPU_LIBRARY_IMPL("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);

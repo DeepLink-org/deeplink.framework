@@ -6,7 +6,7 @@
 namespace dipu::native {
 
 struct DIPUNativeFunctions {
-    static at::Tensor add(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha);
+    static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
     static at::Tensor relu(const at::Tensor& self);
     static at::Tensor& relu_(at::Tensor& self);
 
