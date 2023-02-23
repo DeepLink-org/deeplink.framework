@@ -1,3 +1,5 @@
+#include <memory>
+
 #include <ATen/Tensor.h>
 #include <torch/csrc/autograd/custom_function.h>
 
@@ -62,6 +64,56 @@ at::Tensor convolutionKernelDipu(
     return out;
 }
 
+::std::tuple<at::Tensor, at::Tensor, at::Tensor> convolutionBackwardKernelDipu(
+    const at::Tensor& input, const at::Tensor& grad, const at::Tensor& weight,
+    at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
+    int64_t groups, std::array<bool, 3> grad_input_mask) {
+
+    at::Tensor grad_input;
+    at::Tensor grad_weight;
+    at::Tensor grad_bias;
+    // construct the output tensor on device
+    if (grad_input_mask[0]) {
+        grad_input = at::empty(input.sizes(), input.options());
+    }
+    if (grad_input_mask[1]) {
+        grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    }
+    if (grad_input_mask[2]) {
+        c10::IntArrayRef bias_size = { grad.size(1) };
+        grad_bias = at::empty(bias_size, grad.options());
+    }
+
+    ::diopiConstTensorHandle_t input_diopi = dipu::diopi::toDiopiTensorHandle(input);
+    ::diopiConstTensorHandle_t weight_diopi = dipu::diopi::toDiopiTensorHandle(weight);
+    ::diopiConstTensorHandle_t grad_diopi = dipu::diopi::toDiopiTensorHandle(grad);
+    ::diopiSize_t stride_diopi(stride.data(), stride.size());
+    ::diopiSize_t padding_diopi(padding.data(), padding.size());
+    ::diopiSize_t dilation_diopi(dilation.data(), dilation.size());
+    // no output padding for conv2d backward
+    ::diopiSize_t output_padding_diopi;
+    std::unique_ptr<::diopiSize_t> bias_sizes;
+    ::diopiTensorHandle_t grad_bias_diopi = nullptr;
+    if (grad_input_mask[2]) {
+        grad_bias_diopi = dipu::diopi::toDiopiTensorHandle(grad_bias);
+        bias_sizes.reset(new ::diopiSize_t(grad_bias.sizes().data(), grad_bias.dim()));
+    }
+
+    ::diopiTensorHandle_t grad_input_diopi = dipu::diopi::toDiopiTensorHandle(grad_input);
+    ::diopiTensorHandle_t grad_weight_diopi = dipu::diopi::toDiopiTensorHandle(grad_weight);
+
+    ::diopiContext context(c10::cuda::getCurrentCUDAStream().stream());
+
+    ::diopiError_t ret = ::diopiConvolution2dBackward(
+        &context, grad_input_diopi, grad_weight_diopi, grad_bias_diopi,
+        grad_diopi, input_diopi, weight_diopi, bias_sizes.get(), stride_diopi,
+        padding_diopi, dilation_diopi, false, output_padding_diopi, groups);
+    TORCH_CHECK(ret == ::diopiSuccess, __func__, ":", __FILE__, ":", __LINE__,
+        " conv2d backward error, error code is ", ret, "\nerror message is", diopiGetLastErrorString());
+
+    return std::tie(grad_input, grad_weight, grad_bias);
+}
+
 class DipuConvlutionFunction : public torch::autograd::Function<DipuConvlutionFunction> {
 public:
     static at::Tensor forward(
@@ -80,45 +132,26 @@ public:
     }
 
   static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs) {
-    auto padding = ctx->saved_data["padding"].toIntVector();
-    auto stride = ctx->saved_data["stride"].toIntVector();
-    auto dilation = ctx->saved_data["dilation"].toIntVector();
-    auto groups = ctx->saved_data["groups"].toInt();
-    auto bias_has_value = ctx->saved_data["bias_has_value"].toBool();
-    auto saved = ctx->get_saved_variables();
-    auto input = saved[0];
-    auto weight = saved[1];
+      auto padding = ctx->saved_data["padding"].toIntVector();
+      auto stride = ctx->saved_data["stride"].toIntVector();
+      auto dilation = ctx->saved_data["dilation"].toIntVector();
+      auto groups = ctx->saved_data["groups"].toInt();
+      auto bias_has_value = ctx->saved_data["bias_has_value"].toBool();
+      auto saved = ctx->get_saved_variables();
+      auto input = saved[0];
+      auto weight = saved[1];
 
-    std::array<bool, 3> grad_input_mask;
-    grad_input_mask[0] = input.requires_grad();
-    grad_input_mask[1] = weight.requires_grad();
-    grad_input_mask[2] = bias_has_value;
+      std::array<bool, 3> grad_input_mask;
+      grad_input_mask[0] = input.requires_grad();
+      grad_input_mask[1] = weight.requires_grad();
+      grad_input_mask[2] = bias_has_value;
 
-    // tuple<at::Tensor, at::Tensor, at::Tensor> result = NPUNativeFunctions::npu_convolution_backward(input,
-    //     grad_outputs[0],
-    //     weight,
-    //     stride,
-    //     padding,
-    //     dilation,
-    //     groups,
-    //     grad_input_mask);
-    // tensor_list output = {std::get<0>(result),
-    //     std::get<1>(result),
-    //     std::get<2>(result),
-    //     at::Tensor(),
-    //     at::Tensor(),
-    //     at::Tensor(),
-    //     at::Tensor()};
-
-
-    tensor_list output = {at::Tensor(),
-        at::Tensor(),
-        at::Tensor(),
-        at::Tensor(),
-        at::Tensor(),
-        at::Tensor(),
-        at::Tensor()};
-    abort();
+      ::std::tuple<at::Tensor, at::Tensor, at::Tensor> result = convolutionBackwardKernelDipu(
+          input, grad_outputs[0], weight, stride, padding,
+          dilation, groups, grad_input_mask);
+      tensor_list output = {
+          std::get<0>(result), std::get<1>(result), std::get<2>(result),
+          at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return output;
   }
 };
