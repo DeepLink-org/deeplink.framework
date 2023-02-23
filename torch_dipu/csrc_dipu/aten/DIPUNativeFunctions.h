@@ -27,6 +27,13 @@ struct DIPUNativeFunctions {
     static at::Tensor conv2d(
         const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
         at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups);
+
+    static at::Tensor & randperm_out(int64_t n, c10::optional<at::Generator> generator, at::Tensor & out);
+    static at::Tensor& randperm_out(int64_t n, at::Tensor& result);
+
+    static at::Tensor & random_(at::Tensor & self, int64_t to, c10::optional<at::Generator> generator);
+    static at::Tensor & random_(at::Tensor & self, c10::optional<at::Generator> generator);
+    static at::Tensor & random_(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator);
 };
 
 }  // namespace dipu::native

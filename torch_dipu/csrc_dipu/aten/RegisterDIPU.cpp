@@ -48,8 +48,30 @@ at::Tensor& wrapperReluInp(at::Tensor & self) {
         save_invstd, train, eps, output_mask);
 }
 
-at::Tensor wrapperConvolution2d(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
-  return dipu::native::DIPUNativeFunctions::conv2d(input, weight, bias, stride, padding, dilation, groups);
+at::Tensor wrapperConvolution2d(
+    const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
+    at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
+    return dipu::native::DIPUNativeFunctions::conv2d(input, weight, bias, stride, padding, dilation, groups);
+}
+
+at::Tensor & wrapperGeneratorOutRandpermOut(int64_t n, c10::optional<at::Generator> generator, at::Tensor & out) {
+    return dipu::native::DIPUNativeFunctions::randperm_out(n, generator, out);
+}
+
+at::Tensor & wrapperOutRandpermOut(int64_t n, at::Tensor & out) {
+  return dipu::native::DIPUNativeFunctions::randperm_out(n, out);
+}
+
+at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
+  return dipu::native::DIPUNativeFunctions::random_(self, from, to, generator);
+}
+
+at::Tensor & wrapperToRandomInp(at::Tensor & self, int64_t to, c10::optional<at::Generator> generator) {
+  return dipu::native::DIPUNativeFunctions::random_(self, to, generator);
+}
+
+at::Tensor & wrapperRandomInp(at::Tensor & self, c10::optional<at::Generator> generator) {
+  return dipu::native::DIPUNativeFunctions::random_(self, generator);
 }
 
 }  // inner anonymous namespace
@@ -70,6 +92,11 @@ TORCH_LIBRARY_IMPL(aten, CUDA, m) {
     DIPU_LIBRARY_IMPL("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
     DIPU_LIBRARY_IMPL("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
     DIPU_LIBRARY_IMPL("conv2d", diopiConvolution2d, wrapperConvolution2d);
+    DIPU_LIBRARY_IMPL("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
+    DIPU_LIBRARY_IMPL("randperm.out", diopiRandperm, wrapperOutRandpermOut);
+    DIPU_LIBRARY_IMPL("random_.from", diopiRandomInp, wrapperFromRandomInp);
+    DIPU_LIBRARY_IMPL("random_.to", diopiRandomInp, wrapperToRandomInp);
+    DIPU_LIBRARY_IMPL("random_", diopiRandomInp, wrapperRandomInp);
 }
 
 }  // outer anonymous namespace
