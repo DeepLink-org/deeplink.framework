@@ -24,6 +24,9 @@ struct DIPUNativeFunctions {
         const c10::optional<at::Tensor> &save_mean,
         const c10::optional<at::Tensor> &save_invstd,
         bool train, double eps, ::std::array<bool, 3> output_mask);
+    static at::Tensor conv2d(
+        const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
+        at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups);
 };
 
 }  // namespace dipu::native

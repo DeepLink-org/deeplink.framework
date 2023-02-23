@@ -48,6 +48,10 @@ at::Tensor& wrapperReluInp(at::Tensor & self) {
         save_invstd, train, eps, output_mask);
 }
 
+at::Tensor wrapperConvolution2d(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
+  return dipu::native::DIPUNativeFunctions::conv2d(input, weight, bias, stride, padding, dilation, groups);
+}
+
 }  // inner anonymous namespace
 
 #define DIPU_LIBRARY_IMPL(opname, diopiFunc, wapperFunc) do {           \
@@ -65,6 +69,7 @@ TORCH_LIBRARY_IMPL(aten, CUDA, m) {
     DIPU_LIBRARY_IMPL("relu_", diopiReluInp, wrapperReluInp);
     DIPU_LIBRARY_IMPL("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
     DIPU_LIBRARY_IMPL("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
+    DIPU_LIBRARY_IMPL("conv2d", diopiConvolution2d, wrapperConvolution2d);
 }
 
 }  // outer anonymous namespace
