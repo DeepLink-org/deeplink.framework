@@ -6,7 +6,7 @@
 
 #include "DIPUStream.h"
 
-namespace torch_dipu {
+namespace dipu {
 
 class DIPUCachingAllocator : public c10::Allocator {
 public:
@@ -25,8 +25,8 @@ void setDebugEnv(char* flag);
 void memoryDebug(c10::DataPtr* data);
 void memoryDebug(const c10::DataPtr* data);
 void memoryDebug();
-void recordStream(const c10::DataPtr& ptr, torch_dipu::DIPUStream stream);
+void recordStream(const c10::DataPtr& ptr, dipu::DIPUStream stream);
 bool get_memory_strategy();
 void set_memory_strategy(bool ms);
 
-}  // namespace torch_dipu
+}  // namespace dipu

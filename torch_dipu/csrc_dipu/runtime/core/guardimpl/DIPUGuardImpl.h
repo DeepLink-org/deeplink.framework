@@ -8,20 +8,20 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 
-namespace torch_dipu {
+namespace dipu {
 
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
-  static constexpr at::DeviceType static_type = torch_dipu::DIPU_DEVICE_TYPE;
+  static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;
   DIPUGuardImpl() {}
   explicit DIPUGuardImpl(at::DeviceType t) {
-    AT_ASSERT(t == torch_dipu::DIPU_DEVICE_TYPE);
+    AT_ASSERT(t == dipu::DIPU_DEVICE_TYPE);
   }
   at::DeviceType type() const override {
-    return torch_dipu::DIPU_DEVICE_TYPE;
+    return dipu::DIPU_DEVICE_TYPE;
   }
 
   c10::Device exchangeDevice(c10::Device device) const override {
-    AT_ASSERT(device.type() == torch_dipu::DIPU_DEVICE_TYPE);
+    AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
     c10::Device old_device = this->getDevice();
     if (old_device.index() != device.index()) {
       setDevice(device);
@@ -30,12 +30,12 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::Device getDevice() const override {
-    return c10::Device(torch_dipu::DIPU_DEVICE_TYPE, devapis::current_device());
+    return c10::Device(dipu::DIPU_DEVICE_TYPE, devapis::current_device());
   }
 
   void setDevice(c10::Device device) const override {
     if  (devapis::current_device() < 0) return;
-    AT_ASSERT(device.type() == torch_dipu::DIPU_DEVICE_TYPE);
+    AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
     devapis::setDevice(device.index());
   }
 
@@ -112,4 +112,4 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 };
 
-}  // namespace torch_dipu
+}  // namespace dipu

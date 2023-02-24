@@ -4,7 +4,7 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 
-namespace torch_dipu {
+namespace dipu {
 
 // Total number of dipu in the system.
 static int64_t num_dipu;
@@ -64,8 +64,8 @@ at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
  * DIPUGeneratorImpl class implementation
  */
 DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
-  : c10::GeneratorImpl{at::Device(torch_dipu::DIPU_DEVICE_TYPE, device_index),
-      at::DispatchKeySet(torch_dipu::DIPU_DISPATCH_KEY)}, state_need_reset_(true) {}
+  : c10::GeneratorImpl{at::Device(dipu::DIPU_DEVICE_TYPE, device_index),
+      at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)}, state_need_reset_(true) {}
 
 /**
  * Sets the seed to be used by MTGP
@@ -100,7 +100,7 @@ uint64_t DIPUGeneratorImpl::seed() {
  * Used for type checking during run time.
  */
 at::DeviceType DIPUGeneratorImpl::device_type() {
-  return torch_dipu::DIPU_DEVICE_TYPE;
+  return dipu::DIPU_DEVICE_TYPE;
 }
 
 /**
@@ -199,4 +199,4 @@ uint64_t initial_seed(at::DeviceIndex idx) {
   return seed;
 }
 
-}  // namespace torch_dipu
+}  // namespace dipu

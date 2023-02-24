@@ -2,10 +2,12 @@
 #include <torch/csrc/autograd/utils/wrap_outputs.h>
 #include <torch/csrc/utils/pycfunction_helpers.h>
 #include <torch/csrc/Exceptions.h>
+#include <torch/csrc/utils/python_strings.h>
+#include <torch/csrc/utils/python_arg_parser.h>
 #include "exportapi.h"
 #include <csrc_dipu/common.h>
 
-namespace torch_dipu {
+namespace dipu {
 static at::Tensor dispatch_to(const at::Tensor & self, c10::Device device, bool non_blocking, bool copy, c10::optional<c10::MemoryFormat> optional_memory_format) {
   pybind11::gil_scoped_release no_gil;
   // NOTE: this is where we record aten::to in the graph during tracing. However, the behavior of aten::to
@@ -31,15 +33,10 @@ static at::Tensor dispatch_to(const at::Tensor & self, c10::Device device, c10::
   return self.to(device, dtype, non_blocking, copy, optional_memory_format);
 }
 
-static bool isDeviceTensor(const at::Tensor &tensor) {
-  return tensor.unsafeGetTensorImpl()->device_type() == torch_dipu::DIPU_DEVICE_TYPE;
-}
-
-
 static const char* _backend_to_string_dipu(const at::Backend& backend) {
   switch (backend) {
     case at::Backend::CPU: return "torch";
-    case torch_dipu::DIPU_Backend_TYPE: return "torch.dipu";
+    case dipu::DIPU_Backend_TYPE: return "torch.dipu";
     default: AT_ERROR("Unimplemented backend ", backend);
   }
 }
@@ -60,10 +57,10 @@ static PyObject* THPVariable_dipu(PyObject* self, PyObject* args, PyObject* kwar
   torch::ParsedArgs<4> parsed_args;
   auto r = parser.parse(args, kwargs, parsed_args);
   auto self_ = r.tensor(0);
-  auto local_device = r.isNone(1) ? c10::Device(torch_dipu::DIPU_DEVICE_TYPE) : r.device(1);
-  auto device = c10::Device(torch_dipu::DIPU_DEVICE_TYPE, local_device.index());
+  auto local_device = r.isNone(1) ? c10::Device(dipu::DIPU_DEVICE_TYPE) : r.device(1);
+  auto device = c10::Device(dipu::DIPU_DEVICE_TYPE, local_device.index());
   auto opt_memory_format = r.memoryformatOptional(3);
-  TORCH_CHECK((device.type() == torch_dipu::DIPU_DEVICE_TYPE), "Invalid device, must be npu device");
+  TORCH_CHECK((device.type() == dipu::DIPU_DEVICE_TYPE), "Invalid device, must be npu device");
   return THPVariable_Wrap(dispatch_to(self_, device, r.toBool(2), false, opt_memory_format));
   END_HANDLE_TH_ERRORS
 }
@@ -127,7 +124,7 @@ static PyObject* THPVariable_is_dipu(PyObject* self, PyObject* args, PyObject* k
   torch::ParsedArgs<1> parsed_args;
   auto r = parser.parse(args, kwargs, parsed_args);
   auto self_ = r.tensor(0);
-  return torch::autograd::utils::wrap(isDeviceTensor(self_));
+  return torch::autograd::utils::wrap(dipu::isDeviceTensor(self_));
   END_HANDLE_TH_ERRORS
 }
 
@@ -141,4 +138,4 @@ static PyMethodDef TorchTensorMethods[] = {
 DIPU_API PyMethodDef* exportTensorFunctions() {
   return TorchTensorMethods;
 }
-} // end ns torch_dipu
+} // end ns dipu

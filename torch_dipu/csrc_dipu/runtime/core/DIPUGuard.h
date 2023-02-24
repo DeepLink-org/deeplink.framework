@@ -7,7 +7,7 @@
 #include "./guardimpl/DIPUGuardImpl.h"
 
 
-namespace torch_dipu {
+namespace dipu {
 
 // This code is kind of boilerplatey.  See Note [Whither the DeviceGuard
 // boilerplate]
@@ -68,7 +68,7 @@ public:
 
 private:
   /// The guard for the current device.
-  c10::impl::InlineDeviceGuard<torch_dipu::DIPUGuardImpl> guard_;
+  c10::impl::InlineDeviceGuard<dipu::DIPUGuardImpl> guard_;
 };
 
 /// A variant of OptionalDeviceGuard that is specialized for DIPU.  See
@@ -135,7 +135,7 @@ struct OptionalDIPUGuard {
   }
 
 private:
-  c10::impl::InlineOptionalDeviceGuard<torch_dipu::DIPUGuardImpl> guard_;
+  c10::impl::InlineOptionalDeviceGuard<dipu::DIPUGuardImpl> guard_;
 };
 
 /// A variant of StreamGuard that is specialized for DIPU.  See DIPUGuard
@@ -198,7 +198,7 @@ struct DIPUStreamGuard {
   }
 
 private:
-  c10::impl::InlineStreamGuard<torch_dipu::DIPUGuardImpl> guard_;
+  c10::impl::InlineStreamGuard<dipu::DIPUGuardImpl> guard_;
 };
 
 /// A variant of OptionalStreamGuard that is specialized for DIPU.  See DIPUGuard
@@ -267,7 +267,7 @@ struct OptionalDIPUStreamGuard {
   }
 
 private:
-  c10::impl::InlineOptionalStreamGuard<torch_dipu::DIPUGuardImpl> guard_;
+  c10::impl::InlineOptionalStreamGuard<dipu::DIPUGuardImpl> guard_;
 };
 
-} // namespace torch_dipu
+} // namespace dipu

@@ -7,7 +7,7 @@
 #include <csrc_dipu/common.h>
 
 // camb5.8.2
-namespace torch_dipu
+namespace dipu
 {
 const auto vendor_type = devapis::VendorDeviceType::MLU;
 namespace devapis {
@@ -56,7 +56,7 @@ void checkLastError() {
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLCNRT(::cnrtGetDeviceCount(reinterpret_cast<unsigned int *>(num)))
+  DIPU_CALLCNRT(::cnrtGetDeviceCount(reinterpret_cast<unsigned int *>(&num)))
   return num;
 }
 
@@ -260,4 +260,4 @@ void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst, cons
 }
 
 } // end namespace devapis
-} // end namespace torch_dipu
+} // end namespace dipu

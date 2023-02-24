@@ -7,12 +7,12 @@
 #include <utility>
 
 
-namespace torch_dipu {
+namespace dipu {
 /*
 * DIPUEvents are movable not copyable wrappers around DIPU's events.
 * DIPUEvents are constructed lazily when first recorded.
 */
-class DIPUEvent {
+class DIPU_API DIPUEvent {
 public:
   // Constructors
   // Default value for `flags` is specified below
@@ -47,7 +47,7 @@ public:
 
   c10::optional<at::Device> device() const {
     if (is_created_) {
-      return at::Device(torch_dipu::DIPU_DEVICE_TYPE, device_index_);
+      return at::Device(dipu::DIPU_DEVICE_TYPE, device_index_);
     } else {
       return {};
     }

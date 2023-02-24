@@ -7,7 +7,7 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
-namespace torch_dipu {
+namespace dipu {
 
 static std::mutex dipu_mutex;
 
@@ -18,7 +18,7 @@ static void DIPUDeleter(void* ptr) {
   }
 }
 
-class DIPUAllocator: public c10::Allocator {
+class DIPU_API DIPUAllocator: public c10::Allocator {
 public:
   c10::DataPtr allocate(size_t size) const {
     auto idx = devapis::current_device();
@@ -32,7 +32,7 @@ protected:
     std::lock_guard<std::mutex> lock(dipu_mutex);
     void* data = nullptr;
     devapis::mallocDevice(&data, nbytes);
-    return {data, data, &DIPUDeleter, c10::Device(torch_dipu::DIPU_DEVICE_TYPE, device_index)};
+    return {data, data, &DIPUDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
   }
 };
 

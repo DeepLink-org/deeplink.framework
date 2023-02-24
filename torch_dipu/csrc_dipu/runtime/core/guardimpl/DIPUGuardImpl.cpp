@@ -1,6 +1,6 @@
 #include "DIPUGuardImpl.h"
 
-namespace torch_dipu {
+namespace dipu {
 
 constexpr at::DeviceType DIPUGuardImpl::static_type;
 

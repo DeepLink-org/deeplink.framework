@@ -3,7 +3,7 @@
 #include <ATen/Dispatch.h>
 #include <ATen/Tensor.h>
 
-namespace torch_dipu {
+namespace dipu {
 namespace native {
   at::Tensor empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
@@ -17,4 +17,4 @@ namespace native {
   
 
 } //end ns native
-} //end ns torch_dipu
+} //end ns dipu

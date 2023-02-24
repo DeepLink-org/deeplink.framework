@@ -12,7 +12,7 @@
 #include "DIPUGuard.h"
 #include "DIPUStream.h"
 
-namespace torch_dipu {
+namespace dipu {
 namespace {
 
 struct DIPUStreamInternal {
@@ -208,7 +208,7 @@ static DIPUStream StreamInternal2Stream(const DIPUStreamInternal* ptr) {
       DIPUStream::UNCHECKED,
       c10::Stream(
           c10::Stream::UNSAFE,
-          c10::Device(torch_dipu::DIPU_DEVICE_TYPE, ptr->device_index),
+          c10::Device(dipu::DIPU_DEVICE_TYPE, ptr->device_index),
           StreamInternal2StreamId(ptr)));
 }
 } // namespace
@@ -267,4 +267,4 @@ std::ostream& operator<<(std::ostream& os, const DIPUStream& stream) {
   return os << stream.unwrap();
 }
 
-} // namespace torch_dipu
+} // namespace dipu

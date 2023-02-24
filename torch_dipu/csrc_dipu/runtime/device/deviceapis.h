@@ -7,7 +7,7 @@
 #include <csrc_dipu/runtime/vendor/vendorapi.h>
 
 
-namespace torch_dipu {
+namespace dipu {
 
 namespace devapis {
 
@@ -15,93 +15,93 @@ using deviceId_t = c10::DeviceIndex;
 
 // need cache.
 // need to discuss, some device has hidden use, others may has more than one handler type.
-deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index);
+DIPU_API deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index);
 
-deviceId_t current_device();
+DIPU_API deviceId_t current_device();
 
 // set current device given device according to id
-void setDevice(deviceId_t devId);
+DIPU_API void setDevice(deviceId_t devId);
 
-void resetDevice(deviceId_t devId = 0);
+DIPU_API void resetDevice(deviceId_t devId = 0);
 
-void syncDevice();
+DIPU_API void syncDevice();
 
 // check last launch succ or not, throw if fail
-void checkLastError();
+DIPU_API void checkLastError();
 
-int getDeviceCount();
+DIPU_API int getDeviceCount();
 
-void getDriverVersion(int* version);
+DIPU_API void getDriverVersion(int* version);
 
-void getRuntimeVersion(int* version);
+DIPU_API void getRuntimeVersion(int* version);
 
-void createStream(deviceStream_t* stream, bool prior=false);
+DIPU_API void createStream(deviceStream_t* stream, bool prior=false);
 
-void destroyStream(deviceStream_t stream);
-void destroyStream(deviceStream_t stream, deviceId_t devId);
+DIPU_API void destroyStream(deviceStream_t stream);
+DIPU_API void destroyStream(deviceStream_t stream, deviceId_t devId);
 
-void releaseStream();
+DIPU_API void releaseStream();
 
-void syncStream(deviceStream_t stream);
+DIPU_API void syncStream(deviceStream_t stream);
 
-bool streamNotNull(deviceStream_t stream);
+DIPU_API bool streamNotNull(deviceStream_t stream);
 
-void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
+DIPU_API void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
 
-void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
+DIPU_API void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
 
 // same as query last event status in stream.(every op has a event)
-bool isStreamEmpty(deviceStream_t stream);
+DIPU_API bool isStreamEmpty(deviceStream_t stream);
 
 // =====================
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event);
+DIPU_API void createEvent(deviceEvent_t* event);
 
-void destroyEvent(deviceEvent_t event);
+DIPU_API void destroyEvent(deviceEvent_t event);
 
-void waitEvent(deviceEvent_t event);
+DIPU_API void waitEvent(deviceEvent_t event);
 
-void recordEvent(deviceEvent_t event, deviceStream_t stream);
+DIPU_API void recordEvent(deviceEvent_t event, deviceStream_t stream);
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end);
+DIPU_API void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end);
 
-EventStatus getEventStatus(deviceEvent_t event);
+DIPU_API EventStatus getEventStatus(deviceEvent_t event);
 
 // =====================
 //  mem related
 // =====================
-void mallocHost(void** p, size_t nbytes);
+DIPU_API void mallocHost(void** p, size_t nbytes);
 
-void freeHost(void* p);
+DIPU_API void freeHost(void* p);
 
-OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion= true);
+DIPU_API OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion= true);
 
-void freeDevice(void* p);
+DIPU_API void freeDevice(void* p);
 
 // (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size);
+DIPU_API void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size);
 
 // (synchronous) copy from device to a device
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst, deviceId_t srcDevId, const void* src);
+DIPU_API void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst, deviceId_t srcDevId, const void* src);
 
 // (synchronous) copy from host to a device
-void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst, /*Host srcDev,*/ const void* src);
+DIPU_API void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst, /*Host srcDev,*/ const void* src);
 
 // (synchronous) copy from a device to host
-void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst, /*deviceId_t srcDevId,*/ const void* src);
+DIPU_API void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst, /*deviceId_t srcDevId,*/ const void* src);
 
 // (asynchronous) copy from device to a device
-void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
         deviceId_t dstDevId, void* dst, deviceId_t srcDevId, const void* src);
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
         /*deviceId_t dstDevId,*/ void* dst, /*Host srcDev,*/ const void* src);
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
         /*Host dstDev,*/ void* dst, /*deviceId_t srcDevId,*/ const void* src);
 }  // end namespace devapis
-}  // end namespace torch_dipu
+}  // end namespace dipu

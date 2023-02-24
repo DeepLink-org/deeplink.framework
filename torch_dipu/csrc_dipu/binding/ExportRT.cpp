@@ -3,14 +3,16 @@
 #include "exportapi.h"
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
-using torch_dipu::getDIPUStreamFromPool;
+using dipu::getDIPUStreamFromPool;
 
-namespace torch_dipu {
+namespace py = pybind11;
+
+namespace dipu {
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
 
   // Stream Management.
-  pybind11::class_<torch_dipu::DIPUStream>(m, "_DIPUStreamBase")
+  pybind11::class_<dipu::DIPUStream>(m, "_DIPUStreamBase")
     .def(py::init([]() {
           auto device_idx = devapis::current_device();
           return getDIPUStreamFromPool(device_idx);
@@ -18,37 +20,37 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
     .def(py::init([](c10::DeviceIndex device_idx) {
           return getDIPUStreamFromPool(device_idx);
     }))
-    .def("query", &torch_dipu::DIPUStream::isStreamEmpty)
+    .def("query", &dipu::DIPUStream::isStreamEmpty)
     .def("synchronize",
-        [](torch_dipu::DIPUStream& stream) {
+        [](dipu::DIPUStream& stream) {
           pybind11::gil_scoped_release no_gil;
           stream.synchronize();
         })
-    .def("__eq__", &torch_dipu::DIPUStream::operator==);
-    // .def_readwrite("device_index", &torch_dipu::DIPUStream::device_index);
+    .def("__eq__", &dipu::DIPUStream::operator==);
+    // .def_readwrite("device_index", &dipu::DIPUStream::device_index);
 
   // Event
-  pybind11::class_<torch_dipu::DIPUEvent>(m, "_DIPUEventBase")
+  pybind11::class_<dipu::DIPUEvent>(m, "_DIPUEventBase")
     .def(pybind11::init<>())
-    .def("dipu_event", [](torch_dipu::DIPUEvent& event) {
+    .def("dipu_event", [](dipu::DIPUEvent& event) {
           pybind11::gil_scoped_release no_gil;
           return event.isCreated();
     })
-    // .def("record", pybind11::overload_cast<const torch_dipu::DIPUEvent&>
-    //                   (&torch_dipu::DIPUEvent::record), "record event on stream")
-    .def("elapsed_time", &torch_dipu::DIPUEvent::elapsed_time)
+    // .def("record", pybind11::overload_cast<const dipu::DIPUEvent&>
+    //                   (&dipu::DIPUEvent::record), "record event on stream")
+    .def("elapsed_time", &dipu::DIPUEvent::elapsed_time)
     .def("synchronize",
-        [](torch_dipu::DIPUEvent& event) {
+        [](dipu::DIPUEvent& event) {
           pybind11::gil_scoped_release no_gil;
           event.synchronize();
         })
-    .def("query", &torch_dipu::DIPUEvent::query)
+    .def("query", &dipu::DIPUEvent::query)
     .def("wait",
-        [](torch_dipu::DIPUEvent& event, torch_dipu::DIPUStream& stream) {
+        [](dipu::DIPUEvent& event, dipu::DIPUStream& stream) {
           pybind11::gil_scoped_release no_gil;
           event.wait(stream);
         })
-    .def_property("device", [](torch_dipu::DIPUEvent& event) {
+    .def_property("device", [](dipu::DIPUEvent& event) {
         auto device = event.device_index();
         if (device == -1) {
           return std::string("");
@@ -57,4 +59,4 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
         return devicestr;
         }, nullptr);
 }
-}  // end ns torch_dipu
+}  // end ns dipu

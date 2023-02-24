@@ -7,15 +7,15 @@
 
 #include <cnnl.h>
 
-namespace torch_dipu {
+namespace dipu {
 // Discriminate floating device type.
 static bool is_floating_device = true;
 
-class MLUGeneratorImpl : public torch_dipu::DIPUGeneratorImpl {
+class MLUGeneratorImpl : public dipu::DIPUGeneratorImpl {
 protected:
   mutable std::once_flag init_state_flag;
 public:
-  MLUGeneratorImpl(at::DeviceIndex device_index): torch_dipu::DIPUGeneratorImpl(device_index) {
+  MLUGeneratorImpl(at::DeviceIndex device_index): dipu::DIPUGeneratorImpl(device_index) {
   }
   /**
    * get_init_state_flag
@@ -71,7 +71,7 @@ public:
       auto state_ptr = state_.tensor_data().data_ptr();
       TORCH_CHECK(state_ptr, "the state point is nullptr, "
                             "please init state before calling its point");
-      torch_dipu::DIPUGuard guard(state_.device());
+      dipu::DIPUGuard guard(state_.device());
       auto handle = devapis::getDeviceHandler(state_.device().index());
       DIPU_CALLCNNL(cnnlRandMakeMTGP32KernelState(handle, state_ptr, nullptr, nullptr, seed_));
       state_need_reset_ = false;

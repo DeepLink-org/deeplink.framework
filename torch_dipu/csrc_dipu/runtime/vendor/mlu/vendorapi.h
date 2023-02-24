@@ -6,7 +6,7 @@
 
 #include <csrc_dipu/common.h>
 
-namespace torch_dipu {
+namespace dipu {
 
 #define DIPU_CALLCNRT(Expr)                                                 \
     {                                                                          \

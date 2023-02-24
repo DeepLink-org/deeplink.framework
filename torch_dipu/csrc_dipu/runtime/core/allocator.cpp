@@ -1,7 +1,7 @@
 #include "allocator.h"
 #include "DIPUCachingAllocator.h"
 
-namespace torch_dipu {
+namespace dipu {
 
 static DIPUAllocator allocator;
 
@@ -16,6 +16,6 @@ c10::Allocator* getDIPUCachingAllocator(void) {
   return &cache_allocator;
 }
 
-REGISTER_ALLOCATOR(torch_dipu::DIPU_DEVICE_TYPE, &allocator);
+REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, &allocator);
 
-}  // namespace torch_dipu
+}  // namespace dipu

@@ -1,16 +1,9 @@
 #pragma once
 
-#include <torch/csrc/jit/python/pybind.h>
+#include <pybind11/pybind11.h>
+#include <csrc_dipu/common.h>
 
-
-#define DIPU_API __attribute__ ((visibility ("default")))
-
-#define DIPU_WEAK  __attribute__((weak))
-
-// "default", "hidden", "protected" or "internal
-#define DIPU_HIDDEN __attribute__ ((visibility ("hidden")))
-
-namespace torch_dipu {
+namespace dipu {
 DIPU_API PyMethodDef* exportTensorFunctions();
 DIPU_API void exportDIPURuntime(PyObject* module);
 }

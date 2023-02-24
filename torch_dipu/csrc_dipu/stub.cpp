@@ -30,7 +30,7 @@ static void AddPyMethodDefs(std::vector<PyMethodDef>& vector, PyMethodDef* metho
 
 extern "C" PyObject* initModule() {
 
-  AddPyMethodDefs(methods, torch_dipu::exportTensorFunctions());
+  AddPyMethodDefs(methods, dipu::exportTensorFunctions());
   static struct PyModuleDef torchnpu_module = {
      PyModuleDef_HEAD_INIT,
      "torch_dipu._C",
@@ -40,7 +40,7 @@ extern "C" PyObject* initModule() {
   };
   PyObject* module = PyModule_Create(&torchnpu_module);
 
-  torch_dipu::exportDIPURuntime(module);
+  dipu::exportDIPURuntime(module);
   return module;
 }
 

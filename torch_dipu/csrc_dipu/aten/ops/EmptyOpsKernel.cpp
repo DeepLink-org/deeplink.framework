@@ -3,7 +3,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
 
-#include "DIPUNativeFunctions.h"
+#include <csrc_dipu/aten/DIPUNativeFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 using c10::device_or_default;
@@ -12,17 +12,16 @@ using c10::StorageImpl;
 using c10::TensorImpl;
 using at::Layout;
 
-namespace torch_dipu {
-namespace native {
-  // use raw, test
+namespace dipu::native {
+  // use old logic, test
   at::Tensor empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
         c10::optional<bool> pin_memory_opt, c10::optional<at::MemoryFormat> memory_format_opt) {
 
-    AT_ASSERT(c10::device_or_default(device_opt).type() == torch_dipu::DIPU_DEVICE_TYPE);
+    AT_ASSERT(c10::device_or_default(device_opt).type() == dipu::DIPU_DEVICE_TYPE);
     TORCH_CHECK(!pinned_memory_or_default(pin_memory_opt), "Only dense tensors can be pinned");
 
-    c10::Allocator *allocator = torch_dipu::getDIPUAllocator();
+    c10::Allocator *allocator = dipu::getDIPUAllocator();
     // ?? do gurad in allocator or wrapper?
     const int64_t nelements = c10::multiply_integers(size);
 
@@ -36,7 +35,7 @@ namespace native {
         true);
 
     auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl),
-      torch_dipu::DIPU_DISPATCH_KEY, dtype);
+      dipu::DIPU_DISPATCH_KEY, dtype);
 
     // Default at::TensorImpl has size [0]
     if (size.size() != 1 || size[0] != 0) {
@@ -57,14 +56,13 @@ namespace native {
       c10::optional<bool> pin_memory_opt) {
 
     auto device = c10::device_or_default(device_opt);
-    AT_ASSERT(device.type() == torch_dipu::DIPU_DEVICE_TYPE);
+    AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
     AT_ASSERT(layout_or_default(layout_opt) == Layout::Strided);
     auto dtype = dtype_or_default(dtype_opt);
 
-    c10::Allocator *allocator = torch_dipu::getDIPUAllocator();
-    constexpr c10::DispatchKeySet dipu_ks(torch_dipu::DIPU_DISPATCH_KEY);
+    c10::Allocator *allocator = dipu::getDIPUAllocator();
+    constexpr c10::DispatchKeySet dipu_ks(dipu::DIPU_DISPATCH_KEY);
     return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks, dtype);
   }
 
-} //end ns native
-} //end ns torch_dipu
+} //end ns dipu::native

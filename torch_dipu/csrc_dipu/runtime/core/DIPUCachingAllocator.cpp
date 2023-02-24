@@ -17,7 +17,7 @@
 #include "DIPUGuard.h"
 #include "DIPUEvent.h"
 
-using torch_dipu::DIPUEvent;
+using dipu::DIPUEvent;
 
 #if USE_PROFILE
 #include <c10/util/ThreadLocalDebugInfo.h>
@@ -27,7 +27,7 @@ using torch_dipu::DIPUEvent;
 
 static bool native_memory_strategy = false;
 
-namespace torch_dipu {
+namespace dipu {
 
 class BoundException : public std::exception {
   const char * what() const throw() {
@@ -109,7 +109,7 @@ public:
 struct Chunk;
 typedef bool (*Comparison)(const Chunk*, const Chunk*);
 typedef std::set<Chunk*, Comparison> ChunkPool;
-using stream_set = std::unordered_set<torch_dipu::DIPUStream>;
+using stream_set = std::unordered_set<dipu::DIPUStream>;
 
 struct Chunk {
   int device_id;      // dipu device id
@@ -281,7 +281,7 @@ public:
     bool profile_memory = c10::memoryProfilingEnabled();
     if (profile_memory) {
       c10::reportMemoryUsageToProfiler(
-      chunk, chunk->size, c10::Device(torch_dipu::DIPU_DEVICE_TYPE, device_id));
+      chunk, chunk->size, c10::Device(dipu::DIPU_DEVICE_TYPE, device_id));
     }
     #endif
   }
@@ -319,7 +319,7 @@ public:
     }
   }
 
-  void recordStream(const c10::DataPtr& data_ptr, torch_dipu::DIPUStream stream) {
+  void recordStream(const c10::DataPtr& data_ptr, dipu::DIPUStream stream) {
     auto ptr = data_ptr.get();
     if (!ptr) {
       return;
@@ -370,7 +370,7 @@ protected:
       auto& n = events_.front();
       auto event_ptr = n.first;
       Chunk* chunk = n.second;
-      torch_dipu::DIPUGuard guard(event_ptr->device_index());
+      dipu::DIPUGuard guard(event_ptr->device_index());
       const bool ret = event_ptr->query();
       if (ret == false) {
         break;
@@ -553,7 +553,7 @@ auto realAllocator = std::make_unique<SimpleCachingAllocImpl>();
 // synchronization when allocations are used on multiple streams. This will
 // ensure that the chunk is not reused before each recorded stream completes
 // work.
-void recordStream(const c10::DataPtr& data_ptr, torch_dipu::DIPUStream stream) {
+void recordStream(const c10::DataPtr& data_ptr, dipu::DIPUStream stream) {
   realAllocator->recordStream(data_ptr, stream);
 }
 
@@ -583,17 +583,17 @@ c10::DataPtr DIPUCachingAllocator::allocate(size_t size,
   void* data = nullptr;
   if (size <= 0) {
     return {data, data, &DIPUCachingDeleter,
-      c10::Device(torch_dipu::DIPU_DEVICE_TYPE, device_id)};
+      c10::Device(dipu::DIPU_DEVICE_TYPE, device_id)};
   }
   // if (debug_mode) {
-  //   debugging_allocator.malloc(&data, size, torch_dipu::getCurrentDIPUStream(device_id).rawstream(),
+  //   debugging_allocator.malloc(&data, size, dipu::getCurrentDIPUStream(device_id).rawstream(),
   //       static_cast<int>(device_id));
   //   data = static_cast<char*>(data) + mask_bytes;
 
-  realAllocator->malloc(&data, size, torch_dipu::getCurrentDIPUStream(device_id).rawstream(),
+  realAllocator->malloc(&data, size, dipu::getCurrentDIPUStream(device_id).rawstream(),
       static_cast<int>(device_id));
   return {data, data, &DIPUCachingDeleter,
-          c10::Device(torch_dipu::DIPU_DEVICE_TYPE, device_id)};
+          c10::Device(dipu::DIPU_DEVICE_TYPE, device_id)};
 }
 
 c10::DeleterFnPtr DIPUCachingAllocator::raw_deleter() const {
@@ -634,4 +634,4 @@ void emptyCachedMem() {
 }
 
 
-}  // namespace torch_dipu
+}  // namespace dipu

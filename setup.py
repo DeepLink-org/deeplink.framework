@@ -130,10 +130,10 @@ class CppExtensionBuilder:
     def genDIPUExt():
         return CppExtensionBuilder.extcamb('torch_dipu._C',  
             sources=["torch_dipu/csrc_dipu/stub.cpp"],
-            libraries=["torch_dipu"],
+            libraries=["torch_dipu_python", "torch_dipu"],
             include_dirs= CppExtensionBuilder.include_directories,
             extra_compile_args= CppExtensionBuilder.extra_compile_args + ['-fstack-protector-all'],
-            library_dirs=["./build"],
+            library_dirs=["./build/torch_dipu/csrc_dipu"],
             extra_link_args= CppExtensionBuilder.extra_link_args + ['-Wl,-rpath,$ORIGIN/lib'],
         )
     

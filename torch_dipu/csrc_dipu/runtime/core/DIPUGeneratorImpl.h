@@ -5,7 +5,7 @@
 #include <ATen/core/Generator.h>
 #include <ATen/TensorUtils.h>
 
-namespace torch_dipu {
+namespace dipu {
 class DIPUGeneratorImpl : public c10::GeneratorImpl {
 public:
   // Constructors
@@ -44,4 +44,4 @@ void set_rng_state(at::DeviceIndex idx, at::Tensor state);
 void initDIPUGenerator();
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index = -1);
 
-}  // namespace torch_dipu
+}  // namespace dipu

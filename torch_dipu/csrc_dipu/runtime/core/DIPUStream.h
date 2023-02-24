@@ -12,13 +12,13 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
-namespace torch_dipu {
+namespace dipu {
 
-class DIPUStream {
+class DIPU_API DIPUStream {
 public:
   enum Unchecked { UNCHECKED };
   explicit DIPUStream(c10::Stream stream) : stream_(stream) {
-    TORCH_CHECK(stream_.device_type() == torch_dipu::DIPU_DEVICE_TYPE);
+    TORCH_CHECK(stream_.device_type() == dipu::DIPU_DEVICE_TYPE);
   }
 
   explicit DIPUStream(Unchecked, c10::Stream stream) : stream_(stream) {}
@@ -50,7 +50,7 @@ public:
   /// Get the full Device that this stream is associated with.  The Device
   /// is guaranteed to be a device.
   c10::Device device() const {
-    return c10::Device(torch_dipu::DIPU_DEVICE_TYPE, device_index());
+    return c10::Device(dipu::DIPU_DEVICE_TYPE, device_index());
   }
 
   c10::StreamId id() const {
@@ -87,23 +87,23 @@ private:
   c10::Stream stream_;
 };
 
-DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device = -1);
+DIPU_API DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device = -1);
 
-DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index = -1);
+DIPU_API DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index = -1);
 
-DIPUStream getCurrentDIPUStream(c10::DeviceIndex device_index = -1);
+DIPU_API DIPUStream getCurrentDIPUStream(c10::DeviceIndex device_index = -1);
 
-void dipuSynchronizeDevice();
+DIPU_API void dipuSynchronizeDevice();
 
-void setCurrentDIPUStream(DIPUStream stream);
+DIPU_API void setCurrentDIPUStream(DIPUStream stream);
 
 std::ostream& operator<<(std::ostream& stream, const DIPUStream& s);
-} // namespace torch_dipu
+} // namespace dipu
 
 namespace std {
 template <>
-struct hash<torch_dipu::DIPUStream> {
-  size_t operator()(torch_dipu::DIPUStream s) const noexcept {
+struct hash<dipu::DIPUStream> {
+  size_t operator()(dipu::DIPUStream s) const noexcept {
     return std::hash<c10::Stream>{}(s.unwrap());
   }
 };
