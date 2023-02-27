@@ -3,7 +3,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
 
-#include <csrc_dipu/aten/DIPUNativeFunctions.h>
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 using c10::device_or_default;
@@ -14,7 +14,7 @@ using at::Layout;
 
 namespace dipu::native {
   // use old logic, test
-  at::Tensor empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
+  at::Tensor DIPUATenFunctions::empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
         c10::optional<bool> pin_memory_opt, c10::optional<at::MemoryFormat> memory_format_opt) {
 
@@ -51,7 +51,7 @@ namespace dipu::native {
   }
 
   // use empty_generic, test
-  at::Tensor empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
+  at::Tensor DIPUATenFunctions::empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
       c10::optional<bool> pin_memory_opt) {
 

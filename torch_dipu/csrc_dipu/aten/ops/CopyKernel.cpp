@@ -3,7 +3,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
 
-#include <csrc_dipu/aten/DIPUNativeFunctions.h>
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 
@@ -21,7 +21,7 @@ namespace dipu::native {
     return hostTensor;
   }
 
-  void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+  static void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = dst.numel() * dst.element_size();
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
@@ -38,7 +38,7 @@ namespace dipu::native {
     }
   }
 
-  void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+  static void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = dst.numel() * dst.element_size();
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
@@ -56,7 +56,7 @@ namespace dipu::native {
   }
 
   // self is dest
-  at::Tensor& copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+  at::Tensor& DIPUATenFunctions::copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     if (self.numel() == 0) {
       return self;
     }

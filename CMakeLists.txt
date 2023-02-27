@@ -1,44 +1,60 @@
+
 cmake_minimum_required(VERSION 3.10)
-project(torch_dipu)
-set(DIPU_LIB torch_dipu)
-set(DIPU_PYTHON_LIB torch_dipu_python)
+project(TorchDIPU)
 
-set(VendorMLU mlu)
-set(VendorAscend ascend)
-set(UsedVendor ${VendorMLU})
+option(TESTS "Whether to build unit tests" OFF)
+# device related
+option(CAMB "Whether to use CambriconNeuware when available" ON)
+option(CUDA "Whether to use CUDA when available" OFF)
+option(ASCEND "Whether to use ASCEND when available" OFF)
 
-# config
+
+  # config
 set(CMAKE_BUILD_TYPE Debug)
-# SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -fPIC")
-# SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS}  -g -O0 -fPIC")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wreturn-type -Wno-error=deprecated-declarations ")
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 14)
-# symbol hidden
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+include(cmake/BaseFuncions.cmake)
+_set_cpp_flags()
 
-set(GLIBCXX_USE_CXX11_ABI 1)
-set(CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
-
-if(NOT DEFINED PYTORCH_SOURCE_PATH)
-    message(FATAL_ERROR, "Cannot find installed PyTorch directory")
+set(UsedVendor "")
+if (CAMB)
+  set(USE_CAMB ON)
+  set(UsedVendor camb)
 endif()
 
-# should use findTorch
-set(TORCH_LIBRARY_DIR "${PYTORCH_SOURCE_PATH}/torch/lib")
-set(TORCH_LIBRARY_DIR  ${PYTORCH_SOURCE_PATH}/torch/lib)
-link_directories(${TORCH_LIBRARY_DIR})
+if (CUDA)
+  set(USE_CUDA ON)
+  set(UsedVendor CUDA)
+endif()
 
-list(APPEND TORCH_INCLUDE_DIRS ${PYTORCH_SOURCE_PATH}/torch/include/
-    ${PYTORCH_SOURCE_PATH}/torch/include/torch/csrc/api/include/
-    )
-include_directories(${TORCH_INCLUDE_DIRS})
+if (ASCEND)
+  set(USE_ASCEND ON)
+  set(UsedVendor ascend)
+endif()
+
+set(Torch_DIR ${PYTORCH_DIR}/torch/share/cmake/Torch)
+link_directories(${PYTORCH_DIR}/torch/lib)
+find_package(Torch REQUIRED)
+
+if (NOT Torch_FOUND)
+    message(FATAL_ERROR "libtorch is required but not found")
+else()    
+    include_directories(${TORCH_INCLUDE_DIRS})
+    message(STATUS "Found Torch Version: ${Torch_VERSION}")
+    message(STATUS "Torch TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+endif()
+
+
+# diopi
+set(DIOPI_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
+include_directories(${DIOPI_PATH}/include)
+add_definitions(-DDIOPI_ATTR_WEAK)
 
 add_subdirectory(torch_dipu/csrc_dipu)
 
-add_subdirectory(tests/cpp)
+if (TESTS)
+  add_subdirectory(tests/cpp)
+endif()
+
 
 
 

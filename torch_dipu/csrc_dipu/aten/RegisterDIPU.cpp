@@ -2,13 +2,17 @@
 #include <ATen/core/dispatch/Dispatcher.h>
 #include <ATen/ops/_reshape_alias_native.h>
 #include <ATen/native/CPUFallback.h>
-#include "DIPUNativeFunctions.h"
-#include <csrc_dipu/runtime/rthelper.h>
+#include "DIPUATenFunctions.h"
 
-namespace dnative = dipu::native;
+#include <diopi/functions.h>
+
+#include <csrc_dipu/runtime/rthelper.h>
+#include "util/Log.h"
+
+using dnative = dipu::native::DIPUATenFunctions;
 namespace at { 
 namespace {
-
+  // dipu native ops
   at::Tensor wrapper_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt,
         c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt,
@@ -35,16 +39,80 @@ namespace {
     return ret;
   }
 
-}  // anonymous ns
+  // diopi ops
+  at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
+      return dnative::add_out(self, other, alpha, out);
+  }
+
+  at::Tensor wrapperRelu(const at::Tensor & self) {
+      return dnative::relu(self);
+  }
+
+  at::Tensor& wrapperReluInp(at::Tensor & self) {
+      return dnative::relu_(self);
+  }
+
+  ::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNorm(
+      const at::Tensor & input, const c10::optional<at::Tensor> & weight,
+      const c10::optional<at::Tensor> & bias,
+      const c10::optional<at::Tensor> & running_mean,
+      const c10::optional<at::Tensor> & running_var,
+      bool training, double momentum, double eps) {
+    return dnative::native_batch_norm(input, weight,
+          bias, running_mean, running_var, training, momentum, eps);
+  }
+
+  ::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNormBackward(
+      const at::Tensor & grad_out, const at::Tensor & input,
+      const c10::optional<at::Tensor> & weight,
+      const c10::optional<at::Tensor> & running_mean,
+      const c10::optional<at::Tensor> & running_var,
+      const c10::optional<at::Tensor> & save_mean,
+      const c10::optional<at::Tensor> & save_invstd,
+      bool train, double eps, ::std::array<bool,3> output_mask) {
+    return dnative::native_batch_norm_backward(
+          grad_out, input, weight, running_mean, running_var, save_mean,
+          save_invstd, train, eps, output_mask);
+  }
+
+  at::Tensor wrapperConvolution2d(
+      const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
+      at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
+    return dnative::conv2d(input, weight, bias, stride, padding, dilation, groups);
+  }
+
+  at::Tensor & wrapperGeneratorOutRandpermOut(int64_t n, c10::optional<at::Generator> generator, at::Tensor & out) {
+    return dnative::randperm_out(n, generator, out);
+  }
+
+  at::Tensor & wrapperOutRandpermOut(int64_t n, at::Tensor & out) {
+    return dnative::randperm_out(n, out);
+  }
+
+  at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
+    return dnative::random_(self, from, to, generator);
+  }
+
+  at::Tensor & wrapperToRandomInp(at::Tensor & self, int64_t to, c10::optional<at::Generator> generator) {
+    return dnative::random_(self, to, generator);
+  }
+
+  at::Tensor & wrapperRandomInp(at::Tensor & self, c10::optional<at::Generator> generator) {
+    return dnative::random_(self, generator);
+  }
+
+  at::Tensor& wrapperfillScalar_(at::Tensor& self, const at::Scalar& value) {
+    // No device check
+    // DeviceGuard omitted
+    return dnative::fillScalar_(self, value);
+  }
+}
 
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
-  DIPU_LOGE("fallback %s \n", name);
+  DIPU_LOGE("fallback %s ", name.c_str());
   at::native::cpu_fallback(op, stack);
-}
-
-void dummyEmptyfunc(){
 }
 
 // Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
@@ -52,25 +120,41 @@ void dummyEmptyfunc(){
 // because: 1. it need many add type trait code. 2. pytorch seems are sorting out infer and other pre/post code.
 // so we shouldn't created a new preprocess logic?
 //so just do a simple runtime cpu fallback to support diopi func loss
-#define ADD_DIPU_ATEN_FUNC(ATEN_NAME, FUNC_NAME) \
-{ \
-  bool isdiopiOp = false; \
-  if (isdiopiOp) {   \
-    m.impl(ATEN_NAME, TORCH_FN(FUNC_NAME)); \
-  }  \
-  else {  \
-    m.impl(ATEN_NAME, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());  \
-  } \
-} \
+#define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc) do {           \
+    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                \
+        m.impl(opname, TORCH_FN(wapperFunc));                           \
+    }  else {                                                           \
+        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());  \
+    }                                                                   \
+} while (false);
+
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
+  // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_empty_strided));
   m.impl("copy_",  TORCH_FN(wrapper_copy_));
   m.impl("_reshape_alias", TORCH_FN(wrapper_DIPU___reshape_alias));
   m.impl("_copy_from_and_resize", TORCH_FN(wrapper_DIPU___copy_from_and_resize));
 
-  ADD_DIPU_ATEN_FUNC("add.out", dummyEmptyfunc);
+  // register fallback if dipu func not exists
+  DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
+  DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
+  DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
+  DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
+  DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
+  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
+  DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
+  DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);
+  DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
+  DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
+  DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
+
+  DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
+
+  
+  // dipu not adapted op, always fallback
+  m.impl("index_select", torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>()); 
 }
 
 

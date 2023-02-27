@@ -1,0 +1,3 @@
+[submodule "third_party/DIOPI"]
+	path = third_party/DIOPI
+	url = https://github.com/OpenComputeLab/DIOPI.git
