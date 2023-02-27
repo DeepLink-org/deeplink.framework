@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 function build_dipu_py() {
     export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
@@ -7,7 +9,6 @@ function build_dipu_py() {
     python setup.py build_ext 2>&1 | tee ./build1.log
     cp build/python_ext/torch_dipu/_C.cpython-37m-x86_64-linux-gnu.so torch_dipu
 }
-
 
 function config_dipu_cmake() {
     cd ./build && rm -rf ./*
@@ -32,7 +33,9 @@ function build_dipu_lib() {
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
+
 if [[ "$1" == "builddl" ]]; then
     build_dipu_lib
 elif [[ "$1" == "builddp" ]]; then
     build_dipu_py
+fi

@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # scripts
-/*.sh
+build.sh
 
 # C extensions
 *.so

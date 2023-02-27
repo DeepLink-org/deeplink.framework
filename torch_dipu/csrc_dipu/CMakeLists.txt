@@ -30,6 +30,7 @@ add_subdirectory(vendor/${UsedVendor})
 include_directories(SYSTEM ${VENDOR_INCLUDE_DIRS})
 link_directories(${VENDOR_LIB_DIRS})
 
+
 # if (${UsedVendor} STREQUAL ${VendorMLU})
 #     message(STATUS "---- vendor specific (but shouldn't exist)----")
 # endif()
@@ -44,12 +45,13 @@ set(SOURCE_FILES
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 
+
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
 # need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-target_link_libraries(${DIPU_LIB} diopi_impl)
-target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
+target_link_libraries(${DIPU_LIB}  diopi_impl)
+target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 
 ## copy vendor header file
 set(VENDOR_DIST  "${DIST_DIR}/csrc_dipu/vendor/")

@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include <csrc_dipu/common.h>
-#include <csrc_dipu/runtime/vendor/vendorapi.h>
+#include <csrc_dipu/vendor/vendorapi.h>
 
 
 namespace dipu {
