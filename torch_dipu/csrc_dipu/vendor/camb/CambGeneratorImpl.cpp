@@ -8,6 +8,18 @@
 #include <cnnl.h>
 
 namespace dipu {
+
+static deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index) {
+  if (device_index == -1) {
+    device_index = devapis::current_device();
+  }
+  deviceHandle_t handle;
+  cnnlCreate(&handle);
+  auto stream = getCurrentDIPUStream(device_index);
+  cnnlSetQueue(handle, stream.rawstream());
+  return handle;
+}
+  
 // Discriminate floating device type.
 static bool is_floating_device = true;
 
@@ -72,7 +84,7 @@ public:
       TORCH_CHECK(state_ptr, "the state point is nullptr, "
                             "please init state before calling its point");
       dipu::DIPUGuard guard(state_.device());
-      auto handle = devapis::getDeviceHandler(state_.device().index());
+      auto handle = getDeviceHandler(state_.device().index());
       DIPU_CALLCNNL(cnnlRandMakeMTGP32KernelState(handle, state_ptr, nullptr, nullptr, seed_));
       state_need_reset_ = false;
     }

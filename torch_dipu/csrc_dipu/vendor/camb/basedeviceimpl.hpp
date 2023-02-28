@@ -1,27 +1,17 @@
+#pragma once
 #include <cnrt.h>
 #include <cndev.h>
 #include <cnnl.h>
 
 #include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/common.h>
 
-// camb5.8.2
-namespace dipu
-{
-const auto vendor_type = devapis::VendorDeviceType::MLU;
-namespace devapis {
+// use header file as common is weird. change to use base class in future.
+// only vendor deviceimpl.cpp can include this header
+namespace dipu {
+DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::MLU;
 
-deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index) {
-  if (device_index == -1) {
-    device_index = current_device();
-  }
-  deviceHandle_t handle;
-  cnnlCreate(&handle);
-  auto stream = getCurrentDIPUStream(device_index);
-  cnnlSetQueue(handle, stream.rawstream());
-  return handle;
-}
+namespace devapis {
 
 using camb_deviceId = int;
 // =====================
@@ -33,25 +23,12 @@ deviceId_t current_device() {
   return static_cast<deviceId_t>(devId_);
 }
 
-// set current device given device according to id
-void setDevice(deviceId_t devId) {
-  camb_deviceId devId_ = static_cast<deviceId_t>(devId);
-  cnrtDev_t dev;
-  DIPU_CALLCNRT(::cnrtGetDeviceHandle(&dev, devId_))
-  DIPU_CALLCNRT(::cnrtSetCurrentDevice(dev))
-}
-
 void resetDevice(deviceId_t devId) {
   DIPU_CALLCNRT(::cnrtDeviceReset())
 }
 
 void syncDevice() {
   DIPU_CALLCNRT(::cnrtSyncDevice())
-}
-
-// check last launch succ or not, throw if fail
-void checkLastError() {
-  DIPU_CALLCNRT(::cnrtGetLastErr())
 }
 
 int getDeviceCount() {
@@ -66,38 +43,8 @@ void getDriverVersion(int *version) {
   *version = verInfo.version;
 }
 
-void getRuntimeVersion(int *version) {
-  DIPU_CALLCNRT(::cnrtGetVersion(reinterpret_cast<unsigned int *>(version)))
-}
-
-// =====================
-//  device stream related
-// =====================
-void createStream(deviceStream_t *stream, bool prior) {
-  if (prior)
-  {
-    DIPU_LOGW(
-        "Camb device doesn't support prior queue(stream)."
-        " Fall back on creating queue without priority.");
-  }
-  DIPU_CALLCNRT(::cnrtCreateQueue(stream));
-}
-
-void destroyStream(deviceStream_t stream) {
-  DIPU_CALLCNRT(::cnrtDestroyQueue(stream));
-}
-
-void destroyStream(deviceStream_t stream, deviceId_t devId) {
-  setDevice(devId);
-  destroyStream(stream);
-}
-
 void releaseStream() {
   return;
-}
-
-void syncStream(deviceStream_t stream) {
-  DIPU_CALLCNRT(::cnrtSyncQueue(stream));
 }
 
 bool streamNotNull(deviceStream_t stream) {
@@ -108,25 +55,11 @@ void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
   DIPU_CALLCNRT(::cnrtQueueWaitNotifier(event, stream, 0))
 }
 
-bool isStreamEmpty(deviceStream_t stream) {
-  auto err = cnrtQueryQueue(stream);
-  if (err == CNRT_RET_SUCCESS) {
-    return true;
-  }
-  return false;
-}
+
 
 // =====================
 //  device event related
 // =====================
-
-void createEvent(deviceEvent_t *event) {
-  DIPU_CALLCNRT(::cnrtCreateNotifier(event))
-}
-
-void destroyEvent(deviceEvent_t event) {
-  DIPU_CALLCNRT(::cnrtDestroyNotifier(&event))
-}
 
 void waitEvent(deviceEvent_t event) {
   DIPU_CALLCNRT(::cnrtWaitNotifier(event))
@@ -148,7 +81,7 @@ EventStatus getEventStatus(deviceEvent_t event) {
   }
   else if (ret == ::cnrtErrorBusy || ret == ::cnrtErrorNotReady)
   {
-    ::cnrtGetLastErr(); /* reset internal error state*/
+    checkLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   }
   // throw CnrtRuntimeError(ret, DIPU_CODELOC);
@@ -158,9 +91,6 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
-  DIPU_CALLCNRT(cnrtMallocHost(p, nbytes, CNRT_MEMTYPE_LOCKED))
-}
 
 void freeHost(void *p) {
     DIPU_CALLCNRT(cnrtFreeHost(p))
@@ -172,7 +102,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   {
     if (throwExcepion)
     {
-      ::cnrtGetLastErr(); /* reset internal error state*/
+      checkLastError(); /* reset internal error state*/
       throw std::runtime_error("alloc failed in dipu");
     }
     else if ((r == ::cnrtErrorNoMem))
@@ -191,10 +121,7 @@ void freeDevice(void *p) {
   DIPU_CALLCNRT(::cnrtFree(p))
 }
 
-// (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
-  DIPU_CALLCNRT(cnrtMemsetD8Async(ptr, val, size, stream))
-}
+
 
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst, deviceId_t srcDevId, const void *src) {

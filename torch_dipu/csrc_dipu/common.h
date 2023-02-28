@@ -41,6 +41,7 @@ namespace devapis {
 enum class VendorDeviceType : enum_t {
   MLU,  //camb
   NPU,  //ascend
+  CUDA, //cuda
 };
 
 enum class EventStatus: enum_t {
@@ -70,7 +71,7 @@ const auto DIPU_DISPATCH_KEY = c10::DispatchKey::PrivateUse1;
 
 const auto DIPU_Backend_TYPE = c10::Backend::PrivateUse1;
 
-const extern devapis::VendorDeviceType VENDOR_TYPE;
+extern devapis::VendorDeviceType VENDOR_TYPE;
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 
