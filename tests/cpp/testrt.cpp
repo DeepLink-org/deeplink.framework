@@ -12,7 +12,8 @@ void testcopy() {
   torch::Tensor t2 = torch::ones({3, 6}, option1);
   t2 = t2.to(device);
   auto t3 = t1.add(t2);
-  std::cout << t3 << std::endl;
+  auto ts = t3.isfinite();
+  std::cout << ts << std::endl;
 }
 
 // need change to use gtest.

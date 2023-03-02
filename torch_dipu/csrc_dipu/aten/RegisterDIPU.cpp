@@ -10,6 +10,12 @@
 #include "util/Log.h"
 
 using dnative = dipu::native::DIPUATenFunctions;
+
+
+namespace dipu {
+
+}
+
 namespace at { 
 namespace {
   // dipu native ops
@@ -111,7 +117,7 @@ namespace {
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
-  DIPU_LOGE("fallback %s ", name.c_str());
+  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
   at::native::cpu_fallback(op, stack);
 }
 
@@ -149,13 +155,11 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
-
   DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
-
-  
-  // dipu not adapted op, always fallback
-  m.impl("index_select", torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>()); 
 }
 
+TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
+    m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
+}
 
 } //end ns at
