@@ -13,10 +13,6 @@ namespace devapis {
 
 using deviceId_t = c10::DeviceIndex;
 
-// need cache.
-// need to discuss, some device has hidden use, others may has more than one handler type.
-DIPU_API deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index);
-
 DIPU_API deviceId_t current_device();
 
 // set current device given device according to id

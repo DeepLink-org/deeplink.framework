@@ -133,7 +133,7 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
     case diopi_host:
         return c10::DeviceType::CPU;
     case diopi_device:
-        return c10::DeviceType::CUDA;
+        return dipu::DIPU_DEVICE_TYPE;
     default:
         TORCH_CHECK(false, "invalid diopi device, diopi device is ", device);
     }

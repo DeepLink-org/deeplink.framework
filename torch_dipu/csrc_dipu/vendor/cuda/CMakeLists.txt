@@ -1,28 +1,34 @@
-find_package(CUDA REQUIRED)
+# if torch compiled with cuda, find torch do find cuda. compile only cpu not.
+find_package(CUDA "11.0" REQUIRED)
+
 if (CUDA_FOUND)
     message(STATUS "CUDA Libraries: " ${CUDA_LIBRARIES})
-    message(STATUS "cudnn libraries: " ${CUDNN_LIBRARIES})
     message(STATUS "CUDA include: " ${CUDA_INCLUDE_DIRS})
     message(STATUS "NVCC Path: ${CUDA_TOOLKIT_ROOT_DIR}/bin")
 endif()
 
-# set(CUDA_SEPARABLE_COMPILATION ON)
+set(VENDOR_INCLUDE_DIRS "${CUDA_INCLUDE_DIRS}" PARENT_SCOPE)
 
-# -std=c++14  -G; -g;
-# v100 is arch 70
-set(CUDA_NVCC_FLAGS
-    -Xcompiler '-fPIC'
-    -gencode arch=compute_70,code=sm_70
-    -I ${ROOT}/cuda/include
-    -L ${ROOT}/cuda/lib64)
+# cuda is full lib path? libcudart_static.aThreads::Threadsdl/usr/lib64/librt.so
+# set(VENDOR_LIB_DIRS "" PARENT_SCOPE)
 
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++14")
-set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -G -g  -O0")
 
-include_directories(${CUDA_INCLUDE_DIRS})
-link_directories(/usr/local/cuda/lib64/)
+file(GLOB SRC_FILES  *.cpp)
+set(VENDOR_FILES  ${SRC_FILES} PARENT_SCOPE)
 
-FILE(GLOB VENDOR_FILES
-    test_cuda1.cpp
-)
- 
+
+# now dipu not contains device code, but may be in future.
+# include(cmake/CUDAComputeArch.cmake)
+set(ARCH_HINTS)
+set(CUDA_ARCH_AUTO ON)
+if (CUDA_ARCH_AUTO)
+    LIST(APPEND ARCH_HINTS Auto)
+else()
+    LIST(APPEND ARCH_HINTS Common)
+endif()
+cuda_select_nvcc_arch_flags(ARCH_FLAGS ${ARCH_HINTS})
+
+message(STATUS "Selected CUDA archs : ${ARCH_FLAGS}")
+list(APPEND CUDA_NVCC_FLAGS ${ARCH_FLAGS} --expt-extended-lambda)
+# discuss: we try to build device code separately?
+# cuda_add_library
