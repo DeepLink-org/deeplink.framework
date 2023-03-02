@@ -198,6 +198,7 @@ setup(
         CppExtensionBuilder.genDIPUExt(),
     ],
     cmdclass={
+        # build_clib not work now, need enhance 
         'build_clib': CPPLibBuild,
         'build_ext': BuildExt,
     })
