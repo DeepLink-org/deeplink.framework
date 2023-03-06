@@ -32,8 +32,8 @@ namespace dipu::native {
 
     ::diopiConstTensorHandle_t weight_diopi = toDiopiTensorHandle(weight_tensor);
     ::diopiConstTensorHandle_t bias_diopi = toDiopiTensorHandle(bias_tensor);
-    ::diopiConstTensorHandle_t running_mean_diopi = toDiopiTensorHandle(running_mean_tensor);
-    ::diopiConstTensorHandle_t running_var_diopi = toDiopiTensorHandle(running_var_tensor);
+    ::diopiTensorHandle_t running_mean_diopi = toDiopiTensorHandle(running_mean_tensor);
+    ::diopiTensorHandle_t running_var_diopi = toDiopiTensorHandle(running_var_tensor);
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
 
     at::Tensor out = at::empty(input.sizes(), input.options());
