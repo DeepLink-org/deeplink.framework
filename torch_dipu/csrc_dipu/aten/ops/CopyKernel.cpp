@@ -12,7 +12,6 @@ using c10::layout_or_default;
 using c10::StorageImpl;
 using c10::TensorImpl;
 using at::Layout;
-using dipu::devapis::MemCPKind;
 
 namespace dipu::native {
 
@@ -65,16 +64,33 @@ namespace dipu::native {
     if (names.has_value()) {
       internal_set_names_inplace(self, names);
     }
-    if (dipu::isDeviceTensor(self)) {
-      if (!dipu::isDeviceTensor(src)) {
-        copy_H2D(self, src, non_blocking);
+    if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
+      if(self.dtype() != src.dtype()) {  // src is cpu.
+        // use cpu cast, need enhance
+        auto cpu_casted_tensor = src.to(c10::dtype(self.scalar_type()));
+        copy_H2D(self, cpu_casted_tensor, non_blocking);
       } else {
-        throw std::runtime_error("not support d2d copy");  
+        copy_H2D(self, src, non_blocking);
       }
-    } else {
-      if (dipu::isDeviceTensor(src)) {
+    } 
+    else if (!dipu::isDeviceTensor(self) && dipu::isDeviceTensor(src)) {   
+      if(self.dtype() != src.dtype()) {  // self is cpu.
+        std::vector<at::Tensor> tensor_args;
+        tensor_args.push_back(src);
+        // use cpu cast, need enhance
+        auto cpu_src_tensor = at::_to_cpu(tensor_args)[0].to(c10::dtype(self.scalar_type()));
+        // use cpu copy_ as alternative, need enhance.
+         self.copy_(cpu_src_tensor);
+      } else {
         copy_D2H(self, src, non_blocking);
       }
+    }
+    else {   // device to device 
+        std::vector<at::Tensor> tensor_args;
+        tensor_args.push_back(src);
+        auto cpu_src_tensor = at::_to_cpu(tensor_args)[0].to(c10::dtype(self.scalar_type()));
+        copy_(self, cpu_src_tensor, non_blocking);
+
     }
     return self;
   }

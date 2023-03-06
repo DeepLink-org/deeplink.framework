@@ -19,6 +19,8 @@ struct DIPUATenFunctions {
 
     static at::Tensor& copy_(at::Tensor & self, const at::Tensor & src, bool non_blocking);
 
+    static const at::Tensor& resize_(const at::Tensor& self, at::IntArrayRef size, c10::optional<at::MemoryFormat> memory_format);
+
     // diopi func
     static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
     static at::Tensor relu(const at::Tensor& self);
