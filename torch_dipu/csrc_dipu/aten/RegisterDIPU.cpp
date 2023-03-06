@@ -167,6 +167,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
   DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
+  // DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("_convolution", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
   DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);

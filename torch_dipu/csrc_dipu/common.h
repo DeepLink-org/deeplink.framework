@@ -68,6 +68,8 @@ enum class MemCPKind: enum_t {
 const auto DIPU_DEVICE_TYPE = at::DeviceType::PrivateUse1;
 
 const auto DIPU_DISPATCH_KEY = c10::DispatchKey::PrivateUse1;
+const auto DIPU_DISPATCH_AUTOGRAD_KEY = c10::DispatchKey::AutogradPrivateUse1;
+
 
 const auto DIPU_Backend_TYPE = c10::Backend::PrivateUse1;
 

@@ -61,7 +61,7 @@ namespace dipu::native {
     auto dtype = dtype_or_default(dtype_opt);
 
     c10::Allocator *allocator = dipu::getDIPUAllocator();
-    constexpr c10::DispatchKeySet dipu_ks(dipu::DIPU_DISPATCH_KEY);
+    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY, dipu::DIPU_DISPATCH_AUTOGRAD_KEY});
     return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks, dtype);
   }
 
