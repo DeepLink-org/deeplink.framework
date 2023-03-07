@@ -57,6 +57,12 @@ namespace {
     return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 
+  at::Tensor & wrapper_DIPU__zero_(at::Tensor & self) {
+      // No device check
+    // DeviceGuard omitted
+    return at::native::zero_(self);
+  }
+
   // diopi ops
   at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
       return dnative::add_out(self, other, alpha, out);
@@ -160,6 +166,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("resize_", TORCH_FN(wrapper_resize_));
   m.impl("as_strided", TORCH_FN(wrapper_DIPU__as_strided));
   m.impl("view", TORCH_FN(wrapper_DIPU__view));
+  m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
 
   // register fallback if dipu func not exists
   // DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
