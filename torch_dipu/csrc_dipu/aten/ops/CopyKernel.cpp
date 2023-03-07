@@ -20,10 +20,13 @@ namespace dipu::native {
   inline at::Tensor cast2CompatibleDeviceTensor(const at::Tensor& hostTensor) {
     return hostTensor;
   }
-  // temp solution handle view
   inline int64_t getCopyBytes(const at::Tensor& dst, const at::Tensor& src) {
-    int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+    if (dst.nbytes() != src.nbytes()) {  // outer bytes must same. different type is unsuported
+      throw std::runtime_error("dipu copy with different size is not allowed"); 
+    }
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+    int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+    // view or expand is supported
     return srcBytes < dstBytes ? srcBytes : dstBytes;
   }
 
@@ -62,6 +65,13 @@ namespace dipu::native {
     }
   }
 
+  //  1. expand, 2. patial view. 3. type cast.
+  inline bool isStorageSizeDiff(const at::Tensor& dst, const at::Tensor& src) {
+    int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+    int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+    return srcBytes != dstBytes;
+  }
+
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
 
@@ -82,7 +92,22 @@ namespace dipu::native {
     }
   }
 
+  inline void doRealCp(at::Tensor& self, const at::Tensor& src,  bool non_blocking) {
+    if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
+        // src is cpu.
+        copy_H2D(self, src, non_blocking);
+    } 
+    else if (!dipu::isDeviceTensor(self) && dipu::isDeviceTensor(src)) {   
+      // self is cpu.
+      copy_D2H(self, src, non_blocking);
+    } 
+    else {   // device to device 
+      copy_D2D(self, src, non_blocking);
+    }
+  }
+
   // self is dest
+  // not handle storage offset, need?
   at::Tensor& DIPUATenFunctions::copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     if (self.numel() == 0) {
       return self;
@@ -92,36 +117,31 @@ namespace dipu::native {
     if (names.has_value()) {
       internal_set_names_inplace(self, names);
     }
-    if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
-      if(self.dtype() != src.dtype()) {  // src is cpu.
-        // use cpu cast, need enhance
-        auto cpu_casted_tensor = src.to(c10::dtype(self.scalar_type()));
-        copy_H2D(self, cpu_casted_tensor, non_blocking);
-      } else {
-        copy_H2D(self, src, non_blocking);
+    if (isStorageSizeDiff(self, src)) {
+      at::Tensor src_cpu = src;
+      // src to cpu
+      if (dipu::isDeviceTensor(src)) {
+        src_cpu = at::empty_strided(src.sizes(), src.strides(),
+             src.options().device(c10::DeviceType::CPU));
+        // src storage size may bigger than src_cpu's  if src is a partial view.
+        // but not smaller. because src_cpu use same stride as src.
+        // src -> src_cpu 
+        doRealCp(src_cpu, src, non_blocking);
       }
-    } 
-    else if (!dipu::isDeviceTensor(self) && dipu::isDeviceTensor(src)) {   
-      if(self.dtype() != src.dtype()) {  // self is cpu.
-        std::vector<at::Tensor> tensor_args;
-        tensor_args.push_back(src);
-        // use cpu cast, need enhance
-        auto cpu_src_tensor = at::_to_cpu(tensor_args)[0].to(c10::dtype(self.scalar_type()));
-        // use cpu copy_ as alternative, need enhance.
-         self.copy_(cpu_src_tensor);
-      } else {
-        copy_D2H(self, src, non_blocking);
+
+      if(dipu::isDeviceTensor(self)) {
+        at::Tensor dst_cpu = at::empty_strided(self.sizes(), self.strides(),
+              self.options().device(c10::DeviceType::CPU));
+        doRealCp(dst_cpu, self, non_blocking);
+        // proxy to cpu to handle different type/view problem
+        dst_cpu.copy_(src_cpu);
+
+        doRealCp(self, dst_cpu, non_blocking);
+      } else {  // self is cpu
+        self.copy_(src_cpu);
       }
-    }
-    else {   // device to device 
-      if(self.dtype() != src.dtype()) {  
-        std::vector<at::Tensor> tensor_args;
-        tensor_args.push_back(src);
-        auto cpu_src_tensor = at::_to_cpu(tensor_args)[0].to(c10::dtype(self.scalar_type()));
-        copy_(self, cpu_src_tensor, non_blocking);
-      } else {
-        copy_D2D(self, src, non_blocking);
-      }
+    } else {
+      doRealCp(self, src, non_blocking);
     }
     return self;
   }
