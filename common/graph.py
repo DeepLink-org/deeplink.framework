@@ -12,21 +12,24 @@ from torch._dynamo.utils import dynamo_timed
 
 log = logging.getLogger(__name__)
 
-class GraphTransformation:
+class GraphConverter:
     def __init__(
         self,
         gm: torch.fx.GraphModule,
+        backend: str,
     ):
-        # TODO add get_backend
-        # self.get_backend(device).codegen_nodes(node.get_nodes())
-        from .codegen.enflame import EnflameCodegen
-        self.backend_codegen = EnflameCodegen(gm)
+        self.gm = gm
+        if backend == 'topsgraph':
+            from TopsGraph.opset_convert import topsgraph_opset_convert
+            self.backend_opset_convert = topsgraph_opset_convert
+            from TopsGraph.codegen.enflame import EnflameCodegen
+            self.backend_codegen = EnflameCodegen
 
-    def transform(self):
-        pass
+    def convert(self):
+        self.gm = self.backend_opset_convert(self.gm)
 
     def codegen(self):
-        return self.backend_codegen.codegen()
+        return self.backend_codegen(self.gm).codegen()
 
     @dynamo_timed
     def compile_to_module(self):

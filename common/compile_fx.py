@@ -9,7 +9,7 @@ import torch.fx
 from typing import List
 from importlib import import_module
 from torch._dynamo.utils import fake_mode_from_tensors
-from .graph import GraphTransformation
+from .graph import GraphConverter
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ def compile_fx_inner(
     num_fixed=0,
     is_backward=False,
     graph_id=None,
+    backend=None
 ):
     if dynamo_utils.count_calls(gm.graph) == 0:
         return make_boxed_func(gm.forward)
@@ -42,7 +43,7 @@ def compile_fx_inner(
 
     _step_logger()(
         logging.INFO,
-        "TopsGraph compiling "
+        f"{backend} compiling "
         f"{'BACKWARDS' if is_backward else 'FORWARDS'} "
         f"graph {graph_id}",
     )
@@ -50,15 +51,15 @@ def compile_fx_inner(
     shape_env = _shape_env_from_inputs(example_inputs)
     fake_mode = fake_mode_from_tensors(example_inputs)
 
-    graph = GraphTransformation(gm)
-    graph.transform()
-    compiled_fn = graph.compile_to_fn()
+    gc = GraphConverter(gm, backend)
+    gc.convert()
+    compiled_fn = gc.compile_to_fn()
 
     # TODO need align inputs?
 
     _step_logger()(
         logging.INFO,
-        "TopsGraph done compiling "
+        f"{backend} compiling "
         f"{'BACKWARDS' if is_backward else 'FORWARDS'} "
         f"graph {graph_id}",
     )
@@ -67,15 +68,12 @@ def compile_fx_inner(
     compiled_fn._boxed_call = True
     return compiled_fn
 
-
-
 _graph_counter = itertools.count(0)
-
 
 def compile_fx(
     model_: torch.fx.GraphModule,
     example_inputs_: List[torch.Tensor],
-    inner_compile=compile_fx_inner,
+    backend: str
 ):
     """Main entrypoint to a compile given FX graph"""
     functorch.compile.config.use_functionalize = True
@@ -88,22 +86,24 @@ def compile_fx(
     @dynamo_utils.dynamo_timed
     def fw_compiler(model: torch.fx.GraphModule, example_inputs):
         fixed = len(example_inputs) - num_example_inputs
-        return inner_compile(
+        return compile_fx_inner(
             model,
             example_inputs,
             num_fixed=fixed,
             graph_id=graph_id,
+            backend = backend,
         )
 
     @dynamo_utils.dynamo_timed
     def bw_compiler(model: torch.fx.GraphModule, example_inputs):
         fixed = count_tangents(model)
-        return inner_compile(
+        return compile_fx_inner(
             model,
             example_inputs,
             num_fixed=fixed,
             is_backward=True,
             graph_id=graph_id,
+            backend = backend,
         )
 
     from torch._inductor.decomposition import select_decomp_table
@@ -130,8 +130,6 @@ def count_tangents(fx_g: torch.fx.GraphModule):
 
     assert static_arg_idxs == list(range(len(static_arg_idxs)))
     return len(static_arg_idxs)
-
-
 
 def _shape_env_from_inputs(inputs):
     shape_env = None
