@@ -1,9 +1,9 @@
 import torch
+import torch_dipu
 
-torch.ops.load_library("../build/libtorch_dipu.so")
-
-x = torch.randn(2, 2).cuda()
-y = torch.randn(2).cuda()
+device = torch.device("dipu")
+x = torch.randn(2, 2).to(device)
+y = torch.randn(2).to(device)
 print(x)
 print(y)
 print(x + y)

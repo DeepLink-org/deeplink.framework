@@ -169,23 +169,22 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
 
   // register fallback if dipu func not exists
-  // DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
+  DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
   DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
-  // DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
-  DIOPI_ATEN_FUNC("_convolution", diopiConvolution2d, wrapperConvolution2d);
+  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
   DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
   DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
-
-  m.impl("convolution_backward", torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
 }
 
-
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+  m.impl("conv2d", TORCH_FN(wrapperConvolution2d));
+}
 
 } //end ns at

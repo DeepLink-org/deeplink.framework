@@ -17,13 +17,13 @@ DIOPI_RT_API const char* diopiGetVersion() {
     return diopiVersion;
 }
 
-DIOPI_RT_API diopiError_t diopiGetTensorData(diopiTensorHandle_t* pth, void** pptr) {
-    *pptr = (reinterpret_cast<at::Tensor*>(*pth))->data_ptr();
+DIOPI_RT_API diopiError_t diopiGetTensorData(diopiTensorHandle_t pth, void** pptr) {
+    *pptr = (reinterpret_cast<at::Tensor*>(pth))->data_ptr();
     return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiGetTensorDataConst(diopiConstTensorHandle_t* pth, const void** pptr) {
-    *pptr = (reinterpret_cast<const at::Tensor*>(*pth))->data_ptr();
+DIOPI_RT_API diopiError_t diopiGetTensorDataConst(diopiConstTensorHandle_t pth, const void** pptr) {
+    *pptr = (reinterpret_cast<const at::Tensor*>(pth))->data_ptr();
     return diopiSuccess;
 }
 
@@ -101,7 +101,7 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     }
 
     void* data = nullptr;
-    ret = diopiGetTensorData(tensor, &data);
+    ret = diopiGetTensorData(*tensor, &data);
     if (ret != diopiSuccess) return ret;
     at::Allocator* allocator = nullptr;
     at::IntArrayRef at_strides(stride->data, stride->len);

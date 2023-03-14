@@ -34,8 +34,8 @@ namespace dipu::native {
         allocator,
         true);
 
-    auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl),
-      dipu::DIPU_DISPATCH_KEY, dtype);
+    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY, dipu::DIPU_DISPATCH_AUTOGRAD_KEY});
+    auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl), dipu_ks, dtype);
 
     // Default at::TensorImpl has size [0]
     if (size.size() != 1 || size[0] != 0) {

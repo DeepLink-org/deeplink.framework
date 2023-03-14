@@ -1,8 +1,8 @@
 import torch
+import torch_dipu
 
-torch.ops.load_library("../build/libtorch_dipu.so")
-
-input = torch.randn(2, 3, 4).cuda()
+device = torch.device("dipu")
+input = torch.randn(2, 3, 4).to(device)
 t = input.view(3, -1)
 m = torch.mean(t, 1)
 v = torch.var(t, 1)
