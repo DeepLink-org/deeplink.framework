@@ -51,6 +51,7 @@ struct DIPUATenFunctions {
     static at::Tensor& random_(at::Tensor & self, c10::optional<at::Generator> generator);
     static at::Tensor& random_(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator);
     static at::Tensor& fillScalar_(at::Tensor & self, const at::Scalar & value);
+    static at::Tensor& sum_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
 
 };
 

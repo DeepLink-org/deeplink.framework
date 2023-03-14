@@ -139,6 +139,15 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
     }
 }
 
+::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& input) {
+    ::diopiSize_t diopi_size;
+    if (input.has_value()) {
+        diopi_size.data = input.value().data();
+        diopi_size.len = input.value().size();
+    }
+    return diopi_size;
+}
+
 at::Tensor fromPreAllocated(
     void* data, at::IntArrayRef sizes,
     at::IntArrayRef strides, const std::function<void(void*)>& deleter,

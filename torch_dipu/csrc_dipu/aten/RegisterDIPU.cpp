@@ -130,6 +130,11 @@ namespace {
     // DeviceGuard omitted
     return dnative::fillScalar_(self, value);
   }
+
+at::Tensor & wrapper_sum_out_IntList_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+  return dnative::sum_out(self, dim, keepdim, dtype, out);
+}
+
 }
 
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
@@ -181,6 +186,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
   DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
+  DIOPI_ATEN_FUNC("sum.IntList_out", diopiSum, wrapper_sum_out_IntList_out);
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
