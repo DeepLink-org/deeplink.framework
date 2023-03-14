@@ -53,6 +53,7 @@ struct DIPUATenFunctions {
     static at::Tensor& fillScalar_(at::Tensor & self, const at::Scalar & value);
     static at::Tensor& sum_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
     static at::Tensor& mean_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
+    static at::Tensor& addmm_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out);
 
 };
 
