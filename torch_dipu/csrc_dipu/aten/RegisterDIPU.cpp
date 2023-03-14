@@ -184,7 +184,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
-  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
+  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2dBackward, wrapperConvolution2d);
 }
 
 } //end ns at
