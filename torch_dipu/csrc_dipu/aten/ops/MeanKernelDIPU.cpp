@@ -9,15 +9,9 @@ using dipu::diopi_helper::toDiopiDtype;
 
 namespace dipu::native {
 
-static ::diopiDtype_t getDiopiDtype(c10::optional<at::ScalarType> dtype, const at::Tensor & out) {
-    if (dtype.has_value()) {
-        return toDiopiDtype(dtype.value());
-    }
+extern ::diopiDtype_t getDiopiDtype(c10::optional<at::ScalarType> dtype, const at::Tensor & out);
 
-    return toDiopiDtype(out.scalar_type());
-}
-
-at::Tensor& DIPUATenFunctions::sum_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+at::Tensor& DIPUATenFunctions::mean_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
     ::diopiConstTensorHandle_t self_diopi = toDiopiTensorHandle(self);
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     ::diopiDtype_t diopi_dtype = getDiopiDtype(dtype, out);
@@ -25,9 +19,9 @@ at::Tensor& DIPUATenFunctions::sum_out(const at::Tensor & self, at::OptionalIntA
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
     ::diopiTensorHandle_t out_diopi = toDiopiTensorHandle(out);
 
-    ::diopiError_t ret = ::diopiSum(&context, out_diopi, self_diopi, diopi_size, diopi_dtype);
+    ::diopiError_t ret = ::diopiMean(&context, out_diopi, self_diopi, diopi_size, diopi_dtype);
     TORCH_CHECK(ret == ::diopiSuccess, __func__, ":", __FILE__, ":", __LINE__,
-        " diopiSum error, error code is ", ret, "\nerror message is", diopiGetLastErrorString());
+        " diopiMean error, error code is ", ret, "\nerror message is", diopiGetLastErrorString());
     return out;
 }
 
