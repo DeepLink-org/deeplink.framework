@@ -81,6 +81,7 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     diopiContextHandle_t ctx, diopiTensorHandle_t* tensor,
     const diopiSize_t* size, const diopiSize_t* stride,
     const diopiDtype_t dtype, const diopiDevice_t device) {
+    TORCH_CHECK(tensor != nullptr && *tensor == nullptr, "invalid parameter tensor");
     at::IntArrayRef at_dims(size->data, size->len);
     caffe2::TypeMeta at_type = diopihelper::toATenType(dtype);
     c10::DeviceType at_device = diopihelper::toATenDevice(device);
@@ -107,12 +108,8 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     at::IntArrayRef at_strides(stride->data, stride->len);
     at::Tensor t = diopihelper::fromPreAllocated(
         data, at_dims, at_strides, [](void*){}, allocator, options);
-    if ((*tensor) == nullptr) {
-        ctx->arrays.emplace_back(std::move(t));
-        *tensor = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
-    } else {
-        *(reinterpret_cast<at::Tensor*>(*tensor)) = std::move(t);
-    }
+    ctx->arrays.emplace_back(std::move(t));
+    *tensor = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
     return diopiSuccess;
 }
 
