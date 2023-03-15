@@ -60,7 +60,7 @@ static PyObject* THPVariable_dipu(PyObject* self, PyObject* args, PyObject* kwar
   auto local_device = r.isNone(1) ? c10::Device(dipu::DIPU_DEVICE_TYPE) : r.device(1);
   auto device = c10::Device(dipu::DIPU_DEVICE_TYPE, local_device.index());
   auto opt_memory_format = r.memoryformatOptional(3);
-  TORCH_CHECK((device.type() == dipu::DIPU_DEVICE_TYPE), "Invalid device, must be npu device");
+  TORCH_CHECK((device.type() == dipu::DIPU_DEVICE_TYPE), "Invalid device, must be dipu device");
   return THPVariable_Wrap(dispatch_to(self_, device, r.toBool(2), false, opt_memory_format));
   END_HANDLE_TH_ERRORS
 }
