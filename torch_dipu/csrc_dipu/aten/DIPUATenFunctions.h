@@ -55,6 +55,7 @@ struct DIPUATenFunctions {
     static at::Tensor& mean_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
     static at::Tensor& addmm_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out);
     static at::Tensor& adaptive_avg_pool2d_out(const at::Tensor & self, c10::SymIntArrayRef output_size, at::Tensor & out);
+    static at::Tensor adaptive_avg_pool2d_backward(const at::Tensor & grad_output, const at::Tensor & self);
 
 };
 

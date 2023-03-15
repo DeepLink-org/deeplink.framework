@@ -147,6 +147,10 @@ at::Tensor & wrapper_out_adaptive_avg_pool2d_out(const at::Tensor & self, c10::S
   return dnative::adaptive_avg_pool2d_out(self, output_size, out);
 }
 
+at::Tensor wrapper__adaptive_avg_pool2d_backward(const at::Tensor & grad_output, const at::Tensor & self) {
+  return dnative::adaptive_avg_pool2d_backward(grad_output, self);
+}
+
 }
 
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
@@ -202,6 +206,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
   DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
   DIOPI_ATEN_FUNC("adaptive_avg_pool2d.out", diopiAdaptiveAvgPool2d, wrapper_out_adaptive_avg_pool2d_out);
+  DIOPI_ATEN_FUNC("_adaptive_avg_pool2d_backward", diopiAdaptiveAvgPool2dBackward, wrapper__adaptive_avg_pool2d_backward);
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
