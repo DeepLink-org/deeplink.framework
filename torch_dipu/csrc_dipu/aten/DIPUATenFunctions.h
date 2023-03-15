@@ -51,6 +51,11 @@ struct DIPUATenFunctions {
     static at::Tensor& random_(at::Tensor & self, c10::optional<at::Generator> generator);
     static at::Tensor& random_(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator);
     static at::Tensor& fillScalar_(at::Tensor & self, const at::Scalar & value);
+    static at::Tensor& sum_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
+    static at::Tensor& mean_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
+    static at::Tensor& addmm_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out);
+    static at::Tensor& adaptive_avg_pool2d_out(const at::Tensor & self, c10::SymIntArrayRef output_size, at::Tensor & out);
+    static at::Tensor adaptive_avg_pool2d_backward(const at::Tensor & grad_output, const at::Tensor & self);
 
 };
 

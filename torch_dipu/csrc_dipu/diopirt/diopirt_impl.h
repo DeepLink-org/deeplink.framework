@@ -43,6 +43,8 @@ int64_t getElemSize(::diopiDtype_t dt);
 
 c10::DeviceType toATenDevice(::diopiDevice_t device);
 
+::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& dim);
+
 at::Tensor fromPreAllocated(
     void* data, at::IntArrayRef sizes,
     at::IntArrayRef strides, const std::function<void(void*)>& deleter,

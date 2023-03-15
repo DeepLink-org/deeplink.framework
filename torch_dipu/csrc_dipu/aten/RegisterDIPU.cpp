@@ -130,6 +130,27 @@ namespace {
     // DeviceGuard omitted
     return dnative::fillScalar_(self, value);
   }
+
+at::Tensor & wrapper_sum_out_IntList_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+  return dnative::sum_out(self, dim, keepdim, dtype, out);
+}
+
+at::Tensor & wrapper_mean_out_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+  return dnative::mean_out(self, dim, keepdim, dtype, out);
+}
+
+at::Tensor & wrapper_addmm_out_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out) {
+  return dnative::addmm_out(self, mat1, mat2, beta, alpha, out);
+}
+
+at::Tensor & wrapper_out_adaptive_avg_pool2d_out(const at::Tensor & self, c10::SymIntArrayRef output_size, at::Tensor & out) {
+  return dnative::adaptive_avg_pool2d_out(self, output_size, out);
+}
+
+at::Tensor wrapper__adaptive_avg_pool2d_backward(const at::Tensor & grad_output, const at::Tensor & self) {
+  return dnative::adaptive_avg_pool2d_backward(grad_output, self);
+}
+
 }
 
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
@@ -169,23 +190,27 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
 
   // register fallback if dipu func not exists
-  // DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
+  DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
   DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
-  // DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
-  DIOPI_ATEN_FUNC("_convolution", diopiConvolution2d, wrapperConvolution2d);
+  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
   DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
   DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
-
-  m.impl("convolution_backward", torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
+  DIOPI_ATEN_FUNC("sum.IntList_out", diopiSum, wrapper_sum_out_IntList_out);
+  DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
+  DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
+  DIOPI_ATEN_FUNC("adaptive_avg_pool2d.out", diopiAdaptiveAvgPool2d, wrapper_out_adaptive_avg_pool2d_out);
+  DIOPI_ATEN_FUNC("_adaptive_avg_pool2d_backward", diopiAdaptiveAvgPool2dBackward, wrapper__adaptive_avg_pool2d_backward);
 }
 
-
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2dBackward, wrapperConvolution2d);
+}
 
 } //end ns at

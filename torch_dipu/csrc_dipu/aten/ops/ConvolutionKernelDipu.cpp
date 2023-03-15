@@ -75,12 +75,8 @@ at::Tensor convolutionKernelDipu(
     at::Tensor grad_weight;
     at::Tensor grad_bias;
     // construct the output tensor on device
-    if (grad_input_mask[0]) {
-        grad_input = at::empty(input.sizes(), input.options());
-    }
-    if (grad_input_mask[1]) {
-        grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-    }
+    grad_input = at::empty(input.sizes(), input.options());
+    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (grad_input_mask[2]) {
         c10::IntArrayRef bias_size = { grad.size(1) };
         grad_bias = at::empty(bias_size, grad.options());
