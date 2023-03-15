@@ -1,23 +1,23 @@
 import torch
+import torch.fx
 from torch.fx import replace_pattern
 from torch.fx.node import Argument, Target
 from typing import Any, Dict, Tuple
 
 class OpSetTransformer:
-    def __init__(self, patterns, new_namespace, whitelist):
+    def __init__(self, patterns, new_namespace, conversions):
         self._patterns = patterns
         self._new_namespace = new_namespace
-        self._whitelist = whitelist
+        self._conversions = conversions
 
     def transform(self, module: torch.fx.GraphModule):
         # first step: replace pattern
         for pat in self._patterns:
             replace_pattern(module, pat.pattern, pat.replacement)
-        
+
         # second step: transform single operater
-        NameSpaceTransformer(self._new_namespace,
-                             self._whitelist).transform(module)
-        return module
+        return SingleOpTransformer(module,
+                             self._conversions).transform()
 
 class SingleOpTransformer(torch.fx.Transformer):
     def __init__(self, module, conversions):
