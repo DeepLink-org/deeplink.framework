@@ -86,6 +86,18 @@ namespace {
           bias, running_mean, running_var, training, momentum, eps);
   }
 
+::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> wrapperNativeBatchNormOut(
+    const at::Tensor & input, const c10::optional<at::Tensor> & weight,
+    const c10::optional<at::Tensor> & bias,
+    const c10::optional<at::Tensor> & running_mean,
+    const c10::optional<at::Tensor> & running_var,
+    bool training, double momentum, double eps,
+    at::Tensor & out, at::Tensor & save_mean, at::Tensor & save_invstd) {
+  return dnative::native_batch_norm_out(
+      input, weight, bias, running_mean, running_var,
+      training, momentum, eps, out, save_mean, save_invstd);
+}
+
   ::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNormBackward(
       const at::Tensor & grad_out, const at::Tensor & input,
       const c10::optional<at::Tensor> & weight,
@@ -198,6 +210,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
+  DIOPI_ATEN_FUNC("native_batch_norm.out", diopiBatchNorm, wrapperNativeBatchNormOut);
   DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
   DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
