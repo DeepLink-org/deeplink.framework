@@ -9,7 +9,7 @@ using dipu::diopi_helper::toDiopiDtype;
 
 namespace dipu::native {
 
-static ::diopiDtype_t getDiopiDtype(c10::optional<at::ScalarType> dtype, const at::Tensor & out) {
+::diopiDtype_t getDiopiDtype(const c10::optional<at::ScalarType>& dtype, const at::Tensor & out) {
     if (dtype.has_value()) {
         return toDiopiDtype(dtype.value());
     }
