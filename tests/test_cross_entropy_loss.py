@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch_dipu
 
-def test_cross_entropy_loss(intput, target, devicestr : str):
+def test_cross_entropy_loss(input, target, devicestr : str):
     device = torch.device(devicestr)
     input = input.to(device)
     target = target.to(device)
@@ -10,7 +10,7 @@ def test_cross_entropy_loss(intput, target, devicestr : str):
     print(f"loss = {loss}")
 
     loss.backward()
-    print(f"loss.grad = {loss.grad}")
+    print(f"input.grad = {input.grad}")
 
 
 input = torch.randn(3, 5, requires_grad=True)
