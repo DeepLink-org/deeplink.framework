@@ -65,6 +65,7 @@ struct DIPUATenFunctions {
     static at::Tensor adaptive_avg_pool2d_backward(const at::Tensor & grad_output, const at::Tensor & self);
     static at::Tensor linear(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias);
     static at::Tensor& log_softmax_out(const at::Tensor & self, int64_t dim, c10::optional<at::ScalarType> dtype, at::Tensor & out);
+    static at::Tensor& _log_softmax_backward_data_out(const at::Tensor & grad_output, const at::Tensor & output, int64_t dim, at::ScalarType input_dtype, at::Tensor & out);
 
 };
 
