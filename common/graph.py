@@ -28,7 +28,6 @@ class GraphTransformer:
 
     def transform(self):
         self.gm = self.backend_opset_transform(self.gm)
-        print(self.gm.graph)
 
     def codegen(self):
         return ''

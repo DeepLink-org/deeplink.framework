@@ -1,4 +1,3 @@
-# TODO
 import torch
 import torch.fx
 from typing import Tuple, Dict, Optional, Iterable, Any, Iterator, Callable
@@ -28,6 +27,11 @@ class Abs(Operator):
     def __init__(self, a):
         super().__init__("abs")
         self.a = a
+
+class LessEqual(Operator):
+    def __init__(self, *args):
+        super().__init__("LessEqual")
+        self.args = args
 
 class Mul(Operator):
     def __init__(self, a, b):
@@ -67,6 +71,18 @@ class ReduceSum(Operator):
         super().__init__("reduceSum")
         self.args = args
 
+class ReduceMean(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("reducemean")
+        self.args = args
+        self.args = kwargs
+
+class ReduceMax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("reducemax")
+        self.args = args
+        self.args = kwargs
+
 class Squeeze(Operator):
     def __init__(self, a, b):
         super().__init__("squeeze")
@@ -90,9 +106,9 @@ class Copy(Operator):
         super().__init__("copy")
         self.args = args
 
-class Mean(Operator):
+class Neg(Operator):
     def __init__(self, *args):
-        super().__init__("mean")
+        super().__init__("neg")
         self.args = args
 
 class Reshape(Operator):
@@ -111,12 +127,28 @@ class Convolution(Operator):
         super().__init__("convolution")
         self.args = args
 
-#torch.ops.aten.max_pool2d_with_indices
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args):
         super().__init__("max_pool2d_with_indices")
         self.args = args
 
+class Gather(Operator):
+    def __init__(self, *args):
+        super().__init__("Gather")
+        self.args = args
+
+class Log(Operator):
+    def __init__(self, *args):
+        super().__init__("Log")
+        self.args = args
+
+class Getitem(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("getitem")
+        self.args = args
+        self.args = kwargs
+
+# For pattern replacement
 @torch.fx.wrap
 def sqrt(a, b) -> torch.Tensor:
     return torch.sqrt(a, b)
@@ -135,98 +167,3 @@ def add(a, b) -> torch.Tensor:
 @torch.fx.wrap
 def gemm(a, b) -> torch.Tensor:
     return torch.gemm(a,b)
-
-
-'''
-@torch.fx.wrap
-def sqrt(a) -> torch.Tensor:
-    return torch.sqrt(a)
-'''
-'''
-@torch.fx.wrap
-def add(a, b) -> torch.Tensor:
-    return torch.add(a, b)
-'''
-
-'''
-class Dot(Operator):
-    def __init__(self, a, b):
-        super().__init__("Dot")
-        self.a = a
-        self.b = b
-
-class LessEqual(Operator):
-    def __init__(self, a, b):
-        super().__init__("LessEqual")
-        self.a = a
-        self.b = b
-
-class Less(Operator):
-    def __init__(self, a, b):
-        super().__init__("Less")
-        self.a = a
-        self.b = b
-
-class Greater(Operator):
-    def __init__(self, a, b):
-        super().__init__("Greater")
-        self.a = a
-        self.b = b
-
-class GreaterEqual(Operator):
-    def __init__(self, a, b):
-        super().__init__("GreaterEqual")
-        self.a = a
-        self.b = b
-
-class Equal(Operator):
-    def __init__(self, a, b):
-        super().__init__("Equal")
-        self.a = a
-        self.b = b
-
-class NotEqual(Operator):
-    def __init__(self, a, b):
-        super().__init__("NotEqual")
-        self.a = a
-        self.b = b
-
-class ReduceSum(Operator):
-    def __init__(self, a):
-        super().__init__("ReduceSum")
-        self.a = a
-
-class ReduceMax(Operator):
-    def __init__(self, a):
-        super().__init__("ReduceMax")
-        self.a = a
-
-class ReduceMin(Operator):
-    def __init__(self, a):
-        super().__init__("ReduceMin")
-        self.a = a
-
-class ReduceMean(Operator):
-    def __init__(self, a, b):
-        super().__init__("ReduceMean")
-        self.a = a
-        self.b = b
-
-class Transpose(Operator):
-    def __init__(self, a, b):
-        super().__init__("Transpose")
-        self.a = a
-        self.b = b
-
-class LessEqual(Operator):
-    def __init__(self, a, b):
-        super().__init__("LessEqual")
-        self.a = a
-        self.b = b
-
-class Copy(Operator):
-    def __init__(self, a, b):
-        super().__init__("Copy")
-        self.a = a
-        self.b = b
-'''

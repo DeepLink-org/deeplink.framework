@@ -3,14 +3,14 @@ import functools
 from . import tops_op
 from abc import ABC, abstractmethod
 from torch.fx import Proxy
-
+import operator
 
 conversions = {}
 patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
-def _register_conversion(
+def _registe_conversion(
     aten_fn, decomp_fn
 ):
     @functools.wraps(decomp_fn)
@@ -37,7 +37,7 @@ def registe_conversion(aten_fn):
     Shim to support decorator syntax.
     """
     return functools.partial(
-        _register_conversion,
+        _registe_conversion,
         aten_fn,
     )
 
@@ -77,6 +77,10 @@ def relu(a):
 def sum(*args):
     return tops_op.ReduceSum(*args)
 
+@registe_conversion(operator.getitem)
+def getitem(*args, **kwargs):
+    return tops_op.Getitem(*args, **kwargs)
+
 #torch.ops.aten.squeeze.dim(,[])
 #torch.ops.aten.squeeze.dims(,)
 @registe_conversion(torch.ops.aten.squeeze)
@@ -113,6 +117,20 @@ def convolution(*args):
     return tops_op.Max_pool2d_with_indices(*args)
 
 # pattern
+
+@registe_conversion(torch.ops.aten.gather)
+def gather(*args):
+    return tops_op.Gather(*args)
+
+@registe_conversion(torch.ops.aten.log)
+def log(*args):
+    return tops_op.Log(*args)
+
+@registe_conversion(torch.ops.aten.amax)
+def max(*args, **kwargs):
+    return tops_op.ReduceMax(*args, **kwargs)
+
+# Patterns
 def registe_pattern(Pattern):
 # TODO OpOverloadPacket
     patterns.append(Pattern)
@@ -126,19 +144,17 @@ class BaseReplacePattern(ABC):
     def replacement(*args, **kwargs):
         pass
 
-# %rsqrt_default_1 : [#users=2] = call_function[target=torch.ops.aten.rsqrt.default](args = (%add_6,), kwargs = {})
 @registe_pattern
 class ReplacePattern1:
     def pattern(a, b):
         return torch.ops.aten.rsqrt.default(a, b)
     def replacement(a, b):
         return tops_op.reciprocal(tops_op.sqrt(a, b))
-        #return tops_op.Reciprocal(r1)
-        #return tops_op.add(a, b)
+
 @registe_pattern
 class ReplacePattern2:
     def pattern(a):
-        return torch.ops.aten.rsqrt.default(a)
+        return tops_op.reciprocal(tops_op.sqrt(a))
     def replacement(a):
         return tops_op.reciprocal(tops_op.sqrt(a))
 
@@ -147,5 +163,4 @@ class ReplacePattern3:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
     def replacement(a, b, c):
-        #return  tops_op.addmm(a,b,c)
         return tops_op.add(a, tops_op.gemm(b, c))
