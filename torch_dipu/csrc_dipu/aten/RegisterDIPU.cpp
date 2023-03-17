@@ -175,6 +175,10 @@ at::Tensor & wrapper__log_softmax_backward_data_out_out(const at::Tensor & grad_
   return dnative::_log_softmax_backward_data_out(grad_output, output, dim, input_dtype, out);
 }
 
+at::Tensor wrapper_cross_entropy_loss(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing) {
+  return dnative::cross_entropy_loss(self, target, weight, reduction, ignore_index, label_smoothing);
+}
+
 }  // inner anonymous namespace
 
 static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
@@ -235,6 +239,8 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
   DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
   DIOPI_ATEN_FUNC("_log_softmax_backward_data.out", diopiLogSoftmaxBackward, wrapper__log_softmax_backward_data_out_out);
+  DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
+
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
