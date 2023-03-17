@@ -12,7 +12,7 @@ from torch._dynamo.utils import dynamo_timed
 
 log = logging.getLogger(__name__)
 
-class GraphConverter:
+class GraphTransformer:
     def __init__(
         self,
         gm: torch.fx.GraphModule,
@@ -20,16 +20,19 @@ class GraphConverter:
     ):
         self.gm = gm
         if backend == 'topsgraph':
-            from TopsGraph.opset_convert import topsgraph_opset_convert
-            self.backend_opset_convert = topsgraph_opset_convert
-            from TopsGraph.codegen.enflame import EnflameCodegen
-            self.backend_codegen = EnflameCodegen
+            from ..TopsGraph.opset_convert import topsgraph_opset_convert
+            self.backend_opset_transform = topsgraph_opset_convert
+            # TODO add codegen later
+            # from ..TopsGraph.codegen.enflame import EnflameCodegen
+            # self.backend_codegen = EnflameCodegen
 
-    def convert(self):
-        self.gm = self.backend_opset_convert(self.gm)
+    def transform(self):
+        self.gm = self.backend_opset_transform(self.gm)
+        print(self.gm.graph)
 
     def codegen(self):
-        return self.backend_codegen(self.gm).codegen()
+        return ''
+        # return self.backend_codegen(self.gm).codegen()
 
     @dynamo_timed
     def compile_to_module(self):
@@ -38,8 +41,6 @@ class GraphConverter:
         code = self.codegen()
 
         mod = PyCodeCache.load(code)
-        for name, value in self.constants.items():
-            setattr(mod, name, value)
 
         if dynamo_config.output_code:
             log.info("Output code: %s", mod.__file__)

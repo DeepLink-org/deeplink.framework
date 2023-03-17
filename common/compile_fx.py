@@ -9,7 +9,7 @@ import torch.fx
 from typing import List
 from importlib import import_module
 from torch._dynamo.utils import fake_mode_from_tensors
-from .graph import GraphConverter
+from .graph import GraphTransformer
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +51,8 @@ def compile_fx_inner(
     shape_env = _shape_env_from_inputs(example_inputs)
     fake_mode = fake_mode_from_tensors(example_inputs)
 
-    gc = GraphConverter(gm, backend)
-    gc.convert()
+    gc = GraphTransformer(gm, backend)
+    gc.transform()
     compiled_fn = gc.compile_to_fn()
 
     # TODO need align inputs?
