@@ -1,0 +1,57 @@
+name: dipu_poc  ci
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+  pull_request_target:
+    branches:
+      - 'main'
+
+env:
+  NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
+  ENV_PATH: '/mnt/cache/share/platform/cienv'
+  SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
+  CLUSTER_CAMB: CAMB
+  PYTORCH_TAG: "v2.0.0-rc5"
+
+jobs:
+  Rsync:
+    name: Rsync code
+    runs-on: github-poc-ci
+    steps:
+      - name: clone repo and rsync pytorch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ secrets.CI_TOKEN }}
+          fetch-depth: '0'
+          submodules: 'true'
+      - name: Rsync to Server
+        run: |
+          cd /data/githubci/runner/rsync/sourcecode/pytorch && git pull && git checkout ${PYTORCH_TAG} && git submodule uodate --init
+          ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
+          rsync -a --delete /data/githubci/runner/rsync/sourcecode/pytorch ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+
+  Build:
+    name: build
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 0
+    steps:
+      - name: build code
+        run: |
+          ssh ${CLUSTER_1984} """
+          set -e
+          cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
+          #这是你可以改的一行，MLU_REQUESTS自己调整,pytorch
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=gpu:${MLU_REQUESTS} bash -c 'echo zhelishuruniyaozhixingdemingling'
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB}
+          """
+
+
+
+
