@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: build code
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_CAMB} """
           set -e
           cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
