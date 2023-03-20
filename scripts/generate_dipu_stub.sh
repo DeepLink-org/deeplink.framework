@@ -5,7 +5,7 @@ DIPU="$CDIR/.."
 
 cd $DIPU
 
-python3 -m torchgen.gen_backend_stubs  \
+python3 -m torchgen.gen_dipu_stubs  \
   --output_dir="$DIPU/torch_dipu/csrc_dipu/aten" \
   --source_yaml="$DIPU/torch_dipu/csrc_dipu/aten/dipu_native_functions.yaml" \
   --impl_path="$DIPU/torch_dipu/csrc_dipu/aten"
