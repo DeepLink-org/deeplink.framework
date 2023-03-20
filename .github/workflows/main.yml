@@ -30,7 +30,7 @@ jobs:
           submodules: 'true'
       - name: Rsync to Server
         run: |
-          cd /data/githubci/runner/rsync/sourcecode/pytorch && git pull && git checkout ${PYTORCH_TAG} && git submodule uodate --init
+          cd /home/autolink/rsync/sourcecode/pytorch && git pull && git checkout ${PYTORCH_TAG} && git submodule uodate --init
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
           rsync -a --delete /data/githubci/runner/rsync/sourcecode/pytorch ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
           rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
