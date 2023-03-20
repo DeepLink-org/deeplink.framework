@@ -49,7 +49,7 @@ jobs:
           cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
           #这是你可以改的一行，MLU_REQUESTS自己调整,pytorch
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=gpu:${MLU_REQUESTS} bash -c 'echo zhelishuruniyaozhixingdemingling'
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} bash -c 'echo zhelishuruniyaozhixingdemingling'
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB}
           """
 
