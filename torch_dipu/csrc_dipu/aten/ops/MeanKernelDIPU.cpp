@@ -9,7 +9,7 @@ using dipu::diopi_helper::toDiopiDtype;
 
 namespace dipu::native {
 
-extern ::diopiDtype_t getDiopiDtype(c10::optional<at::ScalarType> dtype, const at::Tensor & out);
+extern ::diopiDtype_t getDiopiDtype(const c10::optional<at::ScalarType>& dtype, const at::Tensor & out);
 
 at::Tensor& DIPUATenFunctions::mean_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
     ::diopiConstTensorHandle_t self_diopi = toDiopiTensorHandle(self);
