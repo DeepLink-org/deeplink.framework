@@ -37,6 +37,7 @@ jobs:
 
   Build:
     name: build
+    needs: [Rsync]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 0
