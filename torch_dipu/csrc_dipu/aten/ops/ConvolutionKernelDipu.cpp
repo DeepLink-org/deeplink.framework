@@ -13,27 +13,6 @@ namespace dipu::native {
 using torch::autograd::AutogradContext;
 using tensor_list = std::vector<at::Tensor>;
 
-c10::SmallVector<int64_t, 8> convertIntArrayRefToSmallVector(c10::IntArrayRef array) {
-    c10::SmallVector<int64_t, 8> vec;
-    for (int i = 0; i < array.size(); i++) {
-        vec.emplace_back(array[i]);
-    }
-    return vec;
-}
-
-inline c10::SmallVector<int64_t, 8> expandDimIfNeed(
-    at::IntArrayRef list_param, int64_t expected_dim) {
-    if (list_param.size() != 1) {
-        return convertIntArrayRefToSmallVector(list_param);
-    }
-
-    c10::SmallVector<int64_t, 8> expand_dim_param_vec;
-    for (int64_t i = 0; i < expected_dim; i++) {
-        expand_dim_param_vec.emplace_back(list_param[0]);
-    }
-    return expand_dim_param_vec;
-}
-
 at::Tensor convolutionKernelDipu(
     const at::Tensor &input, const at::Tensor &weight,
     const c10::optional<at::Tensor> &bias_opt, at::IntArrayRef stride, at::IntArrayRef padding,
@@ -161,13 +140,6 @@ at::Tensor DIPUATenFunctions::conv2d(
     if (bias_opt.has_value() && bias_opt.value().defined()) {
         bias = bias_opt;
     }
-    at::Tensor tensor;
-    int64_t k = input.ndimension();
-    int64_t dim = k - 2;
-
-    auto expand_stride = expandDimIfNeed(stride, dim);
-    auto expand_padding = expandDimIfNeed(padding, dim);
-    auto expand_dilation = expandDimIfNeed(dilation, dim);
 
     return DipuConvlutionFunction::apply(input, weight, bias, stride, padding, dilation, groups);
 }

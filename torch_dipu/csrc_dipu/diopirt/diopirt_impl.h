@@ -45,11 +45,6 @@ c10::DeviceType toATenDevice(::diopiDevice_t device);
 
 ::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& dim);
 
-at::Tensor fromPreAllocated(
-    void* data, at::IntArrayRef sizes,
-    at::IntArrayRef strides, const std::function<void(void*)>& deleter,
-    at::Allocator* allocator, const at::TensorOptions& options);
-
 }  // namespace diopi_helper
 
 }  // namespace dipu
