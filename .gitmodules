@@ -1,3 +1,7 @@
 [submodule "third_party/DIOPI"]
 	path = third_party/DIOPI
     url = git@github.com:OpenComputeLab/DIOPI.git
+
+[submodule "third_party/DIOPI_TEST"]
+	path = third_party/DIOPI_TEST
+	url = git@github.com:OpenComputeLab/DIOPI-TEST.git

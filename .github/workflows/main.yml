@@ -12,9 +12,10 @@ on:
 env:
   NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   ENV_PATH: '/mnt/cache/share/platform/cienv'
+  ENV_NAME: 'dipu_poc'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   CLUSTER_CAMB: CAMB
-  PYTORCH_TAG: "v2.0.0-rc5"
+  PYTORCH_TAG: "0388400f3f8a8ecae2f809ba40ca3ddd5a8b9028"
 
 jobs:
   Rsync:
@@ -30,7 +31,8 @@ jobs:
           submodules: 'true'
       - name: Rsync to Server
         run: |
-          cd /home/autolink/rsync/sourcecode/pytorch && git pull && git checkout ${PYTORCH_TAG} && git submodule uodate --init
+          cd ${GITHUB_WORKSPACE}/ && cd third_party/DIOPI_TEST && git submodule update --init --recursive
+          cd /home/autolink/rsync/sourcecode/pytorch && git pull && git checkout ${PYTORCH_TAG} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
           rsync -a --delete /home/autolink/rsync/sourcecode/pytorch ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
           rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
@@ -40,16 +42,20 @@ jobs:
     needs: [Rsync]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 0
+      MLU_REQUESTS: 1
     steps:
       - name: build code
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
+          source /mnt/lustre/share/platform/env/${ENV_NAME}
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
           #这是你可以改的一行，MLU_REQUESTS自己调整,pytorch
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} bash -c 'echo zhelishuruniyaozhixingdemingling'
+          #srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} bash ${GITHUB_JOB}/scripts/ci_build.sh build_pytorch
+          cd ${GITHUB_JOB}
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} bash scripts/ci_build.sh build_diopi
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB}
           """
 

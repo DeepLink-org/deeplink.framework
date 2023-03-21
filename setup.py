@@ -44,10 +44,11 @@ def get_cmake_command():
         raise RuntimeError('no version found')
     "Returns cmake command."
     cmake_command = 'cmake'
-    cmake3 = which('cmake3')
+    cmake3 = which('cmake')
     cmake = which('cmake')
+    print(_get_version(cmake3))
     if cmake3 is not None and _get_version(cmake3) >= LooseVersion("3.10.0"):
-        cmake_command = 'cmake3'
+        cmake_command = 'cmake'
         return cmake_command
     elif cmake is not None and _get_version(cmake) >= LooseVersion("3.10.0"):
         return cmake_command
@@ -98,7 +99,7 @@ class CPPLibBuild(build_clib, object):
             # '-DPYTHON_INCLUDE_DIR=' + get_paths()['include'],
             # '-DPYTORCH_INSTALL_DIR=' + get_pytorch_dir()
         ]
-        build_args = ['-j', 12]
+        build_args = ['-j', '12']
         subprocess.check_call([self.cmake, BASE_DIR] + cmake_args, cwd=build_type_dir, env=os.environ)
         subprocess.check_call(['make'] + build_args, cwd=build_type_dir, env=os.environ)
 

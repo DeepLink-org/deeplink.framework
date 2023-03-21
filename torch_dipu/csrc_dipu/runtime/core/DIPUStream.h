@@ -75,13 +75,13 @@ public:
     return stream_;
   }
 
-  uint64_t pack() const noexcept {
-    return stream_.pack();
-  }
+  //uint64_t pack() const noexcept {
+  //  return stream_.pack();
+  //}
 
-  static DIPUStream unpack(uint64_t bits) {
-    return DIPUStream(c10::Stream::unpack(bits));
-  }
+  //static DIPUStream unpack(uint64_t bits) {
+  //  return DIPUStream(c10::Stream::unpack(bits));
+ // }
 
 private:
   c10::Stream stream_;
