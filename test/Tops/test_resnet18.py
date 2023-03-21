@@ -9,7 +9,7 @@ from op_collector import InnerCompilerOpCollectorContext
 
 import torch
 import torch.fx
-from opset_transform import topsgraph_opset_transform
+from TopsGraph.opset_transform import topsgraph_opset_transform
 import time
 
 # config
