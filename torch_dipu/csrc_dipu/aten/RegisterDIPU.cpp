@@ -155,6 +155,10 @@ at::Tensor & wrapper_addmm_out_out(const at::Tensor & self, const at::Tensor & m
   return dnative::addmm_out(self, mat1, mat2, beta, alpha, out);
 }
 
+at::Tensor wrapper__adaptive_avg_pool2d(const at::Tensor & self, c10::SymIntArrayRef output_size) {
+  return dnative::_adaptive_avg_pool2d(self, output_size);
+}
+
 at::Tensor & wrapper_out_adaptive_avg_pool2d_out(const at::Tensor & self, c10::SymIntArrayRef output_size, at::Tensor & out) {
   return dnative::adaptive_avg_pool2d_out(self, output_size, out);
 }
@@ -242,6 +246,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("sum.IntList_out", diopiSum, wrapper_sum_out_IntList_out);
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
   DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
+  DIOPI_ATEN_FUNC("_adaptive_avg_pool2d", diopiAdaptiveAvgPool2d, wrapper__adaptive_avg_pool2d);
   DIOPI_ATEN_FUNC("adaptive_avg_pool2d.out", diopiAdaptiveAvgPool2d, wrapper_out_adaptive_avg_pool2d_out);
   DIOPI_ATEN_FUNC("_adaptive_avg_pool2d_backward", diopiAdaptiveAvgPool2dBackward, wrapper__adaptive_avg_pool2d_backward);
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);

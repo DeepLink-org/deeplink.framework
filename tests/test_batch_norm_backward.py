@@ -38,7 +38,7 @@ def test_batchnorm_backward_eval():
             cpu_grad_list.append(module.grad)
             module.grad = None
 
-        model = model.to(d)
+        model = model.to(device)
         out = model(dipu_tensor)
         loss = out.sum()
         loss.backward()
