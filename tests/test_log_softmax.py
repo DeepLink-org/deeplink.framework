@@ -8,7 +8,7 @@ def test_log_softmax(x, devicestr : str):
     log_softmax_x = torch.nn.functional.log_softmax(x, dim=1)
     print(log_softmax_x)
 
-    grad_output = torch.randn(2, 3)
+    grad_output = torch.ones(2, 3).to(device)
     log_softmax_x.backward(grad_output)
     print(x.grad)
 

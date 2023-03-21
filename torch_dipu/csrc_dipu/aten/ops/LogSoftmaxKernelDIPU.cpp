@@ -23,4 +23,8 @@ at::Tensor& DIPUATenFunctions::log_softmax_out(const at::Tensor & self, int64_t 
     return out;
 }
 
+at::Tensor& DIPUATenFunctions::_log_softmax_out(const at::Tensor & self, int64_t dim, bool half_to_float, at::Tensor & out) {
+    return DIPUATenFunctions::log_softmax_out(result, dim, c10::nullopt, out);
+}
+
 }  // namespace dipu::native

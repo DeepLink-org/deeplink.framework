@@ -171,6 +171,10 @@ at::Tensor wrapper_linear(const at::Tensor & input, const at::Tensor & weight, c
   return dnative::linear(input, weight, bias);
 }
 
+at::Tensor & wrapper__log_softmax_out_out(const at::Tensor & self, int64_t dim, bool half_to_float, at::Tensor & out) {
+  return dnative::_log_softmax_out(self, dim, half_to_float, out);
+}
+
 at::Tensor & wrapper_int_out_log_softmax_out(const at::Tensor & self, int64_t dim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   return dnative::log_softmax_out(self, dim, dtype, out);
 }
@@ -250,6 +254,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("adaptive_avg_pool2d.out", diopiAdaptiveAvgPool2d, wrapper_out_adaptive_avg_pool2d_out);
   DIOPI_ATEN_FUNC("_adaptive_avg_pool2d_backward", diopiAdaptiveAvgPool2dBackward, wrapper__adaptive_avg_pool2d_backward);
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
+  DIOPI_ATEN_FUNC("_log_softmax.out", diopiLogSoftmax, wrapper__log_softmax_out_out);
   DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
   DIOPI_ATEN_FUNC("_log_softmax_backward_data.out", diopiLogSoftmaxBackward, wrapper__log_softmax_backward_data_out_out);
   DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
