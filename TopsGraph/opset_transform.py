@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 from common.op_transformer import OpSetTransformer
 from TopsGraph.conversion import patterns, conversions
 
-def topsgraph_opset_convert(
+def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
 ):
-    return OpSetTransformer(patterns, "tops", conversions).transform(gm)
+    return OpSetTransformer(patterns, conversions).transform(gm)

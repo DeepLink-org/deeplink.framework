@@ -1,6 +1,6 @@
 import torch
 import torch.fx
-from opset_convert import topsgraph_opset_convert
+from opset_transform import topsgraph_opset_transform
 from torch.tops.operator import *
 
 class MyModule(torch.nn.Module):
@@ -19,6 +19,6 @@ m = MyModule()
 traced = torch.fx.symbolic_trace(m)
 print(traced.graph)
 print("do transforma")
-transformed = topsgraph_opset_convert(traced)
+transformed = topsgraph_opset_transform(traced)
 
 print(transformed.graph)

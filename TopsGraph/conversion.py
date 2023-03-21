@@ -10,7 +10,7 @@ patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
-def _registe_conversion(
+def _register_conversion(
     aten_fn, decomp_fn
 ):
     @functools.wraps(decomp_fn)
@@ -32,106 +32,119 @@ def _registe_conversion(
     conversions.update({fn: wrapped for fn in aten_fn})
     return wrapped
 
-def registe_conversion(aten_fn):
+def register_conversion(aten_fn):
     """
     Shim to support decorator syntax.
     """
     return functools.partial(
-        _registe_conversion,
+        _register_conversion,
         aten_fn,
     )
 
-@registe_conversion(torch.ops.aten.add)
+@register_conversion(torch.ops.aten.add)
 def add(a, b):
     return tops_op.Add(a, b)
 
-@registe_conversion(torch.ops.aten.abs)
+@register_conversion(torch.ops.aten.abs)
 def abs(a):
     return tops_op.Abs(a)
 
-@registe_conversion(torch.ops.aten.mul)
+@register_conversion(torch.ops.aten.mul)
 def mul(a, b):
     return tops_op.Mul(a, b)
 
-@registe_conversion(torch.ops.aten.div)
+@register_conversion(torch.ops.aten.div)
 def div(a, b):
     return tops_op.Div(a, b)
 
-@registe_conversion(torch.ops.aten.sub)
+@register_conversion(torch.ops.aten.sub)
 def sub(a, b):
     return tops_op.Sub(a, b)
 
-@registe_conversion(torch.ops.aten.sqrt)
+@register_conversion(torch.ops.aten.sqrt)
 def sqrt(a):
     return tops_op.Sqrt(a)
 
-@registe_conversion(torch.ops.aten.exp)
+@register_conversion(torch.ops.aten.exp)
 def exp(a):
     return tops_op.Exp(a)
 
-@registe_conversion(torch.ops.aten.relu)
+@register_conversion(torch.ops.aten.relu)
 def relu(a):
     return tops_op.Relu(a)
 
-@registe_conversion(torch.ops.aten.sum)
+@register_conversion(torch.ops.aten.sum)
 def sum(*args):
     return tops_op.ReduceSum(*args)
 
-@registe_conversion(operator.getitem)
+@register_conversion(operator.getitem)
 def getitem(*args, **kwargs):
     return tops_op.Getitem(*args, **kwargs)
 
 #torch.ops.aten.squeeze.dim(,[])
 #torch.ops.aten.squeeze.dims(,)
-@registe_conversion(torch.ops.aten.squeeze)
+@register_conversion(torch.ops.aten.squeeze)
 def squeeze(a,b):
     return tops_op.Squeeze(a,b)
 
-@registe_conversion(torch.ops.aten.unsqueeze)
+@register_conversion(torch.ops.aten.unsqueeze)
 def unsqueeze(a,b):
     return tops_op.Unsqueeze(a,b)
 
-@registe_conversion(torch.ops.aten.permute)
+@register_conversion(torch.ops.aten.permute)
 def permute(a, b):
     return tops_op.Transpose(a,b)
 
-@registe_conversion(torch.ops.aten.clone)
+@register_conversion(torch.ops.aten.clone)
 def clone(*args):
     return tops_op.Copy(*args)
 
-# %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim](args = (%relu_16, [-1, -2], True), kwargs = {})
-@registe_conversion(torch.ops.aten.mean)
-def mean(*args):
-    return tops_op.Mean(*args)
+@register_conversion(torch.ops.aten.neg)
+def neg(*args):
+    return tops_op.Neg(*args)
 
-@registe_conversion(torch.ops.aten.view)
+# %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
+#                          (args = (%relu_16, [-1, -2], True), kwargs = {})
+@register_conversion(torch.ops.aten.mean)
+def mean(*args):
+    return tops_op.ReduceMean(*args)
+
+#%var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
+#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
+@register_conversion(torch.ops.aten.var_mean.correction)
+def varmean(*args, **kwargs):
+    return tops_op.ReduceMean(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.view)
 def view(a, b):
     return tops_op.Reshape(a,b)
 
-@registe_conversion(torch.ops.aten.convolution)
+@register_conversion(torch.ops.aten.convolution)
 def convolution(*args):
     return tops_op.Convolution(*args)
 
-@registe_conversion(torch.ops.aten.max_pool2d_with_indices)
-def convolution(*args):
+@register_conversion(torch.ops.aten.le.Scalar)
+def le(*args):
+    return tops_op.LessEqual(*args)
+
+@register_conversion(torch.ops.aten.max_pool2d_with_indices)
+def max_pool2d_with_indices(*args):
     return tops_op.Max_pool2d_with_indices(*args)
 
-# pattern
-
-@registe_conversion(torch.ops.aten.gather)
+@register_conversion(torch.ops.aten.gather)
 def gather(*args):
     return tops_op.Gather(*args)
 
-@registe_conversion(torch.ops.aten.log)
+@register_conversion(torch.ops.aten.log)
 def log(*args):
     return tops_op.Log(*args)
 
-@registe_conversion(torch.ops.aten.amax)
+@register_conversion(torch.ops.aten.amax)
 def max(*args, **kwargs):
     return tops_op.ReduceMax(*args, **kwargs)
 
 # Patterns
-def registe_pattern(Pattern):
+def register_pattern(Pattern):
 # TODO OpOverloadPacket
     patterns.append(Pattern)
     return Pattern
@@ -144,21 +157,21 @@ class BaseReplacePattern(ABC):
     def replacement(*args, **kwargs):
         pass
 
-@registe_pattern
+@register_pattern
 class ReplacePattern1:
     def pattern(a, b):
         return torch.ops.aten.rsqrt.default(a, b)
     def replacement(a, b):
         return tops_op.reciprocal(tops_op.sqrt(a, b))
 
-@registe_pattern
+@register_pattern
 class ReplacePattern2:
     def pattern(a):
-        return tops_op.reciprocal(tops_op.sqrt(a))
+        return torch.ops.aten.rsqrt.default(a)
     def replacement(a):
         return tops_op.reciprocal(tops_op.sqrt(a))
 
-@registe_pattern
+@register_pattern
 class ReplacePattern3:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)

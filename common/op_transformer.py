@@ -5,9 +5,8 @@ from torch.fx.node import Argument, Target
 from typing import Any, Dict, Tuple
 
 class OpSetTransformer:
-    def __init__(self, patterns, new_namespace, conversions):
+    def __init__(self, patterns, conversions):
         self._patterns = patterns
-        self._new_namespace = new_namespace
         self._conversions = conversions
 
     def transform(self, module: torch.fx.GraphModule):
