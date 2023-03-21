@@ -5,6 +5,7 @@ import torch_dipu
 def test_cross_entropy_loss(input, target, devicestr : str):
     device = torch.device(devicestr)
     input = input.to(device)
+    input.requires_grad_(True)
     target = target.to(device)
     loss = F.cross_entropy(input, target)
     print(f"loss = {loss}")
@@ -13,7 +14,7 @@ def test_cross_entropy_loss(input, target, devicestr : str):
     print(f"input.grad = {input.grad}")
 
 
-input = torch.randn(3, 5, requires_grad=True)
+input = torch.randn(3, 5)
 # target with class indices
 target = torch.randint(5, (3,), dtype=torch.int64)
 test_cross_entropy_loss(input, target, "dipu")
