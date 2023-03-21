@@ -191,6 +191,10 @@ at::Tensor & wrapper_nll_loss_out(const at::Tensor & self, const at::Tensor & ta
   return dnative::nll_loss_out(self, target, weight, reduction, ignore_index, out);
 }
 
+::std::tuple<at::Tensor &,at::Tensor &> wrapper_nll_loss_forward_out_output(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, at::Tensor & output, at::Tensor & total_weight) {
+  return dnative::nll_loss_forward_out(self, target, weight, reduction, ignore_index, output, total_weight);
+}
+
 at::Tensor & wrapper_nll_loss_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, const at::Tensor & total_weight, at::Tensor & grad_input) {
   return dnative::nll_loss_backward_out_grad_input(grad_output, self, target, weight, reduction, ignore_index, total_weight, grad_input);
 }
@@ -260,7 +264,9 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
   DIOPI_ATEN_FUNC("nll_loss.out", diopiNLLLoss, wrapper_nll_loss_out);
   DIOPI_ATEN_FUNC("nll_loss2d.out", diopiNLLLoss, wrapper_nll_loss_out);
-  DIOPI_ATEN_FUNC("nll_loss_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_out);
+  DIOPI_ATEN_FUNC("nll_loss_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);
+  DIOPI_ATEN_FUNC("nll_loss2d_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);
+  DIOPI_ATEN_FUNC("nll_loss_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
   DIOPI_ATEN_FUNC("nll_loss2d_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
 
 }
