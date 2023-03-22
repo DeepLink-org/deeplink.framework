@@ -21,6 +21,7 @@ test_cross_entropy_loss(input, target, "dipu")
 test_cross_entropy_loss(input, target, "cpu")
 
 # target with class probabilities
+input = torch.randn(3, 5)
 target = torch.randn(3, 5).softmax(dim=1)
 test_cross_entropy_loss(input, target, "dipu")
 test_cross_entropy_loss(input, target, "cpu")

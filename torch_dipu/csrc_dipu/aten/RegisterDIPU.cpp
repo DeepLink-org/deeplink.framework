@@ -261,7 +261,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("_log_softmax.out", diopiLogSoftmax, wrapper__log_softmax_out_out);
   DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
   DIOPI_ATEN_FUNC("_log_softmax_backward_data.out", diopiLogSoftmaxBackward, wrapper__log_softmax_backward_data_out_out);
-  DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
+  // DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
   DIOPI_ATEN_FUNC("nll_loss.out", diopiNLLLoss, wrapper_nll_loss_out);
   DIOPI_ATEN_FUNC("nll_loss2d.out", diopiNLLLoss, wrapper_nll_loss_out);
   DIOPI_ATEN_FUNC("nll_loss_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);
