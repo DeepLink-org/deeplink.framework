@@ -1,6 +1,6 @@
 import torch
 import torch.fx
-from TopsGraph.opset_transform import topsgraph_opset_transform
+from third_party.DICP.TopsGraph.opset_transform import topsgraph_opset_transform
 
 class MyModule(torch.nn.Module):
     def __init__(self):
