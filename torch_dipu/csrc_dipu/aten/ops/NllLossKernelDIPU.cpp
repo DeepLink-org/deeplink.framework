@@ -28,4 +28,9 @@ at::Tensor& DIPUATenFunctions::nll_loss_out(const at::Tensor & self, const at::T
     return out;
 }
 
+::std::tuple<at::Tensor &,at::Tensor &> DIPUATenFunctions::nll_loss_forward_out(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, at::Tensor & output, at::Tensor & total_weight) {
+    at::Tensor &result = DIPUATenFunctions::nll_loss_out(self, target, weight, reduction, ignore_index, output);
+    return std::tie(result, total_weight);
+}
+
 }  // namespace dipu::native

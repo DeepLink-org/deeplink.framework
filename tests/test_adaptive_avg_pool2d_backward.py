@@ -2,9 +2,9 @@ import torch
 import torch.nn.functional as F
 import torch_dipu
 
-def test(devicestr : str):
+def test(x, devicestr : str):
     device = torch.device(devicestr)
-    x = torch.randn(1, 3, 4, 4).to(device)
+    x = x.to(device)
     x.requires_grad_(True)
     y = F.adaptive_avg_pool2d(x, (2, 2))
     print(f" y = {y}")
@@ -16,5 +16,6 @@ def test(devicestr : str):
     print(f"x.grad = {x.grad}")
 
 
-test('dipu')
-test('cpu')
+x = torch.randn(1, 3, 4, 4)
+test(x, 'dipu')
+test(x, 'cpu')

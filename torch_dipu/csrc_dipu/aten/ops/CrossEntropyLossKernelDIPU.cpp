@@ -19,7 +19,8 @@ at::Tensor DIPUATenFunctions::cross_entropy_loss(const at::Tensor & self, const 
     }
 
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-    at::Tensor scalar_tensor = at::empty({}, at::kFloat);
+    at::TensorOptions options = self.options().dtype(at::kFloat);
+    at::Tensor scalar_tensor = at::empty({}, options);
     ::diopiTensorHandle_t out_diopi = toDiopiTensorHandle(scalar_tensor);
 
     ::diopiError_t ret = ::diopiCrossEntropyLoss(&context, out_diopi, self_diopi,

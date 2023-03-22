@@ -32,4 +32,17 @@ at::Tensor& DIPUATenFunctions::adaptive_avg_pool2d_out(const at::Tensor & self, 
     return out;
 }
 
+at::Tensor DIPUATenFunctions::_adaptive_avg_pool2d(const at::Tensor & self, c10::SymIntArrayRef output_size) {
+    auto self_size = self.sizes();
+    std::vector<int64_t> out_tensor_size = self_size.vec();
+    std::vector<int64_t> data = getOutputSize(output_size);
+    TORCH_CHECK(data.size() == 2, __func__, ":", __FILE__, ":", __LINE__,
+        " output_size should equal 2, size is ", data.size());
+    out_tensor_size[self.dim() - 1] = data[1];
+    out_tensor_size[self.dim() - 2] = data[0];
+    at::Tensor out = at::empty(out_tensor_size, self.options());
+
+    return DIPUATenFunctions::adaptive_avg_pool2d_out(self, output_size, out);
+}
+
 }  // namespace dipu::native
