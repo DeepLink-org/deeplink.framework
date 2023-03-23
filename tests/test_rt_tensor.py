@@ -21,6 +21,21 @@ def empty1():
     res3 = res2.to("cpu")
     print(res3)
 
+
+def testdevice():
+    import torch_dipu
+    device= torch.device(0)
+    device= torch.device("cuda:0")
+    device= torch.device("cuda", index=0)
+    device= torch.device("cuda", 0)
+    # device= torch.device(0)
+    device= torch.device(index=0, type="cuda")
+    ret1 = isinstance(device, torch.device)
+    input0 = torch.ones((2, 4))
+    input0.to(0)
+    input1 = torch.ones((2, 4), device=device)
+    print(input1)
+
 if __name__ == '__main__':
-    for i in range(1, 4):
+    for i in range(1, 2):
         empty1()
