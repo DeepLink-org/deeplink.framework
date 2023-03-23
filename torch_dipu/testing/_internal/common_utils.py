@@ -4,7 +4,9 @@ import torch
 import numpy as np
 
 cpu = "cpu"
-dipu = "cpu"
+dipu = torch.device("dipu")
+
+
 
 def get_dipu_device():
     return torch.device(dipu)
@@ -22,7 +24,7 @@ def create_common_tensor(item, minValue, maxValue, device=None):
         device = get_dipu_device()
         
     dtype = item[0]
-    shape = item[1]
+    shape = item[2]
     input1 = np.random.uniform(minValue, maxValue, shape).astype(dtype)
     cpu_input = torch.from_numpy(input1)
     dipu_input = torch.from_numpy(input1).to(device)

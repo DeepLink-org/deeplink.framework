@@ -6,7 +6,7 @@ function build_pytorch_source() {
     cd pytorch
     echo "building pytorch:$(pwd)"
     export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
-    BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 python setup.py install --user
+    BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 python setup.py install --prefix=./install_path
     cd ..
 }
 

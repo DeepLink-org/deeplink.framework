@@ -15,11 +15,12 @@ function build_dipu_py() {
 }
 
 function config_dipu_camb_cmake() {
+    PYTORCH_DIR="$(pwd)/../pytorch"
     mkdir -p build && cd ./build && rm -rf ./*
-    PYTORCH_DIR="/mnt/lustre/share/parrotsci/github/cibuild/OpenComputeLab/dipu_poc/33/pytorch"
-    echo "PYTORCH_DIR: ${PYTORCH_DIR}"
+    #PYTORCH_DIR="/mnt/lustre/share_data/zhaochaoxing/code/33/pytorch"
     #PYTORCH_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0v1_cpu/lib/python3.8/site-packages"
     #PYTORCH_DIR="/mnt/lustre/share_data/caikun/code/pytorch"
+    echo "PYTORCH_DIR: ${PYTORCH_DIR}"
     #echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     #PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0v1_cpu/include/python3.8"
     PYTHON_INCLUDE_DIR="/mnt/lustre/share_data/caikun/pt2.0/include/python3.8"
@@ -31,7 +32,8 @@ function config_dipu_camb_cmake() {
 
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
-    export DIOPI_ROOT=/mnt/lustre/share_data/zhaochaoxing/code/dipu_poc/third_party/DIOPI_TEST/lib
+    export DIOPI_ROOT=$(pwd)/../DIOPI-TEST/lib/no_runtime
+    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     #export DIOPI_ROOT=/mnt/lustre/share_data/caikun/code/ConformanceTest-DIOPI/lib
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     #export LD_LIBRARY_PATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0v1_cpu/lib:$LD_LIBRARY_PATH

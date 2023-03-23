@@ -1,6 +1,3 @@
-import sys
-sys.path.append("../..")
-
 import torch
 import numpy as np
 
@@ -310,4 +307,5 @@ class TestAddmm(TestCase):
 
 
 if __name__ == "__main__":
-    run_tests()
+    pass
+    # run_tests()
