@@ -139,21 +139,13 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
     }
 }
 
-at::Tensor fromPreAllocated(
-    void* data, at::IntArrayRef sizes,
-    at::IntArrayRef strides, const std::function<void(void*)>& deleter,
-    at::Allocator* allocator, const at::TensorOptions& options) {
-    auto device = at::globalContext().getDeviceFromPtr(data, options.device().type());
-    if (options.device().has_index()) {
-        assert(options.device() == device);
+::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& input) {
+    ::diopiSize_t diopi_size;
+    if (input.has_value()) {
+        diopi_size.data = input.value().data();
+        diopi_size.len = input.value().size();
     }
-
-    auto storage = at::Storage(
-        at::Storage::use_byte_size_t(),
-        at::detail::computeStorageNbytes(sizes, strides, options.dtype().itemsize()),
-        c10::InefficientStdFunctionContext::makeDataPtr(data, deleter, device),
-        allocator, false);
-    return at::empty({0}, options).set_(storage, 0, sizes, strides);
+    return diopi_size;
 }
 
 }  // namespace diopi_helper

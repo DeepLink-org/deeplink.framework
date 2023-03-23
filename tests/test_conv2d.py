@@ -3,22 +3,22 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import numpy as np
+import torch_dipu
 
-torch.ops.load_library("../build/libtorch_dipu.so")
-
-m = nn.Conv2d(2, 3, 3, stride=2).cuda()
+device = torch.device("dipu")
+m = nn.Conv2d(2, 3, 3, stride=2).to(device)
 m.weight = nn.Parameter(torch.ones_like(m.weight))
 m.bias = nn.Parameter(torch.ones_like(m.bias))
-input_cuda = torch.randn(2, 2, 5, 5).cuda()
-print(f"input_cuda = {input_cuda}")
+input_dipu = torch.randn(2, 2, 5, 5).to(device)
+print(f"input_dipu = {input_dipu}")
 print(f"m.weight = {m.weight}")
-output_cuda = m(input_cuda)
-print(output_cuda)
+output_dipu = m(input_dipu)
+print(output_dipu)
 
 m = nn.Conv2d(2, 3, 3, stride=2)
 m.weight = nn.Parameter(torch.ones_like(m.weight))
 m.bias = nn.Parameter(torch.ones_like(m.bias))
-input_cpu = input_cuda.cpu()
+input_cpu = input_dipu.cpu()
 print(f"input_cpu = {input_cpu}")
 print(f"m.weight = {m.weight}")
 output_cpu = m(input_cpu)
@@ -26,5 +26,5 @@ print(output_cpu)
 
 rtol = 1e-5
 atol = 1e-8
-assert np.allclose(output_cpu.detach().numpy(), output_cuda.detach().cpu().numpy(), rtol, atol, True)
+assert np.allclose(output_cpu.detach().numpy(), output_dipu.detach().cpu().numpy(), rtol, atol, True)
 print("conv2d output compare successfully")

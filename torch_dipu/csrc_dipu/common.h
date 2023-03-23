@@ -80,4 +80,5 @@ DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 } // end ns dipu
 
 #define DIPU_DEVICE_TYPE_MACRO PrivateUse1
+#define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO AutogradPrivateUse1
 

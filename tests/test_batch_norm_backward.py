@@ -2,8 +2,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
-torch.ops.load_library("../build/libtorch_dipu.so")
+import torch_dipu
 
 class Model(nn.Module):
     def __init__(self, in_channels):
@@ -25,9 +24,10 @@ class Model(nn.Module):
 def test_batchnorm_backward_eval():
     model = Model(in_channels = 16)
     cpu_tensor = torch.randn(2, 16, 1, 1)
-    cuda_tensor = cpu_tensor.cuda()
+    device = torch.device('dipu')
+    dipu_tensor = cpu_tensor.to(device)
     cpu_tensor.requires_grad = True
-    cuda_tensor.requires_grad = True
+    dipu_tensor.requires_grad = True
 
     for i in range(1):
         out = model(cpu_tensor)
@@ -38,24 +38,24 @@ def test_batchnorm_backward_eval():
             cpu_grad_list.append(module.grad)
             module.grad = None
 
-        model = model.cuda()
-        out = model(cuda_tensor)
+        model = model.to(device)
+        out = model(dipu_tensor)
         loss = out.sum()
         loss.backward()
-        cuda_grad_list = []
+        dipu_grad_list = []
         for _, module in model.named_parameters():
-            cuda_grad_list.append(module.grad.cpu())
+            dipu_grad_list.append(module.grad.cpu())
 
         cpu_grad = cpu_tensor.grad
-        cuda_grad = cuda_tensor.grad
+        dipu_grad = dipu_tensor.grad
         rtol = 1e-5
         atol = 1e-8
 
-        assert np.allclose(cpu_grad.numpy(), cuda_grad.cpu().numpy(), rtol, atol, True)
-        print("np allclose success\n", cpu_grad, "\n", cuda_grad)
-        for cpu_grad, cuda_grad in zip(cpu_grad_list, cuda_grad_list):
-            assert np.allclose(cpu_grad.numpy(), cuda_grad.cpu().numpy(), rtol, atol, True)
-            print("np allclose success\n", cpu_grad, "\n", cuda_grad)
+        assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
+        print("np allclose success\n", cpu_grad, "\n", dipu_grad)
+        for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
+            assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
+            print("np allclose success\n", cpu_grad, "\n", dipu_grad)
 
 
 if __name__ == "__main__":
