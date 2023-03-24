@@ -177,9 +177,7 @@ def debugat():
 
 def test_resnetmy():
     import torch_dipu
-    # device="cuda"
-    # s device="cpu"
-    device= torch.device("dipu")
+    device="cuda"
     SEED = 1024
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)

@@ -1,3 +1,4 @@
+from functools import partial
 import torch
 from torch import device
 from torch_dipu import mockcuda
@@ -44,17 +45,18 @@ class _DeviceWrapper(metaclass=MetaType):
 
 
 # wrap device related func
-def GetDeviceProxy(rawfunc, static_func = False, pos = 0, name = "device"):
+def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
     def _replaceDevice(args, kwargs):
         # pos device
-        if len(args) >= pos+1 and (isinstance(args[pos], int)
+        if pos >= 0 and pos < len(args) and (isinstance(args[pos], int)
                 or isinstance(args[pos], str)):
             argList = list(args)
             argList[pos] = torch.device(args[pos])
             args = tuple(argList)
         deviceValue = kwargs.get(name, None)
-        if deviceValue != None:
-            kwargs[deviceValue] = torch.device(deviceValue)
+        if deviceValue != None and (isinstance(deviceValue, int)
+                or isinstance(deviceValue, str)):
+            kwargs[name] = torch.device(deviceValue)
         return args, kwargs
 
     def _proxyFuncInst(self, *args, **kwargs):
@@ -68,3 +70,5 @@ def GetDeviceProxy(rawfunc, static_func = False, pos = 0, name = "device"):
         return _proxyFuncStatic
     else:
         return _proxyFuncInst
+
+GetTorchFuncProxy = partial(GetDeviceProxy, pos = -1, name = "device", static_func = True)
