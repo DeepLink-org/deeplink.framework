@@ -57,7 +57,7 @@ target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 set(VENDOR_DIST  "${DIST_DIR}/csrc_dipu/vendor/")
 add_custom_target(copy_include
     COMMAND mkdir -p ${VENDOR_DIST}
-    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}
+    COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
 )
 add_dependencies(${DIPU_LIB} copy_include)
 
