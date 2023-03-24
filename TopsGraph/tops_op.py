@@ -56,6 +56,11 @@ class Sqrt(Operator):
         super().__init__("sqrt")
         self.a = a
 
+class Square(Operator):
+    def __init__(self, *args):
+        super().__init__("square")
+        self.args = args
+
 class Exp(Operator):
     def __init__(self, a):
         super().__init__("exp")
@@ -167,3 +172,7 @@ def add(a, b) -> torch.Tensor:
 @torch.fx.wrap
 def gemm(a, b) -> torch.Tensor:
     return torch.gemm(a,b)
+
+@torch.fx.wrap
+def tuple(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
+    return a, b
