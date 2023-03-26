@@ -51,9 +51,10 @@ def compile_fx_inner(
     shape_env = _shape_env_from_inputs(example_inputs)
     fake_mode = fake_mode_from_tensors(example_inputs)
 
-    gc = GraphTransformer(gm, backend)
-    gc.transform()
-    compiled_fn = gc.compile_to_fn()
+    gt = GraphTransformer(gm, backend)
+    gt.transform()
+    gt.infer_shape_dtype()
+    compiled_fn = gt.compile_to_fn()
 
     # TODO need align inputs?
 

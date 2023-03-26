@@ -16,6 +16,8 @@ class Add(Operator):
         super().__init__("add")
         self.a = a
         self.b = b
+    def __call__(self, *args, **kwds):
+        return torch.add(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
 
 class Gemm(Operator):
     def __init__(self, a, b):
@@ -27,6 +29,8 @@ class Abs(Operator):
     def __init__(self, a):
         super().__init__("abs")
         self.a = a
+    def __call__(self, *args, **kwds):
+        return torch.abs(args[0].meta['val'])
 
 class LessEqual(Operator):
     def __init__(self, *args):
@@ -38,23 +42,32 @@ class Mul(Operator):
         super().__init__("mul")
         self.a = a
         self.b = b
+    def __call__(self, *args, **kwds):
+        return torch.mul(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
 
 class Div(Operator):
     def __init__(self, a, b):
         super().__init__("div")
         self.a = a
         self.b = b
+    def __call__(self, *args, **kwds):
+        return torch.div(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+
 
 class Sub(Operator):
     def __init__(self, a, b):
         super().__init__("sub")
         self.a = a
         self.b = b
+    def __call__(self, *args, **kwds):
+        return torch.sub(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
 
 class Sqrt(Operator):
     def __init__(self, a):
         super().__init__("sqrt")
         self.a = a
+    def __call__(self, *args, **kwds):
+        return torch.sqrt(args[0].meta['val'])
 
 class Square(Operator):
     def __init__(self, *args):
@@ -126,6 +139,8 @@ class Reciprocal(Operator):
     def __init__(self, a):
         super().__init__("reciprocal")
         self.a = a
+    def __call__(self, *args, **kwds):
+        return torch.reciprocal(args[0].meta['val'])
 
 class Convolution(Operator):
     def __init__(self, *args):
@@ -153,26 +168,7 @@ class Getitem(Operator):
         self.args = args
         self.args = kwargs
 
-# For pattern replacement
-@torch.fx.wrap
-def sqrt(a, b) -> torch.Tensor:
-    return torch.sqrt(a, b)
-@torch.fx.wrap
-def sqrt1(a) -> torch.Tensor:
-    return torch.sqrt(a)
-
-@torch.fx.wrap
-def reciprocal(a) -> torch.Tensor:
-    return torch.reciprocal(a)
-
-@torch.fx.wrap
-def add(a, b) -> torch.Tensor:
-    return torch.add(a,b)
-
-@torch.fx.wrap
-def gemm(a, b) -> torch.Tensor:
-    return torch.gemm(a,b)
-
+# TODO check if we need this wrap
 @torch.fx.wrap
 def tuple(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
     return a, b

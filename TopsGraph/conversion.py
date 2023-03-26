@@ -69,6 +69,10 @@ def sqrt(a):
 def square(*args):
     return tops_op.Square(*args)
 
+@register_conversion(torch.ops.aten.reciprocal)
+def reciprocal(a):
+    return tops_op.Reciprocal(a)
+
 @register_conversion(torch.ops.aten.exp)
 def exp(a):
     return tops_op.Exp(a)
@@ -157,24 +161,17 @@ class BaseReplacePattern(ABC):
 
 @register_pattern
 class ReplacePattern1:
-    def pattern(a, b):
-        return torch.ops.aten.rsqrt.default(a, b)
-    def replacement(a, b):
-        return tops_op.reciprocal(tops_op.sqrt(a, b))
-
-@register_pattern
-class ReplacePattern2:
     def pattern(a):
         return torch.ops.aten.rsqrt.default(a)
     def replacement(a):
-        return tops_op.reciprocal(tops_op.sqrt(a))
+        return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
 
 @register_pattern
 class ReplacePattern3:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
     def replacement(a, b, c):
-        return tops_op.add(a, tops_op.gemm(b, c))
+        return torch.ops.aten.add.default(a, torch.ops.aten.mm.default(b, c))
 
 '''
 def _validate_reduction_axis(x, axis):

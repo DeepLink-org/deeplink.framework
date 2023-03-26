@@ -2,6 +2,8 @@ import torch
 import torch.fx
 from torch.fx import replace_pattern
 from torch.fx.node import Argument, Target
+import torch.fx.traceback as fx_traceback
+from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 
 class OpSetTransformer:
@@ -23,30 +25,15 @@ class SingleOpTransformer(torch.fx.Transformer):
         super().__init__(module)
         self._conversions = conversions
 
+    def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+        proxy =  super().placeholder(target, args, kwargs)
+        proxy.node.meta = fx_traceback.get_current_meta()
+        return proxy
+
     def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
         if target in self._conversions:
             out = self._conversions[target](*args, **kwargs)
-            return self.tracer.create_proxy('call_function', out, args, kwargs)
+            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
+            proxy.node.meta = fx_traceback.get_current_meta()
+            return proxy
         return super().call_function(target, args, kwargs)
-
-class NameSpaceTransformer:
-    def __init__(self, new_namespace, whitelist):
-        self._new_namespace = new_namespace
-        self._whitelist = whitelist
-
-    def trans_node(self, n : torch.fx.Node):
-        if str(n.target) in self._whitelist:
-            if hasattr(n.target, '__module__'):
-                if n.target.__module__.split(".")[-1] == 'aten':
-                    newm = n.target.__module__.replace('aten', self._new_namespace)
-                    setattr(n.target, '__module__', newm)
-
-            if hasattr(n.target, '_name'):
-                if n.target._name.split("::")[0] == 'aten':
-                    newname = n.target._name.replace('aten', self._new_namespace)
-                    setattr(n.target, '_name', newname)
-
-    def transform(self, gm : torch.fx.GraphModule):
-        for node in gm.graph.nodes:
-            if node.op == "call_function":
-                self.trans_node(node)

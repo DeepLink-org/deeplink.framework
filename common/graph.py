@@ -20,17 +20,24 @@ class GraphTransformer:
     ):
         self.gm = gm
         if backend == 'topsgraph':
-            from ..TopsGraph.opset_convert import topsgraph_opset_convert
-            self.backend_opset_transform = topsgraph_opset_convert
+            from third_party.DICP.TopsGraph.opset_transform import topsgraph_opset_transform
+            self.backend_opset_transform = topsgraph_opset_transform
             # TODO add codegen later
-            # from ..TopsGraph.codegen.enflame import EnflameCodegen
+            # from third_party.DICP.TopsGraph.codegen.enflame import EnflameCodegen
             # self.backend_codegen = EnflameCodegen
+
 
     def transform(self):
         self.gm = self.backend_opset_transform(self.gm)
 
+    def infer_shape_dtype(self):
+        for n in self.gm.graph.nodes:
+            if not hasattr(n, 'meta') and n.op == 'call_function':
+                n.meta['val'] = (n.target(*n.args, **n.kwargs))
+
     def codegen(self):
         return ''
+        # TODO add codegen later
         # return self.backend_codegen(self.gm).codegen()
 
     @dynamo_timed
