@@ -22,9 +22,8 @@ class GraphTransformer:
         if backend == 'topsgraph':
             from third_party.DICP.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
-            # TODO add codegen later
-            # from third_party.DICP.TopsGraph.codegen.enflame import EnflameCodegen
-            # self.backend_codegen = EnflameCodegen
+            from third_party.DICP.TopsGraph.codegen.enflame import EnflameCodegen
+            self.backend_codegen = EnflameCodegen
 
 
     def transform(self):
@@ -36,9 +35,7 @@ class GraphTransformer:
                 n.meta['val'] = (n.target(*n.args, **n.kwargs))
 
     def codegen(self):
-        return ''
-        # TODO add codegen later
-        # return self.backend_codegen(self.gm).codegen()
+        return self.backend_codegen(self.gm).codegen()
 
     @dynamo_timed
     def compile_to_module(self):
