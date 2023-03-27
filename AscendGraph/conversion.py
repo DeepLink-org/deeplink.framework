@@ -1,5 +1,7 @@
 import functools
-from AscendGraph.ascend_op import *
+import operator
+import torch
+import third_party.DICP.AscendGraph.ascend_op as ascend_op
 from abc import ABC, abstractmethod
 
 conversions = {}
@@ -40,15 +42,6 @@ def registe_conversion(aten_fn):
     )
 
 
-# @registe_conversion(torch.add)
-# def add(a, b):
-#     return torch.ascend.operator.add(a, b)
-
-# @registe_conversion(torch.abs)
-# def abs(a):
-#     return torch.ascend.operator.abs(a)
-
-
 def registe_pattern(Pattern):
     patterns.append(Pattern)
     return Pattern
@@ -62,32 +55,136 @@ class BaseReplacePattern(ABC):
     def replacement(*args, **kwargs):
         pass
 
+@registe_conversion(torch.ops.aten.add)
+def add(a, b):
+    return ascend_op.Add(a, b)
+
+@registe_conversion(torch.ops.aten.sub)
+def sub(a, b):
+    return ascend_op.Sub(a, b)
+
+@registe_conversion(torch.ops.aten.mul)
+def mul(a, b):
+    return ascend_op.Mul(a, b)
+
+@registe_conversion(torch.ops.aten.div)
+def div(a, b):
+    return ascend_op.Div(a, b)
+
+@registe_conversion(torch.ops.aten.convolution)
+def convolution(input, weight, bias, stride, padding,
+                dilation, transposed, output_padding, groups):
+    return ascend_op.Conv2D(input, weight, bias, stride, padding,
+                dilation, transposed, output_padding, groups)
+
+@registe_conversion(torch.ops.aten.abs)
+def abs(a):
+    return ascend_op.Abs(a)
+
+@registe_conversion(torch.ops.aten.rsqrt)
+def rsqrt(a):
+    return ascend_op.Rsqrt(a)
+
+@registe_conversion(torch.ops.aten.log)
+def log(a):
+    return ascend_op.Log(a)
+
+@registe_conversion(torch.ops.aten.exp)
+def exp(a):
+    return ascend_op.Exp(a)
+
+@registe_conversion(torch.ops.aten.neg)
+def neg(a):
+    return ascend_op.Neg(a)
+
+@registe_conversion(torch.ops.aten.relu)
+def relu(a):
+    return ascend_op.Relu(a)
+
+@registe_conversion(torch.ops.aten.sum.default)
+def sum(a):
+    return ascend_op.Sum(a)
+
+@registe_conversion(torch.ops.aten.sum.dim_IntList)
+def sumdim(x, dims, keepdim):
+    return ascend_op.ReduceSumD(x, dims, keepdim)
+
+@registe_conversion(torch.ops.aten.clone)
+def clone(a):
+    return ascend_op.Copy(a)
+
+@registe_conversion(torch.ops.aten.ne)
+def ne(x, scalar):
+    return ascend_op.Ne(x, scalar)
+
+@registe_conversion(torch.ops.aten.le)
+def le(a, b):
+    return ascend_op.LessEqual(a, b)
+
+@registe_conversion(torch.ops.aten.unsqueeze)
+def unsqueeze(x, dims):
+    return ascend_op.Unsqueeze(x, dims)
+
+@registe_conversion(torch.ops.aten.squeeze)
+def squeeze(x, dims):
+    return ascend_op.Squeeze(x, dims)
+
+@registe_conversion(torch.ops.aten.permute)
+def permute(x, dims):
+    return ascend_op.Permute(x, dims)
+
+@registe_conversion(torch.ops.aten.mean)
+def mean(x, dims, keepdim):
+    return ascend_op.ReduceMean(x, dims, keepdim)
+
+@registe_conversion(torch.ops.aten.amax)
+def amax(x, dims, keepdim):
+    return ascend_op.Amax(x, dims, keepdim)
+
+@registe_conversion(torch.ops.aten.gather)
+def gather(x, dims, index):
+    return ascend_op.GatherD(x, dims, index)
+
+@registe_conversion(torch.ops.aten.where)
+def where(condition, a, b):
+    return ascend_op.Where(condition, a, b)
+
+@registe_conversion(torch.ops.aten.view)
+def view(x, shape):
+    return ascend_op.TranShape(x, shape)
+
+@registe_conversion(operator.getitem)
+def identity(x, idx):
+    return ascend_op.Identity(x, idx)
+
 @registe_pattern
-class ReplacePattern1:
-    def pattern(a, b):
-        return torch.add(a, b)
+class ReplaceAddmm:
+    def pattern(input, mat1, mat2):
+        return torch.ops.aten.addmm.default(input, mat1, mat2)
 
-    def replacement(a, b):
-        return torch.ascend.operator.add(a, b)
+    def replacement(input, mat1, mat2):
+        mul = ascend_op.matmul(mat1, mat2)
+        return ascend_op.addv2(input, mul)
 
+@registe_pattern
+class ReplaceMaxPool:
+    def pattern(input, kernel_size, stride, padding=0):
+        return torch.ops.aten.max_pool2d_with_indices.default(input, kernel_size, stride, padding)
 
-# @registe_pattern
-# class ReplacePattern:
-#     def pattern(a):
-#         v1 = torch.add(a, a)
-#         return torch.add(v1, v1)
+    def replacement(input, kernel_size, stride, padding=0):
+        pad = ascend_op.pad(input, padding)
+        return ascend_op.maxpoolwithargmax(pad, kernel_size, stride)
 
-#     def replacement(a):
-#         return torch.ascend.operator.mull(a, a)
+@registe_pattern
+class ReplaceVarMean:
+    def pattern(input, dims):
+        return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
-# @registe_pattern
-# class ReplacePattern2:
-#     def pattern(a):
-#         # return torch.abs(a)
-#         m =  torch.ascend.operator.mull(a, a)
-#         return torch.abs(m)
-    
-#     def replacement(a):
-#         return torch.ascend.operator.mull(a, a)
+    def replacement(input, dims):
+        mean = ascend_op.reducemean(input, dims, True)
+        shape = ascend_op.shape(input)
+        broadcast = ascend_op.broadcastto(mean, shape)
+        sub = ascend_op.sub(input, broadcast)
+        square = ascend_op.squaresum(sub, dims, True)
+        return ascend_op.mul(square, 1 / (64 - 1))
 
-    
