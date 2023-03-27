@@ -72,6 +72,10 @@ namespace {
       return dnative::relu(self);
   }
 
+at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
+  return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
+}
+
   at::Tensor& wrapperReluInp(at::Tensor & self) {
       return dnative::relu_(self);
   }
@@ -256,6 +260,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // register fallback if dipu func not exists
   DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
+  DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
   DIOPI_ATEN_FUNC("native_batch_norm.out", diopiBatchNorm, wrapperNativeBatchNormOut);

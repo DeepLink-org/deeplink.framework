@@ -10,7 +10,7 @@ def test_max_pool2d(x, devicestr : str):
     out, indices = torch.nn.functional.max_pool2d(x, kernel_size=kernel_size, stride=stride, return_indices=True)
     print(f"out = {out}\nindices = {indices}")
 
-    grad_output = torch.randn_like(out).to(device)
+    grad_output = torch.ones_like(out).to(device)
     out.backward(grad_output)
     print(f"x.grad = {x.grad}")
 

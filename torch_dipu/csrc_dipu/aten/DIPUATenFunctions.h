@@ -24,6 +24,7 @@ struct DIPUATenFunctions {
     // diopi func
     static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
     static at::Tensor relu(const at::Tensor& self);
+    static at::Tensor& threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input);
     static at::Tensor& relu_(at::Tensor& self);
 
     static ::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_batch_norm(
