@@ -181,10 +181,10 @@ class ReplaceVarMean:
         return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
     def replacement(input, dims):
-        mean = ascend_op.reducemean(input, dims, True)
+        mean = torch.ops.aten.mean(input, dims, True)
         shape = ascend_op.shape(input)
         broadcast = ascend_op.broadcastto(mean, shape)
-        sub = ascend_op.sub(input, broadcast)
+        sub = torch.ops.aten.sub(input, broadcast)
         square = ascend_op.squaresum(sub, dims, True)
-        return ascend_op.mul(square, 1 / (64 - 1))
+        return torch.ops.aten.mul(square, 1 / (64 - 1))
 

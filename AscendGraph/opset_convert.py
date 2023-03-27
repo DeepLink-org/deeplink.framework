@@ -12,5 +12,5 @@ from third_party.DICP.AscendGraph.conversion import patterns, conversions
 def ascendgraph_opset_convert(
     gm: torch.fx.GraphModule,
 ):
-    return OpSetTransformer(patterns, "ascend", conversions).transform(gm)
+    return OpSetTransformer(patterns, conversions).transform(gm)
 
