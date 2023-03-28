@@ -68,6 +68,14 @@ namespace {
       return dnative::add_out(self, other, alpha, out);
   }
 
+at::Tensor wrapper_Scalar_add(const at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha) {
+  return dnative::add(self, other, alpha);
+}
+
+at::Tensor & wrapper_Scalar_add_(at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha) {
+  return dnative::add_(self, other, alpha);
+}
+
   at::Tensor wrapperRelu(const at::Tensor & self) {
       return dnative::relu(self);
   }
@@ -215,8 +223,24 @@ at::Tensor & wrapper_mul_out_out(const at::Tensor & self, const at::Tensor & oth
   return dnative::mul_out(self, other, out);
 }
 
+at::Tensor wrapper_Scalar_mul(const at::Tensor & self, const at::Scalar & other) {
+  return dnative::mul(self, other);
+}
+
+at::Tensor & wrapper_Scalar_mul_(at::Tensor & self, const at::Scalar & other) {
+  return dnative::mul_(self, other);
+}
+
 at::Tensor & wrapper_div_out_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
   return dnative::div_out(self, other, out);
+}
+
+at::Tensor wrapper_Scalar_div(const at::Tensor & self, const at::Scalar & other) {
+  return dnative::div(self, other);
+}
+
+at::Tensor & wrapper_Scalar_div_(at::Tensor & self, const at::Scalar & other) {
+  return dnative::div_(self, other);
 }
 
 }  // inner anonymous namespace
@@ -259,6 +283,8 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 
   // register fallback if dipu func not exists
   DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
+  DIOPI_ATEN_FUNC("add.Scalar", diopiAddScalar, wrapper_Scalar_add);
+  DIOPI_ATEN_FUNC("add_.Scalar", diopiAddInpScalar, wrapper_Scalar_add_);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
@@ -292,7 +318,11 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("max_pool2d_with_indices.out", diopiMaxPool2dWithIndices, wrapper_max_pool2d_with_indices_out_out);
   DIOPI_ATEN_FUNC("max_pool2d_with_indices_backward.grad_input", diopiMaxPool2dBackward, wrapper_max_pool2d_with_indices_backward_out_grad_input);
   DIOPI_ATEN_FUNC("mul.out", diopiMul, wrapper_mul_out_out);
+  DIOPI_ATEN_FUNC("mul.Scalar", diopiMulScalar, wrapper_Scalar_mul);
+  DIOPI_ATEN_FUNC("mul_.Scalar", diopiMulInpScalar, wrapper_Scalar_mul_);
   DIOPI_ATEN_FUNC("div.out", diopiDiv, wrapper_div_out_out);
+  DIOPI_ATEN_FUNC("div.Scalar", diopiDivScalar, wrapper_Scalar_div);
+  DIOPI_ATEN_FUNC("div_.Scalar", diopiDivInpScalar, wrapper_Scalar_div_);
 
 }
 
