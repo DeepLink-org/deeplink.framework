@@ -36,6 +36,7 @@ at::Tensor DIPUATenFunctions::mul(const at::Tensor & self, const at::Scalar & ot
 
 at::Tensor& DIPUATenFunctions::mul_(at::Tensor & self, const at::Scalar & other) {
     ::diopiScalar_t other_diopi = toDiopiScalar(other);
+
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
     ::diopiTensorHandle_t self_diopi = toDiopiTensorHandle(self);
 
