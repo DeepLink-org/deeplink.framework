@@ -16,7 +16,10 @@ class OpCollector(Interpreter):
 
     def run_node(self, n: Node) -> Any:
         if n.op in CALLABLE_NODE_OPS:
-            self.op_set.add(_get_qualified_name(n.target))
+            if isinstance(n.target, str):
+                self.op_set.add(n.target)
+            else:
+                self.op_set.add(_get_qualified_name(n.target))
         return super().run_node(n)
 
     def collect(self, *args):
@@ -33,17 +36,19 @@ class OpCollector(Interpreter):
 #     compile_fx_func="torch._inductor.compile_fx.compile_fx",
 #     collector_name="resnet",
 #     inner_compiler_param_key="inner_compile",
-#     write_file=True
-# ):
+#     write_file=True,
+#     bypass_graph_module=False,
+# ) as ctx:
 #     model = Model(param)
+#     opt_model = torch.compile(model)
 #     inputs = torch.randn(*shape)
-#     loss = model(inputs)
+#     loss = opt_model(inputs)
 #     loss.backward()
 class InnerCompilerOpCollectorContext:
     def __init__(self, inner_commpiler_func="torch._inductor.compile_fx.compile_fx_inner",
                  compile_fx_func="torch._inductor.compile_fx.compile_fx",
                  collector_name="module", inner_compiler_param_key="inner_compile",
-                 write_file=False):
+                 write_file=False, bypass_graph_module=True):
         if isinstance(inner_commpiler_func, str):
             module_str, func_str = inner_commpiler_func.rsplit(".", 1)
             inner_commpiler_module = importlib.import_module(module_str)
@@ -59,6 +64,7 @@ class InnerCompilerOpCollectorContext:
         self.inner_compiler_param_key = inner_compiler_param_key
         self.collector_name = collector_name
         self.write_file = write_file
+        self.bypass_graph_module = bypass_graph_module
         self.cached_gm_inputs_dict = None
 
     def __enter__(self):
@@ -68,7 +74,10 @@ class InnerCompilerOpCollectorContext:
         def wrapped_inner_commpiler_func(gm, example_inputs, **kwargs):
             cache_idx = len(self.cached_gm_inputs_dict)
             self.cached_gm_inputs_dict[cache_idx] = (gm, tuple(example_inputs))
-            return self.inner_commpiler_func(gm, example_inputs, **kwargs)
+            if not self.bypass_graph_module:
+                return self.inner_commpiler_func(gm, example_inputs, **kwargs)
+            else:
+                return gm
 
         @wraps(self.compile_fx_func)
         def wrapped_compile_fx_func(*args, **kwargs):
@@ -78,6 +87,7 @@ class InnerCompilerOpCollectorContext:
         setattr(importlib.import_module(self.compile_fx_func.__module__),
                 self.compile_fx_func.__name__,
                 wrapped_compile_fx_func)
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         op_dict_from_gm = dict()
