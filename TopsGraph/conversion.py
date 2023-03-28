@@ -16,7 +16,7 @@ def _register_conversion(
     @functools.wraps(decomp_fn)
     def wrapped(*args, **kwargs):
         return decomp_fn(*args, **kwargs)
-    
+
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
     else:
@@ -89,19 +89,23 @@ def sum(*args):
 def getitem(*args, **kwargs):
     return tops_op.Getitem(*args, **kwargs)
 
-#torch.ops.aten.squeeze.dim(,[])
-#torch.ops.aten.squeeze.dims(,)
+# torch.ops.aten.squeeze.dim(,[])
+# torch.ops.aten.squeeze.dims(,)
 @register_conversion(torch.ops.aten.squeeze)
-def squeeze(a,b):
-    return tops_op.Squeeze(a,b)
+def squeeze(a, b):
+    return tops_op.Squeeze(a, b)
 
 @register_conversion(torch.ops.aten.unsqueeze)
-def unsqueeze(a,b):
-    return tops_op.Unsqueeze(a,b)
+def unsqueeze(a, b):
+    return tops_op.Unsqueeze(a, b)
 
 @register_conversion(torch.ops.aten.permute)
 def permute(a, b):
-    return tops_op.Transpose(a,b)
+    return tops_op.Transpose(a, b)
+
+@register_conversion(torch.ops.aten.transpose)
+def transpose(a, b, c):
+    return tops_op.Transpose1(a, b, c)
 
 @register_conversion(torch.ops.aten.clone)
 def clone(*args):
@@ -119,7 +123,7 @@ def mean(*args):
 
 @register_conversion(torch.ops.aten.view)
 def view(a, b):
-    return tops_op.Reshape(a,b)
+    return tops_op.Reshape(a, b)
 
 @register_conversion(torch.ops.aten.convolution)
 def convolution(*args):
@@ -145,9 +149,17 @@ def log(*args):
 def max(*args, **kwargs):
     return tops_op.ReduceMax(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.mm)
+def gemm(*args, **kwargs):
+    return tops_op.Gemm(*args, **kwargs)
+
+@register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
+def bathnorm(*args, **kwargs):
+    return tops_op.BathNorm(*args, **kwargs)
+
 # Patterns
 def register_pattern(Pattern):
-# TODO OpOverloadPacket
+    # TODO OpOverloadPacket
     patterns.append(Pattern)
     return Pattern
 
@@ -155,6 +167,7 @@ class BaseReplacePattern(ABC):
     @abstractmethod
     def pattern(*args, **kwargs):
         pass
+
     @abstractmethod
     def replacement(*args, **kwargs):
         pass
@@ -163,67 +176,59 @@ class BaseReplacePattern(ABC):
 class ReplacePattern1:
     def pattern(a):
         return torch.ops.aten.rsqrt.default(a)
+
     def replacement(a):
         return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
 
 @register_pattern
-class ReplacePattern3:
+class ReplacePattern2:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
+
     def replacement(a, b, c):
         return torch.ops.aten.add.default(a, torch.ops.aten.mm.default(b, c))
 
-'''
-def _validate_reduction_axis(x, axis):
-    size = x.size()
-    if isinstance(axis, int):
-        axis = [axis]
-    elif not axis:
-        axis = range(len(size))
-    axis = list(axis)
-    for i in range(len(axis)):
-        if axis[i] < 0:
-            axis[i] += len(size) if len(size) else 1
-    return axis
-'''
-#%var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
+# %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
+
 @register_pattern
 class ReplacePattern3:
-    def pattern(a,b):
+    def pattern(a, b):
         return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
+
     def replacement(inputs, dims):
-        keepdim=True
+        keepdim = True
         correction = 0
-        #shapes = inputs.size()
-        #dims = _validate_reduction_axis(inputs, dims)
-        #[0, 2, 3]
-        #TODO
         denom = 64
-        #for i in dims:
-        #    denom = denom *shapes[i]
-        denom = denom -correction
-        mean1=torch.ops.aten.mean.dim(inputs, dims, keepdim)
+        denom = denom - correction
+        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
         diffs = torch.ops.aten.square.default(torch.ops.aten.sub.Tensor(inputs, mean1))
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var =  torch.ops.aten.div.Tensor(sum_results, denom)
+        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return x_var
 
-#%var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
+# %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
 @register_pattern
 class ReplacePattern4:
-    def pattern(a,b):
+    def pattern(a, b):
         return torch.ops.aten.var_mean.correction(a, b, correction=0, keepdim=True)
 
     def replacement(inputs, dims):
-        keepdim=True
+        keepdim = True
         correction = 0
-        #TODO
         denom = 64
-        denom = denom -correction
-        mean1=torch.ops.aten.mean.dim(inputs, dims, keepdim)
+        denom = denom - correction
+        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
         diffs = torch.ops.aten.square.default(torch.ops.aten.sub.Tensor(inputs, mean1))
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var =  torch.ops.aten.div.Tensor(sum_results, denom)
-        return tops_op.tuple(x_var, mean1)
+        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
+        return tops_op.ret_tuples(x_var, mean1)
+
+@register_pattern
+class ReplacePattern5:
+    def pattern(a):
+        return torch.ops.aten.t.default(a)
+
+    def replacement(inputs):
+        return torch.ops.aten.transpose(inputs, 0, 1)

@@ -32,7 +32,7 @@ class GraphTransformer:
 
     def infer_shape_dtype(self):
         for n in self.gm.graph.nodes:
-            if not hasattr(n, 'meta') and n.op == 'call_function':
+            if n.op == 'call_function':
                 n.meta['val'] = (n.target(*n.args, **n.kwargs))
 
     def codegen(self):
