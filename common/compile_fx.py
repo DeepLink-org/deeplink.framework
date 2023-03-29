@@ -74,7 +74,8 @@ _graph_counter = itertools.count(0)
 def compile_fx(
     model_: torch.fx.GraphModule,
     example_inputs_: List[torch.Tensor],
-    backend: str
+    backend: str,
+    inner_compile=compile_fx_inner,
 ):
     """Main entrypoint to a compile given FX graph"""
     functorch.compile.config.use_functionalize = True
@@ -87,24 +88,24 @@ def compile_fx(
     @dynamo_utils.dynamo_timed
     def fw_compiler(model: torch.fx.GraphModule, example_inputs):
         fixed = len(example_inputs) - num_example_inputs
-        return compile_fx_inner(
+        return inner_compile(
             model,
             example_inputs,
             num_fixed=fixed,
             graph_id=graph_id,
-            backend = backend,
+            backend=backend,
         )
 
     @dynamo_utils.dynamo_timed
     def bw_compiler(model: torch.fx.GraphModule, example_inputs):
         fixed = count_tangents(model)
-        return compile_fx_inner(
+        return inner_compile(
             model,
             example_inputs,
             num_fixed=fixed,
             is_backward=True,
             graph_id=graph_id,
-            backend = backend,
+            backend=backend,
         )
 
     from torch._inductor.decomposition import select_decomp_table
