@@ -1,13 +1,16 @@
 import torch
 
+aten = torch.ops.aten
+
 class Operator():
     __name__: str
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
     
-    def __call__(self, *args, **kwds):
-        return self.__name__
+    def __call__(self, *args, **kwargs):
+        new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        return self.torch_op(*new_args, **kwargs)
 
 
 class Add(Operator):
@@ -17,7 +20,7 @@ class Add(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.add(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.add
 
 
 class AddV2(Operator):
@@ -27,7 +30,7 @@ class AddV2(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.add(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.add
 
 
 class MatMul(Operator):
@@ -37,7 +40,7 @@ class MatMul(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.matmul(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.matmul
 
 
 class Sub(Operator):
@@ -47,7 +50,7 @@ class Sub(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.sub(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.sub
 
 
 class Mul(Operator):
@@ -57,7 +60,7 @@ class Mul(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.mul(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.mul
 
 
 class Div(Operator):
@@ -67,7 +70,7 @@ class Div(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        return torch.div(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'], args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.div
 
 
 class Abs(Operator):
@@ -76,7 +79,7 @@ class Abs(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.abs(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.abs
 
 
 class Rsqrt(Operator):
@@ -85,7 +88,7 @@ class Rsqrt(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.rsqrt(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.rsqrt
 
 
 class Log(Operator):
@@ -94,7 +97,7 @@ class Log(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.log(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.log
 
 
 class Exp(Operator):
@@ -103,7 +106,7 @@ class Exp(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.exp(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.exp
 
 
 class Neg(Operator):
@@ -112,7 +115,7 @@ class Neg(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.neg(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.neg
 
 
 class Relu(Operator):
@@ -121,7 +124,7 @@ class Relu(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.relu(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.relu
 
 
 class Sum(Operator):
@@ -130,7 +133,7 @@ class Sum(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.sum(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.sum
 
 
 class ReduceSumD(Operator):
@@ -141,9 +144,7 @@ class ReduceSumD(Operator):
         self.keepdim = keepdim
 
     def __call__(self, *args, **kwds):
-        torch.sum(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                  args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                  args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.sum
 
 
 class Copy(Operator):
@@ -152,7 +153,7 @@ class Copy(Operator):
         self.a = a
 
     def __call__(self, *args, **kwds):
-        torch.clone(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.clone
 
 
 class Unsqueeze(Operator):
@@ -162,8 +163,7 @@ class Unsqueeze(Operator):
         self.dims = dims
 
     def __call__(self, *args, **kwds):
-        torch.unsqueeze(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                        args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.unsqueeze
 
 
 class Squeeze(Operator):
@@ -173,8 +173,7 @@ class Squeeze(Operator):
         self.dims = dims
 
     def __call__(self, *args, **kwds):
-        torch.squeeze(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                      args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.squeeze
 
 
 class Permute(Operator):
@@ -184,8 +183,7 @@ class Permute(Operator):
         self.dims = dims
 
     def __call__(self, *args, **kwds):
-        torch.permute(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                      args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.permute
 
 
 class ReduceMean(Operator):
@@ -196,9 +194,7 @@ class ReduceMean(Operator):
         self.keepdim = keepdim
 
     def __call__(self, *args, **kwds):
-        torch.mean(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                   args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                   args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.mean
 
 
 class Amax(Operator):
@@ -209,9 +205,7 @@ class Amax(Operator):
         self.keepdim = keepdim
 
     def __call__(self, *args, **kwds):
-        torch.amax(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                   args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                   args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.amax
 
 
 class GatherD(Operator):
@@ -222,9 +216,7 @@ class GatherD(Operator):
         self.index = index
 
     def __call__(self, *args, **kwds):
-        torch.gather(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                     args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                     args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.gather
 
 
 class Where(Operator):
@@ -235,9 +227,7 @@ class Where(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        torch.where(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                    args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                    args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.where
 
 
 class Ne(Operator):
@@ -247,8 +237,7 @@ class Ne(Operator):
         self.scalar = scalar
 
     def __call__(self, *args, **kwds):
-        torch.ne(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                 args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.ne
 
 
 class LessEqual(Operator):
@@ -258,8 +247,7 @@ class LessEqual(Operator):
         self.b = b
 
     def __call__(self, *args, **kwds):
-        torch.le(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                 args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.le
 
 
 class Conv2D(Operator):
@@ -277,15 +265,7 @@ class Conv2D(Operator):
         self.groups = groups
 
     def __call__(self, *args, **kwds):
-        torch.convolution(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                          args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                          args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'],
-                          args[3] if not hasattr(args[3], 'meta') else args[3].meta['val'],
-                          args[4] if not hasattr(args[4], 'meta') else args[4].meta['val'],
-                          args[5] if not hasattr(args[5], 'meta') else args[5].meta['val'],
-                          args[6] if not hasattr(args[6], 'meta') else args[6].meta['val'],
-                          args[7] if not hasattr(args[7], 'meta') else args[7].meta['val'],
-                          args[8] if not hasattr(args[8], 'meta') else args[8].meta['val'])
+        self.torch_op = aten.convolution
 
 
 class TranShape(Operator):
@@ -295,8 +275,7 @@ class TranShape(Operator):
         self.shape = shape
 
     def __call__(self, *args, **kwds):
-        torch.reshape(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                      args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.reshape
 
 
 class Identity(Operator):
@@ -306,7 +285,7 @@ class Identity(Operator):
         self.idx = idx
 
     def __call__(self, *args, **kwds):
-        torch.tensor(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.tensor
 
 
 class Pad(Operator):
@@ -316,8 +295,7 @@ class Pad(Operator):
         self.padding = padding
 
     def __call__(self, *args, **kwds):
-        torch.tensor(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                     args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.tensor
 
 
 class MaxPoolWithArgmax(Operator):
@@ -328,9 +306,7 @@ class MaxPoolWithArgmax(Operator):
         self.stride = stride
 
     def __call__(self, *args, **kwds):
-        torch.max_pool2d(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                         args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'],
-                         args[2] if not hasattr(args[2], 'meta') else args[2].meta['val'])
+        self.torch_op = aten.max_pool2d
 
 
 class BroadcastTo(Operator):
@@ -340,8 +316,7 @@ class BroadcastTo(Operator):
         self.shape = shape
 
     def __call__(self, *args, **kwds):
-        torch.broadcast_to(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'],
-                           args[1] if not hasattr(args[1], 'meta') else args[1].meta['val'])
+        self.torch_op = aten.broadcast_to
 
 
 class SquareSumV1(Operator):
@@ -352,7 +327,7 @@ class SquareSumV1(Operator):
         self.keepdim = keepdim
 
     def __call__(self, *args, **kwds):
-        torch.tensor(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.tensor
 
 
 class Shape(Operator):
@@ -361,34 +336,34 @@ class Shape(Operator):
         self.x = x
 
     def __call__(self, *args, **kwds):
-        torch.tensor(args[0] if not hasattr(args[0], 'meta') else args[0].meta['val'])
+        self.torch_op = aten.tensor
 
 
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
-    return torch.add(a, b)
+    return aten.add(a, b)
 
 @torch.fx.wrap
 def matmul(a, b) -> torch.Tensor:
-    return torch.matmul(a, b)
+    return aten.matmul(a, b)
 
 @torch.fx.wrap
 def pad(x, padding) -> torch.Tensor:
-    return torch.tensor(x)
+    return aten.tensor(x)
 
 @torch.fx.wrap
 def maxpoolwithargmax(input, kernel_size, stride) -> torch.Tensor:
-    return torch.max_pool2d(input, kernel_size, stride)
+    return aten.max_pool2d(input, kernel_size, stride)
 
 @torch.fx.wrap
 def broadcastto(x, shape) -> torch.Tensor:
-    return torch.broadcast_to(x, shape)
+    return aten.broadcast_to(x, shape)
 
 @torch.fx.wrap
 def squaresum(x, dims, keepdim) -> torch.Tensor:
-    return torch.tensor(x)
+    return aten.tensor(x)
 
 @torch.fx.wrap
 def shape(x) -> torch.Tensor:
-    return torch.tensor(x)
+    return aten.tensor(x)
 
