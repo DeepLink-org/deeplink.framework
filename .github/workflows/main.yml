@@ -33,7 +33,7 @@ jobs:
       - name: Rsync to Server
         run: |
           cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
-          && cd DIOPI-TEST && git checkout master && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive
+          && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_TAG} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
@@ -44,19 +44,20 @@ jobs:
 
   Lint-C-Python:
     name: Lint c python
-    runs-on: github-parrots-ci
+    runs-on: github-poc-ci
     needs: [Rsync]
+    env:
+      MLU_REQUESTS: 0
     steps:
       - name: lint-c-python
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-          source ${ENV_PATH}/github_bashrc && source /mnt/lustre/share/platform/env/${ENV_NAME}
+          source /mnt/lustre/share/platform/env/${ENV_NAME}
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
-          export CI=true
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] bash scripts/ci_script.sh py-lint &&
-          bash scripts/ci_script.sh cpp-lint &&  cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] bash scripts/ci_lint.sh py-lint &&
+          bash scripts/ci_lint.sh cpp-lint &&  cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Build-Pytorch:
@@ -94,8 +95,8 @@ jobs:
           source /mnt/lustre/share/platform/env/${ENV_NAME}
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 \
-          --gres=mlu:${MLU_REQUESTS} sh scripts/build_impl.sh camb_no_runtime 
-          #|| ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          --gres=mlu:${MLU_REQUESTS} sh scripts/build_impl.sh camb_no_runtime \
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Build-POC-Camb:
@@ -112,8 +113,8 @@ jobs:
           source /mnt/lustre/share/platform/env/${ENV_NAME}
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 \
-          --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu 
-          #|| ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Test-Camb:
@@ -128,10 +129,9 @@ jobs:
           ssh ${CLUSTER_CAMB} """
           set -e
           source /mnt/lustre/share/platform/env/${ENV_NAME}
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd ${GITHUB_JOB}
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 --gres=mlu:${MLU_REQUESTS} python tests/test_tensor_add.py 
-          #|| ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_tests.sh
           """
  
 
