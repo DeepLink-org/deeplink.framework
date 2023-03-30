@@ -1,4 +1,5 @@
 import torch
+from typing import Tuple
 
 aten = torch.ops.aten
 
@@ -186,6 +187,20 @@ class Permute(Operator):
         self.torch_op = aten.permute
 
 
+class ExpandD(Operator):
+    def __init__(self, x, dims):
+        super().__init__("expand")
+        self.x = x
+        self.dims = dims
+
+class ScatterElement(Operator):
+    def __init__(self, x, dims, index, reduce):
+        super().__init__("scatterelement")
+        self.x = x
+        self.dims = dims
+        self.index = index
+        self.reduce = reduce
+
 class ReduceMean(Operator):
     def __init__(self, x, dims, keepdim):
         super().__init__("reducemean")
@@ -339,6 +354,30 @@ class Shape(Operator):
         self.torch_op = aten.tensor
 
 
+class FullLike(Operator):
+    def __init__(self, x, value):
+        super().__init__("fulllike")
+        self.x = x
+        self.value = value
+    
+    def __call__(self, *args, **kwds):
+        self.torch_op = aten.tensor
+
+
+class MaxPoolGradWithArgmaxV1(Operator):
+    def __init__(self, input, grad, argmax, ksize, strides, pads):
+        super().__init__("maxpoolgradwithargmaxv1")
+        self.input = input
+        self.grad = grad
+        self.argmax = argmax
+        self.ksize = ksize
+        self.strides = strides
+        self.pads = pads
+
+    def __call__(self, *args, **kwds):
+        self.torch_op = aten.tensor
+
+
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
     return aten.add(a, b)
@@ -366,4 +405,20 @@ def squaresum(x, dims, keepdim) -> torch.Tensor:
 @torch.fx.wrap
 def shape(x) -> torch.Tensor:
     return aten.tensor(x)
+
+@torch.fx.wrap
+def conv2dbackpropfilter(input, weight, grad) -> torch.Tensor:
+    return aten.tensor(input)
+
+@torch.fx.wrap
+def conv2dbackpropinput(input, weight, grad) -> torch.Tensor:
+    return aten.tensor(input)
+
+@torch.fx.wrap
+def biasaddgrad(input) -> torch.Tensor:
+    return aten.tensor(input)
+
+@torch.fx.wrap
+def tuple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    return a, b, c
 

@@ -106,7 +106,7 @@ def sum(a):
     return ascend_op.Sum(a)
 
 @registe_conversion(torch.ops.aten.sum.dim_IntList)
-def sumdim(x, dims, keepdim):
+def sumdim(x, dims, keepdim = True):
     return ascend_op.ReduceSumD(x, dims, keepdim)
 
 @registe_conversion(torch.ops.aten.clone)
@@ -133,6 +133,18 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
+@registe_conversion(torch.ops.aten.expand)
+def expand(x, dims):
+    return ascend_op.ExpandD(x, dims)
+
+@registe_conversion(torch.ops.aten.mm)
+def matmul(a, b):
+    return ascend_op.MatMul(a, b)
+
+@registe_conversion(torch.ops.aten.scatter.value)
+def scatter(x, dims, index, reduce):
+    return ascend_op.ScatterElement(x, dims, index, reduce)
+
 @registe_conversion(torch.ops.aten.mean)
 def mean(x, dims, keepdim):
     return ascend_op.ReduceMean(x, dims, keepdim)
@@ -157,6 +169,16 @@ def view(x, shape):
 def identity(x, idx):
     return ascend_op.Identity(x, idx)
 
+@registe_conversion(torch.ops.aten.full_like)
+def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.FullLike(x, value)
+
+@registe_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
+def maxpool2dbackward(grad, input, kernel_size, stride, padding, dilation, ceil_mode, index):
+    return ascend_op.MaxPoolGradWithArgmaxV1(input, grad, index, kernel_size, stride, padding)
+
+
 @registe_pattern
 class ReplaceAddmm:
     def pattern(input, mat1, mat2):
@@ -176,6 +198,23 @@ class ReplaceMaxPool:
         return ascend_op.maxpoolwithargmax(pad, kernel_size, stride)
 
 @registe_pattern
+class ReplaceConv2DBackward:
+    def pattern(grad, input, weight, bias,
+                stride, padding, dilation, transposed,
+                output_padding, groups, output_masks):
+        return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+                stride, padding, dilation, transposed,
+                output_padding, groups, output_masks)
+
+    def replacement(grad, input, weight, bias,
+                stride, padding, dilation, transposed,
+                output_padding, groups, output_masks):
+        result = ascend_op.tuple(ascend_op.conv2dbackpropfilter(input, weight, grad),
+                  ascend_op.conv2dbackpropinput(input.shape, weight, grad),
+                  ascend_op.biasaddgrad(bias))
+        return result
+
+@registe_pattern
 class ReplaceVarMean:
     def pattern(input, dims):
         return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
@@ -186,5 +225,6 @@ class ReplaceVarMean:
         broadcast = ascend_op.broadcastto(mean, shape)
         sub = torch.ops.aten.sub(input, broadcast)
         square = ascend_op.squaresum(sub, dims, True)
-        return torch.ops.aten.mul(square, 1 / (64 - 1))
+        var = torch.ops.aten.mul(square, 1 / (64 - 1))
+        return ascend_op.tuple(mean, var)
 
