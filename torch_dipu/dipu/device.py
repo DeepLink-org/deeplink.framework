@@ -129,7 +129,7 @@ def _get_device_index(device, optional=False):
                              'or an integer, but got: '.format(device))
     return device_idx
 
-def synchronize(device=None):
+def synchronize(_device=None):
     r"""Waits for all kernels in all streams on a DIPU device to complete.
 
     Arguments:
@@ -138,7 +138,7 @@ def synchronize(device=None):
             if :attr:`device` is ``None`` (default).
     """
     _lazy_init()
-    with device(device):
+    with device(_device):
         return _C._dipu_synchronize()
 
 

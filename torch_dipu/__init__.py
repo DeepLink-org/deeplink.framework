@@ -7,12 +7,11 @@ mockcuda = True
 from torch_dipu import _C
 from torch_dipu import dipu 
 from torch_dipu.dipu import *
-from dipu.device import _get_device_index
 from torch.serialization import register_package
 
 
 def validate_dipu_device(location):
-    device = _get_device_index(location, True)
+    device = dipu.device._get_device_index(location, True)
 
     if not is_available():
         raise RuntimeError('Attempting to deserialize object on a DIPU '
