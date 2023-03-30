@@ -71,54 +71,6 @@ RTYPE_TO_CPP = {
 
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
-        fixed_code = '''kernel_cpp_0 = async_compile.enflame(\'''
-#include "common/dtu_utils.h"
-#include "common/dtu_utils.cpp"
-
-#include "dtu/hlir_builder/hlir_builder.h"
-#include "dtu/hlir_builder/hlir_builder_client_ops.h"
-
-#include <cmath>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-
-topsExecutable_t exe_ptr;
-
-std::shared_ptr<builder::Builder> build_sample() {
-  auto hlir_builder = std::make_shared<builder::Builder>();
-  hlir_builder->SetShapeInference(true);
-  auto ptype = builder::PrimitiveType::F32();
-  
-{self.src_code}
-{res_str}
-  return hlir_builder;
-}
-
-extern "C" void compile(void){
-  // stage 1: build the ir
-  auto hlir_builder = build_sample();
-
-  // stage 2: compile
-  std::cout << "ccccc " << std::endl;
-  compile(hlir_builder, &exe_ptr);
-}
-
-extern "C" void run({input_paras}
-                    {output_paras}) {
-  // stage 3: input and output
-  std::vector<void *> input_ptrs;
-{inputs}
-  std::vector<void *> output_ptrs;
-{outputs}
-  // stage 4: run
-  run(exe_ptr, input_ptrs, output_ptrs);
-}
-\''')\n
-'''     
-  
         self.code = fixed_code
         self.src_code = ''
         
@@ -135,24 +87,11 @@ extern "C" void run({input_paras}
         self.name_count = 0
         self.reshape_count = 0
         self.reducemean_count = 0
-        
-        
-        self.op_set = {"Lt":"Less", 
-                       "Le":"LessEqual",
-                       "Gt":"Greater",
-                       "Ge":"GreaterEqual",
-                       "Eq":"Equal",
-                       "Ne":"NotEqual",
-                       "Sum":"ReduceSum",
-                       "Max":"ReduceMax",
-                       "Amax":"ReduceMax",
-                       "Min":"ReduceMin",
-                       "Mean":"ReduceMean",
-                       "View":"Reshape",
-                       "Mm":"Gemm",
-                       "Permute":"Transpose",
-                       "Convert_Element_Type":"Convert"}
-        
+        self.gather_count = 0
+        self.bn_count = 0
+        self.getitem_count = 0
+        self.max_pool_count = 0 
+
         self.graph = graph
         super().__init__(graph)
         self.override = EnflameOverrides
@@ -161,15 +100,17 @@ extern "C" void run({input_paras}
         self.args_dict[name] = 'tmp' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
-        in_shape = self.cur_node.meta['val'].shape
-        in_shape_size = '{'
-        for j in range(0, len(in_shape)):
-            in_shape_size += str(in_shape[j])
-            if j != len(in_shape) - 1:
-                in_shape_size += ', '
-        in_shape_size += '}'
+        in_shape = self.get_shape
         self.src_code += f'  std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape_size};\n'
-        self.src_code += f'  builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, ptype);\n'
+
+        data_type = self.cur_node.meta['val'].dtype.__str__()
+        if data_type == "torch.float32":
+            self.src_code += f'  builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, ptype);\n'
+        elif data_type == "torch.int64":
+            self.src_code += f'  builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, builder::PrimitiveType::S64());\n'
+        else:
+            raise ValueError(data_type)
+            
         self.src_code += f'  builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);\n\n'
 
     def call_function(self, name, target, args, kwargs):   
@@ -177,29 +118,158 @@ extern "C" void run({input_paras}
             self.args_dict[name] = 'tmp' + str(len(self.args_dict))
         
         if 'convolution' in name:
-            self.conv(name, target, args, kwargs)
-            return
-        
-        # print(":::")
-        # print(name)
+            if 'backward' in name:
+                self.conv_grad(name, target, args, kwargs)
+                return
+            else:
+                self.conv(name, target, args, kwargs)
+                return
+    
         if "max_pool2d_with_indices" in name:
+            if 'backward' in name:
+                self.max_pool_grad(name, target, args, kwargs)
+                return
             self.max_pool(name, target, args, kwargs)
             return
+         
+        if target.__name__.split('::')[-1].title().split('.')[0] in op_set.keys():
+            operation = op_set[target.__name__.split('::')[-1].title().split('.')[0]]
+        else:
+            operation = target.__name__.split('::')[-1].title().split('.')[0]
         
-        if 'getitem' in name:
-            # print("GET!:")
-            # print(name)
-            # print(args[1])
-            # print(args[0].meta['val'][args[1]].shape)
-            # print(args[0].meta['val'][args[1]].shape)
+        operation = operation.split('_')[0]
+        
+        args_str = self.para_args(operation, args)
+
+        getattr(self, operation)(self.args_dict[name], args)
+        
+        if "gather" in name:
+            shape = self.get_shape()
+            self.src_code += f'  builder::Type gather_type{self.gather_count}({shape}, ptype);\n\n'
             
-            self.args_dict[name] = self.args_dict[args[0].name]
+            self.src_code += f"  std::vector<int64_t> gather_offset_dim{self.gather_count};\n"
+            self.src_code += f"  for (int64_t i = 0; i < {args[1]}; i++) {'{'}\n     gather_offset_dim{self.gather_count}.emplace_back(i);\n  {'}'}\n\n"
+            self.src_code += f"  auto gather_data_shape{self.gather_count} = {args_str[0]}.GetType().GetShape();\n"
+            self.src_code += f"  auto gather_indices_shape{self.gather_count} = {args_str[2]}.GetType().GetShape();\n"
+            self.src_code += f"  for (int64_t i = {args[1]} + 1; i < gather_data_shape{self.gather_count}.size(); i++) {'{'}\n    gather_offset_dim{self.gather_count}.emplace_back(i - 1 + gather_indices_shape{self.gather_count}.size());\n  {'}'}\n"
+            self.src_code += f"  std::vector<int64_t> gather_slice_size{self.gather_count}(gather_data_shape{self.gather_count});\n"
+            self.src_code += f"  gather_slice_size{self.gather_count}[{args[1]}] = 1;\n\n"
+            
+            self.src_code += f"  builder::GatherDimensionNumbers gather_gnums{self.gather_count}(gather_offset_dim{self.gather_count}, {'{' + '1' + '}'}, {'{' + '1' + '}'}, gather_indices_shape{self.gather_count}.size());\n"
+            
+            self.src_code += f"  auto {self.args_dict[name]} = builder::Gather({args_str[0]}, {args_str[2]}, gather_gnums{self.gather_count}, gather_slice_size{self.gather_count}, false, gather_type{self.gather_count});\n"
+            
+            self.gather_count += 1
+
             return
         
-        if 'clone' in name:
-            self.src_code += f"  builder::Op {self.args_dict[name]} = {self.args_dict[args[0].name]};\n"
+        if 'batch_norm' in name:
+            shape = []
+            lenth = len(self.cur_node.meta['val'])
+            for i in range (0, lenth):
+                shape.append('{' + str(self.cur_node.meta['val'][i].shape).split('[')[-1].split(']')[0] + '}')
+            
+            # self.src_code += f'  builder::Type bn_type{self.gather_count}({shape}, ptype);\n\n'
+            self.src_code += f"  std::vector<std::vector<int64_t>> tuple_shape{self.bn_count};\n"
+            self.src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{self.bn_count};\n"
+            # for i in range(0, lenth):
+            #     self.src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
+            # self.src_code += f"  for (uint i = 0; i < {lenth}; i++) {'{'}\n"
+            # # self.src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
+            # self.src_code += f"    tuple_dtype{self.bn_count}.push_back(builder::PrimitiveType::F32());\n  {'}'}\n"
+            
+            self.src_code += f"  builder::Type bn_type{self.bn_count}(tuple_shape{self.bn_count}, tuple_dtype{self.bn_count});\n"
+            
+            # self.src_code += f"  auto {self.args_dict[name]} = builder::BatchNormInference({args_str[0]}, {args_str[1]}, {args_str[2]}, {args_str[3]}, {args_str[4]}, 0.1, 3);\n"
+            # self.src_code += f"  auto {self.args_dict[name]} = builder::BatchNormTraining({args_str[0]}, {args_str[1]}, {args_str[2]}, 0.1, 5);\n"
+            
+            self.src_code += f"  auto {self.args_dict[name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"
+            
+            self.bn_count += 1
             return
         
+        if 'threshold_backward' in name:
+            self.src_code += f"  builder::Op {self.args_dict[name]} = builder::ReluGrad({', '.join(args_str)});\n\n"
+            return
+        
+    def output(self, name, target, args, kwargs):
+        for i in range(0, len(args[0])):
+            self.output_args.append(args[0][i])   
+
+        def run_node(self, n : Node) -> Any:
+        self.cur_node = n
+        op = n.op
+        name = n.name
+        target = n.target
+        args = n.args
+        kwargs = n.kwargs
+
+        assert isinstance(args, tuple)
+        assert isinstance(kwargs, dict)
+            
+        return getattr(self, op)(name, target, args, kwargs) 
+    
+    def codegen(self):
+        self.run()
+        
+        tmp_str = []
+        res_str = ''
+        for i in range(0, len(self.output_args)):
+            if isinstance(self.output_args[i], type(None)):
+                continue
+            else:
+                tmp_str.append(self.args_dict[self.output_args[i].name])
+
+        res_str += f'  hlir_builder->SetOutput({"{" + ", ".join(tmp_str) + "}"});\n'
+        
+        input_paras = ''
+        for i in range(0, len(self.input_args)):
+            input_paras += f'float* input_ptr{str(i)}, '
+        
+        output_paras = []
+        for i in range(0, len(self.output_args)):
+            output_paras.append(f'float* output_ptr{str(i)}')
+        output_paras = ', '.join(output_paras)
+        
+        inputs = ''
+        for i in range(0, len(self.input_args)):
+            inputs += f'  input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));\n'
+            
+        outputs = ''
+        for i in range(0, len(self.output_args)):
+            outputs += f'  output_ptrs.emplace_back(output_ptr{str(i)});\n'
+        
+        kernel_cal = self.generate_kernel_cal()
+        
+        # self.code = self.code.replace('{self.src_code}', self.src_code)
+        # self.code = self.code.replace('{res_str}', res_str)
+        # self.code = self.code.replace('{input_paras}', input_paras)
+        # self.code = self.code.replace('{output_paras}', output_paras)
+        # self.code = self.code.replace('{inputs}', inputs)
+        # self.code = self.code.replace('{outputs}', outputs)
+        # self.code = self.code.replace('{kernel_cal}', kernel_cal)
+        
+        # print(self.code)
+        
+        print(self.code.format(self.src_code = self.src_code
+                                res_str = res_str, 
+                                input_paras = input_paras,
+                                output_paras = output_paras,
+                                inputs = inputs,
+                                outputs = outputs,
+                                kernel_cal = kernel_cal))
+        
+        raise ValueError("code")
+    
+        return self.code.format(self.src_code = self.src_code
+                                res_str = res_str, 
+                                input_paras = input_paras,
+                                output_paras = output_paras,
+                                inputs = inputs,
+                                outputs = outputs,
+                                kernel_cal = kernel_cal)
+
+    def para_args(self, operation, args):
         args_str = []
         for i in range(0, len(args)):
             
@@ -211,21 +281,18 @@ extern "C" void run({input_paras}
             elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
                 args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
             elif isinstance(args[i], torch.dtype):
-
-                in_shape_size = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                
+                in_shape_size = self.get_shape()
                 self.src_code += f'  std::vector<int64_t> type{self.type_count}_in_shape{in_shape_size};\n'
                 self.src_code += f'  builder::Type type{self.type_count} = builder::Type(type{self.type_count}_in_shape, ptype);\n\n'
                 args_str.append(f'type{self.type_count}')
                 self.type_count += 1
             else:          
-                if 'unsqueeze' in name:
+                if 'squeeze' in operation:
                     self.src_code += f'  builder::Type axes{str(self.axes_count)}_type({"{" + "1" + "}"}, builder::PrimitiveType::S64());\n'
                     self.src_code += f'  std::vector<int64_t> axes{self.axes_count}_data = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};\n'
                     self.src_code += f'  builder::Op axes{self.axes_count} = builder::Const(hlir_builder, (axes{self.axes_count}_data.data()), axes{self.axes_count}_type);\n'
                     args_str.append(f'axes{self.axes_count}')
-                    
-                    shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+                    shape = self.get_shape()
                     self.src_code += f"  builder::Type output{self.axes_count}_type({shape}, builder::PrimitiveType::F32());\n"
                     args_str.append(f"output{self.axes_count}_type")
                     self.axes_count +=1
@@ -233,66 +300,125 @@ extern "C" void run({input_paras}
                     pass
                 else:                                  
                     in_shape_size = '{1}'
-                    self.src_code += f'  float value{self.const_count} = {str(args[i])};\n'
+                    if isinstance(type(args[i]), type(int)):
+                        self.src_code += f'  int value{self.const_count} = {str(args[i])};\n'
+                    else:
+                        self.src_code += f'  float value{self.const_count} = {str(args[i])};\n'
                     self.src_code += f'  std::vector<int64_t> const{self.const_count}_in_shape{in_shape_size};\n'
                     self.src_code += f'  builder::Type value{self.const_count}_type(const{self.const_count}_in_shape, ptype);\n'
                     self.src_code += f'  builder::Op const{self.const_count} = builder::Const(hlir_builder, static_cast<void *>(&value{self.const_count}), value{self.const_count}_type);\n\n'
                     args_str.append(f'const{self.const_count}')
                     self.const_count += 1
 
-        if target.__name__.split('::')[-1].title().split('.')[0] in self.op_set.keys():
-            operation = self.op_set[target.__name__.split('::')[-1].title().split('.')[0]]
-        else:
-            operation = target.__name__.split('::')[-1].title().split('.')[0]
-        
-        if operation == "ReduceMean":
-            args_str[1], args_str[2] = args_str[2], args_str[1]
-            shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-            self.src_code += f'  builder::Type reducemean_shape{self.reducemean_count}({shape}, ptype);\n'
-            args_str.append(f'reducemean_shape{self.reducemean_count}')
-            for i in range(0, len(args_str)):
-                print(args_str[i])
-            tmp = args[1].copy()
-            tmp.sort()
-            for i in range(0, len(tmp)):
-                tmp[i] = (tmp[i] + len(args[0].meta['val'].shape)) % len(args[0].meta['val'].shape)
-            args_str[2] = str(tmp).replace('[', '{').replace(']', '}')
-                
-            args_str[2] = '{2, 3}'
+        return args_str
+    
+    def get_shape(self):
+        shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        return
+    
+    def gen(self, res, operation, args):
+        args_str = self.para_args(operation, args)
+        self.src_code += f"  builder::Op {res} = builder::{operation}({', '.join(args_str)});\n\n"
+    
+    @staticmethod
+    def Add(self, res, args):
+        self.gen(res, 'Add', args_str)
+        return
 
-        if operation == "Reshape":
-            # print("!1")
-            # print(args[1])
-            # print(args_str[1])
-            shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-            self.src_code += f'  builder::Type reshape_shape{self.reshape_count}({shape}, ptype);\n'
-            args_str[1] = f'reshape_shape{self.reshape_count}'
-            self.reshape_count += 1
+    @staticmethod
+    def Sub(self, res, args):
+        self.gen(res, 'Sub', args)
+        return
+
+    @staticmethod
+    def Sqrt(self, res, args):
+        self.gen(res, 'Sqrt', args)
+        return
         
-        if operation == "Addmm":
-            self.src_code += f"  builder::Op addmm{self.addmm_count} = builder::Gemm({'{' + args_str[1] + ', ' + args_str[2] + '}'});\n"
-            self.src_code += f"  builder::Op {self.args_dict[name]} = builder::Add({args_str[0]}, addmm{self.addmm_count});\n"
-            self.addmm_count += 1
-            return
-        
-        if operation == "ReduceSum":
-            if len(args_str) ==3:
-                args_str[1], args_str[2] = args_str[2], args_str[1]
-        
-        if operation == "ReduceMax":
-            if len(args_str) ==3:
-                args_str[1], args_str[2] = args_str[2], args_str[1]
-        
-        # if operation == "Mul":
-        #     if isinstance(args[0], Node) and isinstance(args[1], Node):
-        #         if 
-        #         self.src_code += f"  builder::Op {self.args_dict[name]} = builder::Gemm({'{' + ', '.join(args_str) + '}'});\n\n"
-                # return
-        if operation == "Gemm":
-            self.src_code += f"  builder::Op {self.args_dict[name]} = builder::Gemm({'{' + ', '.join(args_str) + '}'});\n\n"
-            return
+    @staticmethod
+    def Clone(self, res, args):
+        self.src_code += f"  builder::Op {res} = {self.args_dict[args[0].name]};\n"
+        return
+    
+    @staticmethod
+    def ReduceMean(self, res, args):
+        args_str = self.para_args('ReduceMean', args)
+        args_str[1], args_str[2] = args_str[2], args_str[1]
+            shape = self.get_shape()
+        self.src_code += f'  builder::Type reducemean_shape{self.reducemean_count}({shape}, ptype);\n'
+        args_str.append(f'reducemean_shape{self.reducemean_count}')
+        for i in range(0, len(args_str)):
+            print(args_str[i])
+        tmp = args[1].copy()
+        tmp.sort()
+        for i in range(0, len(tmp)):
+            tmp[i] = (tmp[i] + len(args[0].meta['val'].shape)) % len(args[0].meta['val'].shape)
+        args_str[2] = str(tmp).replace('[', '{').replace(']', '}')
             
-        self.src_code += f"  builder::Op {self.args_dict[name]} = builder::{operation}({', '.join(args_str)});\n\n"
+        args_str[2] = '{2, 3}'
+        self.reducemean_count += 1
+        self.src_code += f"  builder::Op {res} = builder::ReduceMean({', '.join(args_str)});\n\n"
+        return
+    
+    @staticmethod
+    def Reshape(self, res, args):
+        args_str = self.args_str('Reshape', args)
+        shape = slef,get_shape
+        self.src_code += f'  builder::Type reshape_shape{self.reshape_count}({shape}, ptype);\n'
+        args_str[1] = f'reshape_shape{self.reshape_count}'
+        self.reshape_count += 1
+        
+        self.src_code += f"  builder::Op {res} = builder::Reshape({', '.join(args_str)});\n\n"
+        return
+    
+    @staticmethod
+    def Addmm(self, res, args):
+        self.src_code += f"  builder::Op addmm{self.addmm_count} = builder::Gemm({'{' + args_str[1] + ', ' + args_str[2] + '}'});\n"
+        self.src_code += f"  builder::Op {self.args_dict[name]} = builder::Add({args_str[0]}, addmm{self.addmm_count});\n"
+        self.addmm_count += 1
+        return
+    
+    @staticmethod
+    def ReduceMax(self, res, args):
+        args_str = self.args_str('ReduceMax', args)
+        if len(args_str) ==3:
+            args_str[1], args_str[2] = args_str[2], args_str[1]
+        self.src_code += f"  builder::Op {res} = builder::ReduceMax({', '.join(args_str)});\n\n"
+        return
+    
+    @staticmethod
+    def ReduceSum(self, res, args):
+        args_str = self.args_str('ReduceSum', args)
+        if len(args_str) ==3:
+            args_str[1], args_str[2] = args_str[2], args_str[1]
+        self.src_code += f"  builder::Op {res} = builder::ReduceSum({', '.join(args_str)});\n\n"
+        return   
+    
+    @staticmethod
+    def Gemm(self, res, args):
+        args_str = self.args_str('Gemm', args)
+        self.src_code += f"  builder::Op {res} = builder::Gemm({'{' + ', '.join(args_str) + '}'});\n\n"
+        return   
+
+    @staticmethod
+    def Transpose(self, res, args):
+        args_str = self.para_args('Transpose', args)
+        if len(args) == 1:
+            args_str.append('{1, 0}')
+        self.src_code += f"  builder::Op {res} = builder::Transpose({', '.join(args_str)});\n\n"
+        return
+    
+    @staticmethod
+    def Getitem(self, res, args):
+        if 'max_pool2d' in args[0].name:
+            self.args_dict[name] = self.args_dict[args[0].name]
+            return
+        
+        shape = self.get_shape
+        self.src_code += f'  builder::Type getitem_type{self.getitem_count}({shape}, ptype);\n\n'
+        self.src_code += f"  builder::Op {self.args_dict[name]} = builder::GetTupleElement({self.args_dict[args[0].name]}, {int(self.cur_node.args[1])}, getitem_type{self.getitem_count});\n\n"
+        self.getitem_count += 1
+        return
     
     def conv(self, name, target, args, kwargs):
         args_str =[]
@@ -317,11 +443,34 @@ extern "C" void run({input_paras}
         self.src_code += f"  std::vector<builder::Op> {self.args_dict[name]}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
         self.src_code += f'  builder::Op {self.args_dict[name]} = builder::Conv2D({self.args_dict[name]}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
     
+    def conv_grad(self, name, target, args, kwargs):
+        args_str = []
+        
+        for i in range(0, 3):
+            if isinstance(args[i], type(None)):
+                continue
+            else:
+                args_str.append(self.args_dict[args[i].name])
+        
+        bias = str(args[3]).replace('[','{').replace(']','}')
+        stride = str(args[4]).replace('[','{').replace(']','}')
+        padding = str(args[5]).replace('[','{').replace(']','}')
+        dilation = str(args[6]).replace('[','{').replace(']','}')
+
+        self.src_code += f"  auto {self.args_dict[name]} = enflame::conv2d_grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
+ 
     def max_pool(self, name, target, args, kwargs):
         ceil_mode = 'false'
         return_indices = 'false'
         padding = '{0, 0, 0, 0}'
         dilation = '{1, 1}'
+        shape = '{' + str(self.cur_node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
+        dtype = self.cur_node.meta['val'][0].dtype
+        
+        self.src_code += f'  builder::Type max_pool_type{self.max_pool_count} = builder::Type({shape}, ptype);\n\n'
+        print(shape)
+        print(dtype)
+        print(self.cur_node)
         
         if len(args) == 3:
             ksize = str(args[1]).replace('[','{').replace(']','}')
@@ -330,104 +479,17 @@ extern "C" void run({input_paras}
             ksize = str(args[1]).replace('[','{').replace(']','}')
             stride = str(args[2]).replace('[','{').replace(']','}')            
 
-        self.src_code += f'  builder::Op {self.args_dict[name]} = builder::MaxPool2D({self.args_dict[args[0].name]}, {ksize}, {ceil_mode}, {return_indices}, "NOTSET", "NCHW", {stride}, {padding});\n'
-    
-    def output(self, name, target, args, kwargs):
-        for i in range(0, len(args[0])):
-            self.output_args.append(args[0][i])   
-
-    
-    def run_node(self, n : Node) -> Any:
-        self.cur_node = n
-        op = n.op
-        name = n.name
-        target = n.target
-        args = n.args
-        kwargs = n.kwargs
-        assert isinstance(args, tuple)
-        assert isinstance(kwargs, dict)
-        # if "sub" in name:
-        #     self.name_count = self.name_count + 1
-        #     if self.name_count > 5:
-        #         return
-            
         
-        # if isinstance(n, Node):
-        #     print(n.meta['tensor_meta'].dtype)
-        # for i in range(0, len(args)):
-        #     print("~!")
-        #     print(args[i])
-        #     # if "add" in str(args[i]):
-        #     #     continue
-        #     if isinstance(args[i], Node):
-        #         print(args[i])
-        #         print(args[i].meta['tensor_meta'].dtype)
-            
-        return getattr(self, op)(name, target, args, kwargs) 
-    
-    def codegen(self):
-        self.run()
+        self.src_code += f'  builder::Op {self.args_dict[name]} = builder::MaxPool2D({self.args_dict[args[0].name]}, {ksize}, {ceil_mode}, {return_indices}, "NOTSET", "NCHW", {stride}, {padding}, {"{" + "}"}, max_pool_type{self.max_pool_count});\n'
         
-        tmp_str = []
-        res_str = ''
-        for i in range(0, len(self.output_args)):
-            # print("::::")
-            # print(self.output_args[i])
-            # print(isinstance(self.output_args[i], type(None)))
-            if isinstance(self.output_args[i], type(None)):
-                # tmp_str.append(str(self.output_args[i]))
-                continue
-            else:
-                tmp_str.append(self.args_dict[self.output_args[i].name])
-            # res_str += f'  {self.args_dict[self.output_args[i].name]}.SetAttribute("op_name", builder::Attribute("{self.output_args[i].name}"));\n'
-
-        res_str += f'  hlir_builder->SetOutput({"{" + ", ".join(tmp_str) + "}"});\n'
+        self.max_pool_count += 1
+   
+    def max_pool_grad(self, name, target, args, kwargs):
+        ksize = str(args[2]).replace('[','{').replace(']','}')
+        strides = str(args[3]).replace('[','{').replace(']','}')
+        padding = str(args[4]).replace('[','{').replace(']','}')
         
-        input_paras = ''
-        for i in range(0, len(self.input_args)):
-            input_paras += f'float* input_ptr{str(i)}, '
-        
-        output_paras = []
-        for i in range(0, len(self.output_args)):
-            output_paras.append(f'float* output_ptr{str(i)}')
-        output_paras = ', '.join(output_paras)
-        
-        inputs = ''
-        for i in range(0, len(self.input_args)):
-            inputs += f'  input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));\n'
-            
-        outputs = ''
-        for i in range(0, len(self.output_args)):
-            outputs += f'  output_ptrs.emplace_back(output_ptr{str(i)});\n'
-        
-        self.code = self.code.replace('{self.src_code}', self.src_code)
-        self.code = self.code.replace('{res_str}', res_str)
-        self.code = self.code.replace('{input_paras}', input_paras)
-        self.code = self.code.replace('{output_paras}', output_paras)
-        self.code = self.code.replace('{inputs}', inputs)
-        self.code = self.code.replace('{outputs}', outputs)
-        print(self.write_import() + self.write_prefix() + self.code + self.write_suffix() + self.generate_kernel_cal())
-
-        return self.write_import() + self.write_prefix() + self.code + self.write_suffix() + self.generate_kernel_cal()
-
-    def write_import(self):
-        import_str = '''from ctypes import c_void_p, c_long
-import torch
-import random
-from torch import empty_strided, as_strided, device
-from torch._inductor.codecache import AsyncCompile\n\n'''
-        return import_str
-    
-    def write_prefix(self):
-        prefix_str = '''aten = torch.ops.aten
-assert_size_stride = torch._C._dynamo.guards.assert_size_stride
-async_compile = AsyncCompile()\n\n'''
-        return prefix_str
-    
-    def write_suffix(self):
-        suffix_str = '''async_compile.wait(globals())
-del async_compile\n'''
-        return suffix_str
+        self.src_code += f"  auto {self.args_dict[name]} = enflame::max_pool2d_grad(hlir_builder, {self.args_dict[args[0].name]}, {self.args_dict[args[1].name]}, {ksize}, {strides}, {padding});\n"
 
     def generate_kernel_cal(self):
         args = []
@@ -436,9 +498,6 @@ del async_compile\n'''
         call_str = '    kernel_cpp_0('
         for i in range(0, len(self.input_args)):
             args.append('arg' + str(i) + '_1')
-            print("=====================")
-            print(self.input_args[i])
-            print("=====================")
             
             args_str += '    arg' + str(i) + '_1 = ' + (f"rand_strided(({str(self.input_args[i].meta['val'].shape).split('[')[-1].split(']')[0]}, ), "
                                                     f"{str(self.input_args[i].meta['val'].stride())}, "
@@ -455,13 +514,15 @@ del async_compile\n'''
         bufs = []
         buf_str = ''
         for i in range(0, len(self.output_args)):
-            # if i < 6:
-            #     continue
             if isinstance(self.output_args[i], type(None)):
                 if i != len(self.output_args) - 1:
                     call_str += ', '
                 else:
                     call_str += ')\n'
+                # raise ValueError("None")
+                bufs.append('buf' + str(i))
+                buf_str += '    buf' + str(i) + ' = ' + (f"empty_strided((, ), "
+                                                    f"{'(, )'})")
                 continue
             call_str += 'c_void_p(buf' + str(i) + '.data_ptr())'
             if i != len(self.output_args) - 1:
@@ -498,6 +559,7 @@ del async_compile\n'''
     print(call([{', '.join(args)}]))\n\n'''
     
         return func_call_str + func_main_str
+   
         
 
 def reduction_init(reduction_type, dtype):
