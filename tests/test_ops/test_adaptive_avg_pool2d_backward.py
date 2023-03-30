@@ -1,9 +1,7 @@
 
 import torch
 import numpy as np
-
-from torch_dipu.testing._internal.testcase import TestCase, run_tests
-from torch_dipu.testing._internal.common_utils import dipu
+from torch_dipu.testing._internal.common_utils import dipu, TestCase, run_tests
 
 class TestAdaptiveAvgPool2dBackward(TestCase):
     def cpu_op_exec(self, input_x, input_grad):

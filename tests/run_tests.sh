@@ -15,10 +15,10 @@ function run_test {
 }
 
 function run_op_tests {
-  run_test "$CDIR/test_network_ops/test_adaptive_avg_pool2d_backward.py"
-  run_test "$CDIR/test_network_ops/test_addmm.py"
-  run_test "$CDIR/test_network_ops/test_log_softmax_backward.py"
-  run_test "$CDIR/test_network_ops/test_log_softmax.py"
+  run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
+  run_test "$CDIR/test_ops/test_addmm.py"
+  run_test "$CDIR/test_ops/test_log_softmax_backward.py"
+  run_test "$CDIR/test_ops/test_log_softmax.py"
 }
 
 function run_tests {

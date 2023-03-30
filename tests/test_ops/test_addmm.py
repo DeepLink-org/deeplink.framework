@@ -1,9 +1,7 @@
 import torch
 import numpy as np
-
-from torch_dipu.testing._internal.testcase import TestCase, run_tests
-from torch_dipu.testing._internal.common_utils import cpu, dipu, create_common_tensor
-
+from torch_dipu.testing._internal.common_utils import cpu, dipu, \
+    create_common_tensor, TestCase, run_tests
 
 class TestAddmm(TestCase):
 
@@ -308,4 +306,5 @@ class TestAddmm(TestCase):
 
 if __name__ == "__main__":
     pass
+    # TODO: All tests fail, please run tests when addmm operator is fixed
     # run_tests()
