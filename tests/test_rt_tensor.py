@@ -36,6 +36,40 @@ def testdevice():
     input1 = torch.ones((2, 4), device=device)
     print(input1)
 
+def testDevice1():
+    import torch_dipu
+    from torch_dipu import dipu
+    ret1 = dipu.device_count()
+    ret1 = dipu.current_device()
+    ret1 = dipu.set_device("cuda:2")
+    ret1 = dipu.current_device()
+    print(ret1)
+
+
+def testDevice2():
+    import torch_dipu
+    from torch_dipu import dipu
+
+    device="cuda"
+    in0 = torch.range(1, 12).reshape(1, 3, 2, 2)
+    in1 =in0.to(device)
+    print(in1)
+
+    with dipu.device(torch.device(2)) as dev1:
+        in1 = in0.to(device)
+        print(torch.sum(in1))
+        dipu.synchronize()
+        ret1 = dipu.current_device()
+        print(ret1)
+        # need implment device guard in op
+        # in1 = torch.range(1, 12).reshape(1, 3, 2, 2).to("cuda:0")
+        # print(in1)
+    in1 = torch.range(1, 12).reshape(1, 3, 2, 2).to(device)
+    print(in1)
+
 if __name__ == '__main__':
     for i in range(1, 2):
         empty1()
+        testdevice()
+        testDevice1()
+        testDevice2()

@@ -1,9 +1,68 @@
-import torch_dipu
+from typing import Iterable, List, Union
+import torch
+from torch import Tensor
 
-from .utils import _lazy_init, _lazy_call, device_count, current_device
+from torch_dipu import _C
+from .utils import _lazy_init, _lazy_call
+from .device import device_count, current_device, _get_device_index
 
-__all__ = ['manual_seed', 'manual_seed_all',
-           'seed', 'seed_all', 'initial_seed']
+
+### Random sampling
+def get_rng_state(device: Union[int, str, torch.device] = 'dipu') -> Tensor:
+    r"""Returns the random number generator state of the specified DIPU as a ByteTensor.
+
+    Args:
+        device (torch.device or int, optional): The device to return the RNG state of.
+            Default: ``'dipu'`` (i.e., ``torch.device('dipu')``, the current dipu device).
+
+    """
+    idx = _get_device_index(device)
+    if idx is None:
+        idx = current_device()
+    return _C._get_rng_state(idx)
+
+
+def get_rng_state_all() -> List[Tensor]:
+    r"""Returns a list of ByteTensor representing the random number states of all devices."""
+    results = []
+    for i in range(device_count()):
+        results.append(get_rng_state(i))
+    return results
+
+
+def set_rng_state(new_state: Tensor, device: Union[int, str, torch.device] = 'dipu') -> None:
+    r"""Sets the random number generator state of the specified DIPU.
+
+    Args:
+        new_state (torch.ByteTensor): The desired state
+        device (torch.device or int, optional): The device to set the RNG state.
+            Default: ``'dipu'`` (i.e., ``torch.device('dipu')``, the current DIPU device).
+
+    .. warning::
+        The state of GPU or CPU is different with DIPU, setting GPU state to DIPU does not
+        come into effect.
+    """
+    new_state_copy = new_state.clone(memory_format=torch.contiguous_format)
+    if isinstance(device, str):
+        device = torch.device(device)
+    elif isinstance(device, int):
+        device = torch.device('dipu', device)
+
+    idx = device.index
+    if idx is None:
+        idx = current_device()
+
+    _C._set_rng_state(idx, new_state_copy)
+
+
+def set_rng_state_all(new_states: Iterable[Tensor]) -> None:
+    r"""Sets the random number generator state of all devices.
+
+    Args:
+        new_state (Iterable of torch.ByteTensor): The desired state for each device"""
+    for i, state in enumerate(new_states):
+        set_rng_state(state, i)
+
 
 
 def manual_seed(seed):
@@ -22,7 +81,7 @@ def manual_seed(seed):
 
     def cb():
         idx = current_device()
-        default_generator = torch_dipu.dipu.default_generators[idx]
+        default_generator = _C.default_generators[idx]
         default_generator.manual_seed(seed)
 
     _lazy_call(cb)
@@ -40,7 +99,7 @@ def manual_seed_all(seed):
 
     def cb():
         for i in range(device_count()):
-            default_generator = torch_dipu.dipu.default_generators[i]
+            default_generator = _C.default_generators[i]
             default_generator.manual_seed(seed)
 
     _lazy_call(cb)
@@ -57,7 +116,7 @@ def seed():
     """
     def cb():
         idx = current_device()
-        default_generator = torch_dipu.dipu.default_generators[idx]
+        default_generator = _C.default_generators[idx]
         default_generator.seed()
 
     _lazy_call(cb)
@@ -72,7 +131,7 @@ def seed_all():
         random_seed = 0
         seeded = False
         for i in range(device_count()):
-            default_generator = torch_dipu.dipu.default_generators[i]
+            default_generator = _C.default_generators[i]
             if not seeded:
                 default_generator.seed()
                 random_seed = default_generator.initial_seed()
@@ -91,5 +150,5 @@ def initial_seed():
     """
     _lazy_init()
     idx = current_device()
-    default_generator = torch_dipu.dipu.default_generators[idx]
+    default_generator = _C.default_generators[idx]
     return default_generator.initial_seed()

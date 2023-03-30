@@ -63,7 +63,9 @@ add_dependencies(${DIPU_LIB} copy_include)
 
 
 # --------build bind in python --------------
-file(GLOB BIND_SRC_FILES binding/Export*.cpp)
+file(GLOB BIND_SRC_FILES binding/Export*.cpp
+   # binding/Patch*.cpp
+)
 set(BIND_FILES
     ${BIND_SRC_FILES}
 )
