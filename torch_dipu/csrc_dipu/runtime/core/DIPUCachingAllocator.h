@@ -2,6 +2,7 @@
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
+#include <caffe2/core/logging.h>
 
 #include "DIPUStream.h"
 

@@ -6,8 +6,6 @@ import numpy as np
 cpu = "cpu"
 dipu = torch.device("dipu")
 
-
-
 def get_dipu_device():
     return torch.device(dipu)
 
@@ -36,16 +34,11 @@ if __name__ == "__main__":
     shape_format1 = [
         [np.float32, i, shape_list[0]] for i in format_list
     ]
-    print(shape_format1)
     shape_format2 = [
         [np.float32, i, shape_list[1]] for i in format_list
     ]
-    # print(shape_format2)
     shape_format3 = [
         [np.float32, i, shape_list[2]] for i in format_list
     ]
     shape_format = [[i, j, k, "float32"]
                     for i in shape_format1 for j in shape_format2 for k in shape_format3]
-    print(len(shape_format))
-    for item in shape_format:
-        print(item)

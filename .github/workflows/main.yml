@@ -15,7 +15,7 @@ env:
   ENV_NAME: 'dipu_poc'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   CLUSTER_CAMB: CAMB
-  PYTORCH_TAG: "0388400f3f8a8ecae2f809ba40ca3ddd5a8b9028"
+  PYTORCH_COMMIT: "0388400f3f8a8ecae2f809ba40ca3ddd5a8b9028"
   DIOPI_COMMIT: "7ec02a31440857fed9405fda8d519d4dee8c17e4"
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
           cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
           && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
-          && git checkout ${PYTORCH_TAG} && git submodule update --init --recursive
+          && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST"
           rsync -a --delete ${GITHUB_WORKSPACE}/DIOPI-TEST/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST/
@@ -133,14 +133,3 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_tests.sh
           """
- 
-
-    
-
-
-
-
-
-
-
-
