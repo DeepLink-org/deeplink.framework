@@ -1,18 +1,10 @@
 
 import collections
-import contextlib
-import warnings
 
-import torch_dipu
-from .utils import is_initialized, _get_device_index
-
-@contextlib.contextmanager
-def _free_mutex():
-    torch_dipu._C._dipu_lock_mutex()
-    try:
-        yield
-    finally:
-        torch_dipu._C._dipu_unlock_mutex()
+from torch_dipu import _C
+from .device import current_device, _get_device_index
+from .utils import is_initialized
+from .streams import current_stream, Stream
 
 
 def caching_allocator_alloc(size, device=None, stream=None):
@@ -35,18 +27,18 @@ def caching_allocator_alloc(size, device=None, stream=None):
         management.
     """
     if device is None:
-        device = torch_dipu.dipu.current_device()
+        device = current_device()
     device = _get_device_index(device)
     if stream is None:
-        stream = torch_dipu.dipu.current_stream(device)
-    if isinstance(stream, torch_dipu.dipu.streams.Stream):
+        stream = current_stream(device)
+    if isinstance(stream, Stream):
         stream = stream.dipu_stream
     if not isinstance(stream, int):
         raise TypeError('Invalid type for stream argument, must be '
                         '`torch_dipu.dipu.Stream` or `int` representing a pointer '
                         'to a exisiting stream')
-    with torch_dipu.dipu.device(device):
-        return torch_dipu._C._dipu_dipuCachingAllocator_raw_alloc(size, stream)
+    with device(device):
+        return _C._dipu_dipuCachingAllocator_raw_alloc(size, stream)
 
 
 def caching_allocator_delete(mem_ptr):
@@ -63,7 +55,7 @@ def caching_allocator_delete(mem_ptr):
         See :ref:`dipu-memory-management` for more details about dipu memory
         management.
     """
-    torch_dipu._C._dipu_dipuCachingAllocator_raw_delete(mem_ptr)
+    _C._dipu_dipuCachingAllocator_raw_delete(mem_ptr)
 
 
 def empty_cache():
@@ -78,7 +70,7 @@ def empty_cache():
         more details about dipu memory management.
     """
     if is_initialized():
-        torch_dipu._C._dipu_emptyCache()
+        _C._dipu_emptyCache()
 
 
 ## just an empty shell now
@@ -99,7 +91,7 @@ def memory_stats(device=None):
     return collections.OrderedDict(result)
 
 
-def create_metrics_to_display() :
+def _create_metrics_to_display() :
     def _format_size(sz, pref_sz):
         prefixes = ["B ", "KB", "MB", "GB", "TB", "PB"]
         prefix = prefixes[0]
@@ -162,7 +154,7 @@ def memory_summary(device=None, abbreviated=False):
     """
     device = _get_device_index(device, optional=True)
     stats = memory_stats(device=device)
-    metrics_to_display, lines = create_metrics_to_display()
+    metrics_to_display, lines = _create_metrics_to_display()
 
     for metric_key, metric_name, formatter in metrics_to_display:
         lines.append("-" * 75)

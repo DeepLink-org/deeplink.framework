@@ -2,6 +2,7 @@
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
+#include <ATen/Dispatch.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
@@ -144,5 +145,17 @@ namespace dipu::native {
       doRealCp(self, src, non_blocking);
     }
     return self;
+  }
+
+  at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
+    at::Scalar r;
+    AT_DISPATCH_ALL_TYPES_AND2(at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu", [&] {
+          scalar_t value;
+          dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
+          dipu::devapis::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t), &value, self.data_ptr<scalar_t>());
+          dipu::devapis::syncStream(stream.rawstream());
+          r =  at::Scalar(value);
+        });
+    return r;
   }
 }

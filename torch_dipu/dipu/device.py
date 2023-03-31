@@ -1,7 +1,8 @@
 from functools import partial
 import torch
-from torch import device
+
 from torch_dipu import mockcuda
+from torch_dipu import _C
 __dipu__ = 'dipu'
 __diputype__ = 'privateuseone'
 __vendor__ = 'mlu'  # need update when compile
@@ -18,7 +19,7 @@ class MetaType(type):
 # csrc/Device.cpp THPDevice_pynew:
 # "Device(Device device)" Device type can be Device, Long, String
 # "Device(c10::string_view type, int64_t? index=-1)"
-class _DeviceWrapper(metaclass=MetaType):
+class _DIPUDevice(metaclass=MetaType):
     @staticmethod
     def __doreplace(arg):
         if (__dipu__ in arg):
@@ -43,6 +44,7 @@ class _DeviceWrapper(metaclass=MetaType):
             kwargs["type"] = cls.__doreplace(deviceValue)
         return MetaType.device(*args, **kwargs)
 
+torch.device = _DIPUDevice
 
 # wrap device related func
 def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
@@ -72,3 +74,134 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
         return _proxyFuncInst
 
 GetTorchFuncProxy = partial(GetDeviceProxy, pos = -1, name = "device", static_func = True)
+
+def _lazy_init():
+    pass
+
+# dipu device Interface
+
+def device_count():
+    return _C._dipu_get_device_count()
+
+def set_device(device):
+    _lazy_init()
+    if isinstance(device, torch.device):
+        _C._dipu_set_device(device.index)
+    elif (isinstance(device, int) or isinstance(device, str)):
+        _C._dipu_set_device(torch.device(device).index)
+    else :
+        raise AssertionError("input can not convert to torch.device")
+
+def current_device():
+    _lazy_init()
+    return _C._dipu_current_device()
+
+def _get_device_index(device, optional=False):
+    r"""Gets the device index from :attr:`device`, which can be a torch.device
+    object, a Python integer, or ``None``.
+
+    If :attr:`device` is a torch.device object, returns the device index if it
+    is a CUDA device. Note that for a CUDA device without a specified index,
+    i.e., ``torch.device('cuda')``, this will return the current default CUDA
+    device if :attr:`optional` is ``True``.
+
+    If :attr:`device` is a Python integer, it is returned as is.
+
+    If :attr:`device` is ``None``, this will return the current default CUDA
+    device if :attr:`optional` is ``True``.
+    """
+    # _DIPUDevice not support bytes replace now, is it really needed?
+    if isinstance(device, str):
+        device = torch.device(device)
+    device_idx = None
+    if isinstance(device, torch.device):
+        if device.type not in [__diputype__]:
+            raise ValueError('Expected a dipu device, but got: {}'.format(device))
+        device_idx = device.index
+    elif isinstance(device, int):
+        device_idx = device
+    if device_idx is None:
+        if optional:
+            # default cuda device index
+            return current_device()
+        else:
+            raise ValueError('Expected a dipu device with a specified index '
+                             'or an integer, but got: '.format(device))
+    return device_idx
+
+def synchronize(_device=None):
+    r"""Waits for all kernels in all streams on a DIPU device to complete.
+
+    Arguments:
+        device (torch.device or int, optional): device for which to synchronize.
+            It uses the current device, given by :func:`~torch_npu.npu.current_device`,
+            if :attr:`device` is ``None`` (default).
+    """
+    _lazy_init()
+    with device(_device):
+        return _C._dipu_synchronize()
+
+
+def is_available():
+    if (not hasattr(_C, '_dipu_set_device')):
+        return False
+    return device_count() > 0
+
+
+class device(object):
+    r"""Context-manager that changes the selected device.
+
+    Arguments:
+        device (torch.device or int): device index to select. It's a no-op if
+            this argument is a negative integer or ``None``.
+    """
+
+    def __init__(self, device):
+        self.idx = _get_device_index(device, optional=True)
+        self.prev_idx = -1
+
+    def __enter__(self):
+        if self.idx == -1:
+            return
+        self.prev_idx = current_device()
+        if self.prev_idx != self.idx:
+            set_device(self.idx)
+
+    def __exit__(self, *args):
+        if self.prev_idx != self.idx:
+            set_device(self.prev_idx)
+        return False
+
+
+class device_of(device):
+    r"""Context-manager that changes the current device to that of given object.
+
+    You can use both tensors and storages as arguments. If a given object is
+    not allocated on a GPU, this is a no-op.
+
+    Arguments:
+        obj (Tensor or Storage): object allocated on the selected device.
+    """
+    def __init__(self, obj):
+        idx = obj.get_device() if obj.is_dipu else -1
+        super(device_of, self).__init__(idx)
+
+
+# device properties.
+def can_device_access_peer():
+    return False
+
+def get_device_name(device_id: int):
+    if device_id < 0 or device_id >= device_count():
+        raise AssertionError("Invalid device id")
+    _lazy_init()
+    # temporary mock 
+    return "dipu:" + __vendor__ + "" + str(device_id)
+    # device_prop = _C._dipu_getDeviceProperties(device_id)
+    # return device_prop.name
+
+def get_device_properties(device_id: int):
+    if device_id < 0 or device_id >= device_count():
+        raise AssertionError("Invalid device id")
+    _lazy_init()
+    return _C._dipu_getDeviceProperties(device_id)

@@ -2,6 +2,15 @@
 FILE(GLOB test1
 testrt.cpp
 )
+
+# temporarily: enhance to use the same configuration as lib
+set(DIPU_PATH ${PROJECT_SOURCE_DIR}/torch_dipu/)
+include_directories(${DIPU_PATH})
+include_directories(${DIPU_PATH}/dist/include)
+add_subdirectory(${DIPU_PATH}/csrc_dipu/vendor/${UsedVendor} vendor_bins_dir)
+include_directories(SYSTEM ${VENDOR_INCLUDE_DIRS})
+link_directories(${VENDOR_LIB_DIRS})
+
 # to use gtest
 set(ALL_TESTS test_tensor_add test_relu testrt)
 set(DIPU_LIB "${CMAKE_CURRENT_SOURCE_DIR}/../../torch_dipu/libtorch_dipu.so")

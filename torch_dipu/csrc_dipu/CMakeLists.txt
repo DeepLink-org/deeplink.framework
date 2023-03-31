@@ -4,12 +4,11 @@ set(DIPU_PYTHON_LIB torch_dipu_python)
 # python path
 include_directories(${PYTHON_INCLUDE_DIR})
 
-# use csrc_dipu as basic include path
-set(TORCH_CSRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../")
-include_directories(${TORCH_CSRC_PATH})
+# dipu include path
+set(DIPU_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../)
+include_directories(${DIPU_PATH})
 
-
-set(DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../dist/include)
+set(DIST_DIR ${DIPU_PATH}/dist/include)
 include_directories(${DIST_DIR})
 
 # src
@@ -45,7 +44,6 @@ set(SOURCE_FILES
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 
-
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
@@ -63,12 +61,13 @@ add_dependencies(${DIPU_LIB} copy_include)
 
 
 # --------build bind in python --------------
-file(GLOB BIND_SRC_FILES binding/Export*.cpp)
+file(GLOB BIND_SRC_FILES binding/Export*.cpp
+   # binding/Patch*.cpp
+)
 set(BIND_FILES
     ${BIND_SRC_FILES}
 )
 add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
-
 
 

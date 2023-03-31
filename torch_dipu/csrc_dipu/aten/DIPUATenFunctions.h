@@ -21,6 +21,8 @@ struct DIPUATenFunctions {
 
     static const at::Tensor& resize_(const at::Tensor& self, at::IntArrayRef size, c10::optional<at::MemoryFormat> memory_format);
 
+    static at::Scalar _local_scalar_dense_dipu(const at::Tensor& self);
+
     // diopi func
     static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
     static at::Tensor relu(const at::Tensor& self);
