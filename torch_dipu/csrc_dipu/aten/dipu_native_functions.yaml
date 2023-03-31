@@ -1,16 +1,22 @@
 backend: DIPU
 cpp_namespace: dipu::native
 supported:
-  - add.out, diopiAdd
-  - relu, diopiRelu
-  - relu_, diopiReluInp
-  - native_batch_norm, diopiBatchNorm
-  - native_batch_norm.out, diopiBatchNorm
-  - native_batch_norm_backward, diopiBatchNormBackward
-  - conv2d, diopiConvolution2d
-  - randperm.generator_out, diopiRandperm
-  - randperm.out, diopiRandperm
-  - random_.from, diopiRandomInp
-  - random_.to, diopiRandomInp
-  - random_, diopiRandomInp
-  - copy_, diopiCopy
+  # Format
+  # - op: add.out     # OperatorName
+  #   api: diopiAdd   # DIOPI function
+  #   full_gen: True  # Generate the full code or not, with the default value being False.
+  #   infer: null     # Infer code generation type, with the default value of null.
+  #   adaptor: null   # Adaptor code generation type, with the default value of null.
+  #   args: out, self, other, alpha   # Sequence of calling arguments for DIOPI. 
+  #                                   # Ignore the argument context.
+  #                                   # The parameter names must correspond to the 
+  #                                   # parameters in native_functions.yaml.
+  - op: add.out
+    api: diopiAdd
+    full_gen: True
+    infer: null
+    adaptor: null
+    args: out, self, other, alpha
+
+  - op: conv2d
+    api: diopiConvolution2d

@@ -159,10 +159,11 @@ def parse_native_yaml(
             for e in custom_es:
                 loc = Location(path, e["__line__"])
                 funcs = e.get("func")
-                with context(lambda: f"in {loc}:\n  {funcs}"):
-                    func, m = NativeFunction.from_yaml(e, loc, valid_tags, ignore_keys)
-                    rs.append(func)
-                    BackendIndex.grow_index(bs, m)
+                if funcs != None:
+                    with context(lambda: f"in {loc}:\n  {funcs}"):
+                        func, m = NativeFunction.from_yaml(e, loc, valid_tags, ignore_keys)
+                        rs.append(func)
+                        BackendIndex.grow_index(bs, m)
 
         error_check_native_functions(rs)
         # Default dict is to prevent the codegen from barfing when we have a dispatch key that has no kernels yet.

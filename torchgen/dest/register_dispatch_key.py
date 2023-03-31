@@ -578,7 +578,7 @@ namespace {{
                     if metadata is None:
                         return None
                     # assert metadata is not None, f'{f.func.name} not in supported DIOPI list'
-                    return f'DIPU_LIBRARY_IMPL("{f.func.name}", {metadata.diopi}, {name})\n'
+                    return f'DIPU_LIBRARY_IMPL("{f.func.name}", {metadata.diopi.api}, {name})\n'
                 else:
                     payload = f"TORCH_FN({name})"
                     return f'm.impl("{f.func.name}",\n{payload});\n'

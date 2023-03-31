@@ -1138,6 +1138,38 @@ class NativeFunctionsGroup:
             out=out,
         )
 
+@dataclass(frozen=True)
+class DiopiFunction:
+    op_name: "OperatorName"
+    api: Optional[str] = None
+    full_gen: bool = False
+    infer: str = None
+    adaptor: str = None
+    args: List[str] = None
+
+    @staticmethod
+    def parse(value: dict) -> "DiopiFunction":
+        op = value["op"]
+        api = value["api"]
+        assert len(op) != 0 and len(api) != 0, "DIOPI op or api is missing"
+        op_name = OperatorName.parse(op)
+        full_gen = value["full_gen"]
+        infer = None
+        adapter = None
+        args = None
+        if full_gen:
+            infer = value["infer"]
+            adapter = value["adaptor"]
+            args = [arg.strip() for arg in value["args"].split()]
+
+        return DiopiFunction(
+            op_name=op_name,
+            api=api,
+            full_gen=full_gen, 
+            infer=infer,
+            adaptor=adapter,
+            args=args
+        )
 
 @dataclass(frozen=True)
 class BackendMetadata:
@@ -1159,7 +1191,7 @@ class BackendMetadata:
     cpp_namespace: str
 
     # The device independent operator interface implement the kernel
-    diopi: Optional[str] = None
+    diopi: Optional[DiopiFunction] = None
 
     def supports_symint(self) -> bool:
         return "_symint" in self.kernel
