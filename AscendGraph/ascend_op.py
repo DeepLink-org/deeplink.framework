@@ -19,8 +19,6 @@ class Add(Operator):
         super().__init__("add")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.add
 
 
@@ -29,8 +27,6 @@ class AddV2(Operator):
         super().__init__("addv2")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.add
 
 
@@ -39,8 +35,6 @@ class MatMul(Operator):
         super().__init__("matmul")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.matmul
 
 
@@ -49,8 +43,6 @@ class Sub(Operator):
         super().__init__("sub")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.sub
 
 
@@ -59,8 +51,6 @@ class Mul(Operator):
         super().__init__("mul")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.mul
 
 
@@ -69,8 +59,6 @@ class Div(Operator):
         super().__init__("div")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.div
 
 
@@ -78,8 +66,6 @@ class Abs(Operator):
     def __init__(self, a):
         super().__init__("abs")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.abs
 
 
@@ -87,8 +73,6 @@ class Rsqrt(Operator):
     def __init__(self, a):
         super().__init__("rsqrt")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.rsqrt
 
 
@@ -96,8 +80,6 @@ class Log(Operator):
     def __init__(self, a):
         super().__init__("log")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.log
 
 
@@ -105,8 +87,6 @@ class Exp(Operator):
     def __init__(self, a):
         super().__init__("exp")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.exp
 
 
@@ -114,8 +94,6 @@ class Neg(Operator):
     def __init__(self, a):
         super().__init__("neg")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.neg
 
 
@@ -123,8 +101,6 @@ class Relu(Operator):
     def __init__(self, a):
         super().__init__("relu")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.relu
 
 
@@ -132,8 +108,6 @@ class Sum(Operator):
     def __init__(self, a):
         super().__init__("sum")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.sum
 
 
@@ -143,8 +117,6 @@ class ReduceSumD(Operator):
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.sum
 
 
@@ -152,8 +124,6 @@ class Copy(Operator):
     def __init__(self, a):
         super().__init__("copy")
         self.a = a
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.clone
 
 
@@ -162,8 +132,6 @@ class Unsqueeze(Operator):
         super().__init__("unsqueeze")
         self.x = x
         self.dims = dims
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.unsqueeze
 
 
@@ -172,8 +140,6 @@ class Squeeze(Operator):
         super().__init__("squeeze")
         self.x = x
         self.dims = dims
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.squeeze
 
 
@@ -182,8 +148,6 @@ class Permute(Operator):
         super().__init__("permute")
         self.x = x
         self.dims = dims
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.permute
 
 
@@ -207,8 +171,6 @@ class ReduceMean(Operator):
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.mean
 
 
@@ -218,8 +180,6 @@ class Amax(Operator):
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.amax
 
 
@@ -229,8 +189,6 @@ class GatherD(Operator):
         self.x = x
         self.dims = dims
         self.index = index
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.gather
 
 
@@ -240,8 +198,6 @@ class Where(Operator):
         self.condition = condition
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.where
 
 
@@ -250,8 +206,6 @@ class Ne(Operator):
         super().__init__("ne")
         self.x = x
         self.scalar = scalar
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.ne
 
 
@@ -260,8 +214,6 @@ class LessEqual(Operator):
         super().__init__("lessequal")
         self.a = a
         self.b = b
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.le
 
 
@@ -278,8 +230,6 @@ class Conv2D(Operator):
         self.transposed = transposed
         self.output_padding = output_padding
         self.groups = groups
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.convolution
 
 
@@ -288,8 +238,6 @@ class TranShape(Operator):
         super().__init__("transhape")
         self.x = x
         self.shape = shape
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.reshape
 
 
@@ -299,8 +247,8 @@ class Identity(Operator):
         self.x = x
         self.idx = idx
 
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+    def __call__(self, x, idx):
+        return aten.clone(x)
 
 
 class Pad(Operator):
@@ -309,8 +257,11 @@ class Pad(Operator):
         self.x = x
         self.padding = padding
 
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+    def __call__(self, x, padding):
+        shape = x.shape
+        for i in range(len(shape)):
+            shape[i] += padding
+        return aten.zeros(shape)
 
 
 class MaxPoolWithArgmax(Operator):
@@ -319,8 +270,6 @@ class MaxPoolWithArgmax(Operator):
         self.input = input
         self.kernel_size = kernel_size
         self.stride = stride
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.max_pool2d
 
 
@@ -329,8 +278,6 @@ class BroadcastTo(Operator):
         super().__init__("broadcastto")
         self.input = input
         self.shape = shape
-
-    def __call__(self, *args, **kwds):
         self.torch_op = aten.broadcast_to
 
 
@@ -341,17 +288,16 @@ class SquareSumV1(Operator):
         self.dims = dims
         self.keepdim = keepdim
 
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+    def __call__(self, x, dims, keepdim):
+        square = aten.square(x)
+        return aten.sum(square, dims, keepdim)
 
 
 class Shape(Operator):
     def __init__(self, x):
         super().__init__("shape")
         self.x = x
-
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+        self.torch_op = aten.clone
 
 
 class FullLike(Operator):
@@ -360,8 +306,8 @@ class FullLike(Operator):
         self.x = x
         self.value = value
     
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+    def __call__(self, x, value):
+        return aten.tensor(x)
 
 
 class MaxPoolGradWithArgmaxV1(Operator):
@@ -374,8 +320,8 @@ class MaxPoolGradWithArgmaxV1(Operator):
         self.strides = strides
         self.pads = pads
 
-    def __call__(self, *args, **kwds):
-        self.torch_op = aten.tensor
+    def __call__(self, input, grad, argmax, ksize, strides, pads):
+        return aten.tensor(input)
 
 
 @torch.fx.wrap
@@ -388,7 +334,9 @@ def matmul(a, b) -> torch.Tensor:
 
 @torch.fx.wrap
 def pad(x, padding) -> torch.Tensor:
-    return aten.tensor(x)
+    for i in range(len(shape)):
+        shape[i] += padding
+    return aten.zeros(shape)
 
 @torch.fx.wrap
 def maxpoolwithargmax(input, kernel_size, stride) -> torch.Tensor:
@@ -400,11 +348,12 @@ def broadcastto(x, shape) -> torch.Tensor:
 
 @torch.fx.wrap
 def squaresum(x, dims, keepdim) -> torch.Tensor:
-    return aten.tensor(x)
+    square = aten.square(x)
+    return aten.sum(square, dims, keepdim)
 
 @torch.fx.wrap
 def shape(x) -> torch.Tensor:
-    return aten.tensor(x)
+    return aten.clone(x)
 
 @torch.fx.wrap
 def conv2dbackpropfilter(input, weight, grad) -> torch.Tensor:
