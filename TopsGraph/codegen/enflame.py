@@ -97,7 +97,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.header = IndentedBuffer()
         self.code = IndentedBuffer()
         self.compile = IndentedBuffer()
-        self.run = IndentedBuffer()
+        self.runner = IndentedBuffer()
         self.call = IndentedBuffer()
         self.src_code = ''
         
@@ -128,6 +128,8 @@ class EnflameCodegen(torch.fx.Interpreter):
             self.args_dict[name] = 'tmp' + str(len(self.args_dict))
         
         operation = self.get_op_name(target)
+
+        # print("operation!!!!!!!!!!!!!: ", target.__name__, operation)
         
         tmp_code = getattr(self.override, self.get_op_name(target))(self.args_dict, self.cur_node, args)
         self.src_code += tmp_code
@@ -135,10 +137,14 @@ class EnflameCodegen(torch.fx.Interpreter):
         return
     
     def get_op_name(self, target):
+        if 'batch_norm' in target.__name__:
+            return 'Batch_Norm'
         if target.__name__.split('::')[-1].title().split('.')[0] in op_set.keys():
             operation = op_set[target.__name__.split('::')[-1].title().split('.')[0]]
         else:
             operation = target.__name__.split('::')[-1].title().split('.')[0]
+        if operation == 'Max_Pool2D_With_Indices':
+            return 'Max_Pool2D'
             
         operation = operation.split('_')[0]
         
@@ -176,31 +182,37 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         self.code.splice(
             f"""
-                topsExecutable_t exe_ptr;
+                topsExecutable_t exe_ptr;\n
                 std::shared_ptr<builder::Builder> build_sample() {'{'}
-                auto hlir_builder = std::make_shared<builder::Builder>();
-                hlir_builder->SetShapeInference(true);
-                auto ptype = builder::PrimitiveType::F32();
-
-                {self.src_code}
+                  auto hlir_builder = std::make_shared<builder::Builder>();
+                  hlir_builder->SetShapeInference(true);
+                  auto ptype = builder::PrimitiveType::F32();
                 
-                return hlir_builder;{'}'}
             """
         )
         
-        test_code = self.generate_header() + self.code.getvalue() + self.generate_compile() + self.generate_run() + self.generate_cal()
-        print(test_code)
-        raise ValueError("test")
-        return self.generate_header() + self.code.getvalue() + self.generate_compile() + self.generate_run() + self.generate_cal()
+        self.code.writeline(f"{self.src_code}")
+        self.code.writeline(f"  return hlir_builder;\n{'}'}")
+    
+        # print(self.code.getvalue())
+        # print(self.generate_compile())
+        # print(self.generate_runner())
+        # print(self.generate_call())
+        # test = self.generate_header() + self.code.getvalue() + self.generate_compile() + self.generate_runner() + self.generate_call()
+        # print(test)
+        # raise ValueError("test")
+        return self.generate_header() + self.code.getvalue() + self.generate_compile() + self.generate_runner() + self.generate_call()
     
     def get_shape(self):
         shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        return
+        return shape
 
-    def generate_header():
+    def generate_header(self):
+        self.header.writeline(
+            f"from ctypes import c_void_p, c_long"
+        )
         self.header.splice(
             f"""
-                from ctypes import c_void_p, c_long
                 import torch
                 import random
                 from torch import empty_strided, as_strided, device
@@ -218,30 +230,35 @@ class EnflameCodegen(torch.fx.Interpreter):
                 #include <string>
                 #include <vector>
 
+                #include "common/dtu_utils.h"
+                #include "enflame/conv2d_grad.h"
+                #include "enflame/max_pool2d_grad.h"
+
                 #include "dtu/hlir_builder/hlir_builder.h"
                 #include "dtu/hlir_builder/hlir_builder_client_ops.h"
+                
             """
         )
         
         return self.header.getvalue()
 
-    def generate_compile():
+    def generate_compile(self):
         self.compile.splice(
             f"""
                 extern "C" void compile(void){'{'}
-                    // stage 1: build the ir
-                    auto hlir_builder = build_sample();
+                  // stage 1: build the ir
+                  auto hlir_builder = build_sample();
 
-                    // stage 2: compile
-                    std::cout << "ccccc " << std::endl;
-                    compile(hlir_builder, &exe_ptr);
+                  // stage 2: compile
+                  std::cout << "ccccc " << std::endl;
+                  compile(hlir_builder, &exe_ptr);
                 {'}'}
             """
         )
         
         return self.compile.getvalue()
     
-    def generate_run():
+    def generate_runner(self):
         input_paras = ''
         for i in range(0, len(self.input_args)):
             input_paras += f'float* input_ptr{str(i)}, '
@@ -258,30 +275,23 @@ class EnflameCodegen(torch.fx.Interpreter):
         outputs = ''
         for i in range(0, len(self.output_args)):
             outputs += f'  output_ptrs.emplace_back(output_ptr{str(i)});\n'
-       
-        self.run.splice(
-            f"""
-                extern "C" void run({input_paras}
-                    {output_paras}) {'{'}
-                    // stage 3: input and output
-                    std::vector<void *> input_ptrs;
-                    {inputs}
-                    std::vector<void *> output_ptrs;
-                    {outputs}
-                    // stage 4: run
-                    run(exe_ptr, input_ptrs, output_ptrs);
-                {'}'}
-                \''')\n
-                
-                async_compile.wait(globals())
-                del async_compile
-            """
-        )
         
-        return self.run.getvalue()
-    
+        self.runner.writeline(
+            f"""\nextern "C" void run({input_paras}\n"""
+            f"\t\t    {output_paras}) {'{'}\n"
+            f"  // stage 3: input and output\n"
+            f"  std::vector<void *> input_ptrs;\n"
+            f"{inputs}\n"
+            f"  std::vector<void *> output_ptrs;\n"
+            f"{outputs}\n"
+            f"  // stage 4: run\n"
+            f"  run(exe_ptr, input_ptrs, output_ptrs);\n{'}'}\n\''')\n\n"
+            f"async_compile.wait(globals())\ndel async_compile\n"
+        )
+                
+        return self.runner.getvalue()
 
-    def generate_cal(self):
+    def generate_call(self):
         args = []
         args_str = ''
         del_args = ''
@@ -292,7 +302,6 @@ class EnflameCodegen(torch.fx.Interpreter):
                                                         f"{str(self.input_args[i].meta['val'].stride())}, "
                                                         f"device='{self.input_args[i].meta['val'].device.type}', "
                                                         f"dtype={self.input_args[i].meta['val'].dtype.__str__()})\n")
-            
             del_args += '    del arg' + str(i) + '_1\n' 
             call_str += 'c_void_p(arg' + str(i) + '_1.data_ptr()), '
             
@@ -302,23 +311,19 @@ class EnflameCodegen(torch.fx.Interpreter):
         bufs = []
         buf_str = ''
         for i in range(0, len(self.output_args)):
-            if isinstance(self.output_args[i], type(None)):
-                if i != len(self.output_args) - 1:
-                    call_str += ', '
-                else:
-                    call_str += ')\n'
-                bufs.append('buf' + str(i))
-                buf_str += '    buf' + str(i) + ' = ' + (f"empty_strided((, ), "
-                                                         f"{'(, )'})")
-                continue
             call_str += 'c_void_p(buf' + str(i) + '.data_ptr())'
             if i != len(self.output_args) - 1:
                 call_str += ', '
             else:
                 call_str += ')\n'
                 
-            bufs.append('buf' + str(i))
+            if isinstance(self.output_args[i], type(None)):
+                bufs.append('buf' + str(i))
+                buf_str += '    buf' + str(i) + ' = ' + (f"empty_strided((, ), "
+                                                         f"{'(, )'})")
+                continue
             
+            bufs.append('buf' + str(i))
             buf_str += '    buf' + str(i) + ' = ' + (f"empty_strided(({str(self.output_args[i].meta['val'].shape).split('[')[-1].split(']')[0]}, ), "
                                                      f"{str(self.output_args[i].meta['val'].stride())}, "
                                                      f"device='{self.output_args[i].meta['val'].device.type}', "
@@ -327,29 +332,23 @@ class EnflameCodegen(torch.fx.Interpreter):
         if "(, )" in buf_str:
             buf_str = buf_str.replace("(, )", "()")
         
-        self.call.splice(
-            f"""
-                def call(args):
-                {', '.join(args)}, = args
-                args.clear()
-                
-                {buf_str}
-                {call_str}
-                {del_args}
-                
-                return ({', '.join(bufs)})\n\n'''
-                
-                if __name__ == "__main__":
-                from torch._dynamo.testing import rand_strided
-                from torch._inductor.utils import print_performance
-                
-                {args_str}
-                print(call([{', '.join(args)}]))\n\n
-            """
+        self.call.writeline(
+            f"def call(args):\n"
+            f"    {', '.join(args)}, = args\n"
+            f"    args.clear()\n\n"
+            f"{buf_str}\n"
+            f"{call_str}\n"
+            f"{del_args}\n"
+            f"    return ({', '.join(bufs)})\n\n"
+            f"""if __name__ == "__main__":\n"""
+            f"    from torch._dynamo.testing import rand_strided\n"
+            f"    from torch._inductor.utils import print_performance\n\n"
+            f"{args_str}\n"
+            f"    print(call([{', '.join(args)}]))\n\n"
         )
         
         return self.call.getvalue()
-        
+             
 
 def reduction_init(reduction_type, dtype):
     if reduction_type in ("sum", "any"):
@@ -459,7 +458,7 @@ class EnflameOverrides(OpOverrides):
     count = 0
     
     @staticmethod
-    def para_args(args_dict, node, args):
+    def para_args(args_dict, node, args, flag=False):
         src_code = ''
         args_str = []
         for i in range(0, len(args)):
@@ -471,15 +470,15 @@ class EnflameOverrides(OpOverrides):
                 args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
             elif isinstance(args[i], torch.dtype):
                 in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                src_code = f'  std::vector<int64_t> type{EnflameOverrides.count}_in_shape{in_shape_size};\n'
+                src_code += f'  std::vector<int64_t> type{EnflameOverrides.count}_in_shape{in_shape_size};\n'
                 src_code += f'  builder::Type type{EnflameOverrides.count} = builder::Type(type{EnflameOverrides.count}_in_shape, ptype);\n\n'
                 args_str.append(f'type{EnflameOverrides.count}')
                 EnflameOverrides.count += 1
             else:          
                 # if 'squeeze' in operation:
-                if True:
-                    src_code = f'  builder::Type axes{str(EnflameOverrides.count)}_type({"{" + "1" + "}"}, builder::PrimitiveType::S64());\n'
-                    src_code += f'  std::vector<int64_t> axes{_count}_data = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};\n'
+                if flag:
+                    src_code += f'  builder::Type axes{str(EnflameOverrides.count)}_type({"{" + "1" + "}"}, builder::PrimitiveType::S64());\n'
+                    src_code += f'  std::vector<int64_t> axes{EnflameOverrides.count}_data = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};\n'
                     src_code += f'  builder::Op axes{EnflameOverrides.count} = builder::Const(hlir_builder, (axes{EnflameOverrides.count}_data.data()), axes{EnflameOverrides.count}_type);\n'
                     args_str.append(f'axes{EnflameOverrides.count}')
                     shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
@@ -489,9 +488,9 @@ class EnflameOverrides(OpOverrides):
                 else:                                  
                     in_shape_size = '{1}'
                     if isinstance(type(args[i]), type(int)):
-                        src_code = f'  int value{EnflameOverrides.count} = {str(args[i])};\n'
+                        src_code += f'  int value{EnflameOverrides.count} = {str(args[i])};\n'
                     else:
-                        src_code = f'  float value{EnflameOverrides.count} = {str(args[i])};\n'
+                        src_code += f'  float value{EnflameOverrides.count} = {str(args[i])};\n'
                     src_code += f'  std::vector<int64_t> const{EnflameOverrides.count}_in_shape{in_shape_size};\n'
                     src_code += f'  builder::Type value{EnflameOverrides.count}_type(const{EnflameOverrides.count}_in_shape, ptype);\n'
                     src_code += f'  builder::Op const{EnflameOverrides.count} = builder::Const(hlir_builder, static_cast<void *>(&value{EnflameOverrides.count}), value{EnflameOverrides.count}_type);\n\n'
@@ -503,7 +502,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen(operation, args_dict, node, args):
         src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
-        src_code += f"  builder::Op {args_dic[node.name]} = builder::{operation}({', '.join(args_str)});\n\n"
+        src_code += f"  builder::Op {args_dict[node.name]} = builder::{operation}({', '.join(args_str)});\n\n"
         return src_code
     
     @staticmethod
@@ -512,19 +511,61 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Sub(args_dict, node, args):
-        return EnflameOverrides.gen('Sub', args_dic, node, args)
+        return EnflameOverrides.gen('Sub', args_dict, node, args)
+    
+    @staticmethod
+    def Mul(args_dict, node, args):
+        return EnflameOverrides.gen('Mul', args_dict, node, args)
+    
+    @staticmethod
+    def Div(args_dict, node, args):
+        return EnflameOverrides.gen('Div', args_dict, node, args)
+    
+    @staticmethod
+    def Log(args_dict, node, args):
+        return EnflameOverrides.gen('Log', args_dict, node, args)
+    
+    @staticmethod
+    def Neg(args_dict, node, args):
+        return EnflameOverrides.gen('Neg', args_dict, node, args)
+    
+    @staticmethod
+    def Exp(args_dict, node, args):
+        return EnflameOverrides.gen('Exp', args_dict, node, args)
 
     @staticmethod
     def Sqrt(args_dict, node, args):
-        return EnflameOverrides.gen('Sqrt', args_dic, node, args)
+        return EnflameOverrides.gen('Sqrt', args_dict, node, args)
+     
+    @staticmethod
+    def Relu(args_dict, node, args):
+        return EnflameOverrides.gen('Relu', args_dict, node, args)
+    
+    @staticmethod
+    def LessEqual(args_dict, node, args):
+        return EnflameOverrides.gen('LessEqual', args_dict, node, args)
+    
+    @staticmethod
+    def Squeeze(args_dict, node, args):
+        print("~~~~~~")
+        print(args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args, True)
+        src_code += f"  builder::Op {args_dict[node.name]} = builder::Squeeze({', '.join(args_str)});\n\n"
+        return src_code
+    
+    @staticmethod
+    def Unsqueeze(args_dict, node, args):
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args, True)
+        src_code += f"  builder::Op {args_dict[node.name]} = builder::Unsqueeze({', '.join(args_str)});\n\n"
+        return src_code
         
     @staticmethod
     def Clone(args_dict, node, args):
-        return f"  builder::Op {args_dic[node.name]} = {args_dict[args[0].name]};\n"
+        return f"  builder::Op {args_dict[node.name]} = {args_dict[args[0].name]};\n"
     
     @staticmethod
     def ReduceMean(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         args_str[1], args_str[2] = args_str[2], args_str[1]
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'  builder::Type reducemean_shape{EnflameOverrides.count}({shape}, ptype);\n'
@@ -554,6 +595,7 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Addmm(args_dict, node, args):
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         src_code = f"  builder::Op addmm{EnflameOverrides.count} = builder::Gemm({'{' + args_str[1] + ', ' + args_str[2] + '}'});\n"
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Add({args_str[0]}, addmm{EnflameOverrides.count});\n"
         EnflameOverrides.count += 1
@@ -561,7 +603,7 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def ReduceMax(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         if len(args_str) ==3:
             args_str[1], args_str[2] = args_str[2], args_str[1]
         src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceMax({', '.join(args_str)});\n\n"
@@ -569,7 +611,7 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def ReduceSum(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         if len(args_str) ==3:
             args_str[1], args_str[2] = args_str[2], args_str[1]
         src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceSum({', '.join(args_str)});\n\n"
@@ -577,13 +619,13 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Gemm(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         src_code = f"  builder::Op {args_dict[node.name]} = builder::Gemm({'{' + ', '.join(args_str) + '}'});\n\n"
         return src_code
 
     @staticmethod
     def Transpose(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         if len(args) == 1:
             args_str.append('{1, 0}')
         src_code = f"  builder::Op {args_dict[node.name]} = builder::Transpose({', '.join(args_str)});\n\n"
@@ -597,13 +639,13 @@ class EnflameOverrides(OpOverrides):
         
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'  builder::Type getitem_type{EnflameOverrides.count}({shape}, ptype);\n\n'
-        src_code += f"  builder::Op {args_dict[node.name]} = builder::GetTupleElement({args_dict[args[0].name]}, {int(node.args[1])}, getitem_type{count});\n\n"
+        src_code += f"  builder::Op {args_dict[node.name]} = builder::GetTupleElement({args_dict[args[0].name]}, {int(node.args[1])}, getitem_type{EnflameOverrides.count});\n\n"
         EnflameOverrides.count += 1
         return src_code
     
     @staticmethod
     def Gather(args_dict, node, args):
-        args_str = EnflameOverrides.para_args(args_dict, node, args)
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)
         
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'  builder::Type gather_type{EnflameOverrides.count}({shape}, ptype);\n\n'
@@ -626,6 +668,8 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Batch_Norm(args_dict, node, args):
+        src_code, args_str = EnflameOverrides.para_args(args_dict, node, args)    
+
         shape = []
         lenth = len(node.meta['val'])
         for i in range (0, lenth):
@@ -644,7 +688,7 @@ class EnflameOverrides(OpOverrides):
         
         # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormInference({args_str[0]}, {args_str[1]}, {args_str[2]}, {args_str[3]}, {args_str[4]}, 0.1, 3);\n"
         # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormTraining({args_str[0]}, {args_str[1]}, {args_str[2]}, 0.1, 5);\n"
-        
+        # print("args_strlen:", len(args_str))
         src_code += f"  auto {args_dict[node.name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"     
         EnflameOverrides.count += 1
         
@@ -656,12 +700,12 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Conv2D(args_dict, node, args):
+    def Convolution(args_dict, node, args):
         args_str =[]
         for i in range(0, 3):
             if isinstance(args[i], type(None)):
                 continue
-            args_str.append(self.args_dict[args[i].name])
+            args_str.append(args_dict[args[i].name])
                 
         stride = str(args[3]).replace('[','{').replace(']','}')
         
@@ -676,8 +720,8 @@ class EnflameOverrides(OpOverrides):
         dilation = str(args[5]).replace('[','{').replace(']','}')
         group = args[8]
     
-        ssrc_code = f"  std::vector<builder::Op> {args_dict[node.name]}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
-        src_code += f'  builder::Op {args_dict[node.name]} = builder::Conv2D({self.args_dict[name]}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
+        src_code = f"  std::vector<builder::Op> {args_dict[node.name]}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
+        src_code += f'  builder::Op {args_dict[node.name]} = builder::Conv2D({args_dict[node.name]}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
         
         return src_code
     
