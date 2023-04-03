@@ -95,4 +95,4 @@ const at::Generator vendorMakeGenerator(at::DeviceIndex device_index) {
   return at::make_generator<MLUGeneratorImpl>(device_index);
 }
 
-}  // namespace torch_mlu
+}  // namespace torch_dipu

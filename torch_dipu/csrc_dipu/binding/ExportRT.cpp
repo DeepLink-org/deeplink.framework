@@ -8,8 +8,28 @@ using dipu::getDIPUStreamFromPool;
 namespace py = pybind11;
 
 namespace dipu {
+
+static void exportDevices(py::module& m) {
+   // Device Management.
+  m.def("_dipu_set_device", [](int idx) -> void { 
+    devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
+  });
+  m.def("_dipu_get_device_count", []() -> int { 
+    return devapis::getDeviceCount();
+  });
+  m.def("_dipu_current_device", []() -> int {
+    return static_cast<int>(devapis::current_device()); 
+  });
+  m.def("_dipu_synchronize", []() -> void { 
+    devapis::syncDevice(); 
+    return;
+  });
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
+
+  exportDevices(m);
 
   // Stream Management.
   pybind11::class_<dipu::DIPUStream>(m, "_DIPUStreamBase")

@@ -40,4 +40,4 @@ c10::Allocator* getDIPUCachingAllocator(void);
 
 c10::Allocator* getDIPUAllocator(void);
 
-}  // namespace torch_mlu
+}  // namespace torch_dipu

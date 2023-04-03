@@ -63,6 +63,11 @@ namespace {
     return at::native::zero_(self);
   }
 
+  at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor & self) {
+    const OptionalDeviceGuard device_guard(device_of(self));
+    return dnative::_local_scalar_dense_dipu(self);
+  }
+
   // diopi ops
   at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
       return dnative::add_out(self, other, alpha, out);
@@ -280,6 +285,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("as_strided", TORCH_FN(wrapper_DIPU__as_strided));
   m.impl("view", TORCH_FN(wrapper_DIPU__view));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
+  m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
   DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
