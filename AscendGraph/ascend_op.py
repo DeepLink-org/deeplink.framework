@@ -305,13 +305,11 @@ class FullLike(Operator):
         super().__init__("fulllike")
         self.x = x
         self.value = value
-    
-    def __call__(self, x, value):
-        return aten.tensor(x)
+        self.torch_op = aten.full_like
 
 
 class MaxPoolGradWithArgmaxV1(Operator):
-    def __init__(self, input, grad, argmax, ksize, strides, pads):
+    def __init__(self, input, grad, argmax, ksize, strides, pads, dilation, ceil_mode):
         super().__init__("maxpoolgradwithargmaxv1")
         self.input = input
         self.grad = grad
@@ -319,9 +317,11 @@ class MaxPoolGradWithArgmaxV1(Operator):
         self.ksize = ksize
         self.strides = strides
         self.pads = pads
+        self.dilation = dilation
+        self.ceil_mode = ceil_mode
 
-    def __call__(self, input, grad, argmax, ksize, strides, pads):
-        return aten.tensor(input)
+    def __call__(self, input, grad, argmax, ksize, strides, pads, dilation, ceil_mode):
+        return aten.max_pool2d_with_indices_backward(grad, input, ksize, strides, pads, dilation, ceil_mode, argmax)
 
 
 @torch.fx.wrap
@@ -334,6 +334,7 @@ def matmul(a, b) -> torch.Tensor:
 
 @torch.fx.wrap
 def pad(x, padding) -> torch.Tensor:
+    shape = x.shape
     for i in range(len(shape)):
         shape[i] += padding
     return aten.zeros(shape)
@@ -353,21 +354,33 @@ def squaresum(x, dims, keepdim) -> torch.Tensor:
 
 @torch.fx.wrap
 def shape(x) -> torch.Tensor:
-    return aten.clone(x)
+    return aten.tensor(x.shape)
 
 @torch.fx.wrap
-def conv2dbackpropfilter(input, weight, grad) -> torch.Tensor:
-    return aten.tensor(input)
+def conv2dbackpropfilter(grad, input, weight, bias,
+        stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
+    output_masks = aten.tensor([True, False, False])
+    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+            stride, padding, dilation, transposed,
+            output_padding, groups, output_masks)
 
 @torch.fx.wrap
-def conv2dbackpropinput(input, weight, grad) -> torch.Tensor:
-    return aten.tensor(input)
+def conv2dbackpropinput(grad, input, weight, bias,
+        stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
+    output_masks = aten.tensor([False, True, False])
+    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+            stride, padding, dilation, transposed,
+            output_padding, groups, output_masks)
 
 @torch.fx.wrap
-def biasaddgrad(input) -> torch.Tensor:
-    return aten.tensor(input)
+def biasaddgrad(grad, input, weight, bias,
+        stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
+    output_masks = aten.tensor([False, False, True])
+    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+            stride, padding, dilation, transposed,
+            output_padding, groups, output_masks)
 
 @torch.fx.wrap
-def tuple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def ret_tuple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
 

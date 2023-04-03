@@ -176,7 +176,7 @@ def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
 
 @registe_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
 def maxpool2dbackward(grad, input, kernel_size, stride, padding, dilation, ceil_mode, index):
-    return ascend_op.MaxPoolGradWithArgmaxV1(input, grad, index, kernel_size, stride, padding)
+    return ascend_op.MaxPoolGradWithArgmaxV1(input, grad, index, kernel_size, stride, padding, dilation, ceil_mode)
 
 
 @registe_pattern
@@ -209,9 +209,12 @@ class ReplaceConv2DBackward:
     def replacement(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks):
-        result = ascend_op.tuple(ascend_op.conv2dbackpropfilter(input, weight, grad),
-                  ascend_op.conv2dbackpropinput(input.shape, weight, grad),
-                  ascend_op.biasaddgrad(bias))
+        result = ascend_op.ret_tuple(ascend_op.conv2dbackpropfilter(grad, input, weight, bias,
+                    stride, padding, dilation, transposed, output_padding, groups, output_masks),
+                  ascend_op.conv2dbackpropinput(grad, input, weight, bias,
+                    stride, padding, dilation, transposed, output_padding, groups, output_masks),
+                  ascend_op.biasaddgrad(grad, input, weight, bias,
+                    stride, padding, dilation, transposed, output_padding, groups, output_masks))
         return result
 
 @registe_pattern
@@ -226,5 +229,5 @@ class ReplaceVarMean:
         sub = torch.ops.aten.sub(input, broadcast)
         square = ascend_op.squaresum(sub, dims, True)
         var = torch.ops.aten.mul(square, 1 / (64 - 1))
-        return ascend_op.tuple(mean, var)
+        return ascend_op.ret_tuple(mean, var)
 
