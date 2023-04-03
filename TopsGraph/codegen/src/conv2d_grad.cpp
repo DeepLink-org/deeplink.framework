@@ -1,12 +1,5 @@
-#pragma once
+#include "enflame/conv2d_grad.h"
 
-#include <vector>
-#include <string>
-#include <memory>
-#include <utility>
-#include <algorithm>
-
-namespace enflame {
 const char *const kConv2D = "conv2d";
 const char *const kConv2DGrad = "conv2d_grad";
 
@@ -43,11 +36,7 @@ static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
   return padding_dim;
 }
 
-// void test11(){
-//     std::cout << "1234" << std::endl;
-// }
-
-builder::Op conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad_, builder::Op input_, builder::Op filter_, 
+builder::Op enflame::conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad_, builder::Op input_, builder::Op filter_, 
                         std::vector<int64_t> bias_shape, std::vector<int64_t> stride, std::vector<int64_t> dilation, std::vector<int64_t> padding){
   // do not take bias in account because bias_grad will be calculated in
   // elementwise_add_grad input keys: Output@GRAD, Filter, Input output keytrs:
@@ -177,7 +166,7 @@ builder::Op conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::
 
   std::vector<builder::Op> outputs{input_grad, filter_grad, bias_grad};
 
-//   return outputs;
+  // return outputs;
   std::vector<builder::PrimitiveType> tuple_dtype;
   std::vector<std::vector<int64_t>> tuple_shape;
   for (uint i = 0; i < outputs.size(); i++) {
@@ -198,5 +187,3 @@ builder::Op conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::
   // result.SetAttribute(kAttrOpOutVarName, builder::Attribute(output_names_attr));
   return result;
 }
-
-}  // namespace enflame
