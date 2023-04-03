@@ -1,9 +1,6 @@
-#include <memory>
-#include <vector>
-#include <string>
+#include "enflame/max_pool2d_grad.h"
 
-namespace enflame {
-builder::Op max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,
+builder::Op enflame::max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,
                      std::vector<int> ksize, std::vector<int> strides, std::vector<int> padding){
     auto input_shape = in.GetType().GetShape();
     auto ptype = in.GetType().GetPrimitiveType();
@@ -84,7 +81,7 @@ builder::Op max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, build
     }
 }
 
-builder::Op batch_norm(std::shared_ptr<builder::Builder> tmp_builder, builder::Op para1,
+builder::Op enflame::batch_norm(std::shared_ptr<builder::Builder> tmp_builder, builder::Op para1,
                        builder::Op para2, builder::Op para3){
   auto tmp = builder::BatchNormTraining(para1, para2, para2, 0.1, 1);
   auto t1 = builder::GetTupleElement(tmp, 0);
@@ -118,6 +115,4 @@ builder::Op batch_norm(std::shared_ptr<builder::Builder> tmp_builder, builder::O
 
   return result;
 
-}
-
-}  // namespace gcu
+}   
