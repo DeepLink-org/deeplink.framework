@@ -25,7 +25,7 @@ class GraphTransformer:
             # TODO add codegen later
             # from third_party.DICP.TopsGraph.codegen.enflame import EnflameCodegen
             # self.backend_codegen = EnflameCodegen
-        elif backend == 'ascend':
+        elif backend == 'ascendgraph':
             from third_party.DICP.AscendGraph.opset_convert import ascendgraph_opset_convert
             self.backend_opset_transform = ascendgraph_opset_convert
 
