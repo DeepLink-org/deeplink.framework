@@ -2,6 +2,9 @@
 set -e
 CDIR="$(cd "$(dirname "$0")" ; pwd -P)"
 
+
+export TORCH_TEST_DEVICES="$CDIR/pytorch_test_base.py"
+
 function run_coverage {
   if [ "$USE_COVERAGE" == "1" ]; then
     coverage run --source="$TORCH_DIPU_DIR" -p "$@"
@@ -15,6 +18,7 @@ function run_test {
 }
 
 function run_op_tests {
+  run_test "$CDIR/../../pytorch/test/test_torch.py" "$@" -v TestTorchDeviceTypeXLA
   run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
   run_test "$CDIR/test_ops/test_addmm.py"
   run_test "$CDIR/test_ops/test_log_softmax_backward.py"
