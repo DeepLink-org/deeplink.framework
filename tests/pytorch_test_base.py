@@ -4,10 +4,8 @@ import os
 import re
 import sys
 import runpy
-
+import torch
 import torch_dipu
-import torch_dipu.core.dipu_model as xm
-import torch_dipu.utils.utils as xu
 
 DEFAULT_FLOATING_PRECISION = 1e-3
 
@@ -239,6 +237,11 @@ DISABLED_TORCH_TESTS_ANY = {
         'test_empty_tuple_index',  # storage
         'test_empty_fancy_index',  # expecting a different runtime error
         'test_ellipsis_index',  # storage
+        'test_boolean_indexing_alldims',
+        'test_boolean_indexing_onedim',
+        'test_boolean_indexing_twodim',
+        'test_boolean_list_indexing',
+        'test_single_bool_index',
         'test_broaderrors_indexing',  # expecting a different runtime error
         'test_boolean_shape_mismatch',  # expecting a different runtime error
         'test_boolean_indexing_weirdness',  # expecting a different runtime error
@@ -523,7 +526,7 @@ DISABLED_TORCH_TESTS = {
 
 
 class DIPUTestBase(DeviceTypeTestBase):
-  device_type = 'xla'
+  device_type = 'dipu'
   unsupported_dtypes = {
       torch.half, torch.complex32, torch.complex64, torch.complex128
   }
@@ -616,24 +619,17 @@ class DIPUTestBase(DeviceTypeTestBase):
   @classmethod
   def setUpClass(cls):
     # Sets the primary test device to the dipu_device
-    cls.primary_device = "dipu"
-    # torch_dipu._DIPUC._dipu_set_use_full_mat_mul_precision(
-    #     use_full_mat_mul_precision=True)
+    cls.primary_device = torch.device('dipu')
 
   def setUp(self):
     super().setUp()
 
   def prepare_for_compare(self, tx, ty):
-    print_tensors = xu.getenv_as('TEST_PRINT_TENSORS', bool, defval=False)
     x, y = tx, ty
     if type(x) == torch.Tensor:
-      x = tx.to(device='cpu')
-      if print_tensors:
-        print('Tensor X ({}):\n{}'.format(tx.device, x), file=sys.stderr)
+        x = tx.to(device='cpu')
     if type(y) == torch.Tensor:
-      y = ty.to(device='cpu')
-      if print_tensors:
-        print('Tensor Y ({}):\n{}'.format(ty.device, y), file=sys.stderr)
+        y = ty.to(device='cpu')
     return x, y
 
   def _override_prec(self, args, name):

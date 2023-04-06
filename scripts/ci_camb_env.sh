@@ -7,3 +7,4 @@ export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTH
 export PATH=${PYTORCH_DIR}/install_path/bin:${PATH}
 export LD_PRELOAD=${MPI_ROOT}/lib/libmpi.so:${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0v1_cpu/include/python3.8"
+alias python='/mnt/lustre/share/platform/env/miniconda3.8/envs/dipu_poc/bin/python'
