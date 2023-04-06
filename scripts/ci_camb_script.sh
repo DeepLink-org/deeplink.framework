@@ -12,12 +12,9 @@ function build_dipu_py() {
 }
 
 function config_dipu_camb_cmake() {
-    PYTORCH_DIR="$(pwd)/../pytorch"
     mkdir -p build && cd ./build && rm -rf ./*
     echo "PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-    #PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0v1_cpu/include/python3.8"
-    #PYTHON_INCLUDE_DIR="/mnt/lustre/share_data/caikun/pt2.0/include/python3.8"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
         -DCAMB=ON -DPYTORCH_DIR=${PYTORCH_DIR} \
         -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
