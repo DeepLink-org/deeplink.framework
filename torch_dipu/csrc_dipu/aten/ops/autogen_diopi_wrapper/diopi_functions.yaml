@@ -1,0 +1,20 @@
+- schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  name : "add.out"
+  cppsignature: "Tensor & add_out(const Tensor & self, const Tensor & other, const Scalar & alpha, Tensor & out)"
+  ins: [self, other]
+  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+  outs: [out]
+  return: [out]
+  attrs:
+    alpha : scalar
+  interface: diopiAdd(ctx, out, self, other, &alpha)
+
+- schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  name : "sub.out"
+  cppsignature: "Tensor & sub_out(const Tensor & self, const Tensor & other, const Scalar & alpha, Tensor & out)"
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  attrs:
+    alpha : scalar
+  interface: diopiSub(ctx, out, self, other, &alpha)

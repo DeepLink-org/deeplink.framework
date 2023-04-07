@@ -23,11 +23,21 @@ function config_dipu_cmake() {
     cd ../
 }
 
+function autogen_diopi_wrapper() {
+    cd torch_dipu/csrc_dipu/aten/ops/autogen_diopi_wrapper/
+    python autogen_diopi_wrapper2.py
+    cd -
+}
+
+
+
 function build_dipu_lib() {
+
     export DIOPI_ROOT=/home/zhaoguochun/dipu_poc/torch_dipu
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
 
     config_dipu_cmake
+    autogen_diopi_wrapper
     #  2>&1 | tee ./build1.log
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu

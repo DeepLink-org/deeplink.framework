@@ -1,17 +1,15 @@
-#include <torch/library.h>
-#include <ATen/core/dispatch/Dispatcher.h>
-#include <ATen/ops/_reshape_alias_native.h>
-#include <ATen/native/CPUFallback.h>
-#include "DIPUATenFunctions.h"
+#include "RegisterDIPU.hpp"
 
-#include <diopi/functions.h>
+namespace at {
 
-#include <csrc_dipu/runtime/rthelper.h>
-#include "util/Log.h"
+void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
+    torch::jit::Stack* stack) {
+  const auto name = c10::toString(op.operator_name());
+  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
+  at::native::cpu_fallback(op, stack);
+}
 
-using dnative = dipu::native::DIPUATenFunctions;
 
-namespace at { 
 namespace {
   // dipu native ops
   at::Tensor wrapper_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
@@ -24,7 +22,7 @@ namespace {
   at::Tensor wrapper_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
     return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
-  } 
+  }
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     return dnative::copy_(self, src, non_blocking);
@@ -68,10 +66,6 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
-  // diopi ops
-  at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
-      return dnative::add_out(self, other, alpha, out);
-  }
 
   at::Tensor wrapperRelu(const at::Tensor & self) {
       return dnative::relu(self);
@@ -204,27 +198,6 @@ at::Tensor & wrapper_nll_loss_backward_out_grad_input(const at::Tensor & grad_ou
   return dnative::nll_loss_backward_out_grad_input(grad_output, self, target, weight, reduction, ignore_index, total_weight, grad_input);
 }
 
-}  // inner anonymous namespace
-
-static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
-    torch::jit::Stack* stack) {
-  const auto name = c10::toString(op.operator_name());
-  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  at::native::cpu_fallback(op, stack);
-}
-
-// Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
-// which described in design doc.
-// because: 1. it need many add type trait code. 2. pytorch seems are sorting out infer and other pre/post code.
-// so we shouldn't created a new preprocess logic?
-//so just do a simple runtime cpu fallback to support diopi func loss
-#define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc) do {           \
-    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                \
-        m.impl(opname, TORCH_FN(wapperFunc));                           \
-    }  else {                                                           \
-        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());  \
-    }                                                                   \
-} while (false);
 
 TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
@@ -244,7 +217,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
+  //DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
@@ -282,4 +255,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("linear", diopiLinearBackward, wrapper_linear);
 }
 
-} //end ns at
+}  // inner anonymous namespace
+
+}  //end ns at
