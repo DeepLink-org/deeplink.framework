@@ -76,11 +76,18 @@ public:
   }
 
   uint64_t pack() const noexcept {
-    return stream_.pack();
+    return stream_.id();
   }
 
-  static DIPUStream unpack(uint64_t bits) {
-    return DIPUStream(c10::Stream::unpack(bits));
+  struct c10::StreamData3 pack3() const {
+    return {id(), device_index(), dipu::DIPU_DEVICE_TYPE};
+  }
+
+  static DIPUStream unpack3(
+      c10::StreamId stream_id,
+      c10::DeviceIndex device_index,
+      c10::DeviceType device_type) {
+    return DIPUStream(c10::Stream::unpack3(stream_id, device_index, device_type));
   }
 
 private:
