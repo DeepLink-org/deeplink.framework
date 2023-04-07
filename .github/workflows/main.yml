@@ -153,5 +153,5 @@ jobs:
           source /mnt/lustre/share/platform/env/${ENV_NAME}
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_tests.sh
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
