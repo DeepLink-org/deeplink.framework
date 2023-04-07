@@ -197,6 +197,13 @@ class Max_pool2d_with_indices(Operator):
         self.torch_op = aten.max_pool2d_with_indices
 
 
+class Max_pool2d_with_indices_backward(Operator):
+    def __init__(self, *args):
+        super().__init__("max_pool2d_with_indices_backward")
+        self.args = args
+        self.torch_op = aten.max_pool2d_with_indices_backward
+
+
 class Gather(Operator):
     def __init__(self, *args):
         super().__init__("Gather")
@@ -226,8 +233,26 @@ class BathNorm(Operator):
         self.args = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
 
+class BathNormBackward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("bathnorm_backward")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.native_batch_norm_backward.default
+
+class ConvolutionBackward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("convolution_backward")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.convolution_backward.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
     return a, b
+
+
+@torch.fx.wrap
+def ret_tri_tuples(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    return a, b, c

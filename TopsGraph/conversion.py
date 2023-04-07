@@ -129,6 +129,10 @@ def view(a, b):
 def convolution(*args):
     return tops_op.Convolution(*args)
 
+@register_conversion(torch.ops.aten.convolution_backward)
+def convolution_backward(*args):
+    return tops_op.ConvolutionBackward(*args)
+
 @register_conversion(torch.ops.aten.le.Scalar)
 def le(*args):
     return tops_op.LessEqual(*args)
@@ -136,6 +140,10 @@ def le(*args):
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
 def max_pool2d_with_indices(*args):
     return tops_op.Max_pool2d_with_indices(*args)
+
+@register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
+def max_pool2d_with_indices(*args):
+    return tops_op.Max_pool2d_with_indices_backward(*args)
 
 @register_conversion(torch.ops.aten.gather)
 def gather(*args):
@@ -156,6 +164,10 @@ def gemm(*args, **kwargs):
 @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
 def bathnorm(*args, **kwargs):
     return tops_op.BathNorm(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.native_batch_norm_backward.default)
+def bathnorm(*args, **kwargs):
+    return tops_op.BathNormBackward(*args, **kwargs)
 
 # Patterns
 def register_pattern(Pattern):
@@ -232,3 +244,73 @@ class ReplacePattern5:
 
     def replacement(inputs):
         return torch.ops.aten.transpose(inputs, 0, 1)
+
+# convolution_backward =
+#torch.ops.aten.convolution_backward.default(
+# getitem_102,
+# relu_15,
+# primals_58, [0], [1, 1], [1, 1], [1, 1], False, [0, 0], 1,
+# [True, True, False])
+#;  getitem_102 = primals_58 = None
+# getitem_105: f32[4, 512, 7, 7] = convolution_backward[0]
+# getitem_106: f32[512, 512, 3, 3] = convolution_backward[1];  convolution_backward = None
+@register_pattern
+class ReplacePattern5:
+    def pattern(
+        grad_output,
+        inputs,
+        weight,
+        bias_sizes,
+        stride,
+        padding,
+        dilation,
+        transposed,
+        output_padding,
+        groups,
+        output_mask,
+    ):
+        return torch.ops.aten.convolution_backward.default(
+            grad_output,
+            inputs,
+            weight,
+            bias_sizes,
+            stride,
+            padding,
+            dilation,
+            transposed,
+            output_padding,
+            groups,
+            output_mask,
+        )
+
+    def replacement(
+        grad_output,
+        inputs,
+        weight,
+        bias_sizes,
+        stride,
+        padding,
+        dilation,
+        transposed,
+        output_padding,
+        groups,
+        output_mask,
+    ):
+        # grad_output.dims()
+        # TODO
+        # grad_bias = aten.sum(grad_output, [0] + list(range(2, grad_output.dim())))
+        grad_bias = torch.ops.aten.sum(grad_output, [2])
+        grad_inp, grad_weight, _ = torch.ops.aten.convolution_backward(
+            grad_output,
+            inputs,
+            weight,
+            bias_sizes,
+            stride,
+            padding,
+            dilation,
+            transposed,
+            output_padding,
+            groups,
+            [output_mask[0], output_mask[1], False],
+        )
+        return tops_op.ret_tri_tuples(grad_inp, grad_weight, grad_bias)
