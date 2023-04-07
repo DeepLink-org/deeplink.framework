@@ -222,7 +222,7 @@ DISABLED_TORCH_TESTS_ANY = {
     },
 
     # test_indexing.py
-    'NumpyTestsXLA': {
+    'NumpyTestsDIPU': {
         'test_trivial_fancy_out_of_bounds',  # expecting a different runtime error
         'test_boolean_assignment_value_mismatch',  # expecting a different runtime error
         'test_empty_tuple_index',  # storage

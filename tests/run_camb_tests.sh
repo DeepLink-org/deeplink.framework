@@ -1,7 +1,7 @@
 # !/bin/bash
 set -e
 
-source run_tests.sh 
+source tests/run_tests.sh 
 
 function run_dipu_tests {
   #run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeXLA
