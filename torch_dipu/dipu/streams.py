@@ -1,20 +1,26 @@
 
 import ctypes
 import contextlib
-from typing import Union
+from typing import Union, Optional, Any
 import torch
+from torch.types import _int
 
 from torch_dipu import _C
 from .utils import _dummy_type
-from .device import _get_device_index
-
+from .device import _get_device_index, _lazy_init
+from .device import device as dipu_device
 if not hasattr(_C, '_DIPUStreamBase'):
     # Define dummy base classes
     torch._C.__dict__['_DIPUStreamBase'] = _dummy_type('_DIPUStreamBase')
     torch._C.__dict__['_DIPUEventBase'] = _dummy_type('_DIPUEventBase')
 
 
-class Stream(_C._DIPUStreamBase):
+class _MetaStream(type(_C._DIPUStreamBase)):
+
+    def __instancecheck__(self, other):
+        return isinstance(other, _C._DIPUStreamBase)
+
+class Stream(_C._DIPUStreamBase, metaclass=_MetaStream):
     r"""Wrapper around a dipu stream.
 
     A dipu stream is a linear sequence of execution that belongs to a specific
@@ -29,9 +35,14 @@ class Stream(_C._DIPUStreamBase):
                                  represent higher priorities.
     """
 
-    def __new__(cls, device=None,priority=0, **kwargs):
-        with torch_dipu.dipu.device(device):
-            return super(Stream, cls).__new__(cls,priority=priority,**kwargs)
+    def __init__(self, device=None, priority=0, **kwargs):
+        # setting device manager is expensive, so we avoid it unless necessary
+        if device is None or ("stream_id" in kwargs and "device_index" in kwargs):
+            super(Stream, self).__init__(priority=priority, **kwargs)
+        else:
+            with dipu_device(device):
+                super(Stream, self).__init__(priority=priority, **kwargs)
+        return
 
     def wait_event(self, event):
         r"""Makes all future work submitted to the stream wait for an event.
@@ -107,7 +118,97 @@ class Stream(_C._DIPUStreamBase):
     def __repr__(self):
         return ('<torch_dipu.dipu.Stream device={0} dipu_stream={1:#x}>'
                 .format(self.device, self.dipu_stream))
+    # mock
+    @property
+    def priority(self):
+        return 0  
 
+
+def set_stream(stream: Stream):
+    r"""Sets the current stream.This is a wrapper API to set the stream.
+        Usage of this function is discouraged in favor of the ``stream``
+        context manager.
+    Args:
+        stream (Stream): selected stream. This function is a no-op
+            if this argument is ``None``.
+    """
+    if stream is None:
+        return
+    _lazy_init()
+    _C._dipu_setStream(stream_id=stream.stream_id, device_index=stream.device_index)
+
+def current_stream(device=None):
+    r"""Returns the currently selected :class:`Stream` for a given device.
+
+    Arguments:
+        device (torch.device or int, optional): selected device. Returns
+            the currently selected :class:`Stream` for the current device, given
+            by :func:`~torch_dipu.dipu.current_device`, if :attr:`device` is ``None``
+            (default).
+    """
+    _lazy_init()
+    st = _C._dipu_getCurrentStream(_get_device_index(device, optional=True))
+    return Stream(stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type)
+
+
+def default_stream(device=None):
+    _lazy_init()
+    st = _C._dipu_getDefaultStream(_get_device_index(device, optional=True))
+    return Stream(stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type) 
+
+def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
+    pass
+
+class StreamContext:
+    r"""Context-manager that selects a given stream.
+
+    All DIPU kernels queued within its context will be enqueued on a selected
+    stream.
+
+    Arguments:
+        stream (Stream): selected stream. This manager is a no-op if it's
+            ``None``.
+
+    .. note:: Streams are per-device. If the selected stream is not on the
+        current device, this function will also change the current device to
+        match the stream.
+    """
+    cur_stream : Optional['torch_dipu.dipu.Stream']
+
+    def __init__(self, stream):
+        self.stream = stream
+        self.idx = _get_device_index(None, True)
+    
+    def __enter__(self):
+          # Local cur_stream variable for type refinement
+        cur_stream = self.stream
+        # Return if stream is None or DIPU device not available
+        if cur_stream is None or self.idx == -1:
+            return
+        self.src_prev_stream = current_stream(None)
+
+        # If the stream is not on the current device, then
+        # set the current stream on the device
+        if self.src_prev_stream.device != cur_stream.device:
+            with dipu_device(cur_stream.device):
+                self.dst_prev_stream = current_stream(cur_stream.device)
+        set_stream(cur_stream)
+
+    def __exit__(self, type: Any, value: Any, traceback: Any):
+        # Local cur_stream variable for type refinement
+        cur_stream = self.stream
+        # If stream is None or no DIPU device available, return
+        if cur_stream is None or self.idx == -1:
+            return
+        # Reset the stream on the original device
+        # and destination device
+        if self.src_prev_stream.device != cur_stream.device:  # type: ignore[union-attr]
+            set_stream(self.dst_prev_stream)  # type: ignore[arg-type]
+        set_stream(self.src_prev_stream)  # type: ignore[arg-type]
+
+
+def stream(stream) -> StreamContext:
+    return StreamContext(stream)
 
 class Event(_C._DIPUEventBase):
     r"""Wrapper around a dipu event.
@@ -130,8 +231,8 @@ class Event(_C._DIPUEventBase):
 
     """
 
-    def __new__(cls, enable_timing=False, blocking=False, interprocess=False):
-        return super(Event, cls).__new__(cls, enable_timing=enable_timing, blocking=blocking, interprocess=interprocess)
+    def __init__(self, enable_timing=False, blocking=False, interprocess=False):
+        return super(Event, self).__init__(enable_timing=enable_timing, blocking=blocking, interprocess=interprocess)
 
     def record(self, stream=None):
         r"""Records the event in a given stream.
@@ -140,7 +241,7 @@ class Event(_C._DIPUEventBase):
         stream's device must match the event's device.
         """
         if stream is None:
-            stream = torch_dipu.dipu.current_stream()
+            stream = current_stream()
         super(Event, self).record(stream)
 
     def wait(self, stream=None):
@@ -150,7 +251,7 @@ class Event(_C._DIPUEventBase):
         Use ``torch_dipu.dipu.current_stream()`` if no stream is specified.
         """
         if stream is None:
-            stream = torch_dipu.dipu.current_stream()
+            stream = current_stream()
         super(Event, self).wait(stream)
 
     def query(self):
@@ -189,81 +290,3 @@ class Event(_C._DIPUEventBase):
             return '<torch_dipu.dipu.Event {0:#x}>'.format(self._as_parameter_.value)
         else:
             return '<torch_dipu.dipu.Event uninitialized>'
-
-def set_stream(stream: Stream):
-    r"""Sets the current stream.This is a wrapper API to set the stream.
-        Usage of this function is discouraged in favor of the ``stream``
-        context manager.
-    Args:
-        stream (Stream): selected stream. This function is a no-op
-            if this argument is ``None``.
-    """
-    if stream is None:
-        return
-    torch._C._dipu_setStream(stream._cdata)
-
-def current_stream(device=None):
-    r"""Returns the currently selected :class:`Stream` for a given device.
-
-    Arguments:
-        device (torch.device or int, optional): selected device. Returns
-            the currently selected :class:`Stream` for the current device, given
-            by :func:`~torch_dipu.dipu.current_device`, if :attr:`device` is ``None``
-            (default).
-    """
-    torch_dipu.dipu._lazy_init()
-    return torch_dipu.dipu.Stream(_cdata=torch_dipu._C._dipu_getCurrentStream(
-        _get_device_index(device, optional=True)))
-
-
-def default_stream(device=None):
-    r"""Returns the default :class:`Stream` for a given device.
-
-    Arguments:
-        device (torch.device or int, optional): selected device. Returns
-            the default :class:`Stream` for the current device, given by
-            :func:`~torch_dipu.dipu.current_device`, if :attr:`device` is ``None``
-            (default).
-    """
-    torch_dipu.dipu._lazy_init()
-    return torch_dipu.dipu.Stream(_cdata=torch_dipu._C._dipu_getDefaultStream(
-        _get_device_index(device, optional=True)))
-
-def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
-    pass
-
-# cuda use a class StreamContext, seems not have to be exactly same?
-@contextlib.contextmanager
-def stream(stream):
-    r"""Context-manager that selects a given stream.
-
-    All DIPU kernels queued within its context will be enqueued on a selected
-    stream.
-
-    Arguments:
-        stream (Stream): selected stream. This manager is a no-op if it's
-            ``None``.
-
-    .. note:: Streams are per-device. If the selected stream is not on the
-        current device, this function will also change the current device to
-        match the stream.
-    """
-    if stream is None:
-        yield
-        return
-    src_prev_stream = current_stream()
-
-    if src_prev_stream.device != stream.device:
-        # The given stream is on a different device; have to restore the
-        # current_stream on that device on exit as well
-        with torch_dipu.dipu.device(stream.device):
-            dst_prev_stream = current_stream()
-
-    torch_dipu._C._dipu_setStream(stream._cdata)
-    try:
-        yield
-    finally:
-        if src_prev_stream.device != stream.device:
-            torch_dipu._C._dipu_setStream(dst_prev_stream._cdata)
-        torch_dipu._C._dipu_setStream(src_prev_stream._cdata)
-        

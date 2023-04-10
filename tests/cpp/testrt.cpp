@@ -1,6 +1,7 @@
 #include <torch/torch.h>
 #include <iostream>
 #include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/core/DIPUStream.h>
 
 using namespace dipu;
 void testcopy() {
@@ -27,10 +28,28 @@ void testDeviceSwitch() {
   std::cout << t1 << std::endl;
 
   devapis::setDevice(0);
+  auto stream2 = getDIPUStreamFromPool();
+  stream2 = getDIPUStreamFromPool();
+  stream2 = getDIPUStreamFromPool();
+  setCurrentDIPUStream(stream2);
+
   device = torch::Device(torch::kPrivateUse1);
   torch::Tensor t2 = torch::ones({3, 6}, option1);
   t2 = t2.to(device);
   std::cout << t2 << std::endl;
+}
+
+void testStream1() {
+  auto stream1 = dipu::getDefaultDIPUStream();
+  deviceStream_t rawStream = stream1.rawstream();
+  auto stream2 = getDIPUStreamFromPool();
+  setCurrentDIPUStream(stream2);
+  std::cout << "current stream =" << stream2.rawstream() << std::endl;
+
+  auto stream3 = getCurrentDIPUStream();
+  rawStream = stream3.rawstream();
+  std::cout << "current stream =" << rawStream << std::endl;
+
 }
 
 // need change to use gtest.
@@ -38,5 +57,6 @@ int main() {
   for(int i=0; i<3; i++) {
     // testcopy();
     testDeviceSwitch();
+    // testStream1();
   }
 }

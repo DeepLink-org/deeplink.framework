@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU)
 
 option(TESTS "Whether to build unit tests" OFF)
-option(LIBS  "Whether to build diopi lib, default on" ON)
+option(LIBS  "Whether to build dipu lib, default on" ON)
 
 # device related
 option(CAMB "Whether to use CambriconNeuware when available" ON)

@@ -12,45 +12,10 @@
 #include "DIPUGuard.h"
 #include "DIPUStream.h"
 
+using dipu::devapis::deviceId_t;
 namespace dipu {
+
 namespace {
-
-struct DIPUStreamInternal {
-  DIPUStreamInternal() = default;
-  ~DIPUStreamInternal() {}
-  c10::DeviceIndex device_index = -1;
-  int32_t stream_id = -1;
-  deviceStream_t stream = nullptr;
-
-  void initStatus(int index, int id = -1) {
-    if (stream) {
-      return;
-    }
-    stream_id = id;
-    device_index = index;
-    auto cur_device = devapis::current_device();
-    devapis::setDevice(index);
-    devapis::createStream(&stream);
-    devapis::setDevice(cur_device);
-  }
-};
-
-static constexpr int kStreamsPerPoolBits = 3;
-static constexpr int kStreamsPerPool = 1 << kStreamsPerPoolBits;
-
-// Global stream state and constants
-static c10::DeviceIndex num_dipus = -1;
-
-// Default streams
-static std::once_flag init_flag;
-static DIPUStreamInternal default_streams[C10_COMPILE_TIME_MAX_DIPUS];
-
-static std::once_flag device_flags[C10_COMPILE_TIME_MAX_DIPUS];
-static std::atomic<uint32_t> dipu_counters[C10_COMPILE_TIME_MAX_DIPUS];
-
-static std::array<DIPUStreamInternal, kStreamsPerPool>
-    pool_streams[C10_COMPILE_TIME_MAX_DIPUS];
-
 enum class StreamIdType : uint8_t {
   DEFAULT = 0x0,
   POOL = 0x1,
@@ -70,32 +35,123 @@ std::ostream& operator<<(std::ostream& stream, StreamIdType s) {
   }
   return stream;
 }
+// follow old pytorch cuda, seems new version use an opposite strategy.   
+static constexpr int kStreamsPerPoolBits = 3;
+static constexpr int kStreamsPerPool = 1 << kStreamsPerPoolBits;
 
-static inline StreamIdType getStreamIdType(c10::StreamId s) {
-  return static_cast<StreamIdType>((uint32_t)s >> kStreamsPerPoolBits);
-}
+// Global stream state and constants
+static c10::DeviceIndex num_dipus = -1;
+// Default streams
+static std::once_flag global_init_flag;
 
-static inline size_t getStreamIdIndex(c10::StreamId s) {
-  return static_cast<size_t>((uint32_t)s & ((1 << kStreamsPerPoolBits) - 1));
-}
+// streamid contains streamtype and/or raw stream id in DIPUStreamDevice pool
+static thread_local std::unique_ptr<c10::StreamId[]> current_streams = nullptr;
 
-c10::StreamId makeStreamId(StreamIdType sType, size_t id) {
-  return ((uint32_t)static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits) |
+// manage per-device streams
+struct DIPUStreamDevice {
+private:
+  // Default streams
+  std::once_flag pool_flag;
+  std::once_flag default_flag;
+  deviceId_t devidx_; 
+  // seems pytorch 2.0 giveup default stream and enable cuda per_thread stream feature at compile time.
+  // it cannot be applied to othe device.
+  deviceStream_t default_stream = nullptr;
+  
+  std::atomic<uint32_t> next_pool_pos;
+  std::array<deviceStream_t, kStreamsPerPool> pool_streams;
+
+  inline uint32_t getNextPoolIdx() {
+    auto raw_idx = next_pool_pos++;
+    return raw_idx % kStreamsPerPool;
+  }
+
+  inline StreamIdType getStreamIdType(c10::StreamId s) {
+    return static_cast<StreamIdType>((uint32_t)s >> kStreamsPerPoolBits);
+  }
+
+  inline size_t getStreamIdIndex(c10::StreamId s) {
+    return static_cast<size_t>((uint32_t)s & ((1 << kStreamsPerPoolBits) - 1));
+  }
+  void _doInitPool() {
+    DIPUGuard device_guard{devidx_};
+    for (auto i = decltype(kStreamsPerPool){0}; i < kStreamsPerPool; ++i) {
+      auto& raw_device_stream = pool_streams[i];
+      devapis::createStream(&raw_device_stream);
+    }
+  }
+
+  void _doInitDeivce() {
+    auto cur_device = devapis::current_device();
+    devapis::setDevice(devidx_);
+    devapis::createStream(&default_stream);
+    devapis::setDevice(cur_device);
+    // set device default stream in init
+    current_streams[devidx_] = makeC10StreamId(StreamIdType::DEFAULT, 0);
+  }
+
+public:
+  DIPUStreamDevice(deviceId_t devidx) {
+    devidx_ = devidx;
+    next_pool_pos = 0;
+  }
+
+  c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
+    return ((uint32_t)static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits) |
       static_cast<c10::StreamId>(id);
-}
+  }
 
-template <typename T, typename A>
-static bool pointer_within(const T* ptr, const A& arr) {
-  return std::greater_equal<const T*>()(ptr, arr.data()) &&
-      std::less<const T*>()(ptr, arr.data() + arr.size());
-}
+  DIPUStream getDIPUStreamfromPool() {
+    const auto idx = getNextPoolIdx();
+    return DIPUStream(devidx_, makeC10StreamId(StreamIdType::POOL, idx));
+  }
 
-static thread_local DIPUStreamInternal** thread_local_streams = nullptr;
+  DIPUStream getDefaultDIPUStream() {
+    return DIPUStream(devidx_, makeC10StreamId(StreamIdType::DEFAULT, 0));
+  }
+
+  // c10:StreamId -> rawStream saved in DIPUStreamDevice.
+  deviceStream_t obtainRawStream(c10::StreamId stream_id) {
+    StreamIdType st = getStreamIdType(stream_id);
+    size_t sidx = getStreamIdIndex(stream_id);
+    switch (st) {
+      case StreamIdType::DEFAULT:
+        AT_ASSERTM(
+            sidx == 0,
+            "Unrecognized stream ",
+            stream_id,
+            " (I think this should be the default stream, but I got a non-zero index ",
+            sidx,
+            ").",
+            " Did you manufacture the StreamId yourself?  Don't do that; use the",
+            " official API like c10::cuda::getStreamFromPool() to get a new stream.");
+        return default_stream;
+      case StreamIdType::POOL:
+        return pool_streams[sidx];
+      default:
+        AT_ASSERTM(
+            0,
+            "Unrecognized stream ",
+            stream_id,
+            " (I didn't recognize the stream type, ",
+            st,
+            ")");
+    }
+  }
+  void initPool() {
+    std::call_once(pool_flag, &DIPUStreamDevice::_doInitPool, this);
+  }
+  void initDevice() {
+    std::call_once(default_flag, &DIPUStreamDevice::_doInitDeivce, this);
+  }
+};
+
+static std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS> streamDeviceList; 
 
 static void initGlobalStreamState() {
   num_dipus = devapis::getDeviceCount();
-  // Check if the number of GPUs matches the expected compile-time max number
-  // of GPUs.
+  // Check if the number of DIPU matches the expected compile-time max number
+  // of DIPU.
   AT_ASSERTM(
       num_dipus <= C10_COMPILE_TIME_MAX_DIPUS,
       "Number of DIPU devices on the machine is larger than the compiled "
@@ -103,164 +159,57 @@ static void initGlobalStreamState() {
       C10_COMPILE_TIME_MAX_DIPUS,
       "). Increase that and recompile.");
 
-  int device_id = devapis::current_device();
-  if (device_id == -1) {
-    DIPU_LOGE("Device has not been set");
-  }
-  // Initializes default streams
-  default_streams[device_id].device_index = device_id;
-  dipu_counters[device_id] = 0;
-  auto& deviceStream = default_streams[device_id];
-  deviceStream.initStatus(device_id);
-}
-
-static void initPoolStreamState(c10::DeviceIndex device_index) {
-  // Switches to the requested device so streams are properly associated
-  // with it.
-  DIPUGuard device_guard{device_index};
-  for (auto i = decltype(kStreamsPerPool){0}; i < kStreamsPerPool; ++i) {
-    auto& streamInternal = pool_streams[device_index][i];
-    streamInternal.device_index = device_index;
-    devapis::createStream(&streamInternal.stream);
+  current_streams = std::make_unique<c10::StreamId[]>(num_dipus);
+  for (int i=0; i< num_dipus; i++) {
+    streamDeviceList[i] = std::move(std::unique_ptr<DIPUStreamDevice>(new DIPUStreamDevice(i)));
   }
 }
 
-static void initDIPUStreamsOnce() {
+static c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
   // Inits default streams (once, globally)
-  std::call_once(init_flag, initGlobalStreamState);
-
-  if (thread_local_streams) {
-    return;
+  std::call_once(global_init_flag, initGlobalStreamState);
+  if (devIdx == -1) {
+    devIdx = devapis::current_device();
   }
-  // Inits thread local streams to default streams
-  thread_local_streams =
-      (DIPUStreamInternal**)malloc(num_dipus * sizeof(DIPUStreamInternal*));
-  if (thread_local_streams == NULL){
-    DIPU_LOGE("thread_local_streams malloc failed.");
-    return;
-  }
-  for (auto i = 0; i < num_dipus; ++i) {
-    thread_local_streams[i] = &default_streams[i];
-  }
+  AT_ASSERT(devIdx >= 0 && devIdx < num_dipus);
+  streamDeviceList[devIdx]->initDevice();
+  return devIdx;
 }
 
-static inline void check_dipu(c10::DeviceIndex device_index) {
-  if (device_index == -1) {
-    device_index = devapis::current_device();
-  }
-  AT_ASSERT(device_index >= 0 && device_index < num_dipus);
-}
+} // end anonymous namespace
 
-static uint32_t get_idx(std::atomic<uint32_t>& counter) {
-  auto raw_idx = counter++;
-  return raw_idx % kStreamsPerPool;
-}
-
-static c10::StreamId StreamInternal2StreamId(const DIPUStreamInternal* ptr) {
-  c10::DeviceIndex device_index = ptr->device_index;
-  if (ptr == &default_streams[device_index]) {
-    return makeStreamId(StreamIdType::DEFAULT, 0);
-  }
-  if (pointer_within<DIPUStreamInternal>(ptr, pool_streams[device_index])) {
-    return makeStreamId(
-        StreamIdType::POOL, ptr - pool_streams[device_index].data());
-  }
-  AT_ASSERTM(
-      0,
-      "Could not compute stream ID for ",
-      ptr,
-      " on device ",
-      device_index,
-      " (something has gone horribly wrong!)");
-}
-
-static DIPUStreamInternal* Stream2SteamInternal(DIPUStream s) {
-  c10::DeviceIndex device_index = s.device_index();
-  StreamIdType st = getStreamIdType(s.unwrap().id());
-  size_t sidx = getStreamIdIndex(s.unwrap().id());
-  switch (st) {
-    case StreamIdType::DEFAULT:
-      AT_ASSERTM(
-          sidx == 0,
-          "Unrecognized stream ",
-          s.unwrap(),
-          " (I think this should be the default stream, but I got a non-zero index ",
-          sidx,
-          ").",
-          " Did you manufacture the StreamId yourself?  Don't do that; use the",
-          " official API like c10::cuda::getStreamFromPool() to get a new stream.");
-      return &default_streams[device_index];
-    case StreamIdType::POOL:
-      return &pool_streams[device_index][sidx];
-    default:
-      AT_ASSERTM(
-          0,
-          "Unrecognized stream ",
-          s.unwrap(),
-          " (I didn't recognize the stream type, ",
-          st,
-          ")");
-  }
-}
-
-static DIPUStream StreamInternal2Stream(const DIPUStreamInternal* ptr) {
-  return DIPUStream(
-      DIPUStream::UNCHECKED,
-      c10::Stream(
-          c10::Stream::UNSAFE,
-          c10::Device(dipu::DIPU_DEVICE_TYPE, ptr->device_index),
-          StreamInternal2StreamId(ptr)));
-}
-} // namespace
-
+// api
 deviceStream_t DIPUStream::rawstream() const {
-  auto cur_ptr = Stream2SteamInternal(*this);
-  AT_ASSERT(cur_ptr);
-  return cur_ptr->stream;
+  return streamDeviceList[this->device_index()]->obtainRawStream(this->unwrap().id());
 }
 
-DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device_index) {
-  initDIPUStreamsOnce();
-  check_dipu(device_index);
-
+DIPUStream getDIPUStreamFromPool(c10::DeviceIndex devIdx) {
+  devIdx = initDIPUGlobal(devIdx);
   // Initializes the stream pools (once)
-  std::call_once(
-      device_flags[device_index], initPoolStreamState, device_index);
-
-  const auto idx = get_idx(dipu_counters[device_index]);
-  return StreamInternal2Stream(&pool_streams[device_index][idx]);
+  streamDeviceList[devIdx]->initPool();
+  return streamDeviceList[devIdx]->getDIPUStreamfromPool();
 }
 
-DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index) {
-  initDIPUStreamsOnce();
-  if (device_index == -1) {
-    device_index = devapis::current_device();
-  }
-  return StreamInternal2Stream(&default_streams[device_index]);
+DIPUStream getDefaultDIPUStream(c10::DeviceIndex devIdx) {
+  devIdx = initDIPUGlobal(devIdx);
+  return streamDeviceList[devIdx]->getDefaultDIPUStream();
 }
 
-static const DIPUStreamInternal* _getCurrentDIPUStream(c10::DeviceIndex device_index) {
-  initDIPUStreamsOnce();
-  if (device_index == -1) {
-    device_index = devapis::current_device();
-  }
-  check_dipu(device_index);
-  return thread_local_streams[device_index];
+DIPUStream getCurrentDIPUStream(c10::DeviceIndex devIdx) {
+  devIdx = initDIPUGlobal(devIdx);
+  return DIPUStream(devIdx, current_streams[devIdx]); 
 }
 
-DIPUStream getCurrentDIPUStream(c10::DeviceIndex device_index) {
-  return StreamInternal2Stream(_getCurrentDIPUStream(device_index));
-}
-
-void dipuSynchronizeDevice() {
-  devapis::syncDevice();
+// copy from pytorch, not verify
+DIPUStream getStreamFromExternal(deviceStream_t ext_stream, c10::DeviceIndex device_index) {
+  // The stream pointer will be the actual id
+  return DIPUStream(device_index, reinterpret_cast<int64_t>(ext_stream));
 }
 
 void setCurrentDIPUStream(DIPUStream stream) {
-  initDIPUStreamsOnce();
-  auto ptr = Stream2SteamInternal(stream);
-  AT_ASSERT(ptr);
-  thread_local_streams[ptr->device_index] = ptr;
+  auto devIdx = stream.device_index();
+  initDIPUGlobal(devIdx);
+  current_streams[devIdx] = stream.unwrap().id();
 }
 
 std::ostream& operator<<(std::ostream& os, const DIPUStream& stream) {
