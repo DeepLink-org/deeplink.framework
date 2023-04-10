@@ -23,11 +23,11 @@ jobs:
     steps:
       - name: rsync repo
         run: |
-          cd ${SOURCE_PATH}/OpenComputeLab/pytorch && git pull
+          cd ${SOURCE_PATH}/pytorch/pytorch && git pull
           cd ${PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts
-          rsync -a ${SOURCE_PATH}/OpenComputeLab/pytorch ${PVC_PATH}/${GITHUB_RUN_NUMBER}/
+          rsync -a ${SOURCE_PATH}/pytorch/pytorch ${PVC_PATH}/${GITHUB_RUN_NUMBER}/
           cd ${PVC_PATH}/${GITHUB_RUN_NUMBER}
-          mv pytorch source && cd source && git submodule sync && git submodule update --init --recursive
+          mv pytorch source && cd source && git checkout ${PYTORCH_COMMIT} && git submodule sync && git submodule update --init --recursive
 #          cd ${SOURCE_PATH}/${{ github.event.repository.full_name }} && git pull
 #          cd ${PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts
 #          rsync -a ${SOURCE_PATH}/${{ github.event.repository.full_name }} ${PVC_PATH}/${GITHUB_RUN_NUMBER}/
@@ -56,8 +56,8 @@ jobs:
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh build " && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
-  linux-cuda117-py310-gcc7-default-1:
-    name: linux-cuda117-py310-gcc7-default-1
+  test-default-1:
+    name: test-default-1
     runs-on: tps-pytorch-ci
     needs: [linux-cuda117-py310-gcc7-build]
     env:
@@ -78,14 +78,15 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run  --gpus "device=${GPU_ID}" --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test" && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
-  linux-cuda117-py310-gcc7-default-2:
-    name: linux-cuda117-py310-gcc7-default-2
+  test-default-2:
+    name: test-default-2
     runs-on: tps-pytorch-ci
     needs: [linux-cuda117-py310-gcc7-build]
     env:
@@ -106,6 +107,7 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --gpus "device=${GPU_ID}" --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
@@ -113,8 +115,8 @@ jobs:
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
   #该任务有测试用例需要a100的机器，因为要研发看下怎么注释掉，不然会有下列报错：Feature '.bf16' requires .target sm_80 or higher，Internal Triton PTX codegen error:
-  linux-cuda117-py310-gcc7-default-3:
-    name: linux-cuda117-py310-gcc7-default-3
+  test-default-3:
+    name: test-default-3
     runs-on: tps-pytorch-ci
     needs: [linux-cuda117-py310-gcc7-build]
     env:
@@ -135,6 +137,7 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --gpus "device=${GPU_ID}" --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
@@ -142,8 +145,8 @@ jobs:
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
   #torch._dynamo相关测例报错，需要研发查下
-  linux-cuda117-py310-gcc7-default-4:
-    name: linux-cuda117-py310-gcc7-default-4
+  test-default-4:
+    name: test-default-4
     runs-on: tps-pytorch-ci
     needs: [linux-cuda117-py310-gcc7-build]
     env:
@@ -164,16 +167,17 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --gpus "device=${GPU_ID}" --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test" && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
-  linux-cuda117-py310-gcc7-distributed-1:
-    name: linux-cuda117-py310-gcc7-distributed-1
+  test-distributed-1:
+    name: test-distributed-1
     runs-on: tps-pytorch-ci
-    needs: [linux-cuda117-py310-gcc7-default-1]
+    needs: [test-default-2]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
@@ -192,16 +196,17 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
-  linux-cuda117-py310-gcc7-distributed-2:
-    name: linux-cuda117-py310-gcc7-distributed-2
+  test-distributed-2:
+    name: test-distributed-1
     runs-on: tps-pytorch-ci
-    needs: [linux-cuda117-py310-gcc7-default-2]
+    needs: [test-default-2]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
@@ -220,16 +225,17 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
-  linux-cuda117-py310-gcc7-distributed-3:
-    name: linux-cuda117-py310-gcc7-distributed-3
+  test-distributed-3:
+    name: test-distributed-3
     runs-on: tps-pytorch-ci
-    needs: [linux-cuda117-py310-gcc7-default-3]
+    needs: [test-default-2]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
@@ -248,6 +254,7 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
+          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
