@@ -50,8 +50,10 @@ namespace diopi_helper {
 
 ::diopiDtype_t toDiopiDtype(c10::ScalarType type) {
     switch (type) {
-    case at::ScalarType::Char:
+    case at::ScalarType::Bool:
         return diopi_dtype_bool;
+    case at::ScalarType::Char:
+        return diopi_dtype_int8;
     case at::ScalarType::Byte:
         return diopi_dtype_uint8;
     case at::ScalarType::Short:
@@ -62,6 +64,8 @@ namespace diopi_helper {
         return diopi_dtype_int64;
     case at::ScalarType::Half:
         return diopi_dtype_float16;
+    case at::ScalarType::BFloat16:
+        return diopi_dtype_bfloat16;
     case at::ScalarType::Float:
         return diopi_dtype_float32;
     case at::ScalarType::Double:

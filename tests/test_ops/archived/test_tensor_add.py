@@ -8,6 +8,9 @@ print(x)
 print(y)
 print(x + y)
 
+z = torch.add(y, 3.0)
+print(z)
+
 x = x.cpu()
 y = y.cpu()
 print(x + y)
