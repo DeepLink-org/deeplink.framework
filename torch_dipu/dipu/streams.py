@@ -15,12 +15,7 @@ if not hasattr(_C, '_DIPUStreamBase'):
     torch._C.__dict__['_DIPUEventBase'] = _dummy_type('_DIPUEventBase')
 
 
-class _MetaStream(type(_C._DIPUStreamBase)):
-
-    def __instancecheck__(self, other):
-        return isinstance(other, _C._DIPUStreamBase)
-
-class Stream(_C._DIPUStreamBase, metaclass=_MetaStream):
+class Stream(_C._DIPUStreamBase):
     r"""Wrapper around a dipu stream.
 
     A dipu stream is a linear sequence of execution that belongs to a specific
