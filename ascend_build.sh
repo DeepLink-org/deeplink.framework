@@ -25,7 +25,7 @@ function config_dipu_cmake() {
 
 function autogen_diopi_wrapper() {
     cd torch_dipu/csrc_dipu/aten/ops/autogen_diopi_wrapper/
-    python autogen_diopi_wrapper2.py
+    python autogen_diopi_wrapper.py
     cd -
 }
 

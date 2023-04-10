@@ -43,7 +43,7 @@ endif()
 #     message(STATUS "Found Torch Version: ${Torch_VERSION}")
 #     message(STATUS "Torch TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
 # endif()
-set(PYTORCH_DIR /home/zhaoguochun/pytorch)
+
 
 set(TORCH_LIBRARY_DIR "${PYTORCH_DIR}/torch/lib")
 link_directories(${TORCH_LIBRARY_DIR})
