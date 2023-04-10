@@ -91,16 +91,10 @@ def apply_torch_function_patch():
     torch.randn_like = GetTorchFuncProxy(torch.randn_like)
     torch.randperm = GetTorchFuncProxy(torch.randperm)
     if mockcuda:
-        # torch.cuda = dipu
-        torch.cuda.is_initialized = dipu.is_initialized
-        torch.cuda.is_available = dipu.is_available
-        torch.cuda.current_device = dipu.current_device
-        torch.cuda.device = dipu.device
-        torch.cuda.device_count = dipu.device_count
-        torch.cuda.device_of = dipu.device_of
-        torch.cuda.synchronize = dipu.synchronize
-        torch.cuda.set_device = dipu.set_device
-        torch.cuda.get_device_name = dipu.get_device_name
+        for attr in dipu.__all__:
+            if hasattr(torch.cuda, attr):
+                setattr(torch.cuda, attr, getattr(dipu, attr))
+
 
 # temp solution, need redesign storage
 def apply_temp_patch():

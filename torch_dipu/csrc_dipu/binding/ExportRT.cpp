@@ -14,6 +14,8 @@ namespace dipu {
 
 static void exportDevices(py::module& m) {
    // Device Management.
+  m.attr("dipu_vendor") = VendorTypeToStr(VENDOR_TYPE);
+
   m.def("_dipu_set_device", [](int idx) -> void { 
     devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
   });

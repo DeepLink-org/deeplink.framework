@@ -70,8 +70,8 @@ def testDevice2():
 
 def testStream():
     import torch_dipu
-    from torch_dipu import dipu
-    st0 = dipu.Stream(2)
+    from torch import cuda
+    st0 = cuda.Stream(2)
     res1 = st0.priority_range()
     res1 = st0.priority
     res1 = st0.synchronize()
@@ -82,13 +82,13 @@ def testStream():
     res1 = st0.device_type
     res1 = st0.device
     res1 = st0._as_parameter_
-    dipu.set_stream(st0)
-    st1 = dipu.default_stream()
+    cuda.set_stream(st0)
+    st1 = cuda.default_stream()
     res2 = st1.query()
     res2 = st1._as_parameter_
-    st2 = dipu.current_stream(2)
+    st2 = cuda.current_stream(2)
 
-    with dipu.StreamContext(st2) as s: 
+    with cuda.StreamContext(st2) as s: 
         print("in cur ctx")
 
     # st1 = dipu.current_stream()
@@ -96,18 +96,20 @@ def testStream():
 
 def testevent():
     import torch_dipu
-    from torch_dipu import dipu
-    st0 = dipu.Stream(2)
-    ev1 = dipu.Event()
+    from torch import cuda
+
+    st0 = cuda.Stream(2)
+    ev1 = cuda.Event()
     ev1.record(st0)
     time.sleep(1)
-    ev2 = dipu.Event()
+    ev2 = cuda.Event()
     ev1.synchronize()
     ev1.wait(st0)
     ev2.record(st0)
+    # sync before call elapse
+    ev2.synchronize()
     elapsed = ev1.elapsed_time(ev2)
     print(elapsed)
-
 
 
 if __name__ == '__main__':
