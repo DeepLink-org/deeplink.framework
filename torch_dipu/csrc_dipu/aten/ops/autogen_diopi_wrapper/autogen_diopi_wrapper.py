@@ -62,41 +62,69 @@ class CodeTemplate:
         return self.substitution.sub(replace, self.pattern)
 
 
+def get_fun_name_from_cppsignature(cppnature):
+    return re.search(r'[a-zA-Z_:]+[\w\d:]+\(' , cppnature).group().replace('(', '')
 
-code_template = CodeTemplate(
-    """
-    // autogened file
-    #include <ATen/Tensor.h>
 
-    #include "csrc_dipu/aten/DIPUATenFunctions.h"
-    #include "csrc_dipu/diopirt/diopirt_impl.h"
 
-    namespace dipu::native {
+file_template = CodeTemplate(
+"""
+// autogened file
+#include <ATen/Tensor.h>
 
-    using at::Tensor;
-    using at::Scalar;
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
+#include "csrc_dipu/diopirt/diopirt_impl.h"
 
-    $cppsignautre {
-        ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-        auto ctx = &context;
+namespace dipu::native {
 
-        $input_process_code
+using at::Tensor;
+using at::Scalar;
 
-        $output_process_code
+using namespace dipu::diopi_helper;
 
-        $attrs_process_code
+$functions_code
 
-        ::diopiError_t ret = $diopi_fun_call_code
-        TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"$diopi_fun_call_code error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+}  // namespace dipu::native
 
-        $return_code
-    }
+namespace at {
 
-    }  // namespace dipu::native
-    """
-    )
+TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
+    $op_registe_code
+}
 
-def code_gen(fun_config):
+}  // namespace at
+
+"""
+)
+
+fun_template = CodeTemplate(
+"""
+$cppsignautre {
+    ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
+    auto ctx = &context;
+    $custom_code
+    $input_process_code
+
+    $output_process_code
+
+    $attrs_process_code
+
+    ::diopiError_t ret = $diopi_fun_call_code
+    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+
+    $return_code
+}
+"""
+)
+
+op_registe_template = CodeTemplate(
+"""
+DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
+"""
+)
+
+def functions_code_gen(fun_config):
     diopi_fun_call_code = fun_config['interface'] + ";"
     input_process_code = ""
     for input in fun_config['ins']:
@@ -122,17 +150,21 @@ def code_gen(fun_config):
     if len(fun_config['return']) == 1:
         return_code = f"return {fun_config['return'][0]};\n"
 
-
-
-    fbody = code_template.substitute(
+    fbody = fun_template.substitute(
             cppsignautre=[fun_config['cppsignature']],
+            custom_code=[fun_config.get('custom_code', '')],
             input_process_code=[input_process_code],
             output_process_code=[output_process_code],
             diopi_fun_call_code=[diopi_fun_call_code],
             attrs_process_code=[attrs_process_code],
             return_code=[return_code],
-            )
-    return fbody
+    )
+    registe_body = op_registe_template.substitute(
+            register_name=[fun_config['name']],
+            aten_fun_name=['dipu::native::' + get_fun_name_from_cppsignature(fun_config['cppsignature'])],
+            diopi_fun_name=[get_fun_name_from_cppsignature(fun_config['interface']).replace('diopi', '::diopi')],
+    )
+    return fbody, registe_body
 
 
 def main():
@@ -140,10 +172,22 @@ def main():
         file_data = diopi_functions_file.read()
         funcs_config = yaml.load(file_data, Loader=yaml.FullLoader)
 
+
+    functions_code = ''
+    op_registe_code = ''
+
     for fun_config in funcs_config:
-        code_str = code_gen(fun_config)
-        with open('../'+ fun_config['name'] + '.cpp', 'w') as cpp_file:
-            cpp_file.write(code_str)
+        fun_code, register_code = functions_code_gen(fun_config)
+        functions_code += fun_code
+        op_registe_code += register_code
+
+    autogened_file = file_template.substitute(
+        functions_code=[functions_code],
+        op_registe_code=[op_registe_code]
+    )
+
+    with open('../AutoGenedKernels.cpp', 'w') as cpp_file:
+        cpp_file.write(autogened_file)
 
 
 
