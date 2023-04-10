@@ -208,7 +208,7 @@ jobs:
   test-distributed-1:
     name: test-distributed-1
     runs-on: tps-pytorch-ci
-    needs: [test-default-2]
+    needs: [test-default-5]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
@@ -235,9 +235,9 @@ jobs:
           docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
   test-distributed-2:
-    name: test-distributed-1
+    name: test-distributed-2
     runs-on: tps-pytorch-ci
-    needs: [test-default-2]
+    needs: [test-default-5]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
@@ -266,7 +266,7 @@ jobs:
   test-distributed-3:
     name: test-distributed-3
     runs-on: tps-pytorch-ci
-    needs: [test-default-2]
+    needs: [test-default-5]
     env:
       CI: "true"
       TEST_CONFIG: "distributed"
