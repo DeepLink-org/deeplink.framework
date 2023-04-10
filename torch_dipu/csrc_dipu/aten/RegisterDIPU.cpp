@@ -203,18 +203,6 @@ at::Tensor & wrapper_max_pool2d_with_indices_backward_out_grad_input(const at::T
   return dnative::max_pool2d_with_indices_backward_out_grad_input(grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices, grad_input);
 }
 
-at::Tensor & wrapper_mul_out_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
-  return dnative::mul_out(self, other, out);
-}
-
-at::Tensor wrapper_Scalar_mul(const at::Tensor & self, const at::Scalar & other) {
-  return dnative::mul(self, other);
-}
-
-at::Tensor & wrapper_Scalar_mul_(at::Tensor & self, const at::Scalar & other) {
-  return dnative::mul_(self, other);
-}
-
 }  // inner anonymous namespace
 
 
@@ -267,11 +255,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("nll_loss2d_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
   DIOPI_ATEN_FUNC("max_pool2d_with_indices.out", diopiMaxPool2dWithIndices, wrapper_max_pool2d_with_indices_out_out);
   DIOPI_ATEN_FUNC("max_pool2d_with_indices_backward.grad_input", diopiMaxPool2dBackward, wrapper_max_pool2d_with_indices_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("mul.out", diopiMul, wrapper_mul_out_out);
-  DIOPI_ATEN_FUNC("mul.Scalar", diopiMulScalar, wrapper_Scalar_mul);
-  DIOPI_ATEN_FUNC("mul_.Scalar", diopiMulInpScalar, wrapper_Scalar_mul_);
-
-
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {

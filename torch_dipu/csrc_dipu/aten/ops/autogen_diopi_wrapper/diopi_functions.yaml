@@ -152,3 +152,51 @@
   outs: [self]
   return: [self]
   interface: diopiFill(&context, self, &value)
+
+
+- schema: "aten::mul.Tensor(Tensor self, Tensor other) -> Tensor"
+  name : "mul.Tensor"
+  cppsignature: "Tensor mul_tensor(const Tensor & self, const Tensor & other)"
+  custom_code: "auto out = at::empty_like(self);"
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  interface: diopiMul(&context, out, self, other)
+
+- schema: "aten::mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  name : "mul_.Tensor"
+  cppsignature: "Tensor & mul__tensor(Tensor & self, const Tensor & other)"
+  ins: [other]
+  outs: [self]
+  return: [self]
+  interface: diopiMul(&context, self, self, other)
+
+- schema:  "aten::mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  name : "mul.out"
+  cppsignature: "Tensor & mul_out(const Tensor & self, const Tensor & other, Tensor & out)"
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  interface: diopiMul(&context, out, self, other)
+
+- schema:  "aten::mul.Scalar(Tensor self, Scalar other) -> Tensor"
+  name : "mul.Scalar"
+  cppsignature: "Tensor mul_scalar(const Tensor & self, const Scalar & other)"
+  custom_code: "auto out = at::empty_like(self);"
+  ins: [self]
+  attrs:
+    other : scalar
+  outs: [out]
+  return: [out]
+  interface: diopiMulScalar(&context, out, self, &other)
+
+- schema: "aten::mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  name : "mul_.Scalar"
+  cppsignature: "Tensor & mul__scalar(Tensor & self, const Scalar & other)"
+  custom_code: "auto out = at::empty_like(self);"
+  ins: []
+  attrs:
+    other : scalar
+  outs: [self]
+  return: [self]
+  interface: diopiMulScalar(&context, self, self, &other)
