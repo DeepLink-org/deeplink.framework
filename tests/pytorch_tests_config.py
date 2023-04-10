@@ -204,6 +204,10 @@ DISABLED_TORCH_TESTS_ANY = {
         'test_expand_view',
         'test_reshape_nonview',
         'test_unfold_view',
+        'test_advanced_indexing_nonview_dipu',
+        'test_as_strided_gradients_dipu',
+        'test_unbind_dipu',
+        'test_view_copy_dipu',
     },
 
     # test_indexing.py
