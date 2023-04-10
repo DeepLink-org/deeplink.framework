@@ -195,11 +195,11 @@ void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end) {
 }
 
 EventStatus getEventStatus(deviceEvent_t event) {
-  aclrtEventStatus status;
-  DIPU_CALLACLRT(aclrtQueryEvent(event, &status))
-  if (status == ::ACL_EVENT_STATUS_COMPLETE) {
+  aclrtEventRecordedStatus status;
+  DIPU_CALLACLRT(aclrtQueryEventStatus(event, &status))
+  if (status == ::ACL_EVENT_RECORDED_STATUS_COMPLETE) {
     return devapis::EventStatus::READY;
-  } else if (status == ::ACL_EVENT_STATUS_NOT_READY){
+  } else if (status == ::ACL_EVENT_RECORDED_STATUS_NOT_READY){
     return devapis::EventStatus::PENDING;
   }
   throw std::runtime_error("dipu device error");
