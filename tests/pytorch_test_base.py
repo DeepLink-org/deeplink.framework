@@ -6,7 +6,6 @@ import sys
 import runpy
 import torch
 from torch_dipu.testing._internal import common_utils
-
 from tests.pytorch_tests_config import DISABLED_TORCH_TESTS, TORCH_TEST_PRECIIONS
 
 DEFAULT_FLOATING_PRECISION = 1e-3
@@ -26,6 +25,44 @@ class DIPUTestBase(DeviceTypeTestBase):
                 return value
         return defval
 
+    @classmethod
+    def _get_dipu_types(cls, dtype_combination, test_name, test,
+                        disabled_torch_tests, dipu_dtypes, disallowed_test):
+        class_name = cls.__name__
+        dtype_test_name = test_name
+        skipped = False
+        for dtype in dtype_combination:
+            dtype_test_name += '_' + str(dtype).split('.')[1]
+        for dtype in dtype_combination:
+            if dtype in cls.unsupported_dtypes:
+                reason = 'DIPU does not support dtype {0}'.format(str(dtype))
+                @wraps(test)
+                def skipped_test(self, *args, reason=reason, **kwargs):
+                    raise unittest.SkipTest(reason)
+
+                assert not hasattr(
+                    cls, dtype_test_name), 'Redefinition of test {0}'.format(
+                        dtype_test_name)
+                setattr(cls, dtype_test_name, skipped_test)
+                skipped = True
+                break
+            if dtype in [torch.float, torch.double, torch.bfloat16]:
+                floating_precision = DIPUTestBase._alt_lookup(
+                    TORCH_TEST_PRECIIONS,
+                    [dtype_test_name, test_name, test.__name__],
+                    DEFAULT_FLOATING_PRECISION)
+                if dtype not in test.precision_overrides or test.precision_overrides[
+                        dtype] < floating_precision:
+                    test.precision_overrides[dtype] = floating_precision
+        if class_name in disabled_torch_tests and common_utils.match_name(
+                dtype_test_name, disabled_torch_tests[class_name]):
+            skipped = True
+            setattr(cls, dtype_test_name, disallowed_test)
+        if not skipped:
+            dipu_dtypes.append(
+                dtype_combination
+                if len(dtype_combination) > 1 else dtype_combination[0])
+
     # Overrides to instantiate tests that are known to run quickly
     # and correctly on DIPU.
     @classmethod
@@ -39,7 +76,6 @@ class DIPUTestBase(DeviceTypeTestBase):
         @wraps(test)
         def disallowed_test(self, test=test):
             raise unittest.SkipTest('skipped on DIPU')
-            return test(self, cls.device_type)
 
         if class_name in disabled_torch_tests and (
                 common_utils.match_name(test_name, disabled_torch_tests[class_name]) or
@@ -59,41 +95,12 @@ class DIPUTestBase(DeviceTypeTestBase):
                 for dtype_combination in dtype_combinations:
                     if type(dtype_combination) == torch.dtype:
                         dtype_combination = (dtype_combination,)
-                    dtype_test_name = test_name
-                    skipped = False
-                    for dtype in dtype_combination:
-                        dtype_test_name += '_' + str(dtype).split('.')[1]
-                    for dtype in dtype_combination:
-                        if dtype in cls.unsupported_dtypes:
-                            reason = 'DIPU does not support dtype {0}'.format(str(dtype))
-
-                            @wraps(test)
-                            def skipped_test(self, *args, reason=reason, **kwargs):
-                                raise unittest.SkipTest(reason)
-
-                            assert not hasattr(
-                                cls, dtype_test_name), 'Redefinition of test {0}'.format(
-                                    dtype_test_name)
-                            setattr(cls, dtype_test_name, skipped_test)
-                            skipped = True
-                            break
-                        if dtype in [torch.float, torch.double, torch.bfloat16]:
-                            floating_precision = DIPUTestBase._alt_lookup(
-                                TORCH_TEST_PRECIIONS,
-                                [dtype_test_name, test_name, test.__name__],
-                                DEFAULT_FLOATING_PRECISION)
-                            if dtype not in test.precision_overrides or test.precision_overrides[
-                                    dtype] < floating_precision:
-                                test.precision_overrides[dtype] = floating_precision
-
-                    if class_name in disabled_torch_tests and common_utils.match_name(
-                            dtype_test_name, disabled_torch_tests[class_name]):
-                        skipped = True
-                        setattr(cls, dtype_test_name, disallowed_test)
-                    if not skipped:
-                        dipu_dtypes.append(
-                            dtype_combination
-                            if len(dtype_combination) > 1 else dtype_combination[0])
+                    DIPUTestBase._get_dipu_types(dtype_combination,
+                                                 test_name,
+                                                 test, 
+                                                 disabled_torch_tests,
+                                                 dipu_dtypes,
+                                                 disallowed_test)
                 if len(dipu_dtypes) != 0:
                     test.dtypes[cls.device_type] = dipu_dtypes
                     super().instantiate_test(name, test, generic_cls=generic_cls)
@@ -134,8 +141,6 @@ class DIPUTestBase(DeviceTypeTestBase):
 
     # Overrides assertEqual to popular custom precision
     def assertEqual(self, x, y, *args, **kwargs):
-        # HACK: Handle the dual nature of the assertEqual() PyTorch API whose first
-        # argument can be prec (floating) or msg (string).
         if not args or isinstance(args[0], str):
             kwargs = self._rewrite_compare_args(kwargs)
         elif isinstance(args[0], (float, int)):
