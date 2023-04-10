@@ -9,6 +9,30 @@
     alpha : scalar
   interface: diopiAdd(ctx, out, self, other, &alpha)
 
+- schema: "aten::add.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor"
+  name : "add.Scalar"
+  cppsignature: "at::Tensor add_scalar(const at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha=1)"
+  ins: [self]
+  attrs:
+    other : scalar
+    alpha : scalar
+  custom_code: auto out = self.clone();
+  outs: [out]
+  return: [out]
+  interface: diopiAddScalar(ctx, out, self, &other, &alpha)
+
+- schema: "aten::add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
+  name : "add_.Scalar"
+  cppsignature: "Tensor & add__scalar(Tensor & self, const Scalar & other, const Scalar & alpha)"
+  ins: []
+  attrs:
+    other : scalar
+    alpha : scalar
+  outs: [self]
+  return: [self]
+  interface: diopiAddScalar(ctx, self, self, &other, &alpha)
+
+
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   name : "sub.out"
   cppsignature: "Tensor & sub_out(const Tensor & self, const Tensor & other, const Scalar & alpha, Tensor & out)"
@@ -18,3 +42,113 @@
   attrs:
     alpha : scalar
   interface: diopiSub(ctx, out, self, other, &alpha)
+
+
+- schema: "aten::div.Tensor(Tensor self, Tensor other) -> Tensor"
+  name : "div.Tensor"
+  cppsignature: "Tensor div_tensor(const Tensor & self, const Tensor & other)"
+  custom_code: auto out = self.clone();
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  interface: diopiDiv(&context, out, self, other, RoundModeNone)
+
+- schema: "aten::div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  name : "div_.Tensor"
+  cppsignature: "Tensor & div__tensor(Tensor & self, const Tensor & other)"
+  ins: [other]
+  outs: [self]
+  return: [self]
+  interface: diopiDiv(&context, self, self, other, RoundModeNone)
+
+
+- schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  name : "div.out"
+  cppsignature: "at::Tensor & div_out(at::Tensor & out, const at::Tensor & self, const at::Tensor & other)"
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  interface: diopiDiv(&context, out, self, other, RoundModeNone)
+
+
+- schema: "aten::div(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
+  name : "div.out_mode"
+  cppsignature: "at::Tensor & div_out_mode(at::Tensor & out, const at::Tensor & self, const at::Tensor & other, c10::optional<c10::string_view> rounding_mode)"
+  ins: [self, other]
+  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
+  outs: [out]
+  return: [out]
+  interface: diopiDiv(&context, out, self, other, mode)
+
+- schema: "aten::div.Scalar(Tensor self, Scalar other) -> Tensor"
+  name : "div.Scalar"
+  cppsignature: "at::Tensor div_scalar(const at::Tensor & self, const at::Scalar & other)"
+  ins: [self]
+  attrs:
+    other : scalar
+  custom_code: auto out = self.clone();
+  outs: [out]
+  return: [out]
+  interface: diopiDivInpScalar(&context, out, &other, RoundModeNone)
+
+- schema: "aten::div_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  name : "div_.Scalar"
+  cppsignature: "Tensor & div__scalar(Tensor & self, const Scalar & other)"
+  ins: []
+  attrs:
+    other : scalar
+  outs: [self]
+  return: [self]
+  interface: diopiDivInpScalar(&context, self, &other, RoundModeNone)
+
+
+- schema: "aten::div.Scalar_mode(Tensor self, Scalar other, *, str? rounding_mode) -> Tensor"
+  name : "div.Scalar_mode"
+  cppsignature: "Tensor div_scalar_mode(const Tensor & self, const Scalar & other, c10::optional<c10::string_view> rounding_mode)"
+  ins: [self]
+  attrs:
+    other : scalar
+  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none"); auto out = self.clone();
+  outs: [out]
+  return: [out]
+  interface: diopiDivInpScalar(&context, out, &other, mode)
+
+- schema: "aten::div_.Scalar_mode(Tensor(a!) self, Scalar other, *, str? rounding_mode) -> Tensor(a!)"
+  name : "div_.Scalar_mode"
+  cppsignature: "Tensor & div__scalar_mode(Tensor & self, const Scalar & other, c10::optional<c10::string_view> rounding_mode)"
+  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
+  ins: []
+  attrs:
+    other : scalar
+  outs: [self]
+  return: [self]
+  interface: diopiDivInpScalar(&context, self, &other, mode)
+
+
+- schema: "aten::div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor"
+  name : "div.Tensor_mode"
+  cppsignature: "Tensor div_tensor_mode(const Tensor & self, const Tensor & other, c10::optional<c10::string_view> rounding_mode)"
+  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none"); auto out = self.clone();
+  ins: [self, other]
+  outs: [out]
+  return: [out]
+  interface: diopiDiv(&context, out, self, other, mode)
+
+- schema: "aten::div_.Tensor_mode(Tensor(a!) self, Tensor other, *, str? rounding_mode) -> Tensor(a!)"
+  name : "div_.Tensor_mode"
+  cppsignature: "Tensor & div__tensor_mode(Tensor & self, const Tensor & other, c10::optional<c10::string_view> rounding_mode)"
+  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
+  ins: [other]
+  outs: [self]
+  return: [self]
+  interface: diopiDiv(&context, self, self, other, mode)
+
+- schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
+  name : "fill_.Scalar"
+  cppsignature: "Tensor & fill__scalar(Tensor & self, const Scalar & value)"
+  ins: []
+  attrs:
+    value : scalar
+  outs: [self]
+  return: [self]
+  interface: diopiFill(&context, self, &value)

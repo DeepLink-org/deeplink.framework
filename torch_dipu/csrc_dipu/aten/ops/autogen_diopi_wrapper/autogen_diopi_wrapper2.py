@@ -81,6 +81,8 @@ namespace dipu::native {
 using at::Tensor;
 using at::Scalar;
 
+using namespace dipu::diopi_helper;
+
 $functions_code
 
 }  // namespace dipu::native
@@ -109,7 +111,7 @@ $cppsignautre {
     $attrs_process_code
 
     ::diopiError_t ret = $diopi_fun_call_code
-    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"$diopi_fun_call_code error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
 
     $return_code
 }
