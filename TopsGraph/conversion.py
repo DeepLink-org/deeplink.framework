@@ -41,9 +41,13 @@ def register_conversion(aten_fn):
         aten_fn,
     )
 
-@register_conversion(torch.ops.aten.add)
+@register_conversion(torch.ops.aten.add.Tensor)
 def add(a, b):
     return tops_op.Add(a, b)
+
+@register_conversion(torch.ops.aten.add.default)
+def AddDefalut(a, b):
+    return tops_op.AddDefalut(a, b)
 
 @register_conversion(torch.ops.aten.abs)
 def abs(a):
@@ -142,7 +146,7 @@ def max_pool2d_with_indices(*args):
     return tops_op.Max_pool2d_with_indices(*args)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
-def max_pool2d_with_indices(*args):
+def max_pool2d_with_indices_backward(*args):
     return tops_op.Max_pool2d_with_indices_backward(*args)
 
 @register_conversion(torch.ops.aten.gather)
@@ -162,12 +166,73 @@ def gemm(*args, **kwargs):
     return tops_op.Gemm(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
-def bathnorm(*args, **kwargs):
-    return tops_op.BathNorm(*args, **kwargs)
+def batchnorm(*args, **kwargs):
+    return tops_op.BatchNorm(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.native_batch_norm_backward.default)
-def bathnorm(*args, **kwargs):
-    return tops_op.BathNormBackward(*args, **kwargs)
+def bathnormbackward(*args, **kwargs):
+    return tops_op.BatchNormBackward(*args, **kwargs)
+
+@register_conversion(torch.ops.aten._softmax.default)
+def softmax(*args, **kwargs):
+    return tops_op.Softmax(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.arange.start)
+def range(*args, **kwargs):
+    return tops_op.Range(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.bmm.default)
+def dot(*args, **kwargs):
+    return tops_op.Dot(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.cat.default)
+def concatenate(*args, **kwargs):
+    return tops_op.Concatenate(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.empty_like.default)
+def empty_like(*args, **kwargs):
+    return tops_op.EmptyLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.eq.Tensor)
+def eauql(*args, **kwargs):
+    return tops_op.Euqal(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.expand.default)
+def expand(*args, **kwargs):
+    return tops_op.Expand(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.full.default)
+def full(*args, **kwargs):
+    return tops_op.Full(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.full_like.default)
+def fulllike(*args, **kwargs):
+    return tops_op.FullLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.maximum.default)
+def maximum(*args, **kwargs):
+    return tops_op.Max(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.pow.Tensor_Scalar)
+def pow(*args, **kwargs):
+    return tops_op.Pow(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.sigmoid.default)
+def sigmoid(*args, **kwargs):
+    return tops_op.Sigmoid(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.slice.Tensor)
+def enflameslice(*args, **kwargs):
+    return tops_op.Slice(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.where.self)
+def select(*args, **kwargs):
+    return tops_op.Select(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.scatter.value)
+def scatter(*args, **kwargs):
+    return tops_op.Scatter(*args, **kwargs)
+
 
 # Patterns
 def register_pattern(Pattern):
@@ -185,7 +250,7 @@ class BaseReplacePattern(ABC):
         pass
 
 @register_pattern
-class ReplacePattern1:
+class ReplacePatternRsqrt:
     def pattern(a):
         return torch.ops.aten.rsqrt.default(a)
 
@@ -193,7 +258,7 @@ class ReplacePattern1:
         return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
 
 @register_pattern
-class ReplacePattern2:
+class ReplacePatternAddmm:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
 
@@ -204,7 +269,7 @@ class ReplacePattern2:
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
 
 @register_pattern
-class ReplacePattern3:
+class ReplacePatternVar:
     def pattern(a, b):
         return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
 
@@ -222,7 +287,7 @@ class ReplacePattern3:
 # %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
 @register_pattern
-class ReplacePattern4:
+class ReplacePatternVarMean:
     def pattern(a, b):
         return torch.ops.aten.var_mean.correction(a, b, correction=0, keepdim=True)
 
@@ -238,7 +303,7 @@ class ReplacePattern4:
         return tops_op.ret_tuples(x_var, mean1)
 
 @register_pattern
-class ReplacePattern5:
+class ReplacePatternT:
     def pattern(a):
         return torch.ops.aten.t.default(a)
 
@@ -246,16 +311,16 @@ class ReplacePattern5:
         return torch.ops.aten.transpose(inputs, 0, 1)
 
 # convolution_backward =
-#torch.ops.aten.convolution_backward.default(
+# torch.ops.aten.convolution_backward.default(
 # getitem_102,
 # relu_15,
 # primals_58, [0], [1, 1], [1, 1], [1, 1], False, [0, 0], 1,
 # [True, True, False])
-#;  getitem_102 = primals_58 = None
+# ;  getitem_102 = primals_58 = None
 # getitem_105: f32[4, 512, 7, 7] = convolution_backward[0]
 # getitem_106: f32[512, 512, 3, 3] = convolution_backward[1];  convolution_backward = None
 @register_pattern
-class ReplacePattern5:
+class ReplacePatternConvBack:
     def pattern(
         grad_output,
         inputs,
@@ -314,3 +379,22 @@ class ReplacePattern5:
             [output_mask[0], output_mask[1], False],
         )
         return tops_op.ret_tri_tuples(grad_inp, grad_weight, grad_bias)
+
+
+@register_pattern
+class ReplacePatternRsub:
+    def pattern(a, b):
+        return torch.ops.aten.rsub.Scalar(a, b)
+
+    def replacement(a, b):
+        return torch.ops.aten.sub.Scalar(b, a)
+
+
+@register_pattern
+class ReplacePatternSiLU:
+    # silu(x) = x / (1+exp(-x)) = x*sigmoid(x)
+    def pattern(a):
+        return torch.ops.aten.silu.default(a)
+
+    def replacement(a, b):
+        return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
