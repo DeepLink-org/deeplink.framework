@@ -23,6 +23,12 @@ public:
 
   explicit DIPUStream(Unchecked, c10::Stream stream) : stream_(stream) {}
 
+  explicit DIPUStream(devapis::deviceId_t devidx, c10::StreamId stream_id)
+    : DIPUStream(Unchecked::UNCHECKED, c10::Stream(c10::Stream::UNSAFE,
+                c10::Device(dipu::DIPU_DEVICE_TYPE, devidx), stream_id)) {
+
+  }
+
   ~DIPUStream(){}
 
   bool operator==(const DIPUStream& other) const noexcept {
@@ -75,12 +81,14 @@ public:
     return stream_;
   }
 
-  uint64_t pack() const noexcept {
-    return stream_.pack();
+  c10::StreamData3 pack3() const noexcept {
+    return stream_.pack3();
   }
 
-  static DIPUStream unpack(uint64_t bits) {
-    return DIPUStream(c10::Stream::unpack(bits));
+  static DIPUStream unpack3(c10::StreamId stream_id, c10::DeviceIndex device_index,
+                          c10::DeviceType device_type) {
+    TORCH_CHECK(device_type == dipu::DIPU_DEVICE_TYPE);
+    return DIPUStream(device_index, stream_id);
   }
 
 private:
@@ -93,9 +101,9 @@ DIPU_API DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index = -1);
 
 DIPU_API DIPUStream getCurrentDIPUStream(c10::DeviceIndex device_index = -1);
 
-DIPU_API void dipuSynchronizeDevice();
-
 DIPU_API void setCurrentDIPUStream(DIPUStream stream);
+
+DIPU_API DIPUStream getStreamFromExternal(deviceStream_t ext_stream, c10::DeviceIndex device_index);
 
 std::ostream& operator<<(std::ostream& stream, const DIPUStream& s);
 } // namespace dipu

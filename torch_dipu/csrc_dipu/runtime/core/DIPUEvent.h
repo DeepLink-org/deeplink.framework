@@ -18,7 +18,7 @@ public:
   // Default value for `flags` is specified below
   DIPUEvent() {}
 
-  // flags is an useless parameter for dipu
+  // add flags in future
   // DIPUEvent(unsigned int flags) : flags_{flags} {}
 
   // dipu do not support IpcEventHandle until now
@@ -109,6 +109,7 @@ public:
   // dipu do not support IpcEventHandle until now
 
 private:
+  unsigned int flags_ = 0;
   bool is_created_ = false;
   bool was_recorded_ = false;
   c10::DeviceIndex device_index_ = -1;
@@ -122,6 +123,7 @@ private:
   }
 
   void moveHelper(DIPUEvent&& other) {
+    std::swap(flags_, other.flags_);
     std::swap(is_created_, other.is_created_);
     std::swap(was_recorded_, other.was_recorded_);
     std::swap(device_index_, other.device_index_);

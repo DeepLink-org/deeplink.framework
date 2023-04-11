@@ -4,16 +4,16 @@ function build_dipu_py() {
     export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
-    # PYTORCH_INSTALL_DIR is /home/fandaoyi.p/torch20/pytorch/torch
+    # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython-37m-x86_64-linux-gnu.so torch_dipu
+    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
 }
 
 function config_dipu_cmake() {
     cd ./build && rm -rf ./*
-    PYTORCH_DIR="/home/fandaoyi.p/torch20/pytorch"
-    PYTHON_INCLUDE_DIR="/home/fandaoyi.p/.conda/envs/torch20/include/python3.7m"
+    PYTORCH_DIR="/you_pytorch/torch20/pytorch"
+    PYTHON_INCLUDE_DIR="/you_conda/envs/torch20/include/python3.8"
     # export NEUWARE_ROOT="/usr/local/neuware-2.4.1/"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
      -DCAMB=ON -DPYTORCH_DIR=${PYTORCH_DIR} \
@@ -24,7 +24,7 @@ function config_dipu_cmake() {
 }
 
 function build_dipu_lib() {
-    export DIOPI_ROOT=/home/fandaoyi.p/torch20/DIOPI-IMPL/camb/build
+    export DIOPI_ROOT=/you_pytorch/torch20/DIOPI-IMPL/camb/build
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
 
     # config_dipu_cmake
