@@ -68,13 +68,6 @@ def match_name(name, mset):
             return True
     return False
 
-def union_of_disabled_tests(sets):
-    union = collections.defaultdict(set)
-    for s in sets:
-        for k, v in s.items():
-            union[k] = union[k] | v
-    return union
-
 class TestCase(expecttest.TestCase):
     _precision = 1e-5
     maxDiff = None

@@ -1,6 +1,6 @@
 from torch_dipu.testing._internal import common_utils
 
-TORCH_TEST_PRECIIONS = {
+TEST_PRECISIONS = {
     # test_name : floating_precision,
     'test_pow_dipu_float32': 0.0035,
     'test_pow_dipu_float64': 0.0045,
@@ -8,7 +8,7 @@ TORCH_TEST_PRECIIONS = {
     'test_sum_dipu_bfloat16': 0.1,
 }
 
-DISABLED_TORCH_TESTS_ANY = {
+DISABLED_TESTS_CAMB = {
     # test_torch.py
     'TestDevicePrecisionDIPU': {
         'test_sum_cpu_device_mismatch', 
@@ -225,6 +225,7 @@ DISABLED_TORCH_TESTS_ANY = {
         'test_getitem_scalars', 
         'test_empty_ndim_index',  
         'test_index_put_byte_indices_dipu', 
+        'test_index_put_accumulate_large_tensor_dipu'
     },
 
     # test_indexing.py
@@ -244,8 +245,6 @@ DISABLED_TORCH_TESTS_ANY = {
         'test_boolean_indexing_weirdness',  
         'test_boolean_indexing_weirdness_tensors',  
     },
-
-    
     # test_type_promotion.py
     'TestTypePromotionDIPU': {
         'test_many_promotions',  
@@ -259,84 +258,4 @@ DISABLED_TORCH_TESTS_ANY = {
     }
 }
 
-DISABLED_TORCH_TESTS_DIPU_ONLY = {
-    # test_torch.py
-    'TestDevicePrecisionDIPU': {
-        'test_digamma',  
-        'test_clamp_dipu_float64', 
-    },
-    'TestTensorDeviceOpsDIPU': {
-        'test_pow_inplace_dipu', 
-        'test_pow_inplace_3_dipu', 
-        'test_pow_3_dipu',  
-        'test_pow_-2_dipu',  
-        'test_topk_dim_sort_dipu',  
-        'test_topk_dim_desc_sort_dipu',  
-        'test_sort_dipu', 
-        'test_sort_neg_dim_dipu',  
-        'test_sort_neg_dim_descending_dipu',  
-        'test_sort_dim_dipu',  
-        'test_sort_dim_descending_dipu',  
-        'test_kthvalue_dipu',  
-        'test_kthvalue_neg_dim_dipu',  
-        'test_kthvalue_dim_dipu', 
-        'test_eig_with_eigvec_dipu_float64',  
-        'test_cumprod_dipu',  
-        'test_cumprod_neg_dim_dipu', 
-        'test_topk_neg_dim_sort_dipu', 
-        'test_clamp_min_dipu_float64',  
-        'test_clamp_min_inplace_dipu_float64', 
-        'test_clamp_max_dipu_float64',  
-        'test_clamp_max_inplace_dipu_float64',  
-    },
-    'TestTorchDeviceTypeDIPU': {
-        'test_cholesky_solve_batched_broadcasting', 
-        'test_cholesky_solve_batched_many_batches',  
-        'test_triangular_solve_batched_many_batches',  
-        'test_triangular_solve_batched_broadcasting',  
-        'test_random_from_to_dipu_int32',  
-        'test_uniform_from_to_dipu_float64',  
-        'test_topk_integral_dipu_int64', 
-        'test_float_to_int_conversion_finite_dipu', 
-        'test_block_diag_scipy',  
-        'test_remainder_fmod_large_dividend_dipu',  
-        'test_logical_not_out_dipu', 
-        'test_i0_range1_dipu_bfloat16', 
-        'test_i0_range2_dipu_bfloat16', 
-        'test_bucketization_dipu',  
-        'test_median_real_values_dipu_int64', 
-        'test_copysign_dipu.*bfloat16.*',  
-        'test_nondeterministic_alert_bincount_dipu',  
-        'test_nondeterministic_alert_histc_dipu',  
-        'test_nondeterministic_alert_grid_sample_2d_dipu', 
-        'test_nondeterministic_alert_grid_sample_3d_dipu',  
-        'test_nondeterministic_alert_index_add_dipu',  
-        'test_put_dipu_bfloat16',  
-        'test_take_dipu_bfloat16', 
-        'test_multinomial_constraints',  
-        'test_multinomial_invalid_distribution', 
-        'test_multinomial_invalid_dipu', 
-        'test_softplus_low_threshold_dipu', 
-        'test_put_dipu',  
-        'test_cov_dipu',  
-        'test_diff_dipu_float32',  
-        'test_diff_dipu_float64',  
-        'test_nullary_op_mem_overlap_dipu', 
-        'test_index_reduce',  
-        'test_take_dipu_float64', 
-        'test_take_dipu_int16',  
-    },
-
-    # test_indexing.py
-    'TestIndexingDIPU': {
-        'test_index_put_accumulate_large_tensor_dipu',
-    },
-}
-
-
-DISABLED_TORCH_TESTS_DIPU = common_utils.union_of_disabled_tests(
-    [DISABLED_TORCH_TESTS_ANY, DISABLED_TORCH_TESTS_DIPU_ONLY])
-
-DISABLED_TORCH_TESTS = {
-    'DIPU': common_utils.prepare_match_set(DISABLED_TORCH_TESTS_DIPU),
-}
+DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CAMB)

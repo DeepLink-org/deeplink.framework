@@ -1,7 +1,8 @@
 # !/bin/bash
 set -e
 
-source tests/run_tests.sh 
+source tests/run_tests.sh
+export DIPU_TEST_DEVICE="CAMB"
 
 function run_dipu_tests {
   # run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU

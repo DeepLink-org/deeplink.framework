@@ -6,16 +6,24 @@ import sys
 import runpy
 import torch
 from torch_dipu.testing._internal import common_utils
-from tests.pytorch_tests_config import DISABLED_TORCH_TESTS, TORCH_TEST_PRECIIONS
 
-DEFAULT_FLOATING_PRECISION = 1e-3
+_DEFAULT_FLOATING_PRECISION = 1e-3
+_DISABLED_TESTS = dict()
+_TEST_PRECISIONS = dict()
+_TEST_DEVICE = os.environ.get('DIPU_TEST_DEVICE', None)
+if _TEST_DEVICE == "CAMB":
+    from tests.pytorch_config_camb import DISABLED_TESTS, TEST_PRECISIONS
+    _DISABLED_TESTS = DISABLED_TESTS
+    _TEST_PRECISIONS = TEST_PRECISIONS
+else:
+    raise RuntimeError(f"device: {_TEST_DEVICE} illegal")
 
 class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
     unsupported_dtypes = {
         torch.half, torch.complex32, torch.complex64, torch.complex128
     }
-    precision = DEFAULT_FLOATING_PRECISION
+    precision = _DEFAULT_FLOATING_PRECISION
 
     @staticmethod
     def _alt_lookup(d, keys, defval):
@@ -27,7 +35,7 @@ class DIPUTestBase(DeviceTypeTestBase):
 
     @classmethod
     def _get_dipu_types(cls, dtype_combination, test_name, test,
-                        disabled_torch_tests, dipu_dtypes, disallowed_test):
+                        dipu_dtypes, disallowed_test):
         class_name = cls.__name__
         dtype_test_name = test_name
         skipped = False
@@ -48,14 +56,14 @@ class DIPUTestBase(DeviceTypeTestBase):
                 break
             if dtype in [torch.float, torch.double, torch.bfloat16]:
                 floating_precision = DIPUTestBase._alt_lookup(
-                    TORCH_TEST_PRECIIONS,
+                    _TEST_PRECISIONS,
                     [dtype_test_name, test_name, test.__name__],
-                    DEFAULT_FLOATING_PRECISION)
+                    _DEFAULT_FLOATING_PRECISION)
                 if dtype not in test.precision_overrides or test.precision_overrides[
                         dtype] < floating_precision:
                     test.precision_overrides[dtype] = floating_precision
-        if class_name in disabled_torch_tests and common_utils.match_name(
-                dtype_test_name, disabled_torch_tests[class_name]):
+        if class_name in _DISABLED_TESTS and common_utils.match_name(
+                dtype_test_name, _DISABLED_TESTS[class_name]):
             skipped = True
             setattr(cls, dtype_test_name, disallowed_test)
         if not skipped:
@@ -69,17 +77,14 @@ class DIPUTestBase(DeviceTypeTestBase):
     def instantiate_test(cls, name, test, *, generic_cls):
         test_name = name + '_' + cls.device_type
         class_name = cls.__name__
-        real_device_type = "DIPU"
-        assert real_device_type in DISABLED_TORCH_TESTS, 'Unsupported device type:' + real_device_type
-        disabled_torch_tests = DISABLED_TORCH_TESTS[real_device_type]
 
         @wraps(test)
         def disallowed_test(self, test=test):
             raise unittest.SkipTest('skipped on DIPU')
 
-        if class_name in disabled_torch_tests and (
-                common_utils.match_name(test_name, disabled_torch_tests[class_name]) or
-                common_utils.match_name(name, disabled_torch_tests[class_name])):
+        if class_name in _DISABLED_TESTS and (
+                common_utils.match_name(test_name, _DISABLED_TESTS[class_name]) or
+                common_utils.match_name(name, _DISABLED_TESTS[class_name])):
             assert not hasattr(
                 cls, test_name), 'Redefinition of test {0}'.format(test_name)
             setattr(cls, test_name, disallowed_test)
@@ -98,7 +103,6 @@ class DIPUTestBase(DeviceTypeTestBase):
                     DIPUTestBase._get_dipu_types(dtype_combination,
                                                  test_name,
                                                  test, 
-                                                 disabled_torch_tests,
                                                  dipu_dtypes,
                                                  disallowed_test)
                 if len(dipu_dtypes) != 0:
