@@ -25,7 +25,10 @@ struct DIPUATenFunctions {
 
     // diopi func
     static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
+    static at::Tensor add(const at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha);
+    static at::Tensor& add_(at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha);
     static at::Tensor relu(const at::Tensor& self);
+    static at::Tensor& threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input);
     static at::Tensor& relu_(at::Tensor& self);
 
     static ::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_batch_norm(
@@ -74,6 +77,14 @@ struct DIPUATenFunctions {
     static at::Tensor& nll_loss_out(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, at::Tensor & out);
     static ::std::tuple<at::Tensor &,at::Tensor &> nll_loss_forward_out(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, at::Tensor & output, at::Tensor & total_weight);
     static at::Tensor& nll_loss_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, const at::Tensor & total_weight, at::Tensor & grad_input);
+    static ::std::tuple<at::Tensor &,at::Tensor &> max_pool2d_with_indices_out(const at::Tensor & self, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool ceil_mode, at::Tensor & out, at::Tensor & indices);
+    static at::Tensor& max_pool2d_with_indices_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool ceil_mode, const at::Tensor & indices, at::Tensor & grad_input);
+    static at::Tensor& mul_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out);
+    static at::Tensor mul(const at::Tensor & self, const at::Scalar & other);
+    static at::Tensor& mul_(at::Tensor & self, const at::Scalar & other);
+    static at::Tensor& div_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out);
+    static at::Tensor div(const at::Tensor & self, const at::Scalar & other);
+    static at::Tensor& div_(at::Tensor & self, const at::Scalar & other);
 
 };
 

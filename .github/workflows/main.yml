@@ -15,6 +15,9 @@ env:
   ENV_NAME: 'dipu_poc'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   CLUSTER_CAMB: CAMB
+  CI_BUILD_DIR: "/mnt/cache/share/parrotsci/github/cibuild"
+  PYTORCH_DIR: "/mnt/cache/share/parrotsci/github/cibuild/pytorch"
+  CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: "680efdb8400bbbf741d6a2e8afaa1fa0bf99f352"
   DIOPI_COMMIT: "7ec02a31440857fed9405fda8d519d4dee8c17e4"
 
@@ -39,8 +42,21 @@ jobs:
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST"
           rsync -a --delete ${GITHUB_WORKSPACE}/DIOPI-TEST/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST/
-          rsync -a --delete /home/autolink/rsync/sourcecode/pytorch ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
           rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+          result=`ssh ${CLUSTER_CAMB} """
+                  if [ ! -f ${PYTORCH_DIR}/${CI_BUILD_FLAG} ]; then
+                    touch ${PYTORCH_DIR}/${CI_BUILD_FLAG}
+                  fi
+                  cat ${PYTORCH_DIR}/${CI_BUILD_FLAG}
+                  """`
+          echo "result:${result}"
+          if [ "${result}x" = "${PYTORCH_COMMIT}"x ]; then
+            echo "pytorch exist."
+          else
+            echo "pytorch not exist, copy pytorch to ${PYTORCH_DIR}"
+            ssh ${CLUSTER_CAMB} "rm -rf ${PYTORCH_DIR}"
+            rsync -a --delete /home/autolink/rsync/sourcecode/pytorch ${CLUSTER_CAMB}:${CI_BUILD_DIR}/
+          fi
 
   # Lint-C-Python:
   #   name: Lint c python
@@ -71,14 +87,19 @@ jobs:
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
-          cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-          source /mnt/lustre/share/platform/env/${ENV_NAME}
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/pytorch
-          export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
-          BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 \
-          --gres=mlu:${MLU_REQUESTS} python setup.py install --prefix=./install_path \
-          || (cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          cd ${PYTORCH_DIR}
+          echo "pwd: $(pwd)"
+          if [ -f ${PYTORCH_DIR}/${CI_BUILD_FLAG} ]; then
+            echo "${PYTORCH_DIR} has been successfully compiled."
+          else
+            source /mnt/lustre/share/platform/env/${ENV_NAME}
+            mkdir -p build && make clean
+            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0
+            srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] --time=40 \
+            --gres=mlu:${MLU_REQUESTS} python setup.py install --prefix=./install_path
+            echo "${PYTORCH_COMMIT}" > ${CI_BUILD_FLAG}
+          fi
           """
 
   Build-DIOPI-IMPL-Camb:
