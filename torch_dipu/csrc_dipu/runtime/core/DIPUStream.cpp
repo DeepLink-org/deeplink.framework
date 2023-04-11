@@ -47,6 +47,11 @@ static std::once_flag global_init_flag;
 // streamid contains streamtype and/or raw stream id in DIPUStreamDevice pool
 static thread_local std::unique_ptr<c10::StreamId[]> current_streams = nullptr;
 
+static c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
+  return ((uint32_t)static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits) |
+    static_cast<c10::StreamId>(id);
+}
+
 // manage per-device streams
 struct DIPUStreamDevice {
 private:
@@ -86,19 +91,12 @@ private:
     devapis::setDevice(devidx_);
     devapis::createStream(&default_stream);
     devapis::setDevice(cur_device);
-    // set device default stream in init
-    current_streams[devidx_] = makeC10StreamId(StreamIdType::DEFAULT, 0);
   }
 
 public:
   DIPUStreamDevice(deviceId_t devidx) {
     devidx_ = devidx;
     next_pool_pos = 0;
-  }
-
-  c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
-    return ((uint32_t)static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits) |
-      static_cast<c10::StreamId>(id);
   }
 
   DIPUStream getDIPUStreamfromPool() {
@@ -159,7 +157,6 @@ static void initGlobalStreamState() {
       C10_COMPILE_TIME_MAX_DIPUS,
       "). Increase that and recompile.");
 
-  current_streams = std::make_unique<c10::StreamId[]>(num_dipus);
   for (int i=0; i< num_dipus; i++) {
     streamDeviceList[i] = std::move(std::unique_ptr<DIPUStreamDevice>(new DIPUStreamDevice(i)));
   }
@@ -168,11 +165,25 @@ static void initGlobalStreamState() {
 static c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
   // Inits default streams (once, globally)
   std::call_once(global_init_flag, initGlobalStreamState);
+
+  // check device id
   if (devIdx == -1) {
     devIdx = devapis::current_device();
   }
   AT_ASSERT(devIdx >= 0 && devIdx < num_dipus);
   streamDeviceList[devIdx]->initDevice();
+
+  // current_streams is thread local. so check every time.
+  if (current_streams) {
+    return devIdx;
+  }
+  current_streams = std::make_unique<c10::StreamId[]>(num_dipus);
+
+  // Inits current streams (thread local) to default streams
+  for (const auto i : c10::irange(num_dipus)) {
+    current_streams[i] = makeC10StreamId(StreamIdType::DEFAULT, 0);
+  }
+  // set device default stream in init
   return devIdx;
 }
 
