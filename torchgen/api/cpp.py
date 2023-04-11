@@ -47,6 +47,10 @@ from torchgen.api.types import (
     TupleCType,
     VectorCType,
     voidT,
+    diopiConstTensorHandleT,
+    diopiTensorHandleT,
+    diopiScalarT,
+    diopiContextT,
 )
 from torchgen.model import (
     Argument,
@@ -234,6 +238,28 @@ def argumenttype_type(
 def argument_type(a: Argument, *, binds: ArgName, symint: bool = False) -> NamedCType:
     return argumenttype_type(a.type, mutable=a.is_write, symint=symint, binds=binds)
 
+# Translate CType type to DIOPI type
+CTYPE_TO_DIOPI = {
+    ConstRefCType(BaseCType(tensorT)): diopiConstTensorHandleT,
+    MutRefCType(BaseCType(tensorT)): diopiTensorHandleT,
+    ConstRefCType(BaseCType(scalarT)): diopiScalarT,
+}
+
+def diopi_type(type: CType) -> CType:
+    if not CTYPE_TO_DIOPI.__contains__(type):
+        raise AssertionError(f"unsupported diopi type convert {repr(type)}")
+    return CTYPE_TO_DIOPI.get(type)
+
+CTYPE_TO_DIOPI_HELPER = {
+    ConstRefCType(BaseCType(tensorT)): "toDiopiTensorHandle",
+    MutRefCType(BaseCType(tensorT)): "toDiopiTensorHandle",
+    ConstRefCType(BaseCType(scalarT)): "toDiopiScalar",
+}
+
+def diopi_type_helper(type: CType) -> str:
+    if not CTYPE_TO_DIOPI_HELPER.__contains__(type):
+        raise AssertionError(f"unsupported diopi type convert {repr(type)}")
+    return CTYPE_TO_DIOPI_HELPER.get(type)
 
 # Translation of a (non-multi) return type from JIT to C++
 # N.B: returntype_type returns a CType, not a NamedCType.

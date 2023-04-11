@@ -1146,6 +1146,7 @@ class DiopiFunction:
     infer: str = None
     adaptor: str = None
     args: List[str] = None
+    returnArg: str = None
 
     @staticmethod
     def parse(value: dict) -> "DiopiFunction":
@@ -1153,14 +1154,24 @@ class DiopiFunction:
         api = value["api"]
         assert len(op) != 0 and len(api) != 0, "DIOPI op or api is missing"
         op_name = OperatorName.parse(op)
-        full_gen = value["full_gen"]
+        full_gen = False
         infer = None
         adapter = None
         args = None
-        if full_gen:
+        returnArg = None
+
+        if value.__contains__("infer"):
             infer = value["infer"]
+            full_gen = True
+        if value.__contains__("adaptor"):
             adapter = value["adaptor"]
-            args = [arg.strip() for arg in value["args"].split()]
+            full_gen = True
+        if value.__contains__("args"):
+            args = [arg.strip() for arg in value["args"].split(",")]
+            full_gen = True
+        if value.__contains__("return"):
+            returnArg = value["return"]
+            full_gen = True
 
         return DiopiFunction(
             op_name=op_name,
@@ -1168,7 +1179,8 @@ class DiopiFunction:
             full_gen=full_gen, 
             infer=infer,
             adaptor=adapter,
-            args=args
+            args=args,
+            returnArg=returnArg
         )
 
 @dataclass(frozen=True)

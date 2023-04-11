@@ -4,19 +4,56 @@ supported:
   # Format
   # - op: add.out     # OperatorName
   #   api: diopiAdd   # DIOPI function
-  #   full_gen: True  # Generate the full code or not, with the default value being False.
   #   infer: null     # Infer code generation type, with the default value of null.
   #   adaptor: null   # Adaptor code generation type, with the default value of null.
   #   args: out, self, other, alpha   # Sequence of calling arguments for DIOPI. 
   #                                   # Ignore the argument context.
   #                                   # The parameter names must correspond to the 
   #                                   # parameters in native_functions.yaml.
+  #   return: out     # Return value
   - op: add.out
     api: diopiAdd
-    full_gen: True
-    infer: null
-    adaptor: null
     args: out, self, other, alpha
+    return: out
+
+  - op: add.Tensor
+    api: diopiAdd
+
+  - op: add_.Tensor
+    api: diopiAdd
 
   - op: conv2d
     api: diopiConvolution2d
+
+  - op: relu
+    api: diopiRelu
+
+  - op: relu_
+    api: diopiReluInp
+
+  - op: native_batch_norm
+    api: diopiBatchNorm
+
+  - op: native_batch_norm_backward
+    api: diopiBatchNormBackward
+
+  - op: _convolution
+    api: diopiConvolution2d
+
+  - op: randperm.generator_out
+    api: diopiRandperm
+
+  - op: randperm.out
+    api: diopiRandperm
+
+  - op: random_.from
+    api: diopiRandomInp
+
+  - op: random_.to
+    api: diopiRandomInp
+
+  - op: random_
+    api: diopiRandomInp
+
+  - op: fill_.Scalar
+    api: diopiFill

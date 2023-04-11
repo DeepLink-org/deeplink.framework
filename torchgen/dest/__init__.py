@@ -22,3 +22,6 @@ from .register_dispatch_key import (
     gen_registration_helpers as gen_registration_helpers,
     RegisterDispatchKey as RegisterDispatchKey,
 )
+from .diopi_kernels import (
+    gen_diopi_kernel as gen_diopi_kernel
+)

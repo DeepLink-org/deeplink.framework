@@ -15,11 +15,9 @@ using dipu::diopi_helper::toDiopiScalar;
 
 ${namespace_prologue}
 
-${kernel_decl} {
+${kernel_defn} {
   ${arguments_convert}
-
   ${infer}
-
   ${adaptor}
 
   ${diopi_invoke}

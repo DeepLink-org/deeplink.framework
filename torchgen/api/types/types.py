@@ -91,6 +91,12 @@ tensorGeometryT = BaseCppType("at", "TensorGeometry")
 SymIntT = BaseCppType("c10", "SymInt")
 symIntArrayRefT = BaseCppType("c10", "SymIntArrayRef")
 
+# DIOPI types
+diopiConstTensorHandleT = BaseCppType("", "diopiConstTensorHandle_t")
+diopiTensorHandleT = BaseCppType("", "diopiTensorHandle_t")
+diopiScalarT = BaseCppType("", "diopiScalar_t")
+diopiContextT = BaseCppType("", "diopiContext")
+
 # Types representing template parameters.  Technically, we probably shouldn't
 # represent them this way in codegen, but it was pretty convenient.
 scalar_t = BaseCppType("", "scalar_t")
