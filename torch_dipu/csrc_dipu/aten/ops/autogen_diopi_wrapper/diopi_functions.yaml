@@ -2,7 +2,7 @@
   custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
   interface: diopiAdd(ctx, out, self, other, &alpha)
 
-- schema: "aten::add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
+- schema: "add.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor"
   interface: diopiAddScalar(ctx, self, self, &other, &alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
