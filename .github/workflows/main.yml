@@ -35,7 +35,7 @@ jobs:
           submodules: 'true'
       - name: Rsync to Server
         run: |
-          cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
+          echo ${GITHUB_WORKSPACE} && cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
           && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
