@@ -81,12 +81,14 @@ public:
     return stream_;
   }
 
-  uint64_t pack() const noexcept {
-    return stream_.pack();
+  c10::StreamData3 pack3() const noexcept {
+    return stream_.pack3();
   }
 
-  static DIPUStream unpack(uint64_t bits) {
-    return DIPUStream(c10::Stream::unpack(bits));
+  static DIPUStream unpack3(c10::StreamId stream_id, c10::DeviceIndex device_index,
+                          c10::DeviceType device_type) {
+    TORCH_CHECK(device_type == dipu::DIPU_DEVICE_TYPE);
+    return DIPUStream(device_index, stream_id);
   }
 
 private:
