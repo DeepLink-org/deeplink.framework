@@ -20,11 +20,11 @@ __all__ = [
     "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event",
 
     # random
-    "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
-    "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
+    # "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
+    # "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
 
-    # mem manage
-    "caching_allocator_alloc", "caching_allocator_delete", "empty_cache", "memory_summary", "memory_stats"
+    # # mem manage
+    # "caching_allocator_alloc", "caching_allocator_delete", "empty_cache", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now 
 ]
