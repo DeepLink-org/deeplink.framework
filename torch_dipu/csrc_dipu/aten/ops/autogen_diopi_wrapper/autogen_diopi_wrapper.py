@@ -1,6 +1,7 @@
 import yaml
 import re
 from typing import Mapping, Match, Optional, Sequence
+from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_registe_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -61,12 +62,6 @@ class CodeTemplate:
 
         return self.substitution.sub(replace, self.pattern)
 
-
-cppsignature_template = CodeTemplate(
-"""
-$return_code $fun_name($param_list)
-"""
-)
 
 def get_fun_name_from_cppsignature(cppnature):
     return re.search(r'[a-zA-Z_:]+[\w\d:]+\(' , cppnature).group().replace('(', '')
@@ -148,12 +143,11 @@ def get_function_return_from_schema(schema):
     return return_param
 
 
-def create_cpp_signature_from(schema):
+def create_cpp_signature_from_schema(schema):
     return_code = create_return_code_frome_schema(schema)
     fun_name = create_fun_name_from_schema(schema)
     param_list = create_param_list_from_schema(schema)
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
-    #cppsignature = cppsignature_template.substitute([return_code=return_code, fun_name=fun_name, param_list=param_list])
     cppsignature = cppsignature_template.substitute(
         return_code=[return_code],
         fun_name=[fun_name],
@@ -162,63 +156,11 @@ def create_cpp_signature_from(schema):
     return cppsignature
 
 
-file_template = CodeTemplate(
-"""
-// autogened file
-#include <ATen/Tensor.h>
+file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/aten/RegisterDIPU.hpp"
-#include "csrc_dipu/diopirt/diopirt_impl.h"
+fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
-namespace dipu::native {
-
-using at::Tensor;
-using at::Scalar;
-
-using namespace dipu::diopi_helper;
-
-$functions_code
-
-}  // namespace dipu::native
-
-namespace at {
-
-TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
-    $op_registe_code
-}
-
-}  // namespace at
-
-"""
-)
-
-fun_template = CodeTemplate(
-"""
-//  $comment
-$cppsignautre {
-    ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-    auto ctx = &context;
-    $custom_code
-    $input_process_code
-
-    $output_process_code
-
-    $attrs_process_code
-
-    ::diopiError_t ret = $diopi_fun_call_code
-    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
-
-    $return_code
-}
-"""
-)
-
-op_registe_template = CodeTemplate(
-"""
-DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
-"""
-)
+op_registe_template = CodeTemplate(op_registe_template_content)
 
 def functions_code_gen(fun_config):
     diopi_fun_call_code = fun_config['interface'] + ";"
@@ -253,7 +195,7 @@ def functions_code_gen(fun_config):
 
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
-            cppsignautre=[create_cpp_signature_from(fun_config['schema'])],
+            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
             custom_code=[fun_config.get('custom_code', '')],
             input_process_code=[input_process_code],
             output_process_code=[output_process_code],
