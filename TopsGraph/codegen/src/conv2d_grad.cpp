@@ -44,15 +44,7 @@ builder::Op enflame::conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, 
   builder::Op out_grad = builder::Transpose(out_grad_, {0, 2, 3, 1});
   builder::Op input = builder::Transpose(input_, {0, 2, 3, 1});
   builder::Op filter = builder::Transpose(filter_, {2, 3, 1, 0});
-  // std::cout << "Entering func !:\n" << std::endl;
-  std::cout << stride.size() << std::endl;
-  std::cout << dilation.size() << std::endl;
-  std::cout << padding.size() << std::endl;
 
-//   std::cout << str(input.GetType().GetShape()) << "conv2d_grad input!" <<std::endl;
-//   std::cout << str(filter.GetType().GetShape()) << "conv2d_grad filter!" <<std::endl;
-//   std::cout << str(out_grad.GetType().GetShape()) << "conv2d_grad out_grad!" << std::endl;
-  
   auto input_shape = input.GetType().GetShape();
   auto kernel_shape = filter.GetType().GetShape();
   auto output_shape = out_grad.GetType().GetShape();
@@ -108,12 +100,9 @@ builder::Op enflame::conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, 
                                 /*precision_config=*/{});
     filter_grad.SetAttribute("op_type",
                              builder::Attribute("Conv2DBackpropFilter"));
-    // std::cout << filter_grad << std::endl;
-    // std::cout << "---- debug filter_grad end" << std::endl;
     
     filter_grad = builder::Transpose(filter_grad, {3, 2, 0, 1});
   }
-  // std::cout << "Debug1\n" << std::endl;
 
   // calculate input_grad
   builder::Op input_grad;
@@ -152,12 +141,9 @@ builder::Op enflame::conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, 
                                /*precision_config=*/{});
     input_grad.SetAttribute("op_type",
                             builder::Attribute("Conv2DBackpropInput"));
-    // std::cout << input_grad << std::endl;
-    // std::cout << "---- debug input_grad end" << std::endl;
     input_grad = builder::Transpose(input_grad, {0, 3, 1, 2});
   }
 
-  // std::cout << "Debug2\n" << std::endl;
 
   // std::vector<int64_t> bias_grad_shape{}  
   builder::Type bias_type(bias_shape, builder::PrimitiveType::F32());
@@ -170,17 +156,10 @@ builder::Op enflame::conv2d_grad(std::shared_ptr<builder::Builder> tmp_builder, 
   std::vector<builder::PrimitiveType> tuple_dtype;
   std::vector<std::vector<int64_t>> tuple_shape;
   for (uint i = 0; i < outputs.size(); i++) {
-    // std::cout << outputs[i].GetType().GetShape() << std::endl;
-    // for (uint j = 0; j < outputs[i].GetType().GetShape().size(); j++){
-    //     std::cout << outputs[i].GetType().GetShape()[j] << std::endl;  
-    // }
-    // std::cout  << "======================" << std::endl;
-    // std::cout << outputs[i].GetType().GetPrimitiveType() << std::endl;
     tuple_shape.push_back(outputs[i].GetType().GetShape());
     tuple_dtype.push_back(outputs[i].GetType().GetPrimitiveType());
   }
   
-  // std::cout << "Debug3\n" << std::endl;
 
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs, outputs_type);

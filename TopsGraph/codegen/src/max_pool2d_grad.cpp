@@ -111,8 +111,6 @@ builder::Op enflame::batch_norm(std::shared_ptr<builder::Builder> tmp_builder, b
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs, outputs_type);
   
-  std::cout<< "TESTING" << std::endl;
-
   return result;
 
 }   

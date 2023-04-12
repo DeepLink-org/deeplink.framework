@@ -24,7 +24,6 @@ void compile(std::shared_ptr<builder::Builder> builder,
   topsCreateExecutable(exe_ptr, binary, binary_size);
   delete [] binary;
   topsgraphDestroyProgram(&program);
-  std::cout << "[INFO] compile done." << std::endl;
   return;
 }
 
@@ -70,9 +69,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   EXPECT_EQ(topsExecutableQueryInfo(exe_ptr, topsExecutableInfoOutputSizeList,
                                     output_size),
             topsSuccess);
-
-  std::cout << "input_count = " << input_count
-            << ", output_count = " << output_count << std::endl;
 
   // 3. prepare data, H2D
   for (size_t i = 0; i < input_count; i++) {
@@ -126,10 +122,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
       shape_v.push_back(output_dim_list[dim_index++]);
     }
     // 5. D2H
-      std::cout << "output host ptr= " << output_ptrs[i] << std::endl;
-      std::cout << "output host ptr= " << outputs[i] << std::endl;
-      std::cout << "output host ptr= " << output_size[i] << std::endl;
-
     ret = topsMemcpyAsync(output_ptrs[i], outputs[i], output_size[i],
                           topsMemcpyDeviceToHost, stream);
     if (ret != 0) {
@@ -138,8 +130,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     }
     topsStreamSynchronize(stream);
   }
-  std::cout << "==============================================================="
-            << std::endl;
 
   // 6. release data
   for (size_t i = 0; i < input_count; i++) {
@@ -199,9 +189,6 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
                                     output_size),
             topsSuccess);
 
-  std::cout << "input_count = " << input_count
-            << ", output_count = " << output_count << std::endl;
-
   // 3. prepare data, H2D
   for (size_t i = 0; i < input_count; i++) {
     topsMallocForResource(&dev_input, input_size[i], res_bundle);
@@ -215,7 +202,6 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     outputs[i] = dev_output;
   }
 
-  std::cout << "Before run2!" <<std::endl;
   // 4. run
   ret = topsLaunchExecutableV2(exe_ptr, res_bundle, inputs, input_count,
                                input_dims, input_rank, outputs, output_count,
@@ -245,8 +231,6 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     }
     topsStreamSynchronize(stream);
   }
-  std::cout << "==============================================================="
-            << std::endl;
 
   // 6. release data
   for (size_t i = 0; i < input_count; i++) {
