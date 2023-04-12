@@ -44,6 +44,14 @@ enum class VendorDeviceType : enum_t {
   CUDA, //cuda
 };
 
+constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
+  switch (t) {
+    case VendorDeviceType::MLU: return "MLU";
+    case VendorDeviceType::CUDA: return "CUDA";
+    case VendorDeviceType::NPU: return "NPU";
+  }
+}
+
 enum class EventStatus: enum_t {
   PENDING,
   RUNNING,

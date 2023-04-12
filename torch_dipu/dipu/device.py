@@ -5,7 +5,7 @@ from torch_dipu import mockcuda
 from torch_dipu import _C
 __dipu__ = 'dipu'
 __diputype__ = 'privateuseone'
-__vendor__ = 'mlu'  # need update when compile
+__vendor__ = _C.dipu_vendor  # need update when compile
 
 
 class MetaType(type):

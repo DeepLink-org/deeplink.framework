@@ -103,7 +103,7 @@ public:
         ctx->saved_data["groups"] = groups;
         ctx->saved_data["bias_has_value"] = (bias.has_value() == true) ? bias.value().requires_grad() : false;
 
-        at::AutoNonVariableTypeMode g;
+        at::AutoDispatchBelowADInplaceOrView g;
         ctx->save_for_backward({input, weight});
         return convolutionKernelDipu(input, weight, bias, stride, padding, dilation, groups);
     }

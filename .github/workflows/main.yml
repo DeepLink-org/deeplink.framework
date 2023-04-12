@@ -18,7 +18,7 @@ env:
   CI_BUILD_DIR: "/mnt/cache/share/parrotsci/github/cibuild"
   PYTORCH_DIR: "/mnt/cache/share/parrotsci/github/cibuild/pytorch"
   CI_BUILD_FLAG: "ci_build_flag"
-  PYTORCH_COMMIT: "680efdb8400bbbf741d6a2e8afaa1fa0bf99f352"
+  PYTORCH_COMMIT: "c263bd43e8e8502d4726643bc6fd046f0130ac0e"  # pytorch tag 2.0
   DIOPI_COMMIT: "7ec02a31440857fed9405fda8d519d4dee8c17e4"
 
 jobs:
@@ -35,8 +35,8 @@ jobs:
           submodules: 'true'
       - name: Rsync to Server
         run: |
-          cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
-          && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive
+          echo ${GITHUB_WORKSPACE} && cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
+          && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive --force
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
