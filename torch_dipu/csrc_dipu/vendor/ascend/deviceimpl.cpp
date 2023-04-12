@@ -7,7 +7,11 @@
 
 namespace dipu
 {
+
+DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::NPU;
+
 namespace devapis {
+
 
 // =====================
 //  Device class related
@@ -17,7 +21,6 @@ using ascend_deviceId = int32_t;
 static int initValue = [](){
   DIPU_CALLACLRT(aclInit(nullptr));
   DIPU_CALLACLRT(aclrtSetDevice(0));
-
   return 0;
 }();
 
@@ -60,24 +63,33 @@ void getDriverVersion(int *version) {
 // =====================
 
 void mallocHost(void **p, size_t nbytes) {
+  if (nbytes <= 0) {
+    *p = nullptr;
+    return;
+  }
   DIPU_CALLACLRT(aclrtMallocHost(p, nbytes))
 }
 
 void freeHost(void *p) {
-    DIPU_CALLACLRT(aclrtFreeHost(p))
+  if (p == nullptr) {
+    return;
+  }
+  DIPU_CALLACLRT(aclrtFreeHost(p))
 }
 
 OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+  if (nbytes <= 0) {
+    *p = nullptr;
+    return OpStatus::SUCCESS;
+  }
   DIPU_CALLACLRT(::aclrtMalloc(p, nbytes, ACL_MEM_MALLOC_HUGE_FIRST));
   return OpStatus::SUCCESS;
 }
 
 void freeDevice(void *p) {
-  if (p <= 0) {
-    printf("%s p is invalid:%x\n", __FUNCTION__ , p);
+  if (p == nullptr) {
     return;
   }
-
   DIPU_CALLACLRT(::aclrtFree(p))
 }
 
