@@ -109,9 +109,11 @@ def compile_fx(
         )
 
     from torch._inductor.decomposition import select_decomp_table
+    decompositions = select_decomp_table()
     return aot_autograd(
         fw_compiler=fw_compiler,
-        bw_compiler=bw_compiler
+        bw_compiler=bw_compiler,
+        decompositions=decompositions
     )(model_, example_inputs_)
 
 def count_tangents(fx_g: torch.fx.GraphModule):
