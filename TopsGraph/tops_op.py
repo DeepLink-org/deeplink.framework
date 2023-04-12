@@ -12,6 +12,9 @@ class Operator():
         super().__init__()
         self.__name__ = name_
 
+    def name(self):
+        return self.__name__
+
     def __call__(self, *args, **kwargs):
         new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
         return self.torch_op(*new_args, **kwargs)
