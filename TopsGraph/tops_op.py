@@ -20,13 +20,18 @@ class Operator():
         return self.torch_op(*new_args, **kwargs)
 
 class Add(Operator):
-
     def __init__(self, a, b):
         super().__init__("add")
         self.a = a
         self.b = b
         self.torch_op = aten.add
 
+class AddDefalut(Operator):
+    def __init__(self, a, b):
+        super().__init__("add")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.add.default
 
 class Gemm(Operator):
     def __init__(self, a, b):
@@ -192,12 +197,24 @@ class Convolution(Operator):
         self.args = args
         self.torch_op = aten.convolution
 
+class ConvolutionBackward(Operator):
+    def __init__(self, *args):
+        super().__init__("convolution_backward")
+        self.args = args
+        self.torch_op = aten.convolution_backward
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args):
         super().__init__("max_pool2d_with_indices")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
+
+
+class Max_pool2d_with_indices_backward(Operator):
+    def __init__(self, *args):
+        super().__init__("max_pool2d_with_indices_backward")
+        self.args = args
+        self.torch_op = aten.max_pool2d_with_indices_backward
 
 
 class Gather(Operator):
@@ -222,15 +239,149 @@ class Getitem(Operator):
         self.torch_op = operator.getitem
 
 
-class BathNorm(Operator):
+class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("bathnorm")
+        super().__init__("batchnorm")
         self.args = args
         self.args = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
+
+
+class BatchNormBackward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("batchnorm_backward")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.native_batch_norm_backward.default
+
+
+class Softmax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("softmax")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten._softmax.default
+
+
+class Range(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("range")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.arange.start
+
+
+class Dot(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("dot")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.bmm.default
+
+
+class Concatenate(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("concatenate")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.cat.default
+
+
+class EmptyLike(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("empty_like")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.empty_like.default
+
+
+class Euqal(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("eauql")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.eq.Tensor
+
+
+class Expand(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("expand")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.expand.default
+
+
+class Full(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("fulllike")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.full.default
+
+
+class FullLike(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("fulllike")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.full_like.default
+
+
+class Max(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("max")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.maximum.default
+
+
+class Pow(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("pow")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.pow.Tensor_Scalar
+
+
+class Sigmoid(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("sigmoid")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.sigmoid.default
+
+
+class Slice(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("slice")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.slice.Tensor
+
+
+class Select(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("select")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.where.self
+
+
+# scatter_value = torch.ops.aten.scatter.value(fulllike, 1, unsqueeze, -1.0);  fulllike = unsqueeze = None
+class Scatter(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("scatter")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.scatter.value
 
 
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
     return a, b
+
+
+@torch.fx.wrap
+def ret_tri_tuples(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    return a, b, c
