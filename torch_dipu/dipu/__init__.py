@@ -13,7 +13,7 @@ __all__ = [
     "is_initialized",
     # device 
     "can_device_access_peer",  "current_device",  "device", "device_count", "device_of", "synchronize",
-    "get_device_name", "get_device_properties", "is_available", "set_device",
+    "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
     "GetDeviceProxy", "GetTorchFuncProxy", "diputype", "vendor_type",
 
     # stream

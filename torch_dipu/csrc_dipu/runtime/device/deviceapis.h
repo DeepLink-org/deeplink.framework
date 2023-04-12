@@ -15,6 +15,16 @@ using deviceId_t = c10::DeviceIndex;
 
 DIPU_API deviceId_t current_device();
 
+struct DIPUDeviceProperties {
+  std::string name;
+  size_t totalGlobalMem = 0;
+  int32_t major = 0;
+  int32_t minor = 0;
+  int32_t multiProcessorCount = 0;
+};
+
+DIPU_API DIPUDeviceProperties getDeviceProperties(int32_t device_index);
+
 // set current device given device according to id
 DIPU_API void setDevice(deviceId_t devId);
 

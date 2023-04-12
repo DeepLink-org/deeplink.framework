@@ -1,8 +1,12 @@
+#include <sstream>
+
 #include <c10/core/Device.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/utils/pybind.h>
 
 #include "exportapi.h"
+#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/device/device.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 using dipu::getDIPUStreamFromPool;
@@ -11,6 +15,27 @@ using dipu::DIPUEvent;
 namespace py = pybind11;
 
 namespace dipu {
+
+static constexpr size_t kMega = 1024 * 1024;
+using dipu::devapis::DIPUDeviceProperties;
+
+static void registerDIPUDeviceProperties(py::module& m) {
+  py::class_<DIPUDeviceProperties>(m, "_DIPUDeviceProperties")
+      .def_readonly("name", &DIPUDeviceProperties::name)
+      .def_readonly("major", &DIPUDeviceProperties::major)
+      .def_readonly("minor", &DIPUDeviceProperties::minor)
+      .def_readonly("multi_processor_count", &DIPUDeviceProperties::multiProcessorCount)
+      .def_readonly("total_memory", &DIPUDeviceProperties::totalGlobalMem)
+      .def("__repr__", [](const DIPUDeviceProperties& prop) {
+        std::ostringstream stream;
+        stream << "_DIPUDeviceProperties(name='" << prop.name
+               << "', major=" << prop.major << ", minor=" << prop.minor
+               << ", total_memory=" << prop.totalGlobalMem / kMega
+               << "MB, multi_processor_count=" << prop.multiProcessorCount
+               << ")";
+        return stream.str();
+      });
+}
 
 static void exportDevices(py::module& m) {
    // Device Management.
@@ -29,6 +54,9 @@ static void exportDevices(py::module& m) {
     devapis::syncDevice(); 
     return;
   });
+  m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
+        return dipu::device::getDevicePropertiesWithCache(device);
+      }, py::return_value_policy::reference);
 }
 
 static void exportStream(py::module& m) {
@@ -136,6 +164,7 @@ static void exportEvent(py::module& m) {
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
+  registerDIPUDeviceProperties(m);
   exportDevices(m);
   exportStream(m);
   exportEvent(m);
