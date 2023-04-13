@@ -44,6 +44,7 @@ class GraphTransformer:
     @dynamo_timed
     def compile_to_module(self):
         from torch._inductor.codecache import PyCodeCache
+
         code = self.codegen()
 
         mod = PyCodeCache.load(code)
