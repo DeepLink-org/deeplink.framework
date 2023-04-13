@@ -10,6 +10,7 @@ from typing import List
 from importlib import import_module
 from torch._dynamo.utils import fake_mode_from_tensors
 from .graph import GraphTransformer
+from torch._inductor.decomposition import select_decomp_table
 
 log = logging.getLogger(__name__)
 
@@ -108,10 +109,10 @@ def compile_fx(
             backend=backend,
         )
 
-    from torch._inductor.decomposition import select_decomp_table
     return aot_autograd(
         fw_compiler=fw_compiler,
-        bw_compiler=bw_compiler
+        bw_compiler=bw_compiler,
+        decompositions=select_decomp_table(),
     )(model_, example_inputs_)
 
 def count_tangents(fx_g: torch.fx.GraphModule):
