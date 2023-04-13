@@ -1,9 +1,38 @@
-- schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+- schema: "add.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    auto out = at::empty_like(self);
+  interface: diopiAddScalar(ctx, out, self, &other, &alpha)
+
+- schema: "aten::add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+  interface: diopiAddInpScalar(ctx, self, &other, &alpha)
+
+- schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+  interface: diopiAddScalar(ctx, out, self, &other, &alpha)
+
+- schema: "aten::add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+  interface: diopiAddInp(ctx, self, other, &alpha)
+
+- schema: "aten::add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    auto out = at::empty_like(self);
   interface: diopiAdd(ctx, out, self, other, &alpha)
 
-- schema: "add.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor"
-  interface: diopiAddScalar(ctx, self, self, &other, &alpha)
+
+- schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    if (other.dim() == 0 && other.is_cpu()) {
+        return dipu_add_scalar_out(self, other.item(), alpha, out);
+    } else if (self.dim() == 0 && self.is_cpu()) {
+        return dipu_add_scalar_out(other, self.item(), alpha, out);
+    }
+  interface: diopiAdd(ctx, out, self, other, &alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSub(ctx, out, self, other, &alpha)
@@ -34,3 +63,15 @@
 
 - schema: "aten::mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   interface: diopiMul(&context, self, self, other)
+
+- schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
+  interface: diopiBatchNorm(&context, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
+
+- schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
+  custom_code: >
+    const int64_t dim_c = input.size(1);
+    auto out0 = at::empty_like(input);
+    auto options = input.options().dtype(at::kFloat);
+    auto out1 = at::empty({dim_c}, options);
+    auto out2 = at::empty({dim_c}, options);
+  interface: diopiBatchNorm(&context, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
