@@ -29,7 +29,7 @@ static void initDeviceProperty(DeviceIndex device_index) {
   device_properties[device_index] = device_prop;
 }
 
-DIPUDeviceProperties* getDevicePropertiesWithCache(int32_t device_index) {
+DIPUDeviceProperties* getDevicePropertiesFromCache(int32_t device_index) {
   c10::call_once(init_flag, initDIPUContextVectors);
   if (device_index == -1) {
     device_index = dipu::devapis::current_device();

@@ -55,7 +55,7 @@ static void exportDevices(py::module& m) {
     return;
   });
   m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
-        return dipu::device::getDevicePropertiesWithCache(device);
+        return dipu::device::getDevicePropertiesFromCache(device);
       }, py::return_value_policy::reference);
 }
 

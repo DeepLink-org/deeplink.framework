@@ -33,6 +33,7 @@ namespace dipu {
     }
 
 
+#define DIPU_INIT_CNDEV_VERSION(info) info.version = CNDEV_VERSION_5;
 using deviceStream_t = cnrtQueue_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = cnrtNotifier_t;

@@ -4,7 +4,7 @@ namespace dipu {
 
 namespace device {
 
-DIPU_API dipu::devapis::DIPUDeviceProperties* getDevicePropertiesWithCache(int32_t device_index);
+DIPU_API dipu::devapis::DIPUDeviceProperties* getDevicePropertiesFromCache(int32_t device_index);
 
 }  // namespace device
 }  // namespace dipu
