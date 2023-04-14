@@ -1,9 +1,11 @@
 
+import collections
 import sys
 import os
 import unittest
 import warnings
 import random
+import re
 import expecttest
 from itertools import product
 import torch
@@ -39,6 +41,32 @@ def run_tests():
     argv = [sys.argv[0]]
     unittest.main(argv=argv)
 
+
+class MatchSet(object):
+    def __init__(self):
+        self.exact = set()
+        self.regex = set()
+
+
+def prepare_match_set(s):
+    ps = dict()
+    for k, v in s.items():
+        mset = MatchSet()
+        for m in v:
+            if re.match(r'\w+$', m):
+                mset.exact.add(m)
+            else:
+                mset.regex.add(m)
+        ps[k] = mset
+    return ps
+
+def match_name(name, mset):
+    if name in mset.exact:
+        return True
+    for m in mset.regex:
+        if re.match(m, name):
+            return True
+    return False
 
 class TestCase(expecttest.TestCase):
     _precision = 1e-5
