@@ -343,6 +343,7 @@ def main():
         op_registe_code=[op_registe_code]
     )
     autogened_file = re.sub('\n\n\n+', '\n', autogened_file)
+    autogened_file = re.sub('[ ]*,[ ]*', ', ', autogened_file)
     with open('../AutoGenedKernels.cpp', 'w') as cpp_file:
         cpp_file.write(autogened_file)
 

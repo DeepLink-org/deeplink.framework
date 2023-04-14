@@ -1,62 +1,48 @@
-- schema: "add.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor"
-  custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
-    auto out = at::empty_like(self);
-  interface: diopiAddScalar(ctx, out, self, &other, &alpha)
-
-- schema: "aten::add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
-  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
-  interface: diopiAddInpScalar(ctx, self, &other, &alpha)
-
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
   interface: diopiAddScalar(ctx, out, self, &other, &alpha)
 
-- schema: "aten::add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
-  custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
-  interface: diopiAddInp(ctx, self, other, &alpha)
-
-- schema: "aten::add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
-  custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
-    auto out = at::empty_like(self);
-  interface: diopiAdd(ctx, out, self, other, &alpha)
-
-
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
-    if (other.dim() == 0 && other.is_cpu()) {
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,__DATE__"autogened function");
+    if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
-    } else if (self.dim() == 0 && self.is_cpu()) {
+    } else if (self.numel() == 1 && self.is_cpu()) {
         return dipu_add_scalar_out(other, self.item(), alpha, out);
     }
   interface: diopiAdd(ctx, out, self, other, &alpha)
 
-- schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiSub(ctx, out, self, other, &alpha)
+- schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+  interface: diopiSubScalar(ctx, out, self, &other, &alpha)
 
-- schema: "aten::div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  interface: diopiDiv(&context, self, self, other, RoundModeNone)
+- schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_sub_scalar_out(self, other.item(), alpha, out);
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        return dipu_sub_scalar_out(other, self.item(), alpha, out);
+    }
+  interface: diopiSub(ctx, out, self, other, &alpha)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiDiv(&context, out, self, other, RoundModeNone)
 
-- schema: "aten::div(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
+- schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
+  interface: diopiDivScalar(&context, out, self, &other, mode)
+
+- schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        return dipu_div_scalar_mode_out(other, self.item(), rounding_mode, out);
+    }
+    const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(&context, out, self, other, mode)
-
-- schema: "aten::div_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
-  interface: diopiDivInpScalar(&context, self, &other, RoundModeNone)
-
-- schema: "aten::div_.Scalar_mode(Tensor(a!) self, Scalar other, *, str? rounding_mode) -> Tensor(a!)"
-  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDivInpScalar(&context, self, &other, mode)
-
-- schema: "aten::div_.Tensor_mode(Tensor(a!) self, Tensor other, *, str? rounding_mode) -> Tensor(a!)"
-  custom_code: const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDiv(&context, self, self, other, mode)
 
 - schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
   interface: diopiFill(&context, self, &value)
