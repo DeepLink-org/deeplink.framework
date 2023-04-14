@@ -168,9 +168,9 @@ class EnflameCodegen(torch.fx.Interpreter):
             else:
                 output_str.append(self.args_dict[self.output_args[i].name])
 
-        graph_code.add_line(f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"})')
+        graph_code.add_line(f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"});')
 
-        graph_code.add_line(f'return hlir_builder')
+        graph_code.add_line(f'return hlir_builder;')
         return graph_code
 
     def get_kernel_header(self):
@@ -182,9 +182,9 @@ class EnflameCodegen(torch.fx.Interpreter):
                 #include <string>
                 #include <vector>
 
-                #include "common/dtu_utils.h"
-                #include "enflame/conv2d_grad.h"
-                #include "enflame/max_pool2d_grad.h"
+                #include "dtu_utils.h"
+                #include "conv2d_grad.h"
+                #include "max_pool2d_grad.h"
 
                 #include "dtu/hlir_builder/hlir_builder.h"
                 #include "dtu/hlir_builder/hlir_builder_client_ops.h"
@@ -201,7 +201,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 import torch
                 import random
                 from torch import empty_strided, as_strided, device
-                from torch._inductor.codecache import AsyncCompile
+                from third_party.DICP.TopsGraph.compile import AsyncCompileTopsGraph
             """
             , dedent=True
         )
@@ -253,7 +253,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return run_func_code
 
     def gen_tensor(self, prefix, tensor):
-        shape = f"{tensor.shape}"[12:-3]
+        shape = f"{tensor.shape}"[12:-2]
         return f"{prefix}(({shape}, ), {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
 
     def gen_empty_tensor(self, tensor):
@@ -279,7 +279,6 @@ class EnflameCodegen(torch.fx.Interpreter):
                 call_body.add_line(bufs[-1] + ' = ' + (f"empty_strided((), ())"))
             else:
                 otensor = self.output_args[i].meta['val']
-                shape = f"{otensor.shape}"[12:-3]
                 call_body.add_line(bufs[-1] + ' = ' + self.gen_empty_tensor(otensor))
 
         call_str = 'kernel_cpp_0('
@@ -331,7 +330,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_graph_code = CodeBlock()
         compile_graph_code.splice(
             f"""
-                async_compile = AsyncCompile()
+                async_compile = AsyncCompileTopsGraph()
                 kernel_cpp_0 = async_compile.topsgraph('''
             """
             , dedent=True
@@ -388,8 +387,8 @@ class EnflameOverrides(OpOverrides):
                     else:
                         src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};')
                     src_code.add_line(f'std::vector<int64_t> {op_var}_const_in_shape{count}{in_shape_size};')
-                    src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, ptype)')
-                    src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count})');
+                    src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, ptype);')
+                    src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});');
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
 
@@ -397,7 +396,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def abs(x):
-        return f'builder::Op Abs({x})'
+        return f'builder::Abs({x})'
 
     @staticmethod
     def reciprocal(x):
