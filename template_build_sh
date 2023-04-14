@@ -23,9 +23,17 @@ function config_dipu_cmake() {
     cd ../
 }
 
+function autogen_diopi_wrapper() {
+    cd torch_dipu/csrc_dipu/aten/ops/autogen_diopi_wrapper/
+    python autogen_diopi_wrapper.py
+    cd -
+}
+
 function build_dipu_lib() {
     export DIOPI_ROOT=/you_pytorch/torch20/DIOPI-IMPL/camb/build
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
+
+    autogen_diopi_wrapper
 
     # config_dipu_cmake
     #  2>&1 | tee ./build1.log

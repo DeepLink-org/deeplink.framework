@@ -11,13 +11,13 @@
 
 #include <csrc_dipu/runtime/rthelper.h>
 
-using deviceStream_t = dipu::deviceStream_t; 
+using deviceStream_t = dipu::deviceStream_t;
 
 extern "C" {
 struct diopiContext {
     // TODO(caikun): use dipu stream? can only use device stream?
     deviceStream_t stream;
-    // 1. use arrays to hold tensor that avoid tensor deleting when leaving scope 
+    // 1. use arrays to hold tensor that avoid tensor deleting when leaving scope
     // 2. The address of each array must be fixed, so use list instead of vector
     std::list<at::Tensor> arrays;
 
@@ -44,6 +44,8 @@ int64_t getElemSize(::diopiDtype_t dt);
 c10::DeviceType toATenDevice(::diopiDevice_t device);
 
 ::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& dim);
+
+::diopiRoundMode_t toDiopiRoundMode(const std::string& rounding_mode);
 
 }  // namespace diopi_helper
 

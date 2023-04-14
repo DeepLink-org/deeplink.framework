@@ -1,17 +1,15 @@
-#include <torch/library.h>
-#include <ATen/core/dispatch/Dispatcher.h>
-#include <ATen/ops/_reshape_alias_native.h>
-#include <ATen/native/CPUFallback.h>
-#include "DIPUATenFunctions.h"
+#include "RegisterDIPU.hpp"
 
-#include <diopi/functions.h>
+namespace at {
 
-#include <csrc_dipu/runtime/rthelper.h>
-#include "util/Log.h"
+void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
+    torch::jit::Stack* stack) {
+  const auto name = c10::toString(op.operator_name());
+  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
+  at::native::cpu_fallback(op, stack);
+}
 
-using dnative = dipu::native::DIPUATenFunctions;
 
-namespace at { 
 namespace {
   // dipu native ops
   at::Tensor wrapper_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
@@ -24,7 +22,7 @@ namespace {
   at::Tensor wrapper_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
     return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
-  } 
+  }
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     return dnative::copy_(self, src, non_blocking);
@@ -67,19 +65,6 @@ namespace {
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_local_scalar_dense_dipu(self);
   }
-
-  // diopi ops
-  at::Tensor& wrapperTensorAddOut(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out) {
-      return dnative::add_out(self, other, alpha, out);
-  }
-
-at::Tensor wrapper_Scalar_add(const at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha) {
-  return dnative::add(self, other, alpha);
-}
-
-at::Tensor & wrapper_Scalar_add_(at::Tensor & self, const at::Scalar & other, const at::Scalar & alpha) {
-  return dnative::add_(self, other, alpha);
-}
 
   at::Tensor wrapperRelu(const at::Tensor & self) {
       return dnative::relu(self);
@@ -154,12 +139,6 @@ at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_o
     return dnative::random_(self, generator);
   }
 
-  at::Tensor& wrapperfillScalar_(at::Tensor& self, const at::Scalar& value) {
-    // No device check
-    // DeviceGuard omitted
-    return dnative::fillScalar_(self, value);
-  }
-
 at::Tensor & wrapper_sum_out_IntList_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   return dnative::sum_out(self, dim, keepdim, dtype, out);
 }
@@ -224,51 +203,8 @@ at::Tensor & wrapper_max_pool2d_with_indices_backward_out_grad_input(const at::T
   return dnative::max_pool2d_with_indices_backward_out_grad_input(grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices, grad_input);
 }
 
-at::Tensor & wrapper_mul_out_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
-  return dnative::mul_out(self, other, out);
-}
-
-at::Tensor wrapper_Scalar_mul(const at::Tensor & self, const at::Scalar & other) {
-  return dnative::mul(self, other);
-}
-
-at::Tensor & wrapper_Scalar_mul_(at::Tensor & self, const at::Scalar & other) {
-  return dnative::mul_(self, other);
-}
-
-at::Tensor & wrapper_div_out_out(const at::Tensor & self, const at::Tensor & other, at::Tensor & out) {
-  return dnative::div_out(self, other, out);
-}
-
-at::Tensor wrapper_Scalar_div(const at::Tensor & self, const at::Scalar & other) {
-  return dnative::div(self, other);
-}
-
-at::Tensor & wrapper_Scalar_div_(at::Tensor & self, const at::Scalar & other) {
-  return dnative::div_(self, other);
-}
-
 }  // inner anonymous namespace
 
-static void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
-    torch::jit::Stack* stack) {
-  const auto name = c10::toString(op.operator_name());
-  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  at::native::cpu_fallback(op, stack);
-}
-
-// Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
-// which described in design doc.
-// because: 1. it need many add type trait code. 2. pytorch seems are sorting out infer and other pre/post code.
-// so we shouldn't created a new preprocess logic?
-//so just do a simple runtime cpu fallback to support diopi func loss
-#define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc) do {           \
-    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                \
-        m.impl(opname, TORCH_FN(wapperFunc));                           \
-    }  else {                                                           \
-        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());  \
-    }                                                                   \
-} while (false);
 
 TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
@@ -288,9 +224,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("add.out", diopiAdd, wrapperTensorAddOut);
-  DIOPI_ATEN_FUNC("add.Scalar", diopiAddScalar, wrapper_Scalar_add);
-  DIOPI_ATEN_FUNC("add_.Scalar", diopiAddInpScalar, wrapper_Scalar_add_);
   DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
   DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
@@ -303,7 +236,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
-  DIOPI_ATEN_FUNC("fill_.Scalar", diopiFill, wrapperfillScalar_);
   DIOPI_ATEN_FUNC("sum.IntList_out", diopiSum, wrapper_sum_out_IntList_out);
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
   DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
@@ -323,13 +255,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("nll_loss2d_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
   DIOPI_ATEN_FUNC("max_pool2d_with_indices.out", diopiMaxPool2dWithIndices, wrapper_max_pool2d_with_indices_out_out);
   DIOPI_ATEN_FUNC("max_pool2d_with_indices_backward.grad_input", diopiMaxPool2dBackward, wrapper_max_pool2d_with_indices_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("mul.out", diopiMul, wrapper_mul_out_out);
-  DIOPI_ATEN_FUNC("mul.Scalar", diopiMulScalar, wrapper_Scalar_mul);
-  DIOPI_ATEN_FUNC("mul_.Scalar", diopiMulInpScalar, wrapper_Scalar_mul_);
-  DIOPI_ATEN_FUNC("div.out", diopiDiv, wrapper_div_out_out);
-  DIOPI_ATEN_FUNC("div.Scalar", diopiDivScalar, wrapper_Scalar_div);
-  DIOPI_ATEN_FUNC("div_.Scalar", diopiDivInpScalar, wrapper_Scalar_div_);
-
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
@@ -337,4 +262,4 @@ TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("linear", diopiLinearBackward, wrapper_linear);
 }
 
-} //end ns at
+}  //end ns at
