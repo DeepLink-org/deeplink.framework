@@ -419,44 +419,40 @@ class EnflameOverrides(OpOverrides):
         return f'builder::Div({x}, {y})'
     
     @staticmethod
-    def log(args_dict, node, args):
-        return self.gen_opcode('Log', args_dict, node, args)
+    def log(x):
+        return f'builder::Log({x})'
     
     @staticmethod
-    def neg(args_dict, node, args):
-        return self.gen_opcode('Neg', args_dict, node, args)
+    def neg(x):
+        return f'builder::Neg({x})'
     
     @staticmethod
-    def exp(args_dict, node, args):
-        return self.gen_opcode('Exp', args_dict, node, args)
+    def exp(x):
+        return f'builder::Exp({x})'
 
     @staticmethod
     def sqrt(x):
         return f'builder::Sqrt({x})'
      
     @staticmethod
-    def relu(args_dict, node, args):
-        return self.gen_opcode('Relu', args_dict, node, args)
+    def relu(x):
+        return f'builder::Relu({x})'
     
     @staticmethod
-    def lessequal(args_dict, node, args):
-        return self.gen_opcode('LessEqual', args_dict, node, args)
+    def lessequal(x, y):
+        return f'builder::LessEqual({x}, {y})'
     
     @staticmethod
-    def squeeze(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args, True)
-        src_code += f"  builder::Op {args_dict[node.name]} = builder::Squeeze({', '.join(args_str)});\n\n"
-        return src_code
+    def squeeze(x, y):
+        return f"builder::Squeeze({x}, {y})"
     
     @staticmethod
-    def unsqueeze(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args, True)
-        src_code += f"  builder::Op {args_dict[node.name]} = builder::Unsqueeze({', '.join(args_str)});\n\n"
-        return src_code
+    def unsqueeze(x, y):
+        return f"builder::Unsqueeze({x}, {y})"
         
     @staticmethod
-    def clone(args_dict, node, args):
-        return f"  builder::Op {args_dict[node.name]} = {args_dict[args[0].name]};\n"
+    def clone(x):
+        return f"{x}"
     
     @staticmethod
     def reducemean(args_dict, node, args):
