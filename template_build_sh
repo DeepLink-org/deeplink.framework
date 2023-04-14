@@ -23,10 +23,11 @@ function config_dipu_cmake() {
     cd ../
 }
 
+
 function autogen_diopi_wrapper() {
-    cd torch_dipu/csrc_dipu/aten/ops/autogen_diopi_wrapper/
-    python autogen_diopi_wrapper.py
-    cd -
+    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
+        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
+            --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
 }
 
 function build_dipu_lib() {
@@ -34,9 +35,7 @@ function build_dipu_lib() {
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
 
     autogen_diopi_wrapper
-
-    # config_dipu_cmake
-    #  2>&1 | tee ./build1.log
+    config_dipu_cmake
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
