@@ -86,8 +86,8 @@ def create_return_code_frome_schema(schema):
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
     return_code = re.sub('\)', '> ' ,return_code)
-    if return_code.find('std::tuple') >= 0:
-        return_code = return_code.replace('Tensor&', 'Tensor')
+    #if return_code.find('std::tuple') >= 0:
+    #    return_code = return_code.replace('Tensor&', 'Tensor')
     return return_code
 
 def create_param_list_from_schema(schema):
@@ -352,6 +352,7 @@ def main():
     with open(args.out, 'w') as cpp_file:
         cpp_file.write(autogened_file)
 
+    print(f"Successfully generate {args.out} according to the configuration file {args.config}")
 
 
 if __name__ == "__main__":
