@@ -297,7 +297,7 @@ def functions_code_gen(fun_config):
             params += return_param[i]
             if i < len(return_param) - 1:
                 params += ', '
-        return_code = f"return std::make_tuple({params});"
+        return_code = f"return std::tie({params});"
 
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
