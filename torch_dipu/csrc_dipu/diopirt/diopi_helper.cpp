@@ -4,7 +4,7 @@
 
 namespace dipu {
 
-namespace diopi_helper { 
+namespace diopi_helper {
 
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
     return reinterpret_cast<::diopiTensorHandle_t>(&tensor);
@@ -150,6 +150,17 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
         diopi_size.len = input.value().size();
     }
     return diopi_size;
+}
+
+::diopiRoundMode_t toDiopiRoundMode(const std::string& rounding_mode) {
+    if (rounding_mode == "none" || rounding_mode == "None" || rounding_mode.size() <= 0) {
+        return RoundModeNone;
+    } else if (rounding_mode == "floor") {
+        return RoundModeFloor;
+    } else if (rounding_mode == "trunc") {
+        return RoundModeTrunc;
+    }
+    TORCH_CHECK(false, "rounding_mode should be none, 'floor' or 'trunc', but got ", rounding_mode)
 }
 
 }  // namespace diopi_helper

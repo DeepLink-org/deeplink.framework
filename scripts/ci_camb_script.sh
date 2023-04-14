@@ -21,6 +21,12 @@ function config_dipu_camb_cmake() {
     cd ../
 }
 
+function autogen_diopi_wrapper() {
+    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
+        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
+        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
+}
+
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     export DIOPI_ROOT=$(pwd)/../DIOPI-TEST/lib/no_runtime
@@ -32,14 +38,15 @@ function build_dipu_lib() {
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
-case $1 in 
+case $1 in
     build_dipu)
         (
+            autogen_diopi_wrapper
             build_dipu_lib
             build_dipu_py
         ) \
         || exit -1;;
     *)
-        echo -e "[ERROR] Incorrect option:" $1; 
+        echo -e "[ERROR] Incorrect option:" $1;
 esac
 exit 0
