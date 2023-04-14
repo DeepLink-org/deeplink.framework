@@ -8,7 +8,7 @@ TEST_PRECISIONS = {
     'test_sum_dipu_bfloat16': 0.1,
 }
 
-DISABLED_TESTS_CAMB = {
+DISABLED_TESTS_MLU = {
     # test_view_ops.py
     'TestViewOpsDIPU': {
         'test_contiguous_nonview',
@@ -59,4 +59,4 @@ DISABLED_TESTS_CAMB = {
     }
 }
 
-DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CAMB)
+DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_MLU)

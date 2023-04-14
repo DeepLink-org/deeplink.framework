@@ -5,18 +5,16 @@ import re
 import sys
 import runpy
 import torch
+from torch_dipu import dipu
 from torch_dipu.testing._internal import common_utils
 
 _DEFAULT_FLOATING_PRECISION = 1e-3
 _DISABLED_TESTS = dict()
 _TEST_PRECISIONS = dict()
-_TEST_DEVICE = os.environ.get('DIPU_TEST_DEVICE', None)
-if _TEST_DEVICE == "CAMB":
-    from tests.pytorch_config_camb import DISABLED_TESTS, TEST_PRECISIONS
+if dipu.vendor_type == "MLU":
+    from tests.pytorch_config_mlu import DISABLED_TESTS, TEST_PRECISIONS
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
-else:
-    raise RuntimeError(f"device: {_TEST_DEVICE} illegal")
 
 class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
