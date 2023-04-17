@@ -37,16 +37,16 @@ jobs:
         run: |
           set -e
           set -o pipefail
-          cd ${PVC_PATH}/${GITHUB_RUN_NUMBER}/source && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${GITHUB_JOB} && sed -i 's/\"//g' ${GITHUB_JOB} && sed -i 's/,//g' ${GITHUB_JOB} && sed -i 's/:[ ]/=\"/g' ${GITHUB_JOB} && sed -i 's/$/&\"/' ${GITHUB_JOB} && sed -i 's/^/&export/' ${GITHUB_JOB}
-          export GPU_ID=`python3 ${SOURCE_PATH}/tools/get_gpu.py delete ${GPU_NUM}` && echo "export GPU_ID=${GPU_ID}" >> ${GITHUB_JOB}
+          cd ${PVC_PATH}/${GITHUB_RUN_NUMBER}/source && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/\"//g' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/,//g' ${GITHUB_JOB} && sed -i 's/:[ ]/=\"/g' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/$/&\"/' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/^/&export/' ${TEST_CONFIG}_${SHARD_NUMBER}
+          export GPU_ID=`python3 ${SOURCE_PATH}/tools/get_gpu.py delete ${GPU_NUM}` && echo "export GPU_ID=${GPU_ID}" >> ${TEST_CONFIG}_${SHARD_NUMBER}
           export local_pip=`echo ${GPU_ID} | cut -d"," -f1`
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
-          --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
+     #     --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
           ${CI_IMAGE} )
-          docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+          docker exec -t "${container_name}" bash -c "source /home/source/${TEST_CONFIG}_${SHARD_NUMBER} && ${HOME}/tools/run.sh test"  && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
 
