@@ -13,6 +13,17 @@ namespace dipu::native {
 using torch::autograd::AutogradContext;
 using tensor_list = std::vector<at::Tensor>;
 
+std::vector<int64_t> getOutputSize(const c10::IntArrayRef& input_size, const c10::IntArrayRef& weight_size) {
+  std::vector<int64_t> output_size;
+  for (int i = 0; i < input_size.size() - 1; ++i) {
+    output_size.push_back(input_size[i]);
+  }
+  if (weight_size.size() > 1) {
+    output_size.push_back(weight_size[0]);
+  }
+  return output_size;
+}
+
 at::Tensor linearKernelDipu(
     const at::Tensor &input, const at::Tensor &weight,
     const c10::optional<at::Tensor> &bias_opt) {
@@ -21,7 +32,7 @@ at::Tensor linearKernelDipu(
   ::diopiConstTensorHandle_t bias_diopi = toDiopiTensorHandle(bias_opt);
 
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-  c10::IntArrayRef out_size = {input.size(0), weight.size(0)};
+  std::vector<int64_t> out_size = getOutputSize(input.sizes(), weight.sizes());
   at::Tensor out = at::empty(out_size, input.options());
   ::diopiTensorHandle_t out_diopi = toDiopiTensorHandle(out);
 
