@@ -1,7 +1,7 @@
 #include <deque>
 #include <vector>
 
-#include <csrc_dipu/runtime/device/device.h>
+#include <csrc_dipu/runtime/core/device.h>
 
 #include <c10/core/Device.h>
 #include <c10/util/CallOnce.h>

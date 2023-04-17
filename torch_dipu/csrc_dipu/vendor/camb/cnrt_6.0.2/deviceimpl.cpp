@@ -3,6 +3,9 @@
 namespace dipu
 {
 namespace devapis {
+
+#define DIPU_INIT_CNDEV_VERSION(info) info.version = CNDEV_VERSION_5;
+
 // camb6.0.2
 // set current device given device according to id
 void setDevice(deviceId_t devId) {

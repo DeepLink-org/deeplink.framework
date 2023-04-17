@@ -6,7 +6,7 @@
 
 #include "exportapi.h"
 #include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/device/device.h>
+#include <csrc_dipu/runtime/core/device.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 using dipu::getDIPUStreamFromPool;
