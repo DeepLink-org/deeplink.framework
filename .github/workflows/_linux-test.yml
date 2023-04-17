@@ -43,7 +43,6 @@ jobs:
           docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
-     #     --name="${GITHUB_RUN_ID}_${GITHUB_JOB}" \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           -v ${SOURCE_PATH}/local/${local_pip}:${HOME}/.local \
