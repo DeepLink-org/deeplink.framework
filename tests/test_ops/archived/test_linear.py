@@ -2,11 +2,8 @@ import torch
 import torch_dipu
 import torch.nn as nn
 
-def test_linear(devicestr : str):
+def test_linear(x, label, devicestr : str):
     device = torch.device(devicestr)
-    x = torch.tensor([[1, 2, 3],
-                      [4, 5, 6],
-                      [7, 8, 9]], dtype=torch.float)
     x = x.to(device)
     linear_layer = nn.Linear(3, 2).to(device)
     linear_layer.weight = nn.Parameter(torch.ones_like(linear_layer.weight))
@@ -14,12 +11,27 @@ def test_linear(devicestr : str):
     y_pred = linear_layer(x)
     print(f"y_pred = \n{y_pred}")
 
-    y_true = torch.tensor([[0, 1], [1, 0], [0, 1]], dtype=torch.float).to(device)
+    label = label.to(device)
     loss_fn = nn.MSELoss().to(device)
-    loss = loss_fn(y_pred, y_true)
+    loss = loss_fn(y_pred, label)
     loss.backward()
     print(f"linear_layer.weight.grad = \n{linear_layer.weight.grad}")
 
 
-test_linear("dipu")
-test_linear("cpu")
+# 2D tensor
+x = torch.arange(9, dtype=torch.float).reshape(3, 3)
+label = torch.randn(3, 2)
+test_linear(x, label, "dipu")
+test_linear(x, label, "cpu")
+
+# 3D tensor
+x = torch.arange(12, dtype=torch.float).reshape(2, 2, 3)
+label = torch.randn(2, 2, 2)
+test_linear(x, label, "dipu")
+test_linear(x, label, "cpu")
+
+# 4D tensor
+x = torch.arange(24, dtype=torch.float).reshape(2, 2, 2, 3)
+label = torch.randn(2, 2, 2, 2)
+test_linear(x, label, "dipu")
+test_linear(x, label, "cpu")
