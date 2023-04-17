@@ -71,7 +71,7 @@ jobs:
   #         cd ${NFS_PATH}/ && ls -al && find ${NFS_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
   #         source /mnt/lustre/share/platform/env/${ENV_NAME}
   #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}
-  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} -x HOST-10-142-4-[193-194] bash scripts/ci_lint.sh py-lint &&
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} bash scripts/ci_lint.sh py-lint &&
   #         bash scripts/ci_lint.sh cpp-lint &&  cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
   #         """
 

@@ -111,6 +111,11 @@ def testevent():
     elapsed = ev1.elapsed_time(ev2)
     print(elapsed)
 
+def testDeviceProperties():
+    print("device properties: ", torch.cuda.get_device_properties(1))
+    print("device capability: ", torch.cuda.get_device_capability(1))
+    print("device name: ", torch.cuda.get_device_name(1))
+
 
 if __name__ == '__main__':
     for i in range(1, 2):
@@ -118,5 +123,6 @@ if __name__ == '__main__':
         testdevice()
         testDevice1()
         testDevice2()
+        testDeviceProperties()
         testStream()
         testevent()

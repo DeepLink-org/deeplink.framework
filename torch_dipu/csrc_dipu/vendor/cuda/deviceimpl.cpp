@@ -1,5 +1,4 @@
-
-
+#include <cuda_runtime_api.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/common.h>
 
@@ -17,6 +16,19 @@ deviceId_t current_device() {
   DIPU_CALLCUDA(::cudaGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
 }   
+
+DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+  ::cudaDeviceProp device_prop;
+  DIPU_CALLCUDA(cudaGetDeviceProperties(&device_prop, device_index))
+
+  DIPUDeviceProperties prop;
+  prop.name = device_prop.name;
+  prop.totalGlobalMem = device_prop.totalGlobalMem;
+  prop.major = device_prop.major;
+  prop.minor = device_prop.minor;
+  prop.multiProcessorCount = device_prop.multiProcessorCount;
+  return prop;
+}
 
 // in cuda_runtime_api.h
 // set current device given device according to id

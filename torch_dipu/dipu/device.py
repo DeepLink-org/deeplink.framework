@@ -1,4 +1,6 @@
 from functools import partial
+from typing import Optional, Tuple, Union
+
 import torch
 
 from torch_dipu import mockcuda
@@ -6,7 +8,7 @@ from torch_dipu import _C
 __dipu__ = 'dipu'
 __diputype__ = 'privateuseone'
 __vendor__ = _C.dipu_vendor  # need update when compile
-
+_device_t = Union[torch.device, str, int, None]
 
 class MetaType(type):
     device = torch.device
@@ -96,7 +98,7 @@ def current_device():
     _lazy_init()
     return _C._dipu_current_device()
 
-def _get_device_index(device, optional=False):
+def _get_device_index(device, optional=False) -> int:
     r"""Gets the device index from :attr:`device`, which can be a torch.device
     object, a Python integer, or ``None``.
 
@@ -191,17 +193,18 @@ class device_of(device):
 def can_device_access_peer():
     return False
 
-def get_device_name(device_id: int):
-    if device_id < 0 or device_id >= device_count():
-        raise AssertionError("Invalid device id")
-    _lazy_init()
-    # temporary mock 
-    return "dipu:" + __vendor__ + "" + str(device_id)
-    # device_prop = _C._dipu_getDeviceProperties(device_id)
-    # return device_prop.name
+def get_device_name(device: Optional[_device_t] = None) -> str:
+    return get_device_properties(device).name
 
-def get_device_properties(device_id: int):
+
+def get_device_capability(device: Optional[_device_t] = None) -> Tuple[int, int]:
+    prop = get_device_properties(device)
+    return prop.major, prop.minor
+
+
+def get_device_properties(device: _device_t) -> _C._DIPUDeviceProperties:
+    _lazy_init()
+    device_id = _get_device_index(device, optional=True)
     if device_id < 0 or device_id >= device_count():
         raise AssertionError("Invalid device id")
-    _lazy_init()
     return _C._dipu_getDeviceProperties(device_id)
