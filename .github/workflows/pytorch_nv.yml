@@ -14,6 +14,7 @@ env:
   CI_IMAGE: "registry.sensetime.com/parrots/parrots:linux-bionic-cuda11.7-cudnn8-py3-gcc7"
   BUILD_ENVIRONMENT: "linux-bionic-cuda11.7-py3.10-gcc7"
   PYTORCH_COMMIT: "461f088"
+  https_proxy: "http://10.1.8.5:32680/"
 
 jobs:
   Checkout:
