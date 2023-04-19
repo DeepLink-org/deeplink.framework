@@ -23,9 +23,7 @@ jobs:
       fail-fast: false
     runs-on: tps-pytorch-ci
     env:
-      build-environment: "linux-bionic-cuda11.7-py3.10-gcc7"
       TORCH_CUDA_ARCH_LIST: "Volta;7.0;7.5;8.0;8.6"
-      cuda-arch-list: ""
       CI: "true"
       DEBUG: 0
       TEST_CONFIG: ${{ matrix.config }}
