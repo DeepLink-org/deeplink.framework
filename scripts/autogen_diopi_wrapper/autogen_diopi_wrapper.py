@@ -1,5 +1,6 @@
 import yaml
 import re
+import json
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_registe_template_content
 
@@ -197,9 +198,6 @@ def create_call_diop_interface_code_from(schema):
         schema = schema[0:index] + args.replace(',', '') + ', ' + schema[index:]
 
     schema = schema.replace('(', '(ctx, ', 1)
-
-    #re.search(",? *Tensor *\(\w+!\) *\w+")
-
     return_index = schema.find('->')
 
     if return_index > 0:
@@ -232,6 +230,7 @@ def create_call_diop_interface_code_from(schema):
     schema = 'diopi' + schema[0].upper() + schema[1:]
     schema = re.sub(' *, *', ', ', schema)
     schema = re.sub(' *, *,', ', ', schema)
+
     return schema
 
 
@@ -246,6 +245,11 @@ def create_cpp_signature_from_schema(schema):
         param_list=[param_list]
     )
     return cppsignature
+
+
+def create_debug_code(fun_config):
+    debug_code = R"""printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"");"""
+    return debug_code
 
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
@@ -283,7 +287,13 @@ def functions_code_gen(fun_config):
     attrs_process_code = ""
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}_diopiScalar = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
-        diopi_fun_call_code = diopi_fun_call_code.replace(scalar_param, f"{scalar_param}_diopiScalar")
+        diopi_fun_call_code = re.sub('&? .' + scalar_param.strip(), f"&{scalar_param}_diopiScalar", diopi_fun_call_code)
+
+    if fun_config.get('debug', 'False') == 'True':
+        fun_config['custom_code'] = fun_config.get('custom_code', '') + create_debug_code(fun_config)
+
+    if fun_config.get('dummy_call_diopi', 'False') == 'True':
+        diopi_fun_call_code = f"::diopiSuccess;/*dummy_call_diopi: {diopi_fun_call_code}*/"
 
     return_code = ""
     return_param = get_function_return_param_from_schema(fun_config['schema'])
@@ -323,6 +333,9 @@ def parase_args():
     parser = argparse.ArgumentParser(description='autogen diopi wrapper code')
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
+    parser.add_argument('--dummy_call_diopi', default=None, type=str, help='whether acctually call diopi interface')
+    parser.add_argument('--debug', default=None, type=str, help='add debug info')
+    parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
 
     args = parser.parse_args()
     return args
@@ -339,7 +352,11 @@ def main():
     op_registe_code = ''
 
     for fun_config in funcs_config:
-        fun_code, register_code = functions_code_gen(fun_config)
+        mergeed_fun_config = dict(args.fun_config_dict)
+        mergeed_fun_config.update(vars(args))
+        mergeed_fun_config.update(fun_config)
+        print(mergeed_fun_config)
+        fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
         op_registe_code += register_code
 

@@ -40,7 +40,6 @@ $cppsignautre {
     $output_process_code
 
     $attrs_process_code
-
     ::diopiError_t ret = $diopi_fun_call_code
     TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
 
