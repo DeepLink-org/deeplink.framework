@@ -26,7 +26,33 @@
     }
   interface: diopiSub(ctx, out, self, other, &alpha)
 
+- schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    auto out = at::empty_like(self);
+  interface: diopiDivScalar(ctx, out, self, &other, RoundModeNone)
+
+- schema: "div_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiDivInpScalar(ctx, self, &other, RoundModeNone)
+
+- schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_div__scalar(self, other.item());
+    }
+  interface: diopiDivInp(ctx, self, other, RoundModeNone)
+
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_div_scalar(self, other.item());
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_div_scalar(other, self.item());
+        return out;
+    }
   interface: diopiDiv(&context, out, self, other, RoundModeNone)
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
@@ -47,8 +73,32 @@
 - schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
   interface: diopiFill(&context, self, &value)
 
-- schema: "aten::mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  interface: diopiMul(&context, self, self, other)
+- schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
+  custom_code: auto out = at::empty_like(self);
+  interface: diopiMulScalar(ctx, out, self, &other)
+
+- schema: "mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiMulInpScalar(ctx, self, &other)
+
+- schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_mul__scalar(self, other.item());
+    }
+  interface: diopiMulInp(ctx, self, other)
+
+- schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_mul_scalar(self, other.item());
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_mul_scalar(other, self.item());
+        return out;
+    }
+  interface: diopiMul(ctx, out, self, other)
+
+
 
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
   interface: diopiBatchNorm(&context, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
