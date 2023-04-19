@@ -1,6 +1,9 @@
 import os
 
 import torch
+from typing import (Tuple, List, Union, Sequence)
+from torch.types import (_int, _size, Device, Number)
+from torch import Tensor
 
 # use env to control?
 mockcuda = True
@@ -50,12 +53,31 @@ def apply_tensor_method_patch():
     torch.Tensor.is_pinned = GetDeviceProxy(torch.Tensor.is_pinned)
     torch.Tensor.pin_memory = GetDeviceProxy(torch.Tensor.pin_memory)
 
+    torch.Tensor.new_tensor = GetDeviceProxy(torch.Tensor.new_tensor,  pos = -1)
     torch.Tensor.new_empty = GetDeviceProxy(torch.Tensor.new_empty,  pos = -1)
     torch.Tensor.new_empty_strided = GetDeviceProxy(torch.Tensor.new_empty_strided,  pos = -1)
     torch.Tensor.new_full = GetDeviceProxy(torch.Tensor.new_full,  pos = -1)
     torch.Tensor.new_ones = GetDeviceProxy(torch.Tensor.new_ones,  pos = -1)
     torch.Tensor.new_zeros = GetDeviceProxy(torch.Tensor.new_zeros,  pos = -1)
     # --- add other device func
+
+    # tensor.new is legacy func, not support out-of-tree device
+    # this temp solution not support all new parameter now, need enhance.
+    # how to support storage? 
+    def _legacy_new_wrapper(self, arg, size: _size = None, device: Device=None):
+        device = device if device else self.device
+        # test in cuda:: seems Tensor.new(size) return uncertain value in torch 2.0
+        if size is not None:
+            return self.new_empty(arg, device = self.device)
+        if isinstance(arg, Tensor):
+            return self.new_tensor(arg, device = self.device) 
+        elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
+            return self.new_tensor(arg, device = self.device) 
+        else:
+            return None
+
+    torch.Tensor.new = _legacy_new_wrapper
+
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
@@ -71,8 +93,11 @@ def apply_torch_function_patch():
     torch.ones_like = GetTorchFuncProxy(torch.ones_like)
     torch.zeros = GetTorchFuncProxy(torch.zeros)
     torch.zeros_like = GetTorchFuncProxy(torch.zeros_like)
-
+    torch.as_tensor = GetTorchFuncProxy( torch.as_tensor)
+    torch.tensor = GetTorchFuncProxy(torch.tensor)
     torch.arange = GetTorchFuncProxy(torch.arange)
+    torch.range = GetTorchFuncProxy(torch.range)
+
     torch.empty = GetTorchFuncProxy(torch.empty)
     torch.empty_like = GetTorchFuncProxy(torch.empty_like)
     torch.empty_strided = GetTorchFuncProxy(torch.empty_strided)
@@ -99,7 +124,6 @@ def apply_torch_function_patch():
 
 # temp solution, need redesign storage
 def apply_temp_patch():
-    from torch import Tensor
     _has_storage_raw = torch._C._has_storage
     def _has_storage_wrapper(x: Tensor):
         if x.device.type == "privateuseone":
@@ -107,6 +131,46 @@ def apply_temp_patch():
         else:
             return _has_storage_raw(x)
     torch._C._has_storage = _has_storage_wrapper
+
+    def script_wrapper(*args, **kwargs):
+        pass
+    torch.jit.script = script_wrapper
+
+    # Temporary patch, current CPUFallback cannot handle List<c10::optional<at::Tensor>> indices parameter
+    # and cpu index_outf has an unnecessary device check.
+    def get_itemop_wrapper(raw_op, is_get_item = False):
+        def __id2cpu(indices):
+            if isinstance(indices, Tensor):
+                return indices.cpu()
+            elif isinstance(indices, Tuple) or isinstance(indices, List):
+                indicesList = list(indices)
+                for idx, item in enumerate(indicesList):
+                    if isinstance(item, Tensor):
+                        indicesList[idx] = item.cpu()
+                    elif isinstance(item, Sequence):
+                        indicesList[idx] = torch.tensor(item)
+                    else:
+                        indicesList[idx] = item
+                return tuple(indicesList)
+            else:
+                return indices
+
+        def _getitem_wrapper(self, indices: Union[None, _int, slice, Tensor, List, Tuple]) -> Tensor:
+            return raw_op(self, __id2cpu(indices))
+
+        def _settitem_wrapper(self, indices: Union[None, _int, slice, Tensor, List, Tuple], val: Union[Tensor, Number]) -> Tensor:
+            return raw_op(self, __id2cpu(indices), val)
+            
+        if is_get_item:
+            return _getitem_wrapper
+        else:
+            return _settitem_wrapper
+
+    torch.Tensor.__getitem__ = get_itemop_wrapper(torch.Tensor.__getitem__, True)
+
+    # although setitem (IndexPut) has no problem, but it's bwd use getitem (Index)
+    torch.Tensor. __setitem__ = get_itemop_wrapper(torch.Tensor.__setitem__)
+
 
 def apply_patches():
     apply_tensor_method_patch()
