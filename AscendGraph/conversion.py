@@ -150,7 +150,7 @@ def mean(x, dims, keepdim):
     return ascend_op.ReduceMean(x, dims, keepdim)
 
 @registe_conversion(torch.ops.aten.var)
-def var(x, dims, correction,keepdim):
+def var(x, dims, correction, keepdim):
     return ascend_op.Var(x, dims, correction, keepdim)
 
 @registe_conversion(torch.ops.aten.amax)

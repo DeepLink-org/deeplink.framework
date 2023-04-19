@@ -51,7 +51,7 @@ class AscendCodeCache:
             loaded = cdll.LoadLibrary(output_path)
             loaded.compile(output_graph_path.encode())
             
-            from codegen.load_and_run import AscendExecutor
+            from .codegen.load_and_run import AscendExecutor
             exe = AscendExecutor(0, output_graph_path + '.om')
             cls.cache[key] = exe
             cls.cache[key].key = key
