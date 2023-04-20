@@ -15,7 +15,7 @@ env:
   CLUSTER_CAMB: CAMB
   PYTORCH_BASE_DIR: '/mnt/cache/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
-  PYTORCH_COMMIT: "c263bd43e8e8502d4726643bc6fd046f0130ac0e"  # pytorch tag 2.0
+  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0   
   DIOPI_COMMIT: "7ec02a31440857fed9405fda8d519d4dee8c17e4"
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
                   """`
           echo "result:${result}"
           if [ "${result}x" = "${PYTORCH_COMMIT}"x ]; then
-            echo "pytorch exist."
+            echo "pytorch:${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT} exist."
           else
             echo "pytorch not exist, copy pytorch to ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
             ssh ${CLUSTER_CAMB} "rm -rf ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
