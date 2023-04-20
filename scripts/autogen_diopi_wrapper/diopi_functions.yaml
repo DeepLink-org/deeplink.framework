@@ -110,5 +110,18 @@
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
-- schema: "_adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
+- schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
+  custom_code: >
+    TORCH_CHECK(output_size.size() == 2, __func__, ":", __FILE__, ":", __LINE__,
+        " output_size should equal 2, size is ", output_size.size());
+    auto out_tensor_size = self.sizes().vec();
+    out_tensor_size[self.dim() - 2] = output_size[0].expect_int();
+    out_tensor_size[self.dim() - 1] = output_size[1].expect_int();
+    at::Tensor out = at::empty(out_tensor_size, self.options());
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
+
+- schema: "_adaptive_avg_pool2d_backward(Tensor grad_output, Tensor self) -> Tensor"
+  custom_code: >
+    auto out = at::empty_like(self);
+  interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
+
