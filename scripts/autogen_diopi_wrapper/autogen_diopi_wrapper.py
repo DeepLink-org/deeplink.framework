@@ -267,28 +267,29 @@ def functions_code_gen(fun_config):
         diopi_fun_call_code = diopi_interface + ';'
 
     input_process_code = ""
+    diopi_tensor_suffix = 'DiopiTh'
     for input in get_function_inputs_from_schema(fun_config['schema']):
         if input.strip().endswith('?'):
             input = input.replace('?', '')
-            input_process_code += f"\n::diopiConstTensorHandle_t {input}_diopiHandle = nullptr;\n"
-            input_process_code += f"if ({input}.has_value() && {input}.value().defined()) {input}_diopiHandle = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n\n"
+            input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
+            input_process_code += f"if ({input}.has_value() && {input}.value().defined()) {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n\n"
 
         else:
-            input_process_code += f"::diopiConstTensorHandle_t {input}_diopiHandle = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
+            input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
-        diopi_fun_call_code = diopi_fun_call_code.replace(input, f"{input}_diopiHandle")
-
+        diopi_fun_call_code = diopi_fun_call_code.replace(input, f"{input}{diopi_tensor_suffix}")
 
 
     output_process_code = ""
     for output in get_function_outputs_from_schema(fun_config['schema']):
-        output_process_code += f"::diopiTensorHandle_t {output}_diopiHandle = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
-        diopi_fun_call_code = diopi_fun_call_code.replace(output, f"{output}_diopiHandle")
+        output_process_code += f"::diopiTensorHandle_t {output}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
+        diopi_fun_call_code = diopi_fun_call_code.replace(output, f"{output}{diopi_tensor_suffix}")
 
     attrs_process_code = ""
+    diopi_scalar_suffix = 'DiopiScalar'
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
-        attrs_process_code += f"::diopiScalar_t {scalar_param}_diopiScalar = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
-        diopi_fun_call_code = re.sub('&? .' + scalar_param.strip(), f"&{scalar_param}_diopiScalar", diopi_fun_call_code)
+        attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
+        diopi_fun_call_code = re.sub('&? .' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
 
     if fun_config.get('debug', False) == True:
         fun_config['custom_code'] = create_debug_code(fun_config) + fun_config.get('custom_code', '')
