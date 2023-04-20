@@ -116,6 +116,18 @@ def testDeviceProperties():
     print("device capability: ", torch.cuda.get_device_capability(1))
     print("device name: ", torch.cuda.get_device_name(1))
 
+def test_type():
+    import torch_dipu
+    dev1 = "cuda"
+    template = torch.arange(1, 12, dtype=torch.float32)
+    s1 = torch.arange(1, 8, dtype=torch.float32, device=dev1)
+    s2 = s1.new(template)
+    s3 = s2.new((4, 3))
+    s4 = s3.new(size = (4, 3))
+
+    res = isinstance(s4, torch.cuda.FloatTensor)
+    assert(res == True)
+
 
 if __name__ == '__main__':
     for i in range(1, 2):

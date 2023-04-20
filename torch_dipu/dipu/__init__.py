@@ -5,6 +5,7 @@ from .device import *
 from .random_dipu import *
 from .memory import *
 from .streams import *
+from .tensor import *
 
 # DIPU need follow api in https://pytorch.org/docs/stable/cuda.html, but shoudln't appear name
 # as "gpu" or "cuda" (mock cuda is another problem)
@@ -12,6 +13,11 @@ from .streams import *
 __all__ = [
     # resume initialize flag after random generator ready
     # "is_initialized",
+
+    # tensor
+    'BoolTensor', 'ByteTensor', 'CharTensor', 'DoubleTensor', 'FloatTensor', 'HalfTensor',
+    'IntTensor','LongTensor', 'ShortTensor',
+
     # device 
     "can_device_access_peer",  "current_device",  "device", "device_count", "device_of", "synchronize",
     "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
@@ -25,6 +31,7 @@ __all__ = [
     # "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
 
     # # mem manage
+    "reset_peak_memory_stats",
     # "caching_allocator_alloc", "caching_allocator_delete", "empty_cache", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now 

@@ -64,11 +64,11 @@ def apply_tensor_method_patch():
     # tensor.new is legacy func, not support out-of-tree device
     # this temp solution not support all new parameter now, need enhance.
     # how to support storage? 
-    def _legacy_new_wrapper(self, arg, size: _size = None, device: Device=None):
+    def _legacy_new_mocker(self, arg = None, size: _size = None, device: Device = None):
         device = device if device else self.device
         # test in cuda:: seems Tensor.new(size) return uncertain value in torch 2.0
         if size is not None:
-            return self.new_empty(arg, device = self.device)
+            return self.new_empty(size, device = self.device)
         if isinstance(arg, Tensor):
             return self.new_tensor(arg, device = self.device) 
         elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
@@ -76,7 +76,7 @@ def apply_tensor_method_patch():
         else:
             return None
 
-    torch.Tensor.new = _legacy_new_wrapper
+    torch.Tensor.new = _legacy_new_mocker
 
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
