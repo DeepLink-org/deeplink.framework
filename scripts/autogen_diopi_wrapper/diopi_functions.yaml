@@ -1,10 +1,8 @@
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
   interface: diopiAddScalar(ctx, out, self, &other, &alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,__DATE__"autogened function");
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -13,12 +11,10 @@
   interface: diopiAdd(ctx, out, self, other, &alpha)
 
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
   interface: diopiSubScalar(ctx, out, self, &other, &alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -28,7 +24,6 @@
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
     auto out = at::empty_like(self);
   interface: diopiDivScalar(ctx, out, self, &other, RoundModeNone)
 
@@ -37,7 +32,6 @@
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div__scalar(self, other.item());
     }
@@ -45,7 +39,6 @@
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
-    printf("[%s:%s:%d]:%s\n",__FILE__,__FUNCTION__,__LINE__,"autogened function");
     if (other.numel() == 1 && other.is_cpu()) {
         out = dipu_div_scalar(self, other.item());
         return out;
