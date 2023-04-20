@@ -1,4 +1,8 @@
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
+  registe_op: True  # Whether generate registe code for this op, default value is True
+  debug: False # Whether generate debug code for this op, defalut value is False
+  dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
+  custom_code: "/* Here can be a piece of c++ code */"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
@@ -46,12 +50,12 @@
         out = dipu_div_scalar(other, self.item());
         return out;
     }
-  interface: diopiDiv(&context, out, self, other, RoundModeNone)
+  interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDivScalar(&context, out, self, other, mode)
+  interface: diopiDivScalar(ctx, out, self, other, mode)
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code: >
@@ -61,10 +65,10 @@
         return dipu_div_scalar_mode_out(other, self.item(), rounding_mode, out);
     }
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDiv(&context, out, self, other, mode)
+  interface: diopiDiv(ctx, out, self, other, mode)
 
 - schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
-  interface: diopiFill(&context, self, value)
+  interface: diopiFill(ctx, self, value)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code: auto out = at::empty_like(self);
@@ -91,10 +95,8 @@
     }
   interface: diopiMul(ctx, out, self, other)
 
-
-
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
-  interface: diopiBatchNorm(&context, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
+  interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
   custom_code: >
@@ -103,4 +105,10 @@
     auto options = input.options().dtype(at::kFloat);
     auto out1 = at::empty({dim_c}, options);
     auto out2 = at::empty({dim_c}, options);
-  interface: diopiBatchNorm(&context, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
+  interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
+
+- schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
+
+- schema: "_adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)

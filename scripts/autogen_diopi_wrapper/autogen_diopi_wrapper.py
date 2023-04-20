@@ -87,8 +87,6 @@ def create_return_code_frome_schema(schema):
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
     return_code = re.sub('\)', '> ' ,return_code)
-    #if return_code.find('std::tuple') >= 0:
-    #    return_code = return_code.replace('Tensor&', 'Tensor')
     return return_code
 
 def create_param_list_from_schema(schema):
@@ -98,14 +96,18 @@ def create_param_list_from_schema(schema):
     param_list = re.sub('str\?', 'c10::optional<c10::string_view>' , param_list)
     param_list = re.sub('Tensor\?', 'const c10::optional<Tensor>&' , param_list)
     param_list = re.sub('([a-zA-Z0-9]+)\?', r'c10::optional<\1>&', param_list)
+    param_list = re.sub('Tensor *\[ *\]', 'at::ArrayRef<Tensor>' , param_list)
     param_list = re.sub('Tensor ', 'const Tensor& ' , param_list)
     param_list = re.sub('Scalar ', 'const Scalar& ' , param_list)
     param_list = re.sub('Tensor', 'at::Tensor' , param_list)
     param_list = re.sub('Scalar', 'at::Scalar' , param_list)
+    param_list = re.sub('SymInt\[\d+\]', 'c10::SymIntArrayRef' , param_list)
+    param_list = re.sub('int *\[ *\d+\ *]', 'at::IntArrayRef' , param_list)
     param_list = re.sub('\*[ ,]+', '', param_list)
     param_list = re.sub('=.+,', ',', param_list)
     param_list = re.sub('=.+', '', param_list)
     param_list = re.sub(' float', ' double ', param_list)
+    param_list = re.sub(' int', ' int64_t ', param_list)
     return param_list
 
 def get_function_inputs_from_schema(schema):
@@ -165,6 +167,20 @@ def get_function_scalar_args_from_schema(schema):
     return scalars
 
 
+def get_function_int_array_args_from_schema(schema):
+    param_list = create_param_list_from_schema(schema)
+    int_arrays = []
+    for args in param_list.split(','):
+        args = args.strip()
+        match_result = re.search('[\w\d:]*IntArray[\w\d]*', args)
+        if match_result is not None:
+            int_array_param = args[match_result.span()[1]:].strip()
+            int_array_param = re.sub('=.*,{1}', ',', int_array_param)
+            int_array_param = re.sub('=.*', '', int_array_param)
+            int_arrays.append(int_array_param.strip())
+    return int_arrays
+
+
 def get_function_return_param_from_schema(schema):
     return_schema= schema[schema.find('->' ) + 2:].strip()
     params = []
@@ -186,7 +202,7 @@ def get_function_return_param_from_schema(schema):
 
     return params
 
-def create_call_diop_interface_code_from(schema):
+def create_call_diop_interface_code_from_schema(schema):
     schema = schema.replace('aten::', '').strip()
     schema = schema.replace('_.', 'Inp')
     schema = schema.replace('.', '')
@@ -252,6 +268,17 @@ def create_debug_code(fun_config):
     debug_code = f'printf("[%s:%s:%d]:%s\\n",__FILE__,__FUNCTION__,__LINE__,"{op_name}");' + '\n'
     return debug_code
 
+def create_int_array_process_code(int_array_list):
+    if len(int_array_list) <= 0:
+        return ''
+    code = R"auto symIntToInt = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};" + '\n'
+    for int_array in int_array_list:
+        code += f"std::vector<int64_t> {int_array}Vector({int_array}.size());\n"
+        code += f"std::transform({int_array}.cbegin(), {int_array}.cend(), {int_array}Vector.begin(), symIntToInt);\n"
+        code += f"::diopiSize_t {int_array}DiopiSize({int_array}Vector.data(), {int_array}Vector.size());\n"
+    return code;
+
+
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -259,15 +286,16 @@ fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_registe_template = CodeTemplate(op_registe_template_content)
 
+
 def functions_code_gen(fun_config):
     if 'interface' in fun_config:
         diopi_fun_call_code = fun_config['interface'] + ";"
     else:
-        diopi_interface = create_call_diop_interface_code_from(fun_config['schema'])
+        diopi_interface = create_call_diop_interface_code_from_schema(fun_config['schema'])
         diopi_fun_call_code = diopi_interface + ';'
 
     input_process_code = ""
-    diopi_tensor_suffix = 'DiopiTh'
+    diopi_tensor_suffix = 'DiopiTensorHandle'
     for input in get_function_inputs_from_schema(fun_config['schema']):
         if input.strip().endswith('?'):
             input = input.replace('?', '')
@@ -277,19 +305,27 @@ def functions_code_gen(fun_config):
         else:
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
-        diopi_fun_call_code = diopi_fun_call_code.replace(input, f"{input}{diopi_tensor_suffix}")
+        diopi_fun_call_code = re.sub(input.strip() + '([,\) ]{1})', f"{input.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
 
 
     output_process_code = ""
     for output in get_function_outputs_from_schema(fun_config['schema']):
         output_process_code += f"::diopiTensorHandle_t {output}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
-        diopi_fun_call_code = diopi_fun_call_code.replace(output, f"{output}{diopi_tensor_suffix}")
+        diopi_fun_call_code = re.sub(output.strip() + '([,\) ]{1})', f"{output.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
 
     attrs_process_code = ""
+
     diopi_scalar_suffix = 'DiopiScalar'
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
         diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+
+
+    int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
+    attrs_process_code += create_int_array_process_code(int_array_list)
+    for int_array_param in int_array_list:
+        diopi_fun_call_code = re.sub(int_array_param.strip(), f"{int_array_param}DiopiSize", diopi_fun_call_code)
+
 
     if fun_config.get('debug', False) == True:
         fun_config['custom_code'] = create_debug_code(fun_config) + fun_config.get('custom_code', '')
@@ -321,7 +357,7 @@ def functions_code_gen(fun_config):
             attrs_process_code=[attrs_process_code],
             return_code=[return_code],
     )
-    diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from(fun_config['schema']))
+    diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
     registe_body = op_registe_template.substitute(
             register_name=[get_op_name_from_schema(fun_config['schema'])],
             aten_fun_name=['dipu::native::' + create_fun_name_from_schema(fun_config['schema'])],
@@ -363,7 +399,8 @@ def main():
         mergeed_fun_config.update(fun_config)
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
-        op_registe_code += register_code
+        if fun_config.get('registe_op', True) == True:
+            op_registe_code += register_code
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],
