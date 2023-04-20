@@ -326,11 +326,6 @@ class AscendCodegen(torch.fx.Interpreter):
         )
         compile_graph_code.splice(self.get_kernel_header(), dedent=True)
         src_code = f'uint32_t graph_id = {self.graph_id};\n'
-        src_code += f'AscendManager* getAscendManager() {{\n'
-        src_code += f'    static AscendManager ascendManager(graph_id);\n'
-        src_code += f'    return &ascendManager;\n'
-        src_code += f'}}\n'
-        src_code += f'\n'
         src_code += f'int32_t genGraph(Graph& graph) {{\n'
         compile_graph_code.splice(src_code)
         
@@ -464,28 +459,20 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def reciprocal(n: Node):
-        name = n.name
-        x = n.args[0]
-        x_name = x.name if isinstance(x, torch.fx.node.Node) else x
-        reciprocal_op = f'''
-    auto {name} = op::Reciprocal("{name}")
-        .set_input_x({x_name});
-    graph.AddOp({name});
-'''
-        return reciprocal_op
+    def reciprocal(name, x):
+        src_code = f'auto {name} = op::Reciprocal("{name}")\n'
+        src_code += f'.set_input_x({x});\n'
+        src_code += f'graph.AddOp({name});\n'
+
+        return src_code
 
     @staticmethod
-    def sqrt(n: Node):
-        name = n.name
-        x = n.args[0]
-        x_name = x.name if isinstance(x, torch.fx.node.Node) else x
-        sqrt_op = f'''
-    auto {name} = op::Sqrt("{name}")
-        .set_input_x({x_name});
-    graph.AddOp({name});
-'''
-        return sqrt_op
+    def sqrt(name, x):
+        src_code = f'auto {name} = op::Sqrt("{name}")\n'
+        src_code += f'.set_input_x({x});\n'
+        src_code += f'graph.AddOp({name});\n'
+
+        return src_code
 
     @staticmethod
     def rsqrt(name, x):
@@ -539,18 +526,14 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def convert_element_type(n: Node):
-        name = n.name
-        (x, torch_dtype) = n.args
-        x_name = x.name if isinstance(x, torch.fx.node.Node) else x
+    def convert_element_type(name, x, torch_dtype):
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        cast_op = f'''
-    auto {name} = op::Cast("{name}")
-        .set_input_x({x_name})
-        .set_attr_dst_type({ascend_dtype});
-    graph.AddOp({name});
-'''
-        return cast_op
+        src_code = f'auto {name} = op::Cast("{name}")\n'
+        src_code += f'.set_input_x({x})\n'
+        src_code += f'.set_attr_dst_type({ascend_dtype});\n'
+        src_code += f'graph.AddOp({name});\n'
+
+        return src_code
 
     @staticmethod
     def mean(name, x, dims='{}', keepdim='false'):

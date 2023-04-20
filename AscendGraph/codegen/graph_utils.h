@@ -43,48 +43,6 @@ ge::Tensor genTensor(const std::vector<int64_t>& tensor_shape, ge::Format format
   return result;
 }
 
-class AscendManager {
-public:
-  explicit AscendManager(uint32_t graph_id): graph_id(graph_id), sess(nullptr) {
-    std::map<AscendString, AscendString> config = {
-                                    {"ge.exec.deviceId", "0"},
-                                    {"ge.socVersion", "Ascend910ProB"},
-                                    {"ge.graphRunMode", "1"},
-                                    {"ge.exec.precision_mode", "allow_fp32_to_fp16"}};
-    Status ret = ge::GEInitialize(config);
-    if (ret != SUCCESS) {
-      std::cout<<"Initialize ge failed."<<std::endl;
-    }
-    std::cout<<"Initialize ge success."<<std::endl;
-
-    std::map<AscendString, AscendString> option;
-    sess = new ge::Session(option);
-    if (sess == nullptr) {
-        std::cout << "Create session failed." << std::endl;
-    }
-    std::cout<<"Create session success."<<std::endl;
-  }
-
-  ~AscendManager() {
-    std::cout << "############ this is in before delete sess!" << std::endl;
-    //delete sess;
-    std::cout << "############ this is in after delete sess!" << std::endl;
-    Status ret = ge::GEFinalize();
-    if (ret != SUCCESS) {
-        std::cout<<"Finalize ge failed."<<std::endl;
-    }
-    std::cout<<"Finalize ge success."<<std::endl;
-  }
-
-  ge::Session* session() {
-    return sess;
-  }
-
-private:
-  uint32_t graph_id;
-  ge::Session* sess;
-};
-
 class AclgraphBuilder {
 public:
   explicit AclgraphBuilder() {

@@ -21,6 +21,7 @@ class AscendCodeCache:
 
         output_path = input_path[:-3] + 'so'
         output_graph_path = os.path.split(output_path)[0] + '/graph'
+        pwd = os.getcwd()
         if key not in cls.cache:
             #if not os.path.exists(output_path) or True:
             cmd = ['/usr/bin/c++',
@@ -35,7 +36,7 @@ class AscendCodeCache:
                    '-I/usr/local/Ascend/ascend-toolkit/latest/include/ge',
                    '-I/usr/local/Ascend/ascend-toolkit/latest/parser',
                    '-I/usr/local/Ascend/ascend-toolkit/latest/compiler/include',
-                   '-I/daoxin/pytorch/third_party/DICP/AscendGraph/codegen',
+                   '-I{}/codegen'.format(pwd),
                    '-L/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                    '-lgraph',
                    '-lge_runner',
