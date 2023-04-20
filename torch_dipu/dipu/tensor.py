@@ -1,24 +1,32 @@
 import torch
 from .device import __diputype__
 
-class DIPUTensorType:
-    def __init__(self, type: torch.dtype):
-       self.type = type
-       
-    def __instancecheck__(self, inst):
+
+# replace type exported from csrc/tensor/python_tensor.cpp
+# need replace torch._tensor_classes? (seems currently not need)
+class _MetaTensorType(type):
+    def __instancecheck__(cls, inst):
         if isinstance(inst, torch.Tensor):
-          if inst.device.type == __diputype__ and inst.dtype == self.type:
+          if inst.device.type == __diputype__ and inst.dtype == cls.dtype:
             return True
         return False
 
+class FloatTensor(metaclass=_MetaTensorType):
+   dtype = torch.float
+class DoubleTensor(metaclass=_MetaTensorType):
+   dtype= torch.float64
+class HalfTensor(metaclass=_MetaTensorType):
+   dtype= torch.float16
 
-FloatTensor = DIPUTensorType(torch.float)
-DoubleTensor = DIPUTensorType(torch.float64)
-HalfTensor = DIPUTensorType(torch.float16)
-
-LongTensor = DIPUTensorType(torch.int64)
-IntTensor = DIPUTensorType(torch.int32)
-ShortTensor = DIPUTensorType(torch.int16)
-ByteTensor = DIPUTensorType(torch.uint8)
-CharTensor = DIPUTensorType(torch.int8)
-BoolTensor = DIPUTensorType(torch.bool)
+class LongTensor(metaclass=_MetaTensorType):
+    dtype = torch.int64
+class IntTensor(metaclass=_MetaTensorType):
+    dtype = torch.int32
+class ShortTensor(metaclass=_MetaTensorType):
+    dtype = torch.int16
+class ByteTensor(metaclass=_MetaTensorType):
+    dtype = torch.uint8
+class CharTensor(metaclass=_MetaTensorType):
+    dtype = torch.int8
+class BoolTensor(metaclass=_MetaTensorType):
+    dtype = torch.bool
