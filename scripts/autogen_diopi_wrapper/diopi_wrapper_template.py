@@ -34,14 +34,21 @@ diopi_wrapper_function_template_content = \
 $cppsignautre {
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
     auto ctx = &context;
-    $custom_code
+
+    $custom_code_at_the_beginning
+
     $input_process_code
 
     $output_process_code
 
     $attrs_process_code
+
+    $custom_code_before_call_diopi
+
     ::diopiError_t ret = $diopi_fun_call_code
     TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+
+    $custom_code_before_return
 
     $return_code
 }

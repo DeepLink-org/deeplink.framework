@@ -25,7 +25,7 @@ function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp \
-        --debug True
+        --print_func_call_info True
 }
 
 function build_dipu_lib() {

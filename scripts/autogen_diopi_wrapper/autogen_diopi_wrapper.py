@@ -263,8 +263,8 @@ def create_cpp_signature_from_schema(schema):
     return cppsignature
 
 
-def create_debug_code(fun_config):
-    op_name = get_op_name_from_schema(fun_config['schema'])
+def create_code_to_print_fun_call_info_from_schema(schema):
+    op_name = get_op_name_from_schema(schema)
     debug_code = f'printf("[%s:%s:%d]:%s\\n",__FILE__,__FUNCTION__,__LINE__,"{op_name}");' + '\n'
     return debug_code
 
@@ -327,8 +327,8 @@ def functions_code_gen(fun_config):
         diopi_fun_call_code = re.sub(int_array_param.strip(), f"{int_array_param}DiopiSize", diopi_fun_call_code)
 
 
-    if fun_config.get('debug', False) == True:
-        fun_config['custom_code'] = create_debug_code(fun_config) + fun_config.get('custom_code', '')
+    if fun_config.get('print_func_call_info', False) == True:
+        fun_config['custom_code_at_the_beginning'] = create_code_to_print_fun_call_info_from_schema(fun_config['schema']) + fun_config.get('custom_code_at_the_beginning', '')
 
     if fun_config.get('dummy_call_diopi', False) == True:
         diopi_fun_call_code = f"::diopiSuccess;/*dummy_call_diopi: {diopi_fun_call_code}*/"
@@ -350,11 +350,13 @@ def functions_code_gen(fun_config):
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
-            custom_code=[fun_config.get('custom_code', '').replace('; ', ';\n')],
+            custom_code_at_the_beginning=[fun_config.get('custom_code_at_the_beginning', fun_config.get('custom_code', '')).replace('; ', ';\n')],
             input_process_code=[input_process_code],
-            output_process_code=[output_process_code],
-            diopi_fun_call_code=[diopi_fun_call_code],
             attrs_process_code=[attrs_process_code],
+            output_process_code=[output_process_code],
+            custom_code_before_call_diopi = [fun_config.get('custom_code_before_call_diopi', '').replace('; ', ';\n')],
+            diopi_fun_call_code=[diopi_fun_call_code],
+            custom_code_before_return=[fun_config.get('custom_code_before_return', '').replace('; ', ';\n')],
             return_code=[return_code],
     )
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
@@ -375,8 +377,8 @@ def parase_args():
     parser = argparse.ArgumentParser(description='autogen diopi wrapper code')
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
-    parser.add_argument('--dummy_call_diopi', default=True, type=boolean_string, help='whether acctually call diopi interface')
-    parser.add_argument('--debug', default=True, type=boolean_string, help='add debug info')
+    parser.add_argument('--dummy_call_diopi', default=False, type=boolean_string, help='whether acctually call diopi interface')
+    parser.add_argument('--print_func_call_info', default=True, type=boolean_string, help='generate code that prints function call information')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
 
     args = parser.parse_args()
@@ -406,7 +408,7 @@ def main():
         functions_code=[functions_code],
         op_registe_code=[op_registe_code]
     )
-    autogened_file = re.sub('\n\n\n+', '\n', autogened_file)
+    autogened_file = re.sub(R'\n{3,}', R'\n\n', autogened_file)
     autogened_file = re.sub('[ ]*,[ ]*', ', ', autogened_file)
     with open(args.out, 'w') as cpp_file:
         cpp_file.write(autogened_file)

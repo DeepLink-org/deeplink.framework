@@ -1,12 +1,17 @@
-- schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  registe_op: True  # Whether generate registe code for this op, default value is True
+- schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
+  registe_op: False  # Whether generate registe code for this op, default value is True
   debug: False # Whether generate debug code for this op, defalut value is False
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
-  custom_code: "/* Here can be a piece of c++ code */"
+  custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
+  custom_code_before_call_diopi: "/* Here can be a piece of c++ code before call diopi*/"
+  custom_code_before_return: "/* Here can be a piece of c++ code before return*/"
+  interface: diopiAddScalar(ctx, out, self, other, alpha)
+
+- schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -18,7 +23,7 @@
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -27,7 +32,7 @@
   interface: diopiSub(ctx, out, self, other, alpha)
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
-  custom_code: >
+  custom_code_at_the_beginning: >
     auto out = at::empty_like(self);
   interface: diopiDivScalar(ctx, out, self, other, RoundModeNone)
 
@@ -35,14 +40,14 @@
   interface: diopiDivInpScalar(ctx, self, other, RoundModeNone)
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div__scalar(self, other.item());
     }
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         out = dipu_div_scalar(self, other.item());
         return out;
@@ -53,12 +58,12 @@
   interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDivScalar(ctx, out, self, other, mode)
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -71,21 +76,21 @@
   interface: diopiFill(ctx, self, value)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
-  custom_code: auto out = at::empty_like(self);
+  custom_code_at_the_beginning: auto out = at::empty_like(self);
   interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: "mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiMulInpScalar(ctx, self, other)
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_mul__scalar(self, other.item());
     }
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         out = dipu_mul_scalar(self, other.item());
         return out;
@@ -99,7 +104,7 @@
   interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
-  custom_code: >
+  custom_code_at_the_beginning: >
     const int64_t dim_c = input.size(1);
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
@@ -111,7 +116,7 @@
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
-  custom_code: >
+  custom_code_at_the_beginning: >
     TORCH_CHECK(output_size.size() == 2, __func__, ":", __FILE__, ":", __LINE__,
         " output_size should equal 2, size is ", output_size.size());
     auto out_tensor_size = self.sizes().vec();
@@ -121,7 +126,7 @@
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d_backward(Tensor grad_output, Tensor self) -> Tensor"
-  custom_code: >
+  custom_code_at_the_beginning: >
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
 
