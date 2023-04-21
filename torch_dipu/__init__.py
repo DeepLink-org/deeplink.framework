@@ -68,16 +68,15 @@ def apply_tensor_method_patch():
         device = device if device else self.device
         # test in cuda:: seems Tensor.new(size) return uncertain value in torch 2.0
         if size is not None:
-            return self.new_empty(size, device = self.device)
+            return self.new_empty(size, device = device)
         if isinstance(arg, Tensor):
-            return self.new_tensor(arg, device = self.device) 
+            return self.new_tensor(arg, device = device) 
         elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
-            return self.new_tensor(arg, device = self.device) 
+            return self.new_tensor(arg, device = device) 
         else:
             return None
 
     torch.Tensor.new = _legacy_new_mocker
-
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
