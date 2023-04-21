@@ -363,7 +363,6 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
 
 
 class AscendOverrides:
-    """Map element-wise ops to Ascend C++"""
     @staticmethod
     def gen_args(op_var, args_dict, node, args):
         src_code = CodeBlock()
@@ -393,25 +392,25 @@ class AscendOverrides:
     def mul(name, x, y, node):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            src_code = f'auto {name} = op::Mul("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({y});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::Mul("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({y});
+                           graph.AddOp({name});"""
         else:
             # y is scalar
             dtype = node.meta['val'].dtype
             cpp_dtype = get_cpp_dtype(dtype)
             ascend_dtype = get_ascend_dtype(dtype)
-            src_code = f'{cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({y});\n'
-            src_code += f'auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});\n'
-            src_code += f'setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");\n'
-            src_code += f'auto {name}_scalar = op::Const("{name}_scalar")\n'
-            src_code += f'.set_attr_value({name}_scalar_tensor);\n'
-            src_code += f'auto {name} = op::Mul("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({name}_scalar);\n'
-            src_code += f'graph.AddOp({name}_scalar);\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""{cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({y});
+                           auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
+                           setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");
+                           auto {name}_scalar = op::Const("{name}_scalar")
+                             .set_attr_value({name}_scalar_tensor);
+                           auto {name} = op::Mul("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_scalar);
+                           graph.AddOp({name}_scalar);
+                           graph.AddOp({name});"""
 
         return src_code
 
@@ -419,66 +418,66 @@ class AscendOverrides:
     def add(name, x, y, node):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            src_code = f'auto {name} = op::AddV2("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({y});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::AddV2("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({y});
+                           graph.AddOp({name});"""
         else:
             # y is scalar
             dtype = node.meta['val'].dtype
             cpp_dtype = get_cpp_dtype(dtype)
             ascend_dtype = get_ascend_dtype(dtype)
-            src_code = f'{cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({y});\n'
-            src_code += f'auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});\n'
-            src_code += f'setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");\n'
-            src_code += f'auto {name}_scalar = op::Const("{name}_scalar")\n'
-            src_code += f'.set_attr_value({name}_scalar_tensor);\n'
-            src_code += f'auto {name} = op::AddV2("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({name}_scalar);\n'
-            src_code += f'graph.AddOp({name}_scalar);\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""{cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({y});
+                           auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
+                           setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");
+                           auto {name}_scalar = op::Const("{name}_scalar")
+                             .set_attr_value({name}_scalar_tensor);
+                           auto {name} = op::AddV2("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_scalar);
+                           graph.AddOp({name}_scalar);
+                           graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def sub(name, x, y):
-        src_code = f'auto {name} = op::Sub("{name}")\n'
-        src_code += f'.set_input_x1({x})\n'
-        src_code += f'.set_input_x2({y});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Sub("{name}")
+                         .set_input_x1({x})
+                         .set_input_x2({y});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def relu(name, x):
-        src_code = f'auto {name} = op::Relu("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Relu("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def reciprocal(name, x):
-        src_code = f'auto {name} = op::Reciprocal("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Reciprocal("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def sqrt(name, x):
-        src_code = f'auto {name} = op::Sqrt("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Sqrt("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def rsqrt(name, x):
-        src_code = f'  auto {name} = op::Rsqrt("{name}")\n'
-        src_code += f'    .set_input_x({x});\n'
-        src_code += f'  graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Rsqrt("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -511,47 +510,47 @@ class AscendOverrides:
 
         
         format = "NCHW" if node.meta['val'].stride()[-1] == 1 else "NHWC"
-        src_code = f'  auto {name} = op::Conv2D("{name}")\n'
-        src_code += f'    .set_input_x({input})\n'
-        src_code += f'    .set_input_filter({weight})\n'
-        src_code += f'    .set_attr_strides({stride_str})\n'
-        src_code += f'    .set_attr_pads({padding_str})\n'
-        src_code += f'    .set_attr_dilations({dilation_str})\n'
-        src_code += f'    .set_attr_groups({groups})\n'
-        src_code += f'    .set_attr_data_format("{format}");\n'
+        src_code = f"""auto {name} = op::Conv2D("{name}")
+                         .set_input_x({input})
+                         .set_input_filter({weight})
+                         .set_attr_strides({stride_str})
+                         .set_attr_pads({padding_str})
+                         .set_attr_dilations({dilation_str})
+                         .set_attr_groups({groups})
+                         .set_attr_data_format("{format}");"""
 
         if bias != 'None':
-            src_code += f'  {name}.set_input_bias({bias});\n'
-        src_code += f'  graph.AddOp({name});\n'
+            src_code += f'{name}.set_input_bias({bias});\n'
+        src_code += f'graph.AddOp({name});\n'
         return src_code
 
     @staticmethod
     def convert_element_type(name, x, torch_dtype):
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        src_code = f'auto {name} = op::Cast("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_dst_type({ascend_dtype});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Cast("{name}")
+                         .set_input_x({x})
+                         .set_attr_dst_type({ascend_dtype});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def mean(name, x, dims='{}', keepdim='false'):
-        src_code = f'  std::vector<int> {name}_axes_value {dims};\n'
-        src_code += f'  std::vector<int64_t> {name}_axes_tensor_shape;\n'
-        src_code += f'  if ({name}_axes_value.size() != 0) {{\n'
-        src_code += f'    {name}_axes_tensor_shape.push_back({name}_axes_value.size());\n'
-        src_code += f'  }}\n'
-        src_code += f'  auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);\n'
-        src_code += f'  setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");\n'
-        src_code += f'  auto {name}_axes = op::Const("{name}_axes")\n'
-        src_code += f'    .set_attr_value({name}_axes_tensor);\n'
-        src_code += f'  auto {name} = op::ReduceMean("{name}")\n'
-        src_code += f'    .set_input_x({x})\n'
-        src_code += f'    .set_input_axes({name}_axes)\n'
-        src_code += f'    .set_attr_keep_dims({keepdim});\n'
-        src_code += f'  graph.AddOp({name}_axes);\n'
-        src_code += f'  graph.AddOp({name});\n'
+        src_code = f"""std::vector<int> {name}_axes_value {dims};
+                       std::vector<int64_t> {name}_axes_tensor_shape;
+                       if ({name}_axes_value.size() != 0) {{
+                         {name}_axes_tensor_shape.push_back({name}_axes_value.size());
+                       }}
+                       auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
+                       auto {name}_axes = op::Const("{name}_axes")
+                         .set_attr_value({name}_axes_tensor);
+                       auto {name} = op::ReduceMean("{name}")
+                         .set_input_x({x})
+                         .set_input_axes({name}_axes)
+                         .set_attr_keep_dims({keepdim});
+                       graph.AddOp({name}_axes);
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -576,18 +575,18 @@ class AscendOverrides:
             shape = list(map(str, shape))
             shape_str = '{' + ','.join(shape) + '}'
 
-        src_code = f'auto {name} = op::TransShape("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_outShape({shape_str});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::TransShape("{name}")
+                         .set_input_x({x})
+                         .set_attr_outShape({shape_str});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def clone(name, x):
-        src_code = f'auto {name} = op::Identity("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Identity("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -598,11 +597,11 @@ class AscendOverrides:
         real_dim_str = real_dim_str.replace('{','')
         real_dim_str = real_dim_str.replace('}','')
         real_dim_str = '{' + real_dim_str + '}'
-        src_code = f'std::vector<int64_t> {name}_dims{real_dim_str};\n'
-        src_code += f'auto {name} = op::Unsqueeze("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_axes({name}_dims);\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""std::vector<int64_t> {name}_dims{real_dim_str};
+                       auto {name} = op::Unsqueeze("{name}")
+                         .set_input_x({x})
+                         .set_attr_axes({name}_dims);
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -616,26 +615,26 @@ class AscendOverrides:
             real_dim_str = real_dim_str.replace('{','')
             real_dim_str = real_dim_str.replace('}','')
             real_dim_str = '{' + real_dim_str + '}'
-        src_code = f'auto {name} = op::Squeeze("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_axis({real_dim_str});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Squeeze("{name}")
+                         .set_input_x({x})
+                         .set_attr_axis({real_dim_str});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def getitem(name, input, index):
-        src_code = f'auto {name} = op::Identity("{name}")\n'
-        src_code += f'.set_input_x({input}, {index});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Identity("{name}")
+                         .set_input_x({input}, {index});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def exp(name, x):
-        src_code = f'auto {name} = op::Exp("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Exp("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -643,46 +642,46 @@ class AscendOverrides:
     def div(name, x, y, node):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            src_code = f'auto {name} = op::DivNoNan("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({y});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::DivNoNan("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({y});
+                           graph.AddOp({name});"""
         else:
             div_value = str(1.0 / y_node)
-            src_code = f'auto {name} = op::Muls("{name}")\n'
-            src_code += f'.set_input_x({x})\n'
-            src_code += f'.set_attr_value({div_value});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::Muls("{name}")
+                             .set_input_x({x})
+                             .set_attr_value({div_value});
+                           graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def sum(name, x, axes='{}', keep_dims='false'):
-        src_code = f'std::vector<int64_t> {name}_axes{axes};\n'
-        src_code += f'auto {name} = op::ReduceSumD("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_axes({name}_axes)\n'
-        src_code += f'.set_attr_keep_dims({keep_dims});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""std::vector<int64_t> {name}_axes{axes};
+                       auto {name} = op::ReduceSumD("{name}")
+                         .set_input_x({x})
+                         .set_attr_axes({name}_axes)
+                         .set_attr_keep_dims({keep_dims});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def amax(name, x, axes, keep_dims):
-        src_code = f'auto {name} = op::ReduceMaxD("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_axes({axes})\n'
-        src_code += f'.set_attr_keep_dims({keep_dims});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::ReduceMaxD("{name}")
+                         .set_input_x({x})
+                         .set_attr_axes({axes})
+                         .set_attr_keep_dims({keep_dims});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def permute(name, x, order):
-        src_code = f'auto {name} = op::Permute("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_order({order});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Permute("{name}")
+                         .set_input_x({x})
+                         .set_attr_order({order});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -699,68 +698,68 @@ class AscendOverrides:
             padding0 = padding[0]
             padding1 = padding[1]
             padding = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f'TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);\n'
-            src_code += f'std::vector<int> {name}_pad_value {{ {padding} }};\n'
-            src_code += f'Tensor {name}_pad_tensor({name}_pad_desc);\n'
-            src_code += f'setTensorData({name}_pad_tensor, reinterpret_cast<uint8_t*>({name}_pad_value.data()), sizeof(int) * 8, "{name} pad");\n'
+            src_code = f"""TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);
+                           std::vector<int> {name}_pad_value {{ {padding} }};
+                           Tensor {name}_pad_tensor({name}_pad_desc);
+                           setTensorData({name}_pad_tensor, reinterpret_cast<uint8_t*>({name}_pad_value.data()), sizeof(int) * 8, "{name} pad");
 
-            src_code += f'auto {name}_paddings = op::Const("{name}_paddings")\n'
-            src_code += f'.set_attr_value({name}_pad_tensor);\n'
-            src_code += f'graph.AddOp({name}_paddings);\n'
-            src_code += f'auto {name}_pad = op::Pad("{name}_pad")\n'
-            src_code += f'.set_input_x({x})\n'
-            src_code += f'.set_input_paddings({name}_paddings);\n'
-            src_code += f'graph.AddOp({name}_pad);\n'
-            src_code += f'auto {name} = op::MaxPoolWithArgmax("{name}")\n'
-            src_code += f'.set_input_x({name}_pad)\n'
-            src_code += f'.set_attr_ksize({ksize_str})\n'
-            src_code += f'.set_attr_strides({strides_str})\n'
-            src_code += f'.set_attr_padding("VALID");\n'
-            src_code += f'graph.AddOp({name});\n'
+                           auto {name}_paddings = op::Const("{name}_paddings")
+                             .set_attr_value({name}_pad_tensor);
+                           graph.AddOp({name}_paddings);
+                           auto {name}_pad = op::Pad("{name}_pad")
+                             .set_input_x({x})
+                             .set_input_paddings({name}_paddings);
+                           graph.AddOp({name}_pad);
+                           auto {name} = op::MaxPoolWithArgmax("{name}")
+                             .set_input_x({name}_pad)
+                             .set_attr_ksize({ksize_str})
+                             .set_attr_strides({strides_str})
+                             .set_attr_padding("VALID");
+                           graph.AddOp({name});"""
         else:
             padding = 'VALID'
-            src_code = f'auto {name} = op::MaxPoolWithArgmax("{name}")\n'
-            src_code += f'.set_input_x({x})\n'
-            src_code += f'.set_attr_ksize({ksize_str})\n'
-            src_code += f'.set_attr_strides({strides_str})\n'
-            src_code += f'.set_attr_padding("{padding}");\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::MaxPoolWithArgmax("{name}")
+                             .set_input_x({x})
+                             .set_attr_ksize({ksize_str})
+                             .set_attr_strides({strides_str})
+                             .set_attr_padding("{padding}");
+                           graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def addmm(name, c, a, b, beta='1', alpha='1'):
-        src_code = f'float {name}_beta_value = {beta};\n'
-        src_code += f'float {name}_alpha_value = {alpha};\n'
-        src_code += f'auto {name}_beta_tensor = genTensor(std::vector<int64_t>(), FORMAT_ND, DT_FLOAT);\n'
-        src_code += f'auto {name}_alpha_tensor = genTensor(std::vector<int64_t>(), FORMAT_ND, DT_FLOAT);\n'
-        src_code += f'setTensorData({name}_beta_tensor, reinterpret_cast<uint8_t*>(&{name}_beta_value), sizeof(float), "{name} beta");\n'
-        src_code += f'setTensorData({name}_alpha_tensor, reinterpret_cast<uint8_t*>(&{name}_alpha_value), sizeof(float), "{name} alpha");\n'
+        src_code = f"""float {name}_beta_value = {beta};
+                       float {name}_alpha_value = {alpha};
+                       auto {name}_beta_tensor = genTensor(std::vector<int64_t>(), FORMAT_ND, DT_FLOAT);
+                       auto {name}_alpha_tensor = genTensor(std::vector<int64_t>(), FORMAT_ND, DT_FLOAT);
+                       setTensorData({name}_beta_tensor, reinterpret_cast<uint8_t*>(&{name}_beta_value), sizeof(float), "{name} beta");
+                       setTensorData({name}_alpha_tensor, reinterpret_cast<uint8_t*>(&{name}_alpha_value), sizeof(float), "{name} alpha");
 
-        src_code += f'auto {name}_beta = op::Const("{name}_beta")\n'
-        src_code += f'.set_attr_value({name}_beta_tensor);\n'
-        src_code += f'auto {name}_alpha = op::Const("{name}_alpha")\n'
-        src_code += f'.set_attr_value({name}_alpha_tensor);\n'
+                       auto {name}_beta = op::Const("{name}_beta")
+                         .set_attr_value({name}_beta_tensor);
+                       auto {name}_alpha = op::Const("{name}_alpha")
+                         .set_attr_value({name}_alpha_tensor);
 
-        src_code += f'auto {name}_c_beta = op::Mul("{name}_c_beta")\n'
-        src_code += f'.set_input_x1({c})\n'
-        src_code += f'.set_input_x2({name}_beta);\n'
-        src_code += f'graph.AddOp({name}_c_beta);\n'
+                       auto {name}_c_beta = op::Mul("{name}_c_beta")
+                         .set_input_x1({c})
+                         .set_input_x2({name}_beta);
+                       graph.AddOp({name}_c_beta);
 
-        src_code += f'auto {name}_a_alpha = op::Mul("{name}_a_alpha")\n'
-        src_code += f'.set_input_x1({a})\n'
-        src_code += f'.set_input_x2({name}_alpha);\n'
-        src_code += f'graph.AddOp({name}_a_alpha);\n'
+                       auto {name}_a_alpha = op::Mul("{name}_a_alpha")
+                         .set_input_x1({a})
+                         .set_input_x2({name}_alpha);
+                       graph.AddOp({name}_a_alpha);
 
-        src_code += f'auto {name}_matmul = op::MatMul("{name}_matmul")\n'
-        src_code += f'.set_input_x1({name}_a_alpha)\n'
-        src_code += f'.set_input_x2({b});\n'
-        src_code += f'graph.AddOp({name}_matmul);\n'
+                       auto {name}_matmul = op::MatMul("{name}_matmul")
+                         .set_input_x1({name}_a_alpha)
+                         .set_input_x2({b});
+                       graph.AddOp({name}_matmul);
 
-        src_code += f'auto {name} = op::AddV2("{name}")\n'
-        src_code += f'.set_input_x1({name}_c_beta)\n'
-        src_code += f'.set_input_x2({name}_matmul);\n'
-        src_code += f'graph.AddOp({name});\n'
+                       auto {name} = op::AddV2("{name}")
+                         .set_input_x1({name}_c_beta)
+                         .set_input_x2({name}_matmul);
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -773,95 +772,95 @@ class AscendOverrides:
         else:
             raise RuntimeError("not supported yet!")
         
-        src_code = f'// 1. mean\n'
-        src_code += f'std::vector<int> {name}_axes_value {axes};\n'
-        src_code += f'std::vector<int64_t> {name}_axes_tensor_shape;\n'
-        src_code += f'if ({name}_axes_value.size() != 0) {{\n'
-        src_code += f'  {name}_axes_tensor_shape.push_back({name}_axes_value.size());\n'
-        src_code += f'}}\n'
-        src_code += f'auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);\n'
-        src_code += f'setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");\n'
-        src_code += f'auto {name}_axes = op::Const("{name}_axes")\n'
-        src_code += f'.set_attr_value({name}_axes_tensor);\n'
-        src_code += f'auto {name}_mean = op::ReduceMean("{name}_mean")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_input_axes({name}_axes)\n'
-        src_code += f'.set_attr_keep_dims({keepdim});\n'
-        src_code += f'graph.AddOp({name}_axes);\n'
-        src_code += f'graph.AddOp({name}_mean);\n'
+        src_code = f"""// 1. mean
+                       std::vector<int> {name}_axes_value {axes};
+                       std::vector<int64_t> {name}_axes_tensor_shape;
+                       if ({name}_axes_value.size() != 0) {{
+                         {name}_axes_tensor_shape.push_back({name}_axes_value.size());
+                       }}
+                       auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
+                       auto {name}_axes = op::Const("{name}_axes")
+                         .set_attr_value({name}_axes_tensor);
+                       auto {name}_mean = op::ReduceMean("{name}_mean")
+                         .set_input_x({x})
+                         .set_input_axes({name}_axes)
+                         .set_attr_keep_dims({keepdim});
+                       graph.AddOp({name}_axes);
+                       graph.AddOp({name}_mean);
     
-        src_code += f'// 2. broadcast to self\n'
-        src_code += f'auto {name}_input_shape = op::Shape("{name}_input_shape")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'auto {name}_broadcast_to = op::BroadcastTo("{name}_broadcast_to")\n'
-        src_code += f'.set_input_x({name}_mean)\n'
-        src_code += f'.set_input_shape({name}_input_shape);\n'
-        src_code += f'graph.AddOp({name}_input_shape);\n'
-        src_code += f'graph.AddOp({name}_broadcast_to);\n'
+                       // 2. broadcast to self
+                       auto {name}_input_shape = op::Shape("{name}_input_shape")
+                         .set_input_x({x});
+                       auto {name}_broadcast_to = op::BroadcastTo("{name}_broadcast_to")
+                         .set_input_x({name}_mean)
+                         .set_input_shape({name}_input_shape);
+                       graph.AddOp({name}_input_shape);
+                       graph.AddOp({name}_broadcast_to);
         
-        src_code += f'// 3. ReduceStdV2Update\n'
-        src_code += f'auto {name} = op::ReduceStdV2Update("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_input_mean({name}_broadcast_to)\n'
-        src_code += f'.set_attr_dim({axes})\n'
-        src_code += f'.set_attr_unbiased({unbiased})\n'
-        src_code += f'.set_attr_keepdim({keepdim});\n'
-        src_code += f'graph.AddOp({name});\n'
+                       // 3. ReduceStdV2Update
+                       auto {name} = op::ReduceStdV2Update("{name}")
+                         .set_input_x({x})
+                         .set_input_mean({name}_broadcast_to)
+                         .set_attr_dim({axes})
+                         .set_attr_unbiased({unbiased})
+                         .set_attr_keepdim({keepdim});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def log(name, x):
-        src_code = f'auto {name} = op::Log("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Log("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def gather(name, x, dim, index):
-        src_code = f'auto {name}_dim_shape = ge::Shape({{1}});\n'
-        src_code += f'TensorDesc {name}_dim_desc({name}_dim_shape, FORMAT_NCHW, DT_INT32);\n'
-        src_code += f'Tensor {name}_dim_tensor({name}_dim_desc);\n'
-        src_code += f'int {name}_dim_value = {dim};\n'
-        src_code += f'setTensorData({name}_dim_tensor, reinterpret_cast<uint8_t*>(&{name}_dim_value), sizeof(int), "{name}_dim");\n'
+        src_code = f"""auto {name}_dim_shape = ge::Shape({{1}});
+                       TensorDesc {name}_dim_desc({name}_dim_shape, FORMAT_NCHW, DT_INT32);
+                       Tensor {name}_dim_tensor({name}_dim_desc);
+                       int {name}_dim_value = {dim};
+                       setTensorData({name}_dim_tensor, reinterpret_cast<uint8_t*>(&{name}_dim_value), sizeof(int), "{name}_dim");
 
-        src_code += f'auto {name}_dim = op::Const("{name}_dim")\n'
-        src_code += f'.set_attr_value({name}_dim_tensor);\n'
-        src_code += f'auto {name} = op::GatherD("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_input_dim({name}_dim)\n'
-        src_code += f'.set_input_index({index})\n'
-        src_code += f'.set_attr_dim({dim});\n'
-        src_code += f'graph.AddOp({name}_dim);\n'
-        src_code += f'graph.AddOp({name});\n'
+                       auto {name}_dim = op::Const("{name}_dim")
+                         .set_attr_value({name}_dim_tensor);
+                       auto {name} = op::GatherD("{name}")
+                         .set_input_x({x})
+                         .set_input_dim({name}_dim)
+                         .set_input_index({index})
+                         .set_attr_dim({dim});
+                       graph.AddOp({name}_dim);
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def neg(name, x):
-        src_code = f'auto {name} = op::Neg("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::Neg("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def expand(name, x, shape):
-        src_code = f'std::vector<int64_t> {name}_shape{shape};\n'
-        src_code += f'auto {name} = op::ExpandD("{name}")\n'
-        src_code += f'.set_input_x({x})\n'
-        src_code += f'.set_attr_shape({name}_shape);\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""std::vector<int64_t> {name}_shape{shape};
+                       auto {name} = op::ExpandD("{name}")
+                         .set_input_x({x})
+                         .set_attr_shape({name}_shape);
+                       graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def zeros_like(name, x, value):
         # TODO(tangzhiyi): ignore kwargs, need to check this
-        src_code = f'auto {name} = op::ZerosLike("{name}")\n'
-        src_code += f'.set_input_x({x});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::ZerosLike("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -870,47 +869,47 @@ class AscendOverrides:
         assert(len(node.args) > 3)
         value_node = node.args[3]
         if isinstance(value_node, torch.fx.node.Node):
-            src_code = f'auto {name} = op::ScatterElements("{name}")\n'
-            src_code += f'.set_input_data({var})\n'
-            src_code += f'.set_input_indices({index})\n'
-            src_code += f'.set_input_updates({value})\n'
-            src_code += f'.set_attr_axis({dim});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::ScatterElements("{name}")
+                             .set_input_data({var})
+                             .set_input_indices({index})
+                             .set_input_updates({value})
+                             .set_attr_axis({dim});
+                           graph.AddOp({name});"""
         else:
             dtype = node.meta['val'].dtype
             ascend_dtype = get_ascend_dtype(dtype)
             cpp_dtype = get_cpp_dtype(dtype)
-            src_code = f'std::vector<int64_t> {name}_value_dims;\n'
-            src_code += f'TensorDesc {name}_value_desc(ge::Shape({name}_value_dims), FORMAT_NCHW, {ascend_dtype});\n'
-            src_code += f'Tensor {name}_value_tensor({name}_value_desc);\n'
-            src_code += f'{cpp_dtype} {name}_value_value = {value};\n'
-            src_code += f'setTensorData({name}_value_tensor, reinterpret_cast<uint8_t*>(&{name}_value_value), sizeof({cpp_dtype}), "{name}_value");\n'
+            src_code = f"""std::vector<int64_t> {name}_value_dims;
+                           TensorDesc {name}_value_desc(ge::Shape({name}_value_dims), FORMAT_NCHW, {ascend_dtype});
+                           Tensor {name}_value_tensor({name}_value_desc);
+                           {cpp_dtype} {name}_value_value = {value};
+                           setTensorData({name}_value_tensor, reinterpret_cast<uint8_t*>(&{name}_value_value), sizeof({cpp_dtype}), "{name}_value");
 
-            src_code += f'auto {name}_value = op::Const("{name}_value")\n'
-            src_code += f'.set_attr_value({name}_value_tensor);\n'
-            src_code += f'auto {name}_index_shape = op::Shape("{name}_index_shape")\n'
-            src_code += f'.set_input_x({index});\n'
-            src_code += f'auto {name}_value_bcast = op::BroadcastTo("{name}_value_bcast")\n'
-            src_code += f'.set_input_x({name}_value)\n'
-            src_code += f'.set_input_shape({name}_index_shape);\n'
-            src_code += f'auto {name} = op::ScatterElements("{name}")\n'
-            src_code += f'.set_input_data({var})\n'
-            src_code += f'.set_input_indices({index})\n'
-            src_code += f'.set_input_updates({name}_value_bcast)\n'
-            src_code += f'.set_attr_axis({dim});\n'
-            src_code += f'graph.AddOp({name}_value);\n'
-            src_code += f'graph.AddOp({name}_index_shape);\n'
-            src_code += f'graph.AddOp({name}_value_bcast);\n'
-            src_code += f'graph.AddOp({name});\n'
+                           auto {name}_value = op::Const("{name}_value")
+                             .set_attr_value({name}_value_tensor);
+                           auto {name}_index_shape = op::Shape("{name}_index_shape")
+                             .set_input_x({index});
+                           auto {name}_value_bcast = op::BroadcastTo("{name}_value_bcast")
+                             .set_input_x({name}_value)
+                             .set_input_shape({name}_index_shape);
+                           auto {name} = op::ScatterElements("{name}")
+                             .set_input_data({var})
+                             .set_input_indices({index})
+                             .set_input_updates({name}_value_bcast)
+                             .set_attr_axis({dim});
+                           graph.AddOp({name}_value);
+                           graph.AddOp({name}_index_shape);
+                           graph.AddOp({name}_value_bcast);
+                           graph.AddOp({name});"""
 
         return src_code
 
     @staticmethod
     def mm(name, x, y):
-        src_code = f'auto {name} = op::MatMul("{name}")\n'
-        src_code += f'.set_input_x1({x})\n'
-        src_code += f'.set_input_x2({y});\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::MatMul("{name}")
+                         .set_input_x1({x})
+                         .set_input_x2({y});
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -939,35 +938,35 @@ class AscendOverrides:
 
         # input
         if grad_input_mask[0] == 'True':
-            src_code += f'auto {name}_input_shape = op::Shape("{name}_input_shape")\n'
-            src_code += f'.set_input_x({input});\n'
-            src_code += f'auto {name}_input = op::Conv2DBackpropInput("{name}_input")\n'
-            src_code += f'.set_input_input_size({name}_input_shape)\n'
-            src_code += f'.set_input_filter({weight})\n'
-            src_code += f'.set_input_out_backprop({grad_output})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_pads({padding_str})\n'
-            src_code += f'.set_attr_dilations({dilation_str})\n'
-            src_code += f'.set_attr_groups({groups})\n'
-            src_code += f'.set_attr_data_format("{data_format}");\n'
-            src_code += f'graph.AddOp({name}_input_shape);\n'
-            src_code += f'graph.AddOp({name}_input);\n'
+            src_code += f"""auto {name}_input_shape = op::Shape("{name}_input_shape")
+                              .set_input_x({input});
+                            auto {name}_input = op::Conv2DBackpropInput("{name}_input")
+                              .set_input_input_size({name}_input_shape)
+                              .set_input_filter({weight})
+                              .set_input_out_backprop({grad_output})
+                              .set_attr_strides({stride_str})
+                              .set_attr_pads({padding_str})
+                              .set_attr_dilations({dilation_str})
+                              .set_attr_groups({groups})
+                              .set_attr_data_format("{data_format}");
+                            graph.AddOp({name}_input_shape);
+                            graph.AddOp({name}_input);"""
 
         # weight
         if grad_input_mask[1] == 'True':
-            src_code += f'auto {name}_filter_shape = op::Shape("{name}_filter_shape")\n'
-            src_code += f'.set_input_x({weight});\n'
-            src_code += f'auto {name}_filter = op::Conv2DBackpropFilter("{name}_filter")\n'
-            src_code += f'.set_input_x({input})\n'
-            src_code += f'.set_input_filter_size({name}_filter_shape)\n'
-            src_code += f'.set_input_out_backprop({grad_output})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_pads({padding_str})\n'
-            src_code += f'.set_attr_dilations({dilation_str})\n'
-            src_code += f'.set_attr_groups({groups})\n'
-            src_code += f'.set_attr_data_format("NCHW");\n'
-            src_code += f'graph.AddOp({name}_filter_shape);\n'
-            src_code += f'graph.AddOp({name}_filter);\n'
+            src_code += f"""auto {name}_filter_shape = op::Shape("{name}_filter_shape")
+                              .set_input_x({weight});
+                            auto {name}_filter = op::Conv2DBackpropFilter("{name}_filter")
+                              .set_input_x({input})
+                              .set_input_filter_size({name}_filter_shape)
+                              .set_input_out_backprop({grad_output})
+                              .set_attr_strides({stride_str})
+                              .set_attr_pads({padding_str})
+                              .set_attr_dilations({dilation_str})
+                              .set_attr_groups({groups})
+                              .set_attr_data_format("NCHW");
+                            graph.AddOp({name}_filter_shape);
+                            graph.AddOp({name}_filter);"""
 
         # TODO(tangzhiyi): bias is not supported yet
         assert grad_input_mask[2] == 'False'
@@ -977,26 +976,26 @@ class AscendOverrides:
         both_input_weight = grad_input_mask[0] == 'True' and grad_input_mask[1] == 'True'
 
         if only_input:
-            src_code += f'auto {name} = op::IdentityN("{name}")\n'
-            src_code += f'.create_dynamic_input_x(2)\n'
-            src_code += f'.set_dynamic_input_x(0, {name}_input)\n'
-            src_code += f'.set_dynamic_input_x(1, {name}_input)\n'
-            src_code += f'.create_dynamic_output_y(2);\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code += f"""auto {name} = op::IdentityN("{name}")
+                              .create_dynamic_input_x(2)
+                              .set_dynamic_input_x(0, {name}_input)
+                              .set_dynamic_input_x(1, {name}_input)
+                              .create_dynamic_output_y(2);
+                            graph.AddOp({name});"""
         elif only_weight:
-            src_code += f'auto {name} = op::IdentityN("{name}")\n'
-            src_code += f'.create_dynamic_input_x(2)\n'
-            src_code += f'.set_dynamic_input_x(0, {name}_filter)\n'
-            src_code += f'.set_dynamic_input_x(1, {name}_filter)\n'
-            src_code += f'.create_dynamic_output_y(2);\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code += f"""auto {name} = op::IdentityN("{name}")
+                              .create_dynamic_input_x(2)
+                              .set_dynamic_input_x(0, {name}_filter)
+                              .set_dynamic_input_x(1, {name}_filter)
+                              .create_dynamic_output_y(2);
+                            graph.AddOp({name});"""
         elif both_input_weight:
-            src_code += f'auto {name} = op::IdentityN("{name}")\n'
-            src_code += f'.create_dynamic_input_x(2)\n'
-            src_code += f'.set_dynamic_input_x(0, {name}_input)\n'
-            src_code += f'.set_dynamic_input_x(1, {name}_filter)\n'
-            src_code += f'.create_dynamic_output_y(2);\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code += f"""auto {name} = op::IdentityN("{name}")
+                              .create_dynamic_input_x(2)
+                              .set_dynamic_input_x(0, {name}_input)
+                              .set_dynamic_input_x(1, {name}_filter)
+                              .create_dynamic_output_y(2);
+                            graph.AddOp({name});"""
         else:
             raise RuntimeError('not supported!')
 
@@ -1030,56 +1029,56 @@ class AscendOverrides:
             padding0 = padding[0]
             padding1 = padding[1]
             padding_str = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f'TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);\n'
-            src_code += f'std::vector<int> {name}_pad_value {{ {padding_str} }};\n'
-            src_code += f'Tensor {name}_pad_tensor({name}_pad_desc);\n'
-            src_code += f'setTensorData({name}_pad_tensor, reinterpret_cast<uint8_t*>({name}_pad_value.data()), sizeof(int) * 8, "{name} pad");\n'
+            src_code = f"""TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);
+                           std::vector<int> {name}_pad_value {{ {padding_str} }};
+                           Tensor {name}_pad_tensor({name}_pad_desc);
+                           setTensorData({name}_pad_tensor, reinterpret_cast<uint8_t*>({name}_pad_value.data()), sizeof(int) * 8, "{name} pad");
 
-            src_code += f'auto {name}_paddings = op::Const("{name}_paddings")\n'
-            src_code += f'.set_attr_value({name}_pad_tensor);\n'
-            src_code += f'graph.AddOp({name}_paddings);\n'
-            src_code += f'auto {name}_pad = op::PadV3("{name}_pad")\n'
-            src_code += f'.set_input_x({x})\n'
-            src_code += f'.set_input_paddings({name}_paddings);\n'
-            src_code += f'graph.AddOp({name}_pad);\n'
-            src_code += f'auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")\n'
-            src_code += f'.set_input_x({name}_pad)\n'
-            src_code += f'.set_attr_ksize({kernel_size_str})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_padding("VALID")\n'
-            src_code += f'.set_attr_data_format("NCHW");\n'
-            src_code += f'graph.AddOp({name}_fwd_out);\n'
-    
-            src_code += f'auto {name}_bwd = op::MaxPoolGrad("{name}_bwd")\n'
-            src_code += f'.set_input_x1({name}_pad)\n'
-            src_code += f'.set_input_x2({name}_fwd_out)\n'
-            src_code += f'.set_input_grad({grad_output})\n'
-            src_code += f'.set_attr_ksize({kernel_size_str})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_padding("VALID")\n'
-            src_code += f'.set_attr_data_format("NCHW");\n'
-            src_code += f'graph.AddOp({name}_bwd);\n'
-            src_code += f'auto {name} = op::PadV3Grad("{name}")\n'
-            src_code += f'.set_input_x({name}_bwd)\n'
-            src_code += f'.set_input_paddings({name}_paddings);\n'
-            src_code += f'graph.AddOp({name});\n'
+                           auto {name}_paddings = op::Const("{name}_paddings")
+                             .set_attr_value({name}_pad_tensor);
+                           graph.AddOp({name}_paddings);
+                           auto {name}_pad = op::PadV3("{name}_pad")
+                             .set_input_x({x})
+                             .set_input_paddings({name}_paddings);
+                           graph.AddOp({name}_pad);
+                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
+                             .set_input_x({name}_pad)
+                             .set_attr_ksize({kernel_size_str})
+                             .set_attr_strides({stride_str})
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name}_fwd_out);
+                   
+                           auto {name}_bwd = op::MaxPoolGrad("{name}_bwd")
+                             .set_input_x1({name}_pad)
+                             .set_input_x2({name}_fwd_out)
+                             .set_input_grad({grad_output})
+                             .set_attr_ksize({kernel_size_str})
+                             .set_attr_strides({stride_str})
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name}_bwd);
+                           auto {name} = op::PadV3Grad("{name}")
+                             .set_input_x({name}_bwd)
+                             .set_input_paddings({name}_paddings);
+                           graph.AddOp({name});"""
         else:
-            src_code = f'auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")\n'
-            src_code += f'.set_input_x({x})\n'
-            src_code += f'.set_attr_ksize({kernel_size_str})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_padding("VALID")\n'
-            src_code += f'.set_attr_data_format("NCHW");\n'
-            src_code += f'graph.AddOp({name}_fwd_out);\n'
-            src_code += f'auto {name} = op::MaxPoolGrad("{name}")\n'
-            src_code += f'.set_input_x1({x})\n'
-            src_code += f'.set_input_x2({name}_fwd_out)\n'
-            src_code += f'.set_input_grad({grad_output})\n'
-            src_code += f'.set_attr_ksize({kernel_size_str})\n'
-            src_code += f'.set_attr_strides({stride_str})\n'
-            src_code += f'.set_attr_padding("VALID")\n'
-            src_code += f'.set_attr_data_format("NCHW");\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
+                             .set_input_x({x})
+                             .set_attr_ksize({kernel_size_str})
+                             .set_attr_strides({stride_str})
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name}_fwd_out);
+                           auto {name} = op::MaxPoolGrad("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_fwd_out)
+                             .set_input_grad({grad_output})
+                             .set_attr_ksize({kernel_size_str})
+                             .set_attr_strides({stride_str})
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name});"""
 
         return src_code
 
@@ -1090,23 +1089,23 @@ class AscendOverrides:
         assert isinstance(x1_node, torch.fx.node.Node)
         assert isinstance(x2_node, torch.fx.node.Node)
 
-        src_code = f'// 1. broadcast\n'
-        src_code += f'auto {name}_shape = op::Shape("{name}_cond_shape")\n'
-        src_code += f'.set_input_x({cond});\n'
-        src_code += f'auto {name}_x1_bcast = op::BroadcastTo("{name}_x1_bcast")\n'
-        src_code += f'.set_input_x({x1})\n'
-        src_code += f'.set_input_shape({name}_shape);\n'
-        src_code += f'auto {name}_x2_bcast = op::BroadcastTo("{name}_x2_bcast")\n'
-        src_code += f'.set_input_x({x2})\n'
-        src_code += f'.set_input_shape({name}_shape);\n'
-        src_code += f'auto {name} = op::Select("{name}")\n'
-        src_code += f'.set_input_condition({cond})\n'
-        src_code += f'.set_input_x1({name}_x1_bcast)\n'
-        src_code += f'.set_input_x2({name}_x2_bcast);\n'
-        src_code += f'graph.AddOp({name}_shape);\n'
-        src_code += f'graph.AddOp({name}_x1_bcast);\n'
-        src_code += f'graph.AddOp({name}_x2_bcast);\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""// 1. broadcast
+                       auto {name}_shape = op::Shape("{name}_cond_shape")
+                         .set_input_x({cond});
+                       auto {name}_x1_bcast = op::BroadcastTo("{name}_x1_bcast")
+                         .set_input_x({x1})
+                         .set_input_shape({name}_shape);
+                       auto {name}_x2_bcast = op::BroadcastTo("{name}_x2_bcast")
+                         .set_input_x({x2})
+                         .set_input_shape({name}_shape);
+                       auto {name} = op::Select("{name}")
+                         .set_input_condition({cond})
+                         .set_input_x1({name}_x1_bcast)
+                         .set_input_x2({name}_x2_bcast);
+                       graph.AddOp({name}_shape);
+                       graph.AddOp({name}_x1_bcast);
+                       graph.AddOp({name}_x2_bcast);
+                       graph.AddOp({name});"""
 
         return src_code
 
@@ -1114,25 +1113,25 @@ class AscendOverrides:
     def le(name, x1, x2, node):
         (x1_node, x2_node) = node.args
         if isinstance(x2_node, torch.fx.node.Node):
-            src_code = f'auto {name} = op::LessEqual("{name}")\n'
-            src_code += f'.set_input_x1({x1})\n'
-            src_code += f'.set_input_x2({x2});\n'
-            src_code += f'graph.AddOp({name});\n'
+            src_code = f"""auto {name} = op::LessEqual("{name}")
+                             .set_input_x1({x1})
+                             .set_input_x2({x2});
+                           graph.AddOp({name});"""
         else:
             # TODO(tangzhiyi): get value type, now assume float
-            src_code = f'std::vector<int64_t> {name}_x2_dims;\n'
-            src_code += f'TensorDesc {name}_x2_desc(ge::Shape({name}_x2_dims), FORMAT_NCHW, DT_FLOAT);\n'
-            src_code += f'Tensor {name}_x2_tensor({name}_x2_desc);\n'
-            src_code += f'float {name}_x2_value = {x2};\n'
-            src_code += f'setTensorData({name}_x2_tensor, reinterpret_cast<uint8_t*>(&{name}_x2_value), sizeof(float), "{name}_x2");\n'
+            src_code = f"""std::vector<int64_t> {name}_x2_dims;
+                           TensorDesc {name}_x2_desc(ge::Shape({name}_x2_dims), FORMAT_NCHW, DT_FLOAT);
+                           Tensor {name}_x2_tensor({name}_x2_desc);
+                           float {name}_x2_value = {x2};
+                           setTensorData({name}_x2_tensor, reinterpret_cast<uint8_t*>(&{name}_x2_value), sizeof(float), "{name}_x2");
 
-            src_code += f'auto {name}_x2 = op::Const("{name}_x2")\n'
-            src_code += f'.set_attr_value({name}_x2_tensor);\n'
-            src_code += f'auto {name} = op::LessEqual("{name}")\n'
-            src_code += f'.set_input_x1({x1})\n'
-            src_code += f'.set_input_x2({name}_x2);\n'
-            src_code += f'graph.AddOp({name}_x2);\n'
-            src_code += f'graph.AddOp({name});\n'
+                           auto {name}_x2 = op::Const("{name}_x2")
+                             .set_attr_value({name}_x2_tensor);
+                           auto {name} = op::LessEqual("{name}")
+                             .set_input_x1({x1})
+                             .set_input_x2({name}_x2);
+                           graph.AddOp({name}_x2);
+                           graph.AddOp({name});"""
 
         return src_code
 
@@ -1141,37 +1140,37 @@ class AscendOverrides:
         torch_dtype = node.kwargs['dtype']
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        src_code = f'auto {name}_val_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});\n'
-        src_code += f'{cpp_dtype} {name}_val_value = {val};\n'
-        src_code += f'setTensorData({name}_val_tensor, reinterpret_cast<uint8_t*>(&{name}_val_value), sizeof({cpp_dtype}), "{name}_val");\n'
-        src_code += f'auto {name} = op::Const("{name}")\n'
-        src_code += f'.set_attr_value({name}_val_tensor);\n'
-        src_code += f'graph.AddOp({name});\n'
+        src_code = f"""auto {name}_val_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
+                       {cpp_dtype} {name}_val_value = {val};
+                       setTensorData({name}_val_tensor, reinterpret_cast<uint8_t*>(&{name}_val_value), sizeof({cpp_dtype}), "{name}_val");
+                       auto {name} = op::Const("{name}")
+                         .set_attr_value({name}_val_tensor);
+                       graph.AddOp({name});"""
 
         return src_code
 
 
     @staticmethod
     def ret_tuple(name, in1, in2):
-        src_code = f'  auto {name} = op::IdentityN("{name}")\n'
-        src_code += f'    .create_dynamic_input_x(2)\n'
-        src_code += f'    .set_dynamic_input_x(0, {in1})\n'
-        src_code += f'    .set_dynamic_input_x(1, {in2})\n'
-        src_code += f'    .create_dynamic_output_y(2);\n'
-        src_code += f'  graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::IdentityN("{name}")
+                         .create_dynamic_input_x(2)
+                         .set_dynamic_input_x(0, {in1})
+                         .set_dynamic_input_x(1, {in2})
+                         .create_dynamic_output_y(2);
+                       graph.AddOp({name});"""
 
         return src_code
     
 
     @staticmethod
     def ret_triple(name, in1, in2, in3):
-        src_code = f'  auto {name} = op::IdentityN("{name}")\n'
-        src_code += f'    .create_dynamic_input_x(3)\n'
-        src_code += f'    .set_dynamic_input_x(0, {in1})\n'
-        src_code += f'    .set_dynamic_input_x(1, {in2})\n'
-        src_code += f'    .set_dynamic_input_x(2, {in3})\n'
-        src_code += f'    .create_dynamic_output_y(3);\n'
-        src_code += f'  graph.AddOp({name});\n'
+        src_code = f"""auto {name} = op::IdentityN("{name}")
+                         .create_dynamic_input_x(3)
+                         .set_dynamic_input_x(0, {in1})
+                         .set_dynamic_input_x(1, {in2})
+                         .set_dynamic_input_x(2, {in3})
+                         .create_dynamic_output_y(3);
+                       graph.AddOp({name});"""
 
         return src_code
 
