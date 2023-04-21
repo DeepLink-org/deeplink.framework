@@ -128,6 +128,37 @@ def test_type():
     res = isinstance(s4, torch.cuda.FloatTensor)
     assert(res == True)
 
+def test_device_copy():
+    import torch_dipu
+    dev2 = "cuda:2"
+    t1 = torch.randn((2, 2), dtype=torch.float64, device=dev2)
+    t1 = torch.zero_(t1)
+
+    tsrc = torch.ones((2, 2), dtype=torch.float64, device = "cuda")
+    print(tsrc)
+
+    t1.copy_(tsrc)
+    # cpu fallback func not support device guard now! (enhance?)
+    print(t1.cpu())
+
+    tc1 = torch.randn((2, 2), dtype=torch.float64)
+    tc1.copy_(t1)
+    print(tc1)
+
+def test_complex_type():
+    import torch_dipu
+    from torch_dipu import dipu
+    import numpy as np
+    dev2 = "cuda:2"
+
+    # manually set device 
+    dipu.set_device(2)
+    abs = torch.tensor((1, 2), dtype=torch.float64, device=dev2)
+    angle = torch.tensor([np.pi / 2, 5 * np.pi / 4], dtype=torch.float64, device=dev2)
+    z1 = torch.polar(abs, angle)
+    z2 = torch.polar(abs, angle)
+    z3 = z1 + z2 
+    print(z3)
 
 if __name__ == '__main__':
     for i in range(1, 2):
@@ -135,6 +166,8 @@ if __name__ == '__main__':
         testdevice()
         testDevice1()
         testDevice2()
+        test_device_copy()
         testDeviceProperties()
         testStream()
         testevent()
+        test_complex_type()
