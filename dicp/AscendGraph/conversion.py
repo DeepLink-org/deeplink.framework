@@ -1,7 +1,7 @@
 import functools
 import operator
 import torch
-import third_party.DICP.AscendGraph.ascend_op as ascend_op
+import dicp.AscendGraph.ascend_op as ascend_op
 from abc import ABC, abstractmethod
 
 conversions = {}
@@ -15,7 +15,7 @@ def _registe_conversion(
     @functools.wraps(decomp_fn)
     def wrapped(*args, **kwargs):
         return decomp_fn(*args, **kwargs)
-    
+
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
     else:
@@ -230,4 +230,3 @@ class ReplaceVarMean:
         square = ascend_op.squaresum(sub, dims, True)
         var = torch.ops.aten.mul(square, 1 / (64 - 1))
         return ascend_op.ret_tuple(mean, var)
-
