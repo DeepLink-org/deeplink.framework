@@ -9,6 +9,9 @@ build.sh
 # C extensions
 *.so
 
+# autogened file
+torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
+
 # Patch / Merge
 *.orig
 *.reg
