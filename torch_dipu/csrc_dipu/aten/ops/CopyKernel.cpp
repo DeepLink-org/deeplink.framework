@@ -33,6 +33,7 @@ namespace dipu::native {
 
   static void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
+    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     auto src_cast = cast2CompatibleDeviceTensor(src);
@@ -50,6 +51,7 @@ namespace dipu::native {
 
   static void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
+    DIPUGuard guard(src.device());
 
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
@@ -75,15 +77,14 @@ namespace dipu::native {
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-
+    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
-    // not support between device copy now, need enhance!
-    deviceId_t devid = current_device();
 
-    dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, devid, dst_ptr, devid, src_ptr);
+    dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
+                                   src.device().index(), src_ptr);
     if (non_blocking) {
         DIPU_LOGE("Copy between devices with " \
             "non_blocking is not supported now ");
@@ -93,7 +94,7 @@ namespace dipu::native {
     }
   }
 
-  inline void doRealCp(at::Tensor& self, const at::Tensor& src,  bool non_blocking) {
+  inline void doRealCp(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
         // src is cpu.
         copy_H2D(self, src, non_blocking);

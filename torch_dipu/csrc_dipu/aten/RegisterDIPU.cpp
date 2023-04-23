@@ -16,11 +16,13 @@ namespace {
         c10::optional<at::Layout> layout_opt,
         c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt,
         c10::optional<at::MemoryFormat> memory_format_opt) {
+    const DeviceGuard device_guard(device_or_default(device_opt));
     return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt, memory_format_opt);
   }
 
   at::Tensor wrapper_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
+    const DeviceGuard device_guard(device_or_default(device_opt));
     return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
   }
 
@@ -50,14 +52,23 @@ namespace {
   }
 
   at::Tensor wrapper_DIPU__view(const at::Tensor & self, c10::SymIntArrayRef size) {
-      // No device check
+    // No device check
     // DeviceGuard omitted
     return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 
-  at::Tensor & wrapper_DIPU__zero_(at::Tensor & self) {
-      // No device check
+  at::Tensor wrapper_DIPU__view_as_real(const at::Tensor & self) {
     // DeviceGuard omitted
+    return at::native::view_as_real(self);
+  }
+  
+  at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor & self) {
+    // DeviceGuard omitted
+    return at::native::view_as_complex(self);
+  }
+
+  at::Tensor & wrapper_DIPU__zero_(at::Tensor & self) {
+    const OptionalDeviceGuard device_guard(device_of(self));
     return at::native::zero_(self);
   }
 
@@ -70,9 +81,9 @@ namespace {
       return dnative::relu(self);
   }
 
-at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
-  return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
-}
+  at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
+    return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
+  }
 
   at::Tensor& wrapperReluInp(at::Tensor & self) {
       return dnative::relu_(self);
@@ -208,6 +219,8 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("resize_", TORCH_FN(wrapper_resize_));
   m.impl("as_strided", TORCH_FN(wrapper_DIPU__as_strided));
   m.impl("view", TORCH_FN(wrapper_DIPU__view));
+  m.impl("view_as_real", TORCH_FN(wrapper_DIPU__view_as_real));
+  m.impl("view_as_complex", TORCH_FN(wrapper_DIPU__view_as_complex));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
