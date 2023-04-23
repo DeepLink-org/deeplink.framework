@@ -197,7 +197,7 @@ class ReduceMean(Operator):
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
-        self.torch_op = aten.mean.dim
+        self.torch_op = aten.mean
 
 
 class Var(Operator):
@@ -353,6 +353,14 @@ class FullLike(Operator):
         self.x = x
         self.value = value
         self.torch_op = aten.full_like
+
+
+class Full(Operator):
+    def __init__(self, dims, value):
+        super().__init__("full")
+        self.dims = dims
+        self.value = value
+        self.torch_op = aten.full
 
 
 class AddMm(Operator):

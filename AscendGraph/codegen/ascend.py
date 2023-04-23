@@ -10,7 +10,7 @@ from io import StringIO
 
 graph_id = 0
 
-need_node = ['add', 'mul', 'div', 'view', 'scatter',
+need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor']
 
 def get_graph_id():
@@ -863,6 +863,44 @@ class AscendOverrides:
                        graph.AddOp({name});"""
 
         return src_code
+
+
+    @staticmethod
+    def full(name, dims, fill_value, node):
+        dims = dims.split('{')[-1].split('}')[0].split(', ')
+        if len(dims) == 0:
+            dims = [1]
+        torch_dtype = node.kwargs['dtype']
+        dims_str = '{' + ','.join(list(map(str, dims))) + '}'
+        cpp_dtype = get_cpp_dtype(torch_dtype)
+        ascend_dtype = get_ascend_dtype(torch_dtype)
+        src_code = f"""
+                    std::vector<int> {name}_axes_value {dims_str};
+                    std::vector<int64_t> {name}_axes_tensor_shape;
+                    if ({name}_axes_value.size() != 0) {{
+                        {name}_axes_tensor_shape.push_back({name}_axes_value.size());
+                    }}
+                    auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
+                    setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
+                    auto {name}_axes = op::Const("{name}_axes")
+                        .set_attr_value({name}_axes_tensor);
+
+                    auto {name}_val_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
+                    {cpp_dtype} {name}_val_value = {fill_value};
+                    setTensorData({name}_val_tensor, reinterpret_cast<uint8_t*>(&{name}_val_value), sizeof({cpp_dtype}), "{name}_val");
+                    auto {name}_val = op::Const("{name}_val")
+                        .set_attr_value({name}_val_tensor);
+
+                    auto {name} = op::Fill("{name}")
+                        .set_input_dims({name}_axes)
+                        .set_input_value({name}_val);
+                    graph.AddOp({name}_axes);
+                    graph.AddOp({name}_val);
+                    graph.AddOp({name});
+                    """
+
+        return src_code
+
 
     @staticmethod
     def scatter(name, var, dim, index, value, node):

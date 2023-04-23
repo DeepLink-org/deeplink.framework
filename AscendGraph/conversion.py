@@ -146,7 +146,7 @@ def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
 
 @registe_conversion(torch.ops.aten.mean)
-def mean(x, dims, keepdim):
+def mean(x, dims=[], keepdim=False):
     return ascend_op.ReduceMean(x, dims, keepdim)
 
 @registe_conversion(torch.ops.aten.var)
@@ -177,6 +177,11 @@ def identity(x, idx):
 def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.FullLike(x, value)
+
+@registe_conversion(torch.ops.aten.full.default)
+def full(dims, value, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False):
+    return ascend_op.Full(dims, value)
 
 @registe_conversion(torch.ops.aten.max_pool2d_with_indices)
 def maxpool2d(input, kernel_size, stride, padding):
