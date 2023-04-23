@@ -21,7 +21,7 @@ $functions_code
 namespace at {
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
-    $op_registe_code
+    $op_register_code
 }
 
 }  // namespace at
@@ -54,7 +54,7 @@ $cppsignautre {
 }
 """
 
-op_registe_template_content = \
+op_register_template_content = \
 """
 DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
 """

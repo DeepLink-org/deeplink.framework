@@ -2,7 +2,7 @@ import yaml
 import re
 import json
 from typing import Mapping, Match, Optional, Sequence
-from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_registe_template_content
+from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_register_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -103,6 +103,7 @@ def create_param_list_from_schema(schema):
     param_list = re.sub('Scalar', 'at::Scalar' , param_list)
     param_list = re.sub('SymInt\[\d+\]', 'c10::SymIntArrayRef' , param_list)
     param_list = re.sub('int *\[ *\d+\ *]', 'at::IntArrayRef' , param_list)
+    param_list = re.sub('bool\[(\d+)\]', R'::std::array<bool,\1>' , param_list)
     param_list = re.sub('\*[ ,]+', '', param_list)
     param_list = re.sub('=.+,', ',', param_list)
     param_list = re.sub('=.+', '', param_list)
@@ -284,7 +285,7 @@ file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
-op_registe_template = CodeTemplate(op_registe_template_content)
+op_register_template = CodeTemplate(op_register_template_content)
 
 
 def functions_code_gen(fun_config):
@@ -296,7 +297,8 @@ def functions_code_gen(fun_config):
 
     input_process_code = ""
     diopi_tensor_suffix = 'DiopiTensorHandle'
-    for input in get_function_inputs_from_schema(fun_config['schema']):
+
+    for input in set(get_function_inputs_from_schema(fun_config['schema']) + fun_config.get('ins', [])):
         if input.strip().endswith('?'):
             input = input.replace('?', '')
             input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
@@ -309,7 +311,7 @@ def functions_code_gen(fun_config):
 
 
     output_process_code = ""
-    for output in get_function_outputs_from_schema(fun_config['schema']):
+    for output in set(get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])):
         output_process_code += f"::diopiTensorHandle_t {output}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
         diopi_fun_call_code = re.sub(output.strip() + '([,\) ]{1})', f"{output.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
 
@@ -360,12 +362,12 @@ def functions_code_gen(fun_config):
             return_code=[return_code],
     )
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
-    registe_body = op_registe_template.substitute(
+    register_body = op_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config['schema'])],
             aten_fun_name=['dipu::native::' + create_fun_name_from_schema(fun_config['schema'])],
             diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
     )
-    return fbody, registe_body
+    return fbody, register_body
 
 def boolean_string(s):
     if s not in {'False', 'True'}:
@@ -378,7 +380,7 @@ def parase_args():
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
     parser.add_argument('--dummy_call_diopi', default=False, type=boolean_string, help='whether acctually call diopi interface')
-    parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='generate code that prints function call information')
+    parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='wheher generate code that prints function call information')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
 
     args = parser.parse_args()
@@ -393,7 +395,7 @@ def main():
 
 
     functions_code = ''
-    op_registe_code = ''
+    op_register_code = ''
 
     for fun_config in funcs_config:
         mergeed_fun_config = dict(args.fun_config_dict)
@@ -401,12 +403,12 @@ def main():
         mergeed_fun_config.update(fun_config)
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
-        if fun_config.get('registe_op', True) == True:
-            op_registe_code += register_code
+        if fun_config.get('register_op', True) == True:
+            op_register_code += register_code
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],
-        op_registe_code=[op_registe_code]
+        op_register_code=[op_register_code]
     )
     autogened_file = re.sub(R'\n{3,}', R'\n\n', autogened_file)
     autogened_file = re.sub('[ ]*,[ ]*', ', ', autogened_file)
