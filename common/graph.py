@@ -27,6 +27,8 @@ class GraphTransformer:
         elif backend == 'ascendgraph':
             from third_party.DICP.AscendGraph.opset_convert import ascendgraph_opset_convert
             self.backend_opset_transform = ascendgraph_opset_convert
+            from third_party.DICP.AscendGraph.codegen.ascend import AscendCodegen
+            self.backend_codegen = AscendCodegen
 
     def transform(self):
         self.gm = self.backend_opset_transform(self.gm)

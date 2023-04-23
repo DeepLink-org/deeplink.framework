@@ -1,5 +1,9 @@
 import torch
 from typing import Tuple
+from contextlib import nullcontext
+from torch.fx.experimental.symbolic_shapes import ShapeEnv
+from torch._subclasses import FakeTensor, FakeTensorMode
+from torch._functorch import config
 
 aten = torch.ops.aten
 
@@ -8,9 +12,23 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
+        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+        self.fake_mode = (
+            FakeTensorMode(shape_env=self.shape_env)
+            if config.use_fake_tensor
+            else nullcontext()
+        )
     
     def __call__(self, *args, **kwargs):
         new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        fake_mode = None
+        for arg in new_args:
+            if isinstance(arg, FakeTensor):
+                fake_mode = arg.fake_mode
+                break
+        if fake_mode is None:
+            fake_mode = self.fake_mode
+        new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
         return self.torch_op(*new_args, **kwargs)
 
 
@@ -32,7 +50,7 @@ class AddV2(Operator):
 
 class MatMul(Operator):
     def __init__(self, a, b):
-        super().__init__("matmul")
+        super().__init__("mm")
         self.a = a
         self.b = b
         self.torch_op = aten.matmul
@@ -113,7 +131,7 @@ class Sum(Operator):
 
 class ReduceSumD(Operator):
     def __init__(self, x, dims, keepdim):
-        super().__init__("reducesum")
+        super().__init__("sum")
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
@@ -122,7 +140,7 @@ class ReduceSumD(Operator):
 
 class Copy(Operator):
     def __init__(self, a):
-        super().__init__("copy")
+        super().__init__("clone")
         self.a = a
         self.torch_op = aten.clone
 
@@ -157,21 +175,54 @@ class ExpandD(Operator):
         self.x = x
         self.dims = dims
 
+    def __call__(self, x, dims):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        return x.expand(dims)
+
+
 class ScatterElement(Operator):
-    def __init__(self, x, dims, index, reduce):
-        super().__init__("scatterelement")
+    def __init__(self, x, dims, index, value):
+        super().__init__("scatter")
         self.x = x
         self.dims = dims
         self.index = index
-        self.reduce = reduce
+        self.value = value
+        self.torch_op = aten.scatter
+
 
 class ReduceMean(Operator):
     def __init__(self, x, dims, keepdim):
-        super().__init__("reducemean")
+        super().__init__("mean")
         self.x = x
         self.dims = dims
         self.keepdim = keepdim
         self.torch_op = aten.mean
+
+
+class Var(Operator):
+    def __init__(self, x, dims, correction, keepdim):
+        super().__init__("var")
+        self.x = x
+        self.dims = dims
+        self.correction = correction
+        self.keepdim = keepdim
+
+    def __call__(self, x, dims, correction, keepdim):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        prod_value = 1
+        for i, s in enumerate(x.size()):
+            if i not in dims:
+                prod_value = prod_value * s
+        assert(prod_value - correction != 0)
+        div_value = 1.0 / (prod_value - correction)
+        meanVal = aten.mean.dim(x, dims, keepdim)
+        broadCast = aten.broadcast_to(meanVal, x.shape)
+        subVal = aten.sub(x, broadCast)
+        square = aten.square(subVal)
+        sumSquare = aten.sum(square, dims, keepdim)
+        return aten.mul(sumSquare, div_value)
 
 
 class Amax(Operator):
@@ -185,7 +236,7 @@ class Amax(Operator):
 
 class GatherD(Operator):
     def __init__(self, x, dims, index):
-        super().__init__("gatherd")
+        super().__init__("gather")
         self.x = x
         self.dims = dims
         self.index = index
@@ -211,7 +262,7 @@ class Ne(Operator):
 
 class LessEqual(Operator):
     def __init__(self, a, b):
-        super().__init__("lessequal")
+        super().__init__("le")
         self.a = a
         self.b = b
         self.torch_op = aten.le
@@ -235,7 +286,7 @@ class Conv2D(Operator):
 
 class TranShape(Operator):
     def __init__(self, x, shape):
-        super().__init__("transhape")
+        super().__init__("view")
         self.x = x
         self.shape = shape
         self.torch_op = aten.reshape
@@ -243,11 +294,16 @@ class TranShape(Operator):
 
 class Identity(Operator):
     def __init__(self, x, idx):
-        super().__init__("identity")
+        super().__init__("getitem")
         self.x = x
         self.idx = idx
 
     def __call__(self, x, idx):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        x = x[idx]
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
         return aten.clone(x)
 
 
@@ -258,7 +314,9 @@ class Pad(Operator):
         self.padding = padding
 
     def __call__(self, x, padding):
-        shape = x.shape
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        shape = x.size()
         for i in range(len(shape)):
             shape[i] += padding
         return aten.zeros(shape)
@@ -273,14 +331,6 @@ class MaxPoolWithArgmax(Operator):
         self.torch_op = aten.max_pool2d
 
 
-class BroadcastTo(Operator):
-    def __init__(self, input, shape):
-        super().__init__("broadcastto")
-        self.input = input
-        self.shape = shape
-        self.torch_op = aten.broadcast_to
-
-
 class SquareSumV1(Operator):
     def __init__(self, x, dims, keepdim):
         super().__init__("squaresum")
@@ -289,28 +339,52 @@ class SquareSumV1(Operator):
         self.keepdim = keepdim
 
     def __call__(self, x, dims, keepdim):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
         square = aten.square(x)
         return aten.sum(square, dims, keepdim)
 
 
-class Shape(Operator):
-    def __init__(self, x):
-        super().__init__("shape")
-        self.x = x
-        self.torch_op = aten.clone
-
-
 class FullLike(Operator):
     def __init__(self, x, value):
-        super().__init__("fulllike")
+        super().__init__("zeros_like")
+        #TODO! only handles cases for zero
+        assert value == 0
         self.x = x
         self.value = value
         self.torch_op = aten.full_like
 
 
+class Full(Operator):
+    def __init__(self, dims, value):
+        super().__init__("full")
+        self.dims = dims
+        self.value = value
+        self.torch_op = aten.full
+
+
+class AddMm(Operator):
+    def __init__(self, input, mat1, mat2):
+        super().__init__("addmm")
+        self.input = input
+        self.mat1 = mat1
+        self.mat2 = mat2
+        self.torch_op = aten.addmm
+
+
+class MaxPool(Operator):
+    def __init__(self, input, kernel_size, stride, padding):
+        super().__init__("max_pool2d_with_indices")
+        self.input = input
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.torch_op = aten.max_pool2d_with_indices
+
+
 class MaxPoolGradWithArgmaxV1(Operator):
     def __init__(self, input, grad, argmax, ksize, strides, pads, dilation, ceil_mode):
-        super().__init__("maxpoolgradwithargmaxv1")
+        super().__init__("max_pool2d_with_indices_backward")
         self.input = input
         self.grad = grad
         self.argmax = argmax
@@ -319,24 +393,43 @@ class MaxPoolGradWithArgmaxV1(Operator):
         self.pads = pads
         self.dilation = dilation
         self.ceil_mode = ceil_mode
+        self.torch_op = aten.max_pool2d_with_indices_backward
 
-    def __call__(self, input, grad, argmax, ksize, strides, pads, dilation, ceil_mode):
-        return aten.max_pool2d_with_indices_backward(grad, input, ksize, strides, pads, dilation, ceil_mode, argmax)
+
+class ConvBackward(Operator):
+    def __init__(self, grad, input, weight, bias,
+                stride, padding, dilation, transposed,
+                output_padding, groups, output_masks):
+        super().__init__("convolution_backward")
+        self.input = input
+        self.grad = grad
+        self.weight = weight
+        self.bias = bias
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.transposed = transposed
+        self.output_padding = output_padding
+        self.groups = groups
+        self.output_masks = output_masks
+        self.torch_op = aten.convolution_backward
 
 
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
+    if hasattr(a, 'meta'):
+        a = a.meta['val']
+    if hasattr(b, 'meta'):
+        b = b.meta['val']
     return aten.add(a, b)
 
 @torch.fx.wrap
-def matmul(a, b) -> torch.Tensor:
-    return aten.matmul(a, b)
-
-@torch.fx.wrap
 def pad(x, padding) -> torch.Tensor:
-    shape = x.shape
+    if hasattr(x, 'meta'):
+        x = x.meta['val']
+    shape = list(x.size())
     for i in range(len(shape)):
-        shape[i] += padding
+        shape[i] = shape[i] + padding
     return aten.zeros(shape)
 
 @torch.fx.wrap
@@ -344,43 +437,57 @@ def maxpoolwithargmax(input, kernel_size, stride) -> torch.Tensor:
     return aten.max_pool2d(input, kernel_size, stride)
 
 @torch.fx.wrap
-def broadcastto(x, shape) -> torch.Tensor:
-    return aten.broadcast_to(x, shape)
-
-@torch.fx.wrap
 def squaresum(x, dims, keepdim) -> torch.Tensor:
     square = aten.square(x)
     return aten.sum(square, dims, keepdim)
 
 @torch.fx.wrap
-def shape(x) -> torch.Tensor:
-    return aten.tensor(x.shape)
-
-@torch.fx.wrap
 def conv2dbackpropfilter(grad, input, weight, bias,
         stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
-    output_masks = aten.tensor([True, False, False])
-    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+    output_masks = [True, False, False]
+    if hasattr(grad, 'meta'):
+        grad = grad.meta['val']
+    if hasattr(input, 'meta'):
+        input = input.meta['val']
+    if hasattr(weight, 'meta'):
+        weight = weight.meta['val']
+    return aten.convolution_backward(grad, input, weight, bias,
             stride, padding, dilation, transposed,
             output_padding, groups, output_masks)
 
 @torch.fx.wrap
 def conv2dbackpropinput(grad, input, weight, bias,
         stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
-    output_masks = aten.tensor([False, True, False])
-    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+    output_masks = [False, True, False]
+    if hasattr(grad, 'meta'):
+        grad = grad.meta['val']
+    if hasattr(input, 'meta'):
+        input = input.meta['val']
+    if hasattr(weight, 'meta'):
+        weight = weight.meta['val']
+    return aten.convolution_backward(grad, input, weight, bias,
             stride, padding, dilation, transposed,
             output_padding, groups, output_masks)
 
 @torch.fx.wrap
 def biasaddgrad(grad, input, weight, bias,
         stride, padding, dilation, transposed, output_padding, groups, output_masks) -> torch.Tensor:
-    output_masks = aten.tensor([False, False, True])
-    return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+    output_masks = [False, False, True]
+    if hasattr(grad, 'meta'):
+        grad = grad.meta['val']
+    if hasattr(input, 'meta'):
+        input = input.meta['val']
+    if hasattr(weight, 'meta'):
+        weight = weight.meta['val']
+    return aten.convolution_backward(grad, input, weight, bias,
             stride, padding, dilation, transposed,
             output_padding, groups, output_masks)
 
 @torch.fx.wrap
-def ret_tuple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
+
+@torch.fx.wrap
+def ret_tuple(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
+    return a, b
 

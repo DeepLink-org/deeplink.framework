@@ -142,12 +142,16 @@ def matmul(a, b):
     return ascend_op.MatMul(a, b)
 
 @registe_conversion(torch.ops.aten.scatter.value)
-def scatter(x, dims, index, reduce):
-    return ascend_op.ScatterElement(x, dims, index, reduce)
+def scatter(x, dims, index, value):
+    return ascend_op.ScatterElement(x, dims, index, value)
 
 @registe_conversion(torch.ops.aten.mean)
-def mean(x, dims, keepdim):
+def mean(x, dims=[], keepdim=False):
     return ascend_op.ReduceMean(x, dims, keepdim)
+
+@registe_conversion(torch.ops.aten.var)
+def var(x, dims, correction, keepdim):
+    return ascend_op.Var(x, dims, correction, keepdim)
 
 @registe_conversion(torch.ops.aten.amax)
 def amax(x, dims, keepdim):
@@ -174,48 +178,31 @@ def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.FullLike(x, value)
 
+@registe_conversion(torch.ops.aten.full.default)
+def full(dims, value, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False):
+    return ascend_op.Full(dims, value)
+
+@registe_conversion(torch.ops.aten.max_pool2d_with_indices)
+def maxpool2d(input, kernel_size, stride, padding):
+    return ascend_op.MaxPool(input, kernel_size, stride, padding)
+
 @registe_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
 def maxpool2dbackward(grad, input, kernel_size, stride, padding, dilation, ceil_mode, index):
     return ascend_op.MaxPoolGradWithArgmaxV1(input, grad, index, kernel_size, stride, padding, dilation, ceil_mode)
 
+@registe_conversion(torch.torch.ops.aten.addmm)
+def addmm(input, mat1, mat2):
+    return ascend_op.AddMm(input, mat1, mat2)
 
-@registe_pattern
-class ReplaceAddmm:
-    def pattern(input, mat1, mat2):
-        return torch.ops.aten.addmm.default(input, mat1, mat2)
-
-    def replacement(input, mat1, mat2):
-        mul = ascend_op.matmul(mat1, mat2)
-        return ascend_op.addv2(input, mul)
-
-@registe_pattern
-class ReplaceMaxPool:
-    def pattern(input, kernel_size, stride, padding=0):
-        return torch.ops.aten.max_pool2d_with_indices.default(input, kernel_size, stride, padding)
-
-    def replacement(input, kernel_size, stride, padding=0):
-        pad = ascend_op.pad(input, padding)
-        return ascend_op.maxpoolwithargmax(pad, kernel_size, stride)
-
-@registe_pattern
-class ReplaceConv2DBackward:
-    def pattern(grad, input, weight, bias,
+@registe_conversion(torch.ops.aten.convolution_backward)
+def convolutionbackward(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks):
-        return torch.ops.aten.convolution_backward.default(grad, input, weight, bias,
+    return ascend_op.ConvBackward(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks)
 
-    def replacement(grad, input, weight, bias,
-                stride, padding, dilation, transposed,
-                output_padding, groups, output_masks):
-        result = ascend_op.ret_tuple(ascend_op.conv2dbackpropfilter(grad, input, weight, bias,
-                    stride, padding, dilation, transposed, output_padding, groups, output_masks),
-                  ascend_op.conv2dbackpropinput(grad, input, weight, bias,
-                    stride, padding, dilation, transposed, output_padding, groups, output_masks),
-                  ascend_op.biasaddgrad(grad, input, weight, bias,
-                    stride, padding, dilation, transposed, output_padding, groups, output_masks))
-        return result
 
 @registe_pattern
 class ReplaceVarMean:
@@ -223,11 +210,7 @@ class ReplaceVarMean:
         return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
     def replacement(input, dims):
-        mean = torch.ops.aten.mean(input, dims, True)
-        shape = ascend_op.shape(input)
-        broadcast = ascend_op.broadcastto(mean, shape)
-        sub = torch.ops.aten.sub(input, broadcast)
-        square = ascend_op.squaresum(sub, dims, True)
-        var = torch.ops.aten.mul(square, 1 / (64 - 1))
-        return ascend_op.ret_tuple(mean, var)
+        meanVal = torch.ops.aten.mean(input, dims, True)
+        varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
+        return ascend_op.ret_tuple(varVal, meanVal)
 
