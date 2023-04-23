@@ -52,17 +52,18 @@ namespace {
   }
 
   at::Tensor wrapper_DIPU__view(const at::Tensor & self, c10::SymIntArrayRef size) {
-    const OptionalDeviceGuard device_guard(device_of(self));
+    // No device check
+    // DeviceGuard omitted
     return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 
   at::Tensor wrapper_DIPU__view_as_real(const at::Tensor & self) {
-    const OptionalDeviceGuard device_guard(device_of(self));
+    // DeviceGuard omitted
     return at::native::view_as_real(self);
   }
   
   at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor & self) {
-    const OptionalDeviceGuard device_guard(device_of(self));
+    // DeviceGuard omitted
     return at::native::view_as_complex(self);
   }
 

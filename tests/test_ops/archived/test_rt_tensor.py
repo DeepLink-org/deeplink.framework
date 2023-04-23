@@ -160,6 +160,11 @@ def test_complex_type():
     z3 = z1 + z2 
     print(z3)
 
+    dipu.set_device(0)
+    # test device change and view on different device.
+    zr = torch.view_as_real(z3)
+    print(zr.cpu)
+
 if __name__ == '__main__':
     for i in range(1, 2):
         empty1()
