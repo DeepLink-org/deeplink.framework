@@ -66,30 +66,14 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
-  at::Tensor wrapperRelu(const at::Tensor & self) {
-      return dnative::relu(self);
-  }
-
 at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
   return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
 }
-
-  at::Tensor& wrapperReluInp(at::Tensor & self) {
-      return dnative::relu_(self);
-  }
 
   at::Tensor wrapperConvolution2d(
       const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
       at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
     return dnative::conv2d(input, weight, bias, stride, padding, dilation, groups);
-  }
-
-  at::Tensor & wrapperGeneratorOutRandpermOut(int64_t n, c10::optional<at::Generator> generator, at::Tensor & out) {
-    return dnative::randperm_out(n, generator, out);
-  }
-
-  at::Tensor & wrapperOutRandpermOut(int64_t n, at::Tensor & out) {
-    return dnative::randperm_out(n, out);
   }
 
   at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
@@ -177,12 +161,8 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
   DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
-  DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
-  DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);

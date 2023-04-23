@@ -149,3 +149,17 @@
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
 
+- schema: "relu_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiReluInp(ctx, self)
+
+- schema: "relu(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: auto out = at::empty_like(self);
+  interface: diopiRelu(ctx, out, self)
+
+- schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRandperm(ctx, out, n, 0)
+
+- schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandperm(ctx, out, n, seed)

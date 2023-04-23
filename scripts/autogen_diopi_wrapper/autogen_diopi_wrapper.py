@@ -94,7 +94,12 @@ def create_param_list_from_schema(schema):
     param_list = param_list[0:param_list.rfind(')')]
     param_list = re.sub('[ ]*\([a-zA-Z]!\)', '&' , param_list)
     param_list = re.sub('str\?', 'c10::optional<c10::string_view>' , param_list)
+    param_list = re.sub('ScalarType?\?', 'c10::optional<at::ScalarType>' , param_list)
+    param_list = re.sub('Generator?\?', 'c10::optional<at::Generator>' , param_list)
+    param_list = re.sub('Layout?\?', 'c10::optional<at::Layout>' , param_list)
     param_list = re.sub('Tensor\?', 'const c10::optional<Tensor>&' , param_list)
+    param_list = re.sub('([\(, ]*)int ([\w\d_]+)', R'\1int64_t \2', param_list)
+    param_list = re.sub('([\(, ]*)float ([\w\d_]+)', R'\1double \2', param_list)
     param_list = re.sub('([a-zA-Z0-9]+)\?', r'c10::optional<\1>&', param_list)
     param_list = re.sub('Tensor *\[ *\]', 'at::ArrayRef<Tensor>' , param_list)
     param_list = re.sub('Tensor ', 'const Tensor& ' , param_list)
@@ -107,8 +112,6 @@ def create_param_list_from_schema(schema):
     param_list = re.sub('\*[ ,]+', '', param_list)
     param_list = re.sub('=.+,', ',', param_list)
     param_list = re.sub('=.+', '', param_list)
-    param_list = re.sub(' float', ' double ', param_list)
-    param_list = re.sub(' int', ' int64_t ', param_list)
     return param_list
 
 def get_function_inputs_from_schema(schema):
