@@ -383,7 +383,7 @@ def parase_args():
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
     parser.add_argument('--dummy_call_diopi', default=False, type=boolean_string, help='whether acctually call diopi interface')
-    parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='wheher generate code that prints function call information')
+    parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
 
     args = parser.parse_args()
