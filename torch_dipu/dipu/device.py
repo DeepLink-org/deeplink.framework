@@ -10,10 +10,10 @@ __diputype__ = 'privateuseone'
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
 
-class MetaType(type):
-    device = torch.device
-    def __instancecheck__(self, instance):
-        if isinstance(instance, MetaType.device):
+class _MetaDeviceType(type):
+    device_ = torch.device
+    def __instancecheck__(cls, instance):
+        if isinstance(instance, _MetaDeviceType.device_):
             return True
         return False
 
@@ -21,7 +21,7 @@ class MetaType(type):
 # csrc/Device.cpp THPDevice_pynew:
 # "Device(Device device)" Device type can be Device, Long, String
 # "Device(c10::string_view type, int64_t? index=-1)"
-class _DIPUDevice(metaclass=MetaType):
+class _DIPUDevice(metaclass=_MetaDeviceType):
     @staticmethod
     def __doreplace(arg):
         if (__dipu__ in arg):
@@ -34,7 +34,7 @@ class _DIPUDevice(metaclass=MetaType):
         if len(args) == 1 and isinstance(args[0], int) and mockcuda:
             # modify default int device type only when "mock cuda".
             dev_name = __diputype__ + ":" + str(args[0])
-            return MetaType.device(dev_name)
+            return _MetaDeviceType.device_(dev_name)
         # handle device as str
         if len(args) >= 1 and isinstance(args[0], str):
             argList = list(args)
@@ -44,7 +44,7 @@ class _DIPUDevice(metaclass=MetaType):
         deviceValue = kwargs.get("type", None)
         if deviceValue != None and isinstance(deviceValue, str):
             kwargs["type"] = cls.__doreplace(deviceValue)
-        return MetaType.device(*args, **kwargs)
+        return _MetaDeviceType.device_(*args, **kwargs)
 
 torch.device = _DIPUDevice
 

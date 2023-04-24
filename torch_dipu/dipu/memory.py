@@ -194,3 +194,6 @@ def memory_summary(device=None, abbreviated=False):
         fmt_dict[k.replace(".", "-")] = v
     return "|" + "|\n|".join(lines).format(**fmt_dict) + "|\n"
 
+def reset_peak_memory_stats():
+    pass
+
