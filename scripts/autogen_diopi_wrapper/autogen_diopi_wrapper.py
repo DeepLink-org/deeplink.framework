@@ -1,6 +1,7 @@
 import yaml
 import re
 import json
+from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_register_template_content
 
@@ -89,30 +90,35 @@ def create_return_code_frome_schema(schema):
     return_code = re.sub('\)', '> ' ,return_code)
     return return_code
 
+
 def create_param_list_from_schema(schema):
     param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
     param_list = param_list[0:param_list.rfind(')')]
-    param_list = re.sub('[ ]*\([a-zA-Z]!\)', '&' , param_list)
-    param_list = re.sub('str\?', 'c10::optional<c10::string_view>' , param_list)
-    param_list = re.sub('ScalarType?\?', 'c10::optional<at::ScalarType>' , param_list)
-    param_list = re.sub('Generator?\?', 'c10::optional<at::Generator>' , param_list)
-    param_list = re.sub('Layout?\?', 'c10::optional<at::Layout>' , param_list)
-    param_list = re.sub('Tensor\?', 'const c10::optional<Tensor>&' , param_list)
-    param_list = re.sub('([\(, ]*)int ([\w\d_]+)', R'\1int64_t \2', param_list)
-    param_list = re.sub('([\(, ]*)float ([\w\d_]+)', R'\1double \2', param_list)
-    param_list = re.sub('([a-zA-Z0-9]+)\?', r'c10::optional<\1>&', param_list)
-    param_list = re.sub('Tensor *\[ *\]', 'at::ArrayRef<Tensor>' , param_list)
-    param_list = re.sub('Tensor ', 'const Tensor& ' , param_list)
-    param_list = re.sub('Scalar ', 'const Scalar& ' , param_list)
-    param_list = re.sub('Tensor', 'at::Tensor' , param_list)
-    param_list = re.sub('Scalar', 'at::Scalar' , param_list)
-    param_list = re.sub('SymInt\[\d+\]', 'c10::SymIntArrayRef' , param_list)
-    param_list = re.sub('int *\[ *\d+\ *]', 'at::IntArrayRef' , param_list)
-    param_list = re.sub('bool\[(\d+)\]', R'::std::array<bool,\1>' , param_list)
-    param_list = re.sub('\*[ ,]+', '', param_list)
-    param_list = re.sub('=.+,', ',', param_list)
-    param_list = re.sub('=.+', '', param_list)
+    argsTypeMap = OrderedDict({
+        '[ ]*\([a-zA-Z]!\)' : '&',
+        'str\?' : 'c10::optional<c10::string_view>',
+        'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
+        'Generator ?\?' : 'c10::optional<at::Generator>' ,
+        'Layout ?\?' : 'c10::optional<at::Layout>' ,
+        'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
+        '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
+        '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
+        '([a-zA-Z0-9]+)\?' : r'c10::optional<\1>&',
+        'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
+        'Tensor ' : 'const Tensor& ' ,
+        '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
+        'Tensor' : 'at::Tensor' ,
+        '([, \(]+)int\[\d\]\?' : R'\1at::OptionalIntArrayRef',
+        'SymInt\[\d+\]' : 'c10::SymIntArrayRef' ,
+        'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
+        'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
+        '\*[ ,]+' : '',
+        '=[ ]*\w+[\d ]?' : '',
+    })
+    for pattern, cpp_type in argsTypeMap.items():
+        param_list = re.sub(str(pattern), str(cpp_type), param_list)
     return param_list
+
 
 def get_function_inputs_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
@@ -128,9 +134,8 @@ def get_function_inputs_from_schema(schema):
         if opt_tensor_match_result is not None:
             opt_tensor = re.sub('const[ ]+c10::optional<at::Tensor>[ &]*([a-zA-Z_]+)', r'\1', args).strip()
             ins.append(opt_tensor + '?')
-
-
     return ins
+
 
 def get_function_outputs_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
@@ -157,13 +162,16 @@ def get_function_outputs_from_schema(schema):
 
     return outs
 
+
 def get_function_scalar_args_from_schema(schema):
-    param_list = create_param_list_from_schema(schema)
+    param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
+    param_list = param_list[0:param_list.rfind(')')]
     scalars = []
     for args in param_list.split(','):
         args = args.strip()
-        scalar_match_result = re.search('Scalar[ &]*', args)
-        if scalar_match_result is not None:
+        scalar_match_result = re.search('[ ]?Scalar[ ]+', args)
+        opt_scalar_match_result = re.search('Scalar[ ][\?]+', args)
+        if scalar_match_result is not None and opt_scalar_match_result is None:
             scalar_param = args[scalar_match_result.span()[1]:].strip()
             scalar_param = re.sub('=.*,{1}', ',', scalar_param)
             scalar_param = re.sub('=.*', '', scalar_param)
@@ -176,7 +184,7 @@ def get_function_int_array_args_from_schema(schema):
     int_arrays = []
     for args in param_list.split(','):
         args = args.strip()
-        match_result = re.search('[\w\d:]*IntArray[\w\d]*', args)
+        match_result = re.search('[\w\d:]*SymIntArray[\w\d]*', args)
         if match_result is not None:
             int_array_param = args[match_result.span()[1]:].strip()
             int_array_param = re.sub('=.*,{1}', ',', int_array_param)
@@ -205,6 +213,7 @@ def get_function_return_param_from_schema(schema):
             params.append(param)
 
     return params
+
 
 def create_call_diop_interface_code_from_schema(schema):
     schema = schema.replace('aten::', '').strip()

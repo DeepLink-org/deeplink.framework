@@ -124,12 +124,6 @@
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
-  custom_code_before_return: >
-    dipu::getCurrentDIPUStream().synchronize();
-    printf("native_batch_norm_backward over\n");
-  custom_code_before_call_diopi: >
-    printf("start  enter diopiBatchNormBackward\n");
-    dipu::getCurrentDIPUStream().synchronize();
 
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
@@ -163,3 +157,8 @@
   custom_code_at_the_beginning: >
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandperm(ctx, out, n, seed)
+
+- schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiSum(ctx, out, self, diopi_size)
