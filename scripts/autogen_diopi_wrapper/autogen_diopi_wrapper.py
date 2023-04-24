@@ -94,7 +94,7 @@ def create_return_code_frome_schema(schema):
 def create_param_list_from_schema(schema):
     param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
     param_list = param_list[0:param_list.rfind(')')]
-    argsTypeMap = OrderedDict({
+    args_type_map = OrderedDict({
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
@@ -115,7 +115,7 @@ def create_param_list_from_schema(schema):
         '\*[ ,]+' : '',
         '=[ ]*\w+[\d ]?' : '',
     })
-    for pattern, cpp_type in argsTypeMap.items():
+    for pattern, cpp_type in args_type_map.items():
         param_list = re.sub(str(pattern), str(cpp_type), param_list)
     return param_list
 
