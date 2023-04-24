@@ -1,10 +1,14 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  registe_op: False  # Whether generate registe code for this op, default value is True
-  debug: False # Whether generate debug code for this op, defalut value is False
+  register_op: False  # Whether generate registe code for this op, default value is True
+  print_func_call_info: False # wheher generate code that prints function call information
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
   custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
-  custom_code_before_call_diopi: "/* Here can be a piece of c++ code before call diopi*/"
-  custom_code_before_return: "/* Here can be a piece of c++ code before return*/"
+  custom_code_before_call_diopi: >
+    std::cout << "self:" << self << std::endl;
+    std::cout << "other:" << other << std::endl;
+  custom_code_before_return: >
+    dipu::getCurrentDIPUStream().synchronize();
+    std::cout << "out:" << out << std::endl;
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
@@ -112,6 +116,15 @@
     auto out2 = at::empty({dim_c}, options);
   interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
+- schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
+  custom_code_at_the_beginning: >
+    int64_t dim_c = input.size(1);
+    auto options = input.options().dtype(at::kFloat);
+    at::Tensor out0 = at::empty(input.sizes(), input.options());
+    at::Tensor out1 = at::empty({dim_c}, options);
+    at::Tensor out2 = at::empty({dim_c}, options);
+  interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
+
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
@@ -130,3 +143,22 @@
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
 
+- schema: "relu_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiReluInp(ctx, self)
+
+- schema: "relu(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: auto out = at::empty_like(self);
+  interface: diopiRelu(ctx, out, self)
+
+- schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRandperm(ctx, out, n, 0)
+
+- schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandperm(ctx, out, n, seed)
+
+- schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiSum(ctx, out, self, diopi_size)

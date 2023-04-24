@@ -61,7 +61,7 @@ namespace {
     // DeviceGuard omitted
     return at::native::view_as_real(self);
   }
-  
+
   at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor & self) {
     // DeviceGuard omitted
     return at::native::view_as_complex(self);
@@ -77,65 +77,14 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
-  at::Tensor wrapperRelu(const at::Tensor & self) {
-      return dnative::relu(self);
-  }
-
   at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
     return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
-  }
-
-  at::Tensor& wrapperReluInp(at::Tensor & self) {
-      return dnative::relu_(self);
-  }
-
-  ::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNorm(
-      const at::Tensor & input, const c10::optional<at::Tensor> & weight,
-      const c10::optional<at::Tensor> & bias,
-      const c10::optional<at::Tensor> & running_mean,
-      const c10::optional<at::Tensor> & running_var,
-      bool training, double momentum, double eps) {
-    return dnative::native_batch_norm(input, weight,
-          bias, running_mean, running_var, training, momentum, eps);
-  }
-
-::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> wrapperNativeBatchNormOut(
-    const at::Tensor & input, const c10::optional<at::Tensor> & weight,
-    const c10::optional<at::Tensor> & bias,
-    const c10::optional<at::Tensor> & running_mean,
-    const c10::optional<at::Tensor> & running_var,
-    bool training, double momentum, double eps,
-    at::Tensor & out, at::Tensor & save_mean, at::Tensor & save_invstd) {
-  return dnative::native_batch_norm_out(
-      input, weight, bias, running_mean, running_var,
-      training, momentum, eps, out, save_mean, save_invstd);
-}
-
-  ::std::tuple<at::Tensor,at::Tensor,at::Tensor> wrapperNativeBatchNormBackward(
-      const at::Tensor & grad_out, const at::Tensor & input,
-      const c10::optional<at::Tensor> & weight,
-      const c10::optional<at::Tensor> & running_mean,
-      const c10::optional<at::Tensor> & running_var,
-      const c10::optional<at::Tensor> & save_mean,
-      const c10::optional<at::Tensor> & save_invstd,
-      bool train, double eps, ::std::array<bool,3> output_mask) {
-    return dnative::native_batch_norm_backward(
-          grad_out, input, weight, running_mean, running_var, save_mean,
-          save_invstd, train, eps, output_mask);
   }
 
   at::Tensor wrapperConvolution2d(
       const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
       at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
     return dnative::conv2d(input, weight, bias, stride, padding, dilation, groups);
-  }
-
-  at::Tensor & wrapperGeneratorOutRandpermOut(int64_t n, c10::optional<at::Generator> generator, at::Tensor & out) {
-    return dnative::randperm_out(n, generator, out);
-  }
-
-  at::Tensor & wrapperOutRandpermOut(int64_t n, at::Tensor & out) {
-    return dnative::randperm_out(n, out);
   }
 
   at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
@@ -149,10 +98,6 @@ namespace {
   at::Tensor & wrapperRandomInp(at::Tensor & self, c10::optional<at::Generator> generator) {
     return dnative::random_(self, generator);
   }
-
-at::Tensor & wrapper_sum_out_IntList_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
-  return dnative::sum_out(self, dim, keepdim, dtype, out);
-}
 
 at::Tensor & wrapper_mean_out_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   return dnative::mean_out(self, dim, keepdim, dtype, out);
@@ -225,19 +170,11 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("relu", diopiRelu, wrapperRelu);
   DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("relu_", diopiReluInp, wrapperReluInp);
-  DIOPI_ATEN_FUNC("native_batch_norm", diopiBatchNorm, wrapperNativeBatchNorm);
-  DIOPI_ATEN_FUNC("native_batch_norm.out", diopiBatchNorm, wrapperNativeBatchNormOut);
-  DIOPI_ATEN_FUNC("native_batch_norm_backward", diopiBatchNormBackward, wrapperNativeBatchNormBackward);
   DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
-  DIOPI_ATEN_FUNC("randperm.generator_out", diopiRandperm, wrapperGeneratorOutRandpermOut);
-  DIOPI_ATEN_FUNC("randperm.out", diopiRandperm, wrapperOutRandpermOut);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
-  DIOPI_ATEN_FUNC("sum.IntList_out", diopiSum, wrapper_sum_out_IntList_out);
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
   DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
