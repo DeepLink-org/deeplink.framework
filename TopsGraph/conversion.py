@@ -233,6 +233,9 @@ def select(*args, **kwargs):
 def scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
+@register_conversion(tops_op.warpaddgrad)
+def addgrad(a, b):
+    return tops_op.AddGrad(a, b)
 
 # Patterns
 def register_pattern(Pattern):
@@ -361,10 +364,7 @@ class ReplacePatternConvBack:
         groups,
         output_mask,
     ):
-        # grad_output.dims()
-        # TODO
-        # grad_bias = aten.sum(grad_output, [0] + list(range(2, grad_output.dim())))
-        grad_bias = torch.ops.aten.sum(grad_output, [2])
+        grad_bias = tops_op.warpaddgrad(grad_output, grad_output.dim())
         grad_inp, grad_weight, _ = torch.ops.aten.convolution_backward(
             grad_output,
             inputs,
