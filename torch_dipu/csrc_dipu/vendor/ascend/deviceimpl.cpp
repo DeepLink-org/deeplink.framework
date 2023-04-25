@@ -29,6 +29,26 @@ deviceId_t current_device() {
   DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
 }
+DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+  const char* device_name;
+  size_t device_free;
+  size_t device_total;
+  device_name = aclrtGetSocName();
+  DIPUDeviceProperties prop;
+  if (device_name == nullptr) {
+    prop.name = " ";
+    DIPU_LOGE("Get ascend device name fail.");
+  } else {
+    prop.name = std::string(device_name);
+  }
+  int patch;
+  DIPU_CALLACLRT(::aclrtGetVersion(&prop.major, &prop.minor, &patch));
+  DIPU_CALLACLRT(::aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
+  // NOTE : unit of PhysicalMemoryTotal is MB
+  prop.totalGlobalMem = device_total << 20;
+  prop.multiProcessorCount = 1;
+  return prop;
+}
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
