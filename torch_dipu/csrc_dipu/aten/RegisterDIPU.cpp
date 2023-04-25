@@ -103,10 +103,6 @@ at::Tensor & wrapper_mean_out_out(const at::Tensor & self, at::OptionalIntArrayR
   return dnative::mean_out(self, dim, keepdim, dtype, out);
 }
 
-at::Tensor & wrapper_addmm_out_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out) {
-  return dnative::addmm_out(self, mat1, mat2, beta, alpha, out);
-}
-
 at::Tensor wrapper_linear(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias) {
   return dnative::linear(input, weight, bias);
 }
@@ -176,7 +172,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
-  DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
   DIOPI_ATEN_FUNC("_log_softmax.out", diopiLogSoftmax, wrapper__log_softmax_out_out);
   DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
