@@ -260,13 +260,15 @@ class ReplacePatternRsqrt:
     def replacement(a):
         return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
 
+
 @register_pattern
 class ReplacePatternAddmm:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
 
     def replacement(a, b, c):
-        return torch.ops.aten.add.default(a, torch.ops.aten.mm.default(b, c))
+        
+        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
 
 # %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})

@@ -121,11 +121,11 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         # TODO did not handle squeeze and unsuqeeze
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
-        
+
         op_code = getattr(self.override, target.name())(*args_list)
         self.build_graph_code.splice(arg_code)
-        self.build_graph_code.splice(f'builder::Op {self.args_dict[name]} = {op_code};')
-        
+        self.build_graph_code.splice(f'{op_code}')
+
         return
     
     def output(self, name, target, args, kwargs):
@@ -355,7 +355,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen_args(op_var, args_dict, node, args, flag=False):
         src_code = CodeBlock()
-        args_str = []
+        args_str = [op_var]
         count = 0
         for i in range(len(args)):
             if isinstance(args[i], Node):
@@ -371,13 +371,26 @@ class EnflameOverrides(OpOverrides):
                 args_str.append(f'{op_var}_type{count}')
                 count += 1
             else:
-                if flag:
+                if node.name == "squeeze" or node.name == "unsqueeze":
                     src_code.add_line(f'builder::Type {op_var}_axes_type{count}({"{" + "1" + "}"}, builder::PrimitiveType::S64());')
-                    src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
-                    src_code.add_line(f'builder::Op {op_var}_axes{count} = builder::Const(hlir_builder, ({op_var}_axes{count}_data.data()), {op_var}_axes_type{count});')
+                    if node.name == "squeeze":
+                        axes = args[i]
+                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(axes) + "}"};\n')
+                    elif node.name == "unsqueeze":
+                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
+
+                    src_code.add_line(f'builder::Op {op_var}_axes{count} = builder::Const(hlir_builder, ({op_var}_axes_data{count}.data()), {op_var}_axes_type{count});')
                     args_str.append(f'{op_var}_axes{count}')
                     shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                    src_code.add_line(f"builder::Type {op_var}_output_type{count}({shape}, builder::PrimitiveType::F32());")
+                    data_type = node.meta['val'].dtype.__str__()
+                    if data_type == 'torch.float32':
+                        out_type = 'builder::PrimitiveType::F32()'
+                    elif data_type == 'torch.int64':
+                        out_type = 'builder::PrimitiveType::S64()'
+                    else:
+                        raise ValueError("Unknown data type.")
+
+                    src_code.add_line(f"builder::Type {op_var}_output_type{count}({shape}, {out_type});\n")
                     args_str.append(f"{op_var}_output_type{count}")
                     count += 1
                 else:
@@ -403,16 +416,16 @@ class EnflameOverrides(OpOverrides):
         return f'builder::Reciprocal({x})'
 
     @staticmethod
-    def add(x, y):
-        return f'builder::Add({x}, {y})'
+    def add(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Add({x}, {y});"
  
     @staticmethod
-    def sub(x, y):
-        return f'builder::Sub({x}, {y})'
+    def sub(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Sub({x}, {y});"
     
     @staticmethod
-    def mul(x, y):
-        return f'builder::Mul({x}, {y})'
+    def mul(op_var, x, y):
+        return f'builder::Op {op_var} = builder::Mul({x}, {y});'
     
     @staticmethod
     def div(x, y):
@@ -439,17 +452,17 @@ class EnflameOverrides(OpOverrides):
         return f'builder::Relu({x})'
     
     @staticmethod
-    def lessequal(x, y):
-        return f'builder::LessEqual({x}, {y})'
+    def lessequal(op_var, x, y):
+        return f'builder::Op {op_var} = builder::LessEqual({x}, {y});'
     
     @staticmethod
-    def squeeze(x, y):
-        return f"builder::Squeeze({x}, {y})"
+    def squeeze(op_var, *args):
+        return f"builder::Op {op_var} = builder::Squeeze({', '.join(args)});"
     
     @staticmethod
-    def unsqueeze(x, y):
-        return f"builder::Unsqueeze({x}, {y})"
-        
+    def unsqueeze(op_var, *args):
+        return f"builder::Op {op_var} = builder::Unsqueeze({', '.join(args)});"
+
     @staticmethod
     def clone(x):
         return f"{x}"
@@ -483,36 +496,37 @@ class EnflameOverrides(OpOverrides):
         
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Reshape({', '.join(args_str)});\n\n"
         return src_code
-    
+
+    '''
+    builder::Op ReduceMax(builder::Op input, bool keepdims=false,
+                          std::vector<int64_t> axis = {},
+                          builder::Type resultType=builder::Type()) ;
+    '''
     @staticmethod
-    def addmm(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
-        src_code = f"  builder::Op addmm{EnflameOverrides.count} = builder::Gemm({'{' + args_str[1] + ', ' + args_str[2] + '}'});\n"
-        src_code += f"  builder::Op {args_dict[node.name]} = builder::Add({args_str[0]}, addmm{EnflameOverrides.count});\n"
-        EnflameOverrides.count += 1
+    def ReduceMax(op_var, *args):
+        if len(args) == 3:
+            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {args[2]}, {args[1]});\n"
+        elif len(args) == 2:
+            keepdim = 'false'
+            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {keepdim}, {args[1]});\n"
+        else:
+            ValueError("No less than 2 args")
         return src_code
-    
+
     @staticmethod
-    def reduceMax(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
-        if len(args_str) ==3:
-            args_str[1], args_str[2] = args_str[2], args_str[1]
-        src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceMax({', '.join(args_str)});\n\n"
-        return src_code
-    
+    def ReduceSum(op_var, *args):
+         if len(args) == 3:
+            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {args[2]}, {args[1]});\n"
+         elif len(args) == 2:
+            keepdim = 'false'
+            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});\n"
+         else:
+            ValueError("No less than 2 args")
+         return src_code
+
     @staticmethod
-    def ReduceSum(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
-        if len(args_str) ==3:
-            args_str[1], args_str[2] = args_str[2], args_str[1]
-        src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceSum({', '.join(args_str)});\n\n"
-        return src_code   
-    
-    @staticmethod
-    def Gemm(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
-        src_code = f"  builder::Op {args_dict[node.name]} = builder::Gemm({'{' + ', '.join(args_str) + '}'});\n\n"
-        return src_code
+    def Gemm(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
 
     @staticmethod
     def Transpose(args_dict, node, args):
@@ -586,8 +600,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Threshold_Backward(args_dict, node, args):
-        src_code = f"  builder::Op {args_dict[node.name]} = builder::ReluGrad({', '.join(args_str)});\n\n"
+    def Threshold_Backward(op_var, *args_str):
+        src_code = f"builder::Op {op_var} = builder::ReluGrad({', '.join(args_str)});\n\n"
         return src_code
     
     @staticmethod
