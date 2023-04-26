@@ -167,3 +167,15 @@
   custom_code_at_the_beginning: >
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
+- schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  custom_code_at_the_beginning: >
+    const int64_t ignore_index_int = ignore_index.expect_int();
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out;
+    if (reductionDiopi == ReductionNone) {
+      out = at::empty(target.sizes(), self.options());
+    } else {
+      out = at::empty({1}, self.options());
+    }
+  autograd: True
+  interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
