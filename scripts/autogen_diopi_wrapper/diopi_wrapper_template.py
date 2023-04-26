@@ -26,6 +26,10 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
     $op_register_code
 }
 
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+    $autograd_op_register_code
+}
+
 }  // namespace at
 
 """

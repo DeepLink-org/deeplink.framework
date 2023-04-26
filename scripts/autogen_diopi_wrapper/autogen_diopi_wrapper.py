@@ -103,6 +103,7 @@ def create_param_list_from_schema(schema):
         'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
+        '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
         '([a-zA-Z0-9]+)\?' : r'c10::optional<\1>&',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
@@ -113,7 +114,7 @@ def create_param_list_from_schema(schema):
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
         '\*[ ,]+' : '',
-        '=[ ]*\w+[\d ]?' : '',
+        '=[ ]*\w*-?\.?[\d ]*' : '',
     })
     for pattern, cpp_type in args_type_map.items():
         param_list = re.sub(str(pattern), str(cpp_type), param_list)
@@ -408,6 +409,7 @@ def main():
 
     functions_code = ''
     op_register_code = ''
+    autograd_op_register_code = ''
 
     for fun_config in funcs_config:
         mergeed_fun_config = dict(args.fun_config_dict)
@@ -416,11 +418,15 @@ def main():
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
         if fun_config.get('register_op', True) == True:
-            op_register_code += register_code
+            if fun_config.get('autograd', False) == True:
+                autograd_op_register_code += register_code
+            else:
+                op_register_code += register_code
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],
-        op_register_code=[op_register_code]
+        op_register_code=[op_register_code],
+        autograd_op_register_code=[autograd_op_register_code]
     )
     autogened_file = re.sub(R'\n{3,}', R'\n\n', autogened_file)
     autogened_file = re.sub('[ ]*,[ ]*', ', ', autogened_file)
