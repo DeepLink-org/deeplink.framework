@@ -221,13 +221,13 @@ class Reciprocal(Operator):
 
 class Convolution(Operator):
     def __init__(self, *args):
-        super().__init__("convolution")
+        super().__init__("Convolution")
         self.args = args
         self.torch_op = aten.convolution
 
 class ConvolutionBackward(Operator):
     def __init__(self, *args):
-        super().__init__("convolution_backward")
+        super().__init__("Conv2D_Grad")
         self.args = args
         self.torch_op = aten.convolution_backward
 
@@ -261,7 +261,7 @@ class Log(Operator):
 
 class Getitem(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("getitem")
+        super().__init__("Getitem")
         self.args = args
         self.args = kwargs
         self.torch_op = operator.getitem
