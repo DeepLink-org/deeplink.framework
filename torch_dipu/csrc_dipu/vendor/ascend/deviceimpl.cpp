@@ -25,6 +25,10 @@ static int initValue = [](){
 }();
 
 deviceId_t current_device() {
+  static thread_local int initDevice = [](){
+    DIPU_CALLACLRT(aclrtSetDevice(0));
+    return 0;
+  }();
   ascend_deviceId devId_;
   DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
