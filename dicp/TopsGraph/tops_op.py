@@ -192,7 +192,7 @@ class Transpose1(Operator):
 
 class Copy(Operator):
     def __init__(self, *args):
-        super().__init__("copy")
+        super().__init__("clone")
         self.args = args
         self.torch_op = aten.clone
 
@@ -254,7 +254,7 @@ class Gather(Operator):
 
 class Log(Operator):
     def __init__(self, *args):
-        super().__init__("Log")
+        super().__init__("log")
         self.args = args
         self.torch_op = aten.log
 

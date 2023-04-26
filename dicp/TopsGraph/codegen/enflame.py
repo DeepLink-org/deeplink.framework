@@ -408,8 +408,8 @@ class EnflameOverrides(OpOverrides):
         return src_code, args_str
 
     @staticmethod
-    def abs(x):
-        return f'builder::Abs({x})'
+    def abs(op_var, x):
+        return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
     def reciprocal(x):
@@ -425,31 +425,31 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def mul(op_var, x, y):
-        return f'builder::Op {op_var} = builder::Mul({x}, {y});'
+        return f"builder::Op {op_var} = builder::Mul({x}, {y});"
     
     @staticmethod
-    def div(x, y):
-        return f'builder::Div({x}, {y})'
+    def div(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Div({x}, {y});"
     
     @staticmethod
-    def log(x):
-        return f'builder::Log({x})'
+    def log(op_var, x):
+        return f"builder::Op {op_var} = builder::Log({x});"
     
     @staticmethod
-    def neg(x):
-        return f'builder::Neg({x})'
+    def neg(op_var, x):
+        return f"builder::Op {op_var} = builder::Neg({x});"
     
     @staticmethod
-    def exp(x):
-        return f'builder::Exp({x})'
+    def exp(op_var, x):
+        return f"builder::Op {op_var} = builder::Exp({x});"
 
     @staticmethod
-    def sqrt(x):
-        return f'builder::Sqrt({x})'
+    def sqrt(op_var, x):
+        return f"builder::Op {op_var} = builder::Sqrt({x});"
      
     @staticmethod
-    def relu(x):
-        return f'builder::Relu({x})'
+    def relu(op_var, x):
+        return f"builder::Op {op_var} = builder::Relu({x});"
     
     @staticmethod
     def lessequal(op_var, x, y):
@@ -464,8 +464,8 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Unsqueeze({', '.join(args)});"
 
     @staticmethod
-    def clone(x):
-        return f"{x}"
+    def clone(op_var, x):
+        return f"builder::Op {op_var} = {x};"
     
     @staticmethod
     def reducemean(args_dict, node, args):
@@ -529,12 +529,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
 
     @staticmethod
-    def Transpose(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
+    def transpose(op_var, *args):
         if len(args) == 1:
-            args_str.append('{1, 0}')
-        src_code = f"  builder::Op {args_dict[node.name]} = builder::Transpose({', '.join(args_str)});\n\n"
-        return src_code
+            args.append('{1, 0}')
+        return f"builder::Op {op_var} = builder::Transpose({', '.join(args)});"
     
     @staticmethod
     def Getitem(args_dict, node, args):
