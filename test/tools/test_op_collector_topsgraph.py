@@ -1,5 +1,5 @@
 import torch
-from third_party.DICP.tools.op_collector import InnerCompilerOpCollectorContext
+from dicp.tools.op_collector import InnerCompilerOpCollectorContext
 
 def bar(a, b):
     x = torch.abs(a)
@@ -9,8 +9,8 @@ def bar(a, b):
     return x * b
 
 with InnerCompilerOpCollectorContext(
-    inner_commpiler_func="third_party.DICP.common.compile_fx.compile_fx_inner",
-    compile_fx_func="third_party.DICP.common.compile_fx.compile_fx",
+    inner_commpiler_func="dicp.common.compile_fx.compile_fx_inner",
+    compile_fx_func="dicp.common.compile_fx.compile_fx",
     collector_name="demo",
     inner_compiler_param_key="inner_compile",
     write_file=True,
