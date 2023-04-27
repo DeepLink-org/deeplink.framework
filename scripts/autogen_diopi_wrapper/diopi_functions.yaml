@@ -318,3 +318,14 @@
 
 - schema: "log2_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiLog2Inp(ctx, self)
+
+- schema: "abs(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiAbs(ctx, out, self)
+
+- schema: "abs_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiAbsInp(ctx, self)
+
+- schema: "abs.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAbs(ctx, out, self)
