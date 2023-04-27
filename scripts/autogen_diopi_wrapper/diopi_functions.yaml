@@ -1,11 +1,11 @@
-- schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  registe_op: False  # Whether generate registe code for this op, default value is True
-  debug: False # Whether generate debug code for this op, defalut value is False
-  dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
-  custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
-  custom_code_before_call_diopi: "/* Here can be a piece of c++ code before call diopi*/"
-  custom_code_before_return: "/* Here can be a piece of c++ code before return*/"
-  interface: diopiAddScalar(ctx, out, self, other, alpha)
+# - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
+#   registe_op: False  # Whether generate registe code for this op, default value is True
+#   debug: False # Whether generate debug code for this op, defalut value is False
+#   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
+#   custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
+#   custom_code_before_call_diopi: "/* Here can be a piece of c++ code before call diopi*/"
+#   custom_code_before_return: "/* Here can be a piece of c++ code before return*/"
+#   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
@@ -130,3 +130,74 @@
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
 
+- schema: "eq.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiEqScalar(ctx, out, self, other)
+
+- schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_eq_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_eq_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiEq(ctx, out, self, other)
+
+- schema: "eq_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiEqInpScalar(ctx, self, other)
+
+- schema: "eq_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_eq__scalar(self, other.item());
+    }
+  interface: diopiEqInp(ctx, self, other)
+
+- schema: "lt.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLtScalar(ctx, out, self, other)
+
+- schema: "lt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_lt_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_lt_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiLt(ctx, out, self, other)
+
+- schema: "lt_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiLtInpScalar(ctx, self, other)
+
+- schema: "lt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_lt__scalar(self, other.item());
+    }
+  interface: diopiLtInp(ctx, self, other)
+
+- schema: "ne.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiNeScalar(ctx, out, self, other)
+
+- schema: "ne.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_ne_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_ne_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiNe(ctx, out, self, other)
+
+- schema: "ne_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiNeInpScalar(ctx, self, other)
+
+- schema: "ne_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_ne__scalar(self, other.item());
+    }
+  interface: diopiNeInp(ctx, self, other)
