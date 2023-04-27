@@ -215,6 +215,78 @@
     }
   interface: diopiNeInp(ctx, self, other)
 
+- schema: "ge.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiGeScalar(ctx, out, self, other)
+
+- schema: "ge.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_ge_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_ge_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiGe(ctx, out, self, other)
+
+- schema: "ge_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiGeInpScalar(ctx, self, other)
+
+- schema: "ge_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_ge__scalar(self, other.item());
+    }
+  interface: diopiGeInp(ctx, self, other)
+
+- schema: "gt.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiGtScalar(ctx, out, self, other)
+
+- schema: "gt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_gt_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_gt_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiGt(ctx, out, self, other)
+
+- schema: "gt_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiGtInpScalar(ctx, self, other)
+
+- schema: "gt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_gt__scalar(self, other.item());
+    }
+  interface: diopiGtInp(ctx, self, other)
+
+- schema: "le.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLeScalar(ctx, out, self, other)
+
+- schema: "le.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        out = dipu_le_scalar_out(self, other.item(), out);
+        return out;
+    } else if (self.numel() == 1 && self.is_cpu()) {
+        out = dipu_le_scalar_out(other, self.item(), out);
+        return out;
+    }
+  interface: diopiLe(ctx, out, self, other)
+
+- schema: "le_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiLeInpScalar(ctx, self, other)
+
+- schema: "le_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_le__scalar(self, other.item());
+    }
+  interface: diopiLeInp(ctx, self, other)
+
 - schema: "relu_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiReluInp(ctx, self)
 
