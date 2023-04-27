@@ -306,3 +306,19 @@
   custom_code_at_the_beginning: >
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self, diopi_size)
+
+- schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiLog(ctx, out, self)
+
+- schema: "log_(Tensor(a!) self) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiLogInp(ctx, self)
+
+- schema: "log2.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiLog2(ctx, out, self)
+
+- schema: "log2_(Tensor(a!) self) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiLog2Inp(ctx, self)
