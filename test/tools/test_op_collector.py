@@ -1,5 +1,5 @@
 import torch
-from dicp.tools.op_collector import InnerCompilerOpCollectorContext
+from third_party.DICP.tools.op_collector import InnerCompilerOpCollectorContext
 
 
 def xyxy2xywh(boxes):
