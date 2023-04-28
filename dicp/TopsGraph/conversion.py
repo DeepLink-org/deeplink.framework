@@ -237,6 +237,15 @@ def scatter(*args, **kwargs):
 def addgrad(a, b):
     return tops_op.AddGrad(a, b)
 
+@register_conversion(torch.ops.aten.zeros)
+def zeros(*args, **kwargs):
+    return tops_op.Zeros(*args, **kwargs)
+
+'''
+@register_conversion(torch.ops.aten.addmm)
+def addmm(*args, **kwargs):
+    return tops_op.Addmm(*args, **kwargs)
+'''
 # Patterns
 def register_pattern(Pattern):
     # TODO OpOverloadPacket

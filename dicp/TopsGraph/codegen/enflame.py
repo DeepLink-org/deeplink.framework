@@ -21,7 +21,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
 need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm',
-             'Max_Pool2D']
+             'Max_Pool2D', 'Zeros', 'Expand']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -267,8 +267,13 @@ class EnflameCodegen(torch.fx.Interpreter):
         return run_func_code
 
     def gen_tensor(self, prefix, tensor):
-        shape = f"{tensor.shape}"[12:-2]
-        return f"{prefix}(({shape}, ), {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        #shape = f"{tensor.shape}"[12:-2]
+        #print(f"{'!' * 20}  temsor:\n {tensor}\n shape :\n {shape}")
+        #if shape == '':
+        #    return f"{prefix}((), (), device='{tensor.device.type}', dtype={tensor.dtype})"
+        res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        #print(f"{'!' * 20}  res:\n {res}\n")
+        return res
 
     def gen_empty_tensor(self, tensor):
         return self.gen_tensor("empty_strided", tensor)
@@ -417,6 +422,14 @@ class EnflameOverrides(OpOverrides):
                     src_code.add_line(f"builder::Type {op_var}_output_type{count}({shape}, {out_type});\n")
                     args_str.append(f"{op_var}_output_type{count}")
                     count += 1
+
+                elif node.name == "Scatter" and i == 3:
+                    if isinstance(args[3], float):
+                        src_code.add_line(f'  const float {op_var}_value{count} = {str(args[3])};\n')
+                    else:
+                        src_code.add_line(f'  const int {op_var}_value{count} = {str(args[3])};\n')
+                        args_str.append(f'{op_var}_value{count}')
+
                 else:
                     in_shape_size = '{1}'
                     if isinstance(type(args[i]), type(int)):
@@ -425,7 +438,7 @@ class EnflameOverrides(OpOverrides):
                         src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};')
                     src_code.add_line(f'std::vector<int64_t> {op_var}_const_in_shape{count}{in_shape_size};')
                     src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, ptype);')
-                    src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});');
+                    src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
 
@@ -512,16 +525,13 @@ class EnflameOverrides(OpOverrides):
             ValueError("No less than 2 args")
         return src_code
 
-    # TODO need node
     @staticmethod
-    def reshape(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
+    def reshape(op_var, node, *args):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code += f'  builder::Type reshape_shape{EnflameOverrides.count}({shape}, ptype);\n'
-        args_str[1] = f'reshape_shape{EnflameOverrides.count}'
-        EnflameOverrides.count += 1
-        
-        src_code += f"  builder::Op {args_dict[node.name]} = builder::Reshape({', '.join(args_str)});\n\n"
+        src_code = f'  builder::Type _reshape_shape{op_var}({shape}, ptype);\n'
+        tmp = f'_reshape_shape{op_var}'
+
+        src_code += f"  builder::Op {op_var} = builder::Reshape({args[0]}, {tmp});\n\n"
         return src_code
 
     '''
@@ -554,6 +564,11 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Gemm(op_var, x, y):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
+
+    # TODO need test
+    @staticmethod
+    def Select(op_var, *args):
+        return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
     @staticmethod
     def transpose(op_var, *args):
@@ -712,4 +727,67 @@ class EnflameOverrides(OpOverrides):
         
         src_code += f"  auto {args_dict[node.name]} = enflame::max_pool2d_grad(hlir_builder, {args_dict[args[0].name]}, {args_dict[args[1].name]}, {ksize}, {strides}, {padding});\n"
         
+        return src_code
+
+    @staticmethod
+    def Reciprocal(op_var, *args):
+        return f"builder::Op {op_var} = builder::Reciprocal({', '.join(args)});"
+
+    # TODO no test
+    @staticmethod
+    def Zeros(op_var, node, *args):
+        data_type = node.meta['val'].dtype.__str__()
+        if data_type == 'torch.float32':
+            out_type = 'builder::PrimitiveType::F32()'
+        elif data_type == 'torch.int64':
+            out_type = 'builder::PrimitiveType::S64()'
+        else:
+            raise ValueError("Data type error!")
+            
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        
+        src_code = f"  builder::Op {op_var} = builder::ZerosLike({args[0]}, {out_type}, {shape});\n\n"
+
+        return src_code
+
+    # TODO need test
+    @staticmethod
+    def Scatter(op_var, *args):
+        src_code = f"auto {op_var} = enflame::Scatter(hlir_builder, {', '.join(args)});\n"
+        return src_code
+
+    # TODO need test 
+    @staticmethod
+    def Convert(op_var, *args):
+        return f"builder::Op {op_var} = builder::Convert({', '.join(args)});"
+
+    # TODO need test
+    @staticmethod
+    def Scalar(op_var, *args):
+        shape = '{1}'
+        src_code = f"  builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());"
+        src_code += f"  std::vector<float> scalar_data{op_var}(1, {args[0]});\n"
+        src_code += f"  auto {op_var} = builder::Const(hlir_builder, static_cast<void *>(scalar_data{op_var}.data()), scalar_type{op_var});\n"
+
+        return src_code
+
+    # TODO need test
+    @staticmethod
+    def Expand(op_var, node, *args):
+        dims = []
+        for i in range(0, len(node.meta['val'].shape)):
+            dims.append(str(i))
+        broadcast_dims = '{' + ', '.join(dims) + '}'
+
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        
+        data_type = node.meta['val'].dtype.__str__()
+        if data_type == 'torch.float32':
+            out_type = 'builder::PrimitiveType::F32()'
+        elif data_type == 'torch.int64':
+            out_type = 'builder::PrimitiveType::S64()'
+            
+        src_code = f'  builder::Type expand_type{op_var}({shape}, {out_type});\n'
+        # TODO
+        src_code += f"  auto {op_var} = enflame::BroadcastInDim(hlir_builder, {', '.join(args)}, {broadcast_dims}, expand_type{op_var});\n"
         return src_code

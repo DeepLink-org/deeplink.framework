@@ -214,7 +214,7 @@ class Reshape(Operator):
 
 class Reciprocal(Operator):
     def __init__(self, a):
-        super().__init__("reciprocal")
+        super().__init__("Reciprocal")
         self.a = a
         self.torch_op = aten.reciprocal
 
@@ -269,7 +269,7 @@ class Getitem(Operator):
 
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("batchnorm")
+        super().__init__("Batch_Norm")
         self.args = args
         self.args = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
@@ -333,7 +333,7 @@ class Euqal(Operator):
 
 class Expand(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("expand")
+        super().__init__("Expand")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.expand.default
@@ -389,7 +389,7 @@ class Slice(Operator):
 
 class Select(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("select")
+        super().__init__("Select")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.where.self
@@ -410,6 +410,13 @@ class Scatter(Operator):
         self.args = args
         self.args = kwargs
         self.torch_op = aten.scatter.value
+
+
+class Zeros(Operator):
+    def __init__(self, *args):
+        super().__init__("Zeros")
+        self.args = args
+        self.torch_op = aten.zeros
 
 
 # TODO check if we need this wrap
