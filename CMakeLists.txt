@@ -9,6 +9,8 @@ option(LIBS  "Whether to build dipu lib, default on" ON)
 option(CAMB "Whether to use CambriconNeuware when available" ON)
 option(CUDA "Whether to use CUDA when available" OFF)
 option(ASCEND "Whether to use ASCEND when available" OFF)
+option(STPU "Whether to use STPU when available" OFF)
+
 
 
 # config
@@ -30,6 +32,12 @@ if (ASCEND)
   set(USE_ASCEND ON)
   set(UsedVendor ascend)
 endif()
+
+if (STPU)
+  set(USE_STPU ON)
+  set(UsedVendor stpu)
+endif()
+
 
 
 # findTorch encounter some error, need check。

@@ -42,6 +42,7 @@ enum class VendorDeviceType : enum_t {
   MLU,  //camb
   NPU,  //ascend
   CUDA, //cuda
+  STPU, //stpu
 };
 
 constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
@@ -49,6 +50,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
     case VendorDeviceType::MLU: return "MLU";
     case VendorDeviceType::CUDA: return "CUDA";
     case VendorDeviceType::NPU: return "NPU";
+    case VendorDeviceType::STPU: return "STPU";
   }
 }
 
