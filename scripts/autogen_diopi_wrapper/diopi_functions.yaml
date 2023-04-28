@@ -329,3 +329,10 @@
 
 - schema: "abs.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAbs(ctx, out, self)
+
+- schema: "neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiNeg(ctx, out, self)
+
+- schema: "neg_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiNegInp(ctx, self)
+
