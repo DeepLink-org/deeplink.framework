@@ -336,3 +336,8 @@
 - schema: "neg_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiNegInp(ctx, self)
 
+- schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSqrt(ctx, out, self)
+
+- schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiSqrtInp(ctx, self)
