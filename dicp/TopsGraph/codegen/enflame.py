@@ -21,7 +21,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
 need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm',
-             'Max_Pool2D', 'Max_Pool2D_Grad']
+             'Max_Pool2D', 'Max_Pool2D_Grad', 'Zeros', 'Expand']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -702,7 +702,7 @@ class EnflameOverrides(OpOverrides):
         padding = str(args[5]).replace('[','{').replace(']','}')
         dilation = str(args[6]).replace('[','{').replace(']','}')
         
-        src_code = f"  auto {op_var} = enflame::conv2d_grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
+        src_code = f"  auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
 
         return src_code
 
@@ -742,7 +742,7 @@ class EnflameOverrides(OpOverrides):
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
         
-        src_code += f"  auto {op_var} = enflame::max_pool2d_grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
+        src_code += f"  auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
 
