@@ -15,8 +15,8 @@ aten = torch.ops.aten
 del decompositions[aten._native_batch_norm_legit_functional.default]
 del decompositions[aten.native_batch_norm_backward.default]
 del decompositions[aten.convolution_backward.default]
-from third_party.DICP.TopsGraph.opset_transform import topsgraph_opset_transform
-from third_party.DICP.common.compile_fx import *
+from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+from dicp.common.compile_fx import *
 
 def parse_config():
     # parse args

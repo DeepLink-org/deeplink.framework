@@ -1,4 +1,4 @@
-#include "enflame/max_pool2d_grad.h"
+#include "max_pool2d_grad.h"
 
 builder::Op enflame::max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,
                      std::vector<int> ksize, std::vector<int> strides, std::vector<int> padding){

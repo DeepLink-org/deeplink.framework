@@ -5,12 +5,12 @@ import mmcls
 from mmcv import Config
 from mmcls.models import build_classifier
 
-#TODO change to third_party.DICP.tools.op_collector
+#TODO change to dicp.tools.op_collector
 from op_collector import InnerCompilerOpCollectorContext
 
 import torch
 import torch.fx
-from third_party.DICP.TopsGraph.opset_transform import topsgraph_opset_transform
+from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
 import time
 
 # config

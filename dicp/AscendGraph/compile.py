@@ -21,7 +21,7 @@ class AscendCodeCache:
 
         output_path = input_path[:-3] + 'so'
         output_graph_path = os.path.split(output_path)[0] + '/graph'
-        from third_party.DICP.AscendGraph.codegen import load_and_run
+        from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         if key not in cls.cache:
             #if not os.path.exists(output_path) or True:

@@ -142,7 +142,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 import torch
                 import random
                 from torch import empty_strided, as_strided, device
-                from third_party.DICP.AscendGraph.compile import AsyncCompileAscend
+                from dicp.AscendGraph.compile import AsyncCompileAscend
                 
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride

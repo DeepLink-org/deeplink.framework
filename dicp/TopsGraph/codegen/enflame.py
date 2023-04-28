@@ -201,7 +201,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 import torch
                 import random
                 from torch import empty_strided, as_strided, device
-                from third_party.DICP.TopsGraph.compile import AsyncCompileTopsGraph
+                from dicp.TopsGraph.compile import AsyncCompileTopsGraph
             """
             , dedent=True
         )
