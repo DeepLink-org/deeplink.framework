@@ -21,7 +21,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
 need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm',
-             'Max_Pool2D', 'Zeros', 'Expand']
+             'Max_Pool2D', 'Max_Pool2D_Grad']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -135,8 +135,15 @@ class EnflameCodegen(torch.fx.Interpreter):
         # TODO did not handle squeeze and unsuqeeze
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
+        
+        print("*******************************************", flush=True)
+        print("arg_code:", arg_code.get_str(), flush=True)
+        print("args_list:", args_list, flush=True)
 
         op_code = getattr(self.override, real_op)(*args_list)
+        
+        print("op_code:", op_code, flush=True)
+        
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'{op_code}')
 
@@ -507,6 +514,8 @@ class EnflameOverrides(OpOverrides):
     # TODO need node
     @staticmethod
     def reducemean(op_var, node, *args):
+        print("In staticmethond!", flush=True)
+        print("node:", node.name, "*args:", args, flush=True)
 
         # TODO
         '''
@@ -523,6 +532,9 @@ class EnflameOverrides(OpOverrides):
             src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {keepdim}, {args[1]});\n"
         else:
             ValueError("No less than 2 args")
+            
+        print("Out staticmethond!", flush=True)
+        
         return src_code
 
     @staticmethod
@@ -592,25 +604,24 @@ class EnflameOverrides(OpOverrides):
 
     # TODO need node
     @staticmethod
-    def Gather(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
-        
+    def Gather(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'  builder::Type gather_type{EnflameOverrides.count}({shape}, ptype);\n\n'
         
-        src_code += f"  std::vector<int64_t> gather_offset_dim{EnflameOverrides.count};\n"
-        src_code += f"  for (int64_t i = 0; i < {args[1]}; i++) {'{'}\n     gather_offset_dim{EnflameOverrides.count}.emplace_back(i);\n  {'}'}\n\n"
-        src_code += f"  auto gather_data_shape{EnflameOverrides.count} = {args_str[0]}.GetType().GetShape();\n"
-        src_code += f"  auto gather_indices_shape{EnflameOverrides.count} = {args_str[2]}.GetType().GetShape();\n"
-        src_code += f"  for (int64_t i = {args[1]} + 1; i < gather_data_shape{EnflameOverrides.count}.size(); i++) {'{'}\n    gather_offset_dim{EnflameOverrides.count}.emplace_back(i - 1 + gather_indices_shape{EnflameOverrides.count}.size());\n  {'}'}\n"
-        src_code += f"  std::vector<int64_t> gather_slice_size{EnflameOverrides.count}(gather_data_shape{EnflameOverrides.count});\n"
-        src_code += f"  gather_slice_size{EnflameOverrides.count}[{args[1]}] = 1;\n\n"
+        new_args_str = []
+        new_args_str.append(args_str[2])
+        new_args_str.append(args_str[4])
+        new_args_str.append(str(node.args[1]))
         
-        src_code += f"  builder::GatherDimensionNumbers gather_gnums{EnflameOverrides.count}(gather_offset_dim{EnflameOverrides.count}, {'{' + '1' + '}'}, {'{' + '1' + '}'}, gather_indices_shape{EnflameOverrides.count}.size());\n"
+        count_num = node.name.split('_')
+        if len(count_num) == 1:
+            count_num = 0
+        else:
+            count_num = int(count_num[1])
         
-        src_code += f"  auto {args_dict[node.name]} = builder::Gather({args_str[0]}, {args_str[2]}, gather_gnums{EnflameOverrides.count}, gather_slice_size{EnflameOverrides.count}, false, gather_type{EnflameOverrides.count});\n"
+        src_code = f"  builder::Type gather_type{count_num}({shape}, builder::PrimitiveType::F32());\n"
+        new_args_str.append(f"gather_type{count_num}")
         
-        EnflameOverrides.count += 1
+        src_code += f"  auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
 
         return src_code
 
@@ -697,35 +708,41 @@ class EnflameOverrides(OpOverrides):
 
     # TODO need node
     @staticmethod            
-    def Max_Pool2D(args_dict, node, args):
+    def Max_Pool2D(op_var, node, *args_str):
+        args = node.args
+        
         ceil_mode = 'false'
         return_indices = 'false'
+        ksize = str(args[1]).replace('[','{').replace(']','}')
+        stride = '{1, 1}'
         padding = '{0, 0, 0, 0}'
-        dilation = '{1, 1}'
+        
         shape = '{' + str(node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
-        dtype = node.meta['val'][0].dtype
         
-        src_code = f'  builder::Type max_pool_type{EnflameOverrides.count} = builder::Type({shape}, ptype);\n\n'
-        
-        if len(args) == 3:
-            ksize = str(args[1]).replace('[','{').replace(']','}')
+        if len(args) >= 3:
             stride = str(args[2]).replace('[','{').replace(']','}')
-        else:
-            ksize = str(args[1]).replace('[','{').replace(']','}')
-            stride = str(args[2]).replace('[','{').replace(']','}')            
-
-        src_code += f'  builder::Op {args_dict[node.name]} = builder::MaxPool2D({args_dict[args[0].name]}, {ksize}, {ceil_mode}, {return_indices}, "NOTSET", "NCHW", {stride}, {padding}, {"{" + "}"}, max_pool_type{EnflameOverrides.count});\n'
         
-        EnflameOverrides.count += 1
+        if len(args) >= 4:  
+            if len(args[3]) == 1:
+                row_padding, col_padding = args[3][0]
+            else:
+                row_padding = args[3][0]
+                col_padding = args[3][1]
+            padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
+                       
+        src_code = f'  builder::Op {op_var} = enflame::MaxPool2D(hlir_builder, {args_str[0]}, {ksize}, {stride}, {padding}, {shape});\n'
+
         return src_code
     
     @staticmethod
-    def Max_Pool2D_Grad(args_dict, node, args):
+    def Max_Pool2D_Grad(op_var, node, *args_str):
+        args = node.args    
+        
         ksize = str(args[2]).replace('[','{').replace(']','}')
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
         
-        src_code += f"  auto {args_dict[node.name]} = enflame::max_pool2d_grad(hlir_builder, {args_dict[args[0].name]}, {args_dict[args[1].name]}, {ksize}, {strides}, {padding});\n"
+        src_code += f"  auto {op_var} = enflame::max_pool2d_grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
 
