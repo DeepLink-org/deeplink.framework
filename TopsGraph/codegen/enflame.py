@@ -94,20 +94,20 @@ class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
         self.name = 'topsgraph'
         self.import_code = CodeBlock()
-
+        
         self.args_dict = {}
         self.input_args =[]
         self.output_args = []
         self.build_graph_code = CodeBlock(indent=1, lang='cpp')
-
+        
         self.graph = graph
         super().__init__(graph)
         self.override = EnflameOverrides
 
-    def placeholder(self, name, target, args, kwargs):
+    def placeholder(self, name, target, args, kwargs):    
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
-
+        
         in_shape = self.get_shape()
         self.build_graph_code.add_line(f'std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};')
 
@@ -115,22 +115,22 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.build_graph_code.add_line(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {data_type});')
         self.build_graph_code.add_line(f'builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);')
 
-    def call_function(self, name, target, args, kwargs):
+    def call_function(self, name, target, args, kwargs):   
         if name not in self.args_dict.keys():
             self.args_dict[name] = 'op' + str(len(self.args_dict))
 
         # TODO did not handle squeeze and unsuqeeze
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
-
+        
         op_code = getattr(self.override, target.name())(*args_list)
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'builder::Op {self.args_dict[name]} = {op_code};')
-
+        
         return
-
+    
     def output(self, name, target, args, kwargs):
         for i in range(0, len(args[0])):
-            self.output_args.append(args[0][i])
+            self.output_args.append(args[0][i])   
 
     def run_node(self, n : Node) -> Any:
         self.cur_node = n
@@ -143,8 +143,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         assert isinstance(args, tuple)
         assert isinstance(kwargs, dict)
 
-        return getattr(self, op)(name, target, args, kwargs)
-
+        return getattr(self, op)(name, target, args, kwargs) 
+    
     def codegen(self):
         self.run()
         return self.generate_code()
@@ -160,7 +160,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         )
 
         graph_code.splice(self.build_graph_code, dedent=True)
-
+        
         output_str = []
         for i in range(0, len(self.output_args)):
             if isinstance(self.output_args[i], type(None)):
@@ -201,7 +201,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 import torch
                 import random
                 from torch import empty_strided, as_strided, device
-                from dicp.TopsGraph.compile import AsyncCompileTopsGraph
+                from third_party.DICP.TopsGraph.compile import AsyncCompileTopsGraph
             """
             , dedent=True
         )
@@ -227,7 +227,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_func.add_line('}')
 
         return compile_func
-
+                
     def gen_run_func_code(self):
         func_body = CodeBlock(indent=1)
         func_body.add_line(f'std::vector<void *> input_ptrs;')
@@ -294,13 +294,13 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         for arg in args:
             call_body.add_line(f'del {arg}')
-
+        
         call_body.add_line(f"return ({', '.join(bufs)})")
 
         call_func = CodeBlock()
         call_func.add_line(f"def call(args):")
         call_func.splice(call_body)
-
+ 
         return call_func.get_str()
 
     def gen_main_func(self):
@@ -405,27 +405,27 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def add(x, y):
         return f'builder::Add({x}, {y})'
-
+ 
     @staticmethod
     def sub(x, y):
         return f'builder::Sub({x}, {y})'
-
+    
     @staticmethod
     def mul(x, y):
         return f'builder::Mul({x}, {y})'
-
+    
     @staticmethod
     def div(x, y):
         return f'builder::Div({x}, {y})'
-
+    
     @staticmethod
     def log(args_dict, node, args):
         return self.gen_opcode('Log', args_dict, node, args)
-
+    
     @staticmethod
     def neg(args_dict, node, args):
         return self.gen_opcode('Neg', args_dict, node, args)
-
+    
     @staticmethod
     def exp(args_dict, node, args):
         return self.gen_opcode('Exp', args_dict, node, args)
@@ -433,31 +433,31 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def sqrt(x):
         return f'builder::Sqrt({x})'
-
+     
     @staticmethod
     def relu(args_dict, node, args):
         return self.gen_opcode('Relu', args_dict, node, args)
-
+    
     @staticmethod
     def lessequal(args_dict, node, args):
         return self.gen_opcode('LessEqual', args_dict, node, args)
-
+    
     @staticmethod
     def squeeze(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args, True)
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Squeeze({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def unsqueeze(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args, True)
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Unsqueeze({', '.join(args_str)});\n\n"
         return src_code
-
+        
     @staticmethod
     def clone(args_dict, node, args):
         return f"  builder::Op {args_dict[node.name]} = {args_dict[args[0].name]};\n"
-
+    
     @staticmethod
     def reducemean(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
@@ -476,7 +476,7 @@ class EnflameOverrides(OpOverrides):
         EnflameOverrides.count += 1
         src_code += f"  builder::Op {args_dict[node.name]} = builder::ReduceMean({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def reshape(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
@@ -484,10 +484,10 @@ class EnflameOverrides(OpOverrides):
         src_code += f'  builder::Type reshape_shape{EnflameOverrides.count}({shape}, ptype);\n'
         args_str[1] = f'reshape_shape{EnflameOverrides.count}'
         EnflameOverrides.count += 1
-
+        
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Reshape({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def addmm(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
@@ -495,7 +495,7 @@ class EnflameOverrides(OpOverrides):
         src_code += f"  builder::Op {args_dict[node.name]} = builder::Add({args_str[0]}, addmm{EnflameOverrides.count});\n"
         EnflameOverrides.count += 1
         return src_code
-
+    
     @staticmethod
     def reduceMax(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
@@ -503,15 +503,15 @@ class EnflameOverrides(OpOverrides):
             args_str[1], args_str[2] = args_str[2], args_str[1]
         src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceMax({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def ReduceSum(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
         if len(args_str) ==3:
             args_str[1], args_str[2] = args_str[2], args_str[1]
         src_code = f"  builder::Op {args_dict[node.name]} = builder::ReduceSum({', '.join(args_str)});\n\n"
-        return src_code
-
+        return src_code   
+    
     @staticmethod
     def Gemm(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
@@ -525,26 +525,26 @@ class EnflameOverrides(OpOverrides):
             args_str.append('{1, 0}')
         src_code = f"  builder::Op {args_dict[node.name]} = builder::Transpose({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def Getitem(args_dict, node, args):
         if 'max_pool2d' in args[0].name:
             args_dict[node.name] = args_dict[args[0].name]
             return ''
-
+        
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'  builder::Type getitem_type{EnflameOverrides.count}({shape}, ptype);\n\n'
         src_code += f"  builder::Op {args_dict[node.name]} = builder::GetTupleElement({args_dict[args[0].name]}, {int(node.args[1])}, getitem_type{EnflameOverrides.count});\n\n"
         EnflameOverrides.count += 1
         return src_code
-
+    
     @staticmethod
     def Gather(args_dict, node, args):
         src_code, args_str = self.gen_args(args_dict, node, args)
-
+        
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'  builder::Type gather_type{EnflameOverrides.count}({shape}, ptype);\n\n'
-
+        
         src_code += f"  std::vector<int64_t> gather_offset_dim{EnflameOverrides.count};\n"
         src_code += f"  for (int64_t i = 0; i < {args[1]}; i++) {'{'}\n     gather_offset_dim{EnflameOverrides.count}.emplace_back(i);\n  {'}'}\n\n"
         src_code += f"  auto gather_data_shape{EnflameOverrides.count} = {args_str[0]}.GetType().GetShape();\n"
@@ -552,48 +552,48 @@ class EnflameOverrides(OpOverrides):
         src_code += f"  for (int64_t i = {args[1]} + 1; i < gather_data_shape{EnflameOverrides.count}.size(); i++) {'{'}\n    gather_offset_dim{EnflameOverrides.count}.emplace_back(i - 1 + gather_indices_shape{EnflameOverrides.count}.size());\n  {'}'}\n"
         src_code += f"  std::vector<int64_t> gather_slice_size{EnflameOverrides.count}(gather_data_shape{EnflameOverrides.count});\n"
         src_code += f"  gather_slice_size{EnflameOverrides.count}[{args[1]}] = 1;\n\n"
-
+        
         src_code += f"  builder::GatherDimensionNumbers gather_gnums{EnflameOverrides.count}(gather_offset_dim{EnflameOverrides.count}, {'{' + '1' + '}'}, {'{' + '1' + '}'}, gather_indices_shape{EnflameOverrides.count}.size());\n"
-
+        
         src_code += f"  auto {args_dict[node.name]} = builder::Gather({args_str[0]}, {args_str[2]}, gather_gnums{EnflameOverrides.count}, gather_slice_size{EnflameOverrides.count}, false, gather_type{EnflameOverrides.count});\n"
-
+        
         EnflameOverrides.count += 1
 
         return src_code
 
     @staticmethod
     def Batch_Norm(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)
+        src_code, args_str = self.gen_args(args_dict, node, args)    
 
         shape = []
         lenth = len(node.meta['val'])
         for i in range (0, lenth):
             shape.append('{' + str(node.meta['val'][i].shape).split('[')[-1].split(']')[0] + '}')
-
+        
         src_code = f"  std::vector<std::vector<int64_t>> tuple_shape{EnflameOverrides.count};\n"
         src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{EnflameOverrides.count};\n"
-
+        
         # for i in range(0, lenth):
         #     src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
         # src_code += f"  for (uint i = 0; i < {lenth}; i++) {'{'}\n"
         # # src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
         # src_code += f"    tuple_dtype{self.bn_count}.push_back(builder::PrimitiveType::F32());\n  {'}'}\n"
-
+        
         src_code += f"  builder::Type bn_type{EnflameOverrides.count}(tuple_shape{EnflameOverrides.count}, tuple_dtype{EnflameOverrides.count});\n"
-
+        
         # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormInference({args_str[0]}, {args_str[1]}, {args_str[2]}, {args_str[3]}, {args_str[4]}, 0.1, 3);\n"
         # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormTraining({args_str[0]}, {args_str[1]}, {args_str[2]}, 0.1, 5);\n"
         # print("args_strlen:", len(args_str))
-        src_code += f"  auto {args_dict[node.name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"
+        src_code += f"  auto {args_dict[node.name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"     
         EnflameOverrides.count += 1
-
+        
         return src_code
-
+    
     @staticmethod
     def Threshold_Backward(args_dict, node, args):
         src_code = f"  builder::Op {args_dict[node.name]} = builder::ReluGrad({', '.join(args_str)});\n\n"
         return src_code
-
+    
     @staticmethod
     def Convolution(args_dict, node, args):
         args_str =[]
@@ -601,25 +601,25 @@ class EnflameOverrides(OpOverrides):
             if isinstance(args[i], type(None)):
                 continue
             args_str.append(args_dict[args[i].name])
-
+                
         stride = str(args[3]).replace('[','{').replace(']','}')
-
+        
         if len(args[4]) == 1:
             row_padding, col_padding = args[4][0]
         else:
             row_padding = args[4][0]
             col_padding = args[4][1]
-
+        
         padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-
+        
         dilation = str(args[5]).replace('[','{').replace(']','}')
         group = args[8]
-
+    
         src_code = f"  std::vector<builder::Op> {args_dict[node.name]}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
         src_code += f'  builder::Op {args_dict[node.name]} = builder::Conv2D({args_dict[node.name]}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
-
+        
         return src_code
-
+    
     @staticmethod
     def Conv2D_Grad(args_dict, node, args):
         args_str = []
@@ -629,17 +629,17 @@ class EnflameOverrides(OpOverrides):
                 continue
             else:
                 args_str.append(args_dict[args[i].name])
-
+                
         bias = str(args[3]).replace('[','{').replace(']','}')
         stride = str(args[4]).replace('[','{').replace(']','}')
         padding = str(args[5]).replace('[','{').replace(']','}')
         dilation = str(args[6]).replace('[','{').replace(']','}')
-
+        
         src_code = f"  auto {args_dict[node.name]} = enflame::conv2d_grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
-
+        
         return src_code
-
-    @staticmethod
+    
+    @staticmethod            
     def Max_Pool2D(args_dict, node, args):
         ceil_mode = 'false'
         return_indices = 'false'
@@ -647,27 +647,27 @@ class EnflameOverrides(OpOverrides):
         dilation = '{1, 1}'
         shape = '{' + str(node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
         dtype = node.meta['val'][0].dtype
-
+        
         src_code = f'  builder::Type max_pool_type{EnflameOverrides.count} = builder::Type({shape}, ptype);\n\n'
-
+        
         if len(args) == 3:
             ksize = str(args[1]).replace('[','{').replace(']','}')
             stride = str(args[2]).replace('[','{').replace(']','}')
         else:
             ksize = str(args[1]).replace('[','{').replace(']','}')
-            stride = str(args[2]).replace('[','{').replace(']','}')
+            stride = str(args[2]).replace('[','{').replace(']','}')            
 
         src_code += f'  builder::Op {args_dict[node.name]} = builder::MaxPool2D({args_dict[args[0].name]}, {ksize}, {ceil_mode}, {return_indices}, "NOTSET", "NCHW", {stride}, {padding}, {"{" + "}"}, max_pool_type{EnflameOverrides.count});\n'
-
+        
         EnflameOverrides.count += 1
         return src_code
-
+    
     @staticmethod
     def Max_Pool2D_Grad(args_dict, node, args):
         ksize = str(args[2]).replace('[','{').replace(']','}')
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
-
+        
         src_code += f"  auto {args_dict[node.name]} = enflame::max_pool2d_grad(hlir_builder, {args_dict[args[0].name]}, {args_dict[args[1].name]}, {ksize}, {strides}, {padding});\n"
-
+        
         return src_code
