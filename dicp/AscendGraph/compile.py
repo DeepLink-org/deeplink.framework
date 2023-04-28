@@ -21,7 +21,7 @@ class AscendCodeCache:
 
         output_path = input_path[:-3] + 'so'
         output_graph_path = os.path.split(output_path)[0] + '/graph'
-        from dicp.AscendGraph.codegen import load_and_run
+        from .codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         if key not in cls.cache:
             #if not os.path.exists(output_path) or True:
@@ -30,7 +30,7 @@ class AscendCodeCache:
                    '-fPIC',
                    '-shared',
                    '-std=c++11',
-                   '-g',
+                   '-O2',
                    '-Wall',
                    '-I/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_proto/inc',
                    '-I/usr/local/Ascend/ascend-toolkit/latest/include/graph',
