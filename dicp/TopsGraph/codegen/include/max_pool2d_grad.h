@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "common/dtu_utils.h"
+#include "dtu_utils.h"
 
 namespace enflame {
 builder::Op max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,

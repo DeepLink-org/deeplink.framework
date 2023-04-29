@@ -6,7 +6,7 @@
 #include <utility>
 #include <algorithm>
 
-#include "common/dtu_utils.h"
+#include "dtu_utils.h"
 
 namespace enflame {
 
