@@ -124,7 +124,6 @@ builder::Op enflame::BatchNorm(
             save_var,
             input_without_channel_number - static_cast<int64_t>(1),
             save_var.GetType().GetPrimitiveType()));
-    std::cout << "test1" << std::endl;
     
     builder::Op running_var_updated = builder::Add(
         builder::Mul(
@@ -146,7 +145,6 @@ builder::Op enflame::BatchNorm(
     outputs.push_back(running_var);
     // std::vector<builder::Op> outputs{output, save_mean, save_invstd, running_mean,running_var};
   }
-  std::cout << "test2" << std::endl;
 
   std::vector<builder::PrimitiveType> tuple_dtype;
   std::vector<std::vector<int64_t>> tuple_shape;
@@ -155,23 +153,8 @@ builder::Op enflame::BatchNorm(
     tuple_dtype.push_back(outputs[i].GetType().GetPrimitiveType());
   }
 
-  std::cout << input.GetType() << std::endl;
-  std::cout << input.GetType().GetShape()[0] << std::endl;
-  std::cout << input.GetType().GetShape()[1] << std::endl;
-  std::cout << input.GetType().GetShape()[2] << std::endl;
-  std::cout << input.GetType().GetShape()[3] << std::endl;
-
-
-  std::cout << outputs[1].GetType() << std::endl;
-  std::cout << outputs[1].GetType().GetShape()[0] << std::endl;
-  std::cout << outputs[1].GetType().GetShape()[1] << std::endl;
-  std::cout << outputs[1].GetType().GetShape()[2] << std::endl;
-  std::cout << outputs[1].GetType().GetShape()[3] << std::endl;
-
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs, outputs_type);
-
-  std::cout << "test3" << std::endl;
 
   return result;
 }

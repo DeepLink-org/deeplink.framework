@@ -54,24 +54,15 @@ static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
   return padding_dim;
 }
 
-builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op input, builder::Op filter, 
-                        std::vector<int64_t> bias_shape, std::vector<int64_t> stride, std::vector<int64_t> padding, std::vector<int64_t> dilation){
+builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op input_, builder::Op filter_, 
+                        std::vector<int64_t> bias_shape_, std::vector<int64_t> stride, std::vector<int64_t> padding, std::vector<int64_t> dilation){
   // do not take bias in account because bias_grad will be calculated in
   // elementwise_add_grad input keys: Output@GRAD, Filter, Input output keytrs:
   // Filter@GRAD, Input@GRAD
-  // auto before_time = std::chrono::high_resolution_clock::now();
-  // builder::Op out_grad = builder::Transpose(out_grad_, {0, 2, 3, 1});
-  // builder::Op input = builder::Transpose(input_, {0, 2, 3, 1});
-  // builder::Op filter = builder::Transpose(filter_, {2, 3, 1, 0});
-  // std::cout << "Entering func !:\n" << std::endl;
-  // std::cout << stride.size() << std::endl;
-  // std::cout << dilation.size() << std::endl;
-  // std::cout << padding.size() << std::endl;
+  builder::Op out_grad = builder::Transpose(out_grad_, {0, 2, 3, 1});
+  builder::Op input = builder::Transpose(input_, {0, 2, 3, 1});
+  builder::Op filter = builder::Transpose(filter_, {2, 3, 1, 0});
 
-  // std::cout << "conv2d_grad input!" <<std::endl;
-//   std::cout << str(filter.GetType().GetShape()) << "conv2d_grad filter!" <<std::endl;
-//   std::cout << str(out_grad.GetType().GetShape()) << "conv2d_grad out_grad!" << std::endl;
-  
   auto input_shape = input.GetType().GetShape();
   auto kernel_shape = filter.GetType().GetShape();
   auto output_shape = out_grad.GetType().GetShape();
@@ -97,12 +88,7 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
       }
     }
     std::vector<int64_t> rhs_dilation = stride;
-    // for(uint i = 0; i < rhs_dilation.size(); i++){
-    //   if(rhs_dilation[i] < 1){
-    //     // std::cout<< "fix!!!!1" << std::endl;
-    //     rhs_dilation[i] = 1;
-    //   }
-    // }
+
     auto pad_h = get_backprop_filter_padding(
         ih, oh, kh, stride[0], dilation[0], padding[0]);
     auto pad_w = get_backprop_filter_padding(
@@ -137,7 +123,7 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
     // std::cout << filter_grad << std::endl;
     // std::cout << "---- debug filter_grad end" << std::endl;
     
-    // filter_grad = builder::Transpose(filter_grad, {3, 2, 0, 1});
+    filter_grad = builder::Transpose(filter_grad, {3, 2, 0, 1});
   }
 
   // calculate input_grad
@@ -147,13 +133,6 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
     std::vector<int64_t> lhs_dilation = stride;
     std::vector<int64_t> rhs_dilation = dilation;
 
-    // for(uint i = 0; i < rhs_dilation.size(); i++){
-    //   if(rhs_dilation[i] < 1){
-    //     std::cout<< "fix!!!!3" << std::endl;
-    //     std::cout<< rhs_dilation[i] << std::endl;
-    //     rhs_dilation[i] = 1;
-    //   }
-    // }
     auto pad_h = get_backprop_input_padding(
         ih, oh, kh, stride[0], dilation[0], padding[0]);
     auto pad_w = get_backprop_input_padding(
@@ -189,7 +168,7 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
                             builder::Attribute("Conv2DBackpropInput"));
     // std::cout << input_grad << std::endl;
     // std::cout << "---- debug input_grad end" << std::endl;
-    // input_grad = builder::Transpose(input_grad, {0, 3, 1, 2});
+    input_grad = builder::Transpose(input_grad, {0, 3, 1, 2});
   }
 
   // std::vector<int64_t> bias_grad_shape{}
@@ -202,9 +181,6 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
   auto bias_grad = builder::Const(tmp_builder, static_cast<void *>(bias_data.data()), bias_type);
 
   std::vector<builder::Op> outputs{input_grad, filter_grad, bias_grad};
-  // std::vector<builder::Op> outputs{filter_grad, filter_grad, bias_grad};
-  // std::vector<builder::Op> outputs{input_grad, input_grad, bias_grad};
-
 
   // return outputs;
   std::vector<builder::PrimitiveType> tuple_dtype;
@@ -216,11 +192,6 @@ builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, 
 
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs);
-
-  // auto after_time = std::chrono::high_resolution_clock::now();
-  // std::cout << "Conv_Grad running time costing:"
-  //           << double(std::chrono::duration_cast<std::chrono::milliseconds>(after_time - before_time).count())
-  //            << std::endl;
   
   return result;
 }

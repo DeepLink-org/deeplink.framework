@@ -10,9 +10,7 @@ builder::Op enflame::MaxPool2D(
     std::vector<long> padding,
     std::vector<long> shape) {
 
-    auto input_tmp = builder::Transpose(input, {0, 3, 1, 2});
     auto res1_tmp = builder::MaxPool2D(input_tmp, ksize, false, false, "NOTSET", "NCHW", strides, padding, {});
-    auto res1 = builder::Transpose(res1_tmp, {0, 2, 3, 1});
     
     builder::Type pool_type(shape, builder::PrimitiveType::S64());
     
@@ -28,7 +26,6 @@ builder::Op enflame::MaxPool2D(
 
     auto res = builder::Tuple(outputs);
 
-    std::cout << "MaxPool2D test" << std::endl;
     return res;
 }
 

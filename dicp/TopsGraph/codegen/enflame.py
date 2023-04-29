@@ -638,17 +638,8 @@ class EnflameOverrides(OpOverrides):
         src_code = f"  std::vector<std::vector<int64_t>> tuple_shape{EnflameOverrides.count};\n"
         src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{EnflameOverrides.count};\n"
         
-        # for i in range(0, lenth):
-        #     src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
-        # src_code += f"  for (uint i = 0; i < {lenth}; i++) {'{'}\n"
-        # # src_code += f"    tuple_shape{self.bn_count}.push_back({shape[i]});\n"
-        # src_code += f"    tuple_dtype{self.bn_count}.push_back(builder::PrimitiveType::F32());\n  {'}'}\n"
-        
         src_code += f"  builder::Type bn_type{EnflameOverrides.count}(tuple_shape{EnflameOverrides.count}, tuple_dtype{EnflameOverrides.count});\n"
         
-        # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormInference({args_str[0]}, {args_str[1]}, {args_str[2]}, {args_str[3]}, {args_str[4]}, 0.1, 3);\n"
-        # src_code += f"  auto {self.args_dict[name]} = builder::BatchNormTraining({args_str[0]}, {args_str[1]}, {args_str[2]}, 0.1, 5);\n"
-        # print("args_strlen:", len(args_str))
         src_code += f"  auto {args_dict[node.name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"     
         EnflameOverrides.count += 1
         
