@@ -41,10 +41,13 @@ class EnflameCodeCache:
         )   
         output_path = input_path[:-3] + 'so'
         codegen_path = osp.join(osp.dirname(osp.abspath(__file__)), "codegen")
-        if key not in cls.cache:
-            if not osp.exists(output_path):
+        if True:
+        # if key not in cls.cache:
+            if True:
+            # if not osp.exists(output_path):
                 cmd = ['/usr/bin/c++', 
-                       f'{codegen_path}/src/dtu_utils.cpp', 
+                       f'{codegen_path}/src/dtu_utils.cpp',
+                       f'{codegen_path}/src/common_ops.cpp', 
                        f'{codegen_path}/src/conv2d_grad.cpp', 
                        f'{codegen_path}/src/maxpool2d_grad.cpp', 
                        '-D_GLIBCXX_USE_CXX11_ABI=0', '-fPIC', '-shared', '-I/usr/include/dtu', 

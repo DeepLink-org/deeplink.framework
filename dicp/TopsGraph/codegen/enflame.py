@@ -143,16 +143,17 @@ class EnflameCodegen(torch.fx.Interpreter):
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
-        # print("*******************************************", flush=True)
-        # print("name:", name, flush=True)
-        # print("target:", target.name(), flush=True)
-        # print("real_op:", real_op, flush=True)
-        # print("arg_code:", arg_code.get_str(), flush=True)
-        # print("args_list:", args_list, flush=True)
+        print("*******************************************", flush=True)
+        print("name:", name, flush=True)
+        print("target:", target.name(), flush=True)
+        print("real_op:", real_op, flush=True)
+        print("args:", args, flush=True)
+        print("arg_code:", arg_code.get_str(), flush=True)
+        print("args_list:", args_list, flush=True)
 
         op_code = getattr(self.override, real_op)(*args_list)
         
-        # print("op_code:", op_code, flush=True)
+        print("op_code:", op_code, flush=True)
         
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'{op_code}')
@@ -217,6 +218,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 #include <vector>
 
                 #include "dtu_utils.h"
+                #include "common_ops.h"
                 #include "conv2d_grad.h"
                 #include "maxpool2d_grad.h"
 

@@ -54,7 +54,7 @@ static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
   return padding_dim;
 }
 
-builder::Op enflame::Conv2d_Grad(
+builder::Op enflame::Conv2D_Grad(
     std::shared_ptr<builder::Builder> tmp_builder,
     builder::Op out_grad_,
     builder::Op input_,
