@@ -318,3 +318,38 @@
 
 - schema: "log2_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiLog2Inp(ctx, self)
+
+- schema: "abs(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiAbs(ctx, out, self)
+
+- schema: "abs_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiAbsInp(ctx, self)
+
+- schema: "abs.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAbs(ctx, out, self)
+
+- schema: "neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiNeg(ctx, out, self)
+
+- schema: "neg_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiNegInp(ctx, self)
+
+- schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSqrt(ctx, out, self)
+
+- schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiSqrtInp(ctx, self)
+
+- schema: "all.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAll(ctx, out, self, &dim)
+
+- schema: "all.all_out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAll(ctx, out, self, nullptr)
+
+- schema: "any.all_out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAny(ctx, out, self, nullptr)
+
+- schema: "any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAny(ctx, out, self, &dim)
