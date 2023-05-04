@@ -21,7 +21,7 @@ class AscendCodeCache:
 
         output_path = input_path[:-3] + 'so'
         output_graph_path = os.path.split(output_path)[0] + '/graph'
-        from .codegen import load_and_run
+        from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         if key not in cls.cache:
             #if not os.path.exists(output_path) or True:
@@ -53,7 +53,7 @@ class AscendCodeCache:
             loaded = cdll.LoadLibrary(output_path)
             loaded.compile(output_graph_path.encode())
             
-            from .codegen.load_and_run import AscendExecutor
+            from dicp.AscendGraph.codegen.load_and_run import AscendExecutor
             exe = AscendExecutor(0, output_graph_path + '.om')
             cls.cache[key] = exe
             cls.cache[key].key = key
