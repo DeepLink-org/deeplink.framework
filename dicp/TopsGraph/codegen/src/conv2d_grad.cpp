@@ -1,4 +1,4 @@
-#include "enflame/conv2d_grad.h"
+#include "conv2d_grad.h"
 
 const char *const kConv2D = "conv2d";
 const char *const kConv2DGrad = "conv2d_grad";

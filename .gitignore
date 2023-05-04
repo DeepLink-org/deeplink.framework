@@ -1,0 +1,4 @@
+__pycache__
+.vscode
+dicp.egg-info
+/build/
