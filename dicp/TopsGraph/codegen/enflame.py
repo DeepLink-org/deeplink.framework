@@ -21,9 +21,16 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
 need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm',
-             'Max_Pool2D', 'Max_Pool2D_Grad', 'Zeros', 'Expand']
+             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand']
 
 def process_name(name, target):
+    if target.__name__ == 'convolution_backward':
+            return 'Conv2D_Grad'
+    if target.__name__ == 'max_pool2d_with_indices':
+        return 'MaxPool2D'
+    if target.__name__ == 'max_pool2d_with_indices_backward':
+        return 'MaxPool2D_Grad'
+    
     if hasattr(target, "name"):
         real_op = target.name().split('::')[-1]
         if real_op.find('.') != -1:
@@ -137,7 +144,9 @@ class EnflameCodegen(torch.fx.Interpreter):
         real_op = process_name(name, target)
         
         print("*******************************************", flush=True)
-        print("real_op", real_op, flush=True)
+        print("name:", name, flush=True)
+        print("target:", target.name(), flush=True)
+        print("real_op:", real_op, flush=True)
         print("arg_code:", arg_code.get_str(), flush=True)
         print("args_list:", args_list, flush=True)
 
@@ -169,7 +178,10 @@ class EnflameCodegen(torch.fx.Interpreter):
     
     def codegen(self):
         self.run()
-        return self.generate_code()
+        test = self.generate_code()
+        with open('codegen.py', 'w') as f:
+            f.write(test)
+        return test
 
     def gen_build_graph_code(self):
         graph_code = CodeBlock(indent=1)
@@ -697,7 +709,7 @@ class EnflameOverrides(OpOverrides):
 
     # TODO need node
     @staticmethod            
-    def Max_Pool2D(op_var, node, *args_str):
+    def MaxPool2D(op_var, node, *args_str):
         args = node.args
         
         ceil_mode = 'false'
@@ -724,7 +736,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Max_Pool2D_Grad(op_var, node, *args_str):
+    def MaxPool2D_Grad(op_var, node, *args_str):
         args = node.args    
         
         ksize = str(args[2]).replace('[','{').replace(']','}')
