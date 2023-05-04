@@ -459,12 +459,20 @@ class EnflameOverrides(OpOverrides):
                             args_str.append(f'{op_var}_value{count}')
                 else:
                     in_shape_size = '{1}'
-                    if isinstance(type(args[i]), int):
-                        src_code.add_line(f'int {op_var}_value{count} = {str(args[i])};')
+                    print(type(node.meta['val']))
+                    if isinstance(node.meta['val'], list) or isinstance(node.meta['val'], tuple):
+                        data_type = node.meta['val'][0].dtype.__str__()
                     else:
-                        src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};')
+                        data_type = node.meta['val'].dtype.__str__()
+                    if data_type == 'torch.int64':
+                        out_type = 'builder::PrimitiveType::S64()'
+                        src_code.add_line(f'int {op_var}_value{count} = {str(args[i])};\n')
+                    else:
+                        out_type = 'builder::PrimitiveType::F32()'
+                        src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};\n')
+  
                     src_code.add_line(f'std::vector<int64_t> {op_var}_const_in_shape{count}{in_shape_size};')
-                    src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, ptype);')
+                    src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, {out_type});')
                     src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
@@ -594,7 +602,7 @@ class EnflameOverrides(OpOverrides):
     # TODO need node
     @staticmethod
     def Getitem(op_var, node, *args):
-        src_code += f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])});\n\n"
+        src_code = f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])});\n\n"
         return src_code
 
     # TODO need node

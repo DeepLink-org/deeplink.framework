@@ -24,6 +24,8 @@ void compile(std::shared_ptr<builder::Builder> builder,
   topsCreateExecutable(exe_ptr, binary, binary_size);
   delete [] binary;
   topsgraphDestroyProgram(&program);
+
+  std::cout << "Compile done!" << std::endl;
   return;
 }
 
