@@ -20,7 +20,7 @@ from torch._inductor.codegen.common import OpOverrides
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
-need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
+need_node = ['reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
              'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand']
 
 def process_name(name, target):
@@ -410,7 +410,7 @@ class EnflameOverrides(OpOverrides):
             elif isinstance(args[i], bool):
                 args_str.append(str(args[i]).lower())
             elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-                if node.name == "reducemean" and i == 1:
+                if node.name == "reducemean" and len(args) != 1 and i == 1:
                     tmp = args[1].copy()
                     tmp.sort()
                     for j in range(0, len(tmp)):
@@ -448,12 +448,15 @@ class EnflameOverrides(OpOverrides):
                     args_str.append(f"{op_var}_output_type{count}")
                     count += 1
 
-                elif node.name == "Scatter" and i == 3:
-                    if isinstance(args[3], float):
-                        src_code.add_line(f'  const float {op_var}_value{count} = {str(args[3])};\n')
+                elif node.name == "Scatter":
+                    if i  == 1:
+                        args_str.append(str(args[1]))
                     else:
-                        src_code.add_line(f'  const int {op_var}_value{count} = {str(args[3])};\n')
-                        args_str.append(f'{op_var}_value{count}')
+                        if isinstance(args[3], float):
+                            src_code.add_line(f'  const float {op_var}_value{count} = {str(args[3])};\n')
+                        else:
+                            src_code.add_line(f'  const int {op_var}_value{count} = {str(args[3])};\n')
+                            args_str.append(f'{op_var}_value{count}')
                 else:
                     in_shape_size = '{1}'
                     if isinstance(type(args[i]), int):
@@ -530,28 +533,16 @@ class EnflameOverrides(OpOverrides):
 
     # TODO need node
     @staticmethod
-    def reducemean(op_var, node, *args):
-        print("In staticmethond!", flush=True)
-        print("node:", node.name, "*args:", args, flush=True)
-
-        # TODO
-        '''
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'builder::Type _reducemean_shape_({shape}, ptype);\n'
-        shape_type = []
-        shape_type.append(f'_reducemean_shape_')
-        '''
-
-        if len(args) == 3:
-            src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {args[2]}, {args[1]});\n"
-        elif len(args) == 2:
+    def reducemean(op_var, *args_str):
+        if len(args_str) == 3:
+            src_code = f"builder::Op {op_var} = builder::ReduceMean({args_str[0]}, {args_str[2]}, {args_str[1]});\n"
+        elif len(args_str) == 2:
             keepdim = 'false'
-            src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {keepdim}, {args[1]});\n"
-        else:
-            ValueError("No less than 2 args")
-            
-        print("Out staticmethond!", flush=True)
-        
+            src_code = f"builder::Op {op_var} = builder::ReduceMean({args_str[0]}, {keepdim}, {args_str[1]});\n"
+        elif len(args_str) == 1:
+            src_code = f"builder::Op {op_var} = builder::ReduceMean({args_str[0]});\n"
+        else:   
+            ValueError("Reducemean args num error!")
         return src_code
 
     @staticmethod
@@ -563,11 +554,6 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var} = builder::Reshape({args[0]}, {tmp});\n\n"
         return src_code
 
-    '''
-  builder::Op ReduceMax(builder::Op input, bool keepdims=false,
-                        std::vector<int64_t> axis = {},
-                        builder::Type resultType=builder::Type()) ;
-    '''
     @staticmethod
     def ReduceMax(op_var, *args):
         if len(args) == 3:
@@ -576,7 +562,7 @@ class EnflameOverrides(OpOverrides):
             keepdim = 'false'
             src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {keepdim}, {args[1]});\n"
         else:
-            ValueError("No less than 2 args")
+            ValueError("ReduceMax paras num error!")
         return src_code
 
     @staticmethod
@@ -587,7 +573,7 @@ class EnflameOverrides(OpOverrides):
             keepdim = 'false'
             src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});\n"
          else:
-            ValueError("No less than 2 args")
+            ValueError("ReduceSum paras num error!")
          return src_code
 
     @staticmethod
@@ -608,15 +594,7 @@ class EnflameOverrides(OpOverrides):
     # TODO need node
     @staticmethod
     def Getitem(op_var, node, *args):
-        # TODO max_pool_2d
-        '''
-        if 'max_pool2d' in args[0].name:
-            op_var = args[0]
-            return ''
-        '''
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'builder::Type _getitem_type{op_var}({shape}, ptype);\n\n'
-        src_code += f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])}, _getitem_type{op_var});\n\n"
+        src_code += f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])});\n\n"
         return src_code
 
     # TODO need node
@@ -672,7 +650,7 @@ class EnflameOverrides(OpOverrides):
                 continue
             tmp_str.append(args_str[i])
                 
-        stride = args_str[4]
+        stride = args_str[2]
         
         if len(node.args[4]) == 1:
             row_padding, col_padding = node.args[4][0]
@@ -681,7 +659,7 @@ class EnflameOverrides(OpOverrides):
             col_padding = node.args[4][1]
 
         padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-        dilation = args_str[6]
+        dilation = args_str[4]
         
         group = '1'
         src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(tmp_str) + '}'};\n"
@@ -691,21 +669,20 @@ class EnflameOverrides(OpOverrides):
 
     # TODO did not test
     @staticmethod
-    def Conv2D_Grad(op_var, *args):
-        args_str = []
-
+    def Conv2D_Grad(op_var, node, *args_str):
+        new_args_str = []
         for i in range(0, 3):
-            if isinstance(args[i], type(None)):
+            if isinstance(node.args[i], type(None)):
                 continue
             else:
-                args_str.append(args[i])
+                new_args_str.append(args_str[i])
 
-        bias = str(args[3]).replace('[','{').replace(']','}')
-        stride = str(args[4]).replace('[','{').replace(']','}')
-        padding = str(args[5]).replace('[','{').replace(']','}')
-        dilation = str(args[6]).replace('[','{').replace(']','}')
+        bias = args_str[3]
+        stride = args_str[4]
+        padding = args_str[5]
+        dilation = args_str[6]
         
-        src_code = f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
+        src_code = f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {','.join(new_args_str)}, {bias}, {stride}, {padding}, {dilation});\n"
 
         return src_code
 
