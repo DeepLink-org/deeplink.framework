@@ -54,8 +54,15 @@ static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
   return padding_dim;
 }
 
-builder::Op enflame::Conv2d_Grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op input_, builder::Op filter_, 
-                        std::vector<int64_t> bias_shape_, std::vector<int64_t> stride, std::vector<int64_t> padding, std::vector<int64_t> dilation){
+builder::Op enflame::Conv2d_Grad(
+    std::shared_ptr<builder::Builder> tmp_builder,
+    builder::Op out_grad_,
+    builder::Op input_,
+    builder::Op filter_,
+    std::vector<int64_t> bias_shape,
+    std::vector<int64_t> stride,
+    std::vector<int64_t> padding,
+    std::vector<int64_t> dilation) {
   // do not take bias in account because bias_grad will be calculated in
   // elementwise_add_grad input keys: Output@GRAD, Filter, Input output keytrs:
   // Filter@GRAD, Input@GRAD

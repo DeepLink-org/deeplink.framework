@@ -46,7 +46,7 @@ class EnflameCodeCache:
                 cmd = ['/usr/bin/c++', 
                        f'{codegen_path}/src/dtu_utils.cpp', 
                        f'{codegen_path}/src/conv2d_grad.cpp', 
-                       f'{codegen_path}/src/max_pool2d_grad.cpp', 
+                       f'{codegen_path}/src/maxpool2d_grad.cpp', 
                        '-D_GLIBCXX_USE_CXX11_ABI=0', '-fPIC', '-shared', '-I/usr/include/dtu', 
                        '-I/usr/include/dtu/3_0/runtime', '-L/usr/lib', 
                        f'-I{codegen_path}/include', 

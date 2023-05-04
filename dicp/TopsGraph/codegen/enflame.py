@@ -143,16 +143,16 @@ class EnflameCodegen(torch.fx.Interpreter):
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
-        print("*******************************************", flush=True)
-        print("name:", name, flush=True)
-        print("target:", target.name(), flush=True)
-        print("real_op:", real_op, flush=True)
-        print("arg_code:", arg_code.get_str(), flush=True)
-        print("args_list:", args_list, flush=True)
+        # print("*******************************************", flush=True)
+        # print("name:", name, flush=True)
+        # print("target:", target.name(), flush=True)
+        # print("real_op:", real_op, flush=True)
+        # print("arg_code:", arg_code.get_str(), flush=True)
+        # print("args_list:", args_list, flush=True)
 
         op_code = getattr(self.override, real_op)(*args_list)
         
-        print("op_code:", op_code, flush=True)
+        # print("op_code:", op_code, flush=True)
         
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'{op_code}')
@@ -218,7 +218,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
                 #include "dtu_utils.h"
                 #include "conv2d_grad.h"
-                #include "max_pool2d_grad.h"
+                #include "maxpool2d_grad.h"
 
                 #include "dtu/hlir_builder/hlir_builder.h"
                 #include "dtu/hlir_builder/hlir_builder_client_ops.h"
@@ -245,7 +245,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_func_body = CodeBlock(indent=1)
         compile_func_body.splice(
             f"""
-                auto hlir_builder = build_sample();
+              auto hlir_builder = build_sample();
                 compile(hlir_builder, &exe_ptr);
             """
             , dedent=True
@@ -533,7 +533,7 @@ class EnflameOverrides(OpOverrides):
         # TODO
         '''
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'  builder::Type _reducemean_shape_({shape}, ptype);\n'
+        src_code = f'builder::Type _reducemean_shape_({shape}, ptype);\n'
         shape_type = []
         shape_type.append(f'_reducemean_shape_')
         '''
@@ -553,16 +553,16 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def reshape(op_var, node, *args):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'  builder::Type _reshape_shape{op_var}({shape}, ptype);\n'
+        src_code = f'builder::Type _reshape_shape{op_var}({shape}, ptype);\n'
         tmp = f'_reshape_shape{op_var}'
 
-        src_code += f"  builder::Op {op_var} = builder::Reshape({args[0]}, {tmp});\n\n"
+        src_code += f"builder::Op {op_var} = builder::Reshape({args[0]}, {tmp});\n\n"
         return src_code
 
     '''
-    builder::Op ReduceMax(builder::Op input, bool keepdims=false,
-                          std::vector<int64_t> axis = {},
-                          builder::Type resultType=builder::Type()) ;
+  builder::Op ReduceMax(builder::Op input, bool keepdims=false,
+                        std::vector<int64_t> axis = {},
+                        builder::Type resultType=builder::Type()) ;
     '''
     @staticmethod
     def ReduceMax(op_var, *args):
@@ -611,8 +611,8 @@ class EnflameOverrides(OpOverrides):
             return ''
         '''
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'  builder::Type _getitem_type{op_var}({shape}, ptype);\n\n'
-        src_code += f"  builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])}, _getitem_type{op_var});\n\n"
+        src_code = f'builder::Type _getitem_type{op_var}({shape}, ptype);\n\n'
+        src_code += f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])}, _getitem_type{op_var});\n\n"
         return src_code
 
     # TODO need node
@@ -631,10 +631,10 @@ class EnflameOverrides(OpOverrides):
         else:
             count_num = int(count_num[1])
         
-        src_code = f"  builder::Type gather_type{count_num}({shape}, builder::PrimitiveType::F32());\n"
+        src_code = f"builder::Type gather_type{count_num}({shape}, builder::PrimitiveType::F32());\n"
         new_args_str.append(f"gather_type{count_num}")
         
-        src_code += f"  auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
+        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
 
         return src_code
 
@@ -646,12 +646,12 @@ class EnflameOverrides(OpOverrides):
         for i in range (0, lenth):
             shape.append('{' + str(node.meta['val'][i].shape).split('[')[-1].split(']')[0] + '}')
 
-        src_code = f"  std::vector<std::vector<int64_t>> tuple_shape{op_var};\n"
-        src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{op_var};\n"
+        src_code = f"std::vector<std::vector<int64_t>> tuple_shape{op_var};\n"
+        src_code += f"std::vector<builder::PrimitiveType> tuple_dtype{op_var};\n"
 
-        src_code += f"  builder::Type bn_type{op_var}(tuple_shape{op_var}, tuple_dtype{op_var});\n"
+        src_code += f"builder::Type bn_type{op_var}(tuple_shape{op_var}, tuple_dtype{op_var});\n"
         args_str_tmp = args_str[2:7]
-        src_code += f"  auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[6])});\n"     
+        src_code += f"auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[6])});\n"     
 
         return src_code
     
@@ -682,8 +682,8 @@ class EnflameOverrides(OpOverrides):
         # TODO need fix
         #group = args[8]
         group = '1'
-        src_code = f"  std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
-        src_code += f'  builder::Op {op_var} = builder::Conv2D({op_var}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
+        src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
+        src_code += f'builder::Op {op_var} = builder::Conv2D({op_var}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
 
         return src_code
 
@@ -703,7 +703,7 @@ class EnflameOverrides(OpOverrides):
         padding = str(args[5]).replace('[','{').replace(']','}')
         dilation = str(args[6]).replace('[','{').replace(']','}')
         
-        src_code = f"  auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
+        src_code = f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]}, {bias}, {stride}, {padding}, {dilation});\n"
 
         return src_code
 
@@ -731,7 +731,7 @@ class EnflameOverrides(OpOverrides):
                 col_padding = args[3][1]
             padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
                        
-        src_code = f'  builder::Op {op_var} = enflame::MaxPool2D(hlir_builder, {args_str[0]}, {ksize}, {stride}, {padding}, {shape});\n'
+        src_code = f'builder::Op {op_var} = enflame::MaxPool2D(hlir_builder, {args_str[0]}, {ksize}, {stride}, {padding}, {shape});\n'
 
         return src_code
     
@@ -743,7 +743,7 @@ class EnflameOverrides(OpOverrides):
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
         
-        src_code += f"  auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
+        src_code += f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
 
@@ -764,7 +764,7 @@ class EnflameOverrides(OpOverrides):
             
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         
-        src_code = f"  builder::Op {op_var} = builder::ZerosLike({args[0]}, {out_type}, {shape});\n\n"
+        src_code = f"builder::Op {op_var} = builder::ZerosLike({args[0]}, {out_type}, {shape});\n\n"
 
         return src_code
 
@@ -783,9 +783,9 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Scalar(op_var, *args):
         shape = '{1}'
-        src_code = f"  builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());"
-        src_code += f"  std::vector<float> scalar_data{op_var}(1, {args[0]});\n"
-        src_code += f"  auto {op_var} = builder::Const(hlir_builder, static_cast<void *>(scalar_data{op_var}.data()), scalar_type{op_var});\n"
+        src_code = f"builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());"
+        src_code += f"std::vector<float> scalar_data{op_var}(1, {args[0]});\n"
+        src_code += f"auto {op_var} = builder::Const(hlir_builder, static_cast<void *>(scalar_data{op_var}.data()), scalar_type{op_var});\n"
 
         return src_code
 
@@ -805,7 +805,7 @@ class EnflameOverrides(OpOverrides):
         elif data_type == 'torch.int64':
             out_type = 'builder::PrimitiveType::S64()'
             
-        src_code = f'  builder::Type expand_type{op_var}({shape}, {out_type});\n'
+        src_code = f'builder::Type expand_type{op_var}({shape}, {out_type});\n'
         # TODO
-        src_code += f"  auto {op_var} = enflame::BroadcastInDim(hlir_builder, {', '.join(args)}, {broadcast_dims}, expand_type{op_var});\n"
+        src_code += f"auto {op_var} = enflame::BroadcastInDim(hlir_builder, {', '.join(args)}, {broadcast_dims}, expand_type{op_var});\n"
         return src_code

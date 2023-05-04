@@ -1,4 +1,4 @@
-#include "max_pool2d_grad.h"
+#include "maxpool2d_grad.h"
 
 #include <dtu/hlir_builder/hlir_builder_ops.h>
 
@@ -9,8 +9,7 @@ builder::Op enflame::MaxPool2D(
     std::vector<long> strides,
     std::vector<long> padding,
     std::vector<long> shape) {
-
-    auto res1_tmp = builder::MaxPool2D(input_tmp, ksize, false, false, "NOTSET", "NCHW", strides, padding, {});
+    auto res1 = builder::MaxPool2D(input, ksize, false, false, "NOTSET", "NCHW", strides, padding, {});
     
     builder::Type pool_type(shape, builder::PrimitiveType::S64());
     
@@ -29,8 +28,13 @@ builder::Op enflame::MaxPool2D(
     return res;
 }
 
-builder::Op enflame::MaxPool2D_Grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,
-                     std::vector<int> ksize, std::vector<int> strides, std::vector<int> padding){
+builder::Op enflame::MaxPool2D_Grad(
+    std::shared_ptr<builder::Builder> tmp_builder,
+    builder::Op out_grad,
+    builder::Op in,
+    std::vector<int> ksize,
+    std::vector<int> strides,
+    std::vector<int> padding) {
     auto input_shape = in.GetType().GetShape();
     auto ptype = in.GetType().GetPrimitiveType();
     
