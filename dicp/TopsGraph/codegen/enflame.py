@@ -454,10 +454,9 @@ class EnflameOverrides(OpOverrides):
                     else:
                         src_code.add_line(f'  const int {op_var}_value{count} = {str(args[3])};\n')
                         args_str.append(f'{op_var}_value{count}')
-
                 else:
                     in_shape_size = '{1}'
-                    if isinstance(type(args[i]), type(int)):
+                    if isinstance(type(args[i]), int):
                         src_code.add_line(f'int {op_var}_value{count} = {str(args[i])};')
                     else:
                         src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};')
@@ -655,8 +654,8 @@ class EnflameOverrides(OpOverrides):
         src_code += f"std::vector<builder::PrimitiveType> tuple_dtype{op_var};\n"
 
         src_code += f"builder::Type bn_type{op_var}(tuple_shape{op_var}, tuple_dtype{op_var});\n"
-        args_str_tmp = args_str[2:7]
-        src_code += f"auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[6])});\n"     
+        args_str_tmp = args_str[:5]
+        src_code += f"auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[7])});\n"     
 
         return src_code
     
