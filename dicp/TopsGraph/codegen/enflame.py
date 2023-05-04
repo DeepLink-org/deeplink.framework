@@ -786,5 +786,5 @@ class EnflameOverrides(OpOverrides):
             
         src_code = f'builder::Type expand_type{op_var}({shape}, {out_type});\n'
         # TODO
-        src_code += f"auto {op_var} = enflame::BroadcastInDim(hlir_builder, {', '.join(args)}, {broadcast_dims}, expand_type{op_var});\n"
+        src_code += f"auto {op_var} = enflame::BroadcastInDim(hlir_builder, {args[0]}, {broadcast_dims}, expand_type{op_var});\n"
         return src_code
