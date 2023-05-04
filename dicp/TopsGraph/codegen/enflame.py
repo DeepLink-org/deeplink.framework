@@ -137,6 +137,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         real_op = process_name(name, target)
         
         print("*******************************************", flush=True)
+        print("real_op", real_op, flush=True)
         print("arg_code:", arg_code.get_str(), flush=True)
         print("args_list:", args_list, flush=True)
 
@@ -627,22 +628,19 @@ class EnflameOverrides(OpOverrides):
 
     # TODO need node
     @staticmethod
-    def Batch_Norm(args_dict, node, args):
-        src_code, args_str = self.gen_args(args_dict, node, args)    
-
+    def Batch_Norm(op_var, node, *args_str):
         shape = []
         lenth = len(node.meta['val'])
         for i in range (0, lenth):
             shape.append('{' + str(node.meta['val'][i].shape).split('[')[-1].split(']')[0] + '}')
-        
-        src_code = f"  std::vector<std::vector<int64_t>> tuple_shape{EnflameOverrides.count};\n"
-        src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{EnflameOverrides.count};\n"
-        
-        src_code += f"  builder::Type bn_type{EnflameOverrides.count}(tuple_shape{EnflameOverrides.count}, tuple_dtype{EnflameOverrides.count});\n"
-        
-        src_code += f"  auto {args_dict[node.name]} = enflame::batch_norm(hlir_builder, {args_str[0]}, {args_str[1]}, {args_str[2]});\n"     
-        EnflameOverrides.count += 1
-        
+
+        src_code = f"  std::vector<std::vector<int64_t>> tuple_shape{op_var};\n"
+        src_code += f"  std::vector<builder::PrimitiveType> tuple_dtype{op_var};\n"
+
+        src_code += f"  builder::Type bn_type{op_var}(tuple_shape{op_var}, tuple_dtype{op_var});\n"
+        args_str_tmp = args_str[2:7]
+        src_code += f"  auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[6])});\n"     
+
         return src_code
     
     @staticmethod
