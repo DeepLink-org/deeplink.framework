@@ -20,7 +20,7 @@ from torch._inductor.codegen.common import OpOverrides
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()"}
 
-need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm',
+need_node = ['reducemean', 'reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
              'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand']
 
 def process_name(name, target):
@@ -399,9 +399,12 @@ class EnflameOverrides(OpOverrides):
         args_str = [op_var]
         count = 0
         if process_name(node.name, node.target) in need_node:
+            print('process_name(node.name, node.target):', process_name(node.name, node.target), flush=True)
             args_str.append(node)
 
         for i in range(len(args)):
+            if isinstance(args[i], type(None)):
+                continue
             if isinstance(args[i], Node):
                 args_str.append(args_dict[args[i].name])
             elif isinstance(args[i], bool):
@@ -663,28 +666,26 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Convolution(op_var, *args):
-
-        args_str =[]
+    def Convolution(op_var, node, *args_str):
+        tmp_str =[]
         for i in range(0, 3):
-            if isinstance(args[i], type(None)):
+            if isinstance(node.args[i], type(None)):
                 continue
-            args_str.append(args[i])
+            tmp_str.append(args_str[i])
                 
-        stride = str(args[3]).replace('[','{').replace(']','}')
+        stride = args_str[4]
         
-        if len(args[4]) == 1:
-            row_padding, col_padding = args[4][0]
+        if len(node.args[4]) == 1:
+            row_padding, col_padding = node.args[4][0]
         else:
-            row_padding = args[4][1]
-            col_padding = args[4][4]
+            row_padding = node.args[4][0]
+            col_padding = node.args[4][1]
 
         padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-        dilation = str(args[5]).replace('[','{').replace(']','}')
-        # TODO need fix
-        #group = args[8]
+        dilation = args_str[6]
+        
         group = '1'
-        src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(args_str) + '}'};\n"
+        src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(tmp_str) + '}'};\n"
         src_code += f'builder::Op {op_var} = builder::Conv2D({op_var}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});\n\n'
 
         return src_code
