@@ -145,7 +145,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
 }
 
 int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
-          size_t *input_dims, size_t *input_rank,
+          int64_t *input_dims, size_t *input_rank,
           std::vector<void *> &output_ptrs, size_t *output_dims,
           size_t *output_rank) {
   int device_id = 0;
