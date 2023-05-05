@@ -97,7 +97,7 @@ def create_param_list_from_schema(schema):
     args_type_map = OrderedDict({
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
-        '([, \(]{1})str' : R'\1c10::string_view',
+        '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
