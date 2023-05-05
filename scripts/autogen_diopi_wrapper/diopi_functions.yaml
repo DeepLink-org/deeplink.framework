@@ -311,7 +311,23 @@
   custom_code_at_the_beginning: >
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
-- schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+- schema: "cross_entropy_loss_impl(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  register_op: False
+  custom_code_at_the_beginning: >
+    const int64_t ignore_index_int = ignore_index.expect_int();
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out;
+    auto options = self.options();
+    if (reductionDiopi == ReductionNone) {
+      out = at::empty(target.sizes(), options);
+    } else {
+      out = at::empty({1}, options);
+    }
+    out.set_requires_grad(self.requires_grad());
+  interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
+
+- schema: "cross_entropy_loss_backward_impl(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  register_op: False
   custom_code_at_the_beginning: >
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -324,7 +340,7 @@
     }
     out.set_requires_grad(self.requires_grad());
   autograd: True
-  interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
+  interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
