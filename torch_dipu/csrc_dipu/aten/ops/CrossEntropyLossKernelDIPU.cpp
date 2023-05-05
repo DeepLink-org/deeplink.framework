@@ -1,9 +1,7 @@
 #include <vector>
-#include <memory>
 
 #include <ATen/Tensor.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include <torch/csrc/autograd/custom_function.h>
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
