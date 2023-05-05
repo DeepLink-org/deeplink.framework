@@ -400,7 +400,6 @@ def parase_args():
 
 def main():
     args = parase_args()
-
     with open(args.config) as diopi_functions_file:
         file_data = diopi_functions_file.read()
         funcs_config = yaml.load(file_data, Loader=yaml.FullLoader)
