@@ -22,7 +22,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.bool": "builder::PrimitiveType::PRED()"}
 
 need_node = ['reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
-             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand']
+             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand', 'fulllike']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -644,7 +644,15 @@ class EnflameOverrides(OpOverrides):
         src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
 
         return src_code
-
+    
+    @staticmethod
+    def fulllike(op_var, node, *args_str):
+        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
+        src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
+        src_code += f" builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
+        
+        return src_code
+        
     # TODO need node
     @staticmethod
     def Batch_Norm(op_var, node, *args_str):
