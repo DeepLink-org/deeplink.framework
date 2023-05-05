@@ -97,6 +97,7 @@ def create_param_list_from_schema(schema):
     args_type_map = OrderedDict({
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
+        '([, \(]{1})str' : R'\1c10::string_view',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
@@ -104,7 +105,7 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
-        '([a-zA-Z0-9]+)\?' : r'c10::optional<\1>&',
+        '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>&',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
         '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
@@ -114,7 +115,7 @@ def create_param_list_from_schema(schema):
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
         '\*[ ,]+' : '',
-        '=[ ]*\w*-?\.?[\d ]*' : '',
+        '=[ ]*\'?\w*-?\.?[\d ]*\'?' : '',
     })
     for pattern, cpp_type in args_type_map.items():
         param_list = re.sub(str(pattern), str(cpp_type), param_list)
