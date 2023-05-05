@@ -203,6 +203,47 @@ def convolutionbackward(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks)
 
+@registe_conversion(torch.ops.aten.t.default)
+def t(input):
+    return ascend_op.T(input)
+
+@registe_conversion(torch.ops.aten._log_softmax.default)
+def log_softmax(x, dim, half_to_float):
+    return ascend_op.LogSoftmax(x, dim, half_to_float)
+
+@registe_conversion(torch.ops.aten._log_softmax_backward_data.default)
+def log_softmax_backward_data(grad_output, output, dim, input_dtype):
+    return ascend_op.LogSoftmaxBackward(grad_output, output, dim, input_dtype)
+
+@registe_conversion(torch.ops.aten.nll_loss_forward.default)
+def nll_loss_forward(x, target, weight, reduction, ignore_index):
+    return ascend_op.NLLLossForward(x, target, weight, reduction, ignore_index)
+
+@registe_conversion(torch.ops.aten.nll_loss_backward.default)
+def nll_loss_backward(grad_output, x, target, weight, reduction, ignore_index, total_weight):
+    return ascend_op.NLLLossBackward(grad_output, x, target, weight, reduction,
+                                     ignore_index, total_weight)
+
+@registe_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
+def _native_batch_norm_legit_functional(x, weight, bias, running_mean, running_var,
+                                        train, momentum, eps):
+    return ascend_op.BatchNorm(x, weight, bias, running_mean, running_var, train,
+                               momentum, eps)
+
+@registe_conversion(torch.ops.aten.threshold_backward.default)
+def threshold_backward(grad_output, x, threshold):
+    return ascend_op.ThresholdBackward(grad_output, x, threshold)
+
+@registe_conversion(torch.ops.aten.native_batch_norm_backward.default)
+def native_batch_norm_backward(grad_out, x, weight, running_mean, running_var,
+        save_mean, save_invstd, train, eps, grad_input_mask):
+    return ascend_op.BatchNormBackward(grad_out, x, weight, running_mean, running_var,
+            save_mean, save_invstd, train, eps, grad_input_mask)
+
+@registe_conversion(torch.ops.aten.zeros_like.default)
+def zeros_like(x, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.ZerosLike(x)
 
 @registe_pattern
 class ReplaceVarMean:

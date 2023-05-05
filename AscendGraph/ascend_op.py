@@ -415,6 +415,103 @@ class ConvBackward(Operator):
         self.torch_op = aten.convolution_backward
 
 
+class T(Operator):
+    def __init__(self, input):
+        super().__init__("t")
+        self.input = input
+        self.torch_op = aten.t
+
+
+class LogSoftmax(Operator):
+    def __init__(self, x, dim, half_to_float):
+        super().__init__("log_softmax")
+        self.x = x
+        self.dim = dim
+        self.half_to_float = half_to_float
+        self.torch_op = aten._log_softmax
+
+
+class LogSoftmaxBackward(Operator):
+    def __init__(self, grad_output, output, dim, input_dtype):
+        super().__init__("log_softmax_backward")
+        self.grad_output = grad_output
+        self.output = output
+        self.dim = dim
+        self.input_dtype = input_dtype
+        self.torch_op = aten._log_softmax_backward_data
+
+
+class NLLLossForward(Operator):
+    def __init__(self, x, target, weight, reduction, ignore_index):
+        super().__init__("nll_loss_forward")
+        self.x = x
+        self.target = target
+        self.weight = weight
+        self.reduction = reduction
+        self.ignore_index = ignore_index
+        self.torch_op = aten.nll_loss_forward
+
+
+class NLLLossBackward(Operator):
+    def __init__(self, grad_output, x, target, weight, reduction, ignore_index,
+                 total_weight):
+        super().__init__("nll_loss_backward")
+        self.grad_output = grad_output
+        self.x = x
+        self.target = target
+        self.reduction = reduction
+        self.ignore_index = ignore_index
+        self.total_weight = total_weight
+        self.torch_op = aten.nll_loss_backward
+
+
+class BatchNorm(Operator):
+    def __init__(self, x, weight, bias, running_mean, running_var,
+                 train, momentum, eps):
+        super().__init__("native_batch_norm_legit_functional")
+        self.x = x
+        self.weight = weight
+        self.bias = bias
+        self.running_mean = running_mean
+        self.running_var = running_var
+        self.train = train
+        self.momentum = momentum
+        self.eps = eps
+        self.torch_op = aten._native_batch_norm_legit_functional
+
+
+class BatchNormBackward(Operator):
+    def __init__(self, grad_out, x, weight, running_mean, running_var,
+                 save_mean, save_invstd, train, eps, grad_input_mask):
+        super().__init__("native_batch_norm_backward")
+        self.grad_out = grad_out
+        self.x = x
+        self.weight = weight
+        self.running_mean = running_mean
+        self.running_var = running_var
+        self.save_mean = save_mean
+        self.save_invstd = save_invstd
+        self.train = train
+        self.eps = eps
+        self.grad_input_mask = grad_input_mask
+        self.torch_op = aten.native_batch_norm_backward
+
+
+class ThresholdBackward(Operator):
+    def __init__(self, grad_output, x, threshold):
+        super().__init__("threshold_backward")
+        self.grad_output = grad_output
+        self.x = x
+        self.threshold = threshold
+        self.torch_op = aten.threshold_backward
+
+
+class ZerosLike(Operator):
+    def __init__(self, x):
+        super().__init__("zeros_like")
+        self.x = x
+        self.torch_op = aten.zeros_like
+
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
     if hasattr(a, 'meta'):
