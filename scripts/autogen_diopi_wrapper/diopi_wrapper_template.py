@@ -7,6 +7,8 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 
+$header_include_code
+
 namespace dipu::native {
 
 using at::Tensor;
