@@ -51,7 +51,6 @@ public:
     std::map<AscendString, AscendString> global_options = {
         {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion.c_str())},
         {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
-        {AscendString(ge::ir_option::FUSION_SWITCH_FILE), "/tzy/DICP_demo/fusion_switch.cfg"},
     };
     auto status = aclgrphBuildInitialize(global_options);
     if (status != GRAPH_SUCCESS) {

@@ -119,17 +119,16 @@ class AscendCodegen(torch.fx.Interpreter):
         )
 
         graph_code.splice(self.build_graph_code, strip=True)
-        
         output_str = []
         self.output_names = []
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
-                if node in self.input_args:
-                    self.output_names.append(name)
-                    continue
                 self.output_names.append(name)
-                output_str.append(f'graph_outputs.push_back({name});')
+                if node in self.input_args:
+                    continue
+                else:
+                  output_str.append(f'graph_outputs.push_back({name});')
             else:
                 self.output_names.append(str(node))
 
