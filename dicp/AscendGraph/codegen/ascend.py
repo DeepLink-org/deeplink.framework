@@ -121,14 +121,18 @@ class AscendCodegen(torch.fx.Interpreter):
         graph_code.splice(self.build_graph_code, strip=True)
         output_str = []
         self.output_names = []
+        self.graph_output_names = []
+        unique_output_names = []
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
                 self.output_names.append(name)
-                if node in self.input_args:
+                if node in self.input_args or name in unique_output_names:
                     continue
                 else:
-                  output_str.append(f'graph_outputs.push_back({name});')
+                    unique_output_names.append(name)
+                    self.graph_output_names.append(name)
+                    output_str.append(f'graph_outputs.push_back({name});')
             else:
                 self.output_names.append(str(node))
 
@@ -169,24 +173,15 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
-        self.args = []
         self.args = [self.args_dict[x.name] for x in self.input_args]
 
-        
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
         call_body.writeline(f"args.clear()")
 
-        unique_output_names = []
         call_str = [f'output_np = kernel_cpp_0(inputs_data)']
-        for name in self.output_names:
-            if name != 'None' and name not in self.args:
-                if name not in unique_output_names:
-                    unique_output_names.append(name)
-                else:
-                    continue
-                index = len(unique_output_names) - 1
-                call_str.append(f'{name} = torch.from_numpy(output_np[{index}])')
+        for i, name in enumerate(self.graph_output_names):
+            call_str.append(f'{name} = torch.from_numpy(output_np[{i}])')
 
         call_body.writelines(call_str)
         del_args = [f'del ' + x for x in self.args if x not in self.output_names]
@@ -1316,7 +1311,7 @@ class AscendOverrides:
                          .set_input_target({name}_target_cast)
                          .set_input_weight({name}_weight)
                          .set_attr_reduction("{reduction_str}")
-			 .set_attr_ignore_index({ignore_index});
+			                   .set_attr_ignore_index({ignore_index});
                        graph.AddOp({name}_weight);
 		       graph.AddOp({name});"""
         return src_code
