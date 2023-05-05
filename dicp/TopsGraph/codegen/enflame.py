@@ -146,17 +146,12 @@ class EnflameCodegen(torch.fx.Interpreter):
         if name not in self.args_dict.keys():
             self.args_dict[name] = 'op' + str(len(self.args_dict))
 
-        # TODO did not handle squeeze and unsuqeeze
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
         print("*******************************************", flush=True)
         print("name:", name, flush=True)
         print("target:", target.name(), flush=True)
-        if str(target) == 'unsqueeze':
-            print("~!~", self.cur_node.name, flush=True)
-        if real_op == 'unsqueeze':
-            print("~!~", self.cur_node.name, flush=True)
         print("real_op:", real_op, flush=True)
         print("args:", args, flush=True)
         print("arg_code:", arg_code.get_str(), flush=True)
@@ -302,24 +297,16 @@ class EnflameCodegen(torch.fx.Interpreter):
         return run_func_code
 
     def gen_tensor(self, prefix, tensor):
-        #shape = f"{tensor.shape}"[12:-2]
-        #print(f"{'!' * 20}  temsor:\n {tensor}\n shape :\n {shape}")
-        #if shape == '':
-        #    return f"{prefix}((), (), device='{tensor.device.type}', dtype={tensor.dtype})"
         res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
-        #print(f"{'!' * 20}  res:\n {res}\n")
         return res
 
     def gen_empty_tensor(self, tensor):
         return self.gen_tensor("empty_strided", tensor)
 
     def gen_random_tensor(self, tensor):
-        # tmp = self.gen_tensor("rand_strided", tensor)
-        # tmp = tmp.replace('rand_strided((), (),', 'rand_strided((1,), (1,),')
         return self.gen_tensor("rand_strided", tensor)
 
     def gen_call_func(self):
-        # TODO check scalar input
         call_body = CodeBlock(indent=1)
 
         args = []
@@ -556,7 +543,6 @@ class EnflameOverrides(OpOverrides):
     def clone(op_var, x):
         return f"builder::Op {op_var} = {x};"
 
-    # TODO need node
     @staticmethod
     def reducemean(op_var, *args_str):
         if len(args_str) == 3:
@@ -611,7 +597,6 @@ class EnflameOverrides(OpOverrides):
     def Gemm(op_var, x, y):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
 
-    # TODO need test
     @staticmethod
     def Select(op_var, *args):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
@@ -621,14 +606,12 @@ class EnflameOverrides(OpOverrides):
         if len(args) == 1:
             args.append('{1, 0}')
         return f"builder::Op {op_var} = builder::Transpose({', '.join(args)});"
-
-    # TODO need node
+    
     @staticmethod
     def Getitem(op_var, node, *args):
         src_code = f"builder::Op {op_var} = builder::GetTupleElement({args[0]}, {int(node.args[1])});\n\n"
         return src_code
 
-    # TODO need node
     @staticmethod
     def Gather(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
@@ -651,8 +634,30 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
     
+    @staticmethod
+    def fulllike_tmp(op_var, node, *args_str):
+        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
+        src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
+        src_code += f" builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
         
-    # TODO need node
+        return src_code
+    
+    @staticmethod
+    def fulllike(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__()
+        if data_type == 'torch.float32':
+            out_type = 'builder::PrimitiveType::F32()'
+        elif data_type == 'torch.int64':
+            out_type = 'builder::PrimitiveType::S64()'
+        else:
+            raise ValueError("Data type error!")
+            
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        
+        src_code = f"  builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {out_type}, {shape});\n\n"
+        
+        return src_code
+        
     @staticmethod
     def Batch_Norm(op_var, node, *args_str):
         shape = []
@@ -703,7 +708,6 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
 
-    # TODO did not test
     @staticmethod
     def Conv2D_Grad(op_var, node, *args_str):
         new_args_str = []
@@ -722,7 +726,6 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
 
-    # TODO need node
     @staticmethod            
     def MaxPool2D(op_var, node, *args_str):
         args = node.args
@@ -766,7 +769,6 @@ class EnflameOverrides(OpOverrides):
     def Reciprocal(op_var, *args):
         return f"builder::Op {op_var} = builder::Reciprocal({', '.join(args)});"
 
-    # TODO no test
     @staticmethod
     def Zeros(op_var, node, *args):
         data_type = node.meta['val'].dtype.__str__()
@@ -783,8 +785,6 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
     
-
-    # TODO need test
     @staticmethod
     def scatter(op_var, node, *args_str):
         new_args_str = []
@@ -803,12 +803,10 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
 
-    # TODO need test 
     @staticmethod
     def Convert(op_var, *args):
         return f"builder::Op {op_var} = builder::Convert({', '.join(args)});"
 
-    # TODO need test
     @staticmethod
     def Scalar(op_var, *args):
         shape = '{1}'
@@ -818,7 +816,6 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
 
-    # TODO need test
     @staticmethod
     def Expand(op_var, node, *args):
         dims = []
@@ -835,6 +832,5 @@ class EnflameOverrides(OpOverrides):
             out_type = 'builder::PrimitiveType::S64()'
             
         src_code = f'builder::Type expand_type{op_var}({shape}, {out_type});\n'
-        # TODO
         src_code += f"auto {op_var} = BroadcastInDim({args[0]}, {broadcast_dims}, expand_type{op_var});\n"
         return src_code

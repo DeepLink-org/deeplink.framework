@@ -143,17 +143,6 @@ builder::Op enflame::BatchNorm(
     tuple_dtype.push_back(outputs[i].GetType().GetPrimitiveType());
   }
 
-  std::cout << "outputs[0].GetType()_begin" << std::endl;
-
-  std::cout << outputs[0].GetType() << std::endl;
-
-  for (uint i = 0; i < outputs[0].GetType().GetShape().size(); i++) {
-      std::cout << outputs[0].GetType().GetShape()[i] << std::endl;
-  }
-
-  std::cout << "outputs[0].GetType()_end" << std::endl;
-
-
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs, outputs_type);
 
