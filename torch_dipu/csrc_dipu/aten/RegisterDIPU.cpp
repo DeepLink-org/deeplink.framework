@@ -103,10 +103,6 @@ at::Tensor & wrapper_mean_out_out(const at::Tensor & self, at::OptionalIntArrayR
   return dnative::mean_out(self, dim, keepdim, dtype, out);
 }
 
-at::Tensor & wrapper_addmm_out_out(const at::Tensor & self, const at::Tensor & mat1, const at::Tensor & mat2, const at::Scalar & beta, const at::Scalar & alpha, at::Tensor & out) {
-  return dnative::addmm_out(self, mat1, mat2, beta, alpha, out);
-}
-
 at::Tensor wrapper_linear(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias) {
   return dnative::linear(input, weight, bias);
 }
@@ -121,10 +117,6 @@ at::Tensor & wrapper_int_out_log_softmax_out(const at::Tensor & self, int64_t di
 
 at::Tensor & wrapper__log_softmax_backward_data_out_out(const at::Tensor & grad_output, const at::Tensor & output, int64_t dim, at::ScalarType input_dtype, at::Tensor & out) {
   return dnative::_log_softmax_backward_data_out(grad_output, output, dim, input_dtype, out);
-}
-
-at::Tensor wrapper_cross_entropy_loss(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing) {
-  return dnative::cross_entropy_loss(self, target, weight, reduction, ignore_index, label_smoothing);
 }
 
 at::Tensor & wrapper_nll_loss_out(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, at::Tensor & out) {
@@ -176,12 +168,10 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
   DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
-  DIOPI_ATEN_FUNC("addmm.out", diopiAddmm, wrapper_addmm_out_out);
   DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
   DIOPI_ATEN_FUNC("_log_softmax.out", diopiLogSoftmax, wrapper__log_softmax_out_out);
   DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
   DIOPI_ATEN_FUNC("_log_softmax_backward_data.out", diopiLogSoftmaxBackward, wrapper__log_softmax_backward_data_out_out);
-  // DIOPI_ATEN_FUNC("cross_entropy_loss", diopiCrossEntropyLoss, wrapper_cross_entropy_loss);
   DIOPI_ATEN_FUNC("nll_loss.out", diopiNLLLoss, wrapper_nll_loss_out);
   DIOPI_ATEN_FUNC("nll_loss2d.out", diopiNLLLoss, wrapper_nll_loss_out);
   DIOPI_ATEN_FUNC("nll_loss_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);

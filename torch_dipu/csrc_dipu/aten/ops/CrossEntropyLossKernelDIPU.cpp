@@ -2,33 +2,61 @@
 
 #include <ATen/Tensor.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
+#include <torch/csrc/autograd/custom_function.h>
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
+
+
 
 using dipu::diopi_helper::toDiopiTensorHandle;
 
 namespace dipu::native {
 
-at::Tensor DIPUATenFunctions::cross_entropy_loss(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing) {
-    ::diopiConstTensorHandle_t self_diopi = toDiopiTensorHandle(self);
-    ::diopiConstTensorHandle_t target_diopi = toDiopiTensorHandle(target);
-    int64_t ignore_index_diopi = ignore_index.expect_int();
-    ::diopiConstTensorHandle_t weight_diopi = nullptr;
-    if (weight.has_value() && weight.value().defined()) {
-        weight_diopi = toDiopiTensorHandle(weight.value());
+at::Tensor dipu_cross_entropy_loss_impl(const at::Tensor& self, const at::Tensor& target, const c10::optional<at::Tensor>& weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing);
+at::Tensor dipu_cross_entropy_loss_backward_impl(const at::Tensor& grad_output, const at::Tensor& self, const at::Tensor& target, const c10::optional<at::Tensor>& weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing);
+
+class DipuCrossEntropyLossFunction : public torch::autograd::Function<DipuCrossEntropyLossFunction> {
+public:
+    static at::Tensor forward(
+        torch::autograd::AutogradContext *ctx, const at::Tensor& self, const at::Tensor& target, const c10::optional<at::Tensor>& weight, int64_t reduction, c10::SymInt ignore_index, double label_smoothing) {
+        ctx->saved_data["ignore_index"] = ignore_index.expect_int();
+        ctx->saved_data["reduction"] = reduction;
+        ctx->saved_data["label_smoothing"] = label_smoothing;
+        ctx->saved_data["weight"] = weight;
+
+        at::AutoDispatchBelowADInplaceOrView g;
+        ctx->save_for_backward({self, target});
+        return dipu_cross_entropy_loss_impl(self, target, weight, reduction, ignore_index, label_smoothing);
     }
 
-    ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-    at::TensorOptions options = self.options().dtype(at::kFloat);
-    at::Tensor scalar_tensor = at::empty({}, options);
-    ::diopiTensorHandle_t out_diopi = toDiopiTensorHandle(scalar_tensor);
+  static std::vector<at::Tensor> backward(torch::autograd::AutogradContext *ctx, std::vector<at::Tensor> grad_outputs) {
+      auto reduction = ctx->saved_data["reduction"].toInt();
+      auto ignore_index = ctx->saved_data["ignore_index"].toInt();
+      auto label_smoothing = ctx->saved_data["label_smoothing"].toDouble();
+      auto saved = ctx->get_saved_variables();
+      auto input = saved[0];
+      auto target = saved[1];
+      c10::optional<at::Tensor>  weight = ctx->saved_data["weight"].toOptional<at::Tensor>();
+      auto grad_output = grad_outputs.at(0);
 
-    ::diopiError_t ret = ::diopiCrossEntropyLoss(&context, out_diopi, self_diopi,
-        target_diopi, weight_diopi, static_cast<diopiReduction_t>(reduction),
-        ignore_index_diopi, label_smoothing);
-    TORCH_CHECK(ret == ::diopiSuccess, __func__, ":", __FILE__, ":", __LINE__,
-        " diopiCrossEntropyLoss error, error code is ", ret, "\nerror message is ", diopiGetLastErrorString());
-    return scalar_tensor;
+      auto out = dipu_cross_entropy_loss_backward_impl(grad_output, input, target, weight, reduction, ignore_index, label_smoothing);
+      std::vector<at::Tensor> outputs(6);
+      outputs[0] = out;
+      return outputs;
+  }
+};
+
+at::Tensor cross_entropy_loss(const at::Tensor& self, const at::Tensor& target, const c10::optional<at::Tensor>& weight, int64_t reduction,
+        c10::SymInt ignore_index, double label_smoothing) {
+    return DipuCrossEntropyLossFunction::apply(self, target, weight, reduction, ignore_index, label_smoothing);
 }
 
 }  // namespace dipu::native
+
+namespace at {
+
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+    DIOPI_ATEN_FUNC("cross_entropy_loss", ::diopiCrossEntropyLoss, dipu::native::cross_entropy_loss);
+}
+
+}  // namespace at

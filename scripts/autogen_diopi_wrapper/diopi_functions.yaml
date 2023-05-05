@@ -1,6 +1,6 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   register_op: False  # Whether generate registe code for this op, default value is True
-  print_func_call_info: False # wheher generate code that prints function call information
+  print_func_call_info: False # whether generate code that prints function call information
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
   custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
   custom_code_before_call_diopi: >
@@ -306,6 +306,33 @@
   custom_code_at_the_beginning: >
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self, diopi_size)
+
+- schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+  interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
+
+- schema: "cross_entropy_loss_impl(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  register_op: False
+  custom_code_at_the_beginning: >
+    const int64_t ignore_index_int = ignore_index.expect_int();
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out;
+    auto options = self.options();
+    if (reductionDiopi == ReductionNone) {
+      out = at::empty(target.sizes(), options);
+    } else {
+      out = at::empty({}, options);
+    }
+  interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
+
+- schema: "cross_entropy_loss_backward_impl(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  register_op: False
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    const int64_t ignore_index_int = ignore_index.expect_int();
+    at::Tensor out = at::empty_like(self);
+  autograd: True
+  interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)

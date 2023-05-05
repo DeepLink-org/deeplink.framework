@@ -11,8 +11,10 @@ $header_include_code
 
 namespace dipu::native {
 
-using at::Tensor;
-using at::Scalar;
+bool checkDiopiReturnValue() {
+    static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
+    return enable;
+}
 
 using namespace dipu::diopi_helper;
 
@@ -24,6 +26,10 @@ namespace at {
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
     $op_register_code
+}
+
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+    $autograd_op_register_code
 }
 
 }  // namespace at
@@ -48,7 +54,9 @@ $cppsignautre {
     $custom_code_before_call_diopi
 
     ::diopiError_t ret = $diopi_fun_call_code
-    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+    if (checkDiopiReturnValue()) {
+        TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__,"'$diopi_fun_call_code' error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+    }
 
     $custom_code_before_return
 
