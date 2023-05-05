@@ -1,7 +1,7 @@
 import functools
 import operator
 import torch
-import third_party.DICP.AscendGraph.ascend_op as ascend_op
+import dicp.AscendGraph.ascend_op as ascend_op
 from abc import ABC, abstractmethod
 
 conversions = {}

@@ -6,6 +6,7 @@ import hashlib
 import logging
 import multiprocessing
 import os
+import os.path as osp
 import re
 import shutil
 import signal
@@ -39,16 +40,16 @@ class EnflameCodeCache:
             extra=cpp_compile_command("i", "o"),
         )   
         output_path = input_path[:-3] + 'so'
-        codegen_path = os.path.split(os.path.abspath(__file__))[0]
+        codegen_path = osp.join(osp.dirname(osp.abspath(__file__)), "codegen")
         if key not in cls.cache:
-            if not os.path.exists(output_path):
+            if not osp.exists(output_path):
                 cmd = ['/usr/bin/c++', 
                        f'{codegen_path}/src/dtu_utils.cpp', 
                        f'{codegen_path}/src/conv2d_grad.cpp', 
                        f'{codegen_path}/src/max_pool2d_grad.cpp', 
                        '-D_GLIBCXX_USE_CXX11_ABI=0', '-fPIC', '-shared', '-I/usr/include/dtu', 
                        '-I/usr/include/dtu/3_0/runtime', '-L/usr/lib', 
-                       '-I{codegen_path}/include', 
+                       f'-I{codegen_path}/include', 
                        '-o' + output_path, input_path, '-ldtu_sdk']
                 try:
                     subprocess.check_output(cmd, stderr=subprocess.STDOUT)
