@@ -425,7 +425,7 @@ def main():
             print(f"{args.diopi_adapter_header} not exists")
             args.use_diopi_adapter = False
         else:
-            header_include_code += f'#include "{args.diopi_adapter_header}"'
+            header_include_code += f'#include "{os.path.abspath(args.diopi_adapter_header)}"'
 
     autograd_op_register_code = ''
 
