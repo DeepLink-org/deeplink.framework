@@ -18,7 +18,8 @@ from torch._inductor.codegen.common import OpOverrides
 
 
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
-            "torch.int64": "builder::PrimitiveType::S64()"}
+            "torch.int64": "builder::PrimitiveType::S64()",
+            "torch.bool": "builder::PrimitiveType::PRED()"}
 
 need_node = ['reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
              'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand']
@@ -128,11 +129,17 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
+        data_type = self.cur_node.meta['val'].dtype.__str__()
+        if data_type not in type_set.keys():
+            print(data_type, flush=True)
+            raise ValueError("Type error")
+        
         in_shape = self.get_shape()
+        if in_shape == '{}':
+            in_shape = '{1}'
         self.build_graph_code.add_line(f'std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};')
 
-        data_type = type_set[str(self.cur_node.meta['val'].dtype)]
-        self.build_graph_code.add_line(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {data_type});')
+        self.build_graph_code.add_line(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});')
         self.build_graph_code.add_line(f'builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);')
 
     def call_function(self, name, target, args, kwargs):   
@@ -180,7 +187,7 @@ class EnflameCodegen(torch.fx.Interpreter):
     def codegen(self):
         self.run()
         test = self.generate_code()
-        with open('codegen.py', 'w') as f:
+        with open('codegen1.py', 'w') as f:
             f.write(test)
         return test
 
@@ -271,7 +278,8 @@ class EnflameCodegen(torch.fx.Interpreter):
             func_body.add_line(f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
         func_body.add_line(f'std::vector<void *> output_ptrs;')
         for i in range(0, len(self.output_args)):
-            func_body.add_line(f'output_ptrs.emplace_back(output_ptr{str(i)});')
+            if not isinstance(self.output_args[i], type(None)):
+                func_body.add_line(f'output_ptrs.emplace_back(output_ptr{str(i)});')
         func_body.add_line(f'run(exe_ptr, input_ptrs, output_ptrs);')
 
         input_paras = ''
@@ -279,7 +287,8 @@ class EnflameCodegen(torch.fx.Interpreter):
             input_paras += f'float* input_ptr{str(i)}, '
         output_paras = []
         for i in range(0, len(self.output_args)):
-            output_paras.append(f'float* output_ptr{str(i)}')
+            if not isinstance(self.output_args[i], type(None)):
+                output_paras.append(f'float* output_ptr{str(i)}')
         output_paras = ', '.join(output_paras)
 
         run_func_code = CodeBlock()
@@ -301,6 +310,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         return self.gen_tensor("empty_strided", tensor)
 
     def gen_random_tensor(self, tensor):
+        # tmp = self.gen_tensor("rand_strided", tensor)
+        # tmp = tmp.replace('rand_strided((), (),', 'rand_strided((1,), (1,),')
         return self.gen_tensor("rand_strided", tensor)
 
     def gen_call_func(self):
@@ -569,8 +580,11 @@ class EnflameOverrides(OpOverrides):
         elif len(args) == 2:
             keepdim = 'false'
             src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {keepdim}, {args[1]});\n"
+        elif len(args) == 1:
+            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]});\n"
         else:
-            ValueError("ReduceMax paras num error!")
+            ValueError("ReduceMax args num error!")
+            
         return src_code
 
     @staticmethod
@@ -580,8 +594,11 @@ class EnflameOverrides(OpOverrides):
          elif len(args) == 2:
             keepdim = 'false'
             src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});\n"
+         elif len(args) == 1:
+            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]});\n"
          else:
-            ValueError("ReduceSum paras num error!")
+            ValueError("ReduceSum args num error!")
+            
          return src_code
 
     @staticmethod
@@ -611,8 +628,8 @@ class EnflameOverrides(OpOverrides):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         
         new_args_str = []
+        new_args_str.append(args_str[0])
         new_args_str.append(args_str[2])
-        new_args_str.append(args_str[4])
         new_args_str.append(str(node.args[1]))
         
         count_num = node.name.split('_')
@@ -653,12 +670,16 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Convolution(op_var, node, *args_str):
         tmp_str =[]
+        index = 3
+        # print("Convolution args_str:", args_str, flush=True)
         for i in range(0, 3):
             if isinstance(node.args[i], type(None)):
+                index -= 1
                 continue
             tmp_str.append(args_str[i])
-                
-        stride = args_str[2]
+        
+        # print("index", index, flush=True)
+        stride = args_str[index]
         
         if len(node.args[4]) == 1:
             row_padding, col_padding = node.args[4][0]
@@ -667,7 +688,7 @@ class EnflameOverrides(OpOverrides):
             col_padding = node.args[4][1]
 
         padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-        dilation = args_str[4]
+        dilation = args_str[index + 2]
         
         group = '1'
         src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(tmp_str) + '}'};\n"

@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#define MAX_NUM 10
+#define MAX_NUM 1024
 
 #define EXPECT_EQ(_src, _dst)                                                  \
   do {                                                                         \

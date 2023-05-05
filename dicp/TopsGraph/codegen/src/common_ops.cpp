@@ -80,16 +80,6 @@ builder::Op enflame::BatchNorm(
   builder::Op batch_norm_op_res;
   std::vector<builder::Op> outputs;
 
-  builder::Type bias_type(
-      input.GetType().GetShape(), builder::PrimitiveType::F32());
-  auto bias_shape = input.GetType().GetShape();
-  int bias_size = 1;
-  for (uint i = 0; i < bias_shape.size(); i++) {
-    bias_size = bias_size * bias_shape[i];
-  }
-  std::vector<int64_t> bias_data(bias_size, 1);
-  auto input_tmp = builder::Const(hlir_builder, static_cast<void *>(bias_data.data()), bias_type);
-
   if (training) {
     
     batch_norm_op_res = builder::BatchNormTraining(input, weight, bias, eps_float, channel_dim);
@@ -152,6 +142,17 @@ builder::Op enflame::BatchNorm(
     tuple_shape.push_back(outputs[i].GetType().GetShape());
     tuple_dtype.push_back(outputs[i].GetType().GetPrimitiveType());
   }
+
+  std::cout << "outputs[0].GetType()_begin" << std::endl;
+
+  std::cout << outputs[0].GetType() << std::endl;
+
+  for (uint i = 0; i < outputs[0].GetType().GetShape().size(); i++) {
+      std::cout << outputs[0].GetType().GetShape()[i] << std::endl;
+  }
+
+  std::cout << "outputs[0].GetType()_end" << std::endl;
+
 
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs, outputs_type);
