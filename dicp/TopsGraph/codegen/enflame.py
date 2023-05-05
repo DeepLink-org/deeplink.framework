@@ -22,7 +22,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.bool": "builder::PrimitiveType::PRED()"}
 
 need_node = ['reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
-             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand', 'fulllike']
+             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand', 'fulllike', 'scatter']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -153,6 +153,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         print("*******************************************", flush=True)
         print("name:", name, flush=True)
         print("target:", target.name(), flush=True)
+        if str(target) == 'unsqueeze':
+            print("~!~", self.cur_node.name, flush=True)
+        if real_op == 'unsqueeze':
+            print("~!~", self.cur_node.name, flush=True)
         print("real_op:", real_op, flush=True)
         print("args:", args, flush=True)
         print("arg_code:", arg_code.get_str(), flush=True)
@@ -187,7 +191,7 @@ class EnflameCodegen(torch.fx.Interpreter):
     def codegen(self):
         self.run()
         test = self.generate_code()
-        with open('codegen1.py', 'w') as f:
+        with open('codegen.py', 'w') as f:
             f.write(test)
         return test
 
@@ -421,7 +425,7 @@ class EnflameOverrides(OpOverrides):
             elif isinstance(args[i], bool):
                 args_str.append(str(args[i]).lower())
             elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-                if node.name == "reducemean" and len(args) != 1 and i == 1:
+                if "reducemean" in node.name and len(args) != 1 and i == 1:
                     tmp = args[1].copy()
                     tmp.sort()
                     for j in range(0, len(tmp)):
@@ -436,13 +440,15 @@ class EnflameOverrides(OpOverrides):
                 args_str.append(f'{op_var}_type{count}')
                 count += 1
             else:
-                if node.name == "squeeze" or node.name == "unsqueeze":
+                if "squeeze" in node.name:
                     src_code.add_line(f'builder::Type {op_var}_axes_type{count}({"{" + "1" + "}"}, builder::PrimitiveType::S64());')
-                    if node.name == "squeeze":
+                    
+                    if "unsqueeze" in node.name:
+                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
+                    
+                    else:
                         axes = args[i]
                         src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(axes) + "}"};\n')
-                    elif node.name == "unsqueeze":
-                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
 
                     src_code.add_line(f'builder::Op {op_var}_axes{count} = builder::Const(hlir_builder, ({op_var}_axes_data{count}.data()), {op_var}_axes_type{count});')
                     args_str.append(f'{op_var}_axes{count}')
@@ -645,13 +651,6 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
     
-    @staticmethod
-    def fulllike(op_var, node, *args_str):
-        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
-        src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
-        src_code += f" builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
-        
-        return src_code
         
     # TODO need node
     @staticmethod
@@ -783,11 +782,25 @@ class EnflameOverrides(OpOverrides):
         src_code = f"builder::Op {op_var} = builder::ZerosLike({args[0]}, {out_type}, {shape});\n\n"
 
         return src_code
+    
 
     # TODO need test
     @staticmethod
-    def Scatter(op_var, *args):
-        src_code = f"auto {op_var} = enflame::Scatter(hlir_builder, {', '.join(args)});\n"
+    def scatter(op_var, node, *args_str):
+        new_args_str = []
+        new_args_str.append(args_str[0])
+        new_args_str.append(str(node.args[1]))
+        new_args_str.append(args_str[2])
+        
+        if isinstance(node.args[3], float):
+            src_code = f'const float {op_var}_value = {str(node.args[3])};\n'
+        else:
+            src_code = f'const int {op_var}_value = {str(node.args[3])};\n'
+        
+        new_args_str.append(f'{op_var}_value')
+
+        src_code += f"auto {op_var} = enflame::Scatter(hlir_builder, {', '.join(new_args_str)});\n"
+
         return src_code
 
     # TODO need test 
@@ -823,5 +836,5 @@ class EnflameOverrides(OpOverrides):
             
         src_code = f'builder::Type expand_type{op_var}({shape}, {out_type});\n'
         # TODO
-        src_code += f"auto {op_var} = enflame::BroadcastInDim(hlir_builder, {args[0]}, {broadcast_dims}, expand_type{op_var});\n"
+        src_code += f"auto {op_var} = BroadcastInDim({args[0]}, {broadcast_dims}, expand_type{op_var});\n"
         return src_code
