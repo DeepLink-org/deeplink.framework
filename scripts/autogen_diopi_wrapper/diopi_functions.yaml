@@ -321,7 +321,7 @@
     if (reductionDiopi == ReductionNone) {
       out = at::empty(target.sizes(), options);
     } else {
-      out = at::empty({1}, options);
+      out = at::empty({}, options);
     }
   interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
 
