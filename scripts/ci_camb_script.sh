@@ -31,7 +31,7 @@ function autogen_diopi_wrapper() {
 function build_diopi_lib() {
     cd third_party/DIOPI/DIOPI-IMPL
     sh scripts/build_impl.sh clean
-    sh scripts/build_impl.sh camb
+    sh scripts/build_impl.sh camb || exit -1
     cd -
 }
 
