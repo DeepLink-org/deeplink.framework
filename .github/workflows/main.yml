@@ -118,7 +118,7 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
-          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && exit 1 )
           """
 
   Test-Camb:
