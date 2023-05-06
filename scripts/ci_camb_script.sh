@@ -16,7 +16,7 @@ function config_dipu_camb_cmake() {
     echo "PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-        -DCAMB=ON -DPYTORCH_DIR=${PYTORCH_DIR} \
+        -DDEVICE=camb -DPYTORCH_DIR=${PYTORCH_DIR} \
         -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
     cd ../
 }
@@ -26,6 +26,13 @@ function autogen_diopi_wrapper() {
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp \
         --print_func_call_info True
+}
+
+function build_diopi_lib() {
+    cd third_party/DIOPI/DIOPI-IMPL
+    sh scripts/build_impl.sh clean
+    sh scripts/build_impl.sh camb
+    cd -
 }
 
 function build_dipu_lib() {
@@ -42,6 +49,7 @@ function build_dipu_lib() {
 case $1 in
     build_dipu)
         (
+            build_diopi_lib
             autogen_diopi_wrapper
             build_dipu_lib
             build_dipu_py
