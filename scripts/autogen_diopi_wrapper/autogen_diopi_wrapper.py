@@ -153,7 +153,6 @@ def get_function_need_alloc_args_from_schema(schema):
     return outputs
 
 
-
 def get_function_outputs_from_schema(schema):
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema)
     outputs += get_function_need_alloc_args_from_schema(schema)
