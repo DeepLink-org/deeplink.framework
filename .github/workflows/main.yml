@@ -104,7 +104,7 @@ jobs:
 
   Build-POC-Camb:
     name: Build diopi_poc camb
-    needs: [Build-Pytorch, Build-DIOPI-IMPL-Camb]
+    needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
