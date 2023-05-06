@@ -5,6 +5,7 @@ import logging
 import sys
 import functorch
 import torch.fx
+import importlib
 
 from typing import List
 from importlib import import_module
@@ -108,8 +109,9 @@ def compile_fx(
             backend=backend,
         )
 
-    from torch._inductor.decomposition import select_decomp_table
-    decompositions = select_decomp_table()
+    folder = backend[:-5].title() + backend[-5:].title()
+    config = importlib.import_module("dicp." + folder + ".config")
+    decompositions = config.decomp
     return aot_autograd(
         fw_compiler=fw_compiler,
         bw_compiler=bw_compiler,
