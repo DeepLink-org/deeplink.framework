@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List
 from io import StringIO
 import textwrap
+from torch._inductor.utils import IndentedBuffer
 
 import torch
 
@@ -41,85 +42,15 @@ def process_name(name, target):
 
     return real_op
 
-class CodeBlock:
-    tabwidth = 4
-
-    def __init__(self, backend='', indent=0, lang=''):
-        self._lines = []
-        self._indent = indent
-        self._backend = backend
-        self._lang = lang
-
-    def get_str(
-        self,
-    ):
-        buf = StringIO()
-        for line in self._lines:
-            assert isinstance(line, str)
-            buf.write(line)
-            if self._lang == 'cpp' or self._lang == 'c':
-                buf.write(";")
-            buf.write("\n")
-        return buf.getvalue()
-
-    def clear(self):
-        self._lines.clear()
-
-    def __bool__(self):
-        return bool(self._lines)
-
-    def prefix(self):
-        return " " * (self._indent * self.tabwidth)
-
-    def add_line(self, line):
-        if line.strip():
-            self._lines.append(f"{self.prefix()}{line}")
-        else:
-            self._lines.append("")
-
-    def add_lines(self, lines):
-        for line in lines:
-            self.add_line(line)
-
-    def indent(self, offset=1):
-        @contextlib.contextmanager
-        def ctx():
-            self._indent += offset
-            yield
-            self._indent -= offset
-
-        return ctx()
-
-    def splice(self, other_code, dedent=False):
-        if isinstance(other_code, CodeBlock):
-            _dedent = float("inf")
-            if dedent:
-                for line in other_code._lines:
-                    if line:
-                        _dedent = min(_dedent, len(line) - len(line.lstrip()))
-            if math.isinf(_dedent):
-                _dedent = 0
-            for line in other_code._lines:
-                CodeBlock.add_line(self, line[_dedent:])
-        else:
-            if dedent:
-                other_code = textwrap.dedent(other_code)
-            other_code = other_code.lstrip()
-            other_code = other_code.rstrip()
-            if not other_code:
-                return
-            for line in other_code.split("\n"):
-                self.add_line(line)
-
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
         self.name = 'topsgraph'
-        self.import_code = CodeBlock()
+        self.import_code = IndentedBuffer()
         
         self.args_dict = {}
         self.input_args =[]
         self.output_args = []
-        self.build_graph_code = CodeBlock(indent=1, lang='cpp')
+        self.build_graph_code = IndentedBuffer(initial_indent=1)
         
         self.graph = graph
         super().__init__(graph)
@@ -137,10 +68,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         in_shape = self.get_shape()
         if in_shape == '{}':
             in_shape = '{1}'
-        self.build_graph_code.add_line(f'std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};')
+        self.build_graph_code.writeline(f'std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};')
 
-        self.build_graph_code.add_line(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});')
-        self.build_graph_code.add_line(f'builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);')
+        self.build_graph_code.writeline(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});')
+        self.build_graph_code.writeline(f'builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);')
 
     def call_function(self, name, target, args, kwargs):   
         if name not in self.args_dict.keys():
@@ -154,7 +85,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         print("target:", target.name(), flush=True)
         print("real_op:", real_op, flush=True)
         print("args:", args, flush=True)
-        print("arg_code:", arg_code.get_str(), flush=True)
+        print("arg_code:", arg_code.getvalue(), flush=True)
         print("args_list:", args_list, flush=True)
 
         op_code = getattr(self.override, real_op)(*args_list)
@@ -191,8 +122,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         return test
 
     def gen_build_graph_code(self):
-        graph_code = CodeBlock(indent=1)
-        graph_code.add_lines(
+        graph_code = IndentedBuffer()
+        graph_code.writelines(
             [
                 f'auto hlir_builder = std::make_shared<builder::Builder>();',
                 f'hlir_builder->SetShapeInference(true);',
@@ -200,7 +131,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             ]
         )
 
-        graph_code.splice(self.build_graph_code, dedent=True)
+        graph_code.splice(self.build_graph_code, strip=True)
         
         output_str = []
         for i in range(0, len(self.output_args)):
@@ -209,9 +140,9 @@ class EnflameCodegen(torch.fx.Interpreter):
             else:
                 output_str.append(self.args_dict[self.output_args[i].name])
 
-        graph_code.add_line(f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"});')
+        graph_code.writeline(f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"});')
 
-        graph_code.add_line(f'return hlir_builder;')
+        graph_code.writeline(f'return hlir_builder;')
         return graph_code
 
     def get_kernel_header(self):
@@ -245,41 +176,43 @@ class EnflameCodegen(torch.fx.Interpreter):
                 from torch import empty_strided, as_strided, device
                 from dicp.TopsGraph.compile import AsyncCompileTopsGraph
             """
-            , dedent=True
+            , strip=True
         )
-        return self.import_code.get_str()
+        return self.import_code.getvalue()
 
     def gen_compile_func_code(self):
-        compile_func_body = CodeBlock(indent=1)
-        compile_func_body.splice(
-            f"""
-              auto hlir_builder = build_sample();
-                compile(hlir_builder, &exe_ptr);
-            """
-            , dedent=True
-        )
-        compile_func = CodeBlock()
-        compile_func.add_lines(
+        compile_func_body = IndentedBuffer()
+        with compile_func_body.indent():
+            compile_func_body.splice(
+                f"""
+                    auto hlir_builder = build_sample();
+                    compile(hlir_builder, &exe_ptr);
+                """
+                , strip=True
+            )
+        compile_func = IndentedBuffer()
+        compile_func.writelines(
             [
                 f'topsExecutable_t exe_ptr;',
                 f'extern "C" void compile(void){"{"}'
             ]
         )
-        compile_func.splice(compile_func_body)
-        compile_func.add_line('}')
+        with compile_func.indent():
+            compile_func.splice(compile_func_body)
+        compile_func.writeline('}')
 
         return compile_func
                 
     def gen_run_func_code(self):
-        func_body = CodeBlock(indent=1)
-        func_body.add_line(f'std::vector<void *> input_ptrs;')
+        func_body = IndentedBuffer()
+        func_body.writeline(f'std::vector<void *> input_ptrs;')
         for i in range(0, len(self.input_args)):
-            func_body.add_line(f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
-        func_body.add_line(f'std::vector<void *> output_ptrs;')
+            func_body.writeline(f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
+        func_body.writeline(f'std::vector<void *> output_ptrs;')
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                func_body.add_line(f'output_ptrs.emplace_back(output_ptr{str(i)});')
-        func_body.add_line(f'run(exe_ptr, input_ptrs, output_ptrs);')
+                func_body.writeline(f'output_ptrs.emplace_back(output_ptr{str(i)});')
+        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs);')
 
         input_paras = ''
         for i in range(0, len(self.input_args)):
@@ -290,9 +223,10 @@ class EnflameCodegen(torch.fx.Interpreter):
                 output_paras.append(f'float* output_ptr{str(i)}')
         output_paras = ', '.join(output_paras)
 
-        run_func_code = CodeBlock()
-        run_func_code.add_line(f'extern "C" void run({input_paras} {output_paras}) {"{"}')
-        run_func_code.splice(func_body)
+        run_func_code = IndentedBuffer()
+        run_func_code.writeline(f'extern "C" void run({input_paras} {output_paras}) {"{"}')
+        with run_func_code.indent():
+            run_func_code.splice(func_body)
         run_func_code.splice('}')
         return run_func_code
 
@@ -307,22 +241,22 @@ class EnflameCodegen(torch.fx.Interpreter):
         return self.gen_tensor("rand_strided", tensor)
 
     def gen_call_func(self):
-        call_body = CodeBlock(indent=1)
+        call_body = IndentedBuffer()
 
         args = []
         for i in range(len(self.input_args)):
             args.append('arg' + str(i))
-        call_body.add_line(f"{', '.join(args)}, = args")
-        call_body.add_line(f"args.clear()")
+        call_body.writeline(f"{', '.join(args)}, = args")
+        call_body.writeline(f"args.clear()")
 
         bufs = []
         for i in range(len(self.output_args)):
             bufs.append('buf' + str(i))
             if isinstance(self.output_args[i], type(None)):
-                call_body.add_line(bufs[-1] + ' = ' + (f"empty_strided((), ())"))
+                call_body.writeline(bufs[-1] + ' = ' + (f"empty_strided((), ())"))
             else:
                 otensor = self.output_args[i].meta['val']
-                call_body.add_line(bufs[-1] + ' = ' + self.gen_empty_tensor(otensor))
+                call_body.writeline(bufs[-1] + ' = ' + self.gen_empty_tensor(otensor))
 
         call_str = 'kernel_cpp_0('
         for i in range(len(self.input_args)):
@@ -333,63 +267,66 @@ class EnflameCodegen(torch.fx.Interpreter):
                 call_str += ', '
             else:
                 call_str += ')'
-        call_body.add_line(call_str)
+        call_body.writeline(call_str)
 
         for arg in args:
-            call_body.add_line(f'del {arg}')
+            call_body.writeline(f'del {arg}')
         
-        call_body.add_line(f"return ({', '.join(bufs)})")
+        call_body.writeline(f"return ({', '.join(bufs)})")
 
-        call_func = CodeBlock()
-        call_func.add_line(f"def call(args):")
-        call_func.splice(call_body)
+        call_func =IndentedBuffer()
+        call_func.writeline(f"def call(args):")
+        with call_func.indent():
+            call_func.splice(call_body)
  
-        return call_func.get_str()
+        return call_func.getvalue()
 
     def gen_main_func(self):
-        main_body = CodeBlock(indent=1)
+        main_body = IndentedBuffer()
         main_body.splice(
             f"""
                 from torch._dynamo.testing import rand_strided
                 from torch._inductor.utils import print_performance
             """
-            , dedent=True
+            , strip=True
         )
         for i in range(0, len(self.input_args)):
             itensor = self.input_args[i].meta['val']
-            main_body.add_line('arg' + str(i) + ' = ' + self.gen_random_tensor(itensor))
+            main_body.writeline('arg' + str(i) + ' = ' + self.gen_random_tensor(itensor))
 
         args = []
         for i in range(len(self.input_args)):
             args.append('arg' + str(i))
-        main_body.add_line(f"print(call([{', '.join(args)}]))")
+        main_body.writeline(f"print(call([{', '.join(args)}]))")
 
-        main_func = CodeBlock()
-        main_func.add_line(f"""if __name__ == "__main__":""")
-        main_func.splice(main_body)
-        return main_func.get_str()
+        main_func = IndentedBuffer()
+        main_func.writeline(f"""if __name__ == "__main__":""")
+        with main_func.indent():
+            main_func.splice(main_body)
+        return main_func.getvalue()
 
     def gen_compile_graph_code(self):
-        compile_graph_code = CodeBlock()
+        compile_graph_code = IndentedBuffer()
         compile_graph_code.splice(
             f"""
                 async_compile = AsyncCompileTopsGraph()
                 kernel_cpp_0 = async_compile.topsgraph('''
             """
-            , dedent=True
+            , strip=True
         )
-        compile_graph_code.splice(self.get_kernel_header(), dedent=True)
-        compile_graph_code.add_line(f'std::shared_ptr<builder::Builder> build_sample() {"{"}')
-        compile_graph_code.splice(self.gen_build_graph_code())
-        compile_graph_code.add_line('}')
+        compile_graph_code.splice(self.get_kernel_header(), strip=True)
+        compile_graph_code.writeline(f'std::shared_ptr<builder::Builder> build_sample() {"{"}')
+        with compile_graph_code.indent():
+            compile_graph_code.splice(self.gen_build_graph_code())
+        compile_graph_code.writeline('}')
 
         compile_graph_code.splice(self.gen_compile_func_code())
         compile_graph_code.splice(self.gen_run_func_code())
-        compile_graph_code.add_line(f"''')")
-        compile_graph_code.add_line('async_compile.wait(globals())')
-        compile_graph_code.add_line('del async_compile')
+        compile_graph_code.writeline(f"''')")
+        compile_graph_code.writeline('async_compile.wait(globals())')
+        compile_graph_code.writeline('del async_compile')
 
-        return compile_graph_code.get_str()
+        return compile_graph_code.getvalue()
 
     def generate_code(self):
         return (self.gen_import_code() + self.gen_compile_graph_code()+ self.gen_call_func() + self.gen_main_func())
@@ -397,7 +334,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen_args(op_var, args_dict, node, args, flag=False):
-        src_code = CodeBlock()
+        src_code = IndentedBuffer()
         args_str = [op_var]
         count = 0
         if process_name(node.name, node.target) in need_node:
@@ -422,22 +359,22 @@ class EnflameOverrides(OpOverrides):
                     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
             elif isinstance(args[i], torch.dtype):
                 in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                src_code.add_line(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
-                src_code.add_line(f'builder::Type {op_var}_type{count} = builder::Type({op_var}_shape{count}, ptype);')
+                src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
+                src_code.writeline(f'builder::Type {op_var}_type{count} = builder::Type({op_var}_shape{count}, ptype);')
                 args_str.append(f'{op_var}_type{count}')
                 count += 1
             else:
                 if "squeeze" in node.name:
-                    src_code.add_line(f'builder::Type {op_var}_axes_type{count}({"{" + "1" + "}"}, builder::PrimitiveType::S64());')
+                    src_code.writeline(f'builder::Type {op_var}_axes_type{count}({"{" + "1" + "}"}, builder::PrimitiveType::S64());')
                     
                     if "unsqueeze" in node.name:
-                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
+                        src_code.writeline(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(args[i]).split("[")[-1].split("]")[0] + "}"};')
                     
                     else:
                         axes = args[i]
-                        src_code.add_line(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(axes) + "}"};\n')
+                        src_code.writeline(f'std::vector<int64_t> {op_var}_axes_data{count} = {"{" + str(axes) + "}"};\n')
 
-                    src_code.add_line(f'builder::Op {op_var}_axes{count} = builder::Const(hlir_builder, ({op_var}_axes_data{count}.data()), {op_var}_axes_type{count});')
+                    src_code.writeline(f'builder::Op {op_var}_axes{count} = builder::Const(hlir_builder, ({op_var}_axes_data{count}.data()), {op_var}_axes_type{count});')
                     args_str.append(f'{op_var}_axes{count}')
                     shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
                     data_type = node.meta['val'].dtype.__str__()
@@ -448,7 +385,7 @@ class EnflameOverrides(OpOverrides):
                     else:
                         raise ValueError("Unknown data type.")
 
-                    src_code.add_line(f"builder::Type {op_var}_output_type{count}({shape}, {out_type});\n")
+                    src_code.writeline(f"builder::Type {op_var}_output_type{count}({shape}, {out_type});\n")
                     args_str.append(f"{op_var}_output_type{count}")
                     count += 1
 
@@ -457,9 +394,9 @@ class EnflameOverrides(OpOverrides):
                         args_str.append(str(args[1]))
                     else:
                         if isinstance(args[3], float):
-                            src_code.add_line(f'  const float {op_var}_value{count} = {str(args[3])};\n')
+                            src_code.writeline(f'  const float {op_var}_value{count} = {str(args[3])};\n')
                         else:
-                            src_code.add_line(f'  const int {op_var}_value{count} = {str(args[3])};\n')
+                            src_code.writeline(f'  const int {op_var}_value{count} = {str(args[3])};\n')
                             args_str.append(f'{op_var}_value{count}')
                 else:
                     in_shape_size = '{1}'
@@ -470,14 +407,14 @@ class EnflameOverrides(OpOverrides):
                         data_type = node.meta['val'].dtype.__str__()
                     if data_type == 'torch.int64':
                         out_type = 'builder::PrimitiveType::S64()'
-                        src_code.add_line(f'int {op_var}_value{count} = {str(args[i])};\n')
+                        src_code.writeline(f'int {op_var}_value{count} = {str(args[i])};\n')
                     else:
                         out_type = 'builder::PrimitiveType::F32()'
-                        src_code.add_line(f'float {op_var}_value{count} = {str(args[i])};\n')
+                        src_code.writeline(f'float {op_var}_value{count} = {str(args[i])};\n')
   
-                    src_code.add_line(f'std::vector<int64_t> {op_var}_const_in_shape{count}{in_shape_size};')
-                    src_code.add_line(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, {out_type});')
-                    src_code.add_line(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});')
+                    src_code.writeline(f'std::vector<int64_t> {op_var}_const_in_shape{count}{in_shape_size};')
+                    src_code.writeline(f'builder::Type {op_var}_value_type{count}({op_var}_const_in_shape{count}, {out_type});')
+                    src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value{count}), {op_var}_value_type{count});')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
 
