@@ -1,6 +1,12 @@
 import torch
 import torch._dynamo as dynamo
-from typing import List
+
+# decomp table will be added into config file later
+from torch._inductor.decomposition import decompositions
+aten = torch.ops.aten
+del decompositions[aten._native_batch_norm_legit_functional.default]
+del decompositions[aten.native_batch_norm_backward.default]
+del decompositions[aten.convolution_backward.default]
 
 def bar(a):
     x = torch.abs(a)
