@@ -9,7 +9,7 @@ decomp_del_keys = [aten._native_batch_norm_legit_functional.default,
 def get_decomp():
     for del_key in decomp_del_keys:
         if del_key in decompositions:
-            decompositions[del_key]
+            del decompositions[del_key]
     return decompositions
 
 decomp = get_decomp()
