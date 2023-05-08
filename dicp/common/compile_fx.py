@@ -5,6 +5,8 @@ import logging
 import sys
 import functorch
 import torch.fx
+import importlib
+import os
 
 from typing import List
 from importlib import import_module
@@ -108,8 +110,7 @@ def compile_fx(
             backend=backend,
         )
 
-    from torch._inductor.decomposition import select_decomp_table
-    decompositions = select_decomp_table()
+    decompositions = get_decompositions(backend=backend)
     return aot_autograd(
         fw_compiler=fw_compiler,
         bw_compiler=bw_compiler,
@@ -149,3 +150,15 @@ def _shape_env_from_inputs(inputs):
 
     # TODO(voz): Should we always have one anyway?
     return None
+
+def get_decompositions(backend):
+    decompositions = {}
+    folder_list = os.listdir(os.path.dirname(os.path.dirname(__file__)))
+    found_decomp = False
+    for folder in folder_list:
+        if backend.lower() == folder.lower():
+            config = importlib.import_module("dicp." + folder + ".config")
+            decompositions = config.decomp
+            found_decomp = True
+    assert found_decomp, "Not found decomp table!"
+    return decompositions
