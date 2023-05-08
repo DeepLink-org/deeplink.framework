@@ -229,7 +229,7 @@ class ConvolutionBackward(Operator):
     def __init__(self, *args):
         super().__init__("Conv2D_Grad")
         self.args = args
-        self.torch_op = aten.convolution_backward
+        self.torch_op = aten.convolution_backward.default
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args):
@@ -417,6 +417,14 @@ class Zeros(Operator):
         super().__init__("Zeros")
         self.args = args
         self.torch_op = aten.zeros
+
+
+class Scalar(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Scalar")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.scalar_tensor.default
 
 
 # TODO check if we need this wrap

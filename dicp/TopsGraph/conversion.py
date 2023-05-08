@@ -133,7 +133,7 @@ def view(a, b):
 def convolution(*args):
     return tops_op.Convolution(*args)
 
-@register_conversion(torch.ops.aten.convolution_backward)
+@register_conversion(torch.ops.aten.convolution_backward.default)
 def convolution_backward(*args):
     return tops_op.ConvolutionBackward(*args)
 
@@ -241,6 +241,12 @@ def addgrad(a, b):
 def zeros(*args, **kwargs):
     return tops_op.Zeros(*args, **kwargs)
 
+
+@register_conversion(torch.ops.aten.scalar_tensor.default)
+def scalar(*args, **kwargs):
+    return tops_op.Scalar(*args, **kwargs)
+
+
 '''
 @register_conversion(torch.ops.aten.addmm)
 def addmm(*args, **kwargs):
@@ -324,6 +330,7 @@ class ReplacePatternT:
     def replacement(inputs):
         return torch.ops.aten.transpose(inputs, 0, 1)
 
+'''
 # convolution_backward =
 # torch.ops.aten.convolution_backward.default(
 # getitem_102,
@@ -390,6 +397,7 @@ class ReplacePatternConvBack:
             [output_mask[0], output_mask[1], False],
         )
         return tops_op.ret_tri_tuples(grad_inp, grad_weight, grad_bias)
+'''
 
 
 @register_pattern

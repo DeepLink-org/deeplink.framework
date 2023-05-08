@@ -402,9 +402,15 @@ class EnflameOverrides(OpOverrides):
                     in_shape_size = '{1}'
                     print(type(node.meta['val']))
                     if isinstance(node.meta['val'], list) or isinstance(node.meta['val'], tuple):
-                        data_type = node.meta['val'][0].dtype.__str__()
+                        if isinstance(node.meta['val'][0], type(None)):
+                            data_type = ""
+                        else:
+                            data_type = node.meta['val'][0].dtype.__str__()
                     else:
-                        data_type = node.meta['val'].dtype.__str__()
+                        if isinstance(node.meta['val'], type(None)):
+                            data_type = ""
+                        else:
+                            data_type = node.meta['val'].dtype.__str__()
                     if data_type == 'torch.int64':
                         out_type = 'builder::PrimitiveType::S64()'
                         src_code.writeline(f'int {op_var}_value{count} = {str(args[i])};\n')
@@ -698,7 +704,7 @@ class EnflameOverrides(OpOverrides):
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
         
-        src_code += f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
+        src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
 
@@ -747,7 +753,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Scalar(op_var, *args):
         shape = '{1}'
-        src_code = f"builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());"
+        src_code = f"builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());\n"
         src_code += f"std::vector<float> scalar_data{op_var}(1, {args[0]});\n"
         src_code += f"auto {op_var} = builder::Const(hlir_builder, static_cast<void *>(scalar_data{op_var}.data()), scalar_type{op_var});\n"
 
