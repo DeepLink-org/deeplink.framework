@@ -162,3 +162,29 @@
   custom_code_at_the_beginning: >
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self, diopi_size)
+
+- schema: "aten::floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiFloor(ctx, out, self)
+
+- schema: "aten::floor_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiFloorInp(ctx, self)
+
+- schema: "aten::max(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    Tensor out = at::empty({1}, self.options());
+    diopiTensorHandle_t max =reinterpret_cast<diopiTensorHandle_t>(&out);
+    auto empty_indices = at::empty({1}, self.options().dtype(at::kLong));
+    diopiTensorHandle_t max_indices = reinterpret_cast<diopiTensorHandle_t>(&empty_indices);
+    diopiConstTensorHandle_t input = toDiopiTensorHandle(self);
+    int64_t dim = 0;
+  interface: diopiMax(ctx, max, max_indices, input, dim)
+
+- schema: "aten::min(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    Tensor out = at::empty({1}, self.options());
+    diopiTensorHandle_t min =reinterpret_cast<diopiTensorHandle_t>(&out);
+    auto empty_indices = at::empty({1}, self.options().dtype(at::kLong));
+    diopiTensorHandle_t min_indices = reinterpret_cast<diopiTensorHandle_t>(&empty_indices);
+    diopiConstTensorHandle_t input = toDiopiTensorHandle(self);
+    int64_t dim = 0;
+  interface: diopiMin(ctx, min, min_indices, input, dim)
