@@ -7,7 +7,7 @@ function build_dipu_py() {
     export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
-    python setup.py build_ext 2>&1 | tee ./build1.log
+    python setup.py build_ext 2>&1 | tee ./setup.log
     cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
 }
 
@@ -39,10 +39,10 @@ function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     echo  "PYTORCH_DIR:${PYTORCH_DIR}"
-    echo  "PYTHON_DIR:${PYTHON_DIR}"
+    echo  "PYTHON_INCLUDE_DIR:${PYTHON_INCLUDE_DIR}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-    config_dipu_camb_cmake 2>&1 | tee ./build1.log
-    cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
+    config_dipu_camb_cmake 2>&1 | tee ./cmake_camb.log
+    cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
