@@ -35,6 +35,7 @@ function build_dipu_lib() {
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
 
     autogen_diopi_wrapper
+    mkdir -p build
     config_dipu_cmake
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
