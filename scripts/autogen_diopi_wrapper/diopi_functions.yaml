@@ -364,6 +364,7 @@
   interface: diopiNegInp(ctx, self)
 
 - schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
   interface: diopiSqrt(ctx, out, self)
 
 - schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
@@ -380,3 +381,27 @@
 
 - schema: "any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAny(ctx, out, self, &dim)
+
+- schema: "bitwise_and.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAnd(ctx, out, self, other)
+
+- schema: "bitwise_and_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndInp(ctx, self, other)
+
+- schema: "bitwise_and.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndScalar(ctx, out, self, other)
+
+- schema: "bitwise_and_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndInpScalar(ctx, self, other)
+
+- schema: "bitwise_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseNot(ctx, out, self)
+
+- schema: "bitwise_not_(Tensor(a!) self) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseNotInp(ctx, self)
