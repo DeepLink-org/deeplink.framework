@@ -37,8 +37,9 @@ function build_diopi_lib() {
 
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
-    export DIOPI_ROOT=$(pwd)/../DIOPI-TEST/lib/no_runtime
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
+    echo  "PYTORCH_DIR:${PYTORCH_DIR}"
+    echo  "PYTHON_DIR:${PYTHON_DIR}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_camb_cmake 2>&1 | tee ./build1.log
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
