@@ -154,11 +154,11 @@ def _shape_env_from_inputs(inputs):
 def get_decompositions(backend):
     decompositions = {}
     folder_list = os.listdir(os.path.dirname(os.path.dirname(__file__)))
-    is_support = False
+    found_decomp = False
     for folder in folder_list:
         if backend.lower() == folder.lower():
             config = importlib.import_module("dicp." + folder + ".config")
             decompositions = config.decomp
-            is_support = True
-    assert(is_support and "Unsupported backend decompositions")    
+            found_decomp = True
+    assert found_decomp, "Not found decomp table!"
     return decompositions
