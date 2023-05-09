@@ -260,10 +260,10 @@ class Log(Operator):
 
 
 class Getitem(Operator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, x, idx):
         super().__init__("Getitem")
-        self.args = args
-        self.args = kwargs
+        self.x = x
+        self.idx = idx
         self.torch_op = operator.getitem
 
 
@@ -395,14 +395,6 @@ class Select(Operator):
         self.torch_op = aten.where.self
 
 
-class AddGrad(Operator):
-    def __init__(self, a, b):
-        super().__init__("addgrad")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.sum
-
-
 # scatter_value = torch.ops.aten.scatter.value(fulllike, 1, unsqueeze, -1.0);  fulllike = unsqueeze = None
 class Scatter(Operator):
     def __init__(self, *args, **kwargs):
@@ -431,13 +423,3 @@ class Scalar(Operator):
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
     return a, b
-
-
-@torch.fx.wrap
-def ret_tri_tuples(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return a, b, c
-
-
-@torch.fx.wrap
-def warpaddgrad(a, b) -> torch.Tensor:
-    return AddGrad(a, b)
