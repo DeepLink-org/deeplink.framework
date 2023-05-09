@@ -23,7 +23,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.bool": "builder::PrimitiveType::PRED()"}
 
 need_node = ['reshape', 'Getitem', 'Gather', 'Batch_Norm', 'Convolution', 'Conv2D_Grad',
-             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand', 'fulllike', 'scatter']
+             'MaxPool2D', 'MaxPool2D_Grad', 'Zeros', 'Expand', 'fulllike', 'scatter', 'Scalar']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -80,7 +80,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
-        print("*******************************************", flush=True)
+        # print("*******************************************", flush=True)
         print("name:", name, flush=True)
         print("target:", target.name(), flush=True)
         print("real_op:", real_op, flush=True)
@@ -119,6 +119,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         test = self.generate_code()
         with open('codegen.py', 'w') as f:
             f.write(test)
+        
+        print("**************************")
+        print(test, flush=True)
+        
         return test
 
     def gen_build_graph_code(self):
@@ -704,7 +708,7 @@ class EnflameOverrides(OpOverrides):
         strides = str(args[3]).replace('[','{').replace(']','}')
         padding = str(args[4]).replace('[','{').replace(']','}')
         
-        src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[2]}, {ksize}, {strides}, {padding});\n"
+        src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
 
@@ -751,10 +755,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Convert({', '.join(args)});"
 
     @staticmethod
-    def Scalar(op_var, *args):
+    def Scalar(op_var, node, *args_str):
         shape = '{1}'
         src_code = f"builder::Type scalar_type{op_var}({shape}, builder::PrimitiveType::F32());\n"
-        src_code += f"std::vector<float> scalar_data{op_var}(1, {args[0]});\n"
+        src_code += f"std::vector<float> scalar_data{op_var}(1, {node.args[0]});\n"
         src_code += f"auto {op_var} = builder::Const(hlir_builder, static_cast<void *>(scalar_data{op_var}.data()), scalar_type{op_var});\n"
 
         return src_code
