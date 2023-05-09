@@ -380,3 +380,17 @@
 
 - schema: "any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAny(ctx, out, self, &dim)
+
+#TODO: topk has problems on camb
+- schema: "topk.values(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
+
+- schema: "topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+    dim = dim < 0 ? (dim + output_size.size()) : dim;
+    output_size[dim] = k;
+    auto values = at::empty(output_size, self.dtype());
+    auto indices = at::empty(output_size, at::kLong);
+  interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
+

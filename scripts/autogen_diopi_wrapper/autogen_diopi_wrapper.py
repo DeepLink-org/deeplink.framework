@@ -87,6 +87,7 @@ def create_return_code_frome_schema(schema):
     return_code = schema[schema.find('->'):].replace('->', '').strip()
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
+    return_code = re.sub('([\w_\d:&]+)[ ]+([\w\d_]+)?', R'\1', return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
     return_code = re.sub('\)', '> ' ,return_code)
     return return_code
@@ -140,31 +141,24 @@ def get_function_inputs_from_schema(schema):
     return ins
 
 
+def get_function_need_alloc_args_from_schema(schema):
+    outputs = []
+    param_list = schema[schema.find('->') + 2 : ].strip()
+    outputs += re.findall('\(?Tensor[ ]*([\w\d_]+){1}',  param_list)
+
+    no_name_args = re.findall('Tensor[ ]*(?!\([a-z]!\))(?![\w\d_ ]+)',  param_list)
+    no_name_args_num = len(no_name_args)
+    for i in range(no_name_args_num):
+        outputs.append('out' + (str(i) if no_name_args_num > 1 else ''))
+
+    return outputs
+
+
 def get_function_outputs_from_schema(schema):
-    param_list = create_param_list_from_schema(schema)
-    outs = []
-    for args in param_list.split(','):
-        args = args.strip()
-        tensor_match_result = re.search('Tensor[ ]*&+', args)
-        if tensor_match_result is not None:
-            in_match_result = re.search('const[ ]+[at::]*Tensor[ &]*', args)
-            if in_match_result is None:
-                outs.append(args[tensor_match_result.span()[1]::].strip())
-    if len(outs) <= 0:
-        return_param = schema[schema.find('->'):].replace('->', '').strip()
-        return_param = return_param.replace('(', '')
-        return_param = return_param.replace(')', '')
-        params = return_param.split(',')
-        if len(params) == 1 and params[0].strip() == "Tensor":
-            if params[0].strip() == "Tensor":
-                outs.append(f"out")
-        elif len(params) > 1:
-            for i in range(len(params)):
-                if params[i].strip() == "Tensor":
-                    outs.append(f"out{i}")
-
-    return outs
-
+    outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema)
+    outputs += get_function_need_alloc_args_from_schema(schema)
+    outputs = list(set(outputs))
+    return outputs
 
 def get_function_scalar_args_from_schema(schema):
     param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
@@ -203,18 +197,19 @@ def get_function_return_param_from_schema(schema):
     for i in range(len(return_params)):
         args = return_params[i]
         inplace_match = re.search('Tensor\([a-zA-Z]+!\)', args)
-        pure_out_match = re.search('Tensor', args)
-        if inplace_match is None and pure_out_match is not None:
-            if len(return_params) > 1:
-                params.append(f"out{i}")
-            else:
-                params.append("out")
-        elif inplace_match is not None:
+        pure_out_match = re.search('Tensor[ ,]?', args)
+        if inplace_match is not None:
             arg_label = re.sub('.*(\(.*\))', r'\1',inplace_match.group())
             index = schema.find(arg_label) + len(arg_label)
             param = re.search("[a-zA-Z0-9_::]+", schema[index:]).group()
             params.append(param)
-
+        elif inplace_match is None and pure_out_match is not None:
+            name_from_schema = re.sub('\(?Tensor[ ]+([\w\d_]+)\)?', R'\1', args)
+            if name_from_schema == args:
+                name = "out" + (str(i) if len(return_params) > 1 else '')
+            else:
+                name = name_from_schema
+            params.append(name)
     return params
 
 
