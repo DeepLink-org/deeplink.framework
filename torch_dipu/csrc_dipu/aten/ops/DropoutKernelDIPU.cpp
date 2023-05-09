@@ -13,35 +13,27 @@ std::tuple<at::Tensor&, at::Tensor&> dipu_dropout_impl(const at::Tensor& input,
 std::tuple<at::Tensor&, at::Tensor&> dipu_dropout__impl(
     at::Tensor& input, at::Tensor& mask, double p, bool train);
 
-class DipuDropoutFunction
-    : public torch::autograd::Function<DipuDropoutFunction> {
+class DipuDropoutFunction : public torch::autograd::Function<DipuDropoutFunction> {
 public:
-    static at::Tensor forward(torch::autograd::AutogradContext* ctx,
-        const at::Tensor& input, at::Tensor& out, double p, bool train, bool inplace) {
-        at::AutoDispatchBelowADInplaceOrView g;
+    static at::Tensor forward(torch::autograd::AutogradContext* ctx, const at::Tensor& input, double p, bool train) {
+        ctx->saved_data["p"] = p;
+        at::Tensor out = at::empty_like(input);
         auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
-        if (inplace) {
-            dipu_dropout__impl(out, mask, p, train);
-        } else {
-            dipu_dropout_impl(input, p, train, out, mask);
+        if (train || input.requires_grad()) {
+            ctx->save_for_backward({mask});
         }
-        if (train) {
-            ctx->saved_data["p"] = p;
-            ctx->saved_data["out"] = out;
-            ctx->saved_data["mask"] = mask;
-        }
+        at::AutoDispatchBelowAutograd g;
+        dipu_dropout_impl(input, p, train, out, mask);
         return out;
     }
 
-    static std::vector<at::Tensor> backward(
-        torch::autograd::AutogradContext* ctx,
-        std::vector<at::Tensor> grad_outputs) {
+    static std::vector<at::Tensor> backward(torch::autograd::AutogradContext* ctx, std::vector<at::Tensor> grad_outputs) {
         auto p = ctx->saved_data["p"].toDouble();
         double p1m = 1. - p;
         // Check for probability of zero to avoid divide by zero and NaN results
         double scale = p1m == 0 ? 0. : 1. / p1m;
 
-        auto mask = ctx->saved_data["mask"].toTensor();
+        auto mask = ctx->get_saved_variables()[0];
 
         at::Tensor out = grad_outputs[0] * mask * scale;
 
@@ -51,15 +43,42 @@ public:
     }
 };
 
+class DipuDropoutInplaceFunction : public torch::autograd::Function<DipuDropoutInplaceFunction> {
+public:
+    static at::Tensor forward(torch::autograd::AutogradContext* ctx, at::Tensor& input, double p, bool train) {
+        ctx->saved_data["p"] = p;
+        auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
+        if (train || input.requires_grad()) {
+            ctx->save_for_backward({mask});
+        }
+        at::AutoDispatchBelowAutograd g;
+        dipu_dropout__impl(input, mask, p, train);
+        return input;
+    }
+
+    static std::vector<at::Tensor> backward(torch::autograd::AutogradContext* ctx, std::vector<at::Tensor> grad_outputs) {
+        auto p = ctx->saved_data["p"].toDouble();
+        double p1m = 1. - p;
+        // Check for probability of zero to avoid divide by zero and NaN results
+        double scale = p1m == 0 ? 0. : 1. / p1m;
+
+        auto mask = ctx->get_saved_variables()[0];
+
+        at::Tensor out = grad_outputs[0] * mask * scale;
+
+        std::vector<at::Tensor> outputs(6);
+        outputs[0] = out;
+        return outputs;
+    }
+};
+
+
 at::Tensor dipu_dropout(const at::Tensor& input, double p, bool train) {
-    at::Tensor out = at::empty_like(input);
-    out.set_requires_grad(input.requires_grad())
-    DipuDropoutFunction::apply(input, out, p, train, false);
-    return out;
+    return DipuDropoutFunction::apply(input, p, train);
 }
 
 at::Tensor& dipu__dropout(at::Tensor& input, double p, bool train) {
-    DipuDropoutFunction::apply(input, input, p, train, true);
+    DipuDropoutInplaceFunction::apply(input, p, train);
     return input;
 }
 
