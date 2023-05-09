@@ -19,7 +19,7 @@ public:
     static at::Tensor forward(torch::autograd::AutogradContext* ctx,
         const at::Tensor& input, at::Tensor& out, double p, bool train, bool inplace) {
         at::AutoDispatchBelowADInplaceOrView g;
-        auto mask = at::empty(input.sizes(), input.options().dtype(at::kBool));
+        auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
         if (inplace) {
             dipu_dropout__impl(out, mask, p, train);
         } else {
@@ -53,6 +53,7 @@ public:
 
 at::Tensor dipu_dropout(const at::Tensor& input, double p, bool train) {
     at::Tensor out = at::empty_like(input);
+    out.set_requires_grad(input.requires_grad())
     DipuDropoutFunction::apply(input, out, p, train, false);
     return out;
 }
