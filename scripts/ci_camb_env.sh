@@ -7,7 +7,7 @@ CONDA_ROOT=${PLATFORM}/env/miniconda3.8
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
-export DIOPI_ROOT=$(pwd)/../DIOPI-TEST/lib/no_runtime
+export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTHONPATH}
