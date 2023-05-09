@@ -48,23 +48,23 @@ def run(cfg, depth, backward):
     # print(cfg.model)
     model.train()
     compiled_model = torch.compile(model.forward_train, backend='topsgraph')
-    # compiled_model1 = torch.compile(model.forward_train, backend='inductor')
+    compiled_model1 = torch.compile(model.forward_train, backend='inductor')
     print(f"warm up", flush=True)
-    for i in range(0, 5):
-        l = compiled_model(inputs, gt)
-        l['loss'].backward()
-    print(f"finish warm up", flush=True)
+    # for i in range(0, 5):
+    #     l = compiled_model(inputs, gt)
+    #     l['loss'].backward()
+    # print(f"finish warm up", flush=True)
     loss = compiled_model(inputs, gt)
+    torch._dynamo.reset()
+    loss1 = compiled_model1(inputs, gt)
     
     if backward:
         loss['loss'].backward()
-        # loss1['loss'].backward()
+        loss1['loss'].backward()
     
     # print(loss['loss'])
     # print(loss1['loss'])
-    # print(loss['loss'] - loss1['loss'])
-    
-    print(loss['loss'])
+    print(loss['loss'] - loss1['loss'])
         
 def main():
     params = parse_config()
@@ -73,3 +73,4 @@ def main():
 if __name__ == "__main__":
     main()
     print("Success!")
+    
