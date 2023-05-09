@@ -10,10 +10,10 @@ on:
       - 'main'
 
 env:
-  NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
+  NFS_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   CLUSTER_CAMB: CAMB
-  PYTORCH_BASE_DIR: '/mnt/cache/share/parrotsci/github/cibuild/pytorchbase'
+  PYTORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0   
 
@@ -114,7 +114,7 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
-          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && exit 1 )
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Test-Camb:
