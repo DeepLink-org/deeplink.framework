@@ -11,6 +11,13 @@
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>
 
+typedef enum {
+    Contiguous      = 0,
+    ChannelsLast    = 1,
+    ChannelsLast3d  = 2,
+    Preserve        = 3
+} diopiMemoryFormat_t;
+
 namespace diopiadaptor{
 
 inline std::vector<int64_t> calcStrides(int ndims, diopiSize_t size, diopiMemoryFormat_t format = diopiMemoryFormat_t::Contiguous) {
