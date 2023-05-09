@@ -394,3 +394,10 @@
     auto indices = at::empty(output_size, at::kLong);
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
+- schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) out, Tensor(b!) mask) -> (Tensor(a!), Tensor(b!))"
+  register_op: False
+  interface: diopiDropout(ctx, out, mask, input, p, train)
+
+- schema: "dropout__impl(Tensor(a!) input, Tensor(b!) mask, float p, bool train) -> (Tensor(a!), Tensor(b!))"
+  register_op: False
+  interface: diopiDropoutInp(ctx, input, mask, p, train)
