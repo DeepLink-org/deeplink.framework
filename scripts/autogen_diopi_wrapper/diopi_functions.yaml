@@ -364,6 +364,7 @@
   interface: diopiNegInp(ctx, self)
 
 - schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
   interface: diopiSqrt(ctx, out, self)
 
 - schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
@@ -381,6 +382,29 @@
 - schema: "any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAny(ctx, out, self, &dim)
 
+- schema: "bitwise_and.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAnd(ctx, out, self, other)
+
+- schema: "bitwise_and_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndInp(ctx, self, other)
+
+- schema: "bitwise_and.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndScalar(ctx, out, self, other)
+
+- schema: "bitwise_and_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseAndInpScalar(ctx, self, other)
+
+- schema: "bitwise_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseNot(ctx, out, self)
+
+- schema: "bitwise_not_(Tensor(a!) self) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiBitwiseNotInp(ctx, self)
 #TODO: topk has problems on camb
 - schema: "topk.values(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
@@ -393,4 +417,64 @@
     auto values = at::empty(output_size, self.dtype());
     auto indices = at::empty(output_size, at::kLong);
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
+
+- schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
+  print_func_call_info: True
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    auto num_tensors = tensors.size();
+    auto shape = tensors[0].sizes();
+    std::vector<long int> tmp;
+    for (int i = 0; i < dim; i++) {
+        tmp.push_back(shape[i]);
+    }
+    tmp.push_back(num_tensors);
+    for (int i = dim; i < shape.size(); i++) {
+        tmp.push_back(shape[i]);
+    }
+    const std::vector<long int>& const_tmp = tmp;
+    shape = at::ArrayRef<long int>(const_tmp);
+    auto out = at::empty({shape}, tensors[0].options());
+    
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
+    for (size_t i = 0; i < tensors.size(); ++i) {
+      diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
+    }
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), num_tensors, dim)
+
+- schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
+    for (size_t i = 0; i < tensors.size(); ++i) {
+      diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
+    }
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), tensors.size(), dim)
+
+- schema: "cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
+    for (size_t i = 0; i < tensors.size(); ++i) {
+      diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
+    }
+  interface: diopiCat(ctx, out, diopiTensorHandles.data(), tensors.size(), dim)
+
+- schema: "nonzero.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    std::vector<diopiTensorHandle_t> diopiTensorHandles(0, nullptr);
+  interface: diopiNonzero(ctx, diopiTensorHandles.data(), self)
+
+- schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
+  custom_code_at_the_beginning: >
+    auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
+    auto values = at::empty(self.sizes(), self.options());
+    auto indices = at::empty(self.sizes(), at::kLong);
+  interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
+
+- schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  custom_code_at_the_beginning: >
+    auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
+  interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
