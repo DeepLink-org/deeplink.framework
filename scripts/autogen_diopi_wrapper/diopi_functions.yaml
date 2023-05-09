@@ -390,7 +390,7 @@
     std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
     dim = dim < 0 ? (dim + output_size.size()) : dim;
     output_size[dim] = k;
-    auto values = at::empty(output_size, self.dtype());
-    auto indices = at::empty(output_size, at::kLong);
+    auto values = at::empty(output_size, self.options());
+    auto indices = at::empty(output_size, self.options().dtype(at::kLong));
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
