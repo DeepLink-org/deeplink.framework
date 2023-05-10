@@ -394,3 +394,9 @@
     auto indices = at::empty(output_size, at::kLong);
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
+- schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False
+  custom_code_at_the_beginning: >
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiMean(ctx, out, self, diopi_size);
+
