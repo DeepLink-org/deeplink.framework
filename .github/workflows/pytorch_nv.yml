@@ -1,10 +1,6 @@
 name: pytorch ci
 
 on:
-  pull_request:
-  push:
-    branches:
-      - wgs/*
   workflow_dispatch:
 
 env:
