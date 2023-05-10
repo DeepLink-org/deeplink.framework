@@ -1,6 +1,7 @@
 import yaml
 import re
 import json
+import os
 from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_register_template_content
@@ -106,7 +107,7 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
-        '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>&',
+        '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
         '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
@@ -341,6 +342,11 @@ def functions_code_gen(fun_config):
     if fun_config.get('print_func_call_info', False) == True:
         fun_config['custom_code_at_the_beginning'] = create_code_to_print_fun_call_info_from_schema(fun_config['schema']) + fun_config.get('custom_code_at_the_beginning', '')
 
+    if fun_config.get('use_diopi_adapter', False) == True:
+        diopi_fun_call_code = "diopiadaptor::" + diopi_fun_call_code
+    else:
+        diopi_fun_call_code = "::" + diopi_fun_call_code
+
     if fun_config.get('dummy_call_diopi', False) == True:
         diopi_fun_call_code = f"::diopiSuccess;/*dummy_call_diopi: {diopi_fun_call_code}*/"
 
@@ -389,6 +395,8 @@ def parase_args():
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
     parser.add_argument('--dummy_call_diopi', default=False, type=boolean_string, help='whether acctually call diopi interface')
+    parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
+    parser.add_argument('--diopi_adapter_header', type=str, default = 'diopi_adapters.hpp', help='path to diopi adapter file')
     parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
 
@@ -405,6 +413,15 @@ def main():
 
     functions_code = ''
     op_register_code = ''
+    header_include_code = ''
+
+    if args.use_diopi_adapter == True:
+        if os.path.exists(args.diopi_adapter_header) == False:
+            print(f"{args.diopi_adapter_header} not exists")
+            args.use_diopi_adapter = False
+        else:
+            header_include_code += f'#include "{os.path.abspath(args.diopi_adapter_header)}"'
+
     autograd_op_register_code = ''
 
     for fun_config in funcs_config:
@@ -421,6 +438,7 @@ def main():
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],
+        header_include_code=[header_include_code],
         op_register_code=[op_register_code],
         autograd_op_register_code=[autograd_op_register_code]
     )
