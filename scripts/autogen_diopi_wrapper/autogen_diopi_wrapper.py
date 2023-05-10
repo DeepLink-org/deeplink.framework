@@ -101,6 +101,7 @@ def create_param_list_from_schema(schema):
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
+        'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
@@ -276,7 +277,7 @@ def create_cpp_signature_from_schema(schema):
 
 def create_code_to_print_fun_call_info_from_schema(schema):
     op_name = get_op_name_from_schema(schema)
-    debug_code = f'printf("[%s:%s:%d]:%s\\n",__FILE__,__FUNCTION__,__LINE__,"{op_name}");' + '\n'
+    debug_code = f'printf("[%s:%d]:%s\\n",__FUNCTION__,__LINE__,"{op_name}");' + '\n'
     return debug_code
 
 def create_int_array_process_code(int_array_list):
