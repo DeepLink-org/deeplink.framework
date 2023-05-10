@@ -321,6 +321,9 @@ def functions_code_gen(fun_config):
 
         diopi_fun_call_code = re.sub(input.strip() + '([,\) ]{1})', f"{input.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
 
+    for size_attr in fun_config.get('size_attr', []):
+        input_process_code += f"::diopiSize_t {size_attr}DiopiSize = dipu::diopi_helper::toDiopiSize({size_attr});\n"
+
 
     output_process_code = ""
     for output in set(get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])):
