@@ -400,6 +400,43 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
 
+- schema: "linear_impl(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
+  register_op: False
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
+    output_size.back() = weight.sizes()[0];
+    auto out = at::empty(output_size, input.options());
+  interface: diopiLinear(ctx, out, input, weight, bias)
+
+- schema: "linear_backward_impl(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  register_op: False
+  custom_code_at_the_beginning: >
+    auto grad_input = at::empty(input.sizes(), input.options());
+    auto grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    at::Tensor grad_bias;
+    bool bias_has_value = output_mask[2];
+    if (bias_has_value) {
+      grad_bias = at::empty({grad_output.size(1)}, grad_output.options());
+    }
+  interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
+
+- schema: "_log_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLogSoftmaxBackward(ctx, out, grad_output, output, dim)
+
+- schema: "_log_softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLogSoftmax(ctx, out, self, dim)
+
+- schema: "aten::log_softmax.int_out(Tensor self, int dim, ScalarType? dtype=None, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLogSoftmax(ctx, out, self, dim)
+
+- schema: max_pool2d_with_indices_backward.grad_input(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor indices, *, Tensor(a!) grad_input) -> Tensor(a!)
+  custom_code_at_the_beginning: >
+    ::diopiSize_t kernel_sizeDiopiSize(kernel_size.data(), kernel_size.size());
+    ::diopiSize_t strideDiopiSize(stride.data(), stride.size());
+    ::diopiSize_t paddingDiopiSize(padding.data(), padding.size());
+    ::diopiSize_t dilationDiopiSize(dilation.data(), dilation.size());
+  interface: diopiMaxPool2dBackward(ctx, grad_input, grad_output, self, kernel_sizeDiopiSize, strideDiopiSize, paddingDiopiSize, dilationDiopiSize, ceil_mode, indices)
+
 - schema: "threshold_backward.grad_input(Tensor grad_output, Tensor self, Scalar threshold, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
 
