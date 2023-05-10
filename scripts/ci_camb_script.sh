@@ -25,6 +25,8 @@ function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp \
+        --use_diopi_adapter True \
+        --diopi_adapter_header torch_dipu/csrc_dipu/vendor/camb/diopi_adapter.hpp \
         --print_func_call_info True
 }
 
