@@ -118,6 +118,7 @@ def create_param_list_from_schema(schema):
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
         '\*[ ,]+' : '',
+        '\=[ ]*\[ *\]' : '',
         '=[ ]*\'?\w*-?\.?[\d ]*\'?' : '',
     })
     for pattern, cpp_type in args_type_map.items():
