@@ -4,7 +4,9 @@ import json
 import os
 from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
-from diopi_wrapper_template import diopi_wrapper_file_template_content, diopi_wrapper_function_template_content, op_register_template_content
+from diopi_wrapper_template import diopi_wrapper_file_template_content,\
+    diopi_wrapper_function_template_content, op_register_template_content,\
+    custom_autograd_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -289,13 +291,20 @@ def create_int_array_process_code(int_array_list):
         code += f"::diopiSize_t {int_array}DiopiSize({int_array}Vector.data(), {int_array}Vector.size());\n"
     return code;
 
-
+def create_autograd_function_name(op_name):
+    op_name = 'Dipu' + op_name[0].upper() + op_name[1:]
+    for patten in re.findall('_[a-z]{1}', op_name):
+        op_name = op_name.replace(patten, patten[1].upper())
+    return op_name
+    
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
+
+custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 
 def functions_code_gen(fun_config):
@@ -382,6 +391,19 @@ def functions_code_gen(fun_config):
             aten_fun_name=['dipu::native::' + create_fun_name_from_schema(fun_config['schema'])],
             diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
     )
+    if fun_config.get('autograd', False) == True:
+        custom_autograd_function_code = custom_autograd_template.substitute(
+            autograd_function_name=[create_autograd_function_name(get_op_name_from_schema(fun_config['schema']))],
+            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
+            return_code=['int'],
+            save_for_backward_code=[''],
+            param_list=['int a'],
+            call_forward_impl_code=['impl()'],
+            load_saved_data_code=[';'],
+            cal_grad_code=[';'],
+            
+        )
+        fbody += custom_autograd_function_code
     return fbody, register_body
 
 def boolean_string(s):

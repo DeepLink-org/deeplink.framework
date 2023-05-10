@@ -68,3 +68,26 @@ op_register_template_content = \
 """
 DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
 """
+
+custom_autograd_template_content = \
+"""
+class $autograd_function_name : public torch::autograd::Function<$autograd_function_name> {
+public:
+    static $return_code forward(torch::autograd::AutogradContext *ctx, $param_list) {
+        $save_for_backward_code
+
+        at::AutoDispatchBelowADInplaceOrView g;
+        return $call_forward_impl_code;
+    }
+
+  static std::vector<at::Tensor> backward(torch::autograd::AutogradContext *ctx, std::vector<at::Tensor> grad_outputs) {
+      $load_saved_data_code
+      $cal_grad_code
+      return outputs;
+  }
+};
+
+$cppsignautre {
+    return autograd_function_name::apply($param_list);
+}
+"""
