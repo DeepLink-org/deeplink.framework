@@ -47,6 +47,7 @@ def run(cfg, depth, backward):
     model = build_classifier(cfg.model)
     # print(cfg.model)
     model.train()
+    torch._dynamo.reset()
     compiled_model = torch.compile(model.forward_train, backend='topsgraph')
     compiled_model1 = torch.compile(model.forward_train, backend='inductor')
     print(f"warm up", flush=True)

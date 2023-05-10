@@ -3,6 +3,8 @@
 #include <iostream>
 #include <unistd.h>
 
+#include <chrono>
+
 bool file_exists(const char *filename) { return (access(filename, 0) == 0); }
 
 void compile(std::shared_ptr<builder::Builder> builder,
@@ -13,9 +15,22 @@ void compile(std::shared_ptr<builder::Builder> builder,
   auto ret = topsgraphCreateProgramFromModule(&program, hlir_module.get());
   /*const char *options[] = {"-arch=gcu210", "-resource=1c4s",
                            "-hlir=tops-hlir-pipeline"};*/
-  const char *options[] = {"-arch=gcu200", "-resource=4c24s",
-                           "-hlir=tops-hlir-pipeline"};
+
+  // const char* options[] = {
+  //     "-arch=gcu200", "-resource=4c24s", "-hlir=tops-hlir-pipeline"};
+  
+  // const char* options[] = {
+  //     "-arch=gcu200",
+  //     "-resource=4c24s",
+  //     "-hlir=hlir-pytorch-pipeline{dynamic-shape=true enable-fusion=false}"};
+
+  const char* options[] = {
+      "-arch=gcu200",
+      "-resource=4c24s",
+      "-hlir=hlir-training-pipeline{tensor-split=true dynamic-shape=false}"};
+  
   topsgraphCompileProgram(program, 3, options);
+
   // get binary size and binary data
   size_t binary_size = 0;
   topsgraphGetBinSize(program, &binary_size);
@@ -71,12 +86,18 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   EXPECT_EQ(topsExecutableQueryInfo(exe_ptr, topsExecutableInfoOutputSizeList,
                                     output_size),
             topsSuccess);
+            
 
   // 3. prepare data, H2D
   for (size_t i = 0; i < input_count; i++) {
     topsMallocForResource(&dev_input, input_size[i], res_bundle);
-    topsMemcpyAsync(dev_input, input_ptrs[i], input_size[i],
-                    topsMemcpyHostToDevice, stream);
+    topsMemcpyAsync(
+        dev_input,
+        input_ptrs[i],
+        input_size[i],
+        topsMemcpyHostToDevice,
+        stream);
+    topsStreamSynchronize(stream);
     inputs[i] = dev_input;
   }
 
@@ -85,16 +106,31 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     outputs[i] = dev_output;
   }
 
-
   // 4. run
-
-  ret = topsLaunchExecutableV2(exe_ptr, res_bundle, inputs, input_count,
-		  nullptr, nullptr,
-                               outputs, output_count, stream);
+  auto before_time = std::chrono::high_resolution_clock::now();
+  ret = topsLaunchExecutableV2(
+      exe_ptr,
+      res_bundle,
+      inputs,
+      input_count,
+      nullptr,
+      nullptr,
+      outputs,
+      output_count,
+      stream);
+  topsStreamSynchronize(stream);
   if (ret != topsSuccess) {
     std::cout << "topsLaunchExecutable fail,  ret = " << ret << std::endl;
     return -1;
   }
+  auto after_time = std::chrono::high_resolution_clock::now();
+
+  std::cout << "Running time costing:"
+            << double(std::chrono::duration_cast<std::chrono::milliseconds>(
+                          after_time - before_time)
+                          .count())
+            << std::endl;
+
   uint64_t *output_rank_list =
       (uint64_t *)malloc(sizeof(uint64_t) * output_count);
   ret = topsExecutableQueryInfo(exe_ptr, topsExecutableInfoOutputRank,
@@ -124,8 +160,13 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
       shape_v.push_back(output_dim_list[dim_index++]);
     }
     // 5. D2H
-    ret = topsMemcpyAsync(output_ptrs[i], outputs[i], output_size[i],
-                          topsMemcpyDeviceToHost, stream);
+    ret = topsMemcpyAsync(
+        output_ptrs[i],
+        outputs[i],
+        output_size[i],
+        topsMemcpyDeviceToHost,
+        stream);
+    topsStreamSynchronize(stream);
     if (ret != 0) {
       std::cout << "topsMemcpyAsync fail,  ret = " << ret << std::endl;
       return -1;
@@ -141,7 +182,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     topsFree(outputs[i]);
   }
   topsStreamDestroy(stream);
-  topsDestroyExecutable(exe_ptr);
+  // topsDestroyExecutable(exe_ptr);
   topsDestroyResource(res_bundle);
   return 0;
 }
