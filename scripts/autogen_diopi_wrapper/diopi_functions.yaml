@@ -429,6 +429,14 @@
 - schema: "aten::log_softmax.int_out(Tensor self, int dim, ScalarType? dtype=None, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLogSoftmax(ctx, out, self, dim)
 
+- schema: "max_pool2d_with_indices.out(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, int[2] dilation=1, bool ceil_mode=False, *, Tensor(a!) out, Tensor(b!) indices) -> (Tensor(a!), Tensor(b!))"
+  custom_code_at_the_beginning: >
+    ::diopiSize_t kernel_sizeDiopiSize(kernel_size.data(), kernel_size.size());
+    ::diopiSize_t strideDiopiSize(stride.data(), stride.size());
+    ::diopiSize_t paddingDiopiSize(padding.data(), padding.size());
+    ::diopiSize_t dilationDiopiSize(dilation.data(), dilation.size());
+  interface: diopiMaxPool2dWithIndices(&context, out, indices, self, kernel_sizeDiopiSize, strideDiopiSize, paddingDiopiSize, dilationDiopiSize, ceil_mode)
+
 - schema: max_pool2d_with_indices_backward.grad_input(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor indices, *, Tensor(a!) grad_input) -> Tensor(a!)
   custom_code_at_the_beginning: >
     ::diopiSize_t kernel_sizeDiopiSize(kernel_size.data(), kernel_size.size());
