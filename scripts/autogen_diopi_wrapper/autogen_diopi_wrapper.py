@@ -107,7 +107,7 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
-        '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>&',
+        '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
         '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
