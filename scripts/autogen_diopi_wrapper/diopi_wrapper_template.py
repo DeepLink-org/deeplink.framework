@@ -95,6 +95,7 @@ public:
 };
 
 $cppsignautre {
-    return $autograd_function_name::apply($arg_name_list);
+    auto result = $autograd_function_name::apply($arg_name_list);
+    $wrappter_custom_return
 }
 """

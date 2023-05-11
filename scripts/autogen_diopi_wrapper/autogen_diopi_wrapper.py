@@ -85,13 +85,15 @@ def create_fun_name_from_schema(schema):
     op_name = op_name.lower()
     return op_name
 
-def create_return_code_frome_schema(schema):
+def create_return_code_frome_schema(schema, allow_return_ref = True):
     return_code = schema[schema.find('->'):].replace('->', '').strip()
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('([\w_\d:&]+)[ ]+([\w\d_]+)?', R'\1', return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
     return_code = re.sub('\)', '> ' ,return_code)
+    if allow_return_ref == False:
+        return_code = return_code.replace('&', '')
     return return_code
 
 
@@ -315,7 +317,8 @@ def create_autograd_function_name(op_name):
     op_name = 'Dipu' + op_name[0].upper() + op_name[1:]
     for patten in re.findall('_[a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
-    return op_name + 'Backward'
+    op_name = op_name.replace('_', 'Inp')
+    return op_name + 'Function'
 
 def create_save_for_backward_code(args_name_list):
     code = ''
@@ -429,7 +432,7 @@ def functions_code_gen(fun_config):
         custom_autograd_function_code = custom_autograd_template.substitute(
             autograd_function_name=[create_autograd_function_name(get_op_name_from_schema(fun_config['schema']))],
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(fun_name, wrapper_fun_name)],
-            return_code=[create_return_code_frome_schema(fun_config['schema'])],
+            return_code=[create_return_code_frome_schema(fun_config['schema'], allow_return_ref = False)],
             save_for_backward_code=[create_save_for_backward_code(fun_config.get('saved_data',[]))],
             param_list=[create_param_list_from_schema(fun_config['schema'])],
             arg_name_list=[create_args_name_list_from_schema(fun_config['schema'])],
@@ -439,6 +442,7 @@ def functions_code_gen(fun_config):
             cal_grad_code=[fun_config.get('cal_grad_code', '').replace('; ', ';\n') + '/*' + fun_config.get('backward_schema','') + '*/'],
             call_backward_impl_code=[("auto result = " + create_call_cpp_function_code_from_schema(fun_config['backward_schema']).replace('; ', ';\n')) if 'backward_schema' in fun_config else ''],
             backward_return_code=[fun_config.get('backward_return_code', '').replace('; ', ';\n')],
+            wrappter_custom_return=[fun_config.get('wrappter_custom_return', 'return result;')]
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
