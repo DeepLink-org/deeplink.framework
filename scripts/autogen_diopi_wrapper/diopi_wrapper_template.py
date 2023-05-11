@@ -76,6 +76,7 @@ class $autograd_function_name : public torch::autograd::Function<$autograd_funct
 public:
     static $return_code forward(torch::autograd::AutogradContext *ctx, $param_list) {
         $forward_process_code
+
         $save_for_backward_code
 
         at::AutoDispatchBelowADInplaceOrView g;
@@ -87,7 +88,7 @@ public:
 
       $cal_grad_code
 
-      auto result = $call_backward_impl_code;
+      $call_backward_impl_code;
 
       $backward_return_code;
   }
