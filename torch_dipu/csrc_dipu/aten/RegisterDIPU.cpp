@@ -81,12 +81,6 @@ namespace {
     return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
   }
 
-  at::Tensor wrapperConvolution2d(
-      const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
-      at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
-    return dnative::conv2d(input, weight, bias, stride, padding, dilation, groups);
-  }
-
   at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
     return dnative::random_(self, from, to, generator);
   }
@@ -163,7 +157,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 
   // register fallback if dipu func not exists
   DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
@@ -183,7 +176,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
-  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2dBackward, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("linear", diopiLinearBackward, wrapper_linear);
 }
 
