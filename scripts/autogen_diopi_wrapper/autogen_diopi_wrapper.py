@@ -315,7 +315,7 @@ def create_autograd_function_name(op_name):
     op_name = 'Dipu' + op_name[0].upper() + op_name[1:]
     for patten in re.findall('_[a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
-    return op_name
+    return op_name + 'Backward'
 
 def create_save_for_backward_code(args_name_list):
     code = ''
