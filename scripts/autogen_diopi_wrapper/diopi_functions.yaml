@@ -311,8 +311,16 @@
   custom_code_at_the_beginning: >
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
-- schema: "cross_entropy_loss_impl(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+- schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
   register_op: False
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out = at::empty_like(self);
+  interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index.expect_int(), label_smoothing)
+
+
+- schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  autograd: True
   custom_code_at_the_beginning: >
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -324,13 +332,21 @@
       out = at::empty({}, options);
     }
   interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
+  backward_schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
+  saved_data: [reduction, ignore_index, label_smoothing, weight, self, target]
+  cal_grad_code: >
+    auto grad_output = grad_outputs.at(0);
+    auto reduction = reduction_.toInt();
+    auto ignore_index = ignore_index_.toInt();
+    auto label_smoothing = label_smoothing_.toDouble();
+    auto weight = weight_.toOptional<at::Tensor>();
+    auto self = self_.toTensor();
+    auto target = target_.toTensor();
+  backward_return_code: >
+    std::vector<at::Tensor> outputs(6);
+    outputs[0] = result;
+    return outputs;
 
-- schema: "cross_entropy_loss_backward_impl(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  register_op: False
-  custom_code_at_the_beginning: >
-    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
-    at::Tensor out = at::empty_like(self);
-  interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index.expect_int(), label_smoothing)
 
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
