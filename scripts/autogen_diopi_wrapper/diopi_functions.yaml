@@ -351,6 +351,7 @@
 
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
+  size_attr: [stride, padding, dilation, bias_sizes]
   custom_code_at_the_beginning: >
     at::Tensor grad_input;
     at::Tensor grad_weight;
@@ -361,21 +362,14 @@
         c10::IntArrayRef bias_size = { grad_output.size(1) };
         grad_bias = at::empty(bias_size, grad_output.options());
     }
-    ::diopiSize_t stride_diopi(stride.data(), stride.size());
-    ::diopiSize_t padding_diopi(padding.data(), padding.size());
-    ::diopiSize_t dilation_diopi(dilation.data(), dilation.size());
-    ::diopiSize_t bias_size_diopi(bias_sizes.data(), bias_sizes.size());
-    ::diopiSize_t output_padding_diopi;
+    ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: >
-    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_size_diopi : nullptr;
-
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride_diopi, padding_diopi, dilation_diopi, false, output_padding_diopi, groups);
+    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, false, output_paddingDiopiSize, groups);
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
+  size_attr: [stride, padding, dilation]
   custom_code_at_the_beginning: >
-    ::diopiSize_t stride_diopi(stride.data(), stride.size());
-    ::diopiSize_t padding_diopi(padding.data(), padding.size());
-    ::diopiSize_t dilation_diopi(dilation.data(), dilation.size());
     int64_t batch_size = input.size(0);
     int64_t height = input.size(2);
     int64_t width = input.size(3);
@@ -385,7 +379,7 @@
     int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
     c10::SmallVector<int64_t, 8> output_size = {batch_size, out_channel, out_height, out_width};
     at::Tensor out = at::empty(output_size, input.options());
-  interface: diopiConvolution2d(&context, out, input, weight, bias, stride_diopi, padding_diopi, dilation_diopi, groups)
+  interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
   autograd: True
   forward_process_code: >
     bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
@@ -446,11 +440,32 @@
     outputs[0] = out;
     return outputs;
 
+- schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
+  register_op: False
+  interface: diopiDropoutInp(ctx, self, mask, p, train)
+
 - schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
   outs: [mask]
   interface: diopiDropoutInp(ctx, self, mask, p, train)
+  autograd: True
+  forward_process_code: >
+    auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
+  saved_data: [p, mask]
+  forward_schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
+  cal_grad_code: >
+    auto p = p_.toDouble();
+    double p1m = 1. - p;
+    double scale = p1m == 0 ? 0. : 1. / p1m;
+    auto mask = mask_.toTensor();
+    at::Tensor out = grad_outputs[0] * mask * scale;
+  backward_return_code: >
+    std::vector<at::Tensor> outputs(6);
+    outputs[0] = out;
+    return outputs;
+  wrappter_custom_return: return self;
+
 
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -563,11 +578,11 @@
 
 - schema: "max_pool2d_with_indices.out(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, int[2] dilation=1, bool ceil_mode=False, *, Tensor(a!) out, Tensor(b!) indices) -> (Tensor(a!), Tensor(b!))"
   size_attr: [kernel_size, stride, padding, dilation]
-  interface: diopiMaxPool2dWithIndices(&context, out, indices, self, kernel_sizeDiopiSize, strideDiopiSize, paddingDiopiSize, dilationDiopiSize, ceil_mode)
+  interface: diopiMaxPool2dWithIndices(&context, out, indices, self, kernel_size, stride, padding, dilation, ceil_mode)
 
 - schema: max_pool2d_with_indices_backward.grad_input(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor indices, *, Tensor(a!) grad_input) -> Tensor(a!)
   size_attr: [kernel_size, stride, padding, dilation]
-  interface: diopiMaxPool2dBackward(ctx, grad_input, grad_output, self, kernel_sizeDiopiSize, strideDiopiSize, paddingDiopiSize, dilationDiopiSize, ceil_mode, indices)
+  interface: diopiMaxPool2dBackward(ctx, grad_input, grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices)
 
 - schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiNLLLoss(ctx, out, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
