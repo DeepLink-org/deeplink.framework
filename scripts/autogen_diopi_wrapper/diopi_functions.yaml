@@ -402,3 +402,33 @@
   print_func_call_info: True
   register_op: False
   interface: diopiDropoutInp(ctx, input, mask, p, train)
+
+- schema: "rsqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRsqrt(ctx, out, self)
+
+- schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiUniformInp(ctx, self, from, to, seed)
+
+- schema: "tril(Tensor self, int diagonal=0) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiTril(ctx, out, self, diagonal)
+
+- schema: "tril.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTril(ctx, out, self, diagonal)
+
+- schema: "multinomial(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+    if (self.dim() == 2){
+      out = at::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
+    }
+    else if (self.dim() == 1) {
+      out = at::empty({num_samples,}, self.options().dtype(at::kLong));
+    }
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+
+- schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
