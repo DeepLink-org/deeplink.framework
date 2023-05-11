@@ -363,8 +363,10 @@ def functions_code_gen(fun_config):
 
         diopi_fun_call_code = re.sub(input.strip() + '([,\) ]{1})', f"{input.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
 
+    diopi_size_suffix = 'DiopiSize'
     for size_attr in fun_config.get('size_attr', []):
         input_process_code += f"::diopiSize_t {size_attr}DiopiSize = dipu::diopi_helper::toDiopiSize({size_attr});\n"
+        diopi_fun_call_code = re.sub(size_attr.strip() + '([,\) ]{1})', f"{size_attr.strip()}{diopi_size_suffix}" + r'\1', diopi_fun_call_code)
 
 
     output_process_code = ""
