@@ -433,11 +433,11 @@ def functions_code_gen(fun_config):
             save_for_backward_code=[create_save_for_backward_code(fun_config.get('saved_data',[]))],
             param_list=[create_param_list_from_schema(fun_config['schema'])],
             arg_name_list=[create_args_name_list_from_schema(fun_config['schema'])],
-            call_forward_impl_code=[create_call_cpp_function_code_from_schema(fun_config['schema']).replace('; ', ';\n')],
+            call_forward_impl_code=[create_call_cpp_function_code_from_schema(fun_config.get('forward_schema', fun_config['schema'])).replace('; ', ';\n')],
             forward_process_code=[fun_config.get('forward_process_code','').replace('; ', ';\n')],
             load_saved_data_code=[create_get_saved_data_code(fun_config.get('saved_data',[]))],
             cal_grad_code=[fun_config.get('cal_grad_code', '').replace('; ', ';\n') + '/*' + fun_config.get('backward_schema','') + '*/'],
-            call_backward_impl_code=[create_call_cpp_function_code_from_schema(fun_config['backward_schema']).replace('; ', ';\n') if 'backward_schema' in fun_config else ''],
+            call_backward_impl_code=[("auto result = " + create_call_cpp_function_code_from_schema(fun_config['backward_schema']).replace('; ', ';\n')) if 'backward_schema' in fun_config else ''],
             backward_return_code=[fun_config.get('backward_return_code', '').replace('; ', ';\n')],
         )
         fbody += custom_autograd_function_code
