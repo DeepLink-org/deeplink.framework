@@ -103,6 +103,7 @@ def create_param_list_from_schema(schema):
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
+        'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
@@ -121,6 +122,7 @@ def create_param_list_from_schema(schema):
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
         '\*[ ,]+' : '',
+        '\=[ ]*\[ *\]' : '',
         '=[ ]*\'?\w*-?\.?[\d ]*\'?' : '',
     })
     for pattern, cpp_type in args_type_map.items():
@@ -296,7 +298,7 @@ def create_call_cpp_function_code_from_schema(schema):
 
 def create_code_to_print_fun_call_info_from_schema(schema):
     op_name = get_op_name_from_schema(schema)
-    debug_code = f'printf("[%s:%s:%d]:%s\\n",__FILE__,__FUNCTION__,__LINE__,"{op_name}");' + '\n'
+    debug_code = f'printf("[%s:%d]:%s\\n",__FUNCTION__,__LINE__,"{op_name}");' + '\n'
     return debug_code
 
 def create_int_array_process_code(int_array_list):
@@ -357,6 +359,9 @@ def functions_code_gen(fun_config):
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
         diopi_fun_call_code = re.sub(input.strip() + '([,\) ]{1})', f"{input.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
+
+    for size_attr in fun_config.get('size_attr', []):
+        input_process_code += f"::diopiSize_t {size_attr}DiopiSize = dipu::diopi_helper::toDiopiSize({size_attr});\n"
 
 
     output_process_code = ""

@@ -3,107 +3,47 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/autograd/custom_function.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include "csrc_dipu/diopirt/diopirt_impl.h"
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
 
-using dipu::diopi_helper::toDiopiTensorHandle;
 
 namespace dipu::native {
 
 using torch::autograd::AutogradContext;
 using tensor_list = std::vector<at::Tensor>;
 
-std::vector<int64_t> getOutputSize(const c10::IntArrayRef& input_size, const c10::IntArrayRef& weight_size) {
-  std::vector<int64_t> output_size;
-  for (int i = 0; i < input_size.size() - 1; ++i) {
-    output_size.push_back(input_size[i]);
-  }
-  if (weight_size.size() > 1) {
-    output_size.push_back(weight_size[0]);
-  }
-  return output_size;
-}
+at::Tensor dipu_linear_impl(const at::Tensor& input, const at::Tensor& weight, const c10::optional<at::Tensor>& bias);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> dipu_linear_backward_impl(const at::Tensor& input, const at::Tensor& grad_output, const at::Tensor& weight, ::std::array<bool, 3> output_mask);
 
-at::Tensor linearKernelDipu(
-    const at::Tensor &input, const at::Tensor &weight,
-    const c10::optional<at::Tensor> &bias_opt) {
-  ::diopiConstTensorHandle_t input_diopi = toDiopiTensorHandle(input);
-  ::diopiConstTensorHandle_t weight_diopi = toDiopiTensorHandle(weight);
-  ::diopiConstTensorHandle_t bias_diopi = toDiopiTensorHandle(bias_opt);
-
-  ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-  std::vector<int64_t> out_size = getOutputSize(input.sizes(), weight.sizes());
-  at::Tensor out = at::empty(out_size, input.options());
-  ::diopiTensorHandle_t out_diopi = toDiopiTensorHandle(out);
-
-  ::diopiError_t ret = ::diopiLinear(&context, out_diopi, input_diopi, weight_diopi, bias_diopi);
-  TORCH_CHECK(ret == ::diopiSuccess, __func__, ":", __FILE__, ":", __LINE__,
-      " linear error, error code is ", ret, "\nerror message is ", diopiGetLastErrorString());
-  return out;
-}
-
-::std::tuple<at::Tensor, at::Tensor, at::Tensor> linearBackwardKernelDipu(
-    const at::Tensor& grad_output, const at::Tensor& input,
-    const at::Tensor& weight, bool bias_has_value) {
-  at::Tensor grad_input;
-  at::Tensor grad_weight;
-  at::Tensor grad_bias;
-  // construct the output tensor on device
-  grad_input = at::empty(input.sizes(), input.options());
-  grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-  if (bias_has_value) {
-      c10::IntArrayRef bias_size = { grad_output.size(1) };
-      grad_bias = at::empty(bias_size, grad_output.options());
-  }
-
-  // generate diopi input parameter
-  ::diopiConstTensorHandle_t input_diopi = toDiopiTensorHandle(input);
-  ::diopiConstTensorHandle_t weight_diopi = toDiopiTensorHandle(weight);
-  ::diopiConstTensorHandle_t grad_output_diopi = toDiopiTensorHandle(grad_output);
-
-  ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-  ::diopiTensorHandle_t grad_input_diopi = toDiopiTensorHandle(grad_input);
-  ::diopiTensorHandle_t grad_weight_diopi = toDiopiTensorHandle(grad_weight);
-  ::diopiTensorHandle_t grad_bias_diopi = nullptr;
-  if (bias_has_value) {
-    grad_bias_diopi = toDiopiTensorHandle(grad_bias);
-  }
-
-  ::diopiError_t ret = ::diopiLinearBackward(
-    &context, grad_input_diopi, grad_weight_diopi, grad_bias_diopi,
-    grad_output_diopi, input_diopi, weight_diopi);
-  TORCH_CHECK(ret == ::diopiSuccess, __func__, ":", __FILE__, ":", __LINE__,
-    " linear backward error, error code is ", ret, "\nerror message is ", diopiGetLastErrorString());
-
-  return std::tie(grad_input, grad_weight, grad_bias);
-}
 
 class DipuLinearFunction : public torch::autograd::Function<DipuLinearFunction> {
 public:
   static at::Tensor forward(
       AutogradContext *ctx, const at::Tensor &input,
       const at::Tensor &weight, const c10::optional<at::Tensor> &bias) {
-    ctx->saved_data["bias_has_value"] = (bias.has_value() == true) ? bias.value().requires_grad() : false;
+    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
+    std::array<bool, 3> output_mask{input.requires_grad(), weight.requires_grad(), bias_has_value};
+    ctx->saved_data["output_mask"] = output_mask;
 
     at::AutoDispatchBelowADInplaceOrView g;
     ctx->save_for_backward({input, weight});
-    return linearKernelDipu(input, weight, bias);
+    return dipu_linear_impl(input, weight, bias);
   }
 
   static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs) {
-    auto bias_has_value = ctx->saved_data["bias_has_value"].toBool();
+    auto output_mask = ctx->saved_data["output_mask"].to<std::array<bool, 3>>();
     auto saved = ctx->get_saved_variables();
     auto input = saved[0];
     auto weight = saved[1];
+    auto grad_output = grad_outputs[0];
 
-    ::std::tuple<at::Tensor, at::Tensor, at::Tensor> result = linearBackwardKernelDipu(
-      grad_outputs[0], input, weight, bias_has_value);
-    tensor_list output = {std::get<0>(result), std::get<1>(result), std::get<2>(result)};
-    return output;
+    auto grads = dipu_linear_backward_impl(input, grad_output, weight, output_mask);
+    return {std::get<0>(grads), std::get<1>(grads), std::get<2>(grads)};
   }
 };
 
-at::Tensor DIPUATenFunctions::linear(
+
+at::Tensor linear(
     const at::Tensor & input, const at::Tensor & weight,
     const c10::optional<at::Tensor> & bias_opt) {
   c10::optional<at::Tensor> bias = c10::nullopt;
@@ -115,3 +55,12 @@ at::Tensor DIPUATenFunctions::linear(
 }
 
 }  // namespace dipu::native
+
+
+namespace at {
+
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+  DIOPI_ATEN_FUNC("linear", diopiLinear, dipu::native::linear);
+}
+
+}  // namespace at
