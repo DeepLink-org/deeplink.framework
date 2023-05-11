@@ -438,7 +438,7 @@ def functions_code_gen(fun_config):
             load_saved_data_code=[create_get_saved_data_code(fun_config.get('saved_data',[]))],
             cal_grad_code=[fun_config.get('cal_grad_code', '').replace('; ', ';\n') + '/*' + fun_config.get('backward_schema','') + '*/'],
             call_backward_impl_code=[create_call_cpp_function_code_from_schema(fun_config['backward_schema']).replace('; ', ';\n') if 'backward_schema' in fun_config else ''],
-            backward_return_code=[fun_config.get('backward_return_code', '')],
+            backward_return_code=[fun_config.get('backward_return_code', '').replace('; ', ';\n')],
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
