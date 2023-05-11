@@ -109,13 +109,15 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
+        '([\(, ]*)SymInt *\[[ \d]*\] ([\w\d_]+)' : R'\1c10::SymIntArrayRef \2',
+        '([\(, ]*)SymInt *\[[ \d]*\] *\? +([\w\d_]+)' : R'\1at::OptionalSymIntArrayRef \2',
+        'int\[\d*\] +([\w\d_]+)' : R'at::IntArrayRef \1' ,
         '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
         '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
         'Tensor' : 'at::Tensor' ,
         '([, \(]+)int\[\d\]\?' : R'\1at::OptionalIntArrayRef',
-        'SymInt\[\d+\]' : 'c10::SymIntArrayRef' ,
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
         '\*[ ,]+' : '',
@@ -183,7 +185,7 @@ def get_function_int_array_args_from_schema(schema):
     int_arrays = []
     for args in param_list.split(','):
         args = args.strip()
-        match_result = re.search('[\w\d:]*SymIntArray[\w\d]*', args)
+        match_result = re.search('[^Optional]SymIntArray[\w\d]*', args)
         if match_result is not None:
             int_array_param = args[match_result.span()[1]:].strip()
             int_array_param = re.sub('=.*,{1}', ',', int_array_param)
@@ -276,6 +278,22 @@ def create_cpp_signature_from_schema(schema):
     return cppsignature
 
 
+def create_args_name_list_from_schema(schema):
+    code = '';
+    param_list = create_param_list_from_schema(schema)
+    args_list = re.findall('([\w\d_<>:& ]+ )([\w\d_]+)', param_list)
+    for i in range(len(args_list)):
+        arg_type, arg_name = args_list[i]
+        code += arg_name
+        if i < len(args_list) - 1:
+            code += ', '
+    return code
+
+def create_call_cpp_function_code_from_schema(schema):
+    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ')' # + "/*" + schema + "*/"
+    return code
+
+
 def create_code_to_print_fun_call_info_from_schema(schema):
     op_name = get_op_name_from_schema(schema)
     debug_code = f'printf("[%s:%s:%d]:%s\\n",__FILE__,__FUNCTION__,__LINE__,"{op_name}");' + '\n'
@@ -296,7 +314,19 @@ def create_autograd_function_name(op_name):
     for patten in re.findall('_[a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
     return op_name
-    
+
+def create_save_for_backward_code(args_name_list):
+    code = ''
+    for arg_name in args_name_list:
+        code += f'ctx->saved_data[\"{arg_name}\"] = {arg_name};\n'
+    return code
+
+def create_get_saved_data_code(args_name_list):
+    code = ''
+    for arg_name in args_name_list:
+        code += f'auto {arg_name}_ = ctx->saved_data[\"{arg_name}\"];\n'
+    return code
+
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -386,24 +416,33 @@ def functions_code_gen(fun_config):
             return_code=[return_code],
     )
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
-    register_body = op_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config['schema'])],
-            aten_fun_name=['dipu::native::' + create_fun_name_from_schema(fun_config['schema'])],
-            diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
-    )
+
+    fun_name = create_fun_name_from_schema(fun_config['schema'])
+
     if fun_config.get('autograd', False) == True:
+        wrapper_fun_name = fun_name + '_wrapper'
         custom_autograd_function_code = custom_autograd_template.substitute(
             autograd_function_name=[create_autograd_function_name(get_op_name_from_schema(fun_config['schema']))],
-            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
-            return_code=['int'],
-            save_for_backward_code=[''],
-            param_list=['int a'],
-            call_forward_impl_code=['impl()'],
-            load_saved_data_code=[';'],
-            cal_grad_code=[';'],
-            
+            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(fun_name, wrapper_fun_name)],
+            return_code=[create_return_code_frome_schema(fun_config['schema'])],
+            save_for_backward_code=[create_save_for_backward_code(fun_config.get('saved_data',[]))],
+            param_list=[create_param_list_from_schema(fun_config['schema'])],
+            arg_name_list=[create_args_name_list_from_schema(fun_config['schema'])],
+            call_forward_impl_code=[create_call_cpp_function_code_from_schema(fun_config['schema']).replace('; ', ';\n')],
+            forward_process_code=[fun_config.get('forward_process_code','').replace('; ', ';\n')],
+            load_saved_data_code=[create_get_saved_data_code(fun_config.get('saved_data',[]))],
+            cal_grad_code=[fun_config.get('cal_grad_code', '').replace('; ', ';\n') + '/*' + fun_config.get('backward_schema','') + '*/'],
+            call_backward_impl_code=[create_call_cpp_function_code_from_schema(fun_config['backward_schema']).replace('; ', ';\n') if 'backward_schema' in fun_config else ''],
+            backward_return_code=[fun_config.get('backward_return_code', '')],
         )
         fbody += custom_autograd_function_code
+        fun_name = wrapper_fun_name
+
+    register_body = op_register_template.substitute(
+            register_name=[get_op_name_from_schema(fun_config['schema'])],
+            aten_fun_name=['dipu::native::' + fun_name],
+            diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
+    )
     return fbody, register_body
 
 def boolean_string(s):
