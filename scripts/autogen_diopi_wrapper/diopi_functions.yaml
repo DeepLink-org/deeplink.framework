@@ -519,15 +519,7 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
 
-- schema: "linear_impl(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
-  register_op: False
-  custom_code_at_the_beginning: >
-    std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
-    output_size.back() = weight.sizes()[0];
-    auto out = at::empty(output_size, input.options());
-  interface: diopiLinear(ctx, out, input, weight, bias)
-
-- schema: "linear_backward_impl(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+- schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
   custom_code_at_the_beginning: >
     auto grad_input = at::empty(input.sizes(), input.options());
@@ -539,6 +531,27 @@
     }
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
+- schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
+  register_op: True
+  autograd: True
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
+    output_size.back() = weight.sizes()[0];
+    auto out = at::empty(output_size, input.options());
+  interface: diopiLinear(ctx, out, input, weight, bias)
+  forward_process_code: >
+    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
+    std::array<bool, 3> output_mask{input.requires_grad(), weight.requires_grad(), bias_has_value};
+  saved_data: [output_mask, input, weight, bias]
+  cal_grad_code: >
+    auto output_mask = output_mask_.to<std::array<bool, 3>>();
+    auto input = input_.toTensor();
+    auto weight = weight_.toTensor();
+    auto bias = bias_.toTensor();
+    auto grad_output = grad_outputs[0];
+  backward_schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  backward_return_code: >
+    return {std::get<0>(result), std::get<1>(result), std::get<2>(result)};
 - schema: "_log_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLogSoftmaxBackward(ctx, out, grad_output, output, dim)
 
