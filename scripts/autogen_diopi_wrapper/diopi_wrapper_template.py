@@ -3,6 +3,7 @@ diopi_wrapper_file_template_content = \
 // autogened file
 #include <ATen/Tensor.h>
 
+#include <torch/csrc/autograd/custom_function.h>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
@@ -74,6 +75,7 @@ custom_autograd_template_content = \
 class $autograd_function_name : public torch::autograd::Function<$autograd_function_name> {
 public:
     static $return_code forward(torch::autograd::AutogradContext *ctx, $param_list) {
+        $forward_process_code
         $save_for_backward_code
 
         at::AutoDispatchBelowADInplaceOrView g;
@@ -82,12 +84,16 @@ public:
 
   static std::vector<at::Tensor> backward(torch::autograd::AutogradContext *ctx, std::vector<at::Tensor> grad_outputs) {
       $load_saved_data_code
+
       $cal_grad_code
-      return outputs;
+
+      auto result = $call_backward_impl_code;
+
+      $backward_return_code;
   }
 };
 
 $cppsignautre {
-    return autograd_function_name::apply($param_list);
+    return $autograd_function_name::apply($arg_name_list);
 }
 """
