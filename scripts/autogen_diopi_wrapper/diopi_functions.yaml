@@ -433,26 +433,10 @@
 - schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
 
-- schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
-  print_func_call_info: True
-  custom_code_at_the_beginning: >
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
-
-- schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
-  print_func_call_info: True
-  custom_code_at_the_beginning: >
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, &to, seed)
-
-# random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)
-
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     auto out = at::empty_like(self);
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   interface: diopiMatmul(ctx, out, self, other)
