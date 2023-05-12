@@ -144,6 +144,10 @@ def test_device_copy():
     tc1 = torch.randn((2, 2), dtype=torch.float64)
     tc1.copy_(t1)
     print(tc1)
+    
+    t0 = torch.tensor([980], dtype=torch.int64).cuda()
+    t2 = t0.expand(2)
+    t2.to(torch.float)
 
 def test_complex_type():
     import torch_dipu
