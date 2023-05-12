@@ -108,6 +108,7 @@ def create_param_list_from_schema(schema):
         '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
+        'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
@@ -184,6 +185,11 @@ def get_function_scalar_args_from_schema(schema):
             scalar_param = re.sub('=.*', '', scalar_param)
             scalars.append(scalar_param.strip())
     return scalars
+
+def get_function_optional_scalar_args_from_schema(schema):
+    param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
+    param_list = param_list[0:param_list.rfind(')')]
+    return re.findall('Scalar *\? +([\w\d_]+)', param_list)
 
 
 def get_function_int_array_args_from_schema(schema):
@@ -336,6 +342,23 @@ def create_get_saved_data_code(args_name_list):
         code += f'auto {arg_name}_ = ctx->saved_data[\"{arg_name}\"];\n'
     return code
 
+def create_optional_scalar_process_code(arg_name):
+    process_template = CodeTemplate(
+"""
+::diopiScalar_t ${arg_name}DiopiScalar;
+const ::diopiScalar_t* ${arg_name}DiopiScalarPtr = nullptr;
+if ($arg_name.has_value()) {
+    ${arg_name}DiopiScalar = dipu::diopi_helper::toDiopiScalar(${arg_name}.value());
+    ${arg_name}DiopiScalarPtr = &${arg_name}DiopiScalar;
+}
+"""
+    )
+    process_code = process_template.substitute(
+        arg_name=[arg_name],
+    )
+    return process_code
+
+
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -384,6 +407,13 @@ def functions_code_gen(fun_config):
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
         diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+
+    cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
+    for scalar_param in get_function_optional_scalar_args_from_schema(fun_config['schema']):
+        attrs_process_code += create_optional_scalar_process_code(scalar_param)
+        diopi_fun_call_code = re.sub(scalar_param.strip(), f"{scalar_param}DiopiScalarPtr", diopi_fun_call_code)
+
+
 
 
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])

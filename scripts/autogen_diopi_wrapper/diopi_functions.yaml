@@ -645,7 +645,7 @@
     const std::vector<long int>& const_tmp = tmp;
     shape = at::ArrayRef<long int>(const_tmp);
     auto out = at::empty({shape}, tensors[0].options());
-    
+
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -678,3 +678,16 @@
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
+
+- schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
+  interface: diopiClampInpScalar(ctx, self, min, max)
+
+- schema: "clamp.out(Tensor self, Scalar? min=None, Scalar? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClampScalar(ctx, out, self, min, max)
+
+- schema: "clamp_.Tensor(Tensor(a!) self, Tensor? min=None, Tensor? max=None) -> Tensor(a!)"
+  interface: diopiClampInp(ctx, self, min, max)
+
+- schema: "clamp.Tensor_out(Tensor self, Tensor? min=None, Tensor? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClamp(ctx, out, self, min, max)
+
