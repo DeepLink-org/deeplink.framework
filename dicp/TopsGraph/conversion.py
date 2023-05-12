@@ -90,8 +90,8 @@ def sum(*args):
     return tops_op.ReduceSum(*args)
 
 @register_conversion(operator.getitem)
-def getitem(*args, **kwargs):
-    return tops_op.Getitem(*args, **kwargs)
+def getitem(x, idx):
+    return tops_op.Getitem(x, idx)
 
 # torch.ops.aten.squeeze.dim(,[])
 # torch.ops.aten.squeeze.dims(,)
@@ -133,7 +133,7 @@ def view(a, b):
 def convolution(*args):
     return tops_op.Convolution(*args)
 
-@register_conversion(torch.ops.aten.convolution_backward)
+@register_conversion(torch.ops.aten.convolution_backward.default)
 def convolution_backward(*args):
     return tops_op.ConvolutionBackward(*args)
 
@@ -233,9 +233,14 @@ def select(*args, **kwargs):
 def scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
-@register_conversion(tops_op.warpaddgrad)
-def addgrad(a, b):
-    return tops_op.AddGrad(a, b)
+@register_conversion(torch.ops.aten.zeros)
+def zeros(*args, **kwargs):
+    return tops_op.Zeros(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.scalar_tensor.default)
+def scalar(*args, **kwargs):
+    return tops_op.Scalar(*args, **kwargs)
+
 
 # Patterns
 def register_pattern(Pattern):
@@ -260,13 +265,15 @@ class ReplacePatternRsqrt:
     def replacement(a):
         return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
 
+
 @register_pattern
 class ReplacePatternAddmm:
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
 
     def replacement(a, b, c):
-        return torch.ops.aten.add.default(a, torch.ops.aten.mm.default(b, c))
+        
+        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
 
 # %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
@@ -313,73 +320,6 @@ class ReplacePatternT:
     def replacement(inputs):
         return torch.ops.aten.transpose(inputs, 0, 1)
 
-# convolution_backward =
-# torch.ops.aten.convolution_backward.default(
-# getitem_102,
-# relu_15,
-# primals_58, [0], [1, 1], [1, 1], [1, 1], False, [0, 0], 1,
-# [True, True, False])
-# ;  getitem_102 = primals_58 = None
-# getitem_105: f32[4, 512, 7, 7] = convolution_backward[0]
-# getitem_106: f32[512, 512, 3, 3] = convolution_backward[1];  convolution_backward = None
-@register_pattern
-class ReplacePatternConvBack:
-    def pattern(
-        grad_output,
-        inputs,
-        weight,
-        bias_sizes,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups,
-        output_mask,
-    ):
-        return torch.ops.aten.convolution_backward.default(
-            grad_output,
-            inputs,
-            weight,
-            bias_sizes,
-            stride,
-            padding,
-            dilation,
-            transposed,
-            output_padding,
-            groups,
-            output_mask,
-        )
-
-    def replacement(
-        grad_output,
-        inputs,
-        weight,
-        bias_sizes,
-        stride,
-        padding,
-        dilation,
-        transposed,
-        output_padding,
-        groups,
-        output_mask,
-    ):
-        grad_bias = tops_op.warpaddgrad(grad_output, grad_output.dim())
-        grad_inp, grad_weight, _ = torch.ops.aten.convolution_backward(
-            grad_output,
-            inputs,
-            weight,
-            bias_sizes,
-            stride,
-            padding,
-            dilation,
-            transposed,
-            output_padding,
-            groups,
-            [output_mask[0], output_mask[1], False],
-        )
-        return tops_op.ret_tri_tuples(grad_inp, grad_weight, grad_bias)
-
 
 @register_pattern
 class ReplacePatternRsub:
@@ -396,5 +336,5 @@ class ReplacePatternSiLU:
     def pattern(a):
         return torch.ops.aten.silu.default(a)
 
-    def replacement(a, b):
+    def replacement(a):
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))

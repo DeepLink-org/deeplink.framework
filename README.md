@@ -14,6 +14,8 @@
   - TopsGraph
     - cd DICP/test/Tops/
     - python test_entry_point.py
+    - python resnet_precison.py
+    - python resnet_performance.py
   - AscendGraph
     - cd DICP/test/Ascend/
     - python test_resnet18.py

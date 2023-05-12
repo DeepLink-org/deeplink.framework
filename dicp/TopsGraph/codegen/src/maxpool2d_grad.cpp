@@ -1,7 +1,40 @@
-#include "max_pool2d_grad.h"
+#include "maxpool2d_grad.h"
 
-builder::Op enflame::max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_builder, builder::Op out_grad, builder::Op in,
-                     std::vector<int> ksize, std::vector<int> strides, std::vector<int> padding){
+#include <dtu/hlir_builder/hlir_builder_ops.h>
+
+builder::Op enflame::MaxPool2D(
+    std::shared_ptr<builder::Builder> tmp_builder,
+    builder::Op input,
+    std::vector<long> ksize,
+    std::vector<long> strides,
+    std::vector<long> padding,
+    std::vector<long> shape) {
+    auto res1 = builder::MaxPool2D(input, ksize, false, false, "NOTSET", "NCHW", strides, padding, {});
+    
+    builder::Type pool_type(shape, builder::PrimitiveType::S64());
+    
+    int size = 1;
+
+    for (uint i = 0; i < shape.size(); i++) {
+        size = size * shape[i];
+    }
+    std::vector<int64_t> pool_data(size, 1.0);
+    auto res2 = builder::Const(tmp_builder, static_cast<void *>(pool_data.data()), pool_type);
+
+    std::vector<builder::Op> outputs{res1, res2};
+
+    auto res = builder::Tuple(outputs);
+
+    return res;
+}
+
+builder::Op enflame::MaxPool2D_Grad(
+    std::shared_ptr<builder::Builder> tmp_builder,
+    builder::Op out_grad,
+    builder::Op in,
+    std::vector<int> ksize,
+    std::vector<int> strides,
+    std::vector<int> padding) {
     auto input_shape = in.GetType().GetShape();
     auto ptype = in.GetType().GetPrimitiveType();
     
@@ -21,6 +54,7 @@ builder::Op enflame::max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_build
     std::vector<int64_t> kernel_shape = {kh, kw};
     bool do_transpose = in.GetType().GetShape().size() == 4;
 
+    // do_transpose = true;
     if (true) {
         std::vector<int64_t> window_dimensions;
         std::vector<int64_t> window_strides;
@@ -80,37 +114,3 @@ builder::Op enflame::max_pool2d_grad(std::shared_ptr<builder::Builder> tmp_build
         }
     }
 }
-
-builder::Op enflame::batch_norm(std::shared_ptr<builder::Builder> tmp_builder, builder::Op para1,
-                       builder::Op para2, builder::Op para3){
-  auto tmp = builder::BatchNormTraining(para1, para2, para2, 0.1, 1);
-  auto t1 = builder::GetTupleElement(tmp, 0);
-  auto t2 = builder::GetTupleElement(tmp, 1);
-  auto t3 = builder::GetTupleElement(tmp, 2);
-
-  auto shape = t3.GetType().GetShape();
-  const int size = shape[0];
-
-  std::vector<int64_t> t4_(size, 1.0);
-  std::vector<int64_t> t5_(size, 0.0);
-  
-  builder::Type type(shape, builder::PrimitiveType::F32());
- 
-  auto t4 = builder::Const(tmp_builder, static_cast<void *>(t4_.data()), type);
-  auto t5 = builder::Const(tmp_builder, static_cast<void *>(t5_.data()), type);
-  
-  std::vector<builder::Op> outputs{t1, t2, t3, t4, t5};
-
-  std::vector<builder::PrimitiveType> tuple_dtype;
-  std::vector<std::vector<int64_t>> tuple_shape;
-  for (uint i = 0; i < outputs.size(); i++) {
-    tuple_shape.push_back(outputs[i].GetType().GetShape());
-    tuple_dtype.push_back(outputs[i].GetType().GetPrimitiveType());
-  }
-
-  builder::Type outputs_type(tuple_shape, tuple_dtype);
-  auto result = builder::Tuple(outputs, outputs_type);
-  
-  return result;
-
-}   

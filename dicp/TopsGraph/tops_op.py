@@ -2,7 +2,11 @@ import torch
 import torch.fx
 from typing import Tuple
 import operator
-
+ 
+from contextlib import nullcontext
+from torch.fx.experimental.symbolic_shapes import ShapeEnv
+from torch._subclasses import FakeTensor, FakeTensorMode
+from torch._functorch import config
 aten = torch.ops.aten
 
 class Operator():
@@ -11,12 +15,26 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
+        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+        self.fake_mode = (
+            FakeTensorMode(shape_env=self.shape_env)
+            if config.use_fake_tensor
+            else nullcontext()
+        )
 
     def name(self):
         return self.__name__
 
     def __call__(self, *args, **kwargs):
         new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        fake_mode = None
+        for arg in new_args:
+            if isinstance(arg, FakeTensor):
+                fake_mode = arg.fake_mode
+                break
+        if fake_mode is None:
+            fake_mode = self.fake_mode
+        new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
         return self.torch_op(*new_args, **kwargs)
 
 class Add(Operator):
@@ -24,7 +42,17 @@ class Add(Operator):
         super().__init__("add")
         self.a = a
         self.b = b
-        self.torch_op = aten.add
+        self.torch_op = aten.add.Tensor
+
+'''
+class Addmm(Operator):
+    def __init__(self, a, b, c):
+        super().__init__("addmm")
+        self.a = a
+        self.b = b
+        self.c = c
+        self.torch_op = aten.addmm
+'''
 
 class AddDefalut(Operator):
     def __init__(self, a, b):
@@ -35,7 +63,7 @@ class AddDefalut(Operator):
 
 class Gemm(Operator):
     def __init__(self, a, b):
-        super().__init__("gemm")
+        super().__init__("Gemm")
         self.a = a
         self.b = b
         self.torch_op = aten.mm
@@ -50,7 +78,7 @@ class Abs(Operator):
 
 class LessEqual(Operator):
     def __init__(self, *args):
-        super().__init__("LessEqual")
+        super().__init__("lessequal")
         self.args = args
         self.torch_op = aten.le.Scalar
 
@@ -108,7 +136,7 @@ class Relu(Operator):
 
 class ReduceSum(Operator):
     def __init__(self, *args):
-        super().__init__("reduceSum")
+        super().__init__("ReduceSum")
         self.args = args
         self.torch_op = aten.sum
 
@@ -123,10 +151,10 @@ class ReduceMean(Operator):
 
 class ReduceMax(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("reducemax")
+        super().__init__("ReduceMax")
         self.args = args
         self.args = kwargs
-        self.torch_op = aten.max
+        self.torch_op = aten.amax
 
 
 class Squeeze(Operator):
@@ -164,7 +192,7 @@ class Transpose1(Operator):
 
 class Copy(Operator):
     def __init__(self, *args):
-        super().__init__("copy")
+        super().__init__("clone")
         self.args = args
         self.torch_op = aten.clone
 
@@ -186,22 +214,22 @@ class Reshape(Operator):
 
 class Reciprocal(Operator):
     def __init__(self, a):
-        super().__init__("reciprocal")
+        super().__init__("Reciprocal")
         self.a = a
         self.torch_op = aten.reciprocal
 
 
 class Convolution(Operator):
     def __init__(self, *args):
-        super().__init__("convolution")
+        super().__init__("Convolution")
         self.args = args
         self.torch_op = aten.convolution
 
 class ConvolutionBackward(Operator):
     def __init__(self, *args):
-        super().__init__("convolution_backward")
+        super().__init__("Conv2D_Grad")
         self.args = args
-        self.torch_op = aten.convolution_backward
+        self.torch_op = aten.convolution_backward.default
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args):
@@ -226,22 +254,22 @@ class Gather(Operator):
 
 class Log(Operator):
     def __init__(self, *args):
-        super().__init__("Log")
+        super().__init__("log")
         self.args = args
         self.torch_op = aten.log
 
 
 class Getitem(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("getitem")
-        self.args = args
-        self.args = kwargs
+    def __init__(self, x, idx):
+        super().__init__("Getitem")
+        self.x = x
+        self.idx = idx
         self.torch_op = operator.getitem
 
 
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("batchnorm")
+        super().__init__("Batch_Norm")
         self.args = args
         self.args = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
@@ -305,7 +333,7 @@ class Euqal(Operator):
 
 class Expand(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("expand")
+        super().__init__("Expand")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.expand.default
@@ -361,18 +389,10 @@ class Slice(Operator):
 
 class Select(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("select")
+        super().__init__("Select")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.where.self
-
-
-class AddGrad(Operator):
-    def __init__(self, a, b):
-        super().__init__("addgrad")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.sum
 
 
 # scatter_value = torch.ops.aten.scatter.value(fulllike, 1, unsqueeze, -1.0);  fulllike = unsqueeze = None
@@ -384,17 +404,22 @@ class Scatter(Operator):
         self.torch_op = aten.scatter.value
 
 
+class Zeros(Operator):
+    def __init__(self, *args):
+        super().__init__("Zeros")
+        self.args = args
+        self.torch_op = aten.zeros
+
+
+class Scalar(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Scalar")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.scalar_tensor.default
+
+
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
     return a, b
-
-
-@torch.fx.wrap
-def ret_tri_tuples(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return a, b, c
-
-
-@torch.fx.wrap
-def warpaddgrad(a, b) -> torch.Tensor:
-    return AddGrad(a, b)
