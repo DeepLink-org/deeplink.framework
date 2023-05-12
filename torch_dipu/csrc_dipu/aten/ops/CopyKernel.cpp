@@ -72,7 +72,7 @@ namespace dipu::native {
   inline bool isStorageSizeDiff(const at::Tensor& dst, const at::Tensor& src) {
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    return srcBytes != dstBytes;
+    return srcBytes != dstBytes || dst.nbytes() != src.nbytes();
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
