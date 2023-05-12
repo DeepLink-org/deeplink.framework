@@ -86,6 +86,7 @@ def create_fun_name_from_schema(schema):
     return op_name
 
 def create_return_code_frome_schema(schema, allow_return_ref = True):
+    schema = re.sub('Tensor\([a-z]\)' , 'Tensor', schema)
     return_code = schema[schema.find('->'):].replace('->', '').strip()
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
@@ -101,6 +102,7 @@ def create_param_list_from_schema(schema):
     param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
     param_list = param_list[0:param_list.rfind(')')]
     args_type_map = OrderedDict({
+        'Tensor\([a-z]\)' : 'Tensor',
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
@@ -298,9 +300,11 @@ def create_call_cpp_function_code_from_schema(schema):
     return code
 
 
-def create_code_to_print_fun_call_info_from_schema(schema):
-    op_name = get_op_name_from_schema(schema)
-    debug_code = f'printf("[%s:%d]:%s\\n",__FUNCTION__,__LINE__,"{op_name}");' + '\n'
+def create_code_to_print_fun_call_info_from_schema(fun_config):
+    op_name = get_op_name_from_schema(fun_config['schema'])
+    diopi_func = fun_config.get('interface', '')
+    diopi_func = diopi_func[0 : diopi_func.find('(')]
+    debug_code = f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
     return debug_code
 
 def create_int_array_process_code(int_array_list):
@@ -389,7 +393,7 @@ def functions_code_gen(fun_config):
 
 
     if fun_config.get('print_func_call_info', False) == True:
-        fun_config['custom_code_at_the_beginning'] = create_code_to_print_fun_call_info_from_schema(fun_config['schema']) + fun_config.get('custom_code_at_the_beginning', '')
+        fun_config['custom_code_at_the_beginning'] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get('custom_code_at_the_beginning', '')
 
     if fun_config.get('use_diopi_adapter', False) == True:
         diopi_fun_call_code = "diopiadaptor::" + diopi_fun_call_code
