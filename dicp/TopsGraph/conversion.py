@@ -55,6 +55,10 @@ def abs(a):
 
 @register_conversion(torch.ops.aten.mul)
 def mul(a, b):
+    if isinstance(a, Proxy):
+        if hasattr(a.node, "meta"):
+            if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :
+                return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
 
 @register_conversion(torch.ops.aten.div)
@@ -253,6 +257,29 @@ def scalar(*args, **kwargs):
 def embedding(*args, **kwargs):
     return tops_op.Embedding(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.eq.Scalar)
+def eq(*args):
+    return tops_op.Equal(*args)
+
+@register_conversion(torch.ops.aten.repeat.default)
+def tile(*args, **kwargs):
+    return tops_op.Tile(*args, **kwargs)
+
+@register_conversion(torch.ops.prims.convert_element_type.default)
+def convertelementtype(*args, **kwargs):
+    return tops_op.ConvertElementType(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.view_as_complex)
+def view_as_complex(x):
+    return tops_op.ViewAsComplex(x)
+
+@register_conversion(torch.ops.aten.view_as_real)
+def view_as_real(*args, **kwargs):
+    return tops_op.ViewAsReal(*args, **kwargs)
+
+@register_conversion(torch.ops.aten._unsafe_view.default)
+def unsafe_view(a, b):
+    return tops_op.UnsafeView(a, b)
 
 # Patterns
 def register_pattern(Pattern):

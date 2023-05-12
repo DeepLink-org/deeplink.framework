@@ -91,6 +91,14 @@ class Mul(Operator):
         self.torch_op = aten.mul
 
 
+class ComplexMul(Operator):
+    def __init__(self, a, b):
+        super().__init__("Complexmul")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.mul
+
+
 class Div(Operator):
     def __init__(self, a, b):
         super().__init__("div")
@@ -386,7 +394,7 @@ class Sigmoid(Operator):
 
 class Slice(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("slice")
+        super().__init__("Slice")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.slice.Tensor
@@ -430,6 +438,52 @@ class Embedding(Operator):
         self.args = args
         self.args = kwargs
         self.torch_op = aten.embedding.default
+
+class Equal(Operator):
+    def __init__(self, *args):
+        super().__init__("Equal")
+        self.args = args
+        self.torch_op = aten.eq.Scalar
+
+
+class Tile(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Tile")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.repeat.default
+
+
+# torch.ops.prims.convert_element_type.default
+class ConvertElementType(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Convert")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = torch.ops.prims.convert_element_type.default
+
+
+class ViewAsComplex(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Complex")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = torch.ops.aten.view_as_complex
+
+
+class ViewAsReal(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Viewasreal")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = torch.ops.aten.view_as_real
+
+class UnsafeView(Operator):
+    def __init__(self, a, b):
+        super().__init__("reshape")
+        self.a = a
+        self.b = b
+        self.torch_op = aten._unsafe_view.default
 
 
 # TODO check if we need this wrap
