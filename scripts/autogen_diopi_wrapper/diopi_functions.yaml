@@ -667,7 +667,7 @@
     auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
-- schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+- schema:  "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
   custom_code_at_the_beginning: >
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
@@ -678,3 +678,38 @@
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
+
+- schema: "sin(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiSin(ctx, out, self)
+
+- schema: "sin.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSin(ctx, out, self)
+
+- schema: "sin_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiSinInp(ctx, self)
+
+- schema: "cos(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiCos(ctx, out, self)
+
+- schema: "cos.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiCos(ctx, out, self)
+
+- schema: "cos_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiCosInp(ctx, self)
+
+- schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBmm(ctx, out, self, mat2)
+
+- schema: "permute(Tensor(a) self, int[] dims) -> Tensor(a)"
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> index(dims.size());
+    for(int i =0 ;i < dims.size();i ++){
+      index[i]= self.sizes()[dims[i]];
+    }
+    auto out = at::empty(at::IntArrayRef(index.data(),index.size()));
+    ::diopiSize_t diopi_size = toDiopiSize(dims);
+  interface: diopiPermute(ctx, out, self, diopi_size)
