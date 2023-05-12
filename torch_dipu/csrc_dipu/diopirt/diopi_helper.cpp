@@ -152,6 +152,13 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
     return diopi_size;
 }
 
+::diopiSize_t toDiopiSize(at::IntArrayRef input) {
+    ::diopiSize_t diopi_size;
+    diopi_size.data = input.data();
+    diopi_size.len = input.size();
+    return diopi_size;
+}
+
 ::diopiRoundMode_t toDiopiRoundMode(const std::string& rounding_mode) {
     if (rounding_mode == "none" || rounding_mode == "None" || rounding_mode.size() <= 0) {
         return RoundModeNone;

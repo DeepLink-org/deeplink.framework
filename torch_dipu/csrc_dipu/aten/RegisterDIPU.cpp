@@ -77,16 +77,6 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
-  at::Tensor & wrapper_threshold_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Scalar & threshold, at::Tensor & grad_input) {
-    return dnative::threshold_backward_out_grad_input(grad_output, self, threshold, grad_input);
-  }
-
-  at::Tensor wrapperConvolution2d(
-      const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias,
-      at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
-    return dnative::conv2d(input, weight, bias, stride, padding, dilation, groups);
-  }
-
   at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
     return dnative::random_(self, from, to, generator);
   }
@@ -98,46 +88,6 @@ namespace {
   at::Tensor & wrapperRandomInp(at::Tensor & self, c10::optional<at::Generator> generator) {
     return dnative::random_(self, generator);
   }
-
-at::Tensor & wrapper_mean_out_out(const at::Tensor & self, at::OptionalIntArrayRef dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
-  return dnative::mean_out(self, dim, keepdim, dtype, out);
-}
-
-at::Tensor wrapper_linear(const at::Tensor & input, const at::Tensor & weight, const c10::optional<at::Tensor> & bias) {
-  return dnative::linear(input, weight, bias);
-}
-
-at::Tensor & wrapper__log_softmax_out_out(const at::Tensor & self, int64_t dim, bool half_to_float, at::Tensor & out) {
-  return dnative::_log_softmax_out(self, dim, half_to_float, out);
-}
-
-at::Tensor & wrapper_int_out_log_softmax_out(const at::Tensor & self, int64_t dim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
-  return dnative::log_softmax_out(self, dim, dtype, out);
-}
-
-at::Tensor & wrapper__log_softmax_backward_data_out_out(const at::Tensor & grad_output, const at::Tensor & output, int64_t dim, at::ScalarType input_dtype, at::Tensor & out) {
-  return dnative::_log_softmax_backward_data_out(grad_output, output, dim, input_dtype, out);
-}
-
-at::Tensor & wrapper_nll_loss_out(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, c10::SymInt ignore_index, at::Tensor & out) {
-  return dnative::nll_loss_out(self, target, weight, reduction, ignore_index, out);
-}
-
-::std::tuple<at::Tensor &,at::Tensor &> wrapper_nll_loss_forward_out_output(const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, at::Tensor & output, at::Tensor & total_weight) {
-  return dnative::nll_loss_forward_out(self, target, weight, reduction, ignore_index, output, total_weight);
-}
-
-at::Tensor & wrapper_nll_loss_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, const at::Tensor & target, const c10::optional<at::Tensor> & weight, int64_t reduction, int64_t ignore_index, const at::Tensor & total_weight, at::Tensor & grad_input) {
-  return dnative::nll_loss_backward_out_grad_input(grad_output, self, target, weight, reduction, ignore_index, total_weight, grad_input);
-}
-
-::std::tuple<at::Tensor &,at::Tensor &> wrapper_max_pool2d_with_indices_out_out(const at::Tensor & self, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool ceil_mode, at::Tensor & out, at::Tensor & indices) {
-  return dnative::max_pool2d_with_indices_out(self, kernel_size, stride, padding, dilation, ceil_mode, out, indices);
-}
-
-at::Tensor & wrapper_max_pool2d_with_indices_backward_out_grad_input(const at::Tensor & grad_output, const at::Tensor & self, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool ceil_mode, const at::Tensor & indices, at::Tensor & grad_input) {
-  return dnative::max_pool2d_with_indices_backward_out_grad_input(grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices, grad_input);
-}
 
 }  // inner anonymous namespace
 
@@ -162,29 +112,9 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 
   // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("threshold_backward.grad_input", diopiThresholdBackward, wrapper_threshold_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2d, wrapperConvolution2d);
   DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
   DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
   DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
-  DIOPI_ATEN_FUNC("mean.out", diopiMean, wrapper_mean_out_out);
-  DIOPI_ATEN_FUNC("linear", diopiLinear, wrapper_linear);
-  DIOPI_ATEN_FUNC("_log_softmax.out", diopiLogSoftmax, wrapper__log_softmax_out_out);
-  DIOPI_ATEN_FUNC("log_softmax.int_out", diopiLogSoftmax, wrapper_int_out_log_softmax_out);
-  DIOPI_ATEN_FUNC("_log_softmax_backward_data.out", diopiLogSoftmaxBackward, wrapper__log_softmax_backward_data_out_out);
-  DIOPI_ATEN_FUNC("nll_loss.out", diopiNLLLoss, wrapper_nll_loss_out);
-  DIOPI_ATEN_FUNC("nll_loss2d.out", diopiNLLLoss, wrapper_nll_loss_out);
-  DIOPI_ATEN_FUNC("nll_loss_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);
-  DIOPI_ATEN_FUNC("nll_loss2d_forward.output", diopiNLLLoss, wrapper_nll_loss_forward_out_output);
-  DIOPI_ATEN_FUNC("nll_loss_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("nll_loss2d_backward.grad_input", diopiNLLLossBackward, wrapper_nll_loss_backward_out_grad_input);
-  DIOPI_ATEN_FUNC("max_pool2d_with_indices.out", diopiMaxPool2dWithIndices, wrapper_max_pool2d_with_indices_out_out);
-  DIOPI_ATEN_FUNC("max_pool2d_with_indices_backward.grad_input", diopiMaxPool2dBackward, wrapper_max_pool2d_with_indices_backward_out_grad_input);
-}
-
-TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
-  DIOPI_ATEN_FUNC("conv2d", diopiConvolution2dBackward, wrapperConvolution2d);
-  DIOPI_ATEN_FUNC("linear", diopiLinearBackward, wrapper_linear);
 }
 
 }  //end ns at
