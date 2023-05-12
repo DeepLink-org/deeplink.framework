@@ -8,7 +8,9 @@ from torch._inductor.utils import IndentedBuffer
 graph_id = 0
 
 need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
-             'where', 'convolution', 'le', 'scalar_tensor']
+             'where', 'convolution', 'le', 'scalar_tensor',
+             't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
+             'nll_loss_backward', 'native_batch_norm_backward']
 
 def get_graph_id():
     global graph_id
@@ -25,6 +27,17 @@ def process_name(name, target):
         real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
 
     return real_op
+
+
+def get_reduction_str(r):
+    if r == '0':
+        return "none"
+    elif r == '1':
+        return "mean"
+    elif r == '2':
+        return "sum"
+    else:
+        raise RuntimeError("not supported yet!")
 
 
 class AscendCodegen(torch.fx.Interpreter):
@@ -44,11 +57,11 @@ class AscendCodegen(torch.fx.Interpreter):
         super().__init__(graph)
 
     def placeholder(self, name, target, args, kwargs):
-        self.args_dict[name] = 'op' + str(len(self.args_dict))
+        self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-        tensor_shape = '{' + ','.join(list(map(str, fake_tensor.shape))) + '}'
+        tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
         self.build_graph_code.writeline(f'std::vector<int64_t> {self.args_dict[name]}_tensor_shape{tensor_shape};')
         
         tensor_format = "FORMAT_NCHW"
@@ -63,7 +76,7 @@ class AscendCodegen(torch.fx.Interpreter):
 
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
-            self.args_dict[name] = 'op' + str(len(self.args_dict))
+            self.args_dict[name] = name
 
         arg_code, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
 
@@ -106,14 +119,20 @@ class AscendCodegen(torch.fx.Interpreter):
         )
 
         graph_code.splice(self.build_graph_code, strip=True)
-        
         output_str = []
         self.output_names = []
+        self.graph_output_names = []
+        unique_output_names = []
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
                 self.output_names.append(name)
-                output_str.append(f'graph_outputs.push_back({name});')
+                if node in self.input_args or name in unique_output_names:
+                    continue
+                else:
+                    unique_output_names.append(name)
+                    self.graph_output_names.append(name)
+                    output_str.append(f'graph_outputs.push_back({name});')
             else:
                 self.output_names.append(str(node))
 
@@ -154,27 +173,18 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
-        self.args = []
-        for i in range(len(self.input_args)):
-            self.args.append('arg' + str(i))
-        
+        self.args = [self.args_dict[x.name] for x in self.input_args]
+
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
         call_body.writeline(f"args.clear()")
 
-        unique_output_names = []
         call_str = [f'output_np = kernel_cpp_0(inputs_data)']
-        for name in self.output_names:
-            if name != 'None':
-                if name not in unique_output_names:
-                    unique_output_names.append(name)
-                else:
-                    continue
-                index = len(unique_output_names) - 1
-                call_str.append(f'{name} = torch.from_numpy(output_np[{index}])')
+        for i, name in enumerate(self.graph_output_names):
+            call_str.append(f'{name} = torch.from_numpy(output_np[{i}])')
 
         call_body.writelines(call_str)
-        del_args = [f'del ' + x for x in self.args]
+        del_args = [f'del ' + x for x in self.args if x not in self.output_names]
         call_body.writelines(del_args)
         call_body.writeline(f"return ({', '.join(self.output_names)})")
 
@@ -671,46 +681,57 @@ class AscendOverrides:
     def max_pool2d_with_indices(name, x, ksize, strides, padding='{0, 0}'):
         assert len(ksize.split(',')) == 2
         assert len(strides.split(',')) == 2
-        ksize_str = '{1 , ' + str(ksize).strip('{}') + ' , 1}'
-        strides_str = '{1, ' + str(strides).strip('{}') + ' , 1}'
 
+        ksize_str = '{1, 1, ' + ksize.strip('{}') + '}' 
+        strides_str = '{1, 1,' + strides.strip('{}') + '}'
+        paddings = list(map(int, padding.strip('{}').split(',')))
 
-        if padding != '{0, 0}':
-            padding = padding.strip('{}').split(', ')
-            padding0 = padding[0]
-            padding1 = padding[1]
-            padding = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f"""
-                           TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);
-                           std::vector<int> {name}_pad_value {{ {padding} }};
+        if paddings != [0, 0]:
+            padding0 = str(paddings[0])
+            padding1 = str(paddings[1])
+            padding_str = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
+            src_code = f'''TensorDesc {name}_pad_desc(ge::Shape({{4, 2}}), FORMAT_NCHW, DT_INT32);
+                           std::vector<int> {name}_pad_value {{ {padding_str} }};
                            Tensor {name}_pad_tensor({name}_pad_desc);
                            setTensorData({name}_pad_tensor, reinterpret_cast<uint8_t*>({name}_pad_value.data()), sizeof(int) * 8, "{name} pad");
 
                            auto {name}_paddings = op::Const("{name}_paddings")
                              .set_attr_value({name}_pad_tensor);
                            graph.AddOp({name}_paddings);
-                           auto {name}_pad = op::Pad("{name}_pad")
+                           auto {name}_pad = op::PadV3("{name}_pad")
                              .set_input_x({x})
                              .set_input_paddings({name}_paddings);
                            graph.AddOp({name}_pad);
-                           auto {name} = op::MaxPoolWithArgmax("{name}")
+                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
                              .set_input_x({name}_pad)
                              .set_attr_ksize({ksize_str})
                              .set_attr_strides({strides_str})
-                             .set_attr_padding("VALID");
-                           graph.AddOp({name});
-                        """
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name}_fwd_out);'''
         else:
-            padding = 'VALID'
-            src_code = f"""
-                           auto {name} = op::MaxPoolWithArgmax("{name}")
+            src_code = f'''auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
                              .set_input_x({x})
                              .set_attr_ksize({ksize_str})
                              .set_attr_strides({strides_str})
-                             .set_attr_padding("{padding}");
-                           graph.AddOp({name});
-                        """
+                             .set_attr_padding("VALID")
+                             .set_attr_data_format("NCHW");
+                           graph.AddOp({name}_fwd_out);'''
+        src_code += f'''   auto {name}_shape = op::Shape("{name}_shape")        
+                             .set_input_x({name}_fwd_out);
+                           graph.AddOp({name}_shape);
 
+                           auto {name}_indice = op::Empty("{name}_indice")
+                             .set_input_shape({name}_shape)
+                             .set_attr_dtype(DT_INT64);
+                           graph.AddOp({name}_indice);
+
+                           auto {name} = op::IdentityN("{name}")
+                             .create_dynamic_input_x(2)
+                             .set_dynamic_input_x(0, {name}_fwd_out)
+                             .set_dynamic_input_x(1, {name}_indice)
+                             .create_dynamic_output_y(2);
+                           graph.AddOp({name});'''
         return src_code
 
     @staticmethod
@@ -871,7 +892,7 @@ class AscendOverrides:
         if len(dims) == 0:
             dims = [1]
         torch_dtype = node.kwargs['dtype']
-        dims_str = '{' + ','.join(list(map(str, dims))) + '}'
+        dims_str = '{' + ','.join(map(str, dims)) + '}'
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
         src_code = f"""
@@ -1057,7 +1078,7 @@ class AscendOverrides:
 
     @staticmethod
     def max_pool2d_with_indices_backward(name, grad_output, x, kernel_size,
-                                         stride, padding, dilation,ceil_mode,
+                                         stride, padding, dilation, ceil_mode,
                                          indices):
         assert len(kernel_size.split(',')) == 2 or len(kernel_size.split(',')) == 1
         assert len(stride.split(',')) == 2 or len(stride.split(',')) == 1
@@ -1215,7 +1236,6 @@ class AscendOverrides:
 
         return src_code
 
-
     @staticmethod
     def ret_tuple(name, in1, in2):
         src_code = f"""
@@ -1228,7 +1248,6 @@ class AscendOverrides:
                     """
 
         return src_code
-    
 
     @staticmethod
     def ret_triple(name, in1, in2, in3):
@@ -1244,3 +1263,194 @@ class AscendOverrides:
 
         return src_code
 
+    @staticmethod
+    def t(name, input, node):
+        shape = node.meta['val'].shape
+        permute_shape = [i for i in range(len(shape))]
+        permute_shape.reverse()
+        order_str = '{' + ','.join(map(str, permute_shape)) + '}'
+        src_code = f"""auto {name} = op::Permute("{name}")
+                         .set_input_x({input})
+                         .set_attr_order({order_str});
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def log_softmax(name, x, dim, half_to_float):
+        assert half_to_float == 'false'
+        src_code = f"""auto {name} = op::LogSoftmaxV2("{name}")
+                         .set_input_logits({x})
+                         .set_attr_axes({{ {dim}  }});
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def log_softmax_backward(name, grad_output, output, dim, input_dtype):
+        src_code = f"""auto {name} = op::LogSoftmaxGrad("{name}")
+                         .set_input_grad({grad_output})
+                         .set_input_x({output})
+                         .set_attr_axis({{ {dim}  }});
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def nll_loss_forward(name, x, target, weight, reduction, ignore_index, node):
+        assert weight == 'None'
+        assert ignore_index == '-100'
+        reduction_str = get_reduction_str(reduction)
+        csize = str(list(node.target.x.node.meta['val'].shape)[1])
+        src_code = f"""std::vector<int64_t> {name}_weight_dims {{ {csize} }};
+                       auto {name}_target_cast = op::Cast("{name}_target_cast")
+                         .set_input_x({target})
+                         .set_attr_dst_type(DT_INT32);
+                       auto {name}_weight = op::FillV2D("{name}_weight")
+                         .set_attr_value(1.0)
+                         .set_attr_dims({name}_weight_dims);
+                       auto {name} = op::NLLLoss("{name}")
+                         .set_input_x({x})
+                         .set_input_target({name}_target_cast)
+                         .set_input_weight({name}_weight)
+                         .set_attr_reduction("{reduction_str}")
+			                   .set_attr_ignore_index({ignore_index});
+                       graph.AddOp({name}_weight);
+		       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def native_batch_norm_legit_functional(name, x, weight, bias, running_mean,
+                                           running_var, train, momentum, eps, node):
+        if train != 'true':
+            raise RuntimeError('not supported yet!')
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
+        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
+        src_code = f"""// 0. change x format to NCHW
+                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
+                       // TODO(tangzhiyi): now assume output name is y.
+                       {x}.update_output_desc_y({name}_x_desc);
+
+                       // 1. get sum and square_sum
+                       auto {name}_bn_training_reduce = op::BNTrainingReduce("{name}_bn_training_reduce")
+                         .set_input_x({x});
+                       
+                       // 2. call BNTrainingUpdate
+                       auto {name}_bn_training_update = op::BNTrainingUpdate("{name}_bn_training_update")
+                         .set_input_x({x}, FORMAT_NCHW)
+                         .set_input_sum({name}_bn_training_reduce, 0)
+                         .set_input_square_sum({name}_bn_training_reduce, 1)
+                         .set_input_scale({weight}, FORMAT_NCHW)
+                         .set_input_offset({bias}, FORMAT_NCHW)
+                         .set_input_mean({running_mean})
+                         .set_input_variance({running_var})
+                         .set_attr_epsilon({eps})
+                         .set_attr_factor({momentum});
+                           
+                       // 3. tie all results: result, saved_mean, saved_invstd
+                       auto {name} = op::IdentityN("{name}")
+                         .create_dynamic_input_x(5)
+                         .set_dynamic_input_x(0, {name}_bn_training_update, "y") 
+                         .set_dynamic_input_x(1, {name}_bn_training_update, "batch_mean")
+                         .set_dynamic_input_x(2, {name}_bn_training_update, "batch_variance")
+                         .set_dynamic_input_x(3, {name}_bn_training_update, "mean")
+                         .set_dynamic_input_x(4, {name}_bn_training_update, "variance")
+                         .create_dynamic_output_y(5);
+                       graph.AddOp({name}_bn_training_reduce);
+                       graph.AddOp({name}_bn_training_update);
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def native_batch_norm_backward(name, grad_out, x, weight, running_mean, running_var,
+            save_mean, save_invstd, train, eps, grad_input_mask, node):
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
+        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
+        src_code = f"""// 0. change x format to NCHW
+                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
+                       // TODO(tangzhiyi): now assume output name is y.
+                       {x}.update_output_desc_y({name}_x_desc);
+                       //{grad_out}.update_output_desc_y({name}_x_desc);
+                       
+                       // get grad_weight and grad_bias
+                       auto {name}_update_grad = op::BNTrainingUpdateGrad("{name}_update_grad")
+                         .set_input_grads({grad_out}) 
+                         .set_input_x({x})
+                         .set_input_batch_mean({save_mean})
+                         .set_input_batch_variance({save_invstd})
+                         .set_attr_epsilon({eps});
+
+                       // get grad_input
+                       auto {name}_reduce_grad = op::BNTrainingReduceGrad("{name}_reduce_grad")
+                         .set_input_grads({grad_out})
+                         .set_input_x({x})
+                         .set_input_diff_scale({name}_update_grad, 0)
+                         .set_input_diff_offset({name}_update_grad, 1)
+                         .set_input_scale({weight})
+                         .set_input_batch_mean({save_mean})
+                         .set_input_batch_variance({save_invstd})
+                         .set_attr_epsilon({eps});
+                       graph.AddOp({name}_update_grad);
+                       graph.AddOp({name}_reduce_grad);"""
+                       
+        mask = list(map(bool, grad_input_mask.strip('{}').split(',')))
+        if mask[0] == True and mask[1] == True and mask[2] == True:
+            src_code += f"""
+                       auto {name} = op::IdentityN("{name}")
+                         .create_dynamic_input_x(3)
+                         .set_dynamic_input_x(0, {name}_reduce_grad, "y")
+                         .set_dynamic_input_x(1, {name}_update_grad, "diff_scale")
+                         .set_dynamic_input_x(2, {name}_update_grad, "diff_offset")
+                         .create_dynamic_output_y(3);
+                       graph.AddOp({name});"""
+        else:
+            raise RuntimeError("not supported yet!")
+        return src_code
+
+    @staticmethod
+    def nll_loss_backward(name, grad_output, x, target, weight, reduction, ignore_index,
+                          total_weight, node):
+        assert weight == 'None'
+        assert ignore_index == '-100'
+        reduction_str = get_reduction_str(reduction)
+        csize = str(list(node.target.x.node.meta['val'].shape)[1])
+
+        src_code = f"""std::vector<int64_t> {name}_weight_dims {{ {csize} }};
+                       auto {name}_target_cast = op::Cast("{name}_target_cast")
+                         .set_input_x({target})
+                         .set_attr_dst_type(DT_INT32);
+                       auto {name}_weight = op::FillV2D("{name}_weight")
+                         .set_attr_value(1.0)
+                         .set_attr_dims({name}_weight_dims);
+                       auto {name} = op::NLLLossGrad("{name}")
+                         .set_input_x({x})
+                         .set_input_y_grad({grad_output})
+                         .set_input_target({name}_target_cast)
+                         .set_input_weight({name}_weight)
+                         .set_input_total_weight({total_weight})
+                         .set_attr_reduction("{reduction_str}")
+                         .set_attr_ignore_index({ignore_index});
+                       graph.AddOp({name}_weight);
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def threshold_backward(name, grad_output, x, threshold):
+        if threshold == '0':
+            src_code = f"""auto {name} = op::ReluGrad("{name}")
+                             .set_input_gradients({grad_output})
+                             .set_input_features({x});
+                           graph.AddOp({name});"""
+        else:
+            src_code = f"""auto {name} = op::ThresholdGradV2D("{name}")
+                             .set_input_gradients({grad_output})
+                             .set_input_features({x})
+                             .set_attr_threshold({threshold});
+                           graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def zeros_like(name, x, *args):
+        src_code = f"""auto {name} = op::ZerosLike("{name}")
+                         .set_input_x({x});
+                       graph.AddOp({name});"""
+        return src_code
