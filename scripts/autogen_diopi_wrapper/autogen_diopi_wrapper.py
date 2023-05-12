@@ -296,7 +296,7 @@ def create_args_name_list_from_schema(schema):
     return code
 
 def create_call_cpp_function_code_from_schema(schema):
-    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ')' # + "/*" + schema + "*/"
+    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ');' # + "/*" + schema + "*/"
     return code
 
 
