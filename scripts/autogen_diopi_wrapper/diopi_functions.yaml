@@ -596,4 +596,19 @@
 - schema: "threshold_backward.grad_input(Tensor grad_output, Tensor self, Scalar threshold, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
 
+- schema: transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)
+  register_op: False # TODO: have problem on camb
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(self.sizes().cbegin(), self.sizes().cend());
+    std::vector<int64_t> output_stride(self.strides().cbegin(), self.strides().cend());
+    auto tmp1 = output_size.at(dim0);
+    auto tmp2 = output_stride.at(dim0);
+    output_size[dim0] = output_size.at(dim1);
+    output_stride[dim0] = output_stride.at(dim1);
+    output_size[dim1] = tmp1;
+    output_stride[dim1] = tmp1;
+    ::diopiConstTensorHandle_t self_ = dipu::diopi_helper::toDiopiTensorHandle(self);
+    self.sizes() = output_size;
+    self.strides() = output_stride;
+  interface: diopiTranspose(ctx, self, self_, dim0, dim1)
 
