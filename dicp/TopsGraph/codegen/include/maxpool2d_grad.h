@@ -22,5 +22,4 @@ builder::Op MaxPool2D_Grad(
     std::vector<int> ksize,
     std::vector<int> strides,
     std::vector<int> padding);
-
 }  // namespace enflame

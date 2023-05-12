@@ -55,7 +55,6 @@ builder::Op enflame::MaxPool2D_Grad(
     bool do_transpose = in.GetType().GetShape().size() == 4;
 
     // do_transpose = true;
-
     if (true) {
         std::vector<int64_t> window_dimensions;
         std::vector<int64_t> window_strides;

@@ -73,15 +73,14 @@ builder::Op Scatter(
 
   builder::Type mask_type(sizes, index.GetType().GetPrimitiveType());
   builder::Op mask = builder::Equal(
-    builder::BroadcastInDim(index, index_broadcast_dims, mask_type),
-    builder::Iota(hlir_builder, dim, mask_type)
-  );
+      builder::BroadcastInDim(index, index_broadcast_dims, mask_type),
+      builder::Iota(hlir_builder, dim, mask_type));
+  
   builder::Type selected_src_type(sizes, src.GetType().GetPrimitiveType());
   builder::Op selected_src = builder::Select(
-    mask,
-    builder::BroadcastInDim(src, index_broadcast_dims, selected_src_type),
-    builder::FullLike(mask, neg_inf, self.GetType().GetPrimitiveType())
-  );
+      mask,
+      builder::BroadcastInDim(src, index_broadcast_dims, selected_src_type),
+      builder::FullLike(mask, neg_inf, self.GetType().GetPrimitiveType()));
 
   // add func binary_max
   hlir_builder->AddFunc("binary_max");
@@ -93,11 +92,7 @@ builder::Op Scatter(
 
   builder::Op scalar_neg_inf = builder::Const(hlir_builder, neg_inf, builder::Type(self.GetType().GetPrimitiveType()));
   builder::Op reduced_selected_src = builder::Reduce(
-    {selected_src},
-    {scalar_neg_inf},
-    {dim + 1},
-    {"binary_max"}
-  );
+      {selected_src}, {scalar_neg_inf}, {dim + 1}, {"binary_max"});
 
   // add func binary_or
   hlir_builder->AddFunc("binary_or");
@@ -108,13 +103,9 @@ builder::Op Scatter(
   hlir_builder->SetOutput({binary_or_result}, "binary_or");
 
   builder::Op scalar_false = builder::Const(hlir_builder, false, builder::Type(builder::PrimitiveType::PRED()));
-  builder::Op reduced_mask = builder::Reduce(
-    {mask},
-    {scalar_false},
-    {dim + 1},
-    {"binary_or"}
-  );
-
+  builder::Op reduced_mask =
+      builder::Reduce({mask}, {scalar_false}, {dim + 1}, {"binary_or"});
+  
   // check whether scatter result requires padding
   bool requires_padding = false;
   for (size_t i = 0; i < self_shape.size(); ++i) {
@@ -128,6 +119,7 @@ builder::Op Scatter(
       }
     }
   }
+
   if (requires_padding) {
     PadToSize(reduced_selected_src, self_shape, reduced_selected_src, scalar_neg_inf);
     PadToSize(reduced_mask, self_shape, reduced_mask, scalar_false);

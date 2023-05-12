@@ -1,7 +1,11 @@
 #include "common_ops.h"
 
-builder::Op enflame::Gather(std::shared_ptr<builder::Builder> hlir_builder, builder::Op input, 
-                   builder::Op index, const int64_t dim, builder::Type gather_type) {
+builder::Op enflame::Gather(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    builder::Op index,
+    const int64_t dim,
+    builder::Type gather_type) {
   // input and index shape
   auto input_shape = input.GetType().GetShape();
   auto index_shape = index.GetType().GetShape();
@@ -33,15 +37,14 @@ builder::Op enflame::Gather(std::shared_ptr<builder::Builder> hlir_builder, buil
 
   builder::Type mask_type(sizes, index.GetType().GetPrimitiveType());
   builder::Op mask = builder::Equal(
-    builder::BroadcastInDim(index, index_broadcast_dims, mask_type),
-    builder::Iota(hlir_builder, dim, mask_type)
-  );
+      builder::BroadcastInDim(index, index_broadcast_dims, mask_type),
+      builder::Iota(hlir_builder, dim, mask_type));
+  
   builder::Type masked_input_type(sizes, input.GetType().GetPrimitiveType());
   builder::Op masked_input = builder::Select(
-    mask,
-    builder::BroadcastInDim(input, input_broadcast_dims, masked_input_type),
-    builder::ZerosLike(mask, input.GetType().GetPrimitiveType())
-  );
+      mask,
+      builder::BroadcastInDim(input, input_broadcast_dims, masked_input_type),
+      builder::ZerosLike(mask, input.GetType().GetPrimitiveType()));
 
   // add func binary_add
   hlir_builder->AddFunc("binary_add");
@@ -53,13 +56,7 @@ builder::Op enflame::Gather(std::shared_ptr<builder::Builder> hlir_builder, buil
 
   builder::Op scalar_zero = builder::Const(hlir_builder, 0., builder::Type(masked_input.GetType().GetPrimitiveType()));
   builder::Op res = builder::Reduce(
-    {masked_input},
-    {scalar_zero},
-    {dim},
-    {"binary_add"},
-    "",
-    gather_type
-  );
+      {masked_input}, {scalar_zero}, {dim}, {"binary_add"}, "", gather_type);
 
   return res;
 }
@@ -81,7 +78,6 @@ builder::Op enflame::BatchNorm(
   std::vector<builder::Op> outputs;
 
   if (training) {
-    
     batch_norm_op_res = builder::BatchNormTraining(input, weight, bias, eps_float, channel_dim);
   } else {
     batch_norm_op_res = builder::BatchNormInference(input, weight, bias, running_mean, running_var, eps_float, channel_dim);
@@ -101,20 +97,20 @@ builder::Op enflame::BatchNorm(
     auto input_shape = input.GetType().GetShape();
     decltype(input_shape) input_without_channel_shape(input_shape.begin(), input_shape.end());
     input_without_channel_shape.erase(input_without_channel_shape.begin() + static_cast<size_t>(channel_dim));
-    int64_t input_without_channel_number = std::accumulate(input_without_channel_shape.begin(), input_without_channel_shape.end(), 1, std::multiplies<int64_t>());
-    std::cout << "save_var_reduce_channel_number: " << input_without_channel_number << std::endl;
+    int64_t input_without_channel_number = std::accumulate(
+        input_without_channel_shape.begin(),
+        input_without_channel_shape.end(),
+        1,
+        std::multiplies<int64_t>());
+    // std::cout << "save_var_reduce_channel_number: " <<  input_without_channel_number << std::endl;
     builder::Op unbiased_var = builder::Div(
-        builder::Mul(
-            save_var,
-            builder::FullLike(
-                save_var,
-                input_without_channel_number,
-                save_var.GetType().GetPrimitiveType())),
+        builder::Mul(save_var,
+                     builder::FullLike(save_var, input_without_channel_number,
+                                       save_var.GetType().GetPrimitiveType())),
         builder::FullLike(
-            save_var,
-            input_without_channel_number - static_cast<int64_t>(1),
+            save_var, input_without_channel_number - static_cast<int64_t>(1),
             save_var.GetType().GetPrimitiveType()));
-    
+            
     builder::Op running_var_updated = builder::Add(
         builder::Mul(
             unbiased_var, builder::FullLike(unbiased_var, momentum_float)),
