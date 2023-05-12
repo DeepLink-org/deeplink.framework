@@ -667,7 +667,7 @@
     auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
-- schema:  "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+- schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
   custom_code_at_the_beginning: >
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
