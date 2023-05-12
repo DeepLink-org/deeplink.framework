@@ -612,3 +612,69 @@
     self.strides() = output_stride;
   interface: diopiTranspose(ctx, self, self_, dim0, dim1)
 
+- schema: "bitwise_and.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseAnd(ctx, out, self, other)
+
+- schema: "bitwise_and_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  interface: diopiBitwiseAndInp(ctx, self, other)
+
+- schema: "bitwise_and.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseAndScalar(ctx, out, self, other)
+
+- schema: "bitwise_and_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiBitwiseAndInpScalar(ctx, self, other)
+
+- schema: "bitwise_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseNot(ctx, out, self)
+
+- schema: "bitwise_not_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiBitwiseNotInp(ctx, self)
+
+- schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto num_tensors = tensors.size();
+    auto shape = tensors[0].sizes();
+    std::vector<long int> tmp;
+    for (int i = 0; i < dim; i++) {
+        tmp.push_back(shape[i]);
+    }
+    tmp.push_back(num_tensors);
+    for (int i = dim; i < shape.size(); i++) {
+        tmp.push_back(shape[i]);
+    }
+    const std::vector<long int>& const_tmp = tmp;
+    shape = at::ArrayRef<long int>(const_tmp);
+    auto out = at::empty({shape}, tensors[0].options());
+    
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
+    for (size_t i = 0; i < tensors.size(); ++i) {
+      diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
+    }
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), num_tensors, dim)
+
+- schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
+    for (size_t i = 0; i < tensors.size(); ++i) {
+      diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
+    }
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), tensors.size(), dim)
+
+- schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
+  custom_code_at_the_beginning: >
+    auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
+    auto values = at::empty(self.sizes(), self.options().dtype(at::kLong));
+    auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
+  interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
+
+- schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  custom_code_at_the_beginning: >
+    auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
+  interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
+
+- schema: "sort.values_stable(Tensor self, *, bool? stable, int dim=-1, bool descending=False, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  custom_code_at_the_beginning: >
+    auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
+    bool stable_ = stable.has_value() ? stable.value() : false;
+    const bool *p = &stable_;
+  interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
