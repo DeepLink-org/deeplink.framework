@@ -10,7 +10,7 @@ class MyModule(torch.nn.Module):
 
     def forward(self, a, b, c):
         a = torch.ops.aten.add(a, a)
-        res = torch.ops.aten.sum(a, b, c)
+        res = torch.ops.aten.sum.dim_IntList(a, b, c)
         res = torch.ops.aten.mul(res, res)
         return res
 

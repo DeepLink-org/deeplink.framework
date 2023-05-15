@@ -141,15 +141,6 @@ class ReduceSum(Operator):
         self.torch_op = aten.sum
 
 
-class ReduceSumD(Operator):
-    def __init__(self, x, dims, keepdim):
-        super().__init__("ReduceSum")
-        self.x = x
-        self.dims = dims
-        self.keepdim = keepdim
-        self.torch_op = aten.sum
-
-
 class ReduceMean(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("reducemean")

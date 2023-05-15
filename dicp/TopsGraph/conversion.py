@@ -95,7 +95,7 @@ def sum(*args):
 
 @register_conversion(torch.ops.aten.sum.dim_IntList)
 def sumdim(*args):
-    return tops_op.ReduceSumD(*args)
+    return tops_op.ReduceSum(*args)
 
 @register_conversion(operator.getitem)
 def getitem(x, idx):
