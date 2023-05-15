@@ -7,10 +7,9 @@ env:
   PVC_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
   SOURCE_PATH: '/nvme/share/share/github/sourcecode'
   HOME: "/var/lib/jenkins"
-  CI_IMAGE: "registry.sensetime.com/parrots/parrots:linux-bionic-cuda11.7-cudnn8-py3-gcc7"
+  CI_IMAGE: "registry.sensetime.com/parrots/ci:linux-bionic-cuda11.7-cudnn8-py3-gcc7"
   BUILD_ENVIRONMENT: "linux-bionic-cuda11.7-py3.10-gcc7"
   PYTORCH_COMMIT: "461f088"
-  https_proxy: "http://10.1.8.5:32680/"
 
 jobs:
   Checkout:
@@ -51,7 +50,9 @@ jobs:
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
           ${CI_IMAGE} )
-          docker exec -t "${container_name}" bash -c "source /home/source/${GITHUB_JOB} && ${HOME}/tools/run.sh build " && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+          docker exec -t "${container_name}" bash -c "source ${HOME}/tools/run.sh && cd /home/source/ && source ${GITHUB_JOB} && bash .ci/pytorch/build.sh && cp -R build dist .pytorch-test-times.json /home/artifacts/"
+          && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+
   linux-cuda117-py310-gcc7-test:
     name: linux-cuda117-py310-gcc7-test
     uses: ./.github/workflows/_linux-test.yml
