@@ -112,6 +112,7 @@ def create_param_list_from_schema(schema):
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
+        'int ?\?' : 'c10::optional<int64_t>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
