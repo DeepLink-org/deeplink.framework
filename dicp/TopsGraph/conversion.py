@@ -77,6 +77,10 @@ def square(*args):
 def reciprocal(a):
     return tops_op.Reciprocal(a)
 
+@register_conversion(torch.ops.aten.rsqrt)
+def rsqrt(a):
+    return tops_op.Rsqrt(a)
+
 @register_conversion(torch.ops.aten.exp)
 def exp(a):
     return tops_op.Exp(a)
@@ -88,6 +92,10 @@ def relu(a):
 @register_conversion(torch.ops.aten.sum)
 def sum(*args):
     return tops_op.ReduceSum(*args)
+
+@register_conversion(torch.ops.aten.sum.dim_IntList)
+def sumdim(*args):
+    return tops_op.ReduceSumD(*args)
 
 @register_conversion(operator.getitem)
 def getitem(x, idx):
@@ -256,15 +264,6 @@ class BaseReplacePattern(ABC):
     @abstractmethod
     def replacement(*args, **kwargs):
         pass
-
-@register_pattern
-class ReplacePatternRsqrt:
-    def pattern(a):
-        return torch.ops.aten.rsqrt.default(a)
-
-    def replacement(a):
-        return torch.ops.aten.reciprocal.default(torch.ops.aten.sqrt.default(a))
-
 
 @register_pattern
 class ReplacePatternAddmm:

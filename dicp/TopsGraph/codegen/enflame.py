@@ -446,6 +446,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Neg({x});"
     
     @staticmethod
+    def Pow(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Pow({x}, {y});"
+    
+    @staticmethod
     def Exp(op_var, x):
         return f"builder::Op {op_var} = builder::Exp({x});"
 
@@ -464,6 +468,10 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Reciprocal(op_var, *args):
         return f"builder::Op {op_var} = builder::Reciprocal({', '.join(args)});"
+    
+    @staticmethod
+    def Rsqrt(op_var, x):
+        return f"builder::Op {op_var} = builder::Rsqrt({x});"
     
     @staticmethod
     def Scalar(op_var, node, *args_str):
