@@ -38,7 +38,6 @@ jobs:
           cd ${PVC_PATH}/${GITHUB_RUN_NUMBER}/source && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/\"//g' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/,//g' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/:[ ]/=\"/g' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/$/&\"/' ${TEST_CONFIG}_${SHARD_NUMBER} && sed -i 's/^/&export/' ${TEST_CONFIG}_${SHARD_NUMBER}
           export GPU_ID=`python3 ${SOURCE_PATH}/tools/get_gpu.py delete ${GPU_NUM}` && echo "export GPU_ID=${GPU_ID}" >> ${TEST_CONFIG}_${SHARD_NUMBER}
           export local_pip=`echo ${GPU_ID} | cut -d"," -f1`
-          docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container"
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
