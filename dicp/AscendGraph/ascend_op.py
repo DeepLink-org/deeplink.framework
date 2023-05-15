@@ -513,6 +513,20 @@ class ZerosLike(Operator):
         self.torch_op = aten.zeros_like
 
 
+class ViewAsComplex(Operator):
+    def __init__(self, x):
+        super().__init__("view_as_complex")
+        self.x = x
+        self.torch_op = aten.view_as_complex
+        
+
+class ViewAsReal(Operator):
+    def __init__(self, x):
+        super().__init__("view_as_real")
+        self.x = x
+        self.torch_op = aten.view_as_real
+
+
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
     if hasattr(a, 'meta'):
