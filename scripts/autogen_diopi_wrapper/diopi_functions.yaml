@@ -710,11 +710,65 @@
   interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
+  print_func_call_info: True
   custom_code_at_the_beginning: >
     auto out = at::empty_like(self);
+    if (self.dim() == 1 && other.dim() == 1) {
+      out = at::empty({1}, self.options());
+    }
+    else if (other.dim() == 2) {
+      std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+      output_size.pop_back();
+      output_size.push_back(1);
+      out = at::empty(output_size, self.options());
+    }
+    else if (self.dim() == 1) {
+      std::vector<int64_t> output_size(other.sizes().begin(), other.sizes().end());
+      output_size[other.dim() - 2] = 1;
+      out = at::empty(output_size, self.options());
+    }
+    else{
+      std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+      output_size.pop_back();
+      int64_t endIndex = *other.sizes().end();
+      output_size.push_back(endIndex);
+      if (self.dim() > 3 && other.dim() > 2){
+        if (self.sizes()[self.dim() - 3] != 1){
+          output_size[self.dim() - 3] = other.sizes()[self.dim() - 3];
+        }
+      }
+      out = at::empty(output_size, self.options());
+    }
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (self.dim() == 1 && other.dim() == 1) {
+      out = at::empty({1}, out.options());
+    }
+    else if (other.dim() == 2) {
+      std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+      output_size.pop_back();
+      output_size.push_back(1);
+      out = at::empty(output_size, out.options());
+    }
+    else if (self.dim() == 1) {
+      std::vector<int64_t> output_size(other.sizes().begin(), other.sizes().end());
+      output_size[other.dim() - 2] = 1;
+      out = at::empty(output_size, out.options());
+    }
+    else{
+      std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+      output_size.pop_back();
+      int64_t endIndex = *other.sizes().end();
+      output_size.push_back(endIndex);
+      if (self.dim() > 3 && other.dim() > 2){
+        if (self.sizes()[self.dim() - 3] != 1){
+          output_size[self.dim() - 3] = other.sizes()[self.dim() - 3];
+        }
+      }
+      out = at::empty(output_size, out.options());
+    }
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
