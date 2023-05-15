@@ -2,6 +2,9 @@ name: pytorch ci
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'wgs/*'
 
 env:
   PVC_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
