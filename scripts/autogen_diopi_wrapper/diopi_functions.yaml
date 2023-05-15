@@ -710,7 +710,8 @@
   resigetr_op: False
   custom_code_at_the_beginning: >
     at::Tensor out;
-    diopiTensorHandle_t* out_ptr = nullptr;
-  interface: diopiNonzero(ctx, out_ptr, self);
+    diopiTensorHandle_t out_ptr = nullptr;
+  interface: diopiNonzero(ctx, &out_ptr, self);
   custom_code_before_return: >
-    std::vector<int64_t> output_size();
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
