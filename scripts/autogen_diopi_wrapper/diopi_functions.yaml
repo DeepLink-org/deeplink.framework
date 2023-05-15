@@ -709,104 +709,29 @@
 - schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
 
-- schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  custom_code_at_the_beginning: >
-    auto out = at::empty_like(self);
-    if (self.dim() == 1 && other.dim() == 1) {
-      out = at::empty({1}, self.options());
-    }
-    else if (other.dim() == 2 && self.dim() == 2){
-      out = at::empty({self.size(0), other.size(1)}, self.options());
-    }
-    else if (self.dim() == 1 && other.dim() == 2){
-      out = at::empty_like(self);
-    }
-    else if (self.dim() == 2 && other.dim() == 1){
-      out = at::empty({self.size(0)}, self.options());
-    }
-    else if (self.dim() >= 3 && (other.dim() == 1 || other.dim() == 2)) {
-      auto size1 = self.sizes().vec();
-      auto size2 = other.sizes().vec();
-      std::vector<int64_t> output_size(size1.begin(), size1.end() - 1);
-      if (other.dim() > 1){
-        output_size.push_back(size2[other.dim() - 1]);
-      }
-      out = at::empty(output_size, self.options());
-    }
-    else if ((self.dim() == 1 || self.dim() == 2) && other.dim() >= 3) {
-      auto size1 = self.sizes().vec();
-      auto size2 = other.sizes().vec();
-      std::vector<int64_t> output_size(size2.begin(), size2.end());
-      output_size[0] = size1[0];
-      out = at::empty(output_size, self.options());
-    }
-    else if ((self.dim() >= 1 && other.dim() >= 1) && (self.dim() >= 3 || other.dim() >= 3)){ 
-      int64_t n = self.dim() > 1 ? self.sizes()[self.dim() - 2] : 1;
-      int64_t p = *other.sizes().end();
-      at::IntArrayRef batch_tensor1(self.sizes().data(), std::max<int64_t>(self.dim() - 2, 0));
-      at::IntArrayRef batch_tensor2(other.sizes().data(), std::max<int64_t>(other.dim() - 2, 0));
-      std::vector<int64_t> expand_batch_portion = at::infer_size(batch_tensor1, batch_tensor2);
-      std::vector<int64_t> output_size(expand_batch_portion);
-      if (self.dim() > 1) {
-        output_size.push_back(n);
-      }
-      if (other.dim() > 1) {
-        output_size.push_back(p);
-      }
-      out = at::empty(output_size, self.options());
-    }
-  interface: diopiMatmul(ctx, out, self, other)
-
-- schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
-    if (self.dim() == 1 && other.dim() == 1) {
-      out = at::empty({1}, out.options());
-    }
-    else if (other.dim() == 2 && self.dim() == 2){
-      out = at::empty({self.size(0), other.size(1)}, out.options());
-    }
-    else if (self.dim() == 1 && other.dim() == 2){
-      out = at::empty_like(self);
-    }
-    else if (self.dim() == 2 && other.dim() == 1){
-      out = at::empty({self.size(0)}, out.options());
-    }
-    else if (self.dim() >= 3 && (other.dim() == 1 || other.dim() == 2)) {
-      auto size1 = self.sizes().vec();
-      auto size2 = other.sizes().vec();
-      std::vector<int64_t> output_size(size1.begin(), size1.end() - 1);
-      if (other.dim() > 1){
-        output_size.push_back(size2[other.dim() - 1]);
-      }
-      out = at::empty(output_size, out.options());
-    }
-    else if ((self.dim() == 1 || self.dim() == 2) && other.dim() >= 3) {
-      auto size1 = self.sizes().vec();
-      auto size2 = other.sizes().vec();
-      std::vector<int64_t> output_size(size2.begin(), size2.end());
-      output_size[0] = size1[0];
-      out = at::empty(output_size, out.options());
-    }
-    else if ((self.dim() >= 1 && other.dim() >= 1) && (self.dim() >= 3 || other.dim() >= 3)){ 
-      int64_t n = self.dim() > 1 ? self.sizes()[self.dim() - 2] : 1;
-      int64_t p = *other.sizes().end();
-      at::IntArrayRef batch_tensor1(self.sizes().data(), std::max<int64_t>(self.dim() - 2, 0));
-      at::IntArrayRef batch_tensor2(other.sizes().data(), std::max<int64_t>(other.dim() - 2, 0));
-      std::vector<int64_t> expand_batch_portion = at::infer_size(batch_tensor1, batch_tensor2);
-      std::vector<int64_t> output_size(expand_batch_portion);
-      if (self.dim() > 1) {
-        output_size.push_back(n);
-      }
-      if (other.dim() > 1) {
-        output_size.push_back(p);
-      }
-      out = at::empty(output_size, self.options());
-    }
-  interface: diopiMatmul(ctx, out, self, other)
-
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
   custom_code_at_the_beginning: >
     auto out = at::empty_like(self);
     ::diopiSize_t diopi_shifts = toDiopiSize(shifts);
     ::diopiSize_t diopi_dims = toDiopiSize(dims);
   interface: diopiRoll(ctx, out, self, diopi_shifts, diopi_dims)
+
+- schema: "leaky_relu(Tensor self, Scalar negative_slope=0.01) -> Tensor"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiLeakyRelu(ctx, out, self, negative_slope)
+
+- schema: "mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out;
+    auto options = self.options();
+    if (reductionDiopi == ReductionNone) {
+      out = at::empty(self.sizes(), options);
+    } else {
+      out = at::empty({}, options);
+    }
+  interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
+
