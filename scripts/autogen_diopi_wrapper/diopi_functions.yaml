@@ -678,3 +678,37 @@
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
+
+- schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
+
+- schema: "addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcdivInp(ctx,self , tensor1, tensor2, value)
+
+- schema: "addcmul.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcmul(ctx, out, self, tensor1, tensor2, value)
+
+- schema: "addcmul_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcmulInp(ctx,self,tensor1, tensor2, value)
+
+- schema: "exp.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiExp(ctx, out, self)
+
+- schema: "exp_(Tensor(a!) self) -> Tensor(a!)"
+  interface:  diopiExpInp(ctx, self)
+
+- schema: "tanh.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTanh(ctx, out,self)
+
+- schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiTanhInp(ctx,self)
+
+
+
+
+
+
+
+
+
+ 
