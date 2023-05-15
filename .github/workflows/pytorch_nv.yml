@@ -48,7 +48,7 @@ jobs:
           set -e
           set -o pipefail
           cd ${PVC_PATH}/${GITHUB_RUN_NUMBER}/source && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${GITHUB_JOB} && sed -i 's/\"//g' ${GITHUB_JOB} && sed -i 's/,//g' ${GITHUB_JOB} && sed -i 's/:[ ]/=\"/g' ${GITHUB_JOB} && sed -i 's/$/&\"/' ${GITHUB_JOB} && sed -i 's/^/&export/' ${GITHUB_JOB}
-          docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container" && docker rm -f ${GITHUB_RUN_ID}_${GITHUB_JOB}
+          docker ps -aq -f status=exited | xargs -r docker rm || echo "no exiting container" \
           container_name=$(docker run --tty --detach \
           -v ${PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
           -v ${SOURCE_PATH}/tools:${HOME}/tools \
