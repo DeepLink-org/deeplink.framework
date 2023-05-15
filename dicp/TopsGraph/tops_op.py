@@ -218,6 +218,11 @@ class Reciprocal(Operator):
         self.a = a
         self.torch_op = aten.reciprocal
 
+class Rsqrt(Operator):
+    def __init__(self, a):
+        super().__init__("Rsqrt")
+        self.a = a
+        self.torch_op = aten.rsqrt
 
 class Convolution(Operator):
     def __init__(self, *args):
