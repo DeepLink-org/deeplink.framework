@@ -707,7 +707,6 @@
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
-  resigetr_op: False
   custom_code_at_the_beginning: >
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
@@ -715,3 +714,6 @@
   custom_code_before_return: >
     dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
+
+- schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiSoftmax( ctx, out, self, dim);
