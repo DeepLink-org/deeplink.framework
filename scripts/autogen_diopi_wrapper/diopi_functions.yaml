@@ -691,3 +691,26 @@
 - schema: "clamp.Tensor_out(Tensor self, Tensor? min=None, Tensor? max=None, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiClamp(ctx, out, self, min, max)
 
+- schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
+
+- schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandomInp(ctx, self, 0, &to, seed)
+
+- schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
+
+- schema: "nonzero(Tensor self) -> Tensor"
+  resigetr_op: False
+  custom_code_at_the_beginning: >
+    at::Tensor out;
+    diopiTensorHandle_t* out_ptr = nullptr;
+  interface: diopiNonzero(ctx, out_ptr, self);
+  custom_code_before_return: >
+    std::vector<int64_t> output_size();
