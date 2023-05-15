@@ -56,6 +56,14 @@ class MatMul(Operator):
         self.torch_op = aten.matmul
 
 
+class BatchMatMul(Operator):
+    def __init__(self, a, b):
+        super().__init__("bmm")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.bmm
+
+
 class Sub(Operator):
     def __init__(self, a, b):
         super().__init__("sub")
@@ -122,6 +130,25 @@ class Relu(Operator):
         self.torch_op = aten.relu
 
 
+class ToCopy(Operator):
+    def __init__(self, input, dtype, layout, device):
+        super().__init__("convert_element_type")
+        self.input = input
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.torch_op = aten._to_copy
+
+
+class Softmax(Operator):
+    def __init__(self, x, dim, half_to_float):
+        super().__init__("_softmax")
+        self.x = x
+        self.dim = dim
+        self.half_to_float = half_to_float
+        self.torch_op = aten._softmax
+
+
 class Sum(Operator):
     def __init__(self, a):
         super().__init__("sum")
@@ -139,9 +166,10 @@ class ReduceSumD(Operator):
 
 
 class Copy(Operator):
-    def __init__(self, a):
+    def __init__(self, a, memory_format):
         super().__init__("clone")
         self.a = a
+        self.memory_format = memory_format
         self.torch_op = aten.clone
 
 
@@ -250,6 +278,37 @@ class Where(Operator):
         self.a = a
         self.b = b
         self.torch_op = aten.where
+
+
+class Convert(Operator):
+    def __init__(self, x, dtype):
+        super().__init__("convert_element_type")
+        self.x = x
+        self.dtype = dtype
+        self.torch_op = torch.ops.prims.convert_element_type
+
+
+class Embedding(Operator):
+    def __init__(self, weight, indices):
+        super().__init__("embedding")
+        self.weight = weight
+        self.indices = indices
+        self.torch_op = aten.embedding
+
+
+class Sigmoid(Operator):
+    def __init__(self, x):
+        super().__init__("sigmoid")
+        self.x = x
+        self.torch_op = aten.sigmoid
+
+
+class Pow(Operator):
+    def __init__(self, x, exp):
+        super().__init__("pow")
+        self.x = x
+        self.exp = exp
+        self.torch_op = aten.pow
 
 
 class Ne(Operator):
