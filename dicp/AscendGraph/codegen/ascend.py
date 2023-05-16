@@ -10,7 +10,8 @@ graph_id = 0
 need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
-             'nll_loss_backward', 'native_batch_norm_backward']
+             'nll_loss_backward', 'native_batch_norm_backward',
+             'view_as_complex', 'view_as_real']
 
 def get_graph_id():
     global graph_id
@@ -1452,5 +1453,48 @@ class AscendOverrides:
     def zeros_like(name, x, *args):
         src_code = f"""auto {name} = op::ZerosLike("{name}")
                          .set_input_x({x});
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def view_as_complex(name, x, node):
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        x_dtype = node.target.x.node.meta['val'].dtype
+
+        assert len(x_shape) == 2
+        assert x_shape[1] == 2
+        
+        output_dtype = 'DT_COMPLEX64' if x_dtype == torch.float32 else 'DT_COMPLEX128'
+        src_code = f"""auto {name}_split = op::SplitD("{name}_split")
+                         .set_input_x({x})
+                         .set_attr_split_dim(1)
+                         .set_attr_num_split(2)
+                         .create_dynamic_output_y(2);
+                       auto {name}_real = op::FlattenV2("{name}_flattenv2_real")
+                         .set_input_x({name}_split, 0)
+                         .set_attr_axis(0);
+                       auto {name}_imag = op::FlattenV2("{name}_flattenv2_imag")
+                         .set_input_x({name}_split, 1)
+                         .set_attr_axis(0);
+                       auto {name} = op::Complex("{name}")
+                         .set_input_real({name}_real)
+                         .set_input_imag({name}_imag)
+                         .set_attr_Tout({output_dtype});
+                       graph.AddOp({name});"""
+        return src_code
+      
+    @staticmethod
+    def view_as_real(name, x, node):
+        assert node.meta['val'].dtype == torch.float32
+        src_code = f"""auto {name}_real = op::Real("{name}_real")
+                           .set_input_input({x});
+                       auto {name}_imag = op::Imag("{name}_imag")
+                           .set_input_input({x});
+                       auto {name} = op::Pack("{name}_pack")
+                           .create_dynamic_input_x(2)
+                           .set_dynamic_input_x(0, {name}_real)
+                           .set_dynamic_input_x(1, {name}_imag)
+                           .set_attr_axis(1)
+                           .set_attr_N(2);
                        graph.AddOp({name});"""
         return src_code

@@ -31,6 +31,7 @@ ACL_INT64 = 9
 ACL_UINT64 = 10
 ACL_DOUBLE = 11
 ACL_BOOL = 12
+ACL_COMPLEX64 = 16
 
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
@@ -43,7 +44,9 @@ def get_np_dtype(dtype):
         return np.bool_
     elif dtype == ACL_DOUBLE:
         return np.float64
-    return np.float32
+    elif dtype == ACL_COMPLEX64:
+        return np.complex64
+    raise RuntimeError("unsupported np dtype!")
 
 
 buffer_method = {

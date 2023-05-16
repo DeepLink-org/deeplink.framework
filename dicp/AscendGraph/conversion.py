@@ -245,6 +245,15 @@ def zeros_like(x, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.ZerosLike(x)
 
+@registe_conversion(torch.ops.aten.view_as_complex.default)
+def view_as_complex(x):
+    return ascend_op.ViewAsComplex(x)
+
+@registe_conversion(torch.ops.aten.view_as_real.default)
+def view_as_real(x):
+    return ascend_op.ViewAsReal(x)
+
+
 @registe_pattern
 class ReplaceVarMean:
     def pattern(input, dims):
