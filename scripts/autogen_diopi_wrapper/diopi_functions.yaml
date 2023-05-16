@@ -757,3 +757,17 @@
     auto out = at::empty_like(self);
     return dipu_sub_out(other, self, alpha, out);
   interface: diopiSub(ctx, out, other, self, alpha)
+
+#- schema: _unique(Tensor self, bool sorted=True, bool return_inverse=False) -> (Tensor, Tensor)
+#diopiUnique(ctx, diopiTensorHandle_t* out, input, const int64_t* dim, bool sorted, bool return_counts, indices, diopiTensorHandle_t* counts);
+#- func: _unique(Tensor self, bool sorted=True, bool return_inverse=False) -> (Tensor, Tensor)
+- schema: "aten::cat.out(const at::ITensorListRef & tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: True
+  custom_code_at_the_beginning: >
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
+    std::transform(tensors.begin(), tensors.end(), diopiTensorHandles.begin(), [](const at::Tensor& tensor){
+        return dipu::diopi_helper::toDiopiTensorHandle(tensor);
+    });
+  interface: diopiCat(ctx, out, diopiTensorHandles.data(), tensors.size(), dim);
+
+
