@@ -122,7 +122,7 @@ def create_param_list_from_schema(schema):
         '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
         'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
         'Tensor ' : 'const Tensor& ' ,
-        '([, /(])Scalar ' : R'\1const at::Scalar& ' ,
+        'Scalar ' : R'const at::Scalar& ' ,
         'Tensor' : 'at::Tensor' ,
         '([, \(]+)int\[\d\]\?' : R'\1at::OptionalIntArrayRef',
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
