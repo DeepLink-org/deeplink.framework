@@ -77,18 +77,6 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
-  at::Tensor & wrapperFromRandomInp(at::Tensor & self, int64_t from, c10::optional<int64_t> to, c10::optional<at::Generator> generator) {
-    return dnative::random_(self, from, to, generator);
-  }
-
-  at::Tensor & wrapperToRandomInp(at::Tensor & self, int64_t to, c10::optional<at::Generator> generator) {
-    return dnative::random_(self, to, generator);
-  }
-
-  at::Tensor & wrapperRandomInp(at::Tensor & self, c10::optional<at::Generator> generator) {
-    return dnative::random_(self, generator);
-  }
-
 }  // inner anonymous namespace
 
 
@@ -110,11 +98,6 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("view_as_complex", TORCH_FN(wrapper_DIPU__view_as_complex));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
-
-  // register fallback if dipu func not exists
-  DIOPI_ATEN_FUNC("random_.from", diopiRandomInp, wrapperFromRandomInp);
-  DIOPI_ATEN_FUNC("random_.to", diopiRandomInp, wrapperToRandomInp);
-  DIOPI_ATEN_FUNC("random_", diopiRandomInp, wrapperRandomInp);
 }
 
 }  //end ns at
