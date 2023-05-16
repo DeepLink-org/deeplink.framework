@@ -678,3 +678,17 @@
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
+
+- schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: >
+    at::Tensor out = at::empty_like(self);
+    out = dipu_div_out(self,other,out);
+  interface: diopiFloorInp(ctx,out)
+
+- schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty(condition.sizes(), self.options());
+  interface: diopiWhere(ctx, out, condition,self, other)
+
+- schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiArgmax(ctx,out,self,dim.has_value() ? &dim.value():nullptr,keepdim)
