@@ -111,7 +111,7 @@ def create_param_list_from_schema(schema):
         'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
         'Generator ?\?' : 'c10::optional<at::Generator>' ,
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
-        'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
+        'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
@@ -120,10 +120,10 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)SymInt *\[[ \d]*\] *\? +([\w\d_]+)' : R'\1at::OptionalSymIntArrayRef \2',
         'int\[\d*\] +([\w\d_]+)' : R'at::IntArrayRef \1' ,
         '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
-        'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
-        'Tensor ' : 'const Tensor& ' ,
+        'Tensor *\[ *\]' : 'at::ArrayRef<at::Tensor>' ,
+        'Tensor[ ]*& +([\w\d_]+)' : R'at::Tensor& \1' ,
+        'Tensor[ ]+([\w\d_]+)' : R'const at::Tensor& \1' ,
         'Scalar ' : R'const at::Scalar& ' ,
-        'Tensor' : 'at::Tensor' ,
         '([, \(]+)int\[\d\]\?' : R'\1at::OptionalIntArrayRef',
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
@@ -537,8 +537,6 @@ def main():
         mergeed_fun_config.update(fun_config)
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
-        #print(mergeed_fun_config)
-        #import pdb; pdb.set_trace()
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
             if mergeed_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code
