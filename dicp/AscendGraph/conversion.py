@@ -106,7 +106,7 @@ def _softmax(x, dim, half_to_float):
     return ascend_op.Softmax(x, dim, half_to_float)
 
 @registe_conversion(torch.ops.aten._to_copy)
-def _to_copy(input, dtype, layout=torch.strided, device='cuda:0'):
+def _to_copy(input, dtype, layout=torch.strided, device='cpu'):
     return ascend_op.ToCopy(input, dtype, layout, device)
 
 @registe_conversion(torch.ops.aten.sum.default)

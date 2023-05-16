@@ -491,7 +491,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def convert_element_type(name, x, torch_dtype, layout=torch.strided, device='cuda:0'):
+    def convert_element_type(name, x, torch_dtype, layout=torch.strided, device='cpu'):
         ascend_dtype = get_ascend_dtype(torch_dtype)
         src_code = f"""
                        auto {name} = op::Cast("{name}")
