@@ -346,7 +346,7 @@ class Expand(Operator):
 
 class Full(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("fulllike")
+        super().__init__("Full")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.full.default
@@ -354,7 +354,7 @@ class Full(Operator):
 
 class FullLike(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("fulllike")
+        super().__init__("FullLike")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.full_like.default
