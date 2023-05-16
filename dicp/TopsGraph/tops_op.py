@@ -306,7 +306,7 @@ class Range(Operator):
 
 class Dot(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("dot")
+        super().__init__("Dot")
         self.args = args
         self.args = kwargs
         self.torch_op = aten.bmm.default

@@ -430,6 +430,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Div({x}, {y});"
     
     @staticmethod
+    def Dot(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+    
+    @staticmethod
     def Gemm(op_var, x, y):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
     
@@ -460,6 +464,10 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Relu(op_var, x):
         return f"builder::Op {op_var} = builder::Relu({x});"
+    
+    @staticmethod
+    def Sigmoid(op_var, x):
+        return f"builder::Op {op_var} = builder::Sigmoid({x});\n"
     
     @staticmethod
     def Convert(op_var, *args):
