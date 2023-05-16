@@ -15,7 +15,7 @@ function build_dipu_py() {
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    cp build/python_ext/torch_dipu/_C.cpython-3?-x86_64-linux-gnu.so torch_dipu
 }
 
 function config_dipu_ascend_cmake() {
