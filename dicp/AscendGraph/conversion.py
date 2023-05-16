@@ -101,6 +101,14 @@ def neg(a):
 def relu(a):
     return ascend_op.Relu(a)
 
+@registe_conversion(torch.ops.aten._softmax)
+def _softmax(x, dim, half_to_float):
+    return ascend_op.Softmax(x, dim, half_to_float)
+
+@registe_conversion(torch.ops.aten._to_copy)
+def _to_copy(input, dtype, layout=torch.strided, device='cpu'):
+    return ascend_op.ToCopy(input, dtype, layout, device)
+
 @registe_conversion(torch.ops.aten.sum.default)
 def sum(a):
     return ascend_op.Sum(a)
@@ -110,8 +118,24 @@ def sumdim(x, dims, keepdim = True):
     return ascend_op.ReduceSumD(x, dims, keepdim)
 
 @registe_conversion(torch.ops.aten.clone)
-def clone(a):
-    return ascend_op.Copy(a)
+def clone(a, memory_format = torch.contiguous_format):
+    return ascend_op.Copy(a, memory_format)
+
+@registe_conversion(torch.ops.prims.convert_element_type)
+def convert_element_type(x, dtype):
+    return ascend_op.Convert(x, dtype)
+
+@registe_conversion(torch.ops.aten.embedding)
+def embedding(weight, indices):
+    return ascend_op.Embedding(weight, indices)
+
+@registe_conversion(torch.ops.aten.sigmoid)
+def sigmoid(x):
+    return ascend_op.Sigmoid(x)
+
+@registe_conversion(torch.ops.aten.pow)
+def pow(x, exp):
+    return ascend_op.Pow(x, exp)
 
 @registe_conversion(torch.ops.aten.ne)
 def ne(x, scalar):
@@ -140,6 +164,10 @@ def expand(x, dims):
 @registe_conversion(torch.ops.aten.mm)
 def matmul(a, b):
     return ascend_op.MatMul(a, b)
+
+@registe_conversion(torch.ops.aten.bmm)
+def batchmatmul(a, b):
+    return ascend_op.BatchMatMul(a, b)
 
 @registe_conversion(torch.ops.aten.scatter.value)
 def scatter(x, dims, index, value):

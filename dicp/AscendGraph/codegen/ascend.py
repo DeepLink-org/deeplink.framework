@@ -492,7 +492,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def convert_element_type(name, x, torch_dtype):
+    def convert_element_type(name, x, torch_dtype, layout=torch.strided, device='cpu'):
         ascend_dtype = get_ascend_dtype(torch_dtype)
         src_code = f"""
                        auto {name} = op::Cast("{name}")
@@ -622,6 +622,48 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
+    def embedding(name, weight, indices):
+        src_code = f"""
+                       auto {name}_axis_shape = ge::Shape({{1}});
+                       TensorDesc {name}_axis_desc({name}_axis_shape, FORMAT_NCHW, DT_INT32);
+                       Tensor {name}_axis_tensor({name}_axis_desc);
+                       int {name}_axis_value = {0};
+                       setTensorData({name}_axis_tensor, reinterpret_cast<uint8_t*>(&{name}_axis_value), sizeof(int), "{name}_axis");
+
+                       auto {name}_axis = op::Const("{name}_axis")
+                         .set_attr_value({name}_axis_tensor);
+                       auto {name} = op::GatherV2("{name}")
+                         .set_input_x({weight})
+                         .set_input_indices({indices})
+                         .set_input_axis({name}_axis);
+                       graph.AddOp({name}_axis);
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def sigmoid(name, x):
+        src_code = f"""
+                       auto {name} = op::Sigmoid("{name}")
+                          .set_input_x({x})
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def pow(name, x, exp):
+        src_code = f"""
+                       auto {name} = op::Pow("{name}")
+                          .set_input_x1({x})
+                          .set_input_x2({exp});
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
     def div(name, x, y, node):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
@@ -639,6 +681,20 @@ class AscendOverrides:
                              .set_attr_value({div_value});
                            graph.AddOp({name});
                         """
+
+        return src_code
+
+    @staticmethod
+    def _softmax(name, x, dim='{}', half_to_float='false'):
+        assert(half_to_float == 'false')
+
+        src_code = f"""
+                       std::vector<int64_t> {name}_dim{dim};
+                       auto {name} = op::SoftmaxV2("{name}")
+                         .set_input_x({x})
+                         .set_attr_axes({name}_dim);
+                       graph.AddOp({name});
+                    """
 
         return src_code
 
@@ -972,6 +1028,17 @@ class AscendOverrides:
     def mm(name, x, y):
         src_code = f"""
                        auto {name} = op::MatMul("{name}")
+                         .set_input_x1({x})
+                         .set_input_x2({y});
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def bmm(name, x, y):
+        src_code = f"""
+                       auto {name} = op::BatchMatMul("{name}")
                          .set_input_x1({x})
                          .set_input_x2({y});
                        graph.AddOp({name});
