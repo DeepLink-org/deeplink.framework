@@ -60,6 +60,7 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 void setDevice(deviceId_t devId) {
   ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
   DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) {
