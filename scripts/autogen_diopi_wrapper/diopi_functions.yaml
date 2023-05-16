@@ -728,3 +728,12 @@
 
 - schema: pow.Scalar_out(Scalar self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowScalar(ctx, out, self, exponent)
+
+- schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(self.sizes().cbegin(), self.sizes().cend());
+    for (int dim = 0;dim < std::min(output_size.size(), repeats.size()); ++dim) {
+      output_size[dim] *= repeats.at(dim).expect_int();
+    }
+    at::Tensor out = at::empty(output_size, self.options());
+  interface: diopiRepeat(ctx, out, self, repeats)

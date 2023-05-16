@@ -505,7 +505,7 @@ def parase_args():
     parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
     parser.add_argument('--diopi_adapter_header', type=str, default = 'diopi_adapters.hpp', help='path to diopi adapter file')
     parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
-    parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"debug":"True"}'
+    parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"dummy_call_diopi":"True"}'
 
     args = parser.parse_args()
     return args
@@ -537,8 +537,10 @@ def main():
         mergeed_fun_config.update(fun_config)
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
-        if fun_config.get('register_op', True) == True:
-            if fun_config.get('autograd', False) == True:
+        #print(mergeed_fun_config)
+        #import pdb; pdb.set_trace()
+        if mergeed_fun_config.get('register_op', True) in [True, "True"]:
+            if mergeed_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code
             else:
                 op_register_code += register_code
