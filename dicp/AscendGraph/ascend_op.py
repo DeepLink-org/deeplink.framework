@@ -130,6 +130,22 @@ class Relu(Operator):
         self.torch_op = aten.relu
 
 
+class Silu(Operator):
+    def __init__(self, a):
+        super().__init__("silu")
+        self.a = a
+        self.torch_op = aten.silu
+
+
+class Transpose(Operator):
+    def __init__(self, input, dim0, dim1):
+        super().__init__("transpose")
+        self.input = input
+        self.dim0 = dim0
+        self.dim1 = dim1
+        self.torch_op = aten.transpose
+
+
 class ToCopy(Operator):
     def __init__(self, input, dtype, layout, device):
         super().__init__("convert_element_type")
@@ -171,6 +187,14 @@ class Copy(Operator):
         self.a = a
         self.memory_format = memory_format
         self.torch_op = aten.clone
+
+
+class CopyInner(Operator):
+    def __init__(self, dst, src):
+        super().__init__("copy")
+        self.dst = dst
+        self.src = src
+        self.torch_op = aten.copy
 
 
 class Unsqueeze(Operator):
