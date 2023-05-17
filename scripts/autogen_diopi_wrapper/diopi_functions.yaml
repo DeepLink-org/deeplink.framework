@@ -11,6 +11,9 @@
     std::cout << "out:" << out << std::endl;
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
+- schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
+  interface: diopiFill(ctx, self, value)
+
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
@@ -19,7 +22,13 @@
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_add_scalar_out(other, self.item(), alpha, out);
+        if (alpha.toDouble() == 1.0) {
+          return dipu_add_scalar_out(other, self.item(), alpha, out);
+        } else {
+          at::Tensor selfTensor = at::empty_like(other);
+          dipu_fill__scalar(selfTensor, self.item());
+          return dipu_add_out(selfTensor, other, alpha, out);
+        }
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -31,7 +40,9 @@
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_sub_scalar_out(other, self.item(), alpha, out);
+        at::Tensor selfTensor = at::empty_like(other);
+        dipu_fill__scalar(selfTensor, self.item());
+        return dipu_sub_out(selfTensor, other, alpha, out);
     }
   interface: diopiSub(ctx, out, self, other, alpha)
 
@@ -75,9 +86,6 @@
     }
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(ctx, out, self, other, mode)
-
-- schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
-  interface: diopiFill(ctx, self, value)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = at::empty_like(self);
@@ -596,21 +604,17 @@
 - schema: "threshold_backward.grad_input(Tensor grad_output, Tensor self, Scalar threshold, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
 
-- schema: transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)
-  register_op: False # TODO: have problem on camb
+- schema: "transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)"
+  register_op: False
   custom_code_at_the_beginning: >
     std::vector<int64_t> output_size(self.sizes().cbegin(), self.sizes().cend());
     std::vector<int64_t> output_stride(self.strides().cbegin(), self.strides().cend());
-    auto tmp1 = output_size.at(dim0);
-    auto tmp2 = output_stride.at(dim0);
-    output_size[dim0] = output_size.at(dim1);
-    output_stride[dim0] = output_stride.at(dim1);
-    output_size[dim1] = tmp1;
-    output_stride[dim1] = tmp1;
-    ::diopiConstTensorHandle_t self_ = dipu::diopi_helper::toDiopiTensorHandle(self);
+    std::swap(output_size[dim0], output_size[dim1]);
+    std::swap(output_stride[dim0], output_stride[dim1]);
     self.sizes() = output_size;
     self.strides() = output_stride;
-  interface: diopiTranspose(ctx, self, self_, dim0, dim1)
+    return self;
+  interface: diopiTranspose(ctx, self, self, dim0, dim1)
 
 - schema: "bitwise_and.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiBitwiseAnd(ctx, out, self, other)
@@ -645,7 +649,7 @@
     const std::vector<long int>& const_tmp = tmp;
     shape = at::ArrayRef<long int>(const_tmp);
     auto out = at::empty({shape}, tensors[0].options());
-    
+
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -679,6 +683,82 @@
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
 
+
+- schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
+  interface: diopiClampInpScalar(ctx, self, min, max)
+
+- schema: "clamp.out(Tensor self, Scalar? min=None, Scalar? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClampScalar(ctx, out, self, min, max)
+
+- schema: "clamp_.Tensor(Tensor(a!) self, Tensor? min=None, Tensor? max=None) -> Tensor(a!)"
+  interface: diopiClampInp(ctx, self, min, max)
+
+- schema: "clamp.Tensor_out(Tensor self, Tensor? min=None, Tensor? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClamp(ctx, out, self, min, max)
+
+- schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
+
+- schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiRandomInp(ctx, self, 0, &to, seed)
+
+- schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
+
+- schema: "nonzero(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    at::Tensor out;
+    diopiTensorHandle_t out_ptr = nullptr;
+  interface: diopiNonzero(ctx, &out_ptr, self);
+  custom_code_before_return: >
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
+
+- schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiSoftmax(ctx, out, self, dim);
+
+- schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiPowTensor(ctx, out, self, exponent);
+
+- schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiPow(ctx, out, self, exponent);
+
+- schema: pow_.Tensor(Tensor(a!) self, Tensor exponent) -> Tensor(a!)
+  interface: diopiPowInpTensor(ctx, self, exponent);
+
+- schema: pow_.Scalar(Tensor(a!) self, Scalar exponent) -> Tensor(a!)
+  interface: diopiPowInp(ctx, self, exponent);
+
+- schema: pow.Scalar_out(Scalar self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiPowScalar(ctx, out, self, exponent)
+
+- schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(repeats.size());
+    for (int i = 0;i< repeats.size();++i) {
+      output_size[i] = repeats.at(i).expect_int();
+    }
+
+    const auto& self_sizes = self.sizes();
+    for (int i = self_sizes.size() - 1, j = output_size.size() - 1;i >= 0;i--, j--) {
+      output_size[j] *= self_sizes.at(i);
+    }
+
+    at::Tensor out = at::empty(output_size, self.options());
+  interface: diopiRepeat(ctx, out, self, repeats)
+
+- schema: rsub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+    return dipu_sub_out(other, self, alpha, out);
+  interface: diopiSub(ctx, out, other, self, alpha)
+
 - schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
 
@@ -703,12 +783,3 @@
 - schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiTanhInp(ctx,self)
 
-
-
-
-
-
-
-
-
- 
