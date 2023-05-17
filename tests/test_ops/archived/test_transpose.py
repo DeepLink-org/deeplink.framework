@@ -1,10 +1,12 @@
 import torch
 import torch_dipu
 
-x = torch.randn(2, 3)
-
-def print_tensor(x):
+def print_tensor(y):
     print(y, y.shape, y.stride())
+
+x = torch.randn(2, 3)
+print_tensor(x)
+
 
 y = torch.transpose(x, 0, 1)
 print_tensor(y)
@@ -17,6 +19,6 @@ y.transpose_(0, 1)
 print_tensor(y)
 
 #have probel on camb
-#y = x.clone().cuda()
-#y.transpose_(0, 1)
-#print_tensor(y)
+y = x.clone().cuda()
+y.transpose_(0, 1)
+print_tensor(y)
