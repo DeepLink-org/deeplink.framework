@@ -1133,6 +1133,11 @@ DISABLED_TESTS_MLU = {
         'test_index_add_bfloat16',
         'test_multidevice_serialization',
         'test_type_conversions_same_device',
+    },
+    
+    # test/test_foreach.py
+    'TestForeach': {
+        
     }
 }
 

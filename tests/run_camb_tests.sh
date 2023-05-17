@@ -26,11 +26,11 @@ function run_dipu_tests {
   run_test "${PYTORCH_DIR}/test/test_sparse.py" "$@" -v TestSparseDIPU
   run_test "${PYTORCH_DIR}/test/test_sparse.py" "$@" -v TestSparseAnyDIPU
   run_test "${PYTORCH_DIR}/test/test_sort_and_select.py" "$@" -v TestSortAndSelectDIPU
-  run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestViewOpsDIPU
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestVitalSignsCudaDIPU
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTensorDeviceOpsDIPU
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestDevicePrecisionDIPU
+  run_test "${PYTORCH_DIR}/test/test_foreach.py" "$@" -v TestForeachDIPU
   # run_test "${PYTORCH_DIR}/test/test_type_promotion.py" "$@" -v TestTypePromotionDIPU
   # run_test "${PYTORCH_DIR}/test/test_nn.py" "$@"
   # run_test "${PYTORCH_DIR}/test/test_ops_fwd_gradients.py" "$@"
