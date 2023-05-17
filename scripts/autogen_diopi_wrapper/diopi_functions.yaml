@@ -804,3 +804,33 @@
 
 - schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
+
+- schema: "min(Tensor self) -> Tensor"
+  register_op: False # camb impl has problem
+  custom_code_at_the_beginning: >
+    auto out = at::empty({1}, self.options());
+  interface: diopiMinAll(ctx, out, self)
+
+- schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
+  custom_code_at_the_beginning: >
+    std::cout << "min:" << min << std::endl;
+    dim += ((dim >= 0) ? 0 : self.sizes().size());
+    auto output_size = self.sizes().vec();
+    if (keepdim) {
+      output_size[dim] = 1;
+    } else {
+      //output_size.erase(dim);
+    }
+  interface: diopiMin(ctx, min, min_indices, self, dim)
+
+- schema: "max(Tensor self) -> Tensor"
+  register_op: False  # camb impl has problem
+  custom_code_at_the_beginning: >
+    auto out = at::empty({1}, self.options());
+  interface: diopiMaxAll(ctx, out, self)
+
+- schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
+  custom_code_at_the_beginning: >
+    dim += ((dim >= 0) ? 0 : self.sizes().size());
+    auto output_size = self.sizes().vec();
+  interface: diopiMax(ctx, max, max_indices, self, dim)
