@@ -154,6 +154,10 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
 }
 
+TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+    m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
+}
+
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_empty_memory_format));

@@ -9,6 +9,8 @@
 
 namespace dipu {
 
+extern devapis::VendorDeviceType VENDOR_TYPE;
+
 namespace devapis {
 
 using deviceId_t = c10::DeviceIndex;

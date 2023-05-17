@@ -71,6 +71,15 @@ enum class MemCPKind: enum_t {
   D2D,
 };
 
+typedef enum {
+  /*! The operation was successful. */
+  DICL_SUCCESS = 0x0,
+
+  /*! undefined error */
+  DICL_ERR_UNDEF = 0x01000,
+
+} diclResult_t;
+
 } // end ns devapis
 
 const auto DIPU_DEVICE_TYPE = at::DeviceType::PrivateUse1;
@@ -81,7 +90,7 @@ const auto DIPU_DISPATCH_AUTOGRAD_KEY = c10::DispatchKey::AutogradPrivateUse1;
 
 const auto DIPU_Backend_TYPE = c10::Backend::PrivateUse1;
 
-extern devapis::VendorDeviceType VENDOR_TYPE;
+const auto DICL_BACKEND_NAME = "dicl";
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 
