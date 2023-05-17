@@ -400,7 +400,7 @@ def functions_code_gen(fun_config):
     output_process_code = ""
     for output in set(get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])):
         output_process_code += f"::diopiTensorHandle_t {output}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
-        diopi_fun_call_code = re.sub(output.strip() + '([,\) ]{1})', f"{output.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([\(,& ]{1})' + output.strip() + '([,\) ]{1})', r'\1' + f"{output.strip()}{diopi_tensor_suffix}" + r'\2', diopi_fun_call_code)
 
     attrs_process_code = ""
 
