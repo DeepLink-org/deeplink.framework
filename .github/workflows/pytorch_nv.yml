@@ -2,9 +2,6 @@ name: pytorch ci
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'wgs/*'
 
 env:
   PVC_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
@@ -13,6 +10,8 @@ env:
   CI_IMAGE: "registry.sensetime.com/parrots/ci:linux-bionic-cuda11.7-cudnn8-py3-gcc7"
   BUILD_ENVIRONMENT: "linux-bionic-cuda11.7-py3.10-gcc7"
   PYTORCH_COMMIT: "461f088"
+  TORCH_CUDA_ARCH_LIST: "Volta;7.0;7.5;8.0;8.6"
+
 
 jobs:
   Checkout:
@@ -39,8 +38,6 @@ jobs:
     needs: [Checkout]
     timeout-minutes: 240
     env:
-      TORCH_CUDA_ARCH_LIST: "Volta;7.0;7.5;8.0;8.6"
-      GPU_NUM: 1
       DEBUG: 0
     steps:
       - name: build

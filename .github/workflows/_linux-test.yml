@@ -23,7 +23,6 @@ jobs:
       fail-fast: false
     runs-on: tps-pytorch-ci
     env:
-      TORCH_CUDA_ARCH_LIST: "Volta;7.0;7.5;8.0;8.6"
       CI: "true"
       DEBUG: 0
       TEST_CONFIG: ${{ matrix.config }}
