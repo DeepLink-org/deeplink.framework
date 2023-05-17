@@ -58,6 +58,13 @@ case $1 in
             build_dipu_py
         ) \
         || exit -1;;
+    build_dipu_only)
+        (
+            autogen_diopi_wrapper
+            build_dipu_lib
+            build_dipu_py
+        ) \
+        || exit -1;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac
