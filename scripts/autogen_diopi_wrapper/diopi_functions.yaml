@@ -758,9 +758,11 @@
     return dipu_sub_out(other, self, alpha, out);
   interface: diopiSub(ctx, out, other, self, alpha)
 
-#- schema: _unique(Tensor self, bool sorted=True, bool return_inverse=False) -> (Tensor, Tensor)
-#diopiUnique(ctx, diopiTensorHandle_t* out, input, const int64_t* dim, bool sorted, bool return_counts, indices, diopiTensorHandle_t* counts);
-#- func: _unique(Tensor self, bool sorted=True, bool return_inverse=False) -> (Tensor, Tensor)
+#- schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
+#  custom_code_at_the_beginning: >
+#    at::Tensor out, indices, counts;
+#  interface: diopiUnique(ctx, out, self, dim, sorted, return_counts, indices, counts);
+
 - schema: "aten::cat.out(const at::ITensorListRef & tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
   register_op: True
   custom_code_at_the_beginning: >
