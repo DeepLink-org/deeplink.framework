@@ -598,6 +598,7 @@ class AscendOverrides:
     @staticmethod
     def copy(name, dst, src):
         src_code = f"""
+                      /*
                       auto dst_size = {dst}.sizes();
                       auto dst_stride = {dst}.strides();
                       auto dst_storage_offset = {dst}.storage_offset();
@@ -614,6 +615,11 @@ class AscendOverrides:
                         .set_input_src_size(src_size)
                         .set_input_src_stride(src_stride)
                         .set_input_src_storage_offset(src_storage_offset);
+                      graph.AddOp({name});
+                      */
+                      auto {name} = op::Identity("{name}")
+                        .set_input_x({src})
+                        .set_input_y({dst});
                       graph.AddOp({name});
                     """
 
