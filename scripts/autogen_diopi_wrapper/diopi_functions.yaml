@@ -328,7 +328,6 @@
 
 
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  register_op: True
   autograd: True
   custom_code_at_the_beginning: >
     const int64_t ignore_index_int = ignore_index.expect_int();
@@ -425,7 +424,6 @@
   interface: diopiDropout(ctx, out, mask, input, p, train)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
-  register_op: True
   custom_code_at_the_beginning: >
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
@@ -555,7 +553,6 @@
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
-  register_op: True
   autograd: True
   custom_code_at_the_beginning: >
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
@@ -785,7 +782,6 @@
     }
 
 - schema: "aten::cat.out(const at::ITensorListRef & tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
-  register_op: True
   custom_code_at_the_beginning: >
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
     std::transform(tensors.begin(), tensors.end(), diopiTensorHandles.begin(), [](const at::Tensor& tensor){
@@ -793,4 +789,18 @@
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), tensors.size(), dim);
 
+- schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiMaskedFill(ctx, out, self, mask, value)
 
+- schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
+  interface: diopiMaskedFillInp(ctx, self, mask, value)
+
+- schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiMaskedFillScalar(ctx, out, self, mask, value)
+
+- schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
+  interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
