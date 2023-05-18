@@ -108,6 +108,7 @@ autocompare_template_content = \
 """
 //  $comment
 $cppsignautre {
+    std::cout << __FUNCTION__ << std::endl;
     $transform_input_to_cpu_code
 
     $execute_op_on_cpu_code

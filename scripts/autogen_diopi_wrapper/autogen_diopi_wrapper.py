@@ -365,13 +365,22 @@ def create_call_dipu_cpp_function_code_from_schema(schema):
 
 
 def create_result_compare_code(fun_config):
+    schema = fun_config['schema']
+    op_name = get_op_name_from_schema(fun_config['schema'])
     return_param = get_function_return_param_from_schema(fun_config['schema'])
     code = ''
     if len(return_param) == 1 :
         code += f"const bool {return_param[0]}_allclose = at::allclose(result_cpu, result_device.cpu());\n"
+        code += f'std::cout << "{op_name}:\t" << "{return_param[0]}_allclose:\t" << {return_param[0]}_allclose << std::endl;\n';
     elif len(return_param) > 1:
         for i in range(len(return_param)):
             code += f"const bool {return_param[i]}_allclose = at::allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device).cpu());\n"
+            code += f'std::cout << "{op_name}:\t" << "{return_param[i]}_allclose:\t" << {return_param[i]}_allclose << std::endl;\n';
+
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    for i in range(len(inputs)):
+        code += f"const bool {inputs[i]}_allclose = at::allclose({inputs[i]}_cpu, {inputs[i]}.cpu());\n"
+        code += f'std::cout << "{op_name}:\t" << "{inputs[i]}_allclose:\t" << {inputs[i]}_allclose << std::endl;\n';
 
     return code;
 
@@ -556,7 +565,7 @@ def functions_code_gen(fun_config):
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
 
-    if fun_config.get('autocompare', False) in [True, 'True', False] and fun_config.get('register_op', True) in [True, 'True']:
+    if fun_config.get('autocompare', False) in [True, 'True'] and fun_config.get('register_op', True) in [True, 'True']:
         auto_compare_fun_name = fun_name + '_autocompare'
         autocompare_code = autocompare_template.substitute(
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(raw_fun_name, auto_compare_fun_name)],
@@ -592,6 +601,7 @@ def parase_args():
     parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
     parser.add_argument('--diopi_adapter_header', type=str, default = 'diopi_adapters.hpp', help='path to diopi adapter file')
     parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
+    parser.add_argument('--autocompare', default=False, type=boolean_string, help='whether generate code that compare device calculation results with cpu calculation results')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
 
     args = parser.parse_args()
