@@ -11,6 +11,9 @@
     std::cout << "out:" << out << std::endl;
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
+- schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
+  interface: diopiFill(ctx, self, value)
+
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
@@ -19,7 +22,13 @@
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_add_scalar_out(other, self.item(), alpha, out);
+        if (alpha.toDouble() == 1.0) {
+          return dipu_add_scalar_out(other, self.item(), alpha, out);
+        } else {
+          at::Tensor selfTensor = at::empty_like(other);
+          dipu_fill__scalar(selfTensor, self.item());
+          return dipu_add_out(selfTensor, other, alpha, out);
+        }
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -31,7 +40,9 @@
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_sub_scalar_out(other, self.item(), alpha, out);
+        at::Tensor selfTensor = at::empty_like(other);
+        dipu_fill__scalar(selfTensor, self.item());
+        return dipu_sub_out(selfTensor, other, alpha, out);
     }
   interface: diopiSub(ctx, out, self, other, alpha)
 
@@ -75,9 +86,6 @@
     }
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(ctx, out, self, other, mode)
-
-- schema: "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)"
-  interface: diopiFill(ctx, self, value)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = at::empty_like(self);
@@ -675,6 +683,7 @@
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
 
+
 - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
   interface: diopiClampInpScalar(ctx, self, min, max)
 
@@ -728,6 +737,51 @@
 
 - schema: pow.Scalar_out(Scalar self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowScalar(ctx, out, self, exponent)
+
+- schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> output_size(repeats.size());
+    for (int i = 0;i< repeats.size();++i) {
+      output_size[i] = repeats.at(i).expect_int();
+    }
+
+    const auto& self_sizes = self.sizes();
+    for (int i = self_sizes.size() - 1, j = output_size.size() - 1;i >= 0;i--, j--) {
+      output_size[j] *= self_sizes.at(i);
+    }
+
+    at::Tensor out = at::empty(output_size, self.options());
+  interface: diopiRepeat(ctx, out, self, repeats)
+
+- schema: rsub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+    return dipu_sub_out(other, self, alpha, out);
+  interface: diopiSub(ctx, out, other, self, alpha)
+
+- schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
+
+- schema: "addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcdivInp(ctx,self , tensor1, tensor2, value)
+
+- schema: "addcmul.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcmul(ctx, out, self, tensor1, tensor2, value)
+
+- schema: "addcmul_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcmulInp(ctx,self,tensor1, tensor2, value)
+
+- schema: "exp.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiExp(ctx, out, self)
+
+- schema: "exp_(Tensor(a!) self) -> Tensor(a!)"
+  interface:  diopiExpInp(ctx, self)
+
+- schema: "tanh.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTanh(ctx, out,self)
+
+- schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiTanhInp(ctx,self)
 
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
