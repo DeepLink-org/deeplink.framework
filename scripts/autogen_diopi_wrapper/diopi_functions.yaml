@@ -727,7 +727,6 @@
   interface: diopiLeakyRelu(ctx, out, self, negative_slope)
 
 - schema: "mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out;
@@ -740,7 +739,6 @@
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
 - schema: "mse_loss.out(Tensor self, Tensor target, int reduction=Mean, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
@@ -844,3 +842,25 @@
 - schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiTanhInp(ctx,self)
 
+- schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    const int64_t* ptr = nullptr;
+    if (dim.has_value()) {
+      ptr = &dim.value();
+    }
+  interface: diopiArgmax(ctx, out, self, ptr, keepdim)
+
+- schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    at::Tensor out;
+    diopiTensorHandle_t out_ptr = nullptr;
+  interface: diopiMaskedSelect(ctx, &out_ptr, self, mask);
+  custom_code_before_return: >
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
+
+- schema: "masked_select.out(Tensor self, Tensor mask, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  interface: diopiMaskedSelect(ctx, &out, self, mask);
