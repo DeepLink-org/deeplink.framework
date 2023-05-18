@@ -433,7 +433,7 @@ class AscendOverrides:
                        auto {name}_perm_shape = ge::Shape({{2}});
                        TensorDesc {name}_perm_desc({name}_perm_shape, FORMAT_NCHW, DT_INT32);
                        Tensor {name}_perm_tensor({name}_perm_desc);
-                       int {name}_perm_value = {dim0, dim1};
+                       int {name}_perm_value[2] = {dim0, dim1};
                        setTensorData({name}_perm_tensor, reinterpret_cast<uint8_t*>(&{name}_perm_value), sizeof(int) * 2, "{name}_perm");
 
                        auto {name}_perm = op::Const("{name}_perm")
@@ -441,6 +441,7 @@ class AscendOverrides:
                        auto {name} = op::Transpose("{name}")
                          .set_input_x({input})
                          .set_input_perm({name}_perm);
+                       graph.AddOp({name}_perm);
                        graph.AddOp({name});
                     """
 
