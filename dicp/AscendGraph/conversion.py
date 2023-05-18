@@ -101,6 +101,14 @@ def neg(a):
 def relu(a):
     return ascend_op.Relu(a)
 
+@registe_conversion(torch.ops.aten.silu)
+def silu(a):
+    return ascend_op.Silu(a)
+
+@registe_conversion(torch.ops.aten.transpose)
+def transpose(input, dim0, dim1):
+    return ascend_op.Transpose(input, dim0, dim1)
+
 @registe_conversion(torch.ops.aten._softmax)
 def _softmax(x, dim, half_to_float):
     return ascend_op.Softmax(x, dim, half_to_float)
@@ -120,6 +128,10 @@ def sumdim(x, dims, keepdim = True):
 @registe_conversion(torch.ops.aten.clone)
 def clone(a, memory_format = torch.contiguous_format):
     return ascend_op.Copy(a, memory_format)
+
+@registe_conversion(torch.ops.aten.copy)
+def copy(dst, src):
+    return ascend_op.CopyInner(dst, src)
 
 @registe_conversion(torch.ops.prims.convert_element_type)
 def convert_element_type(x, dtype):

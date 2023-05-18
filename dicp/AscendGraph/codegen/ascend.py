@@ -437,6 +437,37 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
+    def silu(name, x):
+        src_code = f"""
+                       auto {name} = op::Swish("{name}")
+                         .set_input_x({x})
+                         .set_attr_scale(1.0);
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def transpose(name, input, dim0, dim1):
+        src_code = f"""
+                       auto {name}_perm_shape = ge::Shape({{2}});
+                       TensorDesc {name}_perm_desc({name}_perm_shape, FORMAT_NCHW, DT_INT32);
+                       Tensor {name}_perm_tensor({name}_perm_desc);
+                       int {name}_perm_value[2] = {dim0, dim1};
+                       setTensorData({name}_perm_tensor, reinterpret_cast<uint8_t*>(&{name}_perm_value), sizeof(int) * 2, "{name}_perm");
+
+                       auto {name}_perm = op::Const("{name}_perm")
+                         .set_attr_value({name}_perm_tensor);
+                       auto {name} = op::Transpose("{name}")
+                         .set_input_x({input})
+                         .set_input_perm({name}_perm);
+                       graph.AddOp({name}_perm);
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
     def reciprocal(name, x):
         src_code = f"""
                        auto {name} = op::Reciprocal("{name}")
@@ -581,6 +612,35 @@ class AscendOverrides:
                        auto {name} = op::Identity("{name}")
                          .set_input_x({x});
                        graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def copy(name, dst, src):
+        src_code = f"""
+                      /*
+                      auto dst_size = {dst}.sizes();
+                      auto dst_stride = {dst}.strides();
+                      auto dst_storage_offset = {dst}.storage_offset();
+                      auto src_size = {src}.sizes();
+                      auto src_stride = {src}.strides();
+                      auto src_storage_offset = {src}.storage_offset();
+
+                      auto {name} = op::ViewCopy("{name}")
+                        .set_input_dst({dst})
+                        .set_input_dst_size(dst_size)
+                        .set_input_dst_stride(dst_stride)
+                        .set_input_dst_storage_offset(dst_storage_offset)
+                        .set_input_src({src})
+                        .set_input_src_size(src_size)
+                        .set_input_src_stride(src_stride)
+                        .set_input_src_storage_offset(src_storage_offset);
+                      graph.AddOp({name});
+                      */
+                      auto {name} = op::Identity("{name}")
+                        .set_input_x({src});
+                      graph.AddOp({name});
                     """
 
         return src_code
