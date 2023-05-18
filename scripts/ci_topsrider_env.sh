@@ -7,7 +7,7 @@ export PYTORCH_DIR=/home/cse/src/pytorch
 # export CC=${GCC_ROOT}/bin/gcc
 # export CXX=${GCC_ROOT}/bin/g++
 
-export DIOPI_ROOT=/home/cse/src/ConformanceTest-DIOPI/lib
+export DIOPI_ROOT=/home/cse/src/deeplink/dipu/third_party/DIOPI/DIOPI-IMPL/lib
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${CONDA_ROOT}/envs/dipu/lib/python3.8:${PYTHONPATH}:
