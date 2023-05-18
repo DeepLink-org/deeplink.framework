@@ -296,6 +296,8 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "ge::DataType::DT_FLOAT"
     elif dtype == torch.int32:
         return "ge::DataType::DT_INT32"
+    elif dtype == torch.complex64:
+        return "ge::DataType::DT_COMPLEX64"
     else:
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
 
@@ -348,20 +350,38 @@ class AscendOverrides:
         else:
             # y is scalar
             dtype = node.meta['val'].dtype
-            cpp_dtype = get_cpp_dtype(dtype)
-            ascend_dtype = get_ascend_dtype(dtype)
+            not_support_type = False
+            try:
+                cpp_dtype = get_cpp_dtype(dtype)
+                ascend_dtype = get_ascend_dtype(dtype)
+            except:
+                cpp_dtype = "float"
+                ascend_dtype = "ge::DataType::DT_FLOAT"
+                not_support_type = True
             src_code = f"""
                            {cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({y});
                            auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
                            setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");
                            auto {name}_scalar = op::Const("{name}_scalar")
                              .set_attr_value({name}_scalar_tensor);
+                           graph.AddOp({name}_scalar);"""
+            if not_support_type:
+                ascend_dtype = get_ascend_dtype(dtype)
+                src_code += f"""
+                           auto {name}_scalar_cast = op::Cast("{name}_scalar_cast")
+                             .set_input_x({name}_scalar)
+                             .set_attr_dst_type({ascend_dtype});
+                           auto {name} = op::Mul("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_scalar_cast);
+                           graph.AddOp({name}_scalar_cast);
+                           graph.AddOp({name});"""
+            else:
+                src_code += f"""
                            auto {name} = op::Mul("{name}")
                              .set_input_x1({x})
                              .set_input_x2({name}_scalar);
-                           graph.AddOp({name}_scalar);
-                           graph.AddOp({name});
-                        """
+                           graph.AddOp({name});"""
 
         return src_code
 
