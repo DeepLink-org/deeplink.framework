@@ -11,7 +11,7 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
-             'view_as_complex', 'view_as_real']
+             'view_as_complex', 'view_as_real', 'slice']
 
 def get_graph_id():
     global graph_id
@@ -1563,5 +1563,66 @@ class AscendOverrides:
                            .set_dynamic_input_x(1, {name}_imag)
                            .set_attr_axis(1)
                            .set_attr_N(2);
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def slice(name, x, dim, start, end, node):
+        # TODO(tangzhiyi): miss step parameter
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        y_shape = list(node.meta['val'].shape)
+
+        dim = int(dim)
+        start = int(start)
+        assert dim >= 0 and dim < len(x_shape)
+        assert start >=0 and start < x_shape[dim]
+        
+        offset = ['0'] * len(x_shape)
+        offset[dim] = str(start)
+
+        shape_size = '{' + str(len(x_shape)) + '}'
+        offset_str = '{' + ','.join(offset) + '}'
+        size_str = '{' + ','.join(map(str, y_shape)) + '}'
+        
+        # NB: In some cases, this function may obtain an incorrect value.
+        # example:
+        # >>def fn(x):
+        # >>    x = x[:, 1:3]
+        # >>    return x
+        # >>opt_model = torch.compile(fn, backend='ascendgraph')
+        # >>x = torch.tensor([[1, 2, 3],
+        #                    [4, 5, 6],
+        #                    [7, 8, 9]], dtype=torch.float32)
+        #
+        # output is : tensor([[1., 2.],
+        #                     [3., 4.],
+        #                     [5., 6.]])
+        # right output is : tensor([[2., 3.],
+        #                     [5., 6.],
+        #                     [8., 9.]])
+        # Kernel output is right, but aot_autograd changed it when process alis in
+        # torch/_functorch/aot_autograd.py(530)gen_alias_from_base().
+        # TODO(tangzhiyi): fix this
+        src_code = f"""std::vector<int> {name}_offset_value {offset_str};
+                       std::vector<int64_t> {name}_offset_tensor_shape {shape_size};
+                       auto {name}_offset_tensor = genTensor({name}_offset_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_offset_tensor, reinterpret_cast<uint8_t*>({name}_offset_value.data()), {name}_offset_value.size() * sizeof(int), "{name}_offset");
+
+                       std::vector<int> {name}_size_value {size_str};
+                       std::vector<int64_t> {name}_size_tensor_shape {shape_size};
+                       auto {name}_size_tensor = genTensor({name}_size_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_size_tensor, reinterpret_cast<uint8_t*>({name}_size_value.data()), {name}_size_value.size() * sizeof(int), "{name}_size");
+
+                       auto {name}_offset = op::Const("{name}_offset")
+                         .set_attr_value({name}_offset_tensor);
+                       auto {name}_size = op::Const("{name}_size")
+                         .set_attr_value({name}_size_tensor);
+                       graph.AddOp({name}_offset);
+                       graph.AddOp({name}_size);
+
+                       auto {name} = op::Slice("{name}")
+                           .set_input_x({x})
+                           .set_input_offsets({name}_offset)
+                           .set_input_size({name}_size);
                        graph.AddOp({name});"""
         return src_code

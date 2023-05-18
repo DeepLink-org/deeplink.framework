@@ -281,6 +281,10 @@ def view_as_complex(x):
 def view_as_real(x):
     return ascend_op.ViewAsReal(x)
 
+@registe_conversion(torch.ops.aten.slice.Tensor)
+def slice(x, dim=0, start=None, end=None, step=1):
+    return ascend_op.Slice(x, dim, start, end, step)
+
 
 @registe_pattern
 class ReplaceVarMean:

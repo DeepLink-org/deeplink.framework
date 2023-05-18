@@ -584,6 +584,17 @@ class ViewAsReal(Operator):
         super().__init__("view_as_real")
         self.x = x
         self.torch_op = aten.view_as_real
+        
+
+class Slice(Operator):
+    def __init__(self, x, dim, start, end, step):
+        super().__init__("slice")
+        self.x = x
+        self.dim = dim
+        self.start = start
+        self.end = end
+        self.step = step
+        self.torch_op = aten.slice
 
 
 @torch.fx.wrap
