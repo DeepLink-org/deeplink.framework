@@ -487,7 +487,8 @@ def functions_code_gen(fun_config):
     diopi_scalar_suffix = 'DiopiScalar'
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
-        diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+        #diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(]) *&? *' + scalar_param + '([,\)])', R'\1' + f"&{scalar_param}{diopi_scalar_suffix}" + R'\2', diopi_fun_call_code)
 
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
     for scalar_param in get_function_optional_scalar_args_from_schema(fun_config['schema']):

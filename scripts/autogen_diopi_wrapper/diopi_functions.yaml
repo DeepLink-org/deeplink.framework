@@ -688,6 +688,7 @@
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
 
+
 - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
   interface: diopiClampInpScalar(ctx, self, min, max)
 
@@ -836,3 +837,39 @@
     dim += ((dim >= 0) ? 0 : self.sizes().size());
     auto output_size = self.sizes().vec();
   interface: diopiMax(ctx, max, max_indices, self, dim)
+- schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
+
+- schema: "addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcdivInp(ctx,self , tensor1, tensor2, value)
+
+- schema: "addcmul.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiAddcmul(ctx, out, self, tensor1, tensor2, value)
+
+- schema: "addcmul_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
+  interface:  diopiAddcmulInp(ctx,self,tensor1, tensor2, value)
+
+- schema: "exp.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiExp(ctx, out, self)
+
+- schema: "exp_(Tensor(a!) self) -> Tensor(a!)"
+  interface:  diopiExpInp(ctx, self)
+
+- schema: "tanh.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTanh(ctx, out,self)
+
+- schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiTanhInp(ctx,self)
+
+- schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    double betaDouble = beta.toDouble();
+    double alphaDouble = alpha.toDouble();
+  interface: diopiBaddbmm(ctx, out, self, batch1, batch2, betaDouble, alphaDouble)
+
+- schema: "baddbmm_(Tensor(a!) self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    double betaDouble = beta.toDouble();
+    double alphaDouble = alpha.toDouble();
+  interface: diopiBaddbmmInp(ctx, self, batch1, batch2, betaDouble, alphaDouble)
+
