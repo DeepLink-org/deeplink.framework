@@ -740,5 +740,8 @@
     auto out = at::empty(condition.sizes(), self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
-- schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiArgmax(ctx,out,self,dim.has_value() ? &dim.value():nullptr,keepdim)
+- schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const auto str =  std::string(approximate);
+    const char* appr = str.data();
+  interface: diopiGelu(ctx, out, self, appr)
