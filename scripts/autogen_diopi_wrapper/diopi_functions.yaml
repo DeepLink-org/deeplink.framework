@@ -688,6 +688,67 @@
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
 
+- schema: "rsqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRsqrt(ctx, out, self)
+
+- schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
+  interface: diopiUniformInp(ctx, self, from, to, seed)
+
+- schema: "tril(Tensor self, int diagonal=0) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiTril(ctx, out, self, diagonal)
+
+- schema: "tril.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTril(ctx, out, self, diagonal)
+
+- schema: "multinomial(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+    if (self.dim() == 2){
+      out = at::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
+    }
+    else if (self.dim() == 1) {
+      out = at::empty({num_samples,}, self.options().dtype(at::kLong));
+    }
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+
+- schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+
+- schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+    ::diopiSize_t diopi_shifts = toDiopiSize(shifts);
+    ::diopiSize_t diopi_dims = toDiopiSize(dims);
+  interface: diopiRoll(ctx, out, self, diopi_shifts, diopi_dims)
+
+- schema: "leaky_relu(Tensor self, Scalar negative_slope=0.01) -> Tensor"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiLeakyRelu(ctx, out, self, negative_slope)
+
+- schema: "mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+    at::Tensor out;
+    auto options = self.options();
+    if (reductionDiopi == ReductionNone) {
+      out = at::empty(self.sizes(), options);
+    } else {
+      out = at::empty({}, options);
+    }
+  interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
+
+- schema: "mse_loss.out(Tensor self, Tensor target, int reduction=Mean, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+  interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
 - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
   interface: diopiClampInpScalar(ctx, self, min, max)
