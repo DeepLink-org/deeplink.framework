@@ -10,13 +10,12 @@ on:
       - 'main'
 
 env:
-  NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
+  NFS_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   CLUSTER_CAMB: CAMB
-  PYTORCH_BASE_DIR: '/mnt/cache/share/parrotsci/github/cibuild/pytorchbase'
+  PYTORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0   
-  DIOPI_COMMIT: "7ec02a31440857fed9405fda8d519d4dee8c17e4"
 
 jobs:
   Rsync:
@@ -32,13 +31,10 @@ jobs:
           submodules: 'true'
       - name: Rsync to Server
         run: |
-          echo ${GITHUB_WORKSPACE} && cd ${GITHUB_WORKSPACE}/ && rm -rf DIOPI-TEST && git clone git@github.com:OpenComputeLab/DIOPI-TEST.git \
-          && cd DIOPI-TEST && git checkout main && git pull && git checkout ${DIOPI_COMMIT} && git submodule update --init --recursive --force
+          echo ${GITHUB_WORKSPACE}
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
-          ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST"
-          rsync -a --delete ${GITHUB_WORKSPACE}/DIOPI-TEST/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST/
           rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -102,28 +98,9 @@ jobs:
           fi
           """
 
-  Build-DIOPI-IMPL-Camb:
-    name: Build diopi-impl camb
-    needs: [Rsync]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Build diopi&&dipu
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source
-          source scripts/ci_camb_env.sh
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/DIOPI-TEST
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
-          --gres=mlu:${MLU_REQUESTS} sh scripts/build_impl.sh camb_no_runtime \
-          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
-
   Build-POC-Camb:
     name: Build diopi_poc camb
-    needs: [Build-Pytorch, Build-DIOPI-IMPL-Camb]
+    needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1

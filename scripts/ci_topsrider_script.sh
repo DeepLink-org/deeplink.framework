@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-DIOPI_IMPL=${3:-camb}
-DIPU_DEVICE=${2:-camb}
-
 function build_dipu_py() {
     export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
@@ -14,12 +11,11 @@ function build_dipu_py() {
 }
 
 function config_dipu_cmake() {
-    cd ./build && rm -rf ./*
-    PYTORCH_DIR="/you_pytorch/torch20/pytorch"
-    PYTHON_INCLUDE_DIR="/you_conda/envs/torch20/include/python3.8"
-    # export NEUWARE_ROOT="/usr/local/neuware-2.4.1/"
+    mkdir -p build && cd ./build && rm -rf ./*
+    # PYTORCH_DIR="/you_pytorch/torch20/pytorch"
+    # PYTHON_INCLUDE_DIR="/you_conda/envs/torch20/include/python3.8"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-     -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
+     -DDEVICE=tops -DPYTORCH_DIR=${PYTORCH_DIR} \
      -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
@@ -30,24 +26,11 @@ function config_dipu_cmake() {
 function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
-        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp \
-        --use_diopi_adapter True \
-        --diopi_adapter_header torch_dipu/csrc_dipu/vendor/camb/diopi_adapter.hpp
-}
-
-function build_diopi_lib() {
-    cd third_party/DIOPI/DIOPI-IMPL
-    sh scripts/build_impl.sh clean
-    sh scripts/build_impl.sh ${DIOPI_IMPL}
-    cd -
+            --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
 }
 
 function build_dipu_lib() {
-    export DIOPI_ROOT=$PWD/third_party/DIOPI/DIOPI-IMPL/lib/
-    export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-
     autogen_diopi_wrapper
-    mkdir -p build
     config_dipu_cmake
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
@@ -55,9 +38,7 @@ function build_dipu_lib() {
 }
 
 
-if [[ "$1" == "builddiopi" ]]; then
-    build_diopi_lib
-elif [[ "$1" == "builddl" ]]; then
+if [[ "$1" == "builddl" ]]; then
     build_dipu_lib
 elif [[ "$1" == "builddp" ]]; then
     build_dipu_py
