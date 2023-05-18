@@ -619,8 +619,7 @@ class AscendOverrides:
                       graph.AddOp({name});
                       */
                       auto {name} = op::Identity("{name}")
-                        .set_input_x({src})
-                        .set_input_y({dst});
+                        .set_input_x({src});
                       graph.AddOp({name});
                     """
 
