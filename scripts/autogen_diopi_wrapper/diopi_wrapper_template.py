@@ -2,6 +2,8 @@ diopi_wrapper_file_template_content = \
 """
 // autogened file
 #include <ATen/Tensor.h>
+#include <ATen/ATen.h>
+#include <ATen/Functions.h>
 
 #include <torch/csrc/autograd/custom_function.h>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
@@ -16,6 +18,7 @@ bool checkDiopiReturnValue() {
     static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
     return enable;
 }
+
 
 using namespace dipu::diopi_helper;
 
@@ -97,5 +100,22 @@ public:
 $cppsignautre {
     auto result = $autograd_function_name::apply($arg_name_list);
     $wrappter_custom_return
+}
+"""
+
+
+autocompare_template_content = \
+"""
+//  $comment
+$cppsignautre {
+    $transform_input_to_cpu_code
+
+    $execute_op_on_cpu_code
+
+    $execute_op_on_device_code
+
+    $transform_result_to_cpu_code
+
+    $result_compare_code
 }
 """

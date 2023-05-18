@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content,\
     diopi_wrapper_function_template_content, op_register_template_content,\
-    custom_autograd_template_content
+    custom_autograd_template_content, autocompare_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -96,6 +96,18 @@ def create_return_code_frome_schema(schema, allow_return_ref = True):
     if allow_return_ref == False:
         return_code = return_code.replace('&', '')
     return return_code
+
+def create_transform_input_to_cpu_code(fun_config):
+    input_process_code = ''
+    for input in set(get_function_inputs_from_schema(fun_config['schema']) + fun_config.get('ins', [])):
+        if input.strip().endswith('?'):
+            input = input.replace('?', '')
+            input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu;\n"
+        else:
+            input_process_code += f"const at::Tensor {input}_cpu = {input}.cpu();\n"
+
+    return input_process_code
+
 
 
 def create_param_list_from_schema(schema):
@@ -303,8 +315,43 @@ def create_args_name_list_from_schema(schema):
     return code
 
 def create_call_cpp_function_code_from_schema(schema):
-    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ');' # + "/*" + schema + "*/"
+    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ');'
     return code
+
+
+def create_call_aten_cpu_cpp_function_code_from_schema(schema):
+    opname = get_op_name_from_schema(schema)
+    #opname = re.sub('\.[\w]+_out', '_outf', opname)
+    opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
+    opname = re.sub('\.out[\w_\d]*', '_outf', opname)
+    opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
+    opname = re.sub('\.Tensor', '', opname)
+    opname = re.sub('_?\.to', '', opname)
+    opname = re.sub('_?\.from', '', opname)
+    opname = re.sub('\.Scalar', '', opname)
+    opname = re.sub('\.values_stable', '_outf', opname)
+    opname = re.sub('\.values', '_outf', opname)
+    opname = re.sub('\.grad_input', '_outf', opname)
+    opname = re.sub('\.dim_max', '_outf', opname)
+    opname = re.sub('\.dim_min', '_outf', opname)
+    opname = opname.replace('.', '_')
+    opname = opname.split('.')[0]
+    if opname[-1] == '_':
+        opname = opname[0:len(opname) - 1]
+    code = 'auto result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+
+    inputs = get_function_inputs_from_schema(schema)
+    for input in inputs:
+        if input[-1] == '?':
+            pass
+        else:
+            code = re.sub('([\(, ]+)' + input, R'\1' + input + '_cpu', code)
+
+    return code
+
+def create_call_dipu_cpp_function_code_from_schema(schema):
+    code = 'auto result_device = ' + create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
+    return code.replace('; ', ';\n')
 
 
 def create_code_to_print_fun_call_info_from_schema(fun_config):
@@ -369,6 +416,8 @@ op_register_template = CodeTemplate(op_register_template_content)
 
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
+autocompare_template = CodeTemplate(autocompare_template_content)
+
 
 def functions_code_gen(fun_config):
     if 'interface' in fun_config:
@@ -385,7 +434,6 @@ def functions_code_gen(fun_config):
             input = input.replace('?', '')
             input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
             input_process_code += f"if ({input}.has_value() && {input}.value().defined()) {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n\n"
-
         else:
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
@@ -463,6 +511,7 @@ def functions_code_gen(fun_config):
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
 
     fun_name = create_fun_name_from_schema(fun_config['schema'])
+    raw_fun_name = fun_name
 
     if fun_config.get('autograd', False) == True:
         wrapper_fun_name = fun_name + '_wrapper'
@@ -483,6 +532,21 @@ def functions_code_gen(fun_config):
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
+
+    if fun_config.get('autocompare', False) in [True, 'True', False] and fun_config.get('register_op', True) in [True, 'True']:
+        #import pdb;pdb.set_trace()
+        auto_compare_fun_name = fun_name + '_autocompare'
+        autocompare_code = autocompare_template.substitute(
+            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(raw_fun_name, auto_compare_fun_name)],
+            transform_input_to_cpu_code=[create_transform_input_to_cpu_code(fun_config)],
+            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_schema(fun_config['schema'])],
+            comment=[fun_config['schema']],
+            execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
+            transform_result_to_cpu_code=[],
+            result_compare_code=[],
+        )
+        fbody += autocompare_code
+
 
     register_body = op_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config['schema'])],
