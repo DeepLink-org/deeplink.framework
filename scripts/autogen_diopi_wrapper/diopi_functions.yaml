@@ -783,6 +783,7 @@
 - schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiTanhInp(ctx,self)
 
+
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
     at::Tensor out = at::empty_like(self);

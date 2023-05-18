@@ -4,7 +4,7 @@ import torch.nn as nn
 
 device = torch.device("dipu")
 
-m = nn.GELU()
+m = nn.GELU(approximate='tanh')
 input = torch.randn(5)
 print(input)
 output = m(input)
