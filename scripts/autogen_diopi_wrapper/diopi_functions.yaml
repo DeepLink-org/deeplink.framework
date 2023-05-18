@@ -739,6 +739,12 @@
     }
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
+- schema: "mse_loss.out(Tensor self, Tensor target, int reduction=Mean, *, Tensor(a!) out) -> Tensor(a!)"
+  print_func_call_info: True
+  custom_code_at_the_beginning: >
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+  interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
+
 - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
   interface: diopiClampInpScalar(ctx, self, min, max)
 
