@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <stdio.h>
 
 #include "./diopirt_impl.h"

@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import  torch
 import torch_dipu
 

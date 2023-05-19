@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/Utils.h>
 
 #include <csrc_dipu/runtime/core/DIPUGeneratorImpl.h>
