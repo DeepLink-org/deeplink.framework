@@ -7,20 +7,20 @@ namespace dipu {
 namespace diopi_helper {
 
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
-    return reinterpret_cast<::diopiTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor) {
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiConstTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
-    return tensor == nullptr ? nullptr : reinterpret_cast<::diopiConstTensorHandle_t>(tensor);
+    return tensor == nullptr ? nullptr : toDiopiTensorHandle(*tensor);
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor) {
     if (!tensor.has_value()) return nullptr;
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&(tensor.value()));
+    return toDiopiTensorHandle(tensor.value());
 }
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {
