@@ -1010,19 +1010,3 @@
   print_func_call_info: True
   autocompare: True
   interface: diopiMm(ctx, out, self, mat2)
-
-- schema: "linspace(Scalar start, Scalar end, int? steps=None, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
-  print_func_call_info: True
-  autocompare: True
-  custom_code_at_the_beginning: >
-    at::Tensor out = dtype.has_value() ? at::empty({steps.value()}, at::TensorOptions().dtype(dtype.value())) : at::empty({steps.value(), self.options().dtype(at::kFloat)});
-    diopiTensorHandle_t out_ptr = nullptr;
-  interface: diopiLinspace(ctx, &out_ptr, start, end, steps);
-  custom_code_before_return: >
-    dipu::getCurrentDIPUStream().synchronize();
-    out = *reinterpret_cast<at::Tensor*>(out_ptr);
-  
-- schema: "linspace.out(Scalar start, Scalar end, int? steps=None, *, Tensor(a!) out) -> Tensor(a!)"
-  autocompare: True
-  print_func_call_info: True
-  interface: diopiLinspace(ctx, &out, start, end, steps);
