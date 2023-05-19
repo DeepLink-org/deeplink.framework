@@ -36,6 +36,8 @@ namespace diopi_helper {
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor);
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar);
+::diopiScalar_t toDiopiScalar(const at::Scalar& scalar, const c10::ScalarType& type);
+
 ::diopiDtype_t toDiopiDtype(c10::ScalarType type);
 
 caffe2::TypeMeta toATenType(::diopiDtype_t dt);
