@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 from torch_dipu.testing._internal import common_utils
 
 TEST_PRECISIONS = {

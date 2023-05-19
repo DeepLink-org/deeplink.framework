@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 import torch.nn.functional as F
 import torch_dipu

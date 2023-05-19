@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <csrc_dipu/binding/exportapi.h>
 
 class Initializer final {

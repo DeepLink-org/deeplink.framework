@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <cuda_runtime_api.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/common.h>

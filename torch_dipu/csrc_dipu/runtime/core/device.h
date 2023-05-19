@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {

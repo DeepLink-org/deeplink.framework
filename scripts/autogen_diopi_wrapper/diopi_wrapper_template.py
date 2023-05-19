@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 diopi_wrapper_file_template_content = \
 """
 // autogened file
