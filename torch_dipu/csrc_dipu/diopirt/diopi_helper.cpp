@@ -15,12 +15,12 @@ namespace diopi_helper {
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
-    return tensor == nullptr ? nullptr : reinterpret_cast<::diopiConstTensorHandle_t>(tensor);
+    return tensor == nullptr ? nullptr : toDiopiTensorHandle(*tensor);
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor) {
     if (!tensor.has_value()) return nullptr;
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&(tensor.value()));
+    return toDiopiTensorHandle(tensor.value());
 }
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {
