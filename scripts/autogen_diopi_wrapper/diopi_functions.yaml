@@ -969,6 +969,29 @@
     const char* appr = str.data();
   interface: diopiGelu(ctx, out, self, appr)
 
+- schema: "hardtanh(Tensor self, Scalar min_val=-1, Scalar max_val=1) -> Tensor"
+  custom_code_at_the_beginning: auto out = at::empty_like(self);
+  custom_code_before_call_diopi: >
+    min_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(min_val, at::kDouble);
+    max_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(max_val, at::kDouble);
+
+  interface: diopiHardtanh(ctx, out, self, min_val, max_val)
+
+- schema: "hardtanh_(Tensor(a!) self, Scalar min_val=-1, Scalar max_val=1) -> Tensor(a!)"
+  custom_code_before_call_diopi: >
+    min_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(min_val, at::kDouble);
+    max_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(max_val, at::kDouble);
+  interface: diopiHardtanhInp(ctx, self, min_val, max_val)
+
+- schema: "hardtanh.out(Tensor self, Scalar min_val=-1, Scalar max_val=1, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_before_call_diopi: >
+    min_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(min_val, at::kDouble);
+    max_valDiopiScalar = dipu::diopi_helper::toDiopiScalar(max_val, at::kDouble);
+
+  interface: diopiHardtanh(ctx, out, self, min_val, max_val)
+
+- schema: "hardtanh_backward.grad_input(Tensor grad_output, Tensor self, Scalar min_val, Scalar max_val, *, Tensor(a!) grad_input) -> Tensor(a!)"
+  interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   print_func_call_info: True
   autocompare: True

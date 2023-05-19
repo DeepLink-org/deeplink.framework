@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import yaml
 import re
 import json
@@ -131,7 +132,8 @@ def create_param_list_from_schema(schema):
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
-        'Generator ?\?' : 'c10::optional<at::Generator>' ,
+        'Generator ?\?' : 'c10::optional<at::Generator>',
+        'Device ?\?' : 'c10::optional<c10::Device>',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
@@ -339,6 +341,7 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = re.sub('_?\.to', '', opname)
     opname = re.sub('_?\.from', '', opname)
     opname = re.sub('\.Scalar', '', opname)
+    opname = re.sub('\.self', '', opname)
     opname = re.sub('\.values_stable', '_outf', opname)
     opname = re.sub('\.values', '_outf', opname)
     opname = re.sub('\.grad_input', '_outf', opname)
