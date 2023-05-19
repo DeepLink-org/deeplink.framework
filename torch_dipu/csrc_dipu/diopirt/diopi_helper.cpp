@@ -48,6 +48,25 @@ namespace diopi_helper {
     }
 }
 
+::diopiScalar_t toDiopiScalar(const at::Scalar& scalar, const c10::ScalarType& type) {
+    ::diopiScalar_t result;
+    TORCH_CHECK(c10::canCast(scalar.type(), type));
+    if (type == c10::ScalarType::Bool) {
+        result.stype = ::diopiDtype_t::diopi_dtype_int64;
+        result.ival = static_cast<int64_t>(scalar.toBool());
+        return result;
+    } else if (c10::isFloatingType(type)) {
+        result.stype = ::diopiDtype_t::diopi_dtype_float64;
+        result.fval = scalar.toDouble();
+        return result;
+    } else if (c10::isIntegralType(type)) {
+        result.stype = ::diopiDtype_t::diopi_dtype_int64;
+        result.ival = static_cast<int64_t>(scalar.toLong());
+        return result;
+    }
+   TORCH_CHECK(false, "invalid scalar type, type is ", scalar.type());
+}
+
 ::diopiDtype_t toDiopiDtype(c10::ScalarType type) {
     switch (type) {
     case at::ScalarType::Bool:
