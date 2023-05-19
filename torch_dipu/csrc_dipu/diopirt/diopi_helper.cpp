@@ -7,11 +7,11 @@ namespace dipu {
 namespace diopi_helper {
 
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
-    return reinterpret_cast<::diopiTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor) {
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiConstTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
