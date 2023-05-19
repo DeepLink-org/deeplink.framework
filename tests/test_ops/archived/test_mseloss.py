@@ -17,5 +17,3 @@ assert  torch.allclose(cpu, dipu.to(cpu))
 cpu = torch.nn.functional.mse_loss(predictions.to(cpu), targets.to(cpu),reduction='none')
 dipu = torch.nn.functional.mse_loss(predictions.to(dipu), targets.to(dipu),reduction='none')
 assert torch.allclose(cpu, dipu.to(cpu))
-
-print(0)

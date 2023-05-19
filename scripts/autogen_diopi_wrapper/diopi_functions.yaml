@@ -923,10 +923,7 @@
 - schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   print_func_call_info: True
   custom_code_at_the_beginning: >
-    const int64_t* ptr = nullptr;
-    if (dim.has_value()) {
-      ptr = &dim.value();
-    }
+    const int64_t* ptr = dim.has_value() ? (&dim.value()): nullptr;
   interface: diopiArgmax(ctx, out, self, ptr, keepdim)
 
 - schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
