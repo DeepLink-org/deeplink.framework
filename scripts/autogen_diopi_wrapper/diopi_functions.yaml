@@ -955,3 +955,19 @@
     double alphaDouble = alpha.toDouble();
   interface: diopiBaddbmmInp(ctx, self, batch1, batch2, betaDouble, alphaDouble)
 
+- schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: >
+    at::Tensor out = at::empty_like(self);
+    out = dipu_div_out(self,other,out);
+  interface: diopiFloorInp(ctx,out)
+
+- schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty(condition.sizes(), self.options());
+  interface: diopiWhere(ctx, out, condition,self, other)
+
+- schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const auto str =  std::string(approximate);
+    const char* appr = str.data();
+  interface: diopiGelu(ctx, out, self, appr)
