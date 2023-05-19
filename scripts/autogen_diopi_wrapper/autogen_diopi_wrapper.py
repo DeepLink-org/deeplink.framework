@@ -339,6 +339,7 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = re.sub('_?\.to', '', opname)
     opname = re.sub('_?\.from', '', opname)
     opname = re.sub('\.Scalar', '', opname)
+    opname = re.sub('\.self', '', opname)
     opname = re.sub('\.values_stable', '_outf', opname)
     opname = re.sub('\.values', '_outf', opname)
     opname = re.sub('\.grad_input', '_outf', opname)
