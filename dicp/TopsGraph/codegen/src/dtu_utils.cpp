@@ -87,7 +87,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
                                     output_size),
             topsSuccess);
             
-
   // 3. prepare data, H2D
   for (size_t i = 0; i < input_count; i++) {
     topsMallocForResource(&dev_input, input_size[i], res_bundle);
@@ -140,6 +139,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
               << std::endl;
     return -1;
   }
+
   uint64_t output_dims_size = 0;
   for (int i = 0; i < output_count; i++) {
     output_dims_size += output_rank_list[i];
@@ -181,6 +181,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   for (size_t i = 0; i < output_count; i++) {
     topsFree(outputs[i]);
   }
+
   topsStreamDestroy(stream);
   // topsDestroyExecutable(exe_ptr);
   topsDestroyResource(res_bundle);

@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
+from ..config import tops_debug
 
 
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
@@ -78,17 +79,17 @@ class EnflameCodegen(torch.fx.Interpreter):
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
-        # print("*******************Debug info*******************", flush=True)
-        # print("name:", name, flush=True)
-        # print("target:", target.name(), flush=True)
-        # print("real_op:", real_op, flush=True)
-        # print("args:", args, flush=True)
-        # print("arg_code:", arg_code.getvalue(), flush=True)
-        # print("args_list:", args_list, flush=True)
+        if tops_debug:
+            print("*******************Debug info*******************")
+            print("name:", name)
+            print("target:", target.name())
+            print("real_op:", real_op)
+            print("args:", args)
+            print("arg_code:", arg_code.getvalue())
+            print("args_list:", args_list)
+            print("op_code:", getattr(self.override, real_op)(*args_list))
 
         op_code = getattr(self.override, real_op)(*args_list)
-        
-        # print("op_code:", op_code, flush=True)
         
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'{op_code}')
@@ -114,11 +115,11 @@ class EnflameCodegen(torch.fx.Interpreter):
     def codegen(self):
         self.run()
         test = self.generate_code()
-        # with open('codegen.py', 'w') as f:
-        #     f.write(test)
-        
-        # print("*******************Generated code*******************")
-        # print(test, flush=True)
+        if tops_debug:
+            with open('codegen.py', 'w') as f:
+                f.write(test)
+            print("*******************Generated code*******************")
+            print(test)
 
         return test
 
