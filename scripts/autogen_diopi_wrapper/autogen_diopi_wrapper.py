@@ -511,7 +511,7 @@ def functions_code_gen(fun_config):
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
     for scalar_param in get_function_optional_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
-        diopi_fun_call_code = re.sub(scalar_param.strip(), f"{scalar_param}DiopiScalarPtr", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
 
 

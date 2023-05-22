@@ -928,7 +928,7 @@
 
 - schema: "masked_select.out(Tensor self, Tensor mask, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMaskedSelect(ctx, &out, self, mask);
-  
+
 - schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     double betaDouble = beta.toDouble();
@@ -989,6 +989,7 @@
   interface: diopiReciprocal(ctx, out, self)
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiNormalInp(ctx, self, mean, std)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1042,3 +1043,9 @@
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
+
+- schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dims);
+
+  interface: diopiNorm(ctx, out, self, p, &dimDiopiSize);
