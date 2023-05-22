@@ -1003,7 +1003,6 @@
   interface: diopiBmm(ctx, out, self, mat2)
 
 
-
 - schema: "arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
   print_func_call_info: True
   custom_code_at_the_beginning: >
