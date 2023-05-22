@@ -920,13 +920,11 @@
   interface: diopiTanhInp(ctx,self)
 
 - schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     const int64_t* ptr = dim.has_value() ? (&dim.value()): nullptr;
   interface: diopiArgmax(ctx, out, self, ptr, keepdim)
 
 - schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
@@ -936,7 +934,6 @@
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
 
 - schema: "masked_select.out(Tensor self, Tensor mask, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   interface: diopiMaskedSelect(ctx, &out, self, mask);
   
 - schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
