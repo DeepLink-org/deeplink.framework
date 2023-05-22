@@ -1037,3 +1037,15 @@
 
 - schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiClampMinScalar(ctx,out, self, min)
+
+- schema: "minimum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMinimum(ctx,out, self, other)
+
+- schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const auto str =  std::string("None");
+    const char* appr = str.data();
+  interface: diopiScatterScalar(ctx,out, self, dim, value, index, appr)
+
+- schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRemainderTensor(ctx,out, self, other)
