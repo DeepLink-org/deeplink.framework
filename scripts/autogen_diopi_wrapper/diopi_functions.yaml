@@ -731,7 +731,6 @@
   interface: diopiLeakyRelu(ctx, out, self, negative_slope)
 
 - schema: "mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out;
@@ -744,7 +743,6 @@
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
 - schema: "mse_loss.out(Tensor self, Tensor target, int reduction=Mean, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
@@ -921,6 +919,23 @@
 - schema: "tanh_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiTanhInp(ctx,self)
 
+- schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    const int64_t* ptr = dim.has_value() ? (&dim.value()): nullptr;
+  interface: diopiArgmax(ctx, out, self, ptr, keepdim)
+
+- schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
+  custom_code_at_the_beginning: >
+    at::Tensor out;
+    diopiTensorHandle_t out_ptr = nullptr;
+  interface: diopiMaskedSelect(ctx, &out_ptr, self, mask);
+  custom_code_before_return: >
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
+
+- schema: "masked_select.out(Tensor self, Tensor mask, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMaskedSelect(ctx, &out, self, mask);
+  
 - schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     double betaDouble = beta.toDouble();
@@ -973,6 +988,18 @@
 
 - schema: "hardtanh_backward.grad_input(Tensor grad_output, Tensor self, Scalar min_val, Scalar max_val, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
+
+- schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSilu(ctx, out, self)
+
+- schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiReciprocal(ctx, out, self)
+
+- schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
+  interface: diopiNormalInp(ctx, self, mean, std)
+
+- schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiCumsum( ctx,  out, self, dim)
