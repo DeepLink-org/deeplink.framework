@@ -641,15 +641,15 @@
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: >
-    auto dim_ = dim < 0 ? (dim + tensors[0].sizes().size()) : dim;
+    dim += dim < 0 ? tensors[0].sizes().size() : 0;
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
     std::vector<long int> tmp;
-    for (int i = 0; i < dim_; i++) {
+    for (int i = 0; i < dim; i++) {
         tmp.push_back(shape[i]);
     }
     tmp.push_back(num_tensors);
-    for (int i = dim_; i < shape.size(); i++) {
+    for (int i = dim; i < shape.size(); i++) {
         tmp.push_back(shape[i]);
     }
     const std::vector<long int>& const_tmp = tmp;
@@ -660,16 +660,16 @@
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
     }
-  interface: diopiStack(ctx, out, diopiTensorHandles.data(), num_tensors, dim_)
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), num_tensors, dim)
 
 - schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
-    auto dim_ = dim < 0 ? (dim + tensors[0].sizes().size()) : dim;
+    dim += dim < 0 ? tensors[0].sizes().size() : 0;
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
     }
-  interface: diopiStack(ctx, out, diopiTensorHandles.data(), tensors.size(), dim_)
+  interface: diopiStack(ctx, out, diopiTensorHandles.data(), tensors.size(), dim)
 
 - schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
   custom_code_at_the_beginning: >
@@ -1002,15 +1002,7 @@
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiBmm(ctx, out, self, mat2)
 
-- schema: "permute(Tensor(a) self, int[] dims) -> Tensor(a)"
-  custom_code_at_the_beginning: >
-    std::vector<int64_t> index(dims.size());
-    for(int i =0 ;i < dims.size();i ++){
-      index[i]= self.sizes()[dims[i]];
-    }
-    auto out = at::empty(index);
-    ::diopiSize_t diopi_size = toDiopiSize(dims);
-  interface: diopiPermute(ctx, out, self, diopi_size)
+
 
 - schema: "arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
   print_func_call_info: True
