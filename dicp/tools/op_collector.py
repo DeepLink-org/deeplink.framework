@@ -2,6 +2,7 @@ import importlib
 from functools import wraps
 from typing import Any
 
+import torch
 from torch.fx import Interpreter, GraphModule, Node
 from torch.fx.node import _get_qualified_name
 from torch.fx.passes.tools_common import CALLABLE_NODE_OPS
@@ -24,7 +25,7 @@ class OpCollector(Interpreter):
 
     def collect(self, *args):
         with FakeTensorMode() as mode:
-            fake_args = [mode.from_tensor(a) for a in args]
+            fake_args = [mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
             return super().run(*fake_args)
 
 # Purpose:
@@ -38,6 +39,7 @@ class OpCollector(Interpreter):
 #     inner_compiler_param_key="inner_compile",
 #     write_file=True,
 #     bypass_graph_module=False,
+#     cache_graph_module=True,
 # ) as ctx:
 #     model = Model(param)
 #     opt_model = torch.compile(model)
@@ -48,7 +50,7 @@ class InnerCompilerOpCollectorContext:
     def __init__(self, inner_commpiler_func="torch._inductor.compile_fx.compile_fx_inner",
                  compile_fx_func="torch._inductor.compile_fx.compile_fx",
                  collector_name="module", inner_compiler_param_key="inner_compile",
-                 write_file=False, bypass_graph_module=True):
+                 write_file=False, bypass_graph_module=True, cache_graph_module=False):
         if isinstance(inner_commpiler_func, str):
             module_str, func_str = inner_commpiler_func.rsplit(".", 1)
             inner_commpiler_module = importlib.import_module(module_str)
@@ -65,6 +67,7 @@ class InnerCompilerOpCollectorContext:
         self.collector_name = collector_name
         self.write_file = write_file
         self.bypass_graph_module = bypass_graph_module
+        self.cache_graph_module = cache_graph_module
         self.cached_gm_inputs_dict = None
 
     def __enter__(self):
@@ -93,6 +96,11 @@ class InnerCompilerOpCollectorContext:
         op_dict_from_gm = dict()
         for key, v in self.cached_gm_inputs_dict.items():
             gm, inputs = v
+            if self.cache_graph_module:
+                gm_file_name = f"{self.collector_name}_graph_{key}.txt"
+                with open(gm_file_name, "w") as gm_file:
+                    gm_file.write(gm.print_readable(print_output=False))
+                print(f"graph {key} is cached to {gm_file_name}")
             collector = OpCollector(gm)
             collector.collect(*inputs)
             op_dict_from_gm[key] = collector.op_set
