@@ -1046,6 +1046,6 @@
 
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
-    ::diopiSize_t dimDiopiSize = toDiopiSize(dims);
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
 
-  interface: diopiNorm(ctx, out, self, p, &dimDiopiSize);
+  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
