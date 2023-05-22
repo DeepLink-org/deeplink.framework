@@ -642,7 +642,7 @@
   custom_code_at_the_beginning: >
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
-    std::vector<long int> tmp;
+    std::vector<int64_t> tmp;
     for (int i = 0; i < dim; i++) {
         tmp.push_back(shape[i]);
     }
@@ -650,8 +650,8 @@
     for (int i = dim; i < shape.size(); i++) {
         tmp.push_back(shape[i]);
     }
-    const std::vector<long int>& const_tmp = tmp;
-    shape = at::ArrayRef<long int>(const_tmp);
+    const std::vector<int64_t>& const_tmp = tmp;
+    shape = at::ArrayRef<int64_t>(const_tmp);
     auto out = at::empty({shape}, tensors[0].options());
 
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
@@ -1000,8 +1000,8 @@
     for (int i = dim+1; i < shape.size(); i++) {
         tmp.push_back(shape[i]);
     }
-    const std::vector<long int>& const_tmp = tmp;
-    shape = at::ArrayRef<long int>(const_tmp);
+    const std::vector<int64_t>& const_tmp = tmp;
+    shape = at::ArrayRef<int64_t>(const_tmp);
     auto out = at::empty({shape}, self.options());
   interface: diopiIndexSelect(ctx, out, self,  dim, index)
 
