@@ -16,14 +16,15 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
+from ..config import tops_debug
 
 
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()",
             "torch.bool": "builder::PrimitiveType::PRED()"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Fulllike', 'Getitem', 'Gather', 'Scatter', 'Batch_Norm', 
-             'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad']
+need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter', 
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -62,7 +63,6 @@ class EnflameCodegen(torch.fx.Interpreter):
         
         data_type = self.cur_node.meta['val'].dtype.__str__()
         if data_type not in type_set.keys():
-            print(data_type, flush=True)
             raise ValueError("Type error")
     
         in_shape = self.get_shape()
@@ -79,17 +79,17 @@ class EnflameCodegen(torch.fx.Interpreter):
         arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
         
-        # print("*******************Debug info*******************", flush=True)
-        print("name:", name, flush=True)
-        print("target:", target.name(), flush=True)
-        print("real_op:", real_op, flush=True)
-        print("args:", args, flush=True)
-        print("arg_code:", arg_code.getvalue(), flush=True)
-        print("args_list:", args_list, flush=True)
+        if tops_debug:
+            print("*******************Debug info*******************")
+            print("name:", name)
+            print("target:", target.name())
+            print("real_op:", real_op)
+            print("args:", args)
+            print("arg_code:", arg_code.getvalue())
+            print("args_list:", args_list)
+            print("op_code:", getattr(self.override, real_op)(*args_list))
 
         op_code = getattr(self.override, real_op)(*args_list)
-        
-        print("op_code:", op_code, flush=True)
         
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(f'{op_code}')
@@ -115,11 +115,11 @@ class EnflameCodegen(torch.fx.Interpreter):
     def codegen(self):
         self.run()
         test = self.generate_code()
-        with open('codegen.py', 'w') as f:
-            f.write(test)
-        
-        print("*******************Generated code*******************")
-        print(test, flush=True)
+        if tops_debug:
+            with open('codegen.py', 'w') as f:
+                f.write(test)
+            print("*******************Generated code*******************")
+            print(test)
 
         return test
 
@@ -339,7 +339,6 @@ class EnflameOverrides(OpOverrides):
         args_str = [op_var]
         count = 0
         if process_name(node.name, node.target) in need_node:
-            print('process_name(node.name, node.target):', process_name(node.name, node.target), flush=True)
             gen_const_flag = False
             args_str.append(node)
 
@@ -430,6 +429,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Div({x}, {y});"
     
     @staticmethod
+    def Dot(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+    
+    @staticmethod
     def Gemm(op_var, x, y):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
     
@@ -460,6 +463,10 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Relu(op_var, x):
         return f"builder::Op {op_var} = builder::Relu({x});"
+    
+    @staticmethod
+    def Sigmoid(op_var, x):
+        return f"builder::Op {op_var} = builder::Sigmoid({x});\n"
     
     @staticmethod
     def Convert(op_var, *args):
@@ -497,7 +504,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Fulllike_tmp(op_var, node, *args_str):
+    def Full(op_var, node, *args_str):
         src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
         src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
@@ -507,7 +514,7 @@ class EnflameOverrides(OpOverrides):
     def Fulllike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f"  builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});\n\n"
+        src_code = f"  builder::Op {op_var} = builder::FullLike({args_str[0]}, {str(node.args[1])}, {type_set[data_type]}, {shape});\n\n"
         return src_code
     
     @staticmethod
