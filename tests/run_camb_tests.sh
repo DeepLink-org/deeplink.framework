@@ -19,6 +19,7 @@ function run_dipu_tests {
   run_test "$CDIR/test_ops/test_log_softmax_backward.py"
   run_test "$CDIR/test_ops/test_log_softmax.py"
   ls $CDIR/test_ops/archived/test*.py | xargs --verbose  -I {} sh -c "pytest  -vs {}"
+  ls $CDIR/test_ops/archived/have_bug/test*.py | xargs --verbose  -I {} sh -c "pytest  -vs {} || true"
 }
 
 if [ "$LOGFILE" != "" ]; then

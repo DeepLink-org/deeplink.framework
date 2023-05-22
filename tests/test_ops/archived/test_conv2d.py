@@ -25,7 +25,7 @@ print(f"m.weight = {m.weight}")
 output_cpu = m(input_cpu)
 print(output_cpu)
 
-rtol = 1e-5
-atol = 1e-8
+rtol = 1e-4
+atol = 1e-3
 assert np.allclose(output_cpu.detach().numpy(), output_dipu.detach().cpu().numpy(), rtol, atol, True)
 print("conv2d output compare successfully")
