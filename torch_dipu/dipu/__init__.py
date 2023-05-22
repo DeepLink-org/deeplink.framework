@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 from .utils import is_initialized
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type

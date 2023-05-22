@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 from torch.nn import functional as F
 

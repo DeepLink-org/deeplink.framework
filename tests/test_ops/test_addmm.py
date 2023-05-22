@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 import numpy as np
 from torch_dipu.testing._internal.common_utils import cpu, dipu, \
