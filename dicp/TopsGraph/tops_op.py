@@ -424,6 +424,14 @@ class Scalar(Operator):
         self.torch_op = aten.scalar_tensor.default
 
 
+class Embedding(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Embedding")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.embedding.default
+
+
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:

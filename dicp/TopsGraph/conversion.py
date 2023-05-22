@@ -249,6 +249,10 @@ def zeros(*args, **kwargs):
 def scalar(*args, **kwargs):
     return tops_op.Scalar(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.embedding)
+def embedding(*args, **kwargs):
+    return tops_op.Embedding(*args, **kwargs)
+
 
 # Patterns
 def register_pattern(Pattern):

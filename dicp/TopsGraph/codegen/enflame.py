@@ -711,4 +711,34 @@ class EnflameOverrides(OpOverrides):
         src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {ksize}, {strides}, {padding});\n"
         
         return src_code
-    
+
+    @staticmethod
+    def Embedding(op_var, weight, indices, *args_str):
+        if args_str:
+            print(f"Warning: EnflameOverrides.Embedding encounter unknown args: {args_str}, ignore it")
+
+        collapsed_slice_dim = f"{op_var}_collapsed_slice_dim"
+        embedding_dim_size = f"{op_var}_embedding_dim_size"
+        slice_sizes = f"{op_var}_slice_sizes"
+        offset_dims = f"{op_var}_offset_dims"
+        indices_rank = f"{op_var}_indices_rank"
+        collapsed_slice_dims = f"{op_var}_collapsed_slice_dims"
+        start_index_map = f"{op_var}_start_index_map"
+        index_vector_dim = f"{op_var}_index_vector_dim"
+        gather_dim_params = f"{op_var}_gather_dim_params"
+        src_code = f"int64_t {collapsed_slice_dim} = 0;\n" \
+                   f"int64_t {embedding_dim_size} = {weight}.GetType().GetDimSize(1);\n" \
+                   f"std::vector<int64_t> {slice_sizes} = {{1, {embedding_dim_size}}};\n" \
+                   f"int64_t {indices_rank} = {indices}.GetType().GetRank();\n" \
+                   f"std::vector<int64_t> {offset_dims} = {{{indices_rank}}};\n" \
+                   f"std::vector<int64_t> {collapsed_slice_dims} = {{{collapsed_slice_dim}}};\n" \
+                   f"std::vector<int64_t> {start_index_map} = {{0}};\n" \
+                   f"int64_t {index_vector_dim} = {indices_rank};\n" \
+                   f"auto {gather_dim_params} = builder::GatherDimensionNumbers(\n" \
+                   f"    {offset_dims}, {collapsed_slice_dims}, {start_index_map}, {index_vector_dim}\n" \
+                   f");\n" \
+                   f"builder::Op {op_var} = builder::Gather(\n" \
+                   f"    {weight}, {indices}, {gather_dim_params}, {slice_sizes}\n" \
+                   f");\n" \
+
+        return src_code
