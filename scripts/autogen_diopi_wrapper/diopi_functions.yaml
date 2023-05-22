@@ -991,24 +991,17 @@
 
 - schema: "hardtanh_backward.grad_input(Tensor grad_output, Tensor self, Scalar min_val, Scalar max_val, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
-  
+
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
-  autocompare: True
   interface: diopiSilu(ctx, out, self)
 
 - schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
-  autocompare: True
   interface: diopiReciprocal(ctx, out, self)
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
-  print_func_call_info: True
   interface: diopiNormalInp(ctx, self, mean, std)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
-  autocompare: True
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
