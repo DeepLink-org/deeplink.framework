@@ -1071,6 +1071,9 @@
     if (dtype.has_value()) {
       dtype_ = dtype.value();
     }
+    if(step.toDouble() < 1e-5){
+      printf("step is too small, set to 1e-5\n");
+    }
     auto len = std::ceil((end.toDouble() - start.toDouble())/step.toDouble());
     auto out = at::empty(len, dtype_);
     const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start, at::kDouble);
