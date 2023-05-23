@@ -1016,13 +1016,22 @@
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiBmm(ctx, out, self, mat2)
 
+- schema: "permute(Tensor(a) self, int[] dims) -> Tensor(a)"
+  custom_code_at_the_beginning: >
+    std::vector<int64_t> index(dims.size());
+    for(int i =0 ;i < dims.size();i ++){
+      index[i]= self.sizes()[dims[i]];
+    }
+    auto out = at::empty(index);
+    ::diopiSize_t diopi_size = toDiopiSize(dims);
+  interface: diopiPermute(ctx, out, self, diopi_size)
 
 - schema: "arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
   print_func_call_info: True
   custom_code_at_the_beginning: >
     auto dtype_ = at::kLong;
     if(!dtype.has_value() && end.isFloatingPoint()){
-      dtype_ = at::kDouble;
+      dtype_ = at::kFloat;
     }
     if (dtype.has_value()) {
       dtype_ = dtype.value();
@@ -1031,7 +1040,7 @@
     auto out = at::empty(len, dtype_);
     const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
     const ::diopiScalar_t startDiopiScalar = dipu::diopi_helper::toDiopiScalar(0);
-    const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1);
+    const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar, &endDiopiScalar_, &stepDiopiScalar)
 
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1047,7 +1056,7 @@
   custom_code_at_the_beginning: >
     auto dtype_ = at::kLong;
     if(!dtype.has_value() && (end.isFloatingPoint() || start.isFloatingPoint())){
-      dtype_ = at::kDouble;
+      dtype_ = at::kFloat;
     }
     if (dtype.has_value()) {
       dtype_ = dtype.value();
@@ -1056,7 +1065,7 @@
     auto out = at::empty(len, dtype_);
     const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start);
     const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
-    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(1);
+    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar_, &endDiopiScalar_, &stepDiopiScalar_)
 
 - schema: "arange.start_step(Scalar start, Scalar end, Scalar step=1, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
@@ -1064,7 +1073,7 @@
   custom_code_at_the_beginning: >
     auto dtype_ = at::kLong;
     if(!dtype.has_value() && (end.isFloatingPoint() || start.isFloatingPoint() || step.isFloatingPoint())){
-      dtype_ = at::kDouble;
+      dtype_ = at::kFloat;
     }
     if (dtype.has_value()) {
       dtype_ = dtype.value();
@@ -1081,7 +1090,7 @@
   custom_code_at_the_beginning: >
     const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
     const ::diopiScalar_t startDiopiScalar = dipu::diopi_helper::toDiopiScalar(0);
-    const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1);
+    const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar, &endDiopiScalar_, &stepDiopiScalar)
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
