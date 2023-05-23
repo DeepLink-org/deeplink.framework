@@ -1031,7 +1031,7 @@
     }
     auto len = std::ceil(end.toDouble());
     auto out = at::empty(len, dtype_);
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
+    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
     const ::diopiScalar_t startDiopiScalar = dipu::diopi_helper::toDiopiScalar(0);
     const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar, &endDiopiScalar_, &stepDiopiScalar)
@@ -1039,9 +1039,9 @@
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
   print_func_call_info: True
   custom_code_at_the_beginning: >
-    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start);
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
-    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(step.toDouble());
+    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start, at::kDouble);
+    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
+    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(step, at::kDouble);
   interface: diopiArange(ctx, out, &startDiopiScalar_, &endDiopiScalar_, &stepDiopiScalar_)
 
 - schema: "arange.start(Scalar start, Scalar end, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
@@ -1056,8 +1056,8 @@
     }
     auto len = std::ceil(end.toDouble() - start.toDouble());
     auto out = at::empty(len, dtype_);
-    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start);
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
+    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start, at::kDouble);
+    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
     const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar_, &endDiopiScalar_, &stepDiopiScalar_)
 
@@ -1073,15 +1073,15 @@
     }
     auto len = std::ceil((end.toDouble() - start.toDouble())/step.toDouble());
     auto out = at::empty(len, dtype_);
-    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start);
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
-    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(step.toDouble());
+    const ::diopiScalar_t startDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(start, at::kDouble);
+    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
+    const ::diopiScalar_t stepDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(step,at::kDouble);
   interface: diopiArange(ctx, out, &startDiopiScalar_, &endDiopiScalar_, &stepDiopiScalar_)
 
 - schema: "arange.out(Scalar end, *, Tensor(a!) out) -> Tensor(a!)"
   print_func_call_info: True
   custom_code_at_the_beginning: >
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end);
+    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
     const ::diopiScalar_t startDiopiScalar = dipu::diopi_helper::toDiopiScalar(0);
     const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1.0);
   interface: diopiArange(ctx, out, &startDiopiScalar, &endDiopiScalar_, &stepDiopiScalar)
