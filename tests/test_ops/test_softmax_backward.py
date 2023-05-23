@@ -7,12 +7,12 @@ from torch_dipu.testing._internal.common_utils import create_common_tensor, Test
 
 class TestSoftmaxBackward(TestCase):
     def cpu_op_exec(self, input1, input2, n, dtype):
-        output = torch._softmax_backward_data(input1, input2, n, dtype)
+        output = torch._log_softmax_backward_data(input1, input2, n, dtype)
         output = output.numpy()
         return output
 
     def dipu_op_exec_new(self, input1, input2, n, dtype):
-        output = torch._softmax_backward_data(input1, input2, n, dtype)
+        output = torch._log_softmax_backward_data(input1, input2, n, dtype)
         output = output.to("cpu")
         output = output.numpy()
         return output
@@ -20,8 +20,8 @@ class TestSoftmaxBackward(TestCase):
     def softmax_backward_result(self, shape_format, min_lmt, max_lmt, dtype):
         for item in shape_format:
             dim = np.random.randint(0, len(item[2]))
-            cpu_input1, dipu_input1 = create_common_tensor(item, min_lmt, max_lmt)
-            cpu_input2, dipu_input2 = create_common_tensor(item, min_lmt, max_lmt)
+            cpu_input1, dipu_input1 = create_common_tensor(item, min_lmt, max_lmt, 'dipu')
+            cpu_input2, dipu_input2 = create_common_tensor(item, min_lmt, max_lmt, 'dipu')
             if cpu_input1.dtype == torch.float16:
                 cpu_input1 = cpu_input1.to(torch.float32)
                 cpu_input2 = cpu_input2.to(torch.float32)
