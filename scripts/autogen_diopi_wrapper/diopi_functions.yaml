@@ -539,7 +539,6 @@
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
@@ -941,7 +940,33 @@
 
 - schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
-    auto out = at::empty(condition.sizes(), self.options());
+
+
+    auto shapex = condition.sizes();
+    auto shapey = self.sizes();
+    auto shapez = other.sizes();
+    size_t xndims = shapex.size();
+    size_t yndims = shapey.size();
+    size_t zndims = shapez.size();
+    size_t maxndims = (xndims > yndims) ? xndims : yndims;
+    if (zndims > maxndims) maxndims = zndims;
+    size_t xndimsDif = maxndims - xndims;
+    size_t yndimsDif = maxndims - yndims;
+    size_t zndimsDif = maxndims - zndims;
+    std::vector<int64_t> tmp(maxndims);
+    for (int i = 0; i < maxndims; i++) {
+        size_t dimx = (i < xndimsDif) ? 1 : shapex[(i - xndimsDif+xndims)%xndims];
+        size_t dimy = (i < yndimsDif) ? 1 : shapey[(i - yndimsDif+yndims)%yndims];
+        size_t dimz = (i < zndimsDif) ? 1 : shapez[(i - zndimsDif+zndims)%zndims];
+        size_t dimo = (dimx > dimy) ? dimx : dimy;
+        if (dimz > dimo) dimo = dimz;
+        if (dimx == 0 || dimy == 0 || dimz == 0) dimo = 0;
+        tmp[i] = dimo;
+    }
+    auto shape = condition.sizes();
+    const std::vector<int64_t>& const_tmp = tmp;
+    shape = at::ArrayRef<int64_t>(const_tmp);
+    auto out = at::empty({shape}, self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
@@ -1010,3 +1035,6 @@
 
 - schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiClampMinScalar(ctx,out, self, min)
+
+
+
