@@ -548,7 +548,7 @@
     at::Tensor grad_bias;
     bool bias_has_value = output_mask[2];
     if (bias_has_value) {
-      grad_bias = at::empty({grad_output.size(1)}, grad_output.options());
+      grad_bias = at::empty({grad_output.size(-1)}, grad_output.options());
     }
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
