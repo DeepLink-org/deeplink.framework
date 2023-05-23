@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <acl/acl.h>
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
@@ -17,14 +18,20 @@ namespace devapis {
 //  Device class related
 // =====================
 using ascend_deviceId = int32_t;
+thread_local bool setDevFlag = false;
 
 static int initValue = [](){
   DIPU_CALLACLRT(aclInit(nullptr));
   DIPU_CALLACLRT(aclrtSetDevice(0));
+  setDevFlag = true;
   return 0;
 }();
 
 deviceId_t current_device() {
+  if (setDevFlag == false) {
+    DIPU_CALLACLRT(aclrtSetDevice(0));
+    setDevFlag = true;
+  }
   ascend_deviceId devId_;
   DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
@@ -54,6 +61,7 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 void setDevice(deviceId_t devId) {
   ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
   DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) {

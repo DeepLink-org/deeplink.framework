@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/EmptyTensor.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>

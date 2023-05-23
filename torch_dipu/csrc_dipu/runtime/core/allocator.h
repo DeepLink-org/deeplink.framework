@@ -1,8 +1,8 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
-#include <caffe2/core/logging.h>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>

@@ -50,7 +50,7 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
 # need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-target_link_libraries(${DIPU_LIB}  diopi_impl)
+target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 
 ## copy vendor header file

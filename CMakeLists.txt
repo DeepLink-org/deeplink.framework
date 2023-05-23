@@ -6,29 +6,31 @@ option(TESTS "Whether to build unit tests" OFF)
 option(LIBS  "Whether to build dipu lib, default on" ON)
 
 # device related
-option(CAMB "Whether to use CambriconNeuware when available" ON)
-option(CUDA "Whether to use CUDA when available" OFF)
-option(ASCEND "Whether to use ASCEND when available" OFF)
-
+set(DEVICE "camb" CACHE STRING "device string, default camb")
+list(APPEND DEVICE_CAMB "CAMB" "camb")
+list(APPEND DEVICE_CUDA "CUDA" "cuda")
+list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
+list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
 
 set(UsedVendor "")
-if (CAMB)
-  set(USE_CAMB ON)
-  set(UsedVendor camb)
-endif()
-
-if (CUDA)
-  set(USE_CUDA ON)
-  set(UsedVendor cuda)
-endif()
-
-if (ASCEND)
-  set(USE_ASCEND ON)
-  set(UsedVendor ascend)
+if (${DEVICE} IN_LIST DEVICE_CUDA)
+    set(USE_CUDA ON)
+    set(UsedVendor cuda)
+elseif (${DEVICE} IN_LIST DEVICE_CAMB)
+    set(USE_CAMB ON)
+    set(UsedVendor camb)
+elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
+    set(USE_ASCEND ON)
+    set(UsedVendor ascend)
+elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
+    set(USE_TOPSRIDER ON)
+    set(UsedVendor topsrider)
+else()
+    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND")
 endif()
 
 
@@ -54,8 +56,8 @@ include_directories(${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
-set(DIOPI_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
-include_directories(${DIOPI_PATH}/include)
+set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/DIOPI-PROTO")
+include_directories(${DIOPI_PROTO_PATH}/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
 
 if (LIBS)

@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 
 import copy
 import os
@@ -15,6 +16,11 @@ if dipu.vendor_type == "MLU":
     from tests.pytorch_config_mlu import DISABLED_TESTS, TEST_PRECISIONS
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
+elif dipu.vendor_type == "GCU":
+    from tests.pytorch_config_gcu import DISABLED_TESTS, TEST_PRECISIONS
+    _DISABLED_TESTS = DISABLED_TESTS
+    _TEST_PRECISIONS = TEST_PRECISIONS
+
 
 class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
