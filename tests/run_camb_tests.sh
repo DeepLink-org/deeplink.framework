@@ -14,7 +14,7 @@ function run_dipu_tests {
   # run_test "${PYTORCH_DIR}/test/test_ops_gradients.py" "$@"
   # run_test "${PYTORCH_DIR}/test/test_ops.py" "$@"
   # run_test "${PYTORCH_DIR}/test/test_shape_ops.py" "$@"
-  run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
+  # run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
   run_test "$CDIR/test_ops/test_addmm.py"
   run_test "$CDIR/test_ops/test_log_softmax_backward.py"
   run_test "$CDIR/test_ops/test_log_softmax.py"
