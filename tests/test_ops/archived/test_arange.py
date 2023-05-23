@@ -34,14 +34,14 @@ class TestSchema(unittest.TestCase):
         self.assertTrue(torch.allclose(dipu_c.to(cpu), cpu_c))
         self.assertTrue(torch.allclose(c_dipu_out.to(cpu), c_cpu_out))
 
-        dipu_d = torch.arange(start = 1, end = 2, step =  0.1, device=dipu).to(dipu)
-        cput_d = torch.arange(start = 1, end = 2, step = 0.1, device=cpu).to(cpu)
+        dipu_d = torch.arange(start = 1, end = 22, step =  3.1, device=dipu).to(dipu)
+        cput_d = torch.arange(start = 1, end = 22, step = 3.1, device=cpu).to(cpu)
         print(dipu_d, cput_d)
 
         self.assertTrue(torch.allclose(dipu_d.to(cpu), cput_d))
 
-        dipu_d = torch.arange(start = 0.1, end = 1.5, step = 0.1, device=dipu).to(dipu)
-        cput_d = torch.arange(start = 0.1 , end = 1.5 , step = 0.1, device=cpu).to(cpu)
+        dipu_d = torch.arange(start = 0.1, end = 115, step = 4.1, device=dipu).to(dipu)
+        cput_d = torch.arange(start = 0.1 , end = 115 , step = 4.1, device=cpu).to(cpu)
         self.assertTrue(torch.allclose(dipu_d.to(cpu), cput_d))
     
         
