@@ -60,7 +60,7 @@ namespace diopi_helper {
         result.stype = ::diopiDtype_t::diopi_dtype_float64;
         result.fval = scalar.toDouble();
         return result;
-    } else if (c10::isIntegralType(type)) {
+    } else if (c10::isIntegralType(type, false)) {
         result.stype = ::diopiDtype_t::diopi_dtype_int64;
         result.ival = static_cast<int64_t>(scalar.toLong());
         return result;
