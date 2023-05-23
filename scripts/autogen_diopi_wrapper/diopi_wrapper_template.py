@@ -20,6 +20,15 @@ bool checkDiopiReturnValue() {
     return enable;
 }
 
+void synchronizeIfEnable() {
+    static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
+    if (mode != nullptr) {
+        DIPU_LOG_ONCE << "The synchronous operation is performed after "
+            <<"the diopi function call because the DIPU_SYNC_EXEC_MODE environment variable is set" << std::endl;
+        dipu::getCurrentDIPUStream().synchronize();
+    }
+    return;
+}
 
 using namespace dipu::diopi_helper;
 
@@ -64,6 +73,8 @@ $cppsignautre {
     }
 
     $custom_code_before_return
+
+    synchronizeIfEnable();
 
     $return_code
 }
