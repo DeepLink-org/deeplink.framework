@@ -351,8 +351,23 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = opname.split('.')[0]
     if opname[-1] == '_':
         opname = opname[0:len(opname) - 1]
-    #code = create_return_code_frome_schema(schema) + ' result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+
+    sym_int_array_params = re.findall('[ ,\)]?SymInt\[\d?\] *([\w\d_]+)', schema)
+    if len(sym_int_array_params) > 0:
+        sym_int_process_code = create_int_array_process_code(sym_int_array_params) + '\n'
+    else:
+        sym_int_process_code = ''
+
     code = 'auto ' + ' result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+    for sym_int_param in sym_int_array_params:
+        code = code.replace(sym_int_param, sym_int_param + 'Vector')
+
+    code = sym_int_process_code + code
+
+    sym_int_params = re.findall('[ ,\)]?SymInt\ *([\w\d_]+)', schema)
+    for sym_int_param in sym_int_params:
+        code = re.sub('([ ,\(])?' + sym_int_param + '([, \)])?', R'\1' + sym_int_param + R'.expect_int()\2', code)
+
 
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
@@ -496,7 +511,7 @@ def functions_code_gen(fun_config):
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
     for scalar_param in get_function_optional_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
-        diopi_fun_call_code = re.sub(scalar_param.strip(), f"{scalar_param}DiopiScalarPtr", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
 
 
