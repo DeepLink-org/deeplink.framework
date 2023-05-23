@@ -40,6 +40,6 @@ using deviceEvent_t = cnrtNotifier_t;
 using deviceHandle_t = cnnlHandle_t;
 
 using diclComm_t = cnclComm_t;
-using commUniqueId_t = cnclCliqueId_t;
+using commUniqueId = cnclCliqueId;
 
 }

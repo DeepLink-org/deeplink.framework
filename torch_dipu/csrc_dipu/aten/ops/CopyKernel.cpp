@@ -60,7 +60,7 @@ namespace dipu::native {
 
     dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
-        DIPU_LOGE("Copy data back to CPU device with " \
+        DIPU_LOGW("Copy data back to CPU device with " \
             "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {
@@ -69,7 +69,7 @@ namespace dipu::native {
   }
 
   //  1. expand, 2. patial view. 3. type cast.
-  inline bool isStorageSizeDiff(const at::Tensor& dst, const at::Tensor& src) {
+  inline bool isTensorOptionsDiff(const at::Tensor& dst, const at::Tensor& src) {
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     return srcBytes != dstBytes;
@@ -86,7 +86,7 @@ namespace dipu::native {
     dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
     if (non_blocking) {
-        DIPU_LOGE("Copy between devices with " \
+        DIPU_LOGW("warnning: Copy between devices with " \
             "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {

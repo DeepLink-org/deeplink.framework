@@ -175,17 +175,17 @@ c10::intrusive_ptr<Work> barrier_dipu(
 TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("send", send_dipu);
   m.impl("recv_", recv_dipu_);
-  m.impl("reduce_", reduce_dipu_);
   m.impl("broadcast_", broadcast_dipu_);
-
   m.impl("allreduce_", allreduce_dipu_);
   m.impl("allgather_", allgather_dipu_);
+  m.impl("barrier", barrier_dipu);
 
+  // unregistered op, we expect it can fallback to cpu, but it not work now (it's hard to sync).
+  // m.impl("reduce_", reduce_dipu_);
   // m.impl("reduce_scatter_", reduce_scatter_dipu_);
   // m.impl("gather_", gather_dipu_);
   // m.impl("scatter_", scatter_dipu_);
 
-  m.impl("barrier", barrier_dipu);
 }
 
 

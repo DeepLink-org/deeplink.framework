@@ -13,10 +13,10 @@ include_directories(${DIST_DIR})
 
 # src
 file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
-    runtime/distributed/*.cpp
     runtime/core/allocator.cpp
     runtime/core/DIPU*.cpp
     runtime/core/device.cpp
+    runtime/distributed/*.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp

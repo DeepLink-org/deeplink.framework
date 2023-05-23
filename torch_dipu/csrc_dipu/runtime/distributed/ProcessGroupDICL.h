@@ -32,7 +32,7 @@ using BarrierOptions = c10d::BarrierOptions;
 // Environment variable which controls whether or not wait() is blocking or
 // non-blocking.
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
-constexpr int64_t diclSyncBusyWaitMillis = 10;
+constexpr int64_t diclSyncBusyWaitMillis = 30;
 
 // ProcessGroupDICL implements DICLbindings for c10d.
 //
@@ -83,10 +83,15 @@ class DIPU_API ProcessGroupDICL : public Backend {
  public:
   class WorkDICL : public Work {
   public:
-    // Constructor takes a list of DIPU devices
-    WorkDICL(const std::vector<at::Device>& devices); // NOLINT
+    // Constructor takes a list of dicl comms
+    WorkDICL(std::vector<std::shared_ptr<DICLComm>>& comms, bool blockingWait, 
+            std::chrono::milliseconds opTimeout): diclComms_(comms),
+            blockingWait_(blockingWait), opTimeout_(opTimeout),
+            workStartTime_(std::chrono::steady_clock::now()) {
+      workEvents_.resize(diclComms_.size());
+    } // NOLINT
 
-    virtual ~WorkDICL();
+    virtual ~WorkDICL() {}
 
     // Checks if request has completed. In this specific case of DICL, it checks
     // if the DICL operation has completed on the DIPU in its own DICL queue.
@@ -95,33 +100,29 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
     bool isSuccess() const override;
 
+    void record();
+
     // Same as calling synchronize() for DICL work.
-    bool wait(std::chrono::milliseconds timeout = kNoTimeout) override;
+    bool wait(std::chrono::milliseconds timeout = kBackendDefaultTimeout) override;
 
     // Let current stream wait on the completing of the DICL work
     // Throws on exceptions
     void synchronize() override;
 
   protected:
-    // The cached list of DIPU devices to operate on
-    std::vector<at::Device> devices_;
-
-    // The DIPU events tracking this work item on DIPU device
-    std::vector<dipu::DIPUEvent> events_;
-
     // The DICL communicators used for this work item.
     std::vector<std::shared_ptr<DICLComm>> diclComms_;
 
-
-    // Clone of blockingWait_ from ProcessGroupDICL.
-    bool blockingWait_ = false;
-
-    // Tensors used for barrier op
-    std::vector<at::Tensor> barrierTensors_;
+    // The DIPU events used to sync DICL work on comm stream
+    std::vector<DIPUEvent> workEvents_;
 
     // Just checks whether DIPU execution has completed, without modifying
     // exception_ptr.
     bool finishedDICLExecutionInternal() const;
+    bool barrier_ = false;
+
+    // Clone of blockingWait_ from ProcessGroupDICL.
+    bool blockingWait_ = false;
 
     // Clone of opTimeout_ from ProcessGroupHCCL.
     std::chrono::milliseconds opTimeout_;
@@ -176,13 +177,16 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Work> barrier(const BarrierOptions& opts = BarrierOptions()) override;
 
+  c10::intrusive_ptr<Store> getStore() {
+    return this->store_;
+  }
+
  protected:
   // different device may need extend this func to do device specific check
   virtual void checkDeviceTensors(const std::vector<at::Tensor>& tensors);
-  virtual c10::intrusive_ptr<ProcessGroupDICL::WorkDICL> initWork(std::vector<at::Device> devices);
 
   // Helper that broadcasts DICL clique ID to all ranks through the store
-  virtual void broadcastUniqueID(commUniqueId_t uniqueId, bool isSingleP2POp,
+  virtual void broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2POp,
                               const std::string& p2pKey, int p2pRank);
 
   // Helper that either looks up the cached DICL communicators or creates
@@ -232,27 +236,17 @@ class DIPU_API ProcessGroupDICL : public Backend {
   // Mutex to guard devDICLCommMap_.
   std::mutex devDICLCommMapLock_;
 
-  // The DIPU queues used by DICL kernels
-  std::unordered_map<std::string, std::vector<DIPUStream>> diclStreams_;
-
-  // The DIPU events used to sync DICL queues
-  std::unordered_map<std::string, std::vector<DIPUEvent>> diclEvents_;
-
   // Device Indexes used for all collectives in this group
   std::set<int> usedDeviceIdxs_;
 
   // Whether or not wait() and synchronize() are blocking operations that wait
   // for the operation to complete.
-  bool blockingWait_ = false;
+  bool blockingWait_ = true;
 
-  std::chrono::milliseconds opTimeout_;
-
-  // Time point representing when the work started.
-  std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
-
+  std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 };
 
-c10::intrusive_ptr<c10d::Backend> createProcessGroupDICL(
+c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
       const c10::intrusive_ptr<::c10d::Store> &store,
       int rank,
       int size,

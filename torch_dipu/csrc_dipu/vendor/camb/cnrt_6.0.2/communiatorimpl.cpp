@@ -15,14 +15,14 @@ namespace devapis {
     }
   }
 
-  DIPU_API diclResult_t diclGetUniqueId(commUniqueId_t uniqueId) {
+  DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {
     CNCL_THROW(cnclGetCliqueId(uniqueId));
     return DICL_SUCCESS;
   }
 
-  DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, const commUniqueId_t uniqueId,
+  DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, commUniqueId uniqueId,
                                           int rank, int localDeviceId) {
-    CNCL_THROW(cnclInitComms(comm, 1, &localDeviceId, &rank, nranks, uniqueId));
+    CNCL_THROW(cnclInitComms(comm, 1, &localDeviceId, &rank, nranks, &uniqueId));
     return DICL_SUCCESS;
   }
 

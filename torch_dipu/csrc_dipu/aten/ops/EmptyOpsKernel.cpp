@@ -1,6 +1,8 @@
 #include <ATen/EmptyTensor.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
+#include <c10/core/DispatchKeySet.h>
+#include <c10/core/DispatchKey.h>
 #include <c10/util/accumulate.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
@@ -34,7 +36,7 @@ namespace dipu::native {
         allocator,
         true);
 
-    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
+    constexpr c10::DispatchKeySet dipu_ks(c10::DispatchKey::PrivateUse1);
     auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl), dipu_ks, dtype);
 
     // Default at::TensorImpl has size [0]
@@ -61,8 +63,8 @@ namespace dipu::native {
     auto dtype = dtype_or_default(dtype_opt);
 
     c10::Allocator *allocator = dipu::getDIPUAllocator();
-    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
+    constexpr c10::DispatchKeySet dipu_ks(c10::DispatchKey::PrivateUse1);
     return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks, dtype);
   }
 
-} //end ns dipu::native
+} //end ns dipu::native  

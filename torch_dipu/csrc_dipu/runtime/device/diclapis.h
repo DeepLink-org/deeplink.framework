@@ -20,9 +20,9 @@ namespace devapis {
 
   DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm);
 
-  DIPU_API diclResult_t diclGetUniqueId(commUniqueId_t uniqueId);
+  DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId);
 
-  DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, const commUniqueId_t uniqueId, int rank, int localDeviceId = -1);
+  DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, commUniqueId uniqueId, int rank, int localDeviceId = -1);
 
   // DIPU_API void diclCommInitAll(diclComm_t* comms, int ndev, const int* devlist);
 

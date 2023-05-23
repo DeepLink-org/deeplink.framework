@@ -3,6 +3,9 @@
 
 #include <algorithm>
 
+#include <c10/core/Device.h>
+
+#include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/runtime/device/diclapis.h>
 
 namespace dipu {
@@ -10,9 +13,9 @@ namespace dipu {
 // wrapper of vendor raw communicator
 class DICLComm {
 public:
-  explicit DICLComm(diclComm_t rawComm) : rawComm_(rawComm) {}
-
-  DICLComm() : DICLComm(nullptr) {}
+  explicit DICLComm(DIPUStream& bindStream): diclStream_(bindStream),
+                                            device_(bindStream.device()) {
+  }
 
   ~DICLComm() noexcept {
     // Add lock in this destructor, as aborted_ needs to be read after memory
@@ -23,29 +26,43 @@ public:
       rawComm_ = nullptr;
     }
   }
-  static std::shared_ptr<DICLComm> create(int numRanks, int rank, commUniqueId_t uniqueid, int localDeviceId = -1) {
-    auto comm = std::make_shared<DICLComm>();
-    devapis::diclCommInitRank(&(comm->rawComm_), numRanks, uniqueid, rank, localDeviceId);
+  static std::shared_ptr<DICLComm> create(int numRanks, int rank, commUniqueId uniqueid, DIPUStream& stream) {
+    auto comm = std::make_shared<DICLComm>(stream);
+    comm->initRawComm(numRanks, rank, uniqueid);
     return comm;
   }
 
+  void initRawComm(int numRanks, int rank, commUniqueId uniqueid) {
+      devapis::diclCommInitRank(&rawComm_, numRanks, uniqueid, rank, static_cast<int>(device_.index()));
+  }
   // Must not be copyable
   DICLComm(const DICLComm&) = delete;
   DICLComm& operator=(const DICLComm&) = delete;
 
   // Move constructable
-  DICLComm(DICLComm&& other) {
-    std::swap(rawComm_, other.rawComm_);
-  }
+  DICLComm(DICLComm&& other) = delete; 
   // Move assignable
-  DICLComm& operator=(DICLComm&& other) {
-    std::swap(rawComm_, other.rawComm_);
-    return *this;
-  }
+  DICLComm& operator=(DICLComm&& other) = delete;
 
   diclComm_t rawComm() const{
     return rawComm_;
   }
+
+  void preSyncStream() {
+    auto currStream = dipu::getCurrentDIPUStream(device_.index());
+    preEvent_.record(currStream);
+    preEvent_.wait(diclStream_);
+    // currStream.synchronize();
+  }
+
+  // The DIPU queues used by DICL kernels
+  DIPUStream diclStream_;
+  // The DIPU events used to sync current stream
+  DIPUEvent preEvent_;
+
+  // The cached list of DIPU devices to operate on
+  at::Device device_;
+
 
 protected:
   bool aborted_ = false;

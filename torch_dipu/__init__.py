@@ -12,7 +12,7 @@ from torch_dipu import dipu
 from torch_dipu.dipu import *
 from torch.serialization import register_package
 from .dipu.device import _get_device_index
-dicl_backend = _C.dicl_backend
+from .dipu.distributed import apply_dist_patch
 
 def validate_dipu_device(location):
     device = _get_device_index(location, True)
@@ -170,13 +170,12 @@ def apply_temp_patch():
     # although setitem (IndexPut) has no problem, but it's bwd use getitem (Index)
     torch.Tensor. __setitem__ = get_itemop_wrapper(torch.Tensor.__setitem__)
 
-def apply_distributed_patch():
-  pass
 
 def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
     apply_temp_patch()
-    apply_distributed_patch()
+    apply_dist_patch()
+
 
 apply_patches()

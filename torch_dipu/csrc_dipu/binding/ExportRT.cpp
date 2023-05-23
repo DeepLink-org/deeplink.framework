@@ -168,25 +168,31 @@ static void exportEvent(py::module& m) {
 
 static void exportCommunicator(py::module& m) {
 
-  // pybind11::class_<ProcessGroupDICL, c10::intrusive_ptr<ProcessGroupDICL>>(m, "ProcessGroupDICL", c10::Backend)
-  //   .def(
-  //       py::init([](const c10::intrusive_ptr<c10d::Store>& store,
-  //                   int rank,
-  //                   int size,
-  //                   const std::chrono::milliseconds& timeout) {
-  //         // return createProcessGroupDICL(store, rank, size, timeout);
-  //       }),
-  //       py::arg("store"),
-  //       py::arg("rank"),
-  //       py::arg("size"),
-  //       py::arg("timeout") = kBackendDefaultTimeout,
-  //       py::call_guard<py::gil_scoped_release>());
+  pybind11::class_<ProcessGroupDICL, c10d::Backend, c10::intrusive_ptr<ProcessGroupDICL>>(m, "ProcessGroupDICL")
+    .def(
+        py::init([](const c10::intrusive_ptr<c10d::Store>& store,
+                    int rank,
+                    int size,
+                    const std::chrono::milliseconds& timeout) {
+          return createProcessGroupDICL(store, rank, size, timeout);
+        }),
+        py::arg("store"),
+        py::arg("rank"),
+        py::arg("size"),
+        py::arg("timeout") = kBackendDefaultTimeout,
+        py::call_guard<py::gil_scoped_release>())
+    .def("store", &ProcessGroupDICL::getStore)
+    .def("timeout", [](ProcessGroupDICL& self) {
+        // need enhance to support tiemout
+          return kBackendDefaultTimeout;
+    });
 
-  py::object mdist = py::module::import("torch.distributed");
-  py::object register_backend = mdist.attr("Backend").attr("register_backend");
+
+  // py::object mdist = py::module::import("torch.distributed");
+  // py::object register_backend = mdist.attr("Backend").attr("register_backend");
   // The first parameter is the backend name used by user in invoking
   // torch.distributed.init_process_group().
-  register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
+  // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
 DIPU_API void exportDIPURuntime(PyObject* module) {

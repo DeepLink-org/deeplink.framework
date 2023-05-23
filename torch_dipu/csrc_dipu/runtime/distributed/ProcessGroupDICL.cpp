@@ -1,17 +1,23 @@
 #include <ATen/record_function.h>
+#include <torch/torch.h>
 
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
 #include <csrc_dipu/common.h>
 #include "./ProcessGroupDICL.h"
-
-
 namespace dipu {
-
 namespace {
 
 // Get the deviceList String from the list of devices
-static std::string getKeyFromDevices(const std::vector<at::Device>& devices) {
-  return std::to_string(devices[0].index());
+std::string getKeyFromDevices(const std::vector<at::Device>& devices) {
+  std::string deviceList;
+  for (auto& device : devices) {
+    if (deviceList.empty()) {
+      deviceList = std::to_string(device.index());
+    } else {
+      deviceList += "," + std::to_string(device.index());
+    }
+  }
+  return deviceList;
 }
 
 static std::string getKeySendRecv(int my_rank, int peer) {
@@ -32,28 +38,17 @@ static std::vector<at::Device> getDeviceList(const std::vector<at::Tensor>& tens
   return res;
 }
 
-static void syncStreams(const std::vector<at::Device>& devices,
-                        std::vector<DIPUEvent>& events,
-                        std::vector<DIPUStream>& workStreams) {
-  for (size_t i = 0; i < devices.size(); ++i) {
-    auto currStream = dipu::getCurrentDIPUStream(devices[i].index());
-    events[i].record(currStream);
-    events[i].wait(workStreams[i]);
-    // currStream.synchronize();
+static void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
+  for (size_t i = 0; i < comms.size(); ++i) {
+    comms[i]->preSyncStream();
   }
 }
 
 }  // anonymous namespace
 
 // start WorkDICL
-ProcessGroupDICL::WorkDICL::WorkDICL(const std::vector<at::Device>& devices)
-  :devices_(devices) {
-    TORCH_CHECK(devices_.size() > 1,
-        "dipu comm using one processtion-multidevices is not fully tested ", 
-        " you can comment out this assert if you try to test, ");
-}
 
-ProcessGroupDICL::WorkDICL::~WorkDICL() {}
+// ProcessGroupDICL::WorkDICL::~WorkDICL() {}
 
 // currently DICL do not support error check
 bool ProcessGroupDICL::WorkDICL::isCompleted() { return finishedDICLExecutionInternal(); }
@@ -62,21 +57,26 @@ bool ProcessGroupDICL::WorkDICL::isCompleted() { return finishedDICLExecutionInt
 bool ProcessGroupDICL::WorkDICL::isSuccess() const { return finishedDICLExecutionInternal(); }
 
 bool ProcessGroupDICL::WorkDICL::finishedDICLExecutionInternal() const {
-  for (size_t i = 0; i < devices_.size(); ++i) {
-    if (!events_[i].query()) {
+  for (auto& workEvent : workEvents_) {
+    if (!workEvent.query()) {
       return false;
     }
   }
-  return false;
+  return true;
 }
 
-// Waiting on the work's corresponding CNRT events
-void ProcessGroupDICL::WorkDICL::synchronize() {
+// record post work event on communicator stream
+void ProcessGroupDICL::WorkDICL::record() {
+  for (auto i = 0; i < workEvents_.size(); i++) {
+    workEvents_[i].record(diclComms_[i]->diclStream_);
+  }
+}
 
-  for (size_t i = 0; i < devices_.size(); ++i) {
-    auto currentStream = dipu::getCurrentDIPUStream(devices_[i].index());
-    // Block the current stream on the DICL stream
-    events_[i].wait(currentStream);
+void ProcessGroupDICL::WorkDICL::synchronize() {
+  for (auto i = 0; i < workEvents_.size(); i++) {
+    auto currentStream = dipu::getCurrentDIPUStream(diclComms_[i]->device_.index());
+    // Block the current stream(calculate stream) on the DICL comm stream
+     workEvents_[i].wait(currentStream);
   }
 
   // In case of blocking, wait for the operation to complete.
@@ -94,10 +94,11 @@ void ProcessGroupDICL::WorkDICL::synchronize() {
   }
 
    // Device synchronize only after we've completed timeout checks.
-  if (!barrierTensors_.empty()) {
+   // only barrier() call this
+  if (barrier_) {
     // If we use the work to do barrier, we should block here
-    for (auto& device : devices_) {
-      DIPUGuard dipuGuard(device);
+    for (auto& comm : diclComms_) {
+      DIPUGuard dipuGuard(comm->device_);
       devapis::syncDevice();
     }
   }
@@ -135,7 +136,7 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
 
 ProcessGroupDICL::~ProcessGroupDICL() {}
 
-void ProcessGroupDICL::broadcastUniqueID(commUniqueId_t uniqueId, bool isSingleP2POp,
+void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2POp,
       const std::string& p2pKey, int p2pRank) {
   // For collective operations:
   // For every DICL communicator that we create we need to broadcast
@@ -193,42 +194,31 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std
   }
   // not cached, create a new entry
   std::vector<std::shared_ptr<DICLComm>> diclComms;
-  diclComms.resize(devices.size());
+  auto devSize = devices.size();
+  diclComms.resize(devSize);
 
-  commUniqueId_t diclID;
+  commUniqueId diclID;
 
-    bool singleP2POp = isP2POp(opType, false);
+  bool singleP2POp = isP2POp(opType, false);
   // For point-to-point communication, lower rank of the two will get unique id.
   if (rank_ == 0 || (singleP2POp && p2pRank == 0)) {
-    devapis::diclGetUniqueId(diclID);
+    devapis::diclGetUniqueId(&diclID);
   }
 
-  broadcastUniqueID(diclID, singleP2POp, devicesKey, p2pRank);
+  broadcastUniqueID(&diclID, singleP2POp, devicesKey, p2pRank);
 
   OptionalDIPUGuard dipuGuard;
-  std::vector<DIPUStream> streamVal;
-  streamVal.reserve(devices.size());
 
-  for (size_t i = 0; i < devices.size(); ++i) {
+
+  for (int i=0; i < devSize; i++) {
     int numRanks = getSize();
-    int rank = getRank() * devices.size() + i;
+    int rank = getRank() * devSize + i;
     dipuGuard.reset_device(devices[i]);
 
-    diclComms[i] = DICLComm::create(numRanks, rank, diclID);
-
-    // Creates the DICL streams
-    streamVal.push_back(getDIPUStreamFromPool(devices[i].index()));
+    // auto commStream = getDIPUStreamFromPool(devices[i].index());
+    auto commStream = getCurrentDIPUStream(devices[i].index());
+    diclComms[i] = DICLComm::create(numRanks, rank, diclID, commStream);
   }
-  diclStreams_.emplace(devicesKey, std::move(streamVal));
-
-  // Note: these events are created with the (default) cudaEventDisableTiming
-  // flag This flag provides the best performance when used with
-  // StreamWaitEvent() and EventQuery(). Since we here don't measure the
-  // performance using npuEvent, this should be set.
-  diclEvents_.emplace(
-      std::piecewise_construct,
-      std::make_tuple(devicesKey),
-      std::make_tuple(devices.size()));
 
   // Hold the lock before modifying the cache.
   std::lock_guard<std::mutex> lock(devDICLCommMapLock_);
@@ -277,7 +267,6 @@ std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::T
   }
   return flattened;
 }
-
 }  // annoy namespace
 
 
@@ -297,15 +286,6 @@ void ProcessGroupDICL::checkDeviceTensors(const std::vector<at::Tensor>& tensors
   }
 }
 
-c10::intrusive_ptr<ProcessGroupDICL::WorkDICL> ProcessGroupDICL::initWork(
-    std::vector<at::Device> devices) {
-  if (devices.size() != 1) {
-    throw std::runtime_error(
-        "ProcessGroupHCCL support one device per process only");
-  }
-  return c10::make_intrusive<ProcessGroupDICL::WorkDICL>(devices);
-}
-
 // std::function< diclResult_t(at::Tensor&, at::Tensor&, DiclComm, DIPUStream&) >
 
 template <typename Fn, typename PreProcess, typename PostProcess>
@@ -313,16 +293,21 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
     PreProcess pre, PostProcess post, OpType opType) {
   const auto devices = getDeviceList(inputs);
+
+  TORCH_CHECK(devices.size() == 1,
+    "dipu support one device per process only, multidevices is not fully tested ", 
+    " you can comment out this assert if you try to test,");
   const auto key = getKeyFromDevices(devices);
   auto diclComms = getDICLComms(key, devices, opType);
 
   // First let DICL streams wait for input tensors allocation streams
-  syncStreams(devices, diclEvents_[key], diclStreams_[key]);
-  // Work itself will create the events on all NPUs of tensors
-  auto work = initWork(devices);
+  syncStreams(diclComms);
 
   OptionalDIPUGuard dipuGuard;
-  pre(diclStreams_[key]);
+  pre(diclComms);
+
+  std::cout << inputs[0] << std::endl;
+
 
   for (size_t i = 0; i < inputs.size(); ++i) {
     dipuGuard.reset_device(devices[i]);
@@ -334,24 +319,21 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     // We only record `inputs' here, and leave recording `outputs' to `fn' for
     // operations where `inputs' and `outputs' are not the same.
     //
-
     // See [Sync Streams].
     // add recordStream after cacheAllocator ready
     // DIPUCachingAllocator::recordStream(
-    //     inputs[i].storage().data_ptr(), diclComm);
+    //     inputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
  
-    fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclStreams_[key][i]);
+    fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
   }
 
-  post(diclStreams_[key]);
+  auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(diclComms, blockingWait_, opTimeout_);
+  work->record();
 
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    DIPUStream& diclStream = diclStreams_[key][i];
-    work->events_[i].record(diclStream);
-    work->diclComms_[i] = diclComms[i];
-    work->blockingWait_ = blockingWait_;
-    work->opTimeout_ = opTimeout_;
-  }
+  work->wait();
+
+
+  post(diclComms);
 
   return work;
 }
@@ -359,8 +341,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
 template <typename Fn>
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs, Fn fn, OpType opType) {
-  return collective(inputs, outputs, fn, [](std::vector<DIPUStream>&) {},
-                    [](std::vector<DIPUStream>&) {}, opType);
+  return collective(inputs, outputs, fn, [](std::vector<std::shared_ptr<DICLComm>>&) {},
+                    [](std::vector<std::shared_ptr<DICLComm>>&) {}, opType);
 }
 
 
@@ -420,10 +402,21 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<std::vector<at::Tensor>>& output_tensors,
     std::vector<at::Tensor>& input_tensors, const AllgatherOptions& opts) {
   checkDeviceTensors(input_tensors);
-  auto outputFlattened =
-      flatten_for_scatter_gather(output_tensors, input_tensors, size_);
 
-  return collective(input_tensors, outputFlattened,
+
+  auto option1 = torch::dtype(c10::ScalarType::Long).device(torch::kPrivateUse1);
+  torch::Tensor y1 = torch::ones({1, 2}, option1);
+  torch::Device device(torch::kCPU);
+  // y1 = t1.to(device);
+  std::cout << y1 << std::endl;
+
+  std::cout << input_tensors[0].to(device) << std::endl;
+
+
+  auto outputFlattened =
+      flatten_for_scatter_gather(output_tensors, input_tensors, this->size_);
+
+  auto work = collective(input_tensors, outputFlattened,
     [&](at::Tensor& input,
         at::Tensor& output,
         diclComm_t comm,
@@ -441,23 +434,28 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
           comm,
           stream.rawstream());
     },
-    [&](std::vector<DIPUStream>& diclStreams) {},
-    [&](std::vector<DIPUStream>& diclStreams) {
+    [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
+    [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
       // Copy the flattened output tensors to the outputs.
       for (size_t i = 0; i < output_tensors.size(); ++i) {
-        DIPUStreamGuard guard(diclStreams[i].unwrap());
+        DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
         for (size_t j = 0; j < output_tensors[0].size(); ++j) {
 
           // // See [Sync Streams].
           // add recordStream after cacheAllocator ready
           // DIPUCachingAllocator::recordStream(
-          //     output_tensors[i][j].storage().data_ptr(), diclStreams[i]);
+          //     output_tensors[i][j].storage().data_ptr(), diclComms[i]->diclStream_);
 
-          output_tensors[i][j].copy_(outputFlattened[i][j], true);
+          output_tensors[i][j].copy_(outputFlattened[i][j], false);
+
         }
       }
     }, 
     OpType::ALLGATHER);
+
+    // remove wait after recordStream() finish
+    work->wait();
+    return work;
 }
 
 
@@ -529,16 +527,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::barrier(
   }
 
   auto work = allreduce(barrierTensors);
-
-  // Work will take over barrierTensors
   auto diclWork = dynamic_cast<ProcessGroupDICL::WorkDICL*>(work.get());
-  TORCH_CHECK(diclWork);
-  diclWork->barrierTensors_ = std::move(barrierTensors);
+  diclWork->barrier_ = true;
 
   return work;
 }
 
-c10::intrusive_ptr<c10d::Backend> createProcessGroupDICL(
+c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
       const c10::intrusive_ptr<::c10d::Store> &store,
       int rank,
       int size,
