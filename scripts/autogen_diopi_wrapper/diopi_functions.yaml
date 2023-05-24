@@ -947,29 +947,12 @@
 
 - schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
-
-
     auto shapex = condition.sizes();
     auto shapey = self.sizes();
     auto shapez = other.sizes();
-    size_t xndims = shapex.size();
-    size_t yndims = shapey.size();
-    size_t zndims = shapez.size();
-    size_t maxndims = (xndims > yndims) ? xndims : yndims;
-    if (zndims > maxndims) maxndims = zndims;
-    size_t xndimsDif = maxndims - xndims;
-    size_t yndimsDif = maxndims - yndims;
-    size_t zndimsDif = maxndims - zndims;
-    std::vector<int64_t> tmp(maxndims);
-    for (int i = 0; i < maxndims; i++) {
-        size_t dimx = (i < xndimsDif) ? 1 : shapex[(i - xndimsDif+xndims)%xndims];
-        size_t dimy = (i < yndimsDif) ? 1 : shapey[(i - yndimsDif+yndims)%yndims];
-        size_t dimz = (i < zndimsDif) ? 1 : shapez[(i - zndimsDif+zndims)%zndims];
-        size_t dimo = (dimx > dimy) ? dimx : dimy;
-        if (dimz > dimo) dimo = dimz;
-        if (dimx == 0 || dimy == 0 || dimz == 0) dimo = 0;
-        tmp[i] = dimo;
-    }
+    auto shapea = at::infer_size(shapex, shapey);
+    auto shapeb = at::infer_size(shapez, shapey);
+    auto tmp = at::infer_size(shapea, shapeb);
     auto shape = condition.sizes();
     const std::vector<int64_t>& const_tmp = tmp;
     shape = at::ArrayRef<int64_t>(const_tmp);
