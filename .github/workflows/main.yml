@@ -158,7 +158,7 @@ jobs:
         run: |
           cd ${NV_PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts
           rsync -a --delete ${GITHUB_WORKSPACE}/ ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}
-          cd ${NV_SOURCE_PATH}/pytorch/pytorch && git checkout main && git pull \
+          cd ${NV_SOURCE_PATH}/pytorch/pytorch && git stash && git checkout main && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
       - name: build
         run: |
