@@ -321,12 +321,19 @@ class Dot(Operator):
 
 
 class Concatenate(Operator):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, x, dim):
         super().__init__("concatenate")
-        self.args = args
-        self.args = kwargs
+        self.x = x
+        self.dim = dim
         self.torch_op = aten.cat.default
 
+    # handle immutable_list to list[tensor] for torch.cat args[0]
+    def __call__(self, x, dim):
+        t:list[torch.Tensor] = []
+        for i in x:
+            assert(hasattr(i, 'meta'))
+            t.append(i.meta['val'])
+        return aten.cat.default(t, dim)
 
 class EmptyLike(Operator):
     def __init__(self, *args, **kwargs):

@@ -26,7 +26,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
 
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul']
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 'Concatenate']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -365,6 +365,14 @@ class EnflameOverrides(OpOverrides):
                     for j in range(0, len(tmp)):
                         tmp[j] = (tmp[j] + len(args[0].meta['val'].shape)) % len(args[0].meta['val'].shape)
                     args_str.append(str(tmp).replace('[', '{').replace(']', '}'))
+                elif any(args[i]) and isinstance(args[i][0], Node):
+                     nodelistarg = '{'
+                     for i in args[i]:
+                        assert(isinstance(i, Node))
+                        nodelistarg += ' ' + str(args_dict[i.name]) + ','
+                     nodelistarg += '}'
+                     nodelistarg = nodelistarg.replace(",}", "}")
+                     args_str.append(nodelistarg)
                 else:
                     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
             else:
@@ -403,7 +411,6 @@ class EnflameOverrides(OpOverrides):
                     src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_value_type{count});\n')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
-
         return src_code, args_str
 
     @staticmethod
@@ -833,3 +840,13 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Type  {op_var}outputs_type( {op_var}tuple_shape,  {op_var}tuple_dtype);\n"
         src_code += f"builder::Op  {op_var} = builder::Tuple( {op_var}outputs,  {op_var}outputs_type);\n"
         return src_code
+
+    @staticmethod
+    def Concatenate(op_var, node, x):
+        # dim in torch.cat ranges:
+        # [-len(x.shape.size()), len(x.shape.size())-1]
+        # handle negative dim for tops side.
+        y = node.args[1]
+        if (node.args[1] < 0 ):
+            y = len(node.meta["val"][0].shape) + node.args[1] + 1
+        return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
