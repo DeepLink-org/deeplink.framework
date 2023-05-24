@@ -75,7 +75,7 @@ jobs:
   #         bash scripts/ci_lint.sh cpp-lint &&  cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
   #         """
 
-  Build-Pytorch-Camb:
+  Build-Pytorch:
     name: Build pytorch Camb
     needs: [Rsync]
     runs-on: github-poc-ci
