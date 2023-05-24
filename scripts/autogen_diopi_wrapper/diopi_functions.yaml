@@ -1018,12 +1018,6 @@
     auto out = at::empty(index);
     ::diopiSize_t diopi_size = toDiopiSize(dims);
   interface: diopiPermute(ctx, out, self, diopi_size)
-  print_func_call_info: True
-  custom_code_at_the_beginning: >
-    const ::diopiScalar_t endDiopiScalar_ = dipu::diopi_helper::toDiopiScalar(end, at::kDouble);
-    const ::diopiScalar_t startDiopiScalar = dipu::diopi_helper::toDiopiScalar(0);
-    const ::diopiScalar_t stepDiopiScalar = dipu::diopi_helper::toDiopiScalar(1.0);
-  interface: diopiArange(ctx, out, &startDiopiScalar, &endDiopiScalar_, &stepDiopiScalar)
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSilu(ctx, out, self)
