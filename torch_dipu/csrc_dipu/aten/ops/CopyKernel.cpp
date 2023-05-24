@@ -3,6 +3,8 @@
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
+#include <c10/util/Exception.h>
+#include <c10/core/Layout.h>
 #include <ATen/Dispatch.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
@@ -70,10 +72,19 @@ namespace dipu::native {
   }
 
   //  1. expand, 2. patial view. 3. type cast.
-  inline bool isTensorOptionsDiff(const at::Tensor& dst, const at::Tensor& src) {
+  inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
+    // assume layout always = not suppport Sparse layout
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided, "only Strided layout is supported");
+  
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    return srcBytes != dstBytes || dst.nbytes() != src.nbytes();
+    if (srcBytes != dstBytes || dst.nbytes() != src.nbytes()) {
+      return false;
+    }
+    if (dst.options().dtype() != src.options().dtype()) {
+      return false;
+    }
+    return true;
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
@@ -120,7 +131,7 @@ namespace dipu::native {
     if (names.has_value()) {
       internal_set_names_inplace(self, names);
     }
-    if (isStorageSizeDiff(self, src)) {
+    if (!canDirectCopy(self, src)) {
       at::Tensor src_cpu = src;
       // src to cpu
       if (dipu::isDeviceTensor(src)) {

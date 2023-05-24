@@ -4,6 +4,23 @@ namespace dipu {
 
 namespace devapis {
 
+  // CNCL type typing
+  static std::map<at::ScalarType, cnclDataType_t> cncl_data_type = {
+      {at::kChar, cnclInt8}, {at::kByte, cnclUint8}, {at::kFloat, cnclFloat},
+      {at::kInt, cnclInt32}, {at::kLong, cnclInt32}, {at::kHalf, cnclHalf},
+      {at::kDouble, cnclFloat}
+  };
+
+  static convertTypeSize(size_t& count, at::ScalarType& datatype) {
+    auto cnnltype = cncl_data_type[datatype];
+    if (cnnltype == nullptr && (datatype == at::ScalarType::Long || datatype ==  at::ScalarType::Double)) {
+      datatype = at::kByte;
+      count = count * sizeof(long);
+    } else {
+      throw std::runtime_error("communcator not support input type!");  
+    }
+  }
+
   const int DICL_UNIQUE_ID_BYTES_SIZE = CNCL_CLIQUE_ID_BYTES_SIZE;
 
   DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm) {
@@ -39,6 +56,7 @@ namespace devapis {
 
   DIPU_API diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff, size_t count, at::ScalarType datatype,
                               const ReduceOp& reduceOp, diclComm_t comm, deviceStream_t stream) {
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclAllReduce(sendbuff, recvbuff, count, cncl_data_type[datatype], cncl_op[reduceOp],
                               comm, stream));
     return DICL_SUCCESS;

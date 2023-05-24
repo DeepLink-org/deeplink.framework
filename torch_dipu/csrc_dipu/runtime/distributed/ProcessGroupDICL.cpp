@@ -75,7 +75,7 @@ void ProcessGroupDICL::WorkDICL::record() {
 void ProcessGroupDICL::WorkDICL::synchronize() {
   for (auto i = 0; i < workEvents_.size(); i++) {
     auto currentStream = dipu::getCurrentDIPUStream(diclComms_[i]->device_.index());
-    // Block the current stream(calculate stream) on the DICL comm stream
+    // Block the current stream(calculate stream) on the DICL comm stream event
      workEvents_[i].wait(currentStream);
   }
 
@@ -209,14 +209,15 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std
 
   OptionalDIPUGuard dipuGuard;
 
-
   for (int i=0; i < devSize; i++) {
     int numRanks = getSize();
     int rank = getRank() * devSize + i;
     dipuGuard.reset_device(devices[i]);
 
-    // auto commStream = getDIPUStreamFromPool(devices[i].index());
-    auto commStream = getCurrentDIPUStream(devices[i].index());
+    // need use pool stream, not current stream. fix stream guard err.
+    auto commStream = getDIPUStreamFromPool(devices[i].index());
+    // auto commStream = getCurrentDIPUStream(devices[i].index());
+
     diclComms[i] = DICLComm::create(numRanks, rank, diclID, commStream);
   }
 
@@ -287,7 +288,7 @@ void ProcessGroupDICL::checkDeviceTensors(const std::vector<at::Tensor>& tensors
 }
 
 // std::function< diclResult_t(at::Tensor&, at::Tensor&, DiclComm, DIPUStream&) >
-
+// enhance: need change template params to lamada, make collective() func overridable by sub class
 template <typename Fn, typename PreProcess, typename PostProcess>
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
@@ -302,39 +303,29 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
 
   // First let DICL streams wait for input tensors allocation streams
   syncStreams(diclComms);
+  auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(diclComms, blockingWait_, opTimeout_);
 
   OptionalDIPUGuard dipuGuard;
   pre(diclComms);
 
-  std::cout << inputs[0] << std::endl;
-
-
   for (size_t i = 0; i < inputs.size(); ++i) {
     dipuGuard.reset_device(devices[i]);
 
-    // Both `inputs' and `outputs' are created on a worker stream and used in
-    // different hcclStreams.  Hence, both must record the hcclStream to
-    // prevent being freed before the collective finishes.
-    //
-    // We only record `inputs' here, and leave recording `outputs' to `fn' for
-    // operations where `inputs' and `outputs' are not the same.
-    //
     // See [Sync Streams].
     // add recordStream after cacheAllocator ready
     // DIPUCachingAllocator::recordStream(
     //     inputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
- 
-    fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
+
+    // need add adapter to handle int64/double! camb not support double
+    // fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
+
+    // test just copy, mock with comm stream
+    DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
+    outputs[i].copy_(inputs[i], false);  
   }
 
-  auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(diclComms, blockingWait_, opTimeout_);
-  work->record();
-
-  work->wait();
-
-
   post(diclComms);
-
+  work->record();
   return work;
 }
 
@@ -344,7 +335,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(std::vector<at::Tensor>& i
   return collective(inputs, outputs, fn, [](std::vector<std::shared_ptr<DICLComm>>&) {},
                     [](std::vector<std::shared_ptr<DICLComm>>&) {}, opType);
 }
-
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
@@ -403,16 +393,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<at::Tensor>& input_tensors, const AllgatherOptions& opts) {
   checkDeviceTensors(input_tensors);
 
-
-  auto option1 = torch::dtype(c10::ScalarType::Long).device(torch::kPrivateUse1);
-  torch::Tensor y1 = torch::ones({1, 2}, option1);
-  torch::Device device(torch::kCPU);
-  // y1 = t1.to(device);
-  std::cout << y1 << std::endl;
-
-  std::cout << input_tensors[0].to(device) << std::endl;
-
-
   auto outputFlattened =
       flatten_for_scatter_gather(output_tensors, input_tensors, this->size_);
 
@@ -440,21 +420,21 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       for (size_t i = 0; i < output_tensors.size(); ++i) {
         DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
         for (size_t j = 0; j < output_tensors[0].size(); ++j) {
-
           // // See [Sync Streams].
           // add recordStream after cacheAllocator ready
           // DIPUCachingAllocator::recordStream(
           //     output_tensors[i][j].storage().data_ptr(), diclComms[i]->diclStream_);
-
           output_tensors[i][j].copy_(outputFlattened[i][j], false);
-
         }
       }
     }, 
     OpType::ALLGATHER);
-
-    // remove wait after recordStream() finish
+    // remove this wait after recordStream() finish
     work->wait();
+
+    std::cout << outputFlattened[0] << std::endl;
+    std::cout << output_tensors[0][0] << std::endl;
+
     return work;
 }
 

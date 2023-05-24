@@ -24,12 +24,6 @@ namespace devapis {
       {ReduceOp::PRODUCT, cnclProd},
   };
 
-  // CNCL type typing
-  static std::map<at::ScalarType, cnclDataType_t> cncl_data_type = {
-      {at::kChar, cnclInt8}, {at::kByte, cnclUint8}, {at::kFloat, cnclFloat},
-      {at::kInt, cnclInt32}, {at::kLong, cnclInt32}, {at::kHalf, cnclHalf},
-      {at::kDouble, cnclFloat}
-  };
 
   #define CNCL_THROW(cmd)                                              \
     do {                                                                    \
