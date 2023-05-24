@@ -150,18 +150,21 @@ jobs:
       - name: pull code
         run: |
           cd ${NV_PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts
-          cd ${NV_SOURCE_PATH}/pytorch/pytorch && git checkout master && git pull \
+          cd ${NV_SOURCE_PATH}/pytorch/pytorch && git checkout main && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
-#          result=`mkdir -p  ${SOURCE_PATH}/pytorch/${PYTORCH_COMMIT} && `
       - name: build
         run: |
           set -e
           set -o pipefail
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/source && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${GITHUB_JOB} && sed -i 's/\"//g' ${GITHUB_JOB} && sed -i 's/,//g' ${GITHUB_JOB} && sed -i 's/:[ ]/=\"/g' ${GITHUB_JOB} && sed -i 's/$/&\"/' ${GITHUB_JOB} && sed -i 's/^/&export/' ${GITHUB_JOB}
-          container_name=$(docker run --tty --detach \
-          -v ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
-          -v ${NV_SOURCE_PATH}/tools:${HOME}/tools \
-          -v ${NV_SOURCE_PATH}/pytorch:${HOME}/pytorch \
-          ${CI_IMAGE} )
-          docker exec -t "${container_name}" bash -c "source ${HOME}/tools/run.sh && source /home/source/${GITHUB_JOB} && cd ${HOME}/pytorch/ && bash .ci/pytorch/build.sh && cp -R build dist .pytorch-test-times.json /home/artifacts/ " \
-          && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+          if [ -f ${NV_SOURCE_PATH}/pytorch/pytorch/${PYTORCH_COMMIT} ]; then
+            echo "${NV_SOURCE_PATH}/pytorch/pytorch/${PYTORCH_COMMIT} has been successfully compiled."
+          else
+            cd ${NV_SOURCE_PATH}/pytorch/pytorch && echo '${{ toJSON(env) }}' |grep -v '{\|}'> ${GITHUB_JOB} && sed -i 's/\"//g' ${GITHUB_JOB} && sed -i 's/,//g' ${GITHUB_JOB} && sed -i 's/:[ ]/=\"/g' ${GITHUB_JOB} && sed -i 's/$/&\"/' ${GITHUB_JOB} && sed -i 's/^/&export/' ${GITHUB_JOB}
+            container_name=$(docker run --tty --detach \
+            -v ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
+            -v ${NV_SOURCE_PATH}/tools:${HOME}/tools \
+            -v ${NV_SOURCE_PATH}/pytorch/pytorch:${HOME}/pytorch \
+            ${CI_IMAGE} )
+            docker exec -t "${container_name}" bash -c "source ${HOME}/tools/run.sh && cd ${HOME}/pytorch/ &&source ${GITHUB_JOB} && bash .ci/pytorch/build.sh && cp -R build dist .pytorch-test-times.json /home/artifacts/ && echo 'build'> ${PYTORCH_COMMIT} " \
+            && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+          fi
