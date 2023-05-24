@@ -188,8 +188,8 @@ jobs:
       - name: Build diopi-poc
         run: |
           set -e
-          cd ${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          export GPU_ID=`python3 ${SOURCE_PATH}/tools/get_gpu.py delete ${GPU_NUM}`
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          export GPU_ID=`python3 ${NV_SOURCE_PATH}/tools/get_gpu.py delete ${GPU_NUM}`
           container_name=$(docker run --runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=${GPU_ID} --tty --detach \
           --shm-size=2g --cap-add=SYS_PTRACE \
           -v ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/:/home/ \
@@ -197,4 +197,4 @@ jobs:
           -v ${NV_SOURCE_PATH}/pytorch:${HOME}/pytorch \
           ${CI_IMAGE} )
           docker exec -t "${container_name}" bash -c "pip install /home/artifacts/dist/*.whl && cd /home/${GITHUB_JOB} && source scripts/ci_cuda_env.sh && bash scripts/ci_cuda_script.sh build_dipu "
-          && docker rm -f ${container_name} || ( docker rm -f ${container_name} && exit 1 )
+          && python3 ${NV_SOURCE_PATH}/tools/get_gpu.py create ${GPU_ID} && docker rm -f ${container_name} || ( python3 ${NV_SOURCE_PATH}/tools/get_gpu.py create ${GPU_ID} && docker rm -f ${container_name} && exit 1 )
