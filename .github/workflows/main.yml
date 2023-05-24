@@ -183,7 +183,7 @@ jobs:
     needs: [Build-Pytorch-Cuda]
     runs-on: tps-pytorch-ci
     env:
-      GPU_REQUESTS: 1
+      GPU_NUM: 1
     steps:
       - name: Build diopi-poc
         run: |
