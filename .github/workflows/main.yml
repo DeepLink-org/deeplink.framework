@@ -133,3 +133,29 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
+  
+  Test-One-Iter:
+    name: test-one-iter
+    needs: [Build-POC-Camb]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: clone-repos
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          git clone https://github.com/ParrotsDL/SMART.git -b ywt/one_iter_tool_for_mmcv_2.0
+          git clone https://github.com/DeepLink-org/mmpretrain.git -b camb-one-iter
+          """
+      - name: run-one-iter-tools
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci_camb_env.sh
+
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh Build-POC-Camb/scripts/ci_camb_one_iter.sh
+          """
