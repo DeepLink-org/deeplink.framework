@@ -21,8 +21,10 @@ target = torch.randint(5, (3,), dtype = torch.int64)
 test_cross_entropy_loss(input, target, "dipu")
 test_cross_entropy_loss(input, target, "cpu")
 
+
+#Probabilities for each class are not supported by cnnl
 # target with class probabilities
-input = torch.randn(3, 5)
-target = torch.randn(3, 5).softmax(dim = 1)
-test_cross_entropy_loss(input, target, "dipu")
-test_cross_entropy_loss(input, target, "cpu")
+#input = torch.randn(3, 5)
+#target = torch.randn(3, 5).softmax(dim = 1)
+#test_cross_entropy_loss(input, target, "dipu")
+#test_cross_entropy_loss(input, target, "cpu")

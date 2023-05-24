@@ -583,12 +583,11 @@
   forward_process_code: >
     bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
     std::array<bool, 3> output_mask{input.requires_grad(), weight.requires_grad(), bias_has_value};
-  saved_data: [output_mask, input, weight, bias]
+  saved_data: [output_mask, input, weight]
   cal_grad_code: >
     auto output_mask = output_mask_.to<std::array<bool, 3>>();
     auto input = input_.toTensor();
     auto weight = weight_.toTensor();
-    auto bias = bias_.toTensor();
     auto grad_output = grad_outputs[0];
   backward_schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   backward_return_code: >
