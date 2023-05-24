@@ -148,7 +148,7 @@ jobs:
           rm -rf mmpretrain && git clone -b camb-one-iter https://github.com/DeepLink-org/mmpretrain.git
           rm -rf mmcv && git clone -b v2.0.0 https://github.com/open-mmlab/mmcv.git
           rm -rf mmengine && git clone -b v0.7.3 https://github.com/open-mmlab/mmengine.git
-          rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          rsync -a ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
 
       - name: run-one-iter-tools
         run: |
