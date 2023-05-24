@@ -143,19 +143,22 @@ jobs:
     steps:
       - name: clone-repos
         run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
-          git clone https://github.com/ParrotsDL/SMART.git -b ywt/one_iter_tool_for_mmcv_2.0
-          git clone https://github.com/DeepLink-org/mmpretrain.git -b camb-one-iter
-          """
+          cd ${GITHUB_WORKSPACE}
+          rm -rf SMART && git clone https://github.com/ParrotsDL/SMART.git -b ywt/one_iter_tool_for_mmcv_2.0
+          rm -rf mmpretrain && git clone https://github.com/DeepLink-org/mmpretrain.git -b camb-one-iter
+          rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git -b v2.0.0
+          rm -rf mmengine && git clone https://github.com/open-mmlab/mmengine.git -b v0.7.3
+          ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
+          rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+
       - name: run-one-iter-tools
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source
+          ls
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-
+          source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/scripts/ci_camb_env.sh
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh Build-POC-Camb/scripts/ci_camb_one_iter.sh
           """
