@@ -21,10 +21,12 @@ from ..config import tops_debug
 
 type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()",
-            "torch.bool": "builder::PrimitiveType::PRED()"}
+            "torch.bool": "builder::PrimitiveType::PRED()",
+            "torch.complex64": "builder::PrimitiveType::F32()"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter', 
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad']
+
+need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 'Concatenate']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -72,7 +74,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.build_graph_code.writeline(f'builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});')
         self.build_graph_code.writeline(f'builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);\n')
 
-    def call_function(self, name, target, args, kwargs):   
+    def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = 'op' + str(len(self.args_dict))
 
@@ -363,6 +365,14 @@ class EnflameOverrides(OpOverrides):
                     for j in range(0, len(tmp)):
                         tmp[j] = (tmp[j] + len(args[0].meta['val'].shape)) % len(args[0].meta['val'].shape)
                     args_str.append(str(tmp).replace('[', '{').replace(']', '}'))
+                elif any(args[i]) and isinstance(args[i][0], Node):
+                     nodelistarg = '{'
+                     for i in args[i]:
+                        assert(isinstance(i, Node))
+                        nodelistarg += ' ' + str(args_dict[i.name]) + ','
+                     nodelistarg += '}'
+                     nodelistarg = nodelistarg.replace(",}", "}")
+                     args_str.append(nodelistarg)
                 else:
                     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
             else:
@@ -401,7 +411,6 @@ class EnflameOverrides(OpOverrides):
                     src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_value_type{count});\n')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
-
         return src_code, args_str
 
     @staticmethod
@@ -680,7 +689,7 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
 
-    @staticmethod            
+    @staticmethod
     def MaxPool2D(op_var, node, *args_str):
         args = node.args
         
@@ -749,3 +758,95 @@ class EnflameOverrides(OpOverrides):
                    f");\n" \
 
         return src_code
+    # [a + bi] ===> tops.tuple(a, bi)
+    @staticmethod
+    def Complex(op_var, node, x):
+        src = f"auto {op_var}part0_limit_indices =  {x}_in_shape;\n"
+        src += f"int {op_var}in_shape_size = {x}_in_shape.size();\n"
+        src += f"{op_var}part0_limit_indices[{op_var}in_shape_size - 1]--;\n"
+
+        src += f"std::vector<int64_t> {op_var}part0_start_indices({op_var}in_shape_size, 0);\n"
+        src += f"std::vector<int64_t> {op_var}part1_start_indices({op_var}in_shape_size, 0);\n"
+        src += f"{op_var}part1_start_indices[{op_var}in_shape_size - 1] = 1;\n"
+        src += f"std::vector<int64_t> {op_var}stride( {op_var}in_shape_size, 1);\n"
+
+        src += f"builder::Op {op_var}split0 = builder::Slice({x}, {op_var}part0_start_indices, {op_var}part0_limit_indices, {op_var}stride);\n"
+        src += f"builder::Op {op_var}split1 = builder::Slice({x}, {op_var}part1_start_indices, {x}_in_shape, {op_var}stride);\n"
+
+        t = '{'
+        t += f"{op_var}split0, {op_var}split1"
+        t += '}'
+
+        src += f"//\n"
+        src += f"std::vector<builder::Op>  {op_var}outputs {t};\n"
+        src += f"std::vector<builder::PrimitiveType>  {op_var}tuple_dtype;\n"
+        src += f"std::vector<std::vector<int64_t>>  {op_var}tuple_shape;\n"
+        src += f"for (uint i = 0; i < {op_var}outputs.size(); i++) " + '{' + "\n"
+        src += f"   {op_var}tuple_shape.push_back( {op_var}outputs[i].GetType().GetShape());\n"
+        src += f"   {op_var}tuple_dtype.push_back( {op_var}outputs[i].GetType().GetPrimitiveType());\n"
+        src += "}\n"
+        src += f"builder::Type  {op_var}outputs_type( {op_var}tuple_shape,  {op_var}tuple_dtype);\n"
+        src += f"builder::Op  {op_var} = builder::Tuple( {op_var}outputs,  {op_var}outputs_type);\n"
+        return src
+
+    # tops.tuple(a, bi)====>[a,b]
+    @staticmethod
+    def Viewasreal(op_var, node, x):
+        src_code = f"int {op_var}irel = 0;\n"
+        src_code += f"int {op_var}iimg = 1;\n"
+        src_code += f"builder::Op {op_var}real = builder::GetTupleElement({x}, {op_var}irel);\n"
+        src_code += f"builder::Op {op_var}imag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+        t = '{'
+        t += f"{op_var}real, {op_var}imag"
+        t += '}'
+
+        src_code += f"std::vector<builder::Op> {op_var}real_imag = {t};\n"
+        dimension = len(node.meta['val'].shape)-1
+        src_code += f'builder::Op {op_var} = builder::Concatenate({op_var}real_imag, {dimension});\n'
+
+        return src_code
+
+    #(a + bi)(c + di) = (ac -bd) + (ad + bd)i
+    @staticmethod
+    def Complexmul(op_var, node, x, y):
+        src_code = f"int {op_var}irel = 0;\n"
+        src_code += f"int {op_var}iimg = 1;\n"
+        src_code += f"builder::Op {op_var}xreal = builder::GetTupleElement({x}, {op_var}irel);\n"
+        src_code += f"builder::Op {op_var}ximag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+
+        src_code += f"builder::Op {op_var}yreal = builder::GetTupleElement({y}, {op_var}irel);\n"
+        src_code += f"builder::Op {op_var}yimag = builder::GetTupleElement({y}, {op_var}iimg);\n"
+
+        src_code += f"builder::Op {op_var}xreal_yreal = builder::Mul({op_var}xreal, {op_var}yreal);\n"
+        src_code += f"builder::Op {op_var}ximag_yimag = builder::Mul({op_var}ximag, {op_var}yimag);\n"
+
+        src_code += f"builder::Op {op_var}xreal_yimag = builder::Mul({op_var}xreal, {op_var}yimag);\n"
+        src_code += f"builder::Op {op_var}ximag_yreal = builder::Mul({op_var}ximag, {op_var}yreal);\n"
+
+        src_code += f"builder::Op {op_var}mul_real = builder::Sub({op_var}xreal_yreal, {op_var}ximag_yimag);\n"
+        src_code += f"builder::Op {op_var}mul_imag = builder::Add({op_var}xreal_yimag, {op_var}ximag_yreal);\n"
+
+        t = '{'
+        t += f"{op_var}mul_real, {op_var}mul_imag"
+        t += '}'
+
+        src_code += f"std::vector<builder::Op>  {op_var}outputs {t};\n"
+        src_code += f"std::vector<builder::PrimitiveType>  {op_var}tuple_dtype;\n"
+        src_code += f"std::vector<std::vector<int64_t>>  {op_var}tuple_shape;\n"
+        src_code += f"for (uint i = 0; i <  {op_var}outputs.size(); i++) " + '{' + "\n"
+        src_code += f"   {op_var}tuple_shape.push_back( {op_var}outputs[i].GetType().GetShape());\n"
+        src_code += f"   {op_var}tuple_dtype.push_back( {op_var}outputs[i].GetType().GetPrimitiveType());\n"
+        src_code += "}\n"
+        src_code += f"builder::Type  {op_var}outputs_type( {op_var}tuple_shape,  {op_var}tuple_dtype);\n"
+        src_code += f"builder::Op  {op_var} = builder::Tuple( {op_var}outputs,  {op_var}outputs_type);\n"
+        return src_code
+
+    @staticmethod
+    def Concatenate(op_var, node, x):
+        # dim in torch.cat ranges:
+        # [-len(x.shape.size()), len(x.shape.size())-1]
+        # handle negative dim for tops side.
+        y = node.args[1]
+        if (node.args[1] < 0 ):
+            y = len(node.meta["val"][0].shape) + node.args[1] + 1
+        return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
