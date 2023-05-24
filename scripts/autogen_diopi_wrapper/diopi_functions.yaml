@@ -134,6 +134,27 @@
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
 
+- schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
+  custom_code_at_the_beginning: >
+    const auto input_shape = input.sizes();
+    std::vector<int64_t> stat_shape(input_shape.cbegin(), input_shape.cbegin() + (input_shape.size() - normalized_shape.size()));
+    auto options = input.options().dtype(at::kFloat);
+    auto save_mean = at::empty(stat_shape, options);
+    auto save_invstd = at::empty(stat_shape, options);
+    auto out = at::empty_like(input);
+  interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
+
+- schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  custom_code_at_the_beginning: >
+    auto options = grad_out.options();
+    auto grad_input = output_mask[0] ? at::empty(input.sizes(), options) : at::Tensor();
+    auto grad_weight = output_mask[1] ? at::empty(weight.value().sizes(), options) : at::Tensor();
+    auto grad_bias = output_mask[2] ? at::empty(bias.value().sizes(), options) : at::Tensor();
+  interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
+
+- schema: "aten::native_layer_norm_backward.out(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask, *, Tensor(a!) grad_input, Tensor(b!) grad_weight, Tensor(c!) grad_bias) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
+  interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
+
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
@@ -776,6 +797,10 @@
 
 - schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSoftmax(ctx, out, self, dim);
+
+- schema: "_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) grad_input) -> Tensor(a!)"
+  interface: diopiSoftmaxBackward(ctx, grad_input, grad_output, output, dim);
+
 
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
