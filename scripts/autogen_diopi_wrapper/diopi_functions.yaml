@@ -1009,16 +1009,6 @@
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiBmm(ctx, out, self, mat2)
 
-- schema: "permute(Tensor(a) self, int[] dims) -> Tensor(a)"
-  custom_code_at_the_beginning: >
-    std::vector<int64_t> index(dims.size());
-    for(int i =0 ;i < dims.size();i ++){
-      index[i]= self.sizes()[dims[i]];
-    }
-    auto out = at::empty(index);
-    ::diopiSize_t diopi_size = toDiopiSize(dims);
-  interface: diopiPermute(ctx, out, self, diopi_size)
-
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSilu(ctx, out, self)
 
