@@ -535,7 +535,6 @@
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
-  print_func_call_info: True
   custom_code_at_the_beginning: >
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
@@ -887,6 +886,7 @@
     dim += ((dim >= 0) ? 0 : self.sizes().size());
     auto output_size = self.sizes().vec();
   interface: diopiMax(ctx, max, max_indices, self, dim)
+
 - schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
 
@@ -948,7 +948,9 @@
 
 - schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
-    auto out = at::empty(condition.sizes(), self.options());
+    auto shape = at::infer_size(condition.sizes(), self.sizes());
+    shape = at::infer_size(shape, other.sizes());
+    auto out = at::empty(shape, self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
@@ -1046,5 +1048,7 @@
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
-
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
+- schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface:  diopiFloor(ctx, out,self);
