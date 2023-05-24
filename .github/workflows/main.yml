@@ -138,8 +138,8 @@ jobs:
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
 
-  Build-Pytorch-NV:
-    name: Build pytorch NV
+  Build-Pytorch-V100:
+    name: Build pytorch V100
     needs: [Rsync]
     runs-on: tps-pytorch-ci
     env:
@@ -156,8 +156,8 @@ jobs:
           submodules: 'true'
       - name: rsync and pull code
         run: |
-          cd ${NV_PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts
-          rsync -a --delete ${GITHUB_WORKSPACE}/ ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}
+          cd ${NV_PVC_PATH} && rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER}/artifacts && mkdir -p ${GITHUB_RUN_NUMBER}/source
+          rsync -a ${GITHUB_WORKSPACE}/ ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/source/
           cd ${NV_SOURCE_PATH}/pytorch/pytorch && git stash && git checkout main && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
       - name: build
