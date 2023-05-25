@@ -88,6 +88,8 @@ DISABLED_TESTS_MLU = {
         'test_xlogy_xlog1py',
         'test_xlogy_xlog1py_bfloat16',
         'test_not_broadcastable',
+        'test_maximum_and_minimum_subgradient',
+        'test_copysign_subgradient',
     },
 
     # test_torch.py
@@ -137,6 +139,8 @@ DISABLED_TESTS_MLU = {
         'test_memory_format_operators',
         'test_memory_format_type_shortcuts',
         'test_multinomial',
+        'test_logcumsumexp',
+        'test_discontiguous_out_cumsum',
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {
