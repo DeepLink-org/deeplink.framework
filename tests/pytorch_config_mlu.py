@@ -131,6 +131,23 @@ DISABLED_TESTS_MLU = {
         'test_boolean_shape_mismatch',
         'test_boolean_indexing_weirdness',
         'test_boolean_indexing_weirdness_tensors',
+    },
+
+    # test_type_promotion.py
+    'TestTypePromotionDIPU':{
+        # CASHED
+        'test_bfloat16',
+        # FAIL
+        'test_alternate_result',
+        'test_div_promotion',
+        'test_div_promotion_inplace',
+        # ERROR
+        'test_comparison_ops_with_type_promotion',
+        'test_complex_promotion',
+        'test_complex_scalar_mult_tensor_promotion',
+        'test_create_bool_tensors',
+        'test_lt_with_type_promotion',
+        'test_many_promotions',
     }
 }
 
