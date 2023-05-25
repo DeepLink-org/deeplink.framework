@@ -109,7 +109,18 @@ class DIPU_API ProcessGroupDICL : public Backend {
     // Throws on exceptions
     void synchronize() override;
 
+    std::vector<at::Tensor> result() override;
+
+    c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
+
   protected:
+    // Store a reference to DICL collective's outputs, used by result and to
+    // give a more descriptive message when representing the Work as a string.
+    std::shared_ptr<std::vector<at::Tensor>> outputs_;
+
+    // The future returned by getFuture.
+    c10::intrusive_ptr<at::ivalue::Future> future_;
+  
     // The DICL communicators used for this work item.
     std::vector<std::shared_ptr<DICLComm>> diclComms_;
 

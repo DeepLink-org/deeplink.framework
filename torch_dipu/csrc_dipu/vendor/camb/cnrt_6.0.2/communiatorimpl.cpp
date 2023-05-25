@@ -6,18 +6,16 @@ namespace devapis {
 
   // CNCL type typing
   static std::map<at::ScalarType, cnclDataType_t> cncl_data_type = {
-      {at::kChar, cnclInt8}, {at::kByte, cnclUint8}, {at::kFloat, cnclFloat},
-      {at::kInt, cnclInt32}, {at::kLong, cnclInt32}, {at::kHalf, cnclHalf},
-      {at::kDouble, cnclFloat}
+      {at::kChar, cnclInt8}, {at::kByte, cnclUint8}, {at::kHalf, cnclHalf},
+      {at::kFloat, cnclFloat}, {at::kInt, cnclInt32}, {at::kLong, cnclInvalid}, 
+      {at::kDouble, cnclInvalid}
   };
 
-  static convertTypeSize(size_t& count, at::ScalarType& datatype) {
+  static void convertTypeSize(size_t& count, at::ScalarType& datatype) {
     auto cnnltype = cncl_data_type[datatype];
-    if (cnnltype == nullptr && (datatype == at::ScalarType::Long || datatype ==  at::ScalarType::Double)) {
+    if (cnnltype == cnclDataType_t::cnclInvalid && (datatype == at::ScalarType::Long || datatype ==  at::ScalarType::Double)) {
       datatype = at::kByte;
       count = count * sizeof(long);
-    } else {
-      throw std::runtime_error("communcator not support input type!");  
     }
   }
 
@@ -64,6 +62,7 @@ namespace devapis {
 
   DIPU_API diclResult_t diclBroadcast(const void *sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                               int root, diclComm_t comm, deviceStream_t stream) {
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclBroadcast(sendbuff, recvbuff, count, cncl_data_type[datatype], root,
                               comm, stream));
     return DICL_SUCCESS;
@@ -71,12 +70,14 @@ namespace devapis {
 
   DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype,
                               diclComm_t comm, deviceStream_t stream) {
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclAllGather(sendBuf, recvBuf, count, cncl_data_type[datatype], comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                             const ReduceOp& reduceOp, int root, diclComm_t comm, deviceStream_t stream) {
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclReduce(sendbuff, recvbuff, count, cncl_data_type[datatype], cncl_op[reduceOp],
                           root, comm, stream));
     return DICL_SUCCESS;
@@ -89,12 +90,14 @@ namespace devapis {
 
   DIPU_API diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype, int peer,
                           diclComm_t comm, deviceStream_t stream){
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclSend(sendbuff, count, cncl_data_type[datatype], peer, comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclRecv(void* recvbuff, size_t count, at::ScalarType datatype, int peer,
                           diclComm_t comm, deviceStream_t stream) {
+    convertTypeSize(count, datatype);
     CNCL_THROW(cnclRecv(recvbuff, count, cncl_data_type[datatype], peer, comm, stream));
     return DICL_SUCCESS;
   }

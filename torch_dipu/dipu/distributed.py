@@ -38,7 +38,7 @@ def _init_process_group(
     group_name: str = "",
     pg_options: Optional[Any] = None,
 ):
-  if backend == Backend.NCCL and mockcuda:
+  if backend == None or (backend == Backend.NCCL and mockcuda):
     backend = dicl_backend
   _raw_init_process_group(backend, init_method, timeout, 
                           world_size, rank, store, group_name, pg_options)

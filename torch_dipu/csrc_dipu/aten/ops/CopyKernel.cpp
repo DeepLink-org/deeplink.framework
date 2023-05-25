@@ -63,8 +63,8 @@ namespace dipu::native {
 
     dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
-        DIPU_LOGW("Copy data back to CPU device with " \
-            "non_blocking is not supported now ");
+        // DIPU_LOGW("Copy data back to CPU device with " \
+        //     "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {
       dipu::devapis::syncStream(stream.rawstream());
@@ -98,8 +98,8 @@ namespace dipu::native {
     dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
     if (non_blocking) {
-        DIPU_LOGW("warnning: Copy between devices with " \
-            "non_blocking is not supported now ");
+        // DIPU_LOGW("warnning: Copy between devices with " \
+        //     "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {
       dipu::devapis::syncStream(stream.rawstream());
