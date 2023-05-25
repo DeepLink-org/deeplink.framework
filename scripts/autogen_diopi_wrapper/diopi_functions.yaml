@@ -636,7 +636,7 @@
     dim += dim < 0 ? tensors[0].sizes().size() : 0;
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
-    std::vector<long int> tmp;
+    std::vector<int64_t> tmp;
     for (int i = 0; i < dim; i++) {
         tmp.push_back(shape[i]);
     }

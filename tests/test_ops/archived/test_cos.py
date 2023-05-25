@@ -13,6 +13,16 @@ class TestSchema(unittest.TestCase):
         out_cpu = torch.cos(input_cpu)
         self.assertTrue(torch.allclose(out_dipu.to(cpu), out_cpu))
 
+        out_dipu = torch.empty_like(input_dipu).to(dipu)
+        out_cpu = torch.empty_like(input_cpu).to(cpu)
+        torch.cos(input_cpu, out = out_cpu)
+        torch.cos(input_dipu, out = out_dipu)
+        self.assertTrue(torch.allclose(out_dipu.to(cpu), out_cpu))
+        
+        input_dipu.cos_()
+        input_cpu.cos_()
+        self.assertTrue(torch.allclose(input_dipu.to(cpu), input_cpu))
+
 
 
 if __name__ == '__main__':
