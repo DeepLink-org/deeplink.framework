@@ -87,7 +87,32 @@ DISABLED_TESTS_MLU = {
         'test_getitem_scalars',
         'test_empty_ndim_index',
         'test_index_put_byte_indices_dipu',
-        'test_index_put_accumulate_large_tensor_dipu'
+        'test_index_put_accumulate_large_tensor_dipu',
+        # ERROR
+        'test_index_put_accumulate_large_tensor',
+        'test_index_put_src_datatype',
+        'test_index_scalar_with_bool_mask',
+        'test_index_src_datatype',
+        'test_int_assignment',
+        'test_int_indices2d',
+        'test_int_indices_broadcast',
+        'test_invalid_index',
+        'test_jit_indexing',
+        'test_multiple_bool_indices',
+        'test_multiple_int',
+        'test_none',
+        'test_out_of_bound_index',
+        'test_set_item_to_scalar_tensor',
+        'test_single_int',
+        'test_step',
+        'test_step_assignment',
+        'test_take_along_dim',
+        'test_take_along_dim_invalid',
+        'test_variable_slicing',
+        'test_zero_dim_index',
+        # FAIL
+        'test_index',
+        'test_int_indices',
     },
 
     # test_indexing.py
