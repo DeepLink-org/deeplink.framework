@@ -272,4 +272,3 @@ DISABLED_TESTS_MLU = {
 }
 
 DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_MLU)
-print(DISABLED_TESTS)
