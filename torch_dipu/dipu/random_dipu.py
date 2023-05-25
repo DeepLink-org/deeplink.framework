@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 from typing import Iterable, List, Union
 import torch
 from torch import Tensor

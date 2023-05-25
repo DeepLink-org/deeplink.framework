@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import yaml
 import re
 import json
@@ -6,7 +7,7 @@ from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content,\
     diopi_wrapper_function_template_content, op_register_template_content,\
-    custom_autograd_template_content
+    custom_autograd_template_content, autocompare_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -97,6 +98,28 @@ def create_return_code_frome_schema(schema, allow_return_ref = True):
         return_code = return_code.replace('&', '')
     return return_code
 
+def create_transform_input_to_cpu_code(fun_config):
+    input_process_code = ''
+    schema = fun_config['schema']
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    for input in inputs:
+        input_process_code += f"at::Tensor {input}_cpu = {input}.cpu();\n"
+
+    optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
+    for input in optional_inputs:
+        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = c10::make_optional<at::Tensor>({input}.has_value() ? {input}.value().cpu() : at::Tensor());\n"
+
+    outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
+    for output in outputs:
+        if output.strip().endswith('?'):
+            output = output.replace('?', '')
+            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = c10::make_optional<at::Tensor>({output}.has_value() ? {output}.value().cpu() : at::Tensor());\n"
+        else:
+            input_process_code += f"at::Tensor {output}_cpu = {output}.cpu();\n"
+
+    return input_process_code
+
+
 
 def create_param_list_from_schema(schema):
     param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
@@ -109,9 +132,10 @@ def create_param_list_from_schema(schema):
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
-        'Generator ?\?' : 'c10::optional<at::Generator>' ,
+        'Generator ?\?' : 'c10::optional<at::Generator>',
+        'Device ?\?' : 'c10::optional<c10::Device>',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
-        'Tensor ?\?' : 'const c10::optional<Tensor>&' ,
+        'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
@@ -120,10 +144,10 @@ def create_param_list_from_schema(schema):
         '([\(, ]*)SymInt *\[[ \d]*\] *\? +([\w\d_]+)' : R'\1at::OptionalSymIntArrayRef \2',
         'int\[\d*\] +([\w\d_]+)' : R'at::IntArrayRef \1' ,
         '([a-zA-Z0-9]+)\?' : R'c10::optional<\1>',
-        'Tensor *\[ *\]' : 'at::ArrayRef<Tensor>' ,
-        'Tensor ' : 'const Tensor& ' ,
+        'Tensor *\[ *\]' : 'at::ArrayRef<at::Tensor>' ,
+        'Tensor[ ]*& +([\w\d_]+)' : R'at::Tensor& \1' ,
+        'Tensor[ ]+([\w\d_]+)' : R'const at::Tensor& \1' ,
         'Scalar ' : R'const at::Scalar& ' ,
-        'Tensor' : 'at::Tensor' ,
         '([, \(]+)int\[\d\]\?' : R'\1at::OptionalIntArrayRef',
         'int *\[ *\d+\ *]' : 'at::IntArrayRef' ,
         'bool\[(\d+)\]' : R'::std::array<bool,\1>' ,
@@ -303,8 +327,81 @@ def create_args_name_list_from_schema(schema):
     return code
 
 def create_call_cpp_function_code_from_schema(schema):
-    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ');' # + "/*" + schema + "*/"
+    code = create_fun_name_from_schema(schema) + '(' + create_args_name_list_from_schema(schema) + ');'
     return code
+
+
+def create_call_aten_cpu_cpp_function_code_from_schema(schema):
+    opname = get_op_name_from_schema(schema)
+    #opname = re.sub('\.[\w]+_out', '_outf', opname)
+    opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
+    opname = re.sub('\.out[\w_\d]*', '_outf', opname)
+    opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
+    opname = re.sub('\.Tensor', '', opname)
+    opname = re.sub('_?\.to', '', opname)
+    opname = re.sub('_?\.from', '', opname)
+    opname = re.sub('\.Scalar', '', opname)
+    opname = re.sub('\.self', '', opname)
+    opname = re.sub('\.values_stable', '_outf', opname)
+    opname = re.sub('\.values', '_outf', opname)
+    opname = re.sub('\.grad_input', '_outf', opname)
+    opname = re.sub('\.dim_max', '_outf', opname)
+    opname = re.sub('\.dim_min', '_outf', opname)
+    opname = opname.replace('.', '_')
+    opname = opname.split('.')[0]
+    if opname[-1] == '_':
+        opname = opname[0:len(opname) - 1]
+
+    sym_int_array_params = re.findall('[ ,\)]?SymInt\[\d?\] *([\w\d_]+)', schema)
+    if len(sym_int_array_params) > 0:
+        sym_int_process_code = create_int_array_process_code(sym_int_array_params) + '\n'
+    else:
+        sym_int_process_code = ''
+
+    code = 'auto ' + ' result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+    for sym_int_param in sym_int_array_params:
+        code = code.replace(sym_int_param, sym_int_param + 'Vector')
+
+    code = sym_int_process_code + code
+
+    sym_int_params = re.findall('[ ,\)]?SymInt\ *([\w\d_]+)', schema)
+    for sym_int_param in sym_int_params:
+        code = re.sub('([ ,\(])?' + sym_int_param + '([, \)])?', R'\1' + sym_int_param + R'.expect_int()\2', code)
+
+
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
+    outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
+    for input in inputs + optional_inputs + outputs:
+        code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
+
+    return code
+
+def create_call_dipu_cpp_function_code_from_schema(schema):
+    code = create_return_code_frome_schema(schema) + ' result_device = ' + create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
+    return code.replace('; ', ';\n')
+
+
+def create_result_compare_code(fun_config):
+    schema = fun_config['schema']
+    op_name = get_op_name_from_schema(fun_config['schema'])
+    return_param = get_function_return_param_from_schema(fun_config['schema'])
+    code = ''
+    if len(return_param) == 1 :
+        code += f"const bool {return_param[0]}_allclose = at::allclose(result_cpu, result_device.cpu());\n"
+        code += f'std::cout << "{op_name}:\t" << "{return_param[0]}_allclose:\t" << {return_param[0]}_allclose << std::endl;\n';
+    elif len(return_param) > 1:
+        for i in range(len(return_param)):
+            code += f"const bool {return_param[i]}_allclose = at::allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device).cpu());\n"
+            code += f'std::cout << "{op_name}:\t" << "{return_param[i]}_allclose:\t" << {return_param[i]}_allclose << std::endl;\n';
+
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    for i in range(len(inputs)):
+        code += f"const bool {inputs[i]}_allclose = at::allclose({inputs[i]}_cpu, {inputs[i]}.cpu());\n"
+        code += f'std::cout << "{op_name}:\t" << "{inputs[i]}_allclose:\t" << {inputs[i]}_allclose << std::endl;\n';
+
+    return code;
+
 
 
 def create_code_to_print_fun_call_info_from_schema(fun_config):
@@ -369,6 +466,8 @@ op_register_template = CodeTemplate(op_register_template_content)
 
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
+autocompare_template = CodeTemplate(autocompare_template_content)
+
 
 def functions_code_gen(fun_config):
     if 'interface' in fun_config:
@@ -385,7 +484,6 @@ def functions_code_gen(fun_config):
             input = input.replace('?', '')
             input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
             input_process_code += f"if ({input}.has_value() && {input}.value().defined()) {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n\n"
-
         else:
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
@@ -400,19 +498,20 @@ def functions_code_gen(fun_config):
     output_process_code = ""
     for output in set(get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])):
         output_process_code += f"::diopiTensorHandle_t {output}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({output});\n"
-        diopi_fun_call_code = re.sub(output.strip() + '([,\) ]{1})', f"{output.strip()}{diopi_tensor_suffix}" + r'\1', diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([\(,& ]{1})' + output.strip() + '([,\) ]{1})', r'\1' + f"{output.strip()}{diopi_tensor_suffix}" + r'\2', diopi_fun_call_code)
 
     attrs_process_code = ""
 
     diopi_scalar_suffix = 'DiopiScalar'
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
-        diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+        #diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(]) *&? *' + scalar_param + '([,\)])', R'\1' + f"&{scalar_param}{diopi_scalar_suffix}" + R'\2', diopi_fun_call_code)
 
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
     for scalar_param in get_function_optional_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
-        diopi_fun_call_code = re.sub(scalar_param.strip(), f"{scalar_param}DiopiScalarPtr", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
 
 
@@ -463,6 +562,7 @@ def functions_code_gen(fun_config):
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
 
     fun_name = create_fun_name_from_schema(fun_config['schema'])
+    raw_fun_name = fun_name
 
     if fun_config.get('autograd', False) == True:
         wrapper_fun_name = fun_name + '_wrapper'
@@ -483,6 +583,21 @@ def functions_code_gen(fun_config):
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
+
+    if fun_config.get('autocompare', False) in [True, 'True'] and fun_config.get('register_op', True) in [True, 'True']:
+        auto_compare_fun_name = fun_name + '_autocompare'
+        autocompare_code = autocompare_template.substitute(
+            cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(raw_fun_name, auto_compare_fun_name)],
+            transform_input_to_cpu_code=[create_transform_input_to_cpu_code(fun_config)],
+            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_schema(fun_config['schema'])],
+            comment=[fun_config['schema']],
+            execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
+            transform_result_to_cpu_code=[],
+            result_compare_code=[create_result_compare_code(fun_config) + "\nreturn result_device;\n"],
+        )
+        fbody += autocompare_code
+        fun_name = auto_compare_fun_name
+
 
     register_body = op_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config['schema'])],
@@ -505,6 +620,7 @@ def parase_args():
     parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
     parser.add_argument('--diopi_adapter_header', type=str, default = 'diopi_adapters.hpp', help='path to diopi adapter file')
     parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
+    parser.add_argument('--autocompare', default=False, type=boolean_string, help='whether generate code that compare device calculation results with cpu calculation results')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
 
     args = parser.parse_args()
@@ -537,8 +653,6 @@ def main():
         mergeed_fun_config.update(fun_config)
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
-        #print(mergeed_fun_config)
-        #import pdb; pdb.set_trace()
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
             if mergeed_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code

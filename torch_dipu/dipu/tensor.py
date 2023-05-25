@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 from .device import __diputype__
 

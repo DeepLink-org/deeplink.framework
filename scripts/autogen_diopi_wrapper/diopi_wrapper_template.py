@@ -1,7 +1,10 @@
+# Copyright (c) 2023, DeepLink.
 diopi_wrapper_file_template_content = \
 """
 // autogened file
 #include <ATen/Tensor.h>
+#include <ATen/ATen.h>
+#include <ATen/Functions.h>
 
 #include <torch/csrc/autograd/custom_function.h>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
@@ -15,6 +18,16 @@ namespace dipu::native {
 bool checkDiopiReturnValue() {
     static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
     return enable;
+}
+
+void synchronizeIfEnable() {
+    static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
+    if (mode != nullptr) {
+        DIPU_LOG_ONCE << "The synchronous operation is performed after "
+            <<"the diopi function call because the DIPU_SYNC_EXEC_MODE environment variable is set" << std::endl;
+        dipu::getCurrentDIPUStream().synchronize();
+    }
+    return;
 }
 
 using namespace dipu::diopi_helper;
@@ -61,6 +74,8 @@ $cppsignautre {
 
     $custom_code_before_return
 
+    synchronizeIfEnable();
+
     $return_code
 }
 """
@@ -97,5 +112,23 @@ public:
 $cppsignautre {
     auto result = $autograd_function_name::apply($arg_name_list);
     $wrappter_custom_return
+}
+"""
+
+
+autocompare_template_content = \
+"""
+//  $comment
+$cppsignautre {
+    std::cout << __FUNCTION__ << std::endl;
+    $transform_input_to_cpu_code
+
+    $execute_op_on_cpu_code
+
+    $execute_op_on_device_code
+
+    $transform_result_to_cpu_code
+
+    $result_compare_code
 }
 """

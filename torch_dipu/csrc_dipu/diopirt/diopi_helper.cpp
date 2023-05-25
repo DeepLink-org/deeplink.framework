@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <stdio.h>
 
 #include "./diopirt_impl.h"
@@ -7,20 +8,20 @@ namespace dipu {
 namespace diopi_helper {
 
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
-    return reinterpret_cast<::diopiTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor) {
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&tensor);
+    return tensor.defined() ? reinterpret_cast<::diopiConstTensorHandle_t>(&tensor) : nullptr;
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
-    return tensor == nullptr ? nullptr : reinterpret_cast<::diopiConstTensorHandle_t>(tensor);
+    return tensor == nullptr ? nullptr : toDiopiTensorHandle(*tensor);
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor) {
     if (!tensor.has_value()) return nullptr;
-    return reinterpret_cast<::diopiConstTensorHandle_t>(&(tensor.value()));
+    return toDiopiTensorHandle(tensor.value());
 }
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {
@@ -46,6 +47,25 @@ namespace diopi_helper {
         break;
     }
     }
+}
+
+::diopiScalar_t toDiopiScalar(const at::Scalar& scalar, const c10::ScalarType& type) {
+    ::diopiScalar_t result;
+    TORCH_CHECK(c10::canCast(scalar.type(), type));
+    if (type == c10::ScalarType::Bool) {
+        result.stype = ::diopiDtype_t::diopi_dtype_int64;
+        result.ival = static_cast<int64_t>(scalar.toBool());
+        return result;
+    } else if (c10::isFloatingType(type)) {
+        result.stype = ::diopiDtype_t::diopi_dtype_float64;
+        result.fval = scalar.toDouble();
+        return result;
+    } else if (c10::isIntegralType(type, false)) {
+        result.stype = ::diopiDtype_t::diopi_dtype_int64;
+        result.ival = static_cast<int64_t>(scalar.toLong());
+        return result;
+    }
+   TORCH_CHECK(false, "invalid scalar type, type is ", scalar.type());
 }
 
 ::diopiDtype_t toDiopiDtype(c10::ScalarType type) {
