@@ -12,23 +12,48 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+        self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
         self.fake_mode = (
             FakeTensorMode(shape_env=self.shape_env)
-            if config.use_fake_tensor
+            if config.fake_tensor_allow_meta
             else nullcontext()
         )
     
     def __call__(self, *args, **kwargs):
-        new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        new_args = []
+        for arg in args:
+            if isinstance(arg, list):
+                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
+            else:
+                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
+        new_args = tuple(new_args)
         fake_mode = None
+        
         for arg in new_args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
+            elif isinstance(arg, list):
+                for x in arg:
+                    if isinstance(x, FakeTensor):
+                        fake_mode = x.fake_mode
+                        break
+                if fake_mode is not None:
+                    break
         if fake_mode is None:
             fake_mode = self.fake_mode
-        new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
+        tmp_args = []
+        try:
+            for arg in new_args:
+                if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
+                    tmp_args.append(arg)
+                else:
+                    tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
+        except Exception  as e:
+            print(e)
+            import pdb;pdb.set_trace()
+        new_args = tuple(tmp_args)
+        #new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
         return self.torch_op(*new_args, **kwargs)
 
 
@@ -147,9 +172,9 @@ class Transpose(Operator):
 
 
 class ToCopy(Operator):
-    def __init__(self, input, dtype, layout, device):
-        super().__init__("convert_element_type")
-        self.input = input
+    def __init__(self, x, dtype, layout, device):
+        super().__init__("_to_copy")
+        self.x = x
         self.dtype = dtype
         self.layout = layout
         self.device = device
@@ -619,6 +644,23 @@ class Slice(Operator):
         self.end = end
         self.step = step
         self.torch_op = aten.slice
+        
+
+class Cat(Operator):
+    def __init__(self, x, dim=0):
+        super().__init__("cat")
+        self.x = x
+        self.dim = dim
+        self.torch_op = aten.cat
+        
+
+class Select(Operator):
+    def __init__(self, x, dim, index):
+        super().__init__("select")
+        self.x = x
+        self.dim = dim
+        self.index = index
+        self.torch_op = aten.select
 
 
 @torch.fx.wrap

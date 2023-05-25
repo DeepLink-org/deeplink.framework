@@ -113,9 +113,9 @@ def transpose(input, dim0, dim1):
 def _softmax(x, dim, half_to_float):
     return ascend_op.Softmax(x, dim, half_to_float)
 
-@registe_conversion(torch.ops.aten._to_copy)
-def _to_copy(input, dtype, layout=torch.strided, device='cpu'):
-    return ascend_op.ToCopy(input, dtype, layout, device)
+@registe_conversion(torch.ops.aten._to_copy.default)
+def _to_copy(x, dtype=None, layout=torch.strided, device='cpu'):
+    return ascend_op.ToCopy(x, dtype, layout, device)
 
 @registe_conversion(torch.ops.aten.sum.default)
 def sum(a):
@@ -296,6 +296,14 @@ def view_as_real(x):
 @registe_conversion(torch.ops.aten.slice.Tensor)
 def slice(x, dim=0, start=None, end=None, step=1):
     return ascend_op.Slice(x, dim, start, end, step)
+
+@registe_conversion(torch.ops.aten.cat.default)
+def cat(x, dim=0):
+    return ascend_op.Cat(x, dim)
+
+@registe_conversion(torch.ops.aten.select.int)
+def select(x, dim, index):
+    return ascend_op.Select(x, dim, index)
 
 
 @registe_pattern

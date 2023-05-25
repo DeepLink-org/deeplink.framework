@@ -11,7 +11,8 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
-             'view_as_complex', 'view_as_real', 'slice']
+             'view_as_complex', 'view_as_real', 'slice', 'select',
+             'pow', 'cat']
 
 def get_graph_id():
     global graph_id
@@ -60,18 +61,27 @@ class AscendCodegen(torch.fx.Interpreter):
     def placeholder(self, name, target, args, kwargs):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
-
         fake_tensor = self.cur_node.meta['val']
-        tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-        self.build_graph_code.writeline(f'std::vector<int64_t> {self.args_dict[name]}_tensor_shape{tensor_shape};')
-        
-        tensor_format = "FORMAT_NCHW"
-        ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-        src_code = f'TensorDesc {self.args_dict[name]}_tensor_desc_data_op = TensorDesc(ge::Shape({self.args_dict[name]}_tensor_shape), {tensor_format}, {ascend_dtype});\n'
-        src_code += f'auto {self.args_dict[name]} = op::Data("{self.args_dict[name]}");\n'
-        src_code += f'{self.args_dict[name]}.update_input_desc_x({self.args_dict[name]}_tensor_desc_data_op);\n'
-        src_code += f'{self.args_dict[name]}.update_output_desc_y({self.args_dict[name]}_tensor_desc_data_op);\n'
-        src_code += f'graph.AddOp({self.args_dict[name]});\n'
+        try:
+            if isinstance(fake_tensor, torch.SymInt):
+                tensor_shape = '{}'
+                tensor_format = "FORMAT_ND"
+                ascend_dtype = "ge::DataType::DT_INT32"
+            else:
+                tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
+                tensor_format = "FORMAT_NCHW"
+                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+        except:
+            import pdb;pdb.set_trace()
+        # self.build_graph_code.writeline(f'std::vector<int64_t> {self.args_dict[name]}_tensor_shape{tensor_shape};')
+        # src_code = f'TensorDesc {self.args_dict[name]}_tensor_desc_data_op = TensorDesc(ge::Shape({self.args_dict[name]}_tensor_shape), {tensor_format}, {ascend_dtype});\n'
+        # src_code += f'auto {self.args_dict[name]} = op::Data("{self.args_dict[name]}");\n'
+        # src_code += f'{self.args_dict[name]}.update_input_desc_x({self.args_dict[name]}_tensor_desc_data_op);\n'
+        # src_code += f'{self.args_dict[name]}.update_output_desc_y({self.args_dict[name]}_tensor_desc_data_op);\n'
+        # src_code += f'graph.AddOp({self.args_dict[name]});\n'
+        # src_code += f'graph_inputs.push_back({self.args_dict[name]});\n'
+        self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype});''')
+        src_code = f'graph.AddOp({self.args_dict[name]});\n'
         src_code += f'graph_inputs.push_back({self.args_dict[name]});\n'
         self.build_graph_code.splice(src_code)
 
@@ -82,7 +92,7 @@ class AscendCodegen(torch.fx.Interpreter):
         arg_code, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
 
         real_op = process_name(name, target)
-        op_code = getattr(self.override, real_op)(*args_list)
+        op_code = getattr(self.override, real_op)(*args_list, **kwargs)
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(op_code, strip=True)
 
@@ -211,11 +221,14 @@ class AscendCodegen(torch.fx.Interpreter):
             node = self.input_args[i]
             name = self.args[i]
             val = node.meta['val']
-            shape = str(tuple(val.size()))
-            stride = str(tuple(val.stride()))
-            device = val.device.type
-            dtype = str(val.dtype)
-            code_str = f'''{name} = rand_strided({shape}, {stride}, device='{device}', dtype={dtype})'''
+            if isinstance(val, torch.SymInt):
+                code_str = f'''{name} = random.randint(0, 4)'''
+            else:
+                shape = str(tuple(val.size()))
+                stride = str(tuple(val.stride()))
+                device = val.device.type
+                dtype = str(val.dtype)
+                code_str = f'''{name} = rand_strided({shape}, {stride}, device='{device}', dtype={dtype})'''
             py_rand_inputs.append(code_str)
         main_body.writelines(py_rand_inputs)
         main_body.writeline(f"print_performance(lambda: call([{', '.join(self.args)}]))")
@@ -294,11 +307,14 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "ge::DataType::DT_INT64"
     elif dtype == torch.float32:
         return "ge::DataType::DT_FLOAT"
+    elif dtype == torch.float16:
+        return "ge::DataType::DT_FLOAT16"
     elif dtype == torch.int32:
         return "ge::DataType::DT_INT32"
     elif dtype == torch.complex64:
         return "ge::DataType::DT_COMPLEX64"
     else:
+        import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
 
 
@@ -316,6 +332,9 @@ class AscendOverrides:
     def gen_args(op_var, args_dict, node, args):
         src_code = IndentedBuffer()
         args_str = [op_var]
+        if process_name(node.name, node.target) in need_node:
+            args_str.append(node)
+            
         count = 0
         for i in range(len(args)):
             if isinstance(args[i], Node):
@@ -331,14 +350,10 @@ class AscendOverrides:
                 count += 1
             else:
                 args_str.append(str(args[i]))
-
-        if process_name(node.name, node.target) in need_node:
-            args_str.append(node)
-
         return src_code, args_str
 
     @staticmethod
-    def mul(name, x, y, node):
+    def mul(name, node, x, y):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             src_code = f"""
@@ -386,7 +401,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def add(name, x, y, node):
+    def add(name, node, x, y):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             src_code = f"""
@@ -449,11 +464,12 @@ class AscendOverrides:
 
     @staticmethod
     def transpose(name, input, dim0, dim1):
+        perm_value = '{' + ','.join([dim1, dim0]) + '}'
         src_code = f"""
                        auto {name}_perm_shape = ge::Shape({{2}});
                        TensorDesc {name}_perm_desc({name}_perm_shape, FORMAT_NCHW, DT_INT32);
                        Tensor {name}_perm_tensor({name}_perm_desc);
-                       int {name}_perm_value[2] = {dim0, dim1};
+                       int {name}_perm_value[2] = {perm_value};
                        setTensorData({name}_perm_tensor, reinterpret_cast<uint8_t*>(&{name}_perm_value), sizeof(int) * 2, "{name}_perm");
 
                        auto {name}_perm = op::Const("{name}_perm")
@@ -464,7 +480,6 @@ class AscendOverrides:
                        graph.AddOp({name}_perm);
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
@@ -498,8 +513,8 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def convolution(name, input, weight, bias, stride, padding,
-                    dilation, transposed, output_padding, groups, node):
+    def convolution(name, node, input, weight, bias, stride, padding,
+                    dilation, transposed, output_padding, groups):
         assert transposed == 'false'
         assert output_padding == '{0, 0}'
         stride = stride.strip('{}').split(', ')
@@ -577,9 +592,10 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def view(name, x, size, node):
+    def view(name, node, x, size):
         numel = node.meta['val'].numel()
         shape = list(node.meta['val'].shape)
+        shape_size = len(shape)
         if shape.count(-1) > 0:
             prod = 1
             for i in shape:
@@ -597,52 +613,56 @@ class AscendOverrides:
             shape = list(map(str, shape))
             shape_str = '{' + ','.join(shape) + '}'
 
+        # src_code = f"""
+        #                auto {name} = op::TransShape("{name}")
+        #                  .set_input_x({x})
+        #                  .set_attr_outShape({shape_str});
+        #                graph.AddOp({name});
+        #             """
+
         src_code = f"""
-                       auto {name} = op::TransShape("{name}")
+                       std::vector<int> {name}_reshape_value {shape_str};
+                       std::vector<int64_t> {name}_reshape_tensor_shape {{ {shape_size} }};
+                       auto {name}_reshape_tensor = genTensor({name}_reshape_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_reshape_tensor, reinterpret_cast<uint8_t*>({name}_reshape_value.data()), {name}_reshape_value.size() * sizeof(int), "{name}_reshape");
+                      
+                       auto {name}_reshape = op::Const("{name}_reshape") 
+                         .set_attr_value({name}_reshape_tensor);
+                       graph.AddOp({name}_reshape);
+
+                       auto {name} = op::Reshape("{name}")
                          .set_input_x({x})
-                         .set_attr_outShape({shape_str});
+                         .set_input_shape({name}_reshape);
                        graph.AddOp({name});
                     """
 
         return src_code
 
     @staticmethod
-    def clone(name, x):
+    def clone(name, x, memory_format=None):
         src_code = f"""
                        auto {name} = op::Identity("{name}")
                          .set_input_x({x});
                        graph.AddOp({name});
                     """
-
         return src_code
-
+      
     @staticmethod
-    def copy(name, dst, src):
-        src_code = f"""
-                      /*
-                      auto dst_size = {dst}.sizes();
-                      auto dst_stride = {dst}.strides();
-                      auto dst_storage_offset = {dst}.storage_offset();
-                      auto src_size = {src}.sizes();
-                      auto src_stride = {src}.strides();
-                      auto src_storage_offset = {src}.storage_offset();
-
-                      auto {name} = op::ViewCopy("{name}")
-                        .set_input_dst({dst})
-                        .set_input_dst_size(dst_size)
-                        .set_input_dst_stride(dst_stride)
-                        .set_input_dst_storage_offset(dst_storage_offset)
-                        .set_input_src({src})
-                        .set_input_src_size(src_size)
-                        .set_input_src_stride(src_stride)
-                        .set_input_src_storage_offset(src_storage_offset);
-                      graph.AddOp({name});
-                      */
-                      auto {name} = op::Identity("{name}")
-                        .set_input_x({src});
-                      graph.AddOp({name});
-                    """
-
+    def _to_copy(name, x, dtype=None, layout=None, device=None):
+        if dtype:
+            ascend_dtype = get_ascend_dtype(dtype)
+            src_code = f"""
+                          auto {name} = op::Cast("{name}")
+                            .set_input_x({x})
+                            .set_attr_dst_type({ascend_dtype});
+                          graph.AddOp({name});
+                        """
+        else:
+            src_code = f"""
+                          auto {name} = op::Identity("{name}")
+                            .set_input_x({x});
+                          graph.AddOp({name});
+                        """
         return src_code
 
     @staticmethod
@@ -719,7 +739,6 @@ class AscendOverrides:
                        graph.AddOp({name}_axis);
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
@@ -729,22 +748,57 @@ class AscendOverrides:
                           .set_input_x({x})
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
-    def pow(name, x, exp):
-        src_code = f"""
-                       auto {name} = op::Pow("{name}")
-                          .set_input_x1({x})
-                          .set_input_x2({exp});
-                       graph.AddOp({name});
-                    """
-
+    def pow(name, node, x, exp):
+        (x_node, exp_node) = node.args
+        if isinstance(exp_node, torch.fx.node.Node):
+            src_code = f"""
+                          auto {name} = op::Pow("{name}")
+                              .set_input_x1({x})
+                              .set_input_x2({exp});
+                          graph.AddOp({name});
+                        """
+        else:
+            # exp is scalar
+            dtype = node.meta['val'].dtype
+            not_support_type = False
+            try:
+                cpp_dtype = get_cpp_dtype(dtype)
+                ascend_dtype = get_ascend_dtype(dtype)
+            except:
+                cpp_dtype = "float"
+                ascend_dtype = "ge::DataType::DT_FLOAT"
+                not_support_type = True
+            src_code = f"""
+                           {cpp_dtype} {name}_scalar_value = static_cast<{cpp_dtype}>({exp});
+                           auto {name}_scalar_tensor = genTensor(std::vector<int64_t>(), FORMAT_NCHW, {ascend_dtype});
+                           setTensorData({name}_scalar_tensor, reinterpret_cast<uint8_t*>(&{name}_scalar_value), sizeof({cpp_dtype}), "{name} scalar");
+                           auto {name}_scalar = op::Const("{name}_scalar")
+                             .set_attr_value({name}_scalar_tensor);
+                           graph.AddOp({name}_scalar);"""
+            if not_support_type:
+                ascend_dtype = get_ascend_dtype(dtype)
+                src_code += f"""
+                           auto {name}_scalar_cast = op::Cast("{name}_scalar_cast")
+                             .set_input_x({name}_scalar)
+                             .set_attr_dst_type({ascend_dtype});
+                           auto {name} = op::Pow("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_scalar_cast);
+                           graph.AddOp({name}_scalar_cast);
+                           graph.AddOp({name});"""
+            else:
+                src_code += f"""
+                           auto {name} = op::Pow("{name}")
+                             .set_input_x1({x})
+                             .set_input_x2({name}_scalar);
+                           graph.AddOp({name});"""
         return src_code
 
     @staticmethod
-    def div(name, x, y, node):
+    def div(name, node, x, y):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             src_code = f"""
@@ -761,21 +815,18 @@ class AscendOverrides:
                              .set_attr_value({div_value});
                            graph.AddOp({name});
                         """
-
         return src_code
 
     @staticmethod
-    def _softmax(name, x, dim='{}', half_to_float='false'):
+    def _softmax(name, x, dim='', half_to_float='false'):
         assert(half_to_float == 'false')
-
         src_code = f"""
-                       std::vector<int64_t> {name}_dim{dim};
+                       std::vector<int64_t> {name}_dim{{ {dim} }};
                        auto {name} = op::SoftmaxV2("{name}")
                          .set_input_x({x})
                          .set_attr_axes({name}_dim);
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
@@ -800,7 +851,6 @@ class AscendOverrides:
                          .set_attr_keep_dims({keep_dims});
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
@@ -811,7 +861,6 @@ class AscendOverrides:
                          .set_attr_order({order});
                        graph.AddOp({name});
                     """
-
         return src_code
 
     @staticmethod
@@ -1024,7 +1073,7 @@ class AscendOverrides:
 
 
     @staticmethod
-    def full(name, dims, fill_value, node):
+    def full(name, node, dims, fill_value):
         dims = dims.strip('{}').split(', ')
         if len(dims) == 0:
             dims = [1]
@@ -1061,7 +1110,7 @@ class AscendOverrides:
 
 
     @staticmethod
-    def scatter(name, var, dim, index, value, node):
+    def scatter(name, node, var, dim, index, value):
         assert(len(node.args) > 3)
         value_node = node.args[3]
         if isinstance(value_node, torch.fx.node.Node):
@@ -1310,7 +1359,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def where(name, cond, x1, x2, node):
+    def where(name, node, cond, x1, x2):
         # TODO(tangzhiyi): need to process scalars
         (cond_node, x1_node, x2_node) = node.args
         assert isinstance(x1_node, torch.fx.node.Node)
@@ -1339,7 +1388,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def le(name, x1, x2, node):
+    def le(name, node, x1, x2):
         (x1_node, x2_node) = node.args
         if isinstance(x2_node, torch.fx.node.Node):
             src_code = f"""
@@ -1369,7 +1418,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def scalar_tensor(name, val, node):
+    def scalar_tensor(name, node, val):
         torch_dtype = node.kwargs['dtype']
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
@@ -1412,7 +1461,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def t(name, input, node):
+    def t(name, node, input):
         shape = node.meta['val'].shape
         permute_shape = [i for i in range(len(shape))]
         permute_shape.reverse()
@@ -1442,7 +1491,7 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def nll_loss_forward(name, x, target, weight, reduction, ignore_index, node):
+    def nll_loss_forward(name, node, x, target, weight, reduction, ignore_index):
         assert weight == 'None'
         assert ignore_index == '-100'
         reduction_str = get_reduction_str(reduction)
@@ -1508,8 +1557,8 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def native_batch_norm_backward(name, grad_out, x, weight, running_mean, running_var,
-            save_mean, save_invstd, train, eps, grad_input_mask, node):
+    def native_batch_norm_backward(name, node, grad_out, x, weight, running_mean, running_var,
+            save_mean, save_invstd, train, eps, grad_input_mask):
         x_shape = list(node.target.x.node.meta['val'].shape)
         x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
         x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
@@ -1555,8 +1604,8 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def nll_loss_backward(name, grad_output, x, target, weight, reduction, ignore_index,
-                          total_weight, node):
+    def nll_loss_backward(name, node, grad_output, x, target, weight, reduction, ignore_index,
+                          total_weight):
         assert weight == 'None'
         assert ignore_index == '-100'
         reduction_str = get_reduction_str(reduction)
@@ -1604,17 +1653,16 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def view_as_complex(name, x, node):
+    def view_as_complex(name, node, x):
         x_shape = list(node.target.x.node.meta['val'].shape)
         x_dtype = node.target.x.node.meta['val'].dtype
-
-        assert len(x_shape) == 2
-        assert x_shape[1] == 2
+        assert x_shape[-1] == 2
         
+        dim = len(x_shape) - 1
         output_dtype = 'DT_COMPLEX64' if x_dtype == torch.float32 else 'DT_COMPLEX128'
         src_code = f"""auto {name}_split = op::SplitD("{name}_split")
                          .set_input_x({x})
-                         .set_attr_split_dim(1)
+                         .set_attr_split_dim({dim})
                          .set_attr_num_split(2)
                          .create_dynamic_output_y(2);
                        auto {name}_real = op::FlattenV2("{name}_flattenv2_real")
@@ -1631,8 +1679,10 @@ class AscendOverrides:
         return src_code
       
     @staticmethod
-    def view_as_real(name, x, node):
+    def view_as_real(name, node, x):
         assert node.meta['val'].dtype == torch.float32
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        dim = len(x_shape) - 1
         src_code = f"""auto {name}_real = op::Real("{name}_real")
                            .set_input_input({x});
                        auto {name}_imag = op::Imag("{name}_imag")
@@ -1641,13 +1691,13 @@ class AscendOverrides:
                            .create_dynamic_input_x(2)
                            .set_dynamic_input_x(0, {name}_real)
                            .set_dynamic_input_x(1, {name}_imag)
-                           .set_attr_axis(1)
+                           .set_attr_axis({dim})
                            .set_attr_N(2);
                        graph.AddOp({name});"""
         return src_code
 
     @staticmethod
-    def slice(name, x, dim, start, end, node):
+    def slice(name, node, x, dim, start, end):
         # TODO(tangzhiyi): miss step parameter
         x_shape = list(node.target.x.node.meta['val'].shape)
         y_shape = list(node.meta['val'].shape)
@@ -1704,5 +1754,103 @@ class AscendOverrides:
                            .set_input_x({x})
                            .set_input_offsets({name}_offset)
                            .set_input_size({name}_size);
+                       graph.AddOp({name});"""
+        return src_code
+
+    @staticmethod
+    def cat(name, node, x, dim=0):
+        x_list = x.strip('{}').split(', ')
+        x_size = len(x_list)
+        y_dtype = node.meta['val'].dtype
+        
+        x_node = node.args[0]
+        x_names = []
+        src_code = ''
+        for i, v in enumerate(x_node):
+            dtype = v.meta['val'].dtype
+            if dtype == y_dtype:
+                x_names.append(x_list[i])
+                continue
+            
+            # cast to y_dtype
+            ascend_dtype = get_ascend_dtype(y_dtype)
+            src_code += f'''
+                           auto {name}_cast_{i} = op::Cast("{name}_cast_{i}")
+                             .set_input_x({x_list[i]})
+                             .set_attr_dst_type({ascend_dtype});
+                           graph.AddOp({name}_cast_{i});
+            '''
+            x_names.append(f'{name}_cast_{i}')
+            import pdb;pdb.set_trace()
+        src_code = f"""auto {name} = op::ConcatD("{name}")
+                         .create_dynamic_input_x({x_size})"""
+        
+        for i, x in enumerate(x_names):
+            src_code += f""".set_dynamic_input_x({i}, {x})"""
+        src_code += f""".set_attr_concat_dim({dim})
+                        .set_attr_N({x_size});
+                        graph.AddOp({name});"""
+        return src_code
+      
+    @staticmethod
+    def select(name, node, x, dim, index):
+        x_shape = list(node.target.x.node.meta['val'].shape)
+        y_shape = list(node.meta['val'].shape)
+        dim = int(dim)
+        index = int(index)
+        
+        assert dim >= 0 and dim < len(x_shape)
+        start = index + x_shape[dim]
+        end = start + 1
+        offset = [0] * len(x_shape)
+        offset[dim] = start
+        size = []
+        for i, v in enumerate(x_shape):
+            if i != dim:
+                size.append(v - offset[i])
+            else:
+                size.append(end - offset[i])
+
+        shape_size = '{' + str(len(x_shape)) + '}'
+        offset_str = '{' + ','.join(map(str, offset)) + '}'
+        size_str = '{' + ','.join(map(str, size)) + '}'
+        y_shape_size = '{' + str(len(y_shape)) + '}'
+        y_shape_str = '{' + ','.join(map(str, y_shape)) + '}'
+        
+        src_code = f"""std::vector<int> {name}_offset_value {offset_str};
+                       std::vector<int64_t> {name}_offset_tensor_shape {shape_size};
+                       auto {name}_offset_tensor = genTensor({name}_offset_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_offset_tensor, reinterpret_cast<uint8_t*>({name}_offset_value.data()), {name}_offset_value.size() * sizeof(int), "{name}_offset");
+
+                       std::vector<int> {name}_size_value {size_str};
+                       std::vector<int64_t> {name}_size_tensor_shape {shape_size};
+                       auto {name}_size_tensor = genTensor({name}_size_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_size_tensor, reinterpret_cast<uint8_t*>({name}_size_value.data()), {name}_size_value.size() * sizeof(int), "{name}_size");
+
+                       auto {name}_offset = op::Const("{name}_offset")
+                         .set_attr_value({name}_offset_tensor);
+                       auto {name}_size = op::Const("{name}_size")
+                         .set_attr_value({name}_size_tensor);
+                       graph.AddOp({name}_offset);
+                       graph.AddOp({name}_size);
+
+                       auto {name}_slice = op::Slice("{name}_slice")
+                           .set_input_x({x})
+                           .set_input_offsets({name}_offset)
+                           .set_input_size({name}_size);
+                       graph.AddOp({name}_slice);
+                       
+                       std::vector<int> {name}_reshape_value {y_shape_str};
+                       std::vector<int64_t> {name}_reshape_tensor_shape {y_shape_size};
+                       auto {name}_reshape_tensor = genTensor({name}_reshape_tensor_shape, FORMAT_ND, DT_INT32);
+                       setTensorData({name}_reshape_tensor, reinterpret_cast<uint8_t*>({name}_reshape_value.data()), {name}_reshape_value.size() * sizeof(int), "{name}_reshape");
+                      
+                       auto {name}_reshape = op::Const("{name}_reshape") 
+                         .set_attr_value({name}_reshape_tensor);
+                       graph.AddOp({name}_reshape);
+
+                       auto {name} = op::Reshape("{name}")
+                         .set_input_x({name}_slice)
+                         .set_input_shape({name}_reshape);
                        graph.AddOp({name});"""
         return src_code

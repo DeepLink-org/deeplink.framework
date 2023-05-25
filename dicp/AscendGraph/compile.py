@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 
 from ctypes import cdll
 from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, AsyncCompile
@@ -23,6 +24,8 @@ class AscendCodeCache:
         output_graph_path = os.path.split(output_path)[0] + '/graph'
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
+        print('output_path: ', output_graph_path)
+        start = time.time()
         if key not in cls.cache:
             #if not os.path.exists(output_path) or True:
             cmd = ['/usr/bin/c++',
@@ -50,6 +53,7 @@ class AscendCodeCache:
                 subprocess.check_output(cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 raise exc.CppCompileError(cmd, e.output) from e
+            print('compile time:', time.time() - start)
             loaded = cdll.LoadLibrary(output_path)
             loaded.compile(output_graph_path.encode())
             
