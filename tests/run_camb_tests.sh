@@ -4,7 +4,7 @@ set -e
 source tests/common.sh
 
 function run_dipu_tests {
-  # run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU
+  run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU #--subprocess
   # run_test "${PYTORCH_DIR}/test/test_indexing.py" "$@" -v TestIndexingDIPU
   run_test "${PYTORCH_DIR}/test/test_indexing.py" "$@" -v NumpyTestsDIPU
   run_test "${PYTORCH_DIR}/test/test_view_ops.py" "$@" -v TestViewOpsDIPU
