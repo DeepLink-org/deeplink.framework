@@ -28,6 +28,9 @@ jobs:
           token: ${{ secrets.CI_TOKEN }}
           fetch-depth: '0'
           submodules: 'true'
+      - name: merge main
+        run: |
+          cd ${GITHUB_WORKSPACE} &&  git merge --no-edit main
       - name: ci interruptible and support pr ci
         run: |
           cd ${GITHUB_WORKSPACE} && bash scripts/ci_interruptible.sh
