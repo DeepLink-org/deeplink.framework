@@ -12,7 +12,7 @@ TEST_PRECISIONS = {
 DISABLED_TESTS_MLU = {
     # test_torch.py
     'TestTorchDeviceTypeDIPU': {
-        # CASHED
+        # CRASHED
         'test_dim_function_empty_dipu',
         'test_nondeterministic_alert_AdaptiveAvgPool2d_dipu',
         'test_scalar_check_dipu',
@@ -57,7 +57,6 @@ DISABLED_TESTS_MLU = {
         'test_memory_format_operators',
         'test_memory_format_type_shortcuts',
         'test_multinomial',
-
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {
@@ -135,7 +134,7 @@ DISABLED_TESTS_MLU = {
 
     # test_type_promotion.py
     'TestTypePromotionDIPU':{
-        # CASHED
+        # CRASHED
         'test_bfloat16',
         # FAIL
         'test_alternate_result',
@@ -148,7 +147,48 @@ DISABLED_TESTS_MLU = {
         'test_create_bool_tensors',
         'test_lt_with_type_promotion',
         'test_many_promotions',
-    }
+    },
+
+    # test_nn.py
+    'TestNN':{
+        # CRASHED
+        'test_pdist_empty_col',
+    },
+
+    # test_ops_fwd_gradients.py
+    'TestFwdGradientsDIPU': {
+        # CRASHED
+        'test_fn_fwgrad_bwgrad',
+        'test_forward_mode_AD',
+        # ERROR
+        'test_inplace_forward_mode_AD'
+    },
+
+    # test_ops_gradients.py
+    'TestBwdGradientsDIPU':{
+        'test_fn_fail_gradgrad',
+        'test_fn_grad',
+        'test_fn_gradgrad',
+        'test_inplace_grad',
+        'test_inplace_gradgrad',
+    },
+    # test_ops.py
+
+    # test_shape_ops.py
+    'TestShapeOpsDIPU': {
+        'test_clamp',
+        'test_clamp_propagates_nans',
+        'test_flip',
+        'test_flip_errors',
+        'test_flip_numpy',
+        'test_fliplr',
+        'test_flipud',
+        'test_movedim',
+        'test_movedim_invalid',
+        'test_nonzero',
+        'test_nonzero_astuple_out',
+        'test_sparse_dense_dim',
+    },
 }
 
 DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_MLU)
