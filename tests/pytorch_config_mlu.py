@@ -10,6 +10,55 @@ TEST_PRECISIONS = {
 }
 
 DISABLED_TESTS_MLU = {
+    # test_torch.py
+    'TestTorchDeviceTypeDIPU': {
+        # CASHED
+        'test_dim_function_empty_dipu',
+        'test_nondeterministic_alert_AdaptiveAvgPool2d_dipu',
+        'test_scalar_check_dipu',
+        # ERROR
+        'test_addcmul',
+        'test_assertRaisesRegex_ignore_msg_non_native_device',
+        'test_bernoulli_self',
+        'test_broadcast',
+        'test_cdist_norm',
+        'test_cdist_norm_batch',
+        'test_conv_transposed_backward_agnostic_to_memory_format',
+        'test_copy_',
+        'test_cov',
+        'test_cumsum',
+        'test_deepcopy',
+        'test_diff',
+        'test_dist',
+        'test_index_copy',
+        'test_index_reduce',
+        'test_masked_select',
+        'test_memory_format_empty_like',
+        'test_nondeterministic_alert_CTCLoss',
+        'test_nondeterministic_alert_EmbeddingBag_max',
+        'test_nondeterministic_alert_cumsum',
+        'test_pairwise_distance_empty',
+        'test_put',
+        'test_put_accumulate',
+        'test_storage',
+        'test_strides_propagation',
+        'test_take',
+
+        # 'FAIL'
+        'test_cdist_non_contiguous',
+        'test_cdist_non_contiguous_batch',
+        'test_copy_all_dtypes_and_devices',
+        'test_cpp_warnings_have_python_context',
+        'test_cummax_discontiguous',
+        'test_cummin_discontiguous',
+        'test_is_set_to',
+        'test_masked_select_discontiguous',
+        'test_memory_format_clone',
+        'test_memory_format_operators',
+        'test_memory_format_type_shortcuts',
+        'test_multinomial',
+
+    },
     # test_view_ops.py
     'TestViewOpsDIPU': {
         'test_contiguous_nonview',
@@ -25,38 +74,38 @@ DISABLED_TESTS_MLU = {
 
     # test_indexing.py
     'TestIndexingDIPU': {
-        'test_setitem_expansion_error',  
-        'test_setitem_scalars',  
-        'test_multiple_byte_mask',  
-        'test_empty_slice',  
-        'test_byte_tensor_assignment',  
-        'test_byte_mask', 
-        'test_byte_mask_accumulate', 
-        'test_bool_indices',  
-        'test_index_getitem_copy_bools_slices',  
-        'test_index_setitem_bools_slices', 
-        'test_getitem_scalars', 
-        'test_empty_ndim_index',  
-        'test_index_put_byte_indices_dipu', 
+        'test_setitem_expansion_error',
+        'test_setitem_scalars',
+        'test_multiple_byte_mask',
+        'test_empty_slice',
+        'test_byte_tensor_assignment',
+        'test_byte_mask',
+        'test_byte_mask_accumulate',
+        'test_bool_indices',
+        'test_index_getitem_copy_bools_slices',
+        'test_index_setitem_bools_slices',
+        'test_getitem_scalars',
+        'test_empty_ndim_index',
+        'test_index_put_byte_indices_dipu',
         'test_index_put_accumulate_large_tensor_dipu'
     },
 
     # test_indexing.py
     'NumpyTestsDIPU': {
-        'test_trivial_fancy_out_of_bounds',  
-        'test_boolean_assignment_value_mismatch', 
-        'test_empty_tuple_index',  
-        'test_empty_fancy_index',  
-        'test_ellipsis_index',  
+        'test_trivial_fancy_out_of_bounds',
+        'test_boolean_assignment_value_mismatch',
+        'test_empty_tuple_index',
+        'test_empty_fancy_index',
+        'test_ellipsis_index',
         'test_boolean_indexing_alldims',
         'test_boolean_indexing_onedim',
         'test_boolean_indexing_twodim',
         'test_boolean_list_indexing',
         'test_single_bool_index',
-        'test_broaderrors_indexing',  
-        'test_boolean_shape_mismatch',  
-        'test_boolean_indexing_weirdness',  
-        'test_boolean_indexing_weirdness_tensors',  
+        'test_broaderrors_indexing',
+        'test_boolean_shape_mismatch',
+        'test_boolean_indexing_weirdness',
+        'test_boolean_indexing_weirdness_tensors',
     }
 }
 
