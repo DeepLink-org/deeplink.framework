@@ -26,7 +26,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
 
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 'Concatenate']
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -850,3 +850,9 @@ class EnflameOverrides(OpOverrides):
         if (node.args[1] < 0 ):
             y = len(node.meta["val"][0].shape) + node.args[1] + 1
         return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
+
+
+    @staticmethod
+    def Softmax(op_var, node, x, z):
+        y = node.args[1]
+        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
