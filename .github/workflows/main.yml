@@ -41,7 +41,7 @@ jobs:
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
