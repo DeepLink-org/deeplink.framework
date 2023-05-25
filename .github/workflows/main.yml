@@ -157,6 +157,6 @@ jobs:
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source Build-POC-Camb/scripts/ci_camb_env.sh
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/SMART/tools/one_iter_tool/one_iter:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb:$PYTHONPATH
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh Build-POC-Camb/scripts/ci_camb_one_iter.sh
           """
