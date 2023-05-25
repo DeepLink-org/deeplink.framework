@@ -3,6 +3,7 @@
 #pragma once
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <nccl.h>
 
 #include <csrc_dipu/common.h>
 
@@ -19,6 +20,9 @@ namespace dipu {
 using deviceStream_t = cudaStream_t;
 #define deviceDefaultStreamLiteral cudaStreamLegacy
 using deviceEvent_t = cudaEvent_t;
+
+using diclComm_t = ncclComm_t;
+using commUniqueId = ncclUniqueId;
 
 }
 

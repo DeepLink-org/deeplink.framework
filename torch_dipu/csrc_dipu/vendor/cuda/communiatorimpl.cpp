@@ -1,0 +1,123 @@
+#include <cstring>
+#include <csrc_dipu/common.h>
+#include <csrc_dipu/runtime/device/diclapis.h>
+
+namespace dipu {
+
+namespace devapis {
+
+  // NCCL op mapping
+  static std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
+    {ReduceOp::MIN, ncclMin},
+    {ReduceOp::MAX, ncclMax},
+    {ReduceOp::SUM, ncclSum},
+    {ReduceOp::PRODUCT, ncclProd},
+  #ifdef NCCL_HAS_AVG
+    {ReduceOp::AVG, ncclAvg},
+  #endif
+  };
+
+  // NCCL type typing
+  static std::map<at::ScalarType, ncclDataType_t> ncclDataType = {
+    {at::kChar, ncclInt8},
+    {at::kByte, ncclUint8},
+    {at::kFloat, ncclFloat},
+    {at::kDouble, ncclDouble},
+    {at::kInt, ncclInt32},
+    {at::kLong, ncclInt64},
+    {at::kHalf, ncclHalf},
+    {at::kBool, ncclUint8},
+  #if HAS_NCCL_BF16_DATATYPE
+    {at::kBFloat16, ncclBfloat16},
+  #endif
+  };
+
+
+// Macro to print and abort on a non-successful NCCL return value.
+#define NCCL_ASSERT(cmd)                            \
+  do {                                                   \
+    ncclResult_t result = cmd;                           \
+    if (result != ncclSuccess) {                         \
+      std::string err = ncclGetErrorString(result); \
+      fprintf(                                           \
+          stderr,                                        \
+          "NCCL error in: %s:%d, %s\n",                  \
+          __FILE__,                                      \
+          __LINE__,                                      \
+          err.c_str());                                  \
+      abort();                                           \
+    }                                                    \
+  } while (0)
+
+
+  const int DICL_UNIQUE_ID_BYTES_SIZE = NCCL_UNIQUE_ID_BYTES;
+
+  DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm) {
+    ncclResult_t ncclAsyncErr_;
+    NCCL_ASSERT(ncclCommGetAsyncError(comm, &ncclAsyncErr_));
+    if (ncclAsyncErr_ != ncclSuccess) {
+      return DICL_SUCCESS;
+    } else {
+      return DICL_ERR_UNDEF;
+    }
+  }
+
+  DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {
+    NCCL_ASSERT(ncclGetUniqueId(uniqueId));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, commUniqueId uniqueId,
+                                          int rank, int localDeviceId) {
+    NCCL_ASSERT(ncclCommInitRank(comm, nranks, uniqueId, rank));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclCommDestroy(ncclComm_t comm) {
+    NCCL_ASSERT(ncclCommDestroy(comm));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff, size_t count, at::ScalarType datatype,
+                              const ReduceOp& reduceOp, diclComm_t comm, deviceStream_t stream) {
+    NCCL_ASSERT(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], comm, stream));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclBroadcast(const void *sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
+                              int root, diclComm_t comm, deviceStream_t stream) {
+    NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, count, ncclDataType[datatype], root, comm, stream));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype,
+                              diclComm_t comm, deviceStream_t stream) {
+    NCCL_ASSERT(ncclAllGather(sendBuf, recvBuf, count, ncclDataType[datatype], comm, stream));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
+                            const ReduceOp& reduceOp, int root, diclComm_t comm, deviceStream_t stream) {
+    NCCL_ASSERT(ncclReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], root, comm, stream));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, at::ScalarType dataType, 
+                                  const ReduceOp& op, diclComm_t comm, deviceStream_t stream) {
+    throw std::runtime_error("mlu Not implement diclReduceScatter");
+  }
+
+  DIPU_API diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype, int peer,
+                          diclComm_t comm, deviceStream_t stream){
+    NCCL_ASSERT(ncclSend(sendbuff, count, ncclDataType[datatype], peer, comm, stream));
+    return DICL_SUCCESS;
+  }
+
+  DIPU_API diclResult_t diclRecv(void* recvbuff, size_t count, at::ScalarType datatype, int peer,
+                          diclComm_t comm, deviceStream_t stream) {
+    NCCL_ASSERT(ncclRecv(recvbuff, count, ncclDataType[datatype], peer, comm, stream));
+    return DICL_SUCCESS;
+  }
+
+} // end namespace devapis
+} // end namespace dipu
