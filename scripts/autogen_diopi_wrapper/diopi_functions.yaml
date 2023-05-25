@@ -652,6 +652,7 @@
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: >
+    dim += dim < 0 ? tensors[0].sizes().size() : 0;
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -674,6 +675,7 @@
 
 - schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
+    dim += dim < 0 ? tensors[0].sizes().size() : 0;
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -683,7 +685,7 @@
 - schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
   custom_code_at_the_beginning: >
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
-    auto values = at::empty(self.sizes(), self.options().dtype(at::kLong));
+    auto values = at::empty(self.sizes(), self.options());
     auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
@@ -1008,6 +1010,31 @@
 - schema: "hardtanh_backward.grad_input(Tensor grad_output, Tensor self, Scalar min_val, Scalar max_val, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 
+- schema: "sin(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiSin(ctx, out, self)
+
+- schema: "sin.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSin(ctx, out, self)
+
+- schema: "sin_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiSinInp(ctx, self)
+
+- schema: "cos(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: >
+    auto out = at::empty_like(self);
+  interface: diopiCos(ctx, out, self)
+
+- schema: "cos.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiCos(ctx, out, self)
+
+- schema: "cos_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiCosInp(ctx, self)
+
+- schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBmm(ctx, out, self, mat2)
+
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSilu(ctx, out, self)
 
@@ -1077,3 +1104,4 @@
 
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
+
