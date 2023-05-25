@@ -148,15 +148,15 @@ jobs:
           rm -rf mmpretrain && git clone -b camb-one-iter https://github.com/DeepLink-org/mmpretrain.git
           rm -rf mmcv && git clone -b v2.0.0 https://github.com/open-mmlab/mmcv.git
           rm -rf mmengine && git clone -b v0.7.3 https://github.com/open-mmlab/mmengine.git
-          rsync -a ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          rsync -a ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
 
       - name: run-one-iter-tools
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source Build-POC-Camb/scripts/ci_camb_env.sh
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/SMART/tools/one_iter_tool/one_iter:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh Build-POC-Camb/scripts/ci_camb_one_iter.sh
+          source scripts/ci_camb_env.sh
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh
           """
