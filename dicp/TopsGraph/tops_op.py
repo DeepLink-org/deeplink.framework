@@ -493,6 +493,14 @@ class UnsafeView(Operator):
         self.torch_op = aten._unsafe_view.default
 
 
+class Logsoftmax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Logsoftmax")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten._log_softmax.default
+
+
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
