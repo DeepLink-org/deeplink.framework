@@ -13,8 +13,11 @@ void testcopy() {
   t1 = t1.to(device);
   std::cout << t1 << std::endl;
 
-  torch::Tensor t2 = torch::ones({3, 6}, option1);
+  auto option2 = torch::dtype(c10::ScalarType::Long);
+  torch::Tensor t2 = torch::ones({3, 6}, option2);
   t2 = t2.to(device);
+  std::cout << t2 << std::endl;
+
   // auto t3 = t1.add(t2);
   auto ts = t2.isfinite();
   std::cout << ts << std::endl;
