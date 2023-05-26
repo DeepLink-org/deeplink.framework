@@ -34,8 +34,15 @@ DISABLED_TESTS_MLU = {
     # test_utils.py
     'TestCheckpoint': {
         'test_checkpointing_without_reentrant_early_free',
+        'test_checkpointing_without_reentrant_early_free',
         'test_checkpoint_rng_cuda',
     },
+    'TestCheckpointDIPU': {
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpoint_rng_cuda',
+    },
+
 
     # test_unary_ufuncs.py
     'TestUnaryUfuncsDIPU': {
