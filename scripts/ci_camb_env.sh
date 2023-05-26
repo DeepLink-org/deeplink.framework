@@ -9,6 +9,7 @@ export NEUWARE_HOME=/usr/local/neuware
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
+export NEUWARE_HOME=/usr/local/neuware
 export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
