@@ -18,6 +18,16 @@
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
+- schema: "add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
+  interface: diopiAddInpScalar(ctx, self, other, alpha)
+
+- schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
+  custom_code_at_the_beginning: >
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_add__scalar(self, other.item(), alpha);
+    }
+  interface: diopiAddInp(ctx, self, other, alpha)
+
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {

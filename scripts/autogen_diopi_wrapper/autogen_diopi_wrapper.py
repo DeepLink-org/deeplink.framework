@@ -117,6 +117,15 @@ def create_transform_input_to_cpu_code(fun_config):
         else:
             input_process_code += f"at::Tensor {output}_cpu = {output}.cpu();\n"
 
+
+    tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    if len(tensors_arrays) > 0:
+        for tensors_arg in tensors_arrays:
+            input_process_code += f"std::vector<at::Tensor> {tensors_arg}_cpu({tensors_arg}.size());\n";
+            input_process_code += f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)" + '{return tensor.cpu();});\n'
+
+
     return input_process_code
 
 
@@ -372,7 +381,9 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
-    for input in inputs + optional_inputs + outputs:
+    tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    for input in inputs + optional_inputs + outputs + tensors_arrays:
         code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
 
     return code
