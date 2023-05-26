@@ -1,9 +1,8 @@
 name: dipu_poc  ci
 on:
+  workflow_dispatch:
   push:
     branches:
-      - '**'
-    tags:
       - '**'
   pull_request:
     branches:
@@ -22,20 +21,27 @@ jobs:
     name: Rsync code
     runs-on: github-poc-ci
     steps:
-      - name: clone repo and rsync pytorch
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          token: ${{ secrets.CI_TOKEN }}
-          fetch-depth: '0'
-          submodules: 'true'
+      - name: clone repo
+        run: |
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+          else
+          git checkout ${{ github.sha }} &&  git merge --no-edit main
+          fi
+          cd third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+      - name: ci interruptible and support pr ci
+        run: |
+          cd ${GITHUB_WORKSPACE}/dipu_poc && bash scripts/ci_interruptible.sh
+        env:
+          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           echo ${GITHUB_WORKSPACE}
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
-          rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
