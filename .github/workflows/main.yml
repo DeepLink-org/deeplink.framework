@@ -32,7 +32,7 @@ jobs:
           cd third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
       - name: ci interruptible and support pr ci
         run: |
-          cd ${GITHUB_WORKSPACE} && bash scripts/ci_interruptible.sh
+          cd ${GITHUB_WORKSPACE}/dipu_poc && bash scripts/ci_interruptible.sh
         env:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
