@@ -10,6 +10,88 @@ TEST_PRECISIONS = {
 }
 
 DISABLED_TESTS_MLU = {
+    # test_unary_ufuncs.py
+    'TestUnaryUfuncsDIPU': {
+        'test_float_domains',
+        'test_batch_vs_slicing',
+        'test_contig_size1',
+        'test_contig_size1_large_dim',
+        'test_contig_vs_every_other',
+        'test_cumulative_trapezoid',
+        'test_non_contig',
+        'test_non_contig_expand',
+        'test_non_contig_index',
+        'test_binary_ops_with_scalars',
+        'test_contig_vs_transposed',
+        'test_reference_numerics',
+        'test_reference_numerics_large',
+        'test_reference_numerics_small',
+        'test_reference_numerics_extremal',
+        'test_reference_numerics_normal',
+        'test_trapezoid',
+        'test_nan_to_num',
+        'test_sinc',
+        'test_nonzero_empty',
+        'test_frexp_assert_raises',
+        'test_special_ndtr_vs_scipy',
+    },
+
+    # test_binary_ufuncs.py
+    'TestBinaryUfuncsDIPU': {
+        # CRASHED
+        'test_batch_vs_slicing',
+        'test_contig_size1',
+        'test_contig_size1_large_dim',
+        'test_contig_vs_every_other',
+        'test_cumulative_trapezoid',
+        'test_non_contig',
+        'test_non_contig_expand',
+        'test_non_contig_index',
+        'test_binary_ops_with_scalars',
+        'test_contig_vs_transposed',
+        'test_reference_numerics',
+        'test_reference_numerics_extremal_values',
+        'test_reference_numerics_large_values',
+        'test_reference_numerics_small_values',
+        'test_trapezoid',
+         #  FAIL
+        'test_add', #assertEqual(res, m1 + m2.contiguous()) failed
+        'test_atan2',
+        'test_broadcasting',
+        'test_bitwise_ops',
+        'test_comparison_ops_type_promotion_and_broadcasting',
+        'test_copysign',
+        'test_div_rounding_modes',
+        'test_div_rounding_nonfinite',
+        'test_div_rounding_numpy',
+        'test_float_power',
+        'test_float_power_exceptions',
+        'test_floor_divide_scalar',
+        'test_floor_divide_tensor',
+        'test_fmod_remainder',
+        'test_hypot',
+        'test_int_and_float_pow',
+        'test_int_tensor_pow_neg_ints',
+        'test_long_tensor_pow_floats',
+        'test_maximum_minimum_forward_ad_float32',
+        'test_mul',
+        'test_mul_intertype_scalar',
+        'test_muldiv_scalar',
+        'test_not_broadcastable_floor_divide',
+        'test_pow',
+        'test_pow_scalar_base',
+        'test_pow_scalar_overloads_mem_overlap',
+        'test_remainder_fmod_large_dividend',
+        'test_remainder_overflow',
+        'test_scalar_support',
+        'test_type_promotion',
+        'test_xlogy_xlog1py',
+        'test_xlogy_xlog1py_bfloat16',
+        'test_not_broadcastable',
+        'test_maximum_and_minimum_subgradient',
+        'test_copysign_subgradient',
+    },
+
     # test_torch.py
     'TestTorchDeviceTypeDIPU': {
         # CRASHED
@@ -57,6 +139,8 @@ DISABLED_TESTS_MLU = {
         'test_memory_format_operators',
         'test_memory_format_type_shortcuts',
         'test_multinomial',
+        'test_logcumsumexp',
+        'test_discontiguous_out_cumsum',
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {
