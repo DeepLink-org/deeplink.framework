@@ -20,4 +20,7 @@ export PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/dipu
 
 export NEUWARE_HOME=/usr/local/neuware
 
+export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
+
+
 source activate $ENV_NAME
