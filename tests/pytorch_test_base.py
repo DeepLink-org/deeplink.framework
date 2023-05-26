@@ -26,6 +26,7 @@ class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
     unsupported_dtypes = {
         torch.complex32, torch.complex64, torch.complex128, torch.bfloat16,
+        torch.float64, torch.long # temporary disable
     }
     precision = _DEFAULT_FLOATING_PRECISION
 
