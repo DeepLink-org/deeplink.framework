@@ -530,7 +530,7 @@ def functions_code_gen(fun_config):
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
     attrs_process_code += create_int_array_process_code(int_array_list)
     for int_array_param in int_array_list:
-        diopi_fun_call_code = re.sub(int_array_param.strip(), f"{int_array_param}DiopiSize", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + int_array_param.strip() + '( *[,\)])', R'\1' + f"{int_array_param}DiopiSize" + R'\2', diopi_fun_call_code)
 
 
     if fun_config.get('print_func_call_info', False) == True:
