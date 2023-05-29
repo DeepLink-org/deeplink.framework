@@ -43,6 +43,15 @@ ge::Tensor genTensor(const std::vector<int64_t>& tensor_shape, ge::Format format
   return result;
 }
 
+template <typename T>
+ge::Tensor genTensorWithData(const std::vector<int64_t>& tensor_shape, ge::Format format, ge::DataType data_type,
+    std::vector<T> value) {
+  TensorDesc desc (ge::Shape(tensor_shape), format, data_type);
+  Tensor result(desc);
+  setTensorData(result, reinterpret_cast<uint8_t*>(value.data()), value.size() * sizeof(T), "genTensorWithData");
+  return result;
+}
+
 ge::Operator genInput(const std::string op_name, const std::vector<int64_t> shape, ge::Format format, ge::DataType data_type){
   TensorDesc tensor_desc_data_op = TensorDesc(ge::Shape(shape), format, data_type);
   auto op = op::Data(op_name.c_str());
