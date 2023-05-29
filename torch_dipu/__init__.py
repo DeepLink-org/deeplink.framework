@@ -14,6 +14,7 @@ from torch_dipu.dipu import *
 from torch.serialization import register_package
 from .dipu.device import _get_device_index
 from .dipu.distributed import apply_dist_patch
+from .dipu.tensor import apply_tensor_type_patch
 
 def validate_dipu_device(location):
     device = _get_device_index(location, True)
@@ -177,6 +178,7 @@ def apply_patches():
     apply_torch_function_patch()
     apply_temp_patch()
     apply_dist_patch()
+    apply_tensor_type_patch()
 
 
 apply_patches()
