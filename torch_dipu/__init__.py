@@ -89,7 +89,7 @@ def apply_tensor_method_patch():
 
 # mock device functions in generated/python_torch_functionsEverything.cpp
 def apply_torch_function_patch():
-    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, name = "no_name", static_func = True)
+    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, static_func = True)
     torch.ones = GetTorchFuncProxy(torch.ones)
     torch.ones_like = GetTorchFuncProxy(torch.ones_like)
     torch.zeros = GetTorchFuncProxy(torch.zeros)
