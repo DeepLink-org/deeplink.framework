@@ -7,7 +7,8 @@ tops_debug = True if os.getenv('TOPS_DEBUG', default='False') == 'True' else Fal
 
 aten = torch.ops.aten
 decomp_del_keys = [aten._native_batch_norm_legit_functional.default,
-                   aten.convolution_backward.default]
+                  aten.convolution_backward.default, aten._softmax.default,
+                  aten._log_softmax.default]
 def get_decomp():
     for del_key in decomp_del_keys:
         if del_key in decompositions:

@@ -298,7 +298,7 @@ class BatchNormBackward(Operator):
 
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("softmax")
+        super().__init__("Softmax")
         self.args = args
         self.args = kwargs
         self.torch_op = aten._softmax.default
@@ -491,6 +491,14 @@ class UnsafeView(Operator):
         self.a = a
         self.b = b
         self.torch_op = aten._unsafe_view.default
+
+
+class Logsoftmax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Logsoftmax")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten._log_softmax.default
 
 
 # TODO check if we need this wrap

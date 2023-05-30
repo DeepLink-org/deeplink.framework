@@ -281,6 +281,10 @@ def view_as_real(*args, **kwargs):
 def unsafe_view(a, b):
     return tops_op.UnsafeView(a, b)
 
+@register_conversion(torch.ops.aten._log_softmax.default)
+def logsoftmax(*args, **kwargs):
+    return tops_op.Logsoftmax(*args, **kwargs)
+
 # Patterns
 def register_pattern(Pattern):
     # TODO OpOverloadPacket
