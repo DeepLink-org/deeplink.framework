@@ -612,7 +612,7 @@ def functions_code_gen(fun_config):
                 register_name=[get_op_name_from_schema(fun_config['schema'])],
                 aten_fun_name=['dipu::native::' + fun_name],
                 diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
-                fallback=['false' if fun_config.get('fallback', False) in [False, 'False'] else 'true'],
+                force_fallback=['false' if fun_config.get('force_fallback', False) in [False, 'False'] else 'true'],
                 fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name],
 
         )
