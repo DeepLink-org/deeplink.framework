@@ -33,4 +33,12 @@ namespace at {
     }                                                                                           \
 } while (false);
 
+#define DIOPI_ATEN_FUNC_CUSTOM_FALLBACK(opname, diopiFunc, fallback, wapperFunc, fallbackFunc) do {     \
+    if ((reinterpret_cast<void*>(diopiFunc) != nullptr) && !fallback) {                                 \
+        m.impl(opname, TORCH_FN(wapperFunc));                                                           \
+    }  else {                                                                                           \
+        m.impl(opname, TORCH_FN(fallbackFunc));                                                         \
+    }                                                                                                   \
+} while (false);
+
 } //end ns at
