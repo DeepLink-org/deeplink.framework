@@ -76,11 +76,21 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
 
   std::vector<c10::List<at::Tensor>> tensorlist_args;
 
+  static bool log_fallback_detial = std::getenv("DIPU_LOG_FALLBACK_INFO") != nullptr;
+
   // Step 1: Convert all non-CPU tensor inputs into CPU tensors
   // and put them on the stack at the correct indices.
   for (const auto idx : c10::irange(arguments.size())) {
     const auto& ivalue = arguments[idx];
-    std::cout << "cpu_fallback:\t"<< op.schema().name() << "\t arguments["<< idx <<"] :" << schema_args[idx].name() << "\t" << schema_args[idx].type() << "\tisTensor:" << ivalue.isTensor() << std::endl;
+    if (log_fallback_detial) {
+      std::cout << "cpu_fallback:\t"<< op.schema().name() << "\t arguments["<< idx <<"] :"
+        << schema_args[idx].name()
+        << "\ttype:" << schema_args[idx].type()
+        << "\tisTensor:" << ivalue.isTensor()
+        << "\talias_info:" << schema_args[idx].alias_info()
+        << std::endl;
+    }
+
     if (ivalue.isTensor()) {
       tensor_args.push_back(ivalue.toTensor());
       tensor_args_indices.push_back(idx);
@@ -91,10 +101,7 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
       auto cpu_ivalue = c10::IValue(c10::List<at::Tensor>(to_cpu(ivalue.toTensorList().vec())));
       (*stack)[arguments_begin + idx] = std::move(cpu_ivalue);
       tensorlist_args.push_back(ivalue.toTensorList());
-    } else {
-      std::cout << "cpu_fallback:\t"<< op.schema().name() << "\tunhandle type:" << ivalue << std::endl;
     }
-
   }
   // XLA requires all of the tensor arguments to be gathered up and converted to CPU together.
   auto cpu_tensors = to_cpu(tensor_args);
@@ -107,13 +114,15 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   // Step 2: Call the underlying CPU implementation of the operator
   op.redispatchBoxed(c10::DispatchKeySet(c10::DispatchKey::CPU), stack);
 
+  static bool force_copy_tensor = std::getenv("DIPU_DISABLE_FORCE_FALLBACK_COPY_TENSOR") == nullptr;
+
   // Step 3: We need to take special care to handle mutable aliases properly:
   // If any input tensors are mutable aliases, we need to
   // directly copy the updated data on the CPU tensors back to the original inputs.
   for (const auto i : c10::irange(tensor_args_indices.size())) {
     auto tensor_idx = tensor_args_indices[i];
     const at::AliasInfo* alias_info = schema_args[tensor_idx].alias_info();
-    if (alias_info != nullptr && alias_info->isWrite()) {
+    if ((alias_info != nullptr && alias_info->isWrite()) || force_copy_tensor) {
       at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
     }
   }
