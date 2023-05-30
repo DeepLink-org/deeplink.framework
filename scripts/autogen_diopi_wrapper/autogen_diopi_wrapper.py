@@ -7,7 +7,8 @@ from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content,\
     diopi_wrapper_function_template_content, op_register_template_content,\
-    custom_autograd_template_content, autocompare_template_content
+    custom_autograd_template_content, autocompare_template_content,\
+    op_with_custom_fallback_register_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -475,6 +476,8 @@ fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
 
+op_with_custom_fallback_register_template = CodeTemplate(op_with_custom_fallback_register_template_content)
+
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 autocompare_template = CodeTemplate(autocompare_template_content)
@@ -609,12 +612,21 @@ def functions_code_gen(fun_config):
         fbody += autocompare_code
         fun_name = auto_compare_fun_name
 
+    if fun_config.get('custom_fallback', False) in ['False', False]:
+        register_body = op_register_template.substitute(
+                register_name=[get_op_name_from_schema(fun_config['schema'])],
+                aten_fun_name=['dipu::native::' + fun_name],
+                diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
+        )
+    else:
+        register_body = op_with_custom_fallback_register_template.substitute(
+                register_name=[get_op_name_from_schema(fun_config['schema'])],
+                aten_fun_name=['dipu::native::' + fun_name],
+                diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
+                fallback=['false' if fun_config.get('fallback', False) in [False, 'False'] else 'true'],
+                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name],
 
-    register_body = op_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config['schema'])],
-            aten_fun_name=['dipu::native::' + fun_name],
-            diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
-    )
+        )
     return fbody, register_body
 
 def boolean_string(s):
