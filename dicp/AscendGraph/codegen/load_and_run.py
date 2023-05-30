@@ -46,6 +46,8 @@ def get_np_dtype(dtype):
         return np.float64
     elif dtype == ACL_COMPLEX64:
         return np.complex64
+    elif dtype == ACL_FLOAT16:
+        return np.float16
     raise RuntimeError("unsupported np dtype!")
 
 
@@ -130,9 +132,14 @@ class AscendExecutor(object):
         for i in range(size):
             # check temp_buffer dtype
             temp_buffer_size = func(self.model_desc, i)
-            temp_buffer, ret = acl.rt.malloc(temp_buffer_size,
+            if temp_buffer_size == 0:
+                temp_buffer, ret = acl.rt.malloc(1,
+                                                 ACL_MEM_MALLOC_HUGE_FIRST)
+                check_ret("acl.rt.malloc", ret)
+            else:
+                temp_buffer, ret = acl.rt.malloc(temp_buffer_size,
                                              ACL_MEM_MALLOC_HUGE_FIRST)
-            check_ret("acl.rt.malloc", ret)
+                check_ret("acl.rt.malloc", ret)
 
             if des == "in":
                 self.input_data.append({"buffer": temp_buffer,
@@ -155,6 +162,8 @@ class AscendExecutor(object):
         for i, item in enumerate(temp_data_buffer):
             if policy == ACL_MEMCPY_HOST_TO_DEVICE:
                 ptr = dataset[i]
+                if item["size"] == 0:
+                    continue
                 ret = acl.rt.memcpy(item["buffer"],
                                     item["size"],
                                     ptr,
@@ -229,7 +238,8 @@ class AscendExecutor(object):
         increase_compute_time(end - start)
         check_ret("acl.mdl.execute", ret)
         self._destroy_databuffer()
-        #print('execute stage success')
+        # print('execute time: ', end - start)
+        # print('execute stage success')
 
     def _destroy_databuffer(self):
         for dataset in [self.load_input_dataset, self.load_output_dataset]:

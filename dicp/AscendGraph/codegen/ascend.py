@@ -62,17 +62,14 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
-        try:
-            if isinstance(fake_tensor, torch.SymInt):
-                tensor_shape = '{}'
-                tensor_format = "FORMAT_ND"
-                ascend_dtype = "ge::DataType::DT_INT32"
-            else:
-                tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-                tensor_format = "FORMAT_NCHW"
-                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-        except:
-            import pdb;pdb.set_trace()
+        if isinstance(fake_tensor, torch.SymInt):
+            tensor_shape = '{}'
+            tensor_format = "FORMAT_ND"
+            ascend_dtype = "ge::DataType::DT_INT32"
+        else:
+            tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
+            tensor_format = "FORMAT_NCHW"
+            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
         self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype});''')
         self.input_args_names.append(self.args_dict[name])
 

@@ -4,6 +4,7 @@ from contextlib import nullcontext
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
+from torch.utils._pytree import tree_map, tree_flatten
 
 aten = torch.ops.aten
 
@@ -12,7 +13,12 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
+        if torch.__version__.startswith("2.0"):
+            self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+        elif torch.__version__.startswith("2.1"):
+            self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
+        else:
+            raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
         self.fake_mode = (
             FakeTensorMode(shape_env=self.shape_env)
             if config.fake_tensor_allow_meta
@@ -20,40 +26,23 @@ class Operator():
         )
     
     def __call__(self, *args, **kwargs):
-        new_args = []
-        for arg in args:
-            if isinstance(arg, list):
-                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
-            else:
-                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
-        new_args = tuple(new_args)
-        fake_mode = None
+        def get_meta(x):
+            return x if not hasattr(x, 'meta') else x.meta['val']
+        new_args = tree_map(get_meta, args)
         
-        for arg in new_args:
+        fake_mode = None
+        tmp_args, _ = tree_flatten(new_args)
+        for arg in tmp_args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
-            elif isinstance(arg, list):
-                for x in arg:
-                    if isinstance(x, FakeTensor):
-                        fake_mode = x.fake_mode
-                        break
-                if fake_mode is not None:
-                    break
-        if fake_mode is None:
-            fake_mode = self.fake_mode
-        tmp_args = []
-        try:
-            for arg in new_args:
-                if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
-                    tmp_args.append(arg)
-                else:
-                    tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
-        except Exception  as e:
-            print(e)
-            import pdb;pdb.set_trace()
-        new_args = tuple(tmp_args)
-        #new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
+        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+
+        def make_faketensor(x):
+            if not isinstance(x, torch.Tensor) or isinstance(x, FakeTensor):
+                return x
+            return FakeTensor.from_tensor(x, fake_mode)
+        new_args = tree_map(make_faketensor, new_args)
         return self.torch_op(*new_args, **kwargs)
 
 
