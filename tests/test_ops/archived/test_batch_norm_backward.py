@@ -39,6 +39,8 @@ def test_batchnorm_backward_eval():
             cpu_grad_list.append(module.grad)
             module.grad = None
 
+        #cpu_running_mean = model.op2.running_mean
+        #print(cpu_running_mean)
         model = model.to(device)
         out = model(dipu_tensor)
         loss = out.sum()
@@ -53,10 +55,10 @@ def test_batchnorm_backward_eval():
         atol = 1e-6
 
         assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
-        print("np allclose success\n", cpu_grad, "\n", dipu_grad)
+        print("np allclose success\n")
         for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
             assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
-            print("np allclose success\n", cpu_grad, "\n", dipu_grad)
+            print("np allclose success\n")
 
 
 if __name__ == "__main__":

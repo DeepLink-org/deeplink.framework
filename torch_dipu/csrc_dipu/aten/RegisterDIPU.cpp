@@ -1,13 +1,21 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 
+namespace dipu {
+
+namespace native {
+void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
+}
+
+}
+
 namespace at {
 
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
   std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  at::native::cpu_fallback(op, stack);
+  dipu::native::cpu_fallback(op, stack);
 }
 
 
