@@ -4,6 +4,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
 #include <c10/util/Exception.h>
+#include <c10/util/ArrayRef.h>
 #include <c10/core/Layout.h>
 #include <ATen/Dispatch.h>
 
@@ -18,6 +19,8 @@ using c10::TensorImpl;
 using at::Layout;
 using dipu::devapis::current_device;
 using dipu::devapis::deviceId_t;
+using c10::IntArrayRef;
+
 namespace dipu::native {
 
   // need abstract cast strategy before copy, some device(eg camb) not support all types,
@@ -71,6 +74,18 @@ namespace dipu::native {
     }
   }
 
+  inline bool isDiffStrides(const IntArrayRef stride1, const IntArrayRef stride2) {
+    if (stride1.size() != stride2.size()) {
+      return true;
+    }
+    for (auto i = 0; i < stride1.size() ; i++ ) {
+      if (stride1[i] != stride2[i]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   //  1. expand, 2. patial view. 3. type cast.
   inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
     // assume layout always = not suppport Sparse layout
@@ -78,12 +93,13 @@ namespace dipu::native {
   
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    if (srcBytes != dstBytes || dst.nbytes() != src.nbytes()) {
+    if (srcBytes != dstBytes || dst.numel() != src.numel() || dst.options().dtype() != src.options().dtype()) {
       return false;
     }
-    if (dst.options().dtype() != src.options().dtype()) {
+    if (isDiffStrides(dst.strides(), src.strides())) {
       return false;
     }
+    // check
     return true;
   }
 
