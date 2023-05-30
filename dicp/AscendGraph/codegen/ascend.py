@@ -599,18 +599,6 @@ class AscendOverrides:
         else:
             shape = list(map(str, shape))
             shape_str = '{' + ','.join(shape) + '}'
-        
-        # print('op_name:', name, ' x:', x)
-        # print('x shape: ', node.target.x.node.meta['val'].shape)
-        # print('size origin: ', size)
-        # print('size: ', shape_str)
-
-        # src_code = f"""
-        #                auto {name} = op::TransShape("{name}")
-        #                  .set_input_x({x})
-        #                  .set_attr_outShape({shape_str});
-        #                graph.AddOp({name});
-        #             """
 
         src_code = f"""
                        auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
