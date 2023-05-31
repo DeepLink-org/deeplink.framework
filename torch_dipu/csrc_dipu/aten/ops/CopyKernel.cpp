@@ -107,6 +107,7 @@ namespace dipu::native {
     // because we cannot simply decide how much data will be copyed from raw stor (unless check stride).
     // so we always return false now. 
     // need enhance in future, because always copy with the help of cpu is toooo0 slow.
+    // **** check if copy safely using tensor.nbytes() when is_contiguous() = true.
     return false;
   }
 
