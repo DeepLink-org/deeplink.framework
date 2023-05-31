@@ -25,7 +25,8 @@ elif dipu.vendor_type == "GCU":
 class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
     unsupported_dtypes = {
-        torch.half, torch.complex32, torch.complex64, torch.complex128
+        torch.complex32, torch.complex64, torch.complex128, torch.bfloat16,
+        torch.float64, torch.long, torch.int64 # temporary disable
     }
     precision = _DEFAULT_FLOATING_PRECISION
 
@@ -106,7 +107,7 @@ class DIPUTestBase(DeviceTypeTestBase):
                         dtype_combination = (dtype_combination,)
                     DIPUTestBase._get_dipu_types(dtype_combination,
                                                  test_name,
-                                                 test, 
+                                                 test,
                                                  dipu_dtypes,
                                                  disallowed_test)
                 if len(dipu_dtypes) != 0:

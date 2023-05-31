@@ -4,9 +4,12 @@ export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
 GCC_ROOT=/mnt/lustre/share/platform/dep/gcc-7.5
 CONDA_ROOT=${PLATFORM}/env/miniconda3.8
+
+export NEUWARE_HOME=/usr/local/neuware
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
+export NEUWARE_HOME=/usr/local/neuware
 export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
@@ -14,5 +17,10 @@ export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTH
 export PATH=${PYTORCH_DIR}/install_path/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/dipu_poc/include/python3.8"
+
+export NEUWARE_HOME=/usr/local/neuware
+
+export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
+
 
 source activate $ENV_NAME

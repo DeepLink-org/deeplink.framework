@@ -1117,3 +1117,4 @@
 
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
+

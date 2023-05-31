@@ -1,9 +1,8 @@
 name: dipu_poc  ci
 on:
+  workflow_dispatch:
   push:
     branches:
-      - '**'
-    tags:
       - '**'
   pull_request:
     branches:
@@ -16,26 +15,36 @@ env:
   PYTORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0   
+  MMCV_VERSION: v2.0.0
+  MMENGINE_VERSION: v0.7.3
+  MMPRETRAIN_VERSION: dipu_v1.0.0rc7_one_iter_tool 
 
 jobs:
   Rsync:
     name: Rsync code
     runs-on: github-poc-ci
     steps:
-      - name: clone repo and rsync pytorch
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          token: ${{ secrets.CI_TOKEN }}
-          fetch-depth: '0'
-          submodules: 'true'
+      - name: clone repo
+        run: |
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+          else
+          git checkout ${{ github.sha }} &&  git merge --no-edit main
+          fi
+          cd third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+      - name: ci interruptible and support pr ci
+        run: |
+          cd ${GITHUB_WORKSPACE}/dipu_poc && bash scripts/ci_interruptible.sh
+        env:
+          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           echo ${GITHUB_WORKSPACE}
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source"
-          rsync -a --delete ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -132,4 +141,31 @@ jobs:
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
+          """
+  
+  Test-One-Iter:
+    name: test-one-iter
+    needs: [Build-POC-Camb]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: clone-repos
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          rm -rf SMART && git clone -b ywt/one_iter_tool_for_mmcv_2.0 https://github.com/ParrotsDL/SMART.git
+          rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
+          rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
+          rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
+          rsync -a --include='mmcv/***' --include='mmpretrain/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+
+      - name: run-one-iter-tools
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
+          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci_camb_env.sh
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh
           """
