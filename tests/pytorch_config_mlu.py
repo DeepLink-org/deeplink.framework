@@ -306,6 +306,7 @@ DISABLED_TESTS_MLU = {
         'test_nonzero',
         'test_nonzero_astuple_out',
         'test_sparse_dense_dim',
+        'test_clamp_propagates_nans', # [cnnlClip] Parameter min and max can not be null simultaneously.
     },
 }
 

@@ -130,13 +130,15 @@
   interface: diopiMul(ctx, out, self, other)
 
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
-  custom_fallback: True
-  fallback: True
+  register_op: False
+  #custom_fallback: True
+  #force_fallback: False
   interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
-  custom_fallback: True
-  fallback: True
+  register_op: False
+  #custom_fallback: True
+  #force_fallback: False
   custom_code_at_the_beginning: >
     const int64_t dim_c = input.size(1);
     auto out0 = at::empty_like(input);
@@ -146,8 +148,9 @@
   interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
-  custom_fallback: True
-  fallback: True
+  register_op: False
+  #custom_fallback: True
+  #force_fallback: True
   custom_code_at_the_beginning: >
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
@@ -902,7 +905,7 @@
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
 
 - schema: "min(Tensor self) -> Tensor"
-  register_op: False # camb impl has problem
+  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: >
     auto out = at::empty({1}, self.options());
   interface: diopiMinAll(ctx, out, self)
@@ -913,7 +916,7 @@
   interface: diopiMin(ctx, min, min_indices, self, dim)
 
 - schema: "max(Tensor self) -> Tensor"
-  register_op: False  # camb impl has problem
+  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: >
     auto out = at::empty({1}, self.options());
   interface: diopiMaxAll(ctx, out, self)
