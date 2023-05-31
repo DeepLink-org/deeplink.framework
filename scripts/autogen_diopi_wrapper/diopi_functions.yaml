@@ -19,7 +19,7 @@
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -37,7 +37,7 @@
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -48,7 +48,7 @@
   interface: diopiSub(ctx, out, self, other, alpha)
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiDivScalar(ctx, out, self, other, RoundModeNone)
 
@@ -59,14 +59,14 @@
   interface: diopiDivScalar(ctx, out, self, other, RoundModeNone)
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div__scalar(self, other.item());
     }
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -75,12 +75,12 @@
   interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDivScalar(ctx, out, self, other, mode)
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -104,7 +104,7 @@
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   register_op: False  # camb impl has bug
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_mul__scalar(self, other.item());
     }
@@ -112,7 +112,7 @@
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   register_op: False  # camb impl has bug
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -130,7 +130,7 @@
   register_op: False
   #custom_fallback: True
   #force_fallback: False
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t dim_c = input.size(1);
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
@@ -142,7 +142,7 @@
   register_op: False
   #custom_fallback: True
   #force_fallback: True
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
     at::Tensor out0 = at::empty(input.sizes(), input.options());
@@ -151,7 +151,7 @@
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
 
 - schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto input_shape = input.sizes();
     std::vector<int64_t> stat_shape(input_shape.cbegin(), input_shape.cbegin() + (input_shape.size() - normalized_shape.size()));
     auto options = input.options().dtype(at::kFloat);
@@ -161,7 +161,7 @@
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
 - schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto options = grad_out.options();
     auto grad_input = output_mask[0] ? at::empty(input.sizes(), options) : at::Tensor();
     auto grad_weight = output_mask[1] ? at::empty(weight.value().sizes(), options) : at::Tensor();
@@ -175,7 +175,7 @@
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     TORCH_CHECK(output_size.size() == 2, __func__, ":", __FILE__, ":", __LINE__,
         " output_size should equal 2, size is ", output_size.size());
     auto out_tensor_size = self.sizes().vec();
@@ -185,7 +185,7 @@
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d_backward(Tensor grad_output, Tensor self) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
 
@@ -193,7 +193,7 @@
   interface: diopiEqScalar(ctx, out, self, other)
 
 - schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_eq_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -205,7 +205,7 @@
   interface: diopiEqInpScalar(ctx, self, other)
 
 - schema: "eq_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_eq__scalar(self, other.item());
     }
@@ -215,7 +215,7 @@
   interface: diopiLtScalar(ctx, out, self, other)
 
 - schema: "lt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_lt_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -227,7 +227,7 @@
   interface: diopiLtInpScalar(ctx, self, other)
 
 - schema: "lt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_lt__scalar(self, other.item());
     }
@@ -237,7 +237,7 @@
   interface: diopiNeScalar(ctx, out, self, other)
 
 - schema: "ne.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_ne_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -249,7 +249,7 @@
   interface: diopiNeInpScalar(ctx, self, other)
 
 - schema: "ne_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_ne__scalar(self, other.item());
     }
@@ -259,7 +259,7 @@
   interface: diopiGeScalar(ctx, out, self, other)
 
 - schema: "ge.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_ge_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -271,7 +271,7 @@
   interface: diopiGeInpScalar(ctx, self, other)
 
 - schema: "ge_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_ge__scalar(self, other.item());
     }
@@ -281,7 +281,7 @@
   interface: diopiGtScalar(ctx, out, self, other)
 
 - schema: "gt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_gt_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -293,7 +293,7 @@
   interface: diopiGtInpScalar(ctx, self, other)
 
 - schema: "gt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_gt__scalar(self, other.item());
     }
@@ -303,7 +303,7 @@
   interface: diopiLeScalar(ctx, out, self, other)
 
 - schema: "le.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_le_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
@@ -315,7 +315,7 @@
   interface: diopiLeInpScalar(ctx, self, other)
 
 - schema: "le_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_le__scalar(self, other.item());
     }
@@ -332,22 +332,22 @@
   interface: diopiRandperm(ctx, out, n, 0)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandperm(ctx, out, n, seed)
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self, diopi_size)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
 - schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
   register_op: False
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out = at::empty_like(self);
   interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index.expect_int(), label_smoothing)
@@ -355,7 +355,7 @@
 
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
   autograd: True
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out;
@@ -385,7 +385,7 @@
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
   size_attr: [stride, padding, dilation, bias_sizes]
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
@@ -402,7 +402,7 @@
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
   size_attr: [stride, padding, dilation]
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     int64_t batch_size = input.size(0);
     int64_t height = input.size(2);
     int64_t width = input.size(3);
@@ -444,13 +444,13 @@
     return outputs;
 
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(input);
   register_op: False
   interface: diopiDropout(ctx, out, mask, input, p, train)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
   interface: diopiDropout(ctx, out, mask, input, p, train)
@@ -477,7 +477,7 @@
   interface: diopiDropoutInp(ctx, self, mask, p, train)
 
 - schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
   outs: [mask]
   interface: diopiDropoutInp(ctx, self, mask, p, train)
@@ -513,7 +513,7 @@
   interface: diopiLog2Inp(ctx, self)
 
 - schema: "abs(Tensor self) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiAbs(ctx, out, self)
 
@@ -551,7 +551,7 @@
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
     dim = dim < 0 ? (dim + output_size.size()) : dim;
     output_size[dim] = k;
@@ -560,13 +560,13 @@
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto grad_input = at::empty(input.sizes(), input.options());
     auto grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     at::Tensor grad_bias;
@@ -578,7 +578,7 @@
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
   autograd: True
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
     auto out = at::empty(output_size, input.options());
@@ -626,7 +626,7 @@
 
 - schema: "transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)"
   register_op: False
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(self.sizes().cbegin(), self.sizes().cend());
     std::vector<int64_t> output_stride(self.strides().cbegin(), self.strides().cend());
     std::swap(output_size[dim0], output_size[dim1]);
@@ -655,7 +655,7 @@
   interface: diopiBitwiseNotInp(ctx, self)
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     dim += dim < 0 ? tensors[0].sizes().size() : 0;
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
@@ -678,7 +678,7 @@
   interface: diopiStack(ctx, out, diopiTensorHandles.data(), num_tensors, dim)
 
 - schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     dim += dim < 0 ? tensors[0].sizes().size() : 0;
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
@@ -687,19 +687,19 @@
   interface: diopiStack(ctx, out, diopiTensorHandles.data(), tensors.size(), dim)
 
 - schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
     auto values = at::empty(self.sizes(), self.options());
     auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
 - schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
 - schema: "sort.values_stable(Tensor self, *, bool? stable, int dim=-1, bool descending=False, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto dim_ = dim < 0 ? (dim + self.sizes().size()) : dim;
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
@@ -709,12 +709,12 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiUniformInp(ctx, self, from, to, seed)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiTril(ctx, out, self, diagonal)
 
@@ -722,7 +722,7 @@
   interface: diopiTril(ctx, out, self, diagonal)
 
 - schema: "multinomial(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
     if (self.dim() == 2){
       out = at::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
@@ -736,7 +736,7 @@
   interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
 
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
     ::diopiSize_t diopi_shifts = toDiopiSize(shifts);
     ::diopiSize_t diopi_dims = toDiopiSize(dims);
@@ -744,12 +744,12 @@
 
 - schema: "leaky_relu(Tensor self, Scalar negative_slope=0.01) -> Tensor"
   print_func_call_info: True
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiLeakyRelu(ctx, out, self, negative_slope)
 
 - schema: "mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out;
     auto options = self.options();
@@ -761,7 +761,7 @@
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
 - schema: "mse_loss.out(Tensor self, Tensor target, int reduction=Mean, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
@@ -778,22 +778,22 @@
   interface: diopiClamp(ctx, out, self, min, max)
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, &to, seed)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
   interface: diopiNonzero(ctx, &out_ptr, self);
@@ -825,7 +825,7 @@
 
 - schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
   autocompare: disable
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(repeats.size());
     for (int i = 0;i< repeats.size();++i) {
       output_size[i] = repeats.at(i).expect_int();
@@ -840,13 +840,13 @@
   interface: diopiRepeat(ctx, out, self, repeats)
 
 - schema: rsub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
     return dipu_sub_out(other, self, alpha, out);
   interface: diopiSub(ctx, out, other, self, alpha)
 
 - schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out, indices, counts;
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
@@ -859,7 +859,7 @@
     }
 
 - schema: "_unique2(Tensor self, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out, indices, counts;
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
@@ -872,7 +872,7 @@
     }
 
 - schema: "aten::cat.out(const at::ITensorListRef & tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
     std::transform(tensors.begin(), tensors.end(), diopiTensorHandles.begin(), [](const at::Tensor& tensor){
         return dipu::diopi_helper::toDiopiTensorHandle(tensor);
@@ -880,7 +880,7 @@
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), tensors.size(), dim);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiMaskedFill(ctx, out, self, mask, value)
 
@@ -888,7 +888,7 @@
   interface: diopiMaskedFillInp(ctx, self, mask, value)
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiMaskedFillScalar(ctx, out, self, mask, value)
 
@@ -897,23 +897,23 @@
 
 - schema: "min(Tensor self) -> Tensor"
   use_diopi_adapter: False # camb adapter has problem
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty({1}, self.options());
   interface: diopiMinAll(ctx, out, self)
 
 - schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     dim += ((dim >= 0) ? 0 : self.sizes().size());
   interface: diopiMin(ctx, min, min_indices, self, dim)
 
 - schema: "max(Tensor self) -> Tensor"
   use_diopi_adapter: False # camb adapter has problem
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty({1}, self.options());
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     dim += ((dim >= 0) ? 0 : self.sizes().size());
     auto output_size = self.sizes().vec();
   interface: diopiMax(ctx, max, max_indices, self, dim)
@@ -943,12 +943,12 @@
   interface: diopiTanhInp(ctx,self)
 
 - schema: "argmax.out(Tensor self, int? dim=None, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const int64_t* ptr = dim.has_value() ? (&dim.value()): nullptr;
   interface: diopiArgmax(ctx, out, self, ptr, keepdim)
 
 - schema: "masked_select(Tensor self, Tensor mask) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out;
     diopiTensorHandle_t out_ptr = nullptr;
   interface: diopiMaskedSelect(ctx, &out_ptr, self, mask);
@@ -960,32 +960,32 @@
   interface: diopiMaskedSelect(ctx, &out, self, mask);
 
 - schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     double betaDouble = beta.toDouble();
     double alphaDouble = alpha.toDouble();
   interface: diopiBaddbmm(ctx, out, self, batch1, batch2, betaDouble, alphaDouble)
 
 - schema: "baddbmm_(Tensor(a!) self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     double betaDouble = beta.toDouble();
     double alphaDouble = alpha.toDouble();
   interface: diopiBaddbmmInp(ctx, self, batch1, batch2, betaDouble, alphaDouble)
 
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(self);
     out = dipu_div_out(self,other,out);
   interface: diopiFloorInp(ctx,out)
 
 - schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto shape = at::infer_size(condition.sizes(), self.sizes());
     shape = at::infer_size(shape, other.sizes());
     auto out = at::empty(shape, self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto str =  std::string(approximate);
     const char* appr = str.data();
   interface: diopiGelu(ctx, out, self, appr)
@@ -1015,7 +1015,7 @@
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 
 - schema: "sin(Tensor self) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiSin(ctx, out, self)
 
@@ -1026,7 +1026,7 @@
   interface: diopiSinInp(ctx, self)
 
 - schema: "cos(Tensor self) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiCos(ctx, out, self)
 
@@ -1052,14 +1052,53 @@
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMm(ctx, out, self, mat2)
 
+- schema: "matmul(Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: |
+    const auto shapeA = self.sizes();
+    const auto shapeB = other.sizes();
+    const int64_t nA= shapeA.size();
+    const int64_t nB = shapeB.size();
+    std::vector<int64_t> output_shape;
+    if (nA == nB && nB == 2) {
+        output_shape = {shapeA[0], shapeB[1]};
+    } else if (nA == 1 && nB == 2) {
+      output_shape = {shapeB[1]};
+    } else if (nA == 2 && nB == 1) {
+      output_shape = {shapeA[0]};
+    } else if (nA > 2 && nB == 1) {
+      output_shape = std::vector<int64_t>(shapeA.begin(), shapeA.end() - 1);
+    } else if (nA == 1 && nB > 2) {
+      output_shape = std::vector<int64_t>(shapeB.begin(), shapeB.end());
+      output_shape.erase(output_shape.end() - 2);
+    } else if (nA >= 2 && nB >= 2) {
+      const int64_t nC = std::max(nA, nB);
+      output_shape = std::vector<int64_t>(nC, 1);
+      output_shape[output_shape.size() - 1] = shapeB[nB - 1];
+      output_shape[output_shape.size() - 2] = shapeA[nA - 2];
+      for (int i = 3; i <= nC; ++i) {
+        int dim = nC - i;
+        if (nA - i >= 0) {
+          output_shape[dim] = std::max(output_shape[dim], shapeA[nA - i]);
+        }
+        if (nB - i >= 0) {
+          output_shape[dim] = std::max(output_shape[dim], shapeB[nB - i]);
+        }
+      }
+    }
+
+    auto out = at::empty(output_shape, self.options());
+
+  interface: diopiMatmul(ctx, out, self, other)
+
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiCumsum( ctx,  out, self, dim)
 
 - schema: "flip(Tensor self, int[] dims) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
     ::diopiSize_t diopi_size = toDiopiSize(dims);
   interface: diopiFlip(ctx, out,self,diopi_size)
@@ -1071,7 +1110,7 @@
   interface: diopiGather(ctx,out, self,  dim,  index)
 
 - schema: "index_select(Tensor self, int dim, Tensor index) -> Tensor"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     auto shape = self.sizes();
     std::vector<int64_t> output_shape(shape.begin(), shape.end());
     dim += dim >= 0 ? 0 : shape.size();
@@ -1092,7 +1131,7 @@
   interface: diopiMinimum(ctx,out, self, other)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     const auto str =  std::string("None");
     const char* appr = str.data();
   interface: diopiScatterScalar(ctx,out, self, dim, value, index, appr)
@@ -1101,7 +1140,7 @@
   interface: diopiRemainderTensor(ctx,out, self, other)
 
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: >
+  custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
