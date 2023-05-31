@@ -33,7 +33,7 @@ namespace dipu::native {
     }
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    // view or expand is supported
+    // a view one +  a real stor one  is supported
     return srcBytes < dstBytes ? srcBytes : dstBytes;
   }
 
@@ -99,8 +99,15 @@ namespace dipu::native {
     if (isDiffStrides(dst.strides(), src.strides())) {
       return false;
     }
-    // check
-    return true;
+    // view(with no-zero offset) direct copy may cause err(not sure how long real stor data should be copyed) not supported
+     if (dst.storage_offset() != 0 || src.storage_offset() != 0) {
+      return false;
+    }
+    // even tensors have zero offset and same stride/type cannot do simple safe direct copy 
+    // because we cannot simply decide how much data will be copyed from raw stor (unless check stride).
+    // so we always return false now. 
+    // need enhance in future, because always copy with the help of cpu is toooo0 slow.
+    return false;
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
