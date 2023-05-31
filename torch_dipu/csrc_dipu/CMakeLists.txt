@@ -19,6 +19,7 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
+    aten/CPUFallback.cpp
     aten/util/*.cpp
     aten/ops/*Kernel*.cpp
 )

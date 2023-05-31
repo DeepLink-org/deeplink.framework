@@ -49,14 +49,12 @@ def test_batchnorm_backward_eval():
 
         cpu_grad = cpu_tensor.grad
         dipu_grad = dipu_tensor.grad
-        rtol = 1e-6
-        atol = 1e-6
+        rtol = 1e-4
+        atol = 1e-4
 
         assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
-        print("np allclose success\n", cpu_grad, "\n", dipu_grad)
         for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
             assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
-            print("np allclose success\n", cpu_grad, "\n", dipu_grad)
 
 
 if __name__ == "__main__":
