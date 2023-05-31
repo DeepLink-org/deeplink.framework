@@ -4,6 +4,7 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
 #include <c10/util/Exception.h>
+#include <c10/util/ArrayRef.h>
 #include <c10/core/Layout.h>
 #include <ATen/Dispatch.h>
 
@@ -18,6 +19,8 @@ using c10::TensorImpl;
 using at::Layout;
 using dipu::devapis::current_device;
 using dipu::devapis::deviceId_t;
+using c10::IntArrayRef;
+
 namespace dipu::native {
 
   // need abstract cast strategy before copy, some device(eg camb) not support all types,
@@ -30,7 +33,7 @@ namespace dipu::native {
     }
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    // view or expand is supported
+    // a view one +  a real stor one  is supported
     return srcBytes < dstBytes ? srcBytes : dstBytes;
   }
 
@@ -71,6 +74,18 @@ namespace dipu::native {
     }
   }
 
+  inline bool isDiffStrides(const IntArrayRef stride1, const IntArrayRef stride2) {
+    if (stride1.size() != stride2.size()) {
+      return true;
+    }
+    for (auto i = 0; i < stride1.size() ; i++ ) {
+      if (stride1[i] != stride2[i]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   //  1. expand, 2. patial view. 3. type cast.
   inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
     // assume layout always = not suppport Sparse layout
@@ -78,13 +93,22 @@ namespace dipu::native {
   
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    if (srcBytes != dstBytes || dst.nbytes() != src.nbytes()) {
+    if (srcBytes != dstBytes || dst.numel() != src.numel() || dst.options().dtype() != src.options().dtype()) {
       return false;
     }
-    if (dst.options().dtype() != src.options().dtype()) {
+    if (isDiffStrides(dst.strides(), src.strides())) {
       return false;
     }
-    return true;
+    // view(with no-zero offset) direct copy may cause err(not sure how long real stor data should be copyed) not supported
+     if (dst.storage_offset() != 0 || src.storage_offset() != 0) {
+      return false;
+    }
+    // even tensors have zero offset and same stride/type cannot do simple safe direct copy 
+    // because we cannot simply decide how much data will be copyed from raw stor (unless check stride).
+    // so we always return false now. 
+    // need enhance in future, because always copy with the help of cpu is toooo0 slow.
+    // **** check if copy safely using tensor.nbytes() when is_contiguous() = true.
+    return false;
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
