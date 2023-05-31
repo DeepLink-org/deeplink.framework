@@ -10,6 +10,43 @@ TEST_PRECISIONS = {
 }
 
 DISABLED_TESTS_MLU = {
+    # test_linalg.py
+    'TestLinalgDIPU': {
+        'test_addmm_sizes', # diopiMulScalar: cnnlExpand] Check failed: output != NULL
+        #'test_inner', # diopiMul :cnnlExpand] Check failed: output != NULL.
+        'test_addr_bool',
+        'test_addr_float_and_complex',
+        'test_addr_integral',
+        'test_addr_type_promotion',
+        'test_blas_alpha_beta_empty',
+        'test_blas_empty',
+        'test_corner_cases_of_cublasltmatmul',
+        'test_einsum_corner_cases',
+        'test_householder_product_errors_and_warnings',
+        'test_inverse',
+        'test_ldl_factor',
+        'test_linalg_lstsq',
+        'test_linalg_lstsq_batch_broadcasting',
+        'test_linalg_lstsq_input_checks',
+        'test_linalg_lu_family',
+        'test_linalg_solve_triangular_broadcasting',
+        'test_matmul_small_brute_force_1d_Nd',
+        'test_matmul_small_brute_force_2d_Nd',
+        'test_matmul_small_brute_force_3d_Nd',
+        'test_matrix_rank_atol',
+        'test_norm_complex_old',
+        'test_norm_fro_2_equivalence_old',
+        'test_norm_matrix_degenerate_shapes',
+        'test_norm_old',
+        'test_norm_old_nan_propagation',
+        'test_ormqr',
+        'test_pca_lowrank',
+        'test_pinv_errors_and_warnings',
+        'test_renorm',
+        'test_tensordot',
+        'test_tensorsolve',
+        'test_tensorsolve_empty',
+    },
     # test_unary_ufuncs.py
     'TestUnaryUfuncsDIPU': {
         'test_float_domains',

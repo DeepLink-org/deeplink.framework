@@ -550,10 +550,13 @@ def functions_code_gen(fun_config):
                 params += ', '
         return_code = f"return std::tie({params});"
 
+    custom_code_at_the_beginning = fun_config.get('custom_code_at_the_beginning', fun_config.get('custom_code', ''))
+    custom_code_at_the_beginning = re.sub(';\s*$', ';\n',custom_code_at_the_beginning)
+
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
-            custom_code_at_the_beginning=[fun_config.get('custom_code_at_the_beginning', fun_config.get('custom_code', '')).replace('; ', ';\n')],
+            custom_code_at_the_beginning=[custom_code_at_the_beginning],
             input_process_code=[input_process_code],
             attrs_process_code=[attrs_process_code],
             output_process_code=[output_process_code],
