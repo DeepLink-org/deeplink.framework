@@ -14,14 +14,19 @@ namespace at {
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
+
+  TORCH_CHECK(name.find("foreach") == std::string::npos,
+    "Currently the foreach operator does not support fallback");
+
   std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  const static std::vector<std::string> operator_black_list{
+
+  const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
     "aten::native_batch_norm.out",
     "native_batch_norm_backward",
   };
-  auto iter = std::find(operator_black_list.cbegin(), operator_black_list.cend(), std::string(name));
-  if (iter != operator_black_list.cend()) {
+  auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
+  if (iter != custom_fallback_operators_list.cend()) {
     dipu::native::cpu_fallback(op, stack);
   } else {
     at::native::cpu_fallback(op, stack);

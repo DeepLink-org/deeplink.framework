@@ -76,13 +76,13 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
 
   std::vector<c10::List<at::Tensor>> tensorlist_args;
 
-  static bool log_fallback_detial = std::getenv("DIPU_LOG_FALLBACK_INFO") != nullptr;
+  static bool log_fallback_detail = std::getenv("DIPU_LOG_FALLBACK_INFO") != nullptr;
 
   // Step 1: Convert all non-CPU tensor inputs into CPU tensors
   // and put them on the stack at the correct indices.
   for (const auto idx : c10::irange(arguments.size())) {
     const auto& ivalue = arguments[idx];
-    if (log_fallback_detial) {
+    if (log_fallback_detail) {
       std::cout << "cpu_fallback:\t"<< op.schema().name() << "\t arguments["<< idx <<"] :"
         << schema_args[idx].name()
         << "\ttype:" << schema_args[idx].type()
@@ -125,7 +125,7 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
     if ((alias_info != nullptr && alias_info->isWrite())) {
         at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
     } else if(force_copy_tensor && cpu_tensors[i].defined()) {
-      if (log_fallback_detial) {
+      if (log_fallback_detail) {
         std::cout << "force_copy_tensor: " << tensor_idx << ":" << cpu_tensors[i].options()
             << ",size:" << cpu_tensors[i].sizes()
             << ", " << tensor_args[i].options()
