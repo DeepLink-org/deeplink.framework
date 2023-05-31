@@ -891,7 +891,7 @@
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
 
 - schema: "min(Tensor self) -> Tensor"
-  register_op: False # camb impl has problem
+  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: >
     auto out = at::empty({1}, self.options());
   interface: diopiMinAll(ctx, out, self)
@@ -902,7 +902,7 @@
   interface: diopiMin(ctx, min, min_indices, self, dim)
 
 - schema: "max(Tensor self) -> Tensor"
-  register_op: False  # camb impl has problem
+  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: >
     auto out = at::empty({1}, self.options());
   interface: diopiMaxAll(ctx, out, self)
