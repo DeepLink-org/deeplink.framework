@@ -738,17 +738,17 @@
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
-- schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
-  interface: diopiClampInpScalar(ctx, self, min, max)
+# - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
+#   interface: diopiClampInpScalar(ctx, self, min, max)
 
-- schema: "clamp.out(Tensor self, Scalar? min=None, Scalar? max=None, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiClampScalar(ctx, out, self, min, max)
+# - schema: "clamp.out(Tensor self, Scalar? min=None, Scalar? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+#   interface: diopiClampScalar(ctx, out, self, min, max)
 
-- schema: "clamp_.Tensor(Tensor(a!) self, Tensor? min=None, Tensor? max=None) -> Tensor(a!)"
-  interface: diopiClampInp(ctx, self, min, max)
+# - schema: "clamp_.Tensor(Tensor(a!) self, Tensor? min=None, Tensor? max=None) -> Tensor(a!)"
+#   interface: diopiClampInp(ctx, self, min, max)
 
-- schema: "clamp.Tensor_out(Tensor self, Tensor? min=None, Tensor? max=None, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiClamp(ctx, out, self, min, max)
+# - schema: "clamp.Tensor_out(Tensor self, Tensor? min=None, Tensor? max=None, *, Tensor(a!) out) -> Tensor(a!)"
+#   interface: diopiClamp(ctx, out, self, min, max)
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
   custom_code_at_the_beginning: >
@@ -864,28 +864,28 @@
 - schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
 
-- schema: "min(Tensor self) -> Tensor"
-  register_op: False # camb impl has problem
-  custom_code_at_the_beginning: >
-    auto out = at::empty({1}, self.options());
-  interface: diopiMinAll(ctx, out, self)
+# - schema: "min(Tensor self) -> Tensor"
+#   register_op: False # camb impl has problem
+#   custom_code_at_the_beginning: >
+#     auto out = at::empty({1}, self.options());
+#   interface: diopiMinAll(ctx, out, self)
 
-- schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
-  custom_code_at_the_beginning: >
-    dim += ((dim >= 0) ? 0 : self.sizes().size());
-  interface: diopiMin(ctx, min, min_indices, self, dim)
+# - schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
+#   custom_code_at_the_beginning: >
+#     dim += ((dim >= 0) ? 0 : self.sizes().size());
+#   interface: diopiMin(ctx, min, min_indices, self, dim)
 
-- schema: "max(Tensor self) -> Tensor"
-  register_op: False  # camb impl has problem
-  custom_code_at_the_beginning: >
-    auto out = at::empty({1}, self.options());
-  interface: diopiMaxAll(ctx, out, self)
+# - schema: "max(Tensor self) -> Tensor"
+#   register_op: False  # camb impl has problem
+#   custom_code_at_the_beginning: >
+#     auto out = at::empty({1}, self.options());
+#   interface: diopiMaxAll(ctx, out, self)
 
-- schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
-  custom_code_at_the_beginning: >
-    dim += ((dim >= 0) ? 0 : self.sizes().size());
-    auto output_size = self.sizes().vec();
-  interface: diopiMax(ctx, max, max_indices, self, dim)
+# - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
+#   custom_code_at_the_beginning: >
+#     dim += ((dim >= 0) ? 0 : self.sizes().size());
+#     auto output_size = self.sizes().vec();
+#   interface: diopiMax(ctx, max, max_indices, self, dim)
 
 - schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
@@ -948,9 +948,16 @@
 
 - schema: "where.self(Tensor condition, Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: >
-    auto shape = at::infer_size(condition.sizes(), self.sizes());
-    shape = at::infer_size(shape, other.sizes());
-    auto out = at::empty(shape, self.options());
+    auto shapex = condition.sizes();
+    auto shapey = self.sizes();
+    auto shapez = other.sizes();
+    auto shapea = at::infer_size(shapex, shapey);
+    auto shapeb = at::infer_size(shapez, shapey);
+    auto tmp = at::infer_size(shapea, shapeb);
+    auto shape = condition.sizes();
+    const std::vector<int64_t>& const_tmp = tmp;
+    shape = at::ArrayRef<int64_t>(const_tmp);
+    auto out = at::empty({shape}, self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
@@ -1030,8 +1037,8 @@
 - schema: "sigmoid.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSigmoid(ctx,out,self)
 
-- schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiClampMinScalar(ctx,out, self, min)
+# - schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
+#   interface: diopiClampMinScalar(ctx,out, self, min)
 
 - schema: "minimum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMinimum(ctx,out, self, other)
@@ -1048,7 +1055,5 @@
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: >
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
-  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
-- schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface:  diopiFloor(ctx, out,self);
+  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
