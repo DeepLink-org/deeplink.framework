@@ -178,3 +178,8 @@ def apply_patches():
     apply_temp_patch()
 
 apply_patches()
+
+if _C.dipu_vendor == 'CUDA':
+    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+elif _C.dipu_vendor == 'MLU':
+    os.environ['MLU_INVOKE_BLOCKING'] = '1'
