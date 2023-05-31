@@ -90,16 +90,20 @@
   interface: diopiDiv(ctx, out, self, other, mode)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
+  register_op: False  # camb impl has bug
   custom_code_at_the_beginning: auto out = at::empty_like(self);
   interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: "mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  register_op: False
   interface: diopiMulInpScalar(ctx, self, other)
 
 - schema: "aten::mul.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False  # camb impl has bug
   interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  register_op: False  # camb impl has bug
   custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_mul__scalar(self, other.item());
@@ -107,6 +111,7 @@
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False  # camb impl has bug
   custom_code_at_the_beginning: >
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
@@ -1068,24 +1073,20 @@
 - schema: "index_select(Tensor self, int dim, Tensor index) -> Tensor"
   custom_code_at_the_beginning: >
     auto shape = self.sizes();
-    std::vector<int64_t> tmp;
-    for (int i = 0; i < dim; i++) {
-        tmp.push_back(shape[i]);
-    }
-    tmp.push_back(index.sizes()[0]);
-    for (int i = dim+1; i < shape.size(); i++) {
-        tmp.push_back(shape[i]);
-    }
-    const std::vector<int64_t>& const_tmp = tmp;
-    shape = at::ArrayRef<int64_t>(const_tmp);
-    auto out = at::empty({shape}, self.options());
-  interface: diopiIndexSelect(ctx, out, self,  dim, index)
+    std::vector<int64_t> output_shape(shape.begin(), shape.end());
+    dim += dim >= 0 ? 0 : shape.size();
+    output_shape[dim] = index.numel();
+    auto out = at::empty({output_shape}, self.options());
+  interface: diopiIndexSelect(ctx, out, self, dim, index)
 
 - schema: "sigmoid.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSigmoid(ctx,out,self)
 
 - schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiClampMinScalar(ctx,out, self, min)
+  interface: diopiClampMinScalar(ctx, out, self, min)
+
+- schema: "clamp_max.out(Tensor self, Scalar max, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClampMaxScalar(ctx, out, self, max)
 
 - schema: "minimum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMinimum(ctx,out, self, other)
