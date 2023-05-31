@@ -1047,6 +1047,9 @@
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMm(ctx, out, self, mat2)
 
+- schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMatmul(ctx, out, self, other)
+
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiCumsum( ctx,  out, self, dim)
 
