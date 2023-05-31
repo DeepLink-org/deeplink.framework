@@ -7,7 +7,8 @@ from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content,\
     diopi_wrapper_function_template_content, op_register_template_content,\
-    custom_autograd_template_content, autocompare_template_content
+    custom_autograd_template_content, autocompare_template_content,\
+    op_with_custom_fallback_register_template_content
 
 class CodeTemplate:
     substitution_str = r"(^[^\n\S]*)?\$([^\d\W]\w*|\{,?[^\d\W]\w*\,?})"
@@ -116,6 +117,15 @@ def create_transform_input_to_cpu_code(fun_config):
             input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = c10::make_optional<at::Tensor>({output}.has_value() ? {output}.value().cpu() : at::Tensor());\n"
         else:
             input_process_code += f"at::Tensor {output}_cpu = {output}.cpu();\n"
+
+
+    tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    if len(tensors_arrays) > 0:
+        for tensors_arg in tensors_arrays:
+            input_process_code += f"std::vector<at::Tensor> {tensors_arg}_cpu({tensors_arg}.size());\n";
+            input_process_code += f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)" + '{return tensor.cpu();});\n'
+
 
     return input_process_code
 
@@ -372,7 +382,9 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
-    for input in inputs + optional_inputs + outputs:
+    tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    for input in inputs + optional_inputs + outputs + tensors_arrays:
         code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
 
     return code
@@ -464,6 +476,8 @@ fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
 
+op_with_custom_fallback_register_template = CodeTemplate(op_with_custom_fallback_register_template_content)
+
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 autocompare_template = CodeTemplate(autocompare_template_content)
@@ -519,7 +533,7 @@ def functions_code_gen(fun_config):
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
     attrs_process_code += create_int_array_process_code(int_array_list)
     for int_array_param in int_array_list:
-        diopi_fun_call_code = re.sub(int_array_param.strip(), f"{int_array_param}DiopiSize", diopi_fun_call_code)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + int_array_param.strip() + '( *[,\)])', R'\1' + f"{int_array_param}DiopiSize" + R'\2', diopi_fun_call_code)
 
 
     if fun_config.get('print_func_call_info', False) == True:
@@ -598,12 +612,21 @@ def functions_code_gen(fun_config):
         fbody += autocompare_code
         fun_name = auto_compare_fun_name
 
+    if fun_config.get('custom_fallback', False) in ['False', False]:
+        register_body = op_register_template.substitute(
+                register_name=[get_op_name_from_schema(fun_config['schema'])],
+                aten_fun_name=['dipu::native::' + fun_name],
+                diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
+        )
+    else:
+        register_body = op_with_custom_fallback_register_template.substitute(
+                register_name=[get_op_name_from_schema(fun_config['schema'])],
+                aten_fun_name=['dipu::native::' + fun_name],
+                diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
+                force_fallback=['false' if fun_config.get('force_fallback', False) in [False, 'False'] else 'true'],
+                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name],
 
-    register_body = op_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config['schema'])],
-            aten_fun_name=['dipu::native::' + fun_name],
-            diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
-    )
+        )
     return fbody, register_body
 
 def boolean_string(s):

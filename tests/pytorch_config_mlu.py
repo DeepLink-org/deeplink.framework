@@ -10,6 +10,40 @@ TEST_PRECISIONS = {
 }
 
 DISABLED_TESTS_MLU = {
+    # test_testing.py
+    'TestTestParametrizationDeviceTypeDIPU': {
+        'test_unparametrized_names',
+        'test_make_tensor_dipu',
+        'test_dtypes_composition_valid',
+        'test_dtypes_composition_invalid',
+        'test_multiple_handling_of_same_param_error',
+    },
+
+    'TestTestingDIPU': {
+        'test_make_tensor',
+        'test_assertEqual_numpy',
+        'test_circular_dependencies',
+        'test_multiple_handling_of_same_param_error',
+    },
+
+    'TestImports': {
+        'test_circular_dependencies',
+    },
+
+
+    # test_utils.py
+    'TestCheckpoint': {
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpoint_rng_cuda',
+    },
+    'TestCheckpointDIPU': {
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpointing_without_reentrant_early_free',
+        'test_checkpoint_rng_cuda',
+    },
+
+
     # test_unary_ufuncs.py
     'TestUnaryUfuncsDIPU': {
         'test_float_domains',
@@ -272,6 +306,7 @@ DISABLED_TESTS_MLU = {
         'test_nonzero',
         'test_nonzero_astuple_out',
         'test_sparse_dense_dim',
+        'test_clamp_propagates_nans', # [cnnlClip] Parameter min and max can not be null simultaneously.
     },
 }
 
