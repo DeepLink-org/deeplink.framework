@@ -26,10 +26,9 @@ for ((i=0; i<$length; i++)); do
     work_dir="--work-dir=./${p3}"
     opt_arg="${p4}"
     export ONE_ITER_TOOL_STORAGE_PATH=$(pwd)/${p3}/one_iter_data
-    # echo $ONE_ITER_TOOL_STORAGE_PATH
     echo "${train_path} ${config_path} ${work_dir} ${opt_arg}"
     sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    sh SMART/tools/one_iter_tool/compare_one_iter_test.sh
     echo  "after add place row $i"  1>&798
 }&
 done
