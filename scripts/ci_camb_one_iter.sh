@@ -29,7 +29,7 @@ for ((i=0; i<$length; i++)); do
     echo "${train_path} ${config_path} ${work_dir} ${opt_arg}"
     sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     sh SMART/tools/one_iter_tool/compare_one_iter_test.sh
-    echo  "after add place row $i"  1>&798
+    echo  "after add place row $i"  1>&796
 }&
 done
 
