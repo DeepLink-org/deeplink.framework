@@ -169,6 +169,9 @@ jobs:
           rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
           rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
           rsync -a --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/python:$PYTHONPATH
+          cd mmcv && MMCV_WITH_OPS=1 FORCE_MLU=1 srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=60 -n1 python setup.py build_ext --inplace
+          cd ..
 
       - name: run-one-iter-tools
         run: |
