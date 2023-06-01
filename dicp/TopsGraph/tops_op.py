@@ -198,6 +198,13 @@ class Transpose1(Operator):
         self.torch_op = aten.transpose
 
 
+class Hardswish(Operator):
+    def __init__(self, a):
+        super().__init__("Hardswish")
+        self.a = a
+        self.torch_op = aten.hardswish
+
+
 class Copy(Operator):
     def __init__(self, *args):
         super().__init__("clone")
@@ -500,6 +507,13 @@ class Logsoftmax(Operator):
         self.args = kwargs
         self.torch_op = aten._log_softmax.default
 
+
+class Gelu(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Gelu")
+        self.args = args
+        self.kwarg = kwargs
+        self.torch_op = aten.gelu.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap

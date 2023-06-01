@@ -27,7 +27,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax']
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -534,6 +534,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Transpose({', '.join(args)});\n"
     
     @staticmethod
+    def Hardswish(op_var, x):
+        return f"builder::Op {op_var} = builder::HardSwish({x});"
+
+    @staticmethod
     def Reshape(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'builder::Type {op_var}_reshape_shape({shape}, ptype);\n'
@@ -863,3 +867,10 @@ class EnflameOverrides(OpOverrides):
     def Logsoftmax(op_var, node, x, z):
         y = node.args[1]
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z}, true);"
+
+    @staticmethod
+    def Gelu(op_var, node, x):
+        y = "true"
+        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
+            y = "false"
+        return f"builder::Op {op_var} = builder::Gelu({x}, {y});"

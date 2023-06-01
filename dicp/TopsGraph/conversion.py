@@ -123,6 +123,10 @@ def permute(a, b):
 def transpose(a, b, c):
     return tops_op.Transpose1(a, b, c)
 
+@register_conversion(torch.ops.aten.hardswish)
+def hardswish(a):
+    return tops_op.Hardswish(a)
+
 @register_conversion(torch.ops.aten.clone)
 def clone(*args):
     return tops_op.Copy(*args)
@@ -284,6 +288,10 @@ def unsafe_view(a, b):
 @register_conversion(torch.ops.aten._log_softmax.default)
 def logsoftmax(*args, **kwargs):
     return tops_op.Logsoftmax(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.gelu.default)
+def gelu(*args, **kwargs):
+    return tops_op.Gelu(*args, **kwargs)
 
 # Patterns
 def register_pattern(Pattern):
