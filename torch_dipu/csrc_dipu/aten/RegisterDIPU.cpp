@@ -23,7 +23,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
     "aten::native_batch_norm.out",
-    "native_batch_norm_backward",
+    "aten::native_batch_norm_backward",
   };
   auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
   if (iter != custom_fallback_operators_list.cend()) {
