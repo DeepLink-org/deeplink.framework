@@ -23,11 +23,13 @@ namespace at {
 // so we shouldn't created a new preprocess logic?
 //so just do a simple runtime cpu fallback to support diopi func loss
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc) do {           \
-    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                \
-        m.impl(opname, TORCH_FN(wapperFunc));                           \
-    }  else {                                                           \
-        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());  \
-    }                                                                   \
+    if (reinterpret_cast<void*>(diopiFunc) != nullptr) {                                        \
+        m.impl(opname, TORCH_FN(wapperFunc));                                                   \
+    }  else {                                                                                   \
+        DIPU_LOG_ONCE << #diopiFunc << " is not yet implemented, "                              \
+            << opname << " will be fallback to cpu" << std::endl;                               \
+        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());            \
+    }                                                                                           \
 } while (false);
 
 } //end ns at

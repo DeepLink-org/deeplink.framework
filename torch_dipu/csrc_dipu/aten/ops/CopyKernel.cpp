@@ -32,6 +32,16 @@ namespace dipu::native {
   }
 
   static void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+    if (src.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_H2D: src_ptr is nullptr");
+    }
+    if (dst.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_H2D: dst_ptr is nullptr");
+    }
+    if (src.data_ptr() == nullptr || dst.data_ptr() == nullptr) {
+      return;
+    }
+    
     int64_t nbytes = getCopyBytes(dst, src);
     DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
@@ -50,6 +60,16 @@ namespace dipu::native {
   }
 
   static void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+    if (src.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_D2H:  src_ptr is nullptr");
+    }
+    if (dst.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_D2H: dst_ptr is nullptr");
+    }
+    if (src.data_ptr() == nullptr || dst.data_ptr() == nullptr) {
+      return;
+    }
+
     int64_t nbytes = getCopyBytes(dst, src);
     DIPUGuard guard(src.device());
 
@@ -76,6 +96,16 @@ namespace dipu::native {
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
+    if (src.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_D2D: src_ptr is nullptr");
+    }
+    if (dst.data_ptr() == nullptr) {
+      DIPU_LOGE("zcx copy_D2D: dst_ptr is nullptr");
+    }
+    if (src.data_ptr() == nullptr || dst.data_ptr() == nullptr) {
+      return;
+    }
+
     int64_t nbytes = getCopyBytes(dst, src);
     DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();

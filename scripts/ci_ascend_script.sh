@@ -49,7 +49,7 @@ case $1 in
     build_dipu)
         (
             build_diopi_lib
-            autogen_diopi_wrapper
+            # autogen_diopi_wrapper
             build_dipu_lib
             build_dipu_py
         ) \

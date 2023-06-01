@@ -6,7 +6,7 @@ from torch.types import (_int, _size, Device, Number)
 from torch import Tensor
 
 # use env to control?
-mockcuda = True
+mockcuda = False
 from torch_dipu import _C
 from torch_dipu import dipu 
 from torch_dipu.dipu import *
@@ -125,7 +125,8 @@ def apply_torch_function_patch():
 def apply_temp_patch():
     _has_storage_raw = torch._C._has_storage
     def _has_storage_wrapper(x: Tensor):
-        if x.device.type == "privateuseone":
+        # if x.device.type == "privateuseone":
+        if x.device.type == "xla":
             return False
         else:
             return _has_storage_raw(x)

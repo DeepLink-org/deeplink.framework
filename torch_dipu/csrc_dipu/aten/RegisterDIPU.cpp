@@ -1,11 +1,11 @@
 #include "RegisterDIPU.hpp"
-
+#include <iostream>
 namespace at {
 
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
-  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
+  // std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
   at::native::cpu_fallback(op, stack);
 }
 
@@ -28,6 +28,20 @@ namespace {
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     return dnative::copy_(self, src, non_blocking);
+  }
+
+  at::Tensor wrapper_conv2d_(const at::Tensor& input, const at::Tensor& weight, const c10::optional<at::Tensor>& bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups) {
+    std::cout << "zzzz wrapper_conv2d_" << std::endl;
+    int64_t batch_size = input.size(0);
+    int64_t height = input.size(2);
+    int64_t width = input.size(3);
+    int64_t out_channel = weight.size(0);
+    auto kernel_size = weight.sizes().slice(2);
+    int64_t out_height = (height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1;
+    int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
+    c10::SmallVector<int64_t, 8> output_size = {batch_size, out_channel, out_height, out_width};
+    at::Tensor out = at::empty(output_size, input.options());
+    return out;
   }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
@@ -98,6 +112,15 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("view_as_complex", TORCH_FN(wrapper_DIPU__view_as_complex));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
+
+  //DIOPI_ATEN_FUNC("conv2d", ::diopiConvolution2d, wrapper_conv2d_);
+}
+
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+    
+    //  m.impl("conv2d", TORCH_FN(wrapper_conv2d_));
+    //DIOPI_ATEN_FUNC("conv2d", ::diopiConvolution2d, dipu::native::dipu_conv2d_wrapper);
+    
 }
 
 }  //end ns at
