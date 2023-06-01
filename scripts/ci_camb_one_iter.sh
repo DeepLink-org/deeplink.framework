@@ -37,6 +37,7 @@ ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
 # 没有的一些包，进行安装
 pip install terminaltables
 pip install pycocotools
+pip install shapely
 
 for ((i=0; i<$length; i++)); do
 {
