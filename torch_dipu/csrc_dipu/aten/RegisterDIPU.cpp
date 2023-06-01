@@ -1,7 +1,27 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
+#include <regex>
 
 namespace dipu {
+
+bool get_force_fallback(const char* opname) {
+  static const char* force_fallback_operators_list_str = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+  if (force_fallback_operators_list_str == nullptr || opname == nullptr) {
+    return false;
+  } else {
+    DIPU_LOG_ONCE << "env DIPU_FORCE_FALLBACK_OPS_LIST:" << force_fallback_operators_list_str << std::endl;
+
+    const std::string pattern("(([;, ]+)|())(aten::)*" + std::string(opname) + "(([ ,;]+)|())");
+
+    const bool matched_result = std::regex_search(force_fallback_operators_list_str, std::regex(pattern));
+    if (matched_result) {
+      DIPU_REGISTER_LOG << "since " << opname << " is in " << force_fallback_operators_list_str
+        << ", forceed to fallback!" << std::endl;
+      return true;
+    }
+  }
+  return false;
+}
 
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
