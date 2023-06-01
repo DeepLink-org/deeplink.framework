@@ -285,6 +285,10 @@ def unsafe_view(a, b):
 def logsoftmax(*args, **kwargs):
     return tops_op.Logsoftmax(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.gelu.default)
+def gelu(*args, **kwargs):
+    return tops_op.Gelu(*args, **kwargs)
+
 # Patterns
 def register_pattern(Pattern):
     # TODO OpOverloadPacket

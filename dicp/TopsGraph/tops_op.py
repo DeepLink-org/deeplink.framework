@@ -501,6 +501,13 @@ class Logsoftmax(Operator):
         self.torch_op = aten._log_softmax.default
 
 
+class Gelu(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Gelu")
+        self.args = args
+        self.kwarg = kwargs
+        self.torch_op = aten.gelu.default
+
 # TODO check if we need this wrap
 @torch.fx.wrap
 def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
