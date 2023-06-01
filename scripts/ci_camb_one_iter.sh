@@ -7,10 +7,16 @@ test_model_list=(
     "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"
     "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"
+    "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024"
+    "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024"
+    "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192"
+    "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class"
+    "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco"
+    "mmaction2 recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb.py workdirs_ssd300_coco"
 )
 
 length=${#test_model_list[@]}
-max_parall=3
+max_parall=4
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
@@ -23,8 +29,13 @@ export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 #建立软链接，方便找到数据集
 mkdir data
 ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
-ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017/train2017 train2017
-ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017/val2017 val2017
+ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
+ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
+ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
+ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
+
+# 没有terminaltables，进行安装
+pip install terminaltables
 
 for ((i=0; i<$length; i++)); do
 {
