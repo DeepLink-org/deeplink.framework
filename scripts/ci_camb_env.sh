@@ -22,5 +22,7 @@ export NEUWARE_HOME=/usr/local/neuware
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
+export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
+
 
 source activate $ENV_NAME
