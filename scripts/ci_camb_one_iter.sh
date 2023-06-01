@@ -22,7 +22,7 @@ for ((i=0; i<$length; i++)); do
     read -u 796
     read -r p1 p2 p3 p4 <<< ${test_model_list[i]}
     train_path="${p1}/tools/train.py"
-    config_path="${train_path}/config/${p2}"
+    config_path="${p1}/configs/${p2}"
     work_dir="--work-dir=./${p3}"
     opt_arg="${p4}"
     export ONE_ITER_TOOL_STORAGE_PATH=$(pwd)/${p3}/one_iter_data
