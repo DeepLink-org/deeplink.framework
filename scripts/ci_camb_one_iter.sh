@@ -31,7 +31,7 @@ for ((i=0; i<$length; i++)); do
         echo "File already exists $ONE_ITER_TOOL_STORAGE_PATH"
     else
         # 创建当前文件夹路径
-        mkdir "$ONE_ITER_TOOL_STORAGE_PATH"
+        mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
     sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
