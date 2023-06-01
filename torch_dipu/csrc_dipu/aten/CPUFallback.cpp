@@ -130,8 +130,8 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
             << ",size:" << cpu_tensors[i].sizes()
             << ", " << tensor_args[i].options()
             << ",size:"<< cpu_tensors[i].sizes() << std::endl;
-        at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
       }
+      at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
     }
   }
 

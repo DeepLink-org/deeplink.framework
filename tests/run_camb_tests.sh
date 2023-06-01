@@ -5,6 +5,10 @@ source tests/common.sh
 
 function run_dipu_tests {
   #run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
+  run_test "${PYTORCH_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
+  run_test "${PYTORCH_DIR}/test/test_type_hints.py" "$@" -v
+  run_test "${PYTORCH_DIR}/test/test_type_info.py" "$@" -v
+  #run_test "${PYTORCH_DIR}/test/test_utils.py" "$@" -v
   run_test "${PYTORCH_DIR}/test/test_unary_ufuncs.py" "$@" -v TestUnaryUfuncsDIPU
   run_test "${PYTORCH_DIR}/test/test_binary_ufuncs.py" "$@" -v TestBinaryUfuncsDIPU
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU #--subprocess
