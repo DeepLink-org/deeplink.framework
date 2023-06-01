@@ -27,6 +27,13 @@ for ((i=0; i<$length; i++)); do
     opt_arg="${p4}"
     export ONE_ITER_TOOL_STORAGE_PATH=$(pwd)/${p3}/one_iter_data
     echo "${train_path} ${config_path} ${work_dir} ${opt_arg}"
+    if [ -d "$ONE_ITER_TOOL_STORAGE_PATH" ]; then
+        echo "File already exists $ONE_ITER_TOOL_STORAGE_PATH"
+    else
+        # 创建当前文件夹路径
+        mkdir "$ONE_ITER_TOOL_STORAGE_PATH"
+        echo "make dir"
+    fi
     sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     sh SMART/tools/one_iter_tool/compare_one_iter_test.sh
     echo  "after add place row $i"  1>&796
