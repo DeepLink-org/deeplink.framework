@@ -20,6 +20,12 @@ done
 export ONE_ITER_TOOL_DEVICE=dipu
 export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
+#建立软链接，方便找到数据集
+mkdir data
+ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
+ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017/train2017 train2017
+ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017/val2017 val2017
+
 for ((i=0; i<$length; i++)); do
 {
     read -u 796
