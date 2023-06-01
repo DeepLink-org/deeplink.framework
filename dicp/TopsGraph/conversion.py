@@ -123,6 +123,10 @@ def permute(a, b):
 def transpose(a, b, c):
     return tops_op.Transpose1(a, b, c)
 
+@register_conversion(torch.ops.aten.hardswish)
+def hardswish(a):
+    return tops_op.Hardswish(a)
+
 @register_conversion(torch.ops.aten.clone)
 def clone(*args):
     return tops_op.Copy(*args)

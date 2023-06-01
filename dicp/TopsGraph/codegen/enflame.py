@@ -534,6 +534,11 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Transpose({', '.join(args)});\n"
     
     @staticmethod
+    def Hardswish(op_var, x):
+        return f"builder::Op {op_var} = builder::HardSwish({x});"
+
+
+    @staticmethod
     def Reshape(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'builder::Type {op_var}_reshape_shape({shape}, ptype);\n'

@@ -198,6 +198,13 @@ class Transpose1(Operator):
         self.torch_op = aten.transpose
 
 
+class Hardswish(Operator):
+    def __init__(self, a):
+        super().__init__("Hardswish")
+        self.a = a
+        self.torch_op = aten.hardswish
+
+
 class Copy(Operator):
     def __init__(self, *args):
         super().__init__("clone")
