@@ -1105,7 +1105,6 @@
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  register_op: False
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
