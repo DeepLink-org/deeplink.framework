@@ -1,10 +1,6 @@
 import torch
 import torch.fx
 
-from torch._inductor.decomposition import decompositions
-del decompositions[torch.ops.aten._native_batch_norm_legit_functional.default]
-del decompositions[torch.ops.aten.hardswish.default]
-
 class MyModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -13,7 +9,7 @@ class MyModule(torch.nn.Module):
 
     def forward(self, input):
         input = torch.ops.aten.add(input, input)
-        res = torch.nn.functional.hardswish(input, inplace=True)
+        res = torch.nn.functional.hardswish(input)
         res = torch.ops.aten.mul(res, res)
         return res
 

@@ -1,10 +1,6 @@
 import torch
 import torch.fx
 
-from torch._inductor.decomposition import decompositions
-torch._dynamo.config.verbose = True
-del decompositions[torch.ops.aten._native_batch_norm_legit_functional.default]
-del decompositions[torch.ops.aten.gelu.default]
 class MyModule(torch.nn.Module):
     def __init__(self):
         super().__init__()

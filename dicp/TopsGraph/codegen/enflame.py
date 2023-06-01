@@ -537,7 +537,6 @@ class EnflameOverrides(OpOverrides):
     def Hardswish(op_var, x):
         return f"builder::Op {op_var} = builder::HardSwish({x});"
 
-
     @staticmethod
     def Reshape(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
@@ -869,10 +868,9 @@ class EnflameOverrides(OpOverrides):
         y = node.args[1]
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z}, true);"
 
-
     @staticmethod
     def Gelu(op_var, node, x):
         y = "true"
-        if len(node.kwargs) == 0 or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
+        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
             y = "false"
         return f"builder::Op {op_var} = builder::Gelu({x}, {y});"
