@@ -34,8 +34,9 @@ ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
 ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
 ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
 
-# 没有terminaltables，进行安装
+# 没有的一些包，进行安装
 pip install terminaltables
+pip install pycocotools
 
 for ((i=0; i<$length; i++)); do
 {
