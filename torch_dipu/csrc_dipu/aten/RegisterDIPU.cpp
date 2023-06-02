@@ -13,7 +13,11 @@ static std::string force_fallback_operators_list = []()-> std::string {
         content += ";" + line + ';';
       }
     }
-    std::cout << content << std::endl;
+    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+    if (env != nullptr) {
+      content += ';';
+      content += env;
+    }
     return content;
 }();
 
@@ -21,18 +25,11 @@ static std::string force_fallback_operators_list = []()-> std::string {
 namespace dipu {
 
 bool get_force_fallback(const char* opname) {
-  std::string force_fallback_operators_list_str = force_fallback_operators_list;
-  const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
-  if (env != nullptr) {
-    force_fallback_operators_list_str += ',';
-    force_fallback_operators_list_str += env;
-  }
-
-  if (force_fallback_operators_list_str.size() <= 0 || opname == nullptr) {
+  if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
   } else {
-    const std::string pattern = "(([;, ]+)|())(aten::)*" + std::string(opname) + "(([ ,;]+)|())";
-    const bool matched_result = std::regex_search(force_fallback_operators_list_str, std::regex(pattern));
+    const std::string pattern = "(([;, ]+)|())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|())";
+    const bool matched_result = std::regex_search(force_fallback_operators_list, std::regex(pattern));
     if (matched_result) {
       return true;
     }
