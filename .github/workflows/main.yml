@@ -211,12 +211,13 @@ jobs:
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-One-Iter_Cuda:
-    name: test-one-iter
+    name: test-one-iter-cuda
     needs: [Build-POC-Cuda]
     runs-on: tps-pytorch-ci
     steps:
       - name: run-one-iter-tools
         run: |
-        cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
-        echo " source scripts/ci_cuda_env.sh && 不要srun，直接执行脚本 " \
-        cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+          echo " source scripts/ci_cuda_env.sh && 不要srun，直接执行脚本 " \
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda
