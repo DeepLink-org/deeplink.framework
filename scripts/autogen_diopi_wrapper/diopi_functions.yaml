@@ -779,6 +779,12 @@
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
+- schema: "mse_loss_backward(Tensor grad_output, Tensor self, Tensor target, int reduction) -> Tensor grad_input"
+  custom_code_at_the_beginning: |
+    auto grad_input = at::empty(self.sizes(), grad_output.options());
+    const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
+  interface: diopiMSELossBackward(ctx, grad_input, grad_output, self, target, reductionDiopi)
+
 - schema: "clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)"
   interface: diopiClampInpScalar(ctx, self, min, max)
 
