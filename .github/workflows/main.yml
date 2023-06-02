@@ -191,7 +191,7 @@ jobs:
           git checkout ${{ github.sha }} &&  git merge --no-edit main
           fi
           cd third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ${NV_PVC_PATH}/dipu_poc
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc
           rm -rf SMART && git clone -b ywt/one_iter_tool_for_mmcv_2.0 https://github.com/ParrotsDL/SMART.git
           rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
           rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
