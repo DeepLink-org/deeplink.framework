@@ -169,8 +169,8 @@ jobs:
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Camb
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh \
+          && cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Camb
           """
 
 
@@ -246,5 +246,5 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpretrain:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          sh scripts/ci_nv_one_iter.sh
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda
+          bash scripts/ci_nv_one_iter.sh \
+          && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda
