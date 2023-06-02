@@ -1,5 +1,9 @@
+#!/bin/bash
+set -e # Exit the script if an error happens
+set -o pipefail
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
-test_model_list=(
+original_list=(
     "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"
     "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k --no-pin-memory"
     "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin-large_16xb64_in1k --no-pin-memory"
@@ -23,10 +27,28 @@ test_model_list=(
     "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"
     "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024"
     "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
+    "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
 )
 
-length=${#test_model_list[@]}
+length=${#original_list[@]}
 max_parall=4
+random_model_num=100 #如果超过，会自动设置为模型总数
+
+if [ $random_model_num -gt $length ]; then
+    random_model_num=$length
+fi
+
+echo $length
+selected_list=()
+
+for ((i=0; i<random_model_num; i++)); do
+    random_index=$((RANDOM % length))
+    random_element=${original_list[random_index]}
+    selected_list+=("$random_element")
+    original_list=("${original_list[@]:0:random_index}" "${original_list[@]:random_index+1}")
+    length=${#original_list[@]}
+done
+
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
@@ -36,24 +58,15 @@ done
 export ONE_ITER_TOOL_DEVICE=dipu
 export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
-#建立软链接，方便找到数据集
-mkdir data
-ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
-ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
-ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
-ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
-ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
-
 # 没有的一些包，进行安装
 pip install terminaltables
 pip install pycocotools
 pip install shapely
 
-for ((i=0; i<$length; i++)); do
+for ((i=0; i<$random_model_num; i++)); do
 {
     read -u 796
-    read -r p1 p2 p3 p4 <<< ${test_model_list[i]}
+    read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"
     work_dir="--work-dir=./${p3}"
