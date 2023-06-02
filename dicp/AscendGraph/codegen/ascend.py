@@ -456,24 +456,21 @@ class AscendOverrides:
     @staticmethod
     def transpose(name, node, input, dim0, dim1):
         input_shape = list(node.args[0].meta['val'].shape)
-        output_shape = list(node.meta['val'].shape)
-        
-        if input_shape == output_shape:
-            src_code = f'''
-                      auto {name} = op::Identity("{name}")
-                        .set_input_x({input});
-            '''
-            return src_code
-        shape_size = len(output_shape)
-        shape_str = '{' + ','.join(map(str, output_shape)) + '}' 
+        rank = len(input_shape)
+        dim0 = int(dim0)
+        dim1 = int(dim1)
+        perm = [num for num in range(rank)]
+        perm[dim0] = dim1
+        perm[dim1] = dim0
+        perm_str = '{' + ','.join(map(str, perm)) + '}'
         src_code = f"""
-                       auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
-                       auto {name} = op::Reshape("{name}")
+                       auto {name}_perm_tensor = genTensorWithData<int>({{ {rank} }}, FORMAT_NCHW, DT_INT32, {perm_str});
+                       auto {name}_perm = op::Const("{name}_perm")
+                         .set_attr_value({name}_perm_tensor);
+                       auto {name} = op::Transpose("{name}")
                          .set_input_x({input})
-                         .set_input_shape({name}_reshape);
-                    """
+                         .set_input_perm({name}_perm);
+                    """                    
         return src_code
 
     @staticmethod
