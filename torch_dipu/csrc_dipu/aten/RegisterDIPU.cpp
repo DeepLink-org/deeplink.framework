@@ -1,19 +1,24 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 #include <regex>
+#include <iostream>
 
-static std::string force_fallback_operators_list(",");
+static std::string force_fallback_operators_list = []()-> std::string {
+    std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in);
+    std::string content(";");
+    if (stream.is_open()) {
+      while (!stream.eof()) {
+        std::string line;
+        stream >> line;
+        // using printf() in all tests for consistency
+        printf("%s", line.c_str());
+        content += ";" + line + ';';
+      }
+    }
+    std::cout << content << std::endl;
+    return content;
+}();
 
-extern "C" {
-
-void add_fallback_op(const char* op) {
-  if (op != nullptr) {
-    force_fallback_operators_list += ',';
-    force_fallback_operators_list += op;
-  }
-}
-
-}
 
 namespace dipu {
 
@@ -28,7 +33,7 @@ bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list_str.size() <= 0 || opname == nullptr) {
     return false;
   } else {
-    const std::string pattern("(([;, ]+)|())(aten::)*" + std::string(opname) + "(([ ,;]+)|())");
+    const std::string pattern = "(([;, ]+)|())(aten::)*" + std::string(opname) + "(([ ,;]+)|())";
     const bool matched_result = std::regex_search(force_fallback_operators_list_str, std::regex(pattern));
     if (matched_result) {
       return true;
