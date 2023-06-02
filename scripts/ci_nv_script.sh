@@ -4,6 +4,7 @@ echo "pwd: $(pwd)"
 
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
+    echo "building dipu_py PYTORCH_DIR: ${PYTORCH_DIR}"
     export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
@@ -41,7 +42,7 @@ function build_diopi_lib() {
     sed -i "/option(HIP/a set(Torch_DIR $Torch_DIR)" torch/CMakeLists.txt
     sh scripts/build_impl.sh clean
     sh scripts/build_impl.sh torch_dyload || exit -1
-    
+
     cd lib
     cp ${PYTORCH_DIR_110}/torch/lib/libtorch.so .
     cp ${PYTORCH_DIR_110}/torch/lib/libc10.so .
