@@ -10,8 +10,6 @@ static std::string force_fallback_operators_list = []()-> std::string {
       while (!stream.eof()) {
         std::string line;
         stream >> line;
-        // using printf() in all tests for consistency
-        printf("%s", line.c_str());
         content += ";" + line + ';';
       }
     }
