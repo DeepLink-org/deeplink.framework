@@ -205,7 +205,7 @@ jobs:
       - name: Build diopi-poc
         run: |
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
