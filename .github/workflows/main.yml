@@ -206,6 +206,9 @@ jobs:
         run: |
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          pwd
+          echo "%{GITHUB_JOB}"
+          ls -al
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
