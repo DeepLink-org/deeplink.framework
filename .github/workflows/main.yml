@@ -169,8 +169,7 @@ jobs:
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh \
-          && cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Camb
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh
           """
 
 
@@ -224,22 +223,12 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           sh tests/run_nv_tests.sh
-          """
 
   Test-One-Iter_Cuda:
     name: test-one-iter-cuda
     needs: [Build-POC-Cuda]
     runs-on: tps-pytorch-ci
     steps:
-      - name: clone-repos
-        run: |
-          cd ${GITHUB_WORKSPACE}
-          rm -rf SMART && git clone -b ywt/one_iter_tool_for_mmcv_2.0 https://github.com/ParrotsDL/SMART.git
-          rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
-          rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
-          rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-          rsync -a --include='mmcv/***' --include='mmpretrain/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/
-
       - name: run-one-iter-tools
         run: |
           set -e
@@ -247,4 +236,3 @@ jobs:
           source scripts/ci_nv_env.sh
           export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpretrain:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           bash scripts/ci_nv_one_iter.sh \
-          && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda
