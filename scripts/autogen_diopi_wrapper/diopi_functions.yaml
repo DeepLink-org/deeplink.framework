@@ -926,6 +926,9 @@
     auto out = at::empty({1}, self.options());
   interface: diopiMaxAll(ctx, out, self)
 
+- schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiMaximum(ctx, out, self, other)
+
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
   custom_code_at_the_beginning: |
     dim += ((dim >= 0) ? 0 : self.sizes().size());
