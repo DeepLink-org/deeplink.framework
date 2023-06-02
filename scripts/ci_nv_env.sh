@@ -31,6 +31,7 @@ export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/include/python3.8
 export PYTORCH_DIR_110=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/pytorch1.10
 export PYTORCH_TEST_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 export CUDA_LAUNCH_BLOCKING=1
 
