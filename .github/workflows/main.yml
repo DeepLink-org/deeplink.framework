@@ -210,7 +210,7 @@ jobs:
           echo "%{GITHUB_JOB}"
           ls -al
           source scripts/ci_nv_env.sh
-          bash scripts/ci_nv_script.sh build_dipu
+          bash scripts/ci_nv_script.sh build_dipu \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-One-Iter_Cuda:
