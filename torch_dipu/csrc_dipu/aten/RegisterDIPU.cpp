@@ -1,13 +1,70 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
+#include <regex>
+#include <iostream>
+
+static std::string force_fallback_operators_list = []()-> std::string {
+    std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in);
+    std::string content(";");
+    if (stream.is_open()) {
+      while (!stream.eof()) {
+        std::string line;
+        stream >> line;
+        content += ";" + line + ';';
+      }
+    }
+    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+    if (env != nullptr) {
+      content += ';';
+      content += env;
+    }
+    return content;
+}();
+
+
+namespace dipu {
+
+bool get_force_fallback(const char* opname) {
+  if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
+    return false;
+  } else {
+    const std::string pattern = "(([;, ]+)|())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|())";
+    const bool matched_result = std::regex_search(force_fallback_operators_list, std::regex(pattern));
+    if (matched_result) {
+      return true;
+    }
+  }
+  return false;
+}
+
+namespace native {
+void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
+}
+
+}
 
 namespace at {
 
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
+
+  TORCH_CHECK(name.find("foreach") == std::string::npos,
+    "Currently the foreach operator does not support fallback");
+
   std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  at::native::cpu_fallback(op, stack);
+
+  const static std::vector<std::string> custom_fallback_operators_list{
+    "aten::native_batch_norm",
+    "aten::native_batch_norm.out",
+    "aten::native_batch_norm_backward",
+  };
+  auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
+  if (iter != custom_fallback_operators_list.cend()) {
+    dipu::native::cpu_fallback(op, stack);
+  } else {
+    at::native::cpu_fallback(op, stack);
+  }
 }
 
 

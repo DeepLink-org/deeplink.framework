@@ -10,6 +10,7 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
+#include "CustomFallbackFunctions.hpp"
 
 $header_include_code
 
@@ -33,6 +34,7 @@ void synchronizeIfEnable() {
 using namespace dipu::diopi_helper;
 
 $functions_code
+
 
 }  // namespace dipu::native
 
@@ -83,6 +85,11 @@ $cppsignautre {
 op_register_template_content = \
 """
 DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
+"""
+
+op_with_custom_fallback_register_template_content = \
+"""
+DIOPI_ATEN_FUNC_CUSTOM_FALLBACK("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
 """
 
 custom_autograd_template_content = \
