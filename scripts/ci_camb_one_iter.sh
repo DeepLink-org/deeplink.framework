@@ -16,6 +16,13 @@ test_model_list=(
     "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco"
     "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet-b2_8xb32_in1k"
     "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco"
+    "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask-rcnn_r50_fpn_1x_coco"
+    "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k"
+    "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"
+    "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k"
+    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"
+    "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024"
+    "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
 )
 
 length=${#test_model_list[@]}
@@ -36,6 +43,7 @@ ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
 ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
 ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
 ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
+ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
 
 # 没有的一些包，进行安装
 pip install terminaltables
