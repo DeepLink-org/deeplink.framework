@@ -96,16 +96,17 @@ done
 while true; do
     all_finished=true
     for pid in "${pids[@]}"; do
+        pid="${pids[index]}"
         if [ -f "$pid.done" ]; then
                 echo "Child process with PID $pid exited successfully."
-                unset -v "pids[$pid]"  # 从数组中删除相应的元素
+                unset 'pids[index]'  # 删除相应的数组元素
                 continue
         fi
         if ! kill -0 "$pid" 2>/dev/null; then
             # 如果存在 "$pid.done"，那直接删
             if [ -f "$pid.done" ]; then
                 echo "Child process with PID $pid exited successfully."
-                unset -v "pids[$pid]"  # 从数组中删除相应的元素
+                unset 'pids[index]'  # 删除相应的数组元素
                 continue
             fi
             echo "Child process with PID $pid encountered an error. Exiting all child processes."
