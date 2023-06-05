@@ -16,7 +16,7 @@ print(out.shape)  # 输出torch.Size([2, 2, 3])
 
 # dim为负数的版本
 a = torch.stack([x1.cpu(), x2.cpu(), x1.cpu(), x2.cpu()], dim=-2)
-b = torch.stack([x1.to(device), y2.to(device), x1.to(device), x2.to(device)], dim=-2)
+b = torch.stack([x1.to(device), x2.to(device), x1.to(device), x2.to(device)], dim=-2)
 print(a.shape) # 输出torch.Size([2, 2, 3])
 print(b.shape) # 输出torch.Size([2, 2, 3])
 
