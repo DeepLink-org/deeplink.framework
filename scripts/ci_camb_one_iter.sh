@@ -90,7 +90,8 @@ for ((i=0; i<$random_model_num; i++)); do
 }&
 pid=$!  # 存储子进程的PID号
 pids+=("$pid")
-echo "PID: $pid"  # 输出子进程的PID号
+read -r p1 p2 p3 p4 <<< ${selected_list[i]}
+echo "PID: $pid ,name:$p2"  # 输出子进程的PID号
 done
 
 while true; do
