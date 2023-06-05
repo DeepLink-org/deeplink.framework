@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e # Exit the script if an error happens
-set -o pipefail
 
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
@@ -41,6 +39,7 @@ fi
 echo $length
 selected_list=()
 
+# 随机选取模型
 for ((i=0; i<random_model_num; i++)); do
     random_index=$((RANDOM % length))
     random_element=${original_list[random_index]}
@@ -55,6 +54,8 @@ for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
 done 
 
+pids=()
+
 export ONE_ITER_TOOL_DEVICE=dipu
 export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
@@ -65,6 +66,8 @@ pip install shapely
 
 for ((i=0; i<$random_model_num; i++)); do
 {
+    set -e
+    pid=$BASHPID  # 存储子进程的PID号
     read -u 796
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
@@ -83,9 +86,43 @@ for ((i=0; i<$random_model_num; i++)); do
     sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     sh SMART/tools/one_iter_tool/compare_one_iter_test.sh
     echo  "after add place row $i"  1>&796
+    touch "$pid.done" 
 }&
+pid=$!  # 存储子进程的PID号
+pids+=("$pid")
+echo "PID: $pid"  # 输出子进程的PID号
 done
 
-wait
+while true; do
+    all_finished=true
+    for pid in "${pids[@]}"; do
+        if [ -f "$pid.done" ]; then
+                echo "Child process with PID $pid exited successfully."
+                unset -v "pids[$pid]"  # 从数组中删除相应的元素
+                continue
+        fi
+        if ! kill -0 "$pid" 2>/dev/null; then
+            # 如果存在 "$pid.done"，那直接删
+            if [ -f "$pid.done" ]; then
+                echo "Child process with PID $pid exited successfully."
+                unset -v "pids[$pid]"  # 从数组中删除相应的元素
+                continue
+            fi
+            echo "Child process with PID $pid encountered an error. Exiting all child processes."
+            # 结束所有子进程
+            for pid_to_kill in "${pids[@]}"; do
+                kill "$pid_to_kill" 2>/dev/null
+            done
+            exit 1
+        fi
+        all_finished=false
+    done
+
+    if $all_finished; then
+        break
+    fi
+
+    sleep 2  # 适当调整轮询的间隔时间
+done
 
 echo Done
