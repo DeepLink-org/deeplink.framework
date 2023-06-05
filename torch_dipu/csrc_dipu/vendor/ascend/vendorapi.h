@@ -5,6 +5,8 @@
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
 #include <csrc_dipu/common.h>
+#include <hccl/hccl.h>
+#include <hccl/hccl_types.h>
 
 namespace dipu
 {
@@ -28,9 +30,12 @@ namespace dipu
         }                                                  \
     }
 
-    using deviceStream_t = aclrtStream;
-    #define deviceDefaultStreamLiteral nullptr;
-    using deviceEvent_t = aclrtEvent;
-    using deviceHandle_t = aclrtContext*;
+using deviceStream_t = aclrtStream;
+#define deviceDefaultStreamLiteral nullptr;
+using deviceEvent_t = aclrtEvent;
+using deviceHandle_t = aclrtContext*;
+
+using diclComm_t = HcclComm;
+using commUniqueId = HcclRootInfo;
 
 }
