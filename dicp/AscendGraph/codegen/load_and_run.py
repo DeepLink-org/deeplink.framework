@@ -33,6 +33,21 @@ ACL_DOUBLE = 11
 ACL_BOOL = 12
 ACL_COMPLEX64 = 16
 
+ACL_MDL_PRIORITY_INT32 = 0
+ACL_MDL_LOAD_TYPE_SIZET = 1
+ACL_MDL_PATH_PTR = 2
+ACL_MDL_MEM_ADDR_PTR = 3
+ACL_MDL_MEM_SIZET = 4 
+ACL_MDL_WEIGHT_ADDR_PTR = 5
+ACL_MDL_WEIGHT_SIZET = 6
+ACL_MDL_WORKSPACE_ADDR_PTR = 7
+ACL_MDL_WORKSPACE_SIZET = 8
+ACL_MDL_INPUTQ_NUM_SIZET = 9
+ACL_MDL_INPUTQ_ADDR_PTR = 10
+ACL_MDL_OUTPUTQ_NUM_SIZET = 11
+ACL_MDL_OUTPUTQ_ADDR_PTR = 12
+ACL_MDL_WORKSPACE_MEM_OPTIMIZE = 13
+
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
         return np.float32
@@ -107,13 +122,26 @@ class AscendExecutor(object):
             item = self.output_data.pop()
             ret = acl.rt.free(item["buffer"])
             check_ret("acl.rt.free", ret)
+            
+    def load_model(self):
+        config_handle = acl.mdl.create_config_handle()
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 1)
+        check_ret("set_config_opt", ret) 
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
+        check_ret("set_config_opt", ret)
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
+        check_ret("set_config_opt", ret)
+
+        self.model_id, ret = acl.mdl.load_with_config(config_handle)
+        check_ret("acl.mdl.load_with_config", ret)
+        print("model_id:{}".format(self.model_id))
 
     def init_resource(self):
         print("init resource stage:")
         # load model
-        self.model_id, ret = acl.mdl.load_from_file(self.model_path)
-        check_ret("acl.mdl.load_from_file", ret)
-        print("model_id:{}".format(self.model_id))
+        self.load_model()
 
         self.model_desc = acl.mdl.create_desc()
         self._get_model_info()
@@ -269,6 +297,17 @@ class AscendExecutor(object):
             bytes_data = acl.util.ptr_to_bytes(ptr, temp["size"])
             data = np.frombuffer(bytes_data, dtype=np_dtype).reshape(tuple(out_dim))
             result.append(data)
+        return result
+
+class AscendModel():
+    def __init__(self, device_id, model_path) -> None:
+        self.device_id = device_id          # int
+        self.model_path = model_path        # str
+
+    def run(self, images):
+        exe = AscendExecutor(self.device_id, self.model_path)
+        result = exe.run(images)
+        exe.release_resource()
         return result
 
 
