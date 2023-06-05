@@ -34,7 +34,8 @@ jobs:
           else
           git checkout ${{ github.sha }} &&  git merge --no-edit main
           fi
-          cd third_party/DIOPI && git fetch origin && git submodule update --init --recursive
+          rm -rf third_party/DIOPI
+          git submodule update --init --recursive
       - name: ci interruptible and support pr ci
         run: |
           cd ${GITHUB_WORKSPACE}/dipu_poc && bash scripts/ci_interruptible.sh
@@ -189,7 +190,8 @@ jobs:
           else
           git checkout ${{ github.sha }} &&  git merge --no-edit main
           fi
-          cd third_party/DIOPI && git fetch origin && git submodule update --init --recursive
+          rm -rf third_party/DIOPI
+          git submodule update --init --recursive
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc
           rm -rf SMART && git clone -b ywt/one_iter_tool_for_mmcv_2.0 https://github.com/ParrotsDL/SMART.git
           rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
