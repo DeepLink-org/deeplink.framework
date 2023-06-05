@@ -2199,14 +2199,14 @@ inline diopiError_t diopiIndexFill(diopiContextHandle_t ctx, diopiTensorHandle_t
     return ::diopiIndexFill(ctx, out, input, dim, index, value);
 }
 
-inline diopiError_t diopiIndexFillInpScalar(diopiContextHandle_t ctx, diopiConstTensorHandle_t input, int64_t dim, diopiConstTensorHandle_t index, const diopiScalar_t* value) {
+inline diopiError_t diopiIndexFillInpScalar(diopiContextHandle_t ctx, diopiTensorHandle_t input, int64_t dim, diopiConstTensorHandle_t index, const diopiScalar_t* value) {
 
 
 
     return ::diopiIndexFillInpScalar(ctx, input, dim, index, value);
 }
 
-inline diopiError_t diopiIndexFillInp(diopiContextHandle_t ctx, diopiConstTensorHandle_t input, int64_t dim, diopiConstTensorHandle_t index, diopiConstTensorHandle_t value) {
+inline diopiError_t diopiIndexFillInp(diopiContextHandle_t ctx, diopiTensorHandle_t input, int64_t dim, diopiConstTensorHandle_t index, diopiConstTensorHandle_t value) {
 
 
 
