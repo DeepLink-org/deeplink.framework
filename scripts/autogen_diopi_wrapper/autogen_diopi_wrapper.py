@@ -126,9 +126,22 @@ def create_transform_input_to_cpu_code(fun_config):
             input_process_code += f"std::vector<at::Tensor> {tensors_arg}_cpu({tensors_arg}.size());\n";
             input_process_code += f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)" + '{return tensor.cpu();});\n'
 
-
     return input_process_code
 
+
+def create_print_op_args_code(fun_config):
+    args_name_list = create_args_name_list_from_schema(fun_config['schema'])
+    opname = get_op_name_from_schema(fun_config['schema'])
+    inputs = args_name_list.split(',') + get_function_need_alloc_args_from_schema(fun_config['schema'])
+    code = ''
+    if len(inputs) < 0:
+        return code
+    code += "if (dumpOpArgs()) {\n"
+    for input in inputs:
+        input = input.strip()
+        code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
+    code += "}"
+    return code
 
 
 def create_param_list_from_schema(schema):
@@ -539,6 +552,9 @@ def functions_code_gen(fun_config):
     if fun_config.get('print_func_call_info', False) == True:
         fun_config['custom_code_at_the_beginning'] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get('custom_code_at_the_beginning', '')
 
+    if fun_config.get('print_op_args', False) == True:
+        fun_config['custom_code_before_call_diopi'] = fun_config.get('custom_code_before_call_diopi', '') + create_print_op_args_code(fun_config)
+
     if fun_config.get('use_diopi_adapter', False) == True:
         diopi_fun_call_code = "diopiadaptor::" + diopi_fun_call_code
     else:
@@ -646,6 +662,7 @@ def parase_args():
     parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
     parser.add_argument('--diopi_adapter_header', type=str, default = 'diopi_adapters.hpp', help='path to diopi adapter file')
     parser.add_argument('--print_func_call_info', default=False, type=boolean_string, help='whether generate code that prints function call information')
+    parser.add_argument('--print_op_args', default=False, type=boolean_string, help='whether generate code that prints op args')
     parser.add_argument('--autocompare', default=False, type=boolean_string, help='whether generate code that compare device calculation results with cpu calculation results')
     parser.add_argument('--fun_config_dict', type=json.loads, default = dict(), help='fun config for all ops') # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
 

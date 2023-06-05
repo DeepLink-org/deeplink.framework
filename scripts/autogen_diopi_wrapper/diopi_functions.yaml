@@ -2,6 +2,7 @@
   autocompare: disable
   register_op: False  # Whether generate registe code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
+  print_op_args: True # whether generate code that prints op args
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
   custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
   custom_code_before_call_diopi: >
