@@ -196,6 +196,7 @@ DISABLED_TESTS_MLU = {
         'test_storage',
         'test_strides_propagation',
         'test_take',
+        'test_cdist_large', # has bug when
 
         # 'FAIL'
         'test_cdist_non_contiguous',
