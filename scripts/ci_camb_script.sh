@@ -26,7 +26,7 @@ function autogen_diopi_wrapper() {
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                 \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
         --use_diopi_adapter True \
-        --diopi_adapter_header third_party/DIOPI/DIOPI-PROTO/include/diopi/diopi_adapters.hpp \
+        --diopi_adapter_header third_party/DIOPI/DIOPI-PROTO/include/diopi/diopi_adaptors.hpp \
         --autocompare False                                                         \
         --print_func_call_info True
 }
