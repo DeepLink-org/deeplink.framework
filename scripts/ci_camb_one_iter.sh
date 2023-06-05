@@ -83,8 +83,8 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    sh SMART/tools/one_iter_tool/run_one_iter_test.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    sh SMART/tools/one_iter_tool/compare_one_iter_test.sh
+    sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    sh SMART/tools/one_iter_tool/compare_one_iter.sh
     echo  "after add place row $i"  1>&796
     touch "$pid.done" 
 }&
