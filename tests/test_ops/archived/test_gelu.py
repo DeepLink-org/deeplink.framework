@@ -6,10 +6,14 @@ import torch.nn as nn
 device = torch.device("dipu")
 
 m = nn.GELU()
-input = torch.randn(5)
-print(input)
-output = m(input)
-print(output)
-input = input.to(device)
-output = m(input)
-print(output)
+x1 = torch.randn(5, requires_grad = True)
+y1 = m(x1)
+y1.backward(torch.ones_like(y1))
+
+x2 = x1.detach().to(device)
+x2.requires_grad = True
+y2 = m(x2)
+y2.backward(torch.ones_like(y2))
+
+assert torch.allclose(y1, y2.cpu())
+assert torch.allclose(x1.grad, x2.grad.cpu())
