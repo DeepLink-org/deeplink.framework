@@ -28,7 +28,9 @@ function autogen_diopi_wrapper() {
         --use_diopi_adapter True                                                    \
         --diopi_adapter_header torch_dipu/csrc_dipu/vendor/camb/diopi_adapter.hpp   \
         --autocompare False                                                         \
-        --print_func_call_info True
+        --print_func_call_info False                                                \
+        --print_op_arg True
+
 }
 
 function build_diopi_lib() {
