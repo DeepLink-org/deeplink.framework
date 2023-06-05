@@ -670,7 +670,7 @@
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: |
-    dim += dim < 0 ? tensors[0].sizes().size() : 0;
+    dim += dim < 0 ? tensors[0].sizes().size()+1 : 0;
     auto num_tensors = tensors.size();
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -1092,6 +1092,7 @@
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
+  register_op: False
   custom_code_at_the_beginning: |
     const auto shapeA = self.sizes();
     const auto shapeB = other.sizes();
