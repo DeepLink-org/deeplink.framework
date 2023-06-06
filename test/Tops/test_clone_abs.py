@@ -8,11 +8,11 @@ class MyModule(torch.nn.Module):
         self.linear = torch.nn.Linear(4, 5)
 
     def forward(self, a, b):
-        output0 = torch.ops.aten.add(a, b)
-        output1 = torch.ops.aten.clone(output0)
-        output2 = torch.ops.aten.abs(output1)
-        output3 = torch.ops.aten.mul(output1, output2)
-        return output3
+        layer0 = torch.ops.aten.add(a, b)
+        layer1 = torch.ops.aten.clone(layer0)
+        layer2 = torch.ops.aten.abs(layer1)
+        layer3 = torch.ops.aten.mul(layer1, layer2)
+        return layer3
 
 a = torch.randn(10, 10)
 b = torch.randn(10, 10)

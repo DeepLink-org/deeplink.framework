@@ -197,7 +197,7 @@ def softmax(*args, **kwargs):
 def range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.bmm.default)
+@register_conversion(torch.ops.aten.dot.default)
 def dot(*args, **kwargs):
     return tops_op.Dot(*args, **kwargs)
 

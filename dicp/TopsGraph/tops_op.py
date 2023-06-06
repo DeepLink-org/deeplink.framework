@@ -324,7 +324,7 @@ class Dot(Operator):
         super().__init__("Dot")
         self.args = args
         self.args = kwargs
-        self.torch_op = aten.bmm.default
+        self.torch_op = aten.dot.default
 
 
 class Concatenate(Operator):
