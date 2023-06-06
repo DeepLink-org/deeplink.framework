@@ -166,7 +166,7 @@ jobs:
           """
 
   Test-One-Iter:
-    name: test-one-iter
+    name: test-one-iter-camb
     needs: [Build-POC-Camb]
     runs-on: github-poc-ci
     env:
@@ -191,8 +191,18 @@ jobs:
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} bash scripts/ci_one_iter.sh build_camb 
-          source scripts/ci_one_iter.sh source_pythonpath ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
+          echo  " okk"
+          # source scripts/ci_one_iter.sh source_pythonpath ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          basic_path=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  " python path : $PYTHONPATH"
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_run_one_iter.sh 
           """
@@ -280,6 +290,16 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           bash scripts/ci_one_iter.sh build_cuda
-          source scripts/ci_one_iter.sh source_pythonpath ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          echo  " okk"
+          # source scripts/ci_one_iter.sh source_pythonpath ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
+          # export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  " python path : $PYTHONPATH"
           bash scripts/ci_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
