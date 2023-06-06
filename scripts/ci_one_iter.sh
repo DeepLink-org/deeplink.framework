@@ -31,6 +31,7 @@ function clone_needed_repo() {
 function build_needed_repo() {
     cd mmcv
     MMCV_WITH_OPS=1 python setup.py build_ext --inplace
+    cd ..
 }
 
 function add_repo_pythonpath(){
