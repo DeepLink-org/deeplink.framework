@@ -15,17 +15,6 @@ env:
   PYTORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
-  MMCV_VERSION: v2.0.0
-  MMENGINE_VERSION: v0.7.3
-  MMPRETRAIN_VERSION_CAMB: dipu_test_model_one_iter
-  MMDETECTION_VERSION: one_iter_for_mmcv_2.0
-  MMSEGMENTATION_VERSION: one_iter_for_mmcv_2.0
-  MMPOSE_VERSION: one_iter_for_mmcv_2.0
-  MMDETECTION3D_VERSION: one_iter_for_mmcv_2.0
-  MMACTION2_VERSION: one_iter_for_mmcv_2.0
-  MMOCR_VERSION: one_iter_for_mmcv_2.0
-  MMPRETRAIN_VERSION: dipu_v1.0.0rc7_one_iter_tool
-  SMART_VERSION: slc/test_one_iter
   NV_PVC_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
   NV_SOURCE_PATH: '/nvme/share/share/github/sourcecode'
 
@@ -165,7 +154,7 @@ jobs:
       - name: clone-repos
         run: |
           cd ${GITHUB_WORKSPACE}/dipu_poc
-          bash scripts/ci_clone_one_iter.sh
+          bash scripts/ci_one_iter.sh clone
           rsync -a --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
           
 
@@ -176,10 +165,7 @@ jobs:
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
-          cd mmcv && MMCV_WITH_OPS=1 srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} --time=60 -n1 python setup.py build_ext --inplace
-          cd ..
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_build_dataset.sh camb
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_run_one_iter.sh 
           """
 
@@ -203,7 +189,7 @@ jobs:
           rm -rf third_party/DIOPI
           git submodule update --init --recursive
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc
-          bash scripts/ci_clone_one_iter.sh
+          bash scripts/ci_one_iter.sh clone
 
   Build-POC-Cuda:
     name: Build diopi_poc cuda
@@ -243,8 +229,5 @@ jobs:
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
-          cd mmcv && MMCV_WITH_OPS=1 python setup.py build_ext --inplace
-          cd ..
-          export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmaction2:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpretrain:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmocr:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpose:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmsegmentation:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmdetection3d:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmdetection:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          bash scripts/ci_build_dataset.sh cuda
+          bash scripts/ci_one_iter.sh build_camb ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           bash scripts/ci_run_one_iter.sh 
