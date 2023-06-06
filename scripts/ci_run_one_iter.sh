@@ -67,6 +67,8 @@ pip install numba
 pip install pyclipper
 pip install xtcocotools
 
+mkdir one_iter_data
+
 for ((i=0; i<$random_model_num; i++)); do
 {
     set -e
@@ -75,9 +77,9 @@ for ((i=0; i<$random_model_num; i++)); do
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"
-    work_dir="--work-dir=./${p3}"
+    work_dir="--work-dir=./one_iter_data/${p3}"
     opt_arg="${p4}"
-    export ONE_ITER_TOOL_STORAGE_PATH=$(pwd)/${p3}/one_iter_data
+    export ONE_ITER_TOOL_STORAGE_PATH=$(pwd)/one_iter_data/${p3}
     echo "${train_path} ${config_path} ${work_dir} ${opt_arg}"
     if [ -d "$ONE_ITER_TOOL_STORAGE_PATH" ]; then
         echo "File already exists $ONE_ITER_TOOL_STORAGE_PATH"
