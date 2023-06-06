@@ -411,16 +411,7 @@ def create_result_compare_code(fun_config):
     schema = fun_config['schema']
     op_name = get_op_name_from_schema(fun_config['schema'])
     return_param = get_function_return_param_from_schema(fun_config['schema'])
-    code = \
-"""
-auto _allclose = [](const at::Tensor& a, const at::Tensor& b)->std::string {
-    if(a.defined() && b.defined()) {
-        return at::allclose(a.cpu(), b.cpu(), 1e-3, 1e-3, true) ? "allclose" : "not_close";
-    } else {
-        return "undefined";
-    }
-};
-"""
+    code = ''
     if len(return_param) == 1 :
         compare_code = f'_allclose(result_cpu, result_device)'
         code += f'std::cout << "autocompare:\t{op_name}\t{return_param[0]}:" << std::endl << "\t" << dumpArg(result_cpu) << std::endl << "\t" << dumpArg(result_device) << std::endl << "\t" << {compare_code} << std::endl;\n';
