@@ -35,8 +35,8 @@ function build_needed_repo() {
 
 function add_repo_pythonpath(){
     basic_path=$1
-    export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
-    export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
+    # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
+    # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
     export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
     export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
     export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
