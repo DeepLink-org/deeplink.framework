@@ -407,45 +407,6 @@ def create_call_dipu_cpp_function_code_from_schema(schema):
     code = create_return_code_frome_schema(schema) + ' result_device = ' + create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
     return code.replace('; ', ';\n')
 
-
-"""
-def create_result_compare_code(fun_config):
-    schema = fun_config['schema']
-    op_name = get_op_name_from_schema(fun_config['schema'])
-    return_param = get_function_return_param_from_schema(fun_config['schema'])
-    code = ''
-    if len(return_param) == 1 :
-        code += f"const bool {return_param[0]}_allclose = at::allclose(result_cpu, result_device.cpu(), 1e-3, 1e-3, true);\n"
-        code += f'std::cout << "{op_name}:\t" << "{return_param[0]}_allclose:\t" << {return_param[0]}_allclose << std::endl;\n';
-    elif len(return_param) > 1:
-        for i in range(len(return_param)):
-            code += f"const bool {return_param[i]}_allclose = at::allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device).cpu(), 1e-3, 1e-3, true);\n"
-            code += f'std::cout << "{op_name}:\t" << "{return_param[i]}_allclose:\t" << {return_param[i]}_allclose << std::endl;\n';
-
-    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
-    for i in range(len(inputs)):
-        code += f"const bool {inputs[i]}_allclose = at::allclose({inputs[i]}_cpu, {inputs[i]}.cpu(), 1e-3, 1e-3, true);\n"
-        code += f'std::cout << "{op_name}:\t" << "{inputs[i]}_allclose:\t" << {inputs[i]}_allclose << std::endl;\n';
-
-    return code;
-
-
-def create_result_compare_code(fun_config):
-    schema = fun_config['schema']
-    op_name = get_op_name_from_schema(fun_config['schema'])
-    return_param = get_function_return_param_from_schema(fun_config['schema'])
-    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
-
-    args = return_param + inputs
-    code = ''
-    for i in range(len(args)):
-        allclose_code = f"at::allclose({args[i]}_cpu, {args[i]}.cpu(), 1e-3, 1e-3, true)"
-        code += f'std::cout << "{op_name}:\t" << "{args[i]}_allclose:\t" << {allclose_code} << std::endl;\n';
-
-    return code;
-
-"""
-
 def create_result_compare_code(fun_config):
     schema = fun_config['schema']
     op_name = get_op_name_from_schema(fun_config['schema'])
