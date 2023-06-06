@@ -43,6 +43,7 @@ function add_repo_pythonpath(){
     export PYTHONPATH=$basic_path/mmengine:$PYTHONPATH
     export PYTHONPATH=$basic_path/mmcv:$PYTHONPATH
     export PYTHONPATH=$basic_path/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+    echo $PYTHONPATH
 }
 
 function build_dataset(){
