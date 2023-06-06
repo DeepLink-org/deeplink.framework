@@ -5,6 +5,7 @@ diopi_wrapper_file_template_content = \
 #include <ATen/Tensor.h>
 #include <ATen/ATen.h>
 #include <ATen/Functions.h>
+#include <type_traits>
 
 #include <torch/csrc/autograd/custom_function.h>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
@@ -29,6 +30,77 @@ void synchronizeIfEnable() {
         dipu::getCurrentDIPUStream().synchronize();
     }
     return;
+}
+
+bool dumpOpArgs() {
+    static bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
+    return enable;
+}
+
+template<typename T>
+std::string dumpArg(const T& t) {
+    std::stringstream stream;
+    stream << t;
+    return stream.str();
+}
+
+template<typename T1>
+std::string dumpArg(const c10::optional<T1>  & opt_t) {
+    std::stringstream stream;
+    if (opt_t.has_value()) {
+        stream << dumpArg(opt_t.value());
+    }
+    return stream.str();
+}
+
+template<typename T>
+std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
+    std::stringstream stream;
+    if (opt_t.has_value()) {
+        stream << dumpArg(opt_t.value());
+    }
+    return stream.str();
+}
+
+template<typename T1, template<typename elem> class container>
+std::string dumpArg(const container<T1> & t) {
+    std::stringstream stream;
+    for (auto iter = t.begin(); iter != t.end(); ++iter) {
+        stream << dumpArg(*iter) << ", ";
+    }
+    return stream.str();
+}
+
+template<>
+std::string dumpArg(const at::Tensor& tensor) {
+    std::stringstream stream;
+    if (tensor.defined()) {
+        stream << "sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options();
+    } else {
+        stream << "undefined";
+    }
+    return stream.str();
+}
+
+template<>
+std::string dumpArg(const at::Scalar& scalar) {
+    std::stringstream stream;
+    stream << scalar;
+    return stream.str();
+}
+
+template<>
+std::string dumpArg(const at::Generator& generator) {
+    return "";
+}
+
+template<typename T, size_t N>
+std::string dumpArg(const std::array<T, N>& t) {
+    std::stringstream stream;
+    for (auto iter = t.begin(); iter != t.end(); ++iter) {
+        stream << dumpArg(*iter) << " ";
+    }
+    return stream.str();
 }
 
 using namespace dipu::diopi_helper;
