@@ -205,6 +205,14 @@ class Hardswish(Operator):
         self.torch_op = aten.hardswish
 
 
+class HardswishBackward(Operator):
+    def __init__(self, a, b):
+        super().__init__("Hardswish_Grad")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.hardswish_backward
+
+
 class Copy(Operator):
     def __init__(self, *args):
         super().__init__("clone")
@@ -514,6 +522,14 @@ class Gelu(Operator):
         self.args = args
         self.kwarg = kwargs
         self.torch_op = aten.gelu.default
+
+
+class GeluBackward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Gelu_Grad")
+        self.args = args
+        self.kwarg = kwargs
+        self.torch_op = aten.gelu_backward.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap
