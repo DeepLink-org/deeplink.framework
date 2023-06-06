@@ -32,7 +32,6 @@ function clone_needed_repo() {
 function build_needed_repo() {
     cd mmcv
     MMCV_WITH_OPS=1 python setup.py build_ext --inplace
-    cd ..
 }
 
 function add_repo_pythonpath(){
@@ -83,15 +82,18 @@ case $1 in
     build_cuda)
         (
             build_needed_repo
-            add_repo_pythonpath $2
             build_dataset cuda
         ) \
         || exit -1;;
     build_camb)
         (
             build_needed_repo
-            add_repo_pythonpath $2
             build_dataset camb
+        ) \
+        || exit -1;;
+    source_pythonpath)
+        (
+            add_repo_pythonpath $2
         ) \
         || exit -1;;
     *)
