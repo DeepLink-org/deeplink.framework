@@ -3,17 +3,18 @@
 #pragma once
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <c10/util/Exception.h>
 
 #include <csrc_dipu/common.h>
 
 namespace dipu {
 
-#define DIPU_CALLCUDA(Expr) \
-{ \
-    cudaError_t ret = Expr; \
-    if (ret != ::cudaSuccess) { \
-        throw std::runtime_error("dipu device error");  \
-    } \
+#define DIPU_CALLCUDA(Expr)                                                     \
+{                                                                               \
+    cudaError_t ret = Expr;                                                     \
+    if (ret != ::cudaSuccess) {                                                 \
+        TORCH_CHECK(false, "call cuda error, expr = ", #Expr, ", ret = ", ret); \
+    }                                                                           \
 }
 
 using deviceStream_t = cudaStream_t;
