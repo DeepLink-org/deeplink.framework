@@ -108,13 +108,14 @@ def create_transform_input_to_cpu_code(fun_config):
 
     optional_inputs = re.findall('Tensor *\? +([\w\d_]+)', schema[:schema.find('->')])
     for input in optional_inputs:
-        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = c10::make_optional<at::Tensor>({input}.has_value() ? {input}.value().cpu() : at::Tensor());\n"
+        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>({input}.value().cpu()) : {input};\n"
+
 
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     for output in outputs:
         if output.strip().endswith('?'):
             output = output.replace('?', '')
-            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = c10::make_optional<at::Tensor>({output}.has_value() ? {output}.value().cpu() : at::Tensor());\n"
+            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>({output}.value().cpu() : {output};\n"
         else:
             input_process_code += f"at::Tensor {output}_cpu = {output}.cpu();\n"
 
@@ -407,6 +408,7 @@ def create_call_dipu_cpp_function_code_from_schema(schema):
     return code.replace('; ', ';\n')
 
 
+"""
 def create_result_compare_code(fun_config):
     schema = fun_config['schema']
     op_name = get_op_name_from_schema(fun_config['schema'])
@@ -427,6 +429,51 @@ def create_result_compare_code(fun_config):
 
     return code;
 
+
+def create_result_compare_code(fun_config):
+    schema = fun_config['schema']
+    op_name = get_op_name_from_schema(fun_config['schema'])
+    return_param = get_function_return_param_from_schema(fun_config['schema'])
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+
+    args = return_param + inputs
+    code = ''
+    for i in range(len(args)):
+        allclose_code = f"at::allclose({args[i]}_cpu, {args[i]}.cpu(), 1e-3, 1e-3, true)"
+        code += f'std::cout << "{op_name}:\t" << "{args[i]}_allclose:\t" << {allclose_code} << std::endl;\n';
+
+    return code;
+
+"""
+
+def create_result_compare_code(fun_config):
+    schema = fun_config['schema']
+    op_name = get_op_name_from_schema(fun_config['schema'])
+    return_param = get_function_return_param_from_schema(fun_config['schema'])
+    code = \
+"""
+auto _allclose = [](const at::Tensor& a, const at::Tensor& b)->std::string {
+    if(a.defined() && b.defined()) {
+        return at::allclose(a.cpu(), b.cpu(), 1e-3, 1e-3, true) ? "allclose" : "not_close";
+    } else {
+        return "undefined";
+    }
+};
+"""
+    if len(return_param) == 1 :
+        compare_code = f'_allclose(result_cpu, result_device)'
+        code += f'std::cout << "autocompare:\t{op_name}\t{return_param[0]}:" << std::endl << "\t" << dumpArg(result_cpu) << std::endl << "\t" << dumpArg(result_device) << std::endl << "\t" << {compare_code} << std::endl;\n';
+    elif len(return_param) > 1:
+        for i in range(len(return_param)):
+            compare_code = f'_allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device))'
+            code += f'std::cout << "autocompare:\t{op_name}\t{return_param[i]}:" << std::endl << "\t" << dumpArg(std::get<{i}>(result_cpu)) << std::endl << "\t" << dumpArg(std::get<{i}>(result_device)) << std::endl << "\t" << {compare_code} << std::endl;\n';
+
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    for i in range(len(inputs)):
+        compare_code = f'_allclose({inputs[i]}_cpu, {inputs[i]})'
+        code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << {compare_code} << std::endl;\n';
+
+    return code;
 
 
 def create_code_to_print_fun_call_info_from_schema(fun_config):
