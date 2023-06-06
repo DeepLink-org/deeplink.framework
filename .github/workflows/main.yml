@@ -195,6 +195,8 @@ jobs:
           echo  " okk"
           # source scripts/ci_one_iter.sh source_pythonpath ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           basic_path="${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb"
+          echo $basic_path
+          pwd
           # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
