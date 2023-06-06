@@ -194,7 +194,7 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
           echo  " okk"
           # source scripts/ci_one_iter.sh source_pythonpath ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
-          basic_path=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          basic_path="${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb"
           # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
