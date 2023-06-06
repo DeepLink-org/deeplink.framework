@@ -103,6 +103,23 @@ std::string dumpArg(const std::array<T, N>& t) {
     return stream.str();
 }
 
+
+std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
+    if(a.defined() && b.defined()) {
+        try {
+            return at::allclose(a.cpu(), b.cpu(), 1e-3, 1e-3, true) ? "allclose" : "not_close";
+        } catch (...) {
+            return "compare_fail: not_close";
+        }
+    } else {
+        if(a.defined() != b.defined()) {
+            return "not_close";
+        } else {
+            return "allclose";
+        }
+    }
+}
+
 using namespace dipu::diopi_helper;
 
 $functions_code
@@ -199,7 +216,7 @@ autocompare_template_content = \
 """
 //  $comment
 $cppsignautre {
-    std::cout << __FUNCTION__ << std::endl;
+    std::cout << std::endl << __FUNCTION__ << std::endl;
     $transform_input_to_cpu_code
 
     $execute_op_on_cpu_code
