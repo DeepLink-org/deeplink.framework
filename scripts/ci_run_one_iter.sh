@@ -71,7 +71,7 @@ mkdir one_iter_data
 
 for ((i=0; i<$random_model_num; i++)); do
 {
-    set -e
+    # set -e
     pid=$BASHPID  # 存储子进程的PID号
     read -u 796
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
