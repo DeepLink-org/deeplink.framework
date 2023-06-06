@@ -196,7 +196,7 @@ jobs:
           # source scripts/ci_one_iter.sh source_pythonpath ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           basic_path=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
-          # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
@@ -294,7 +294,7 @@ jobs:
           # source scripts/ci_one_iter.sh source_pythonpath ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
-          # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
           # export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
