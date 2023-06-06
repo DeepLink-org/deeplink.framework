@@ -104,7 +104,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
     if (throwExcepion)
     {
       checkLastError(); /* reset internal error state*/
-      TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", ret);
+      TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r);
     }
     else if ((r == ::cnrtErrorNoMem))
     {
