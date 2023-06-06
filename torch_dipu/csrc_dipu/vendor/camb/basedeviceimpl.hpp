@@ -3,6 +3,7 @@
 #include <cnrt.h>
 #include <cndev.h>
 #include <cnnl.h>
+#include <c10/util/Exception.h>
 
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/common.h>
@@ -85,8 +86,7 @@ EventStatus getEventStatus(deviceEvent_t event) {
     checkLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   }
-  // throw CnrtRuntimeError(ret, DIPU_CODELOC);
-  throw std::runtime_error("dipu device error");
+  TORCH_CHECK(false, "unexpected event status in getEventStatus, ret = ", ret);
 }
 
 // =====================
@@ -104,7 +104,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
     if (throwExcepion)
     {
       checkLastError(); /* reset internal error state*/
-      throw std::runtime_error("alloc failed in dipu");
+      TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", ret);
     }
     else if ((r == ::cnrtErrorNoMem))
     {
