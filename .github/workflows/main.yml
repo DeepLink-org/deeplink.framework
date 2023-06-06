@@ -126,6 +126,7 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
+          && cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cp -R ${GITHUB_JOB} ${GITHUB_JOB}-Diopi \
           || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -144,6 +145,25 @@ jobs:
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
+          """
+
+  Test-Camb-Diopi:
+    name: test-camb-diopi-main
+    needs: [Build-POC-Camb]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Run-test
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi/third_party
+          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci_camb_env.sh
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
+          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
           """
 
   Test-One-Iter:
@@ -170,7 +190,7 @@ jobs:
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
 
@@ -212,6 +232,7 @@ jobs:
           ls -al
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu \
+          && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cp -R ${GITHUB_JOB} ${GITHUB_JOB}-Diopi \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Cuda:
@@ -226,6 +247,21 @@ jobs:
           source scripts/ci_nv_env.sh
           sh tests/run_nv_tests.sh
 
+  Test-Cuda-Diopi:
+    name: test-cuda-diopi-main
+    needs: [Build-POC-Cuda]
+    runs-on: tps-pytorch-ci
+    steps:
+      - name: Run-test
+        run: |
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi/third_party
+          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          source scripts/ci_nv_env.sh
+          sh tests/run_nv_tests.sh && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
+          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+
+
   Test-One-Iter_Cuda:
     name: test-one-iter-cuda
     needs: [Build-POC-Cuda]
@@ -237,4 +273,4 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpretrain:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          bash scripts/ci_nv_one_iter.sh \
+          bash scripts/ci_nv_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
