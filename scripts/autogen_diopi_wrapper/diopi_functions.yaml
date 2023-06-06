@@ -829,7 +829,6 @@
   custom_code_before_return: |
     dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
-
 - schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSoftmax(ctx, out, self, dim);
 
@@ -925,9 +924,8 @@
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
 
 - schema: "min(Tensor self) -> Tensor"
-  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: |
-    auto out = at::empty({1}, self.options());
+    auto out = at::empty({}, self.options());
   interface: diopiMinAll(ctx, out, self)
 
 - schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
@@ -936,9 +934,8 @@
   interface: diopiMin(ctx, min, min_indices, self, dim)
 
 - schema: "max(Tensor self) -> Tensor"
-  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: |
-    auto out = at::empty({1}, self.options());
+    auto out = at::empty({}, self.options());
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"

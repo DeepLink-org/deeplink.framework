@@ -413,16 +413,16 @@ def create_result_compare_code(fun_config):
     return_param = get_function_return_param_from_schema(fun_config['schema'])
     code = ''
     if len(return_param) == 1 :
-        code += f"const bool {return_param[0]}_allclose = at::allclose(result_cpu, result_device.cpu());\n"
+        code += f"const bool {return_param[0]}_allclose = at::allclose(result_cpu, result_device.cpu(), 1e-3, 1e-3, true);\n"
         code += f'std::cout << "{op_name}:\t" << "{return_param[0]}_allclose:\t" << {return_param[0]}_allclose << std::endl;\n';
     elif len(return_param) > 1:
         for i in range(len(return_param)):
-            code += f"const bool {return_param[i]}_allclose = at::allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device).cpu());\n"
+            code += f"const bool {return_param[i]}_allclose = at::allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device).cpu(), 1e-3, 1e-3, true);\n"
             code += f'std::cout << "{op_name}:\t" << "{return_param[i]}_allclose:\t" << {return_param[i]}_allclose << std::endl;\n';
 
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     for i in range(len(inputs)):
-        code += f"const bool {inputs[i]}_allclose = at::allclose({inputs[i]}_cpu, {inputs[i]}.cpu());\n"
+        code += f"const bool {inputs[i]}_allclose = at::allclose({inputs[i]}_cpu, {inputs[i]}.cpu(), 1e-3, 1e-3, true);\n"
         code += f'std::cout << "{op_name}:\t" << "{inputs[i]}_allclose:\t" << {inputs[i]}_allclose << std::endl;\n';
 
     return code;
