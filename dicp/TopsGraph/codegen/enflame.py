@@ -25,7 +25,7 @@ type_set = {"torch.float32": "builder::PrimitiveType::F32()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
+need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
@@ -507,7 +507,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
     @staticmethod
-    def Zeros(op_var, node, *args_str):
+    def Zeroslike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()            
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});\n\n"

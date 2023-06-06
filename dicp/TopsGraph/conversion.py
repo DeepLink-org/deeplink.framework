@@ -249,9 +249,9 @@ def select(*args, **kwargs):
 def scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.zeros)
-def zeros(*args, **kwargs):
-    return tops_op.Zeros(*args, **kwargs)
+@register_conversion(torch.ops.aten.zeros_like)
+def zeroslike(*args, **kwargs):
+    return tops_op.ZerosLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scalar_tensor.default)
 def scalar(*args, **kwargs):
