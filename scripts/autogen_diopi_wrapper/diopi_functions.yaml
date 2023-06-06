@@ -2,6 +2,7 @@
   autocompare: disable
   register_op: False  # Whether generate registe code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
+  print_op_args: True # whether generate code that prints op args
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
   custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
   custom_code_before_call_diopi: |
@@ -167,10 +168,13 @@
 - schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
   custom_code_at_the_beginning: |
     const auto input_shape = input.sizes();
-    std::vector<int64_t> stat_shape(input_shape.cbegin(), input_shape.cbegin() + (input_shape.size() - normalized_shape.size()));
-    auto options = input.options().dtype(at::kFloat);
-    auto save_mean = at::empty(stat_shape, options);
-    auto save_invstd = at::empty(stat_shape, options);
+    const int axis = input_shape.size() - normalized_shape.size();
+    const int64_t M = c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+    std::vector<int64_t> stats_shape(input_shape.size(), 1);
+    std::copy(input_shape.begin(), input_shape.begin() + axis, stats_shape.begin());
+    auto options = input.options();
+    auto save_mean = at::empty(stats_shape, options);
+    auto save_invstd = at::empty(stats_shape, options);
     auto out = at::empty_like(input);
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
@@ -186,6 +190,7 @@
   interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
 
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
+  #autocompare: disable # TODO: cpu impl not support half now
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
@@ -343,9 +348,11 @@
   interface: diopiRelu(ctx, out, self)
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiRandperm(ctx, out, n, 0)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandperm(ctx, out, n, seed)
@@ -464,6 +471,7 @@
   interface: diopiDropout(ctx, out, mask, input, p, train)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
+  autocompare: disable
   custom_code_at_the_beginning: |
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
@@ -806,16 +814,19 @@
   interface: diopiClamp(ctx, out, self, min, max)
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, &to, seed)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
@@ -828,7 +839,6 @@
   custom_code_before_return: |
     dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
-
 - schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSoftmax(ctx, out, self, dim);
 
@@ -924,9 +934,8 @@
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
 
 - schema: "min(Tensor self) -> Tensor"
-  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: |
-    auto out = at::empty({1}, self.options());
+    auto out = at::empty({}, self.options());
   interface: diopiMinAll(ctx, out, self)
 
 - schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
@@ -935,9 +944,8 @@
   interface: diopiMin(ctx, min, min_indices, self, dim)
 
 - schema: "max(Tensor self) -> Tensor"
-  use_diopi_adapter: False # camb adapter has problem
   custom_code_at_the_beginning: |
-    auto out = at::empty({1}, self.options());
+    auto out = at::empty({}, self.options());
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
