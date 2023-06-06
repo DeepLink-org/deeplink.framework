@@ -829,8 +829,6 @@
   custom_code_before_return: |
     dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
-    //Temporary measures
-    out = out.to(at::kLong);
 - schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSoftmax(ctx, out, self, dim);
 
