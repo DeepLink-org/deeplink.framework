@@ -126,7 +126,6 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
-          && cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cp -R ${GITHUB_JOB} ${GITHUB_JOB}-Diopi \
           || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -147,9 +146,29 @@ jobs:
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
 
+  Build-POC-Camb-Diopi:
+    name: Build diopi_poc camb diopi-main
+    needs: [Build-Pytorch]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build diopi-poc diopi-main
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/third_party
+          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci_camb_env.sh
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
   Test-Camb-Diopi:
     name: test-camb-diopi-main
-    needs: [Build-POC-Camb]
+    needs: [Build-POC-Camb-Diopi]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -158,8 +177,7 @@ jobs:
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi/third_party
-          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
@@ -227,12 +245,8 @@ jobs:
         run: |
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          pwd
-          echo "%{GITHUB_JOB}"
-          ls -al
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu \
-          && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cp -R ${GITHUB_JOB} ${GITHUB_JOB}-Diopi \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Cuda:
@@ -247,16 +261,29 @@ jobs:
           source scripts/ci_nv_env.sh
           sh tests/run_nv_tests.sh
 
+  Build-POC-Cuda-Diopi:
+    name: Build diopi_poc cuda diopi-main
+    needs: [Clone]
+    runs-on: tps-pytorch-ci
+    steps:
+      - name: Build diopi-poc diopi-main
+        run: |
+          set -e
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}/third_party
+          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          source scripts/ci_nv_env.sh
+          bash scripts/ci_nv_script.sh build_dipu \
+          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
   Test-Cuda-Diopi:
     name: test-cuda-diopi-main
-    needs: [Build-POC-Cuda]
+    needs: [Build-POC-Cuda-Diopi]
     runs-on: tps-pytorch-ci
     steps:
       - name: Run-test
         run: |
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi/third_party
-          rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git && cd ..
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
           source scripts/ci_nv_env.sh
           sh tests/run_nv_tests.sh && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
