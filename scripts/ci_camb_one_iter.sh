@@ -63,6 +63,7 @@ export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 pip install terminaltables
 pip install pycocotools
 pip install shapely
+pip install numba
 
 for ((i=0; i<$random_model_num; i++)); do
 {
