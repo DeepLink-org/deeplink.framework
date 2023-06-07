@@ -4,6 +4,7 @@
 #include <cnrt.h>
 #include <cndev.h>
 #include <cnnl.h>
+#include <cncl.h>
 #include <c10/util/Exception.h>
 
 #include <csrc_dipu/common.h>
@@ -39,5 +40,8 @@ using deviceStream_t = cnrtQueue_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = cnrtNotifier_t;
 using deviceHandle_t = cnnlHandle_t;
+
+using diclComm_t = cnclComm_t;
+using commUniqueId = cnclCliqueId;
 
 }
