@@ -56,7 +56,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
         ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
         ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
-        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015 data/icdar2015     
+        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."
         mkdir data
