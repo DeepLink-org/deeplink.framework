@@ -214,33 +214,7 @@ DISABLED_TESTS_MLU = {
         'test_median_nan_values',
         'test_tensor_compare_ops_empty',
     },
-"""
-ERROR: test_dim_multi_unsorted_masked_logsumexp_dipu (__main__.TestReductionsDIPU)
-ERROR: test_dim_single_masked_logsumexp_dipu (__main__.TestReductionsDIPU)
-ERROR: test_histc_dipu (__main__.TestReductionsDIPU)
-ERROR: test_logsumexp_dipu (__main__.TestReductionsDIPU)
-ERROR: test_max_dipu_float16 (__main__.TestReductionsDIPU)
-ERROR: test_max_dipu_float32 (__main__.TestReductionsDIPU)
-ERROR: test_min_dipu_float16 (__main__.TestReductionsDIPU)
-ERROR: test_min_dipu_float32 (__main__.TestReductionsDIPU)
-ERROR: test_mode_dipu_float32 (__main__.TestReductionsDIPU)
-ERROR: test_mode_dipu_int16 (__main__.TestReductionsDIPU)
-ERROR: test_mode_dipu_int32 (__main__.TestReductionsDIPU)
-ERROR: test_mode_dipu_int8 (__main__.TestReductionsDIPU)
-ERROR: test_mode_dipu_uint8 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_dipu_int16 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_dipu_int32 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_dipu_int8 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_dipu_uint8 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_float16 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_float32 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_int16 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_int32 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_int8 (__main__.TestReductionsDIPU)
-ERROR: test_nansum_out_dtype_dipu_uint8 (__main__.TestReductionsDIPU)
-ERROR: test_quantile_backward_dipu (__main__.TestReductionsDIPU)
-ERROR: test_tensor_compare_ops_empty_dipu (__main__.TestReductionsDIPU)
-"""
+
     # test_torch.py
     'TestTorchDeviceTypeDIPU': {
         # CRASHED
