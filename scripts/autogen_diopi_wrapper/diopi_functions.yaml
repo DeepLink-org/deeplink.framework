@@ -586,11 +586,6 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
 
-- schema: "std.out(Tensor self, int[1]? dim, bool unbiased=True, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
-
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
