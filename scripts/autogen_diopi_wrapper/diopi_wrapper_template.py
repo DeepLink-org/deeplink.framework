@@ -75,7 +75,7 @@ template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
-        stream << "sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options();
+        stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
     } else {
         stream << "undefined";
     }
@@ -102,6 +102,23 @@ std::string dumpArg(const std::array<T, N>& t) {
     }
     return stream.str();
 }
+
+template<typename T1, typename T2 , template<typename elem1> class container1, template<typename elem2> class container2>
+std::vector<int64_t> infer_reduce_shape(const container1<T1> & input_shape, const container2<T2> & dims, bool keepdim) {
+    if (dims.size() <= 0) {
+        return std::vector<int64_t>();
+    }
+    std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
+    for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+        if (keepdim) {
+            output_shape[*iter] = 1;
+        } else {
+            output_shape.erase(output_shape.begin() + (*iter));
+        }
+    }
+    return std::vector<int64_t>(2,1);
+}
+
 
 using namespace dipu::diopi_helper;
 
