@@ -304,6 +304,30 @@ DISABLED_TESTS_MLU = {
         'test_many_promotions',
     },
 
+    # test_tensor_creation_ops.py
+    'TestTensorCreationDIPU': {
+        'test_cartesian_prod',
+        'test_cat_all_dtypes_and_devices',
+        'test_cat_empty_legacy',
+        'test_cat_mem_overlap',
+        'test_cat_out',
+        'test_combinations',
+        'test_linspace',
+        'test_linspace_deduction',
+        'test_linspace_vs_numpy_integral',
+        'test_meshgrid_vs_numpy',
+        'test_random',
+        'test_random_bool',
+        'test_random_default',
+        'test_random_from_to',
+        'test_random_from_to_bool',
+        'test_random_full_range',
+        'test_random_to',
+        'test_repeat_interleave',
+        'test_roll',
+        'test_tensor_factories_empty',
+        'test_zeros_dtype_layout_device_match',
+    },
     # test_nn.py
     'TestNN':{
         # CRASHED
