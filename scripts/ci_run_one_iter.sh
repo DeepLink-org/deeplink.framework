@@ -66,7 +66,9 @@ pip install shapely
 pip install numba
 pip install pyclipper
 pip install xtcocotools
-pip install skimage
+pip install scikit-image
+pip install decord
+pip install munkres
 
 mkdir one_iter_data
 
