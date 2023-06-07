@@ -12,9 +12,14 @@ namespace dipu {
 
 // wrapper of vendor raw communicator
 class DICLComm {
+private:
+  void initRawComm(int numRanks, int rank, commUniqueId uniqueid) {
+      devapis::diclCommInitRank(&rawComm_, numRanks, uniqueid, rank, static_cast<int>(device_.index()));
+  }
+
 public:
   explicit DICLComm(DIPUStream& bindStream): diclStream_(bindStream),
-                                            device_(bindStream.device()) {
+                                    device_(bindStream.device()) {
   }
 
   ~DICLComm() noexcept {
@@ -32,9 +37,6 @@ public:
     return comm;
   }
 
-  void initRawComm(int numRanks, int rank, commUniqueId uniqueid) {
-      devapis::diclCommInitRank(&rawComm_, numRanks, uniqueid, rank, static_cast<int>(device_.index()));
-  }
   // Must not be copyable
   DICLComm(const DICLComm&) = delete;
   DICLComm& operator=(const DICLComm&) = delete;

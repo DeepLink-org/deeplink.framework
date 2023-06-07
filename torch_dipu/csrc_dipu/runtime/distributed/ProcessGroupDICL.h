@@ -18,15 +18,15 @@
 
 namespace dipu {
 
-using Backend = c10d::Backend;
-using Store = c10d::Store;
-using Work = c10d::Work;
-using OpType = c10d::OpType;
-using BroadcastOptions = c10d::BroadcastOptions;
-using AllreduceOptions = c10d::AllreduceOptions;
-using ReduceOptions = c10d::ReduceOptions;
-using AllgatherOptions = c10d::AllgatherOptions;
-using BarrierOptions = c10d::BarrierOptions;
+using c10d::Backend;
+using c10d::Store;
+using c10d::Work;
+using c10d::OpType;
+using c10d::BroadcastOptions;
+using c10d::AllreduceOptions;
+using c10d::ReduceOptions;
+using c10d::AllgatherOptions;
+using c10d::BarrierOptions;
 
 
 // Environment variable which controls whether or not wait() is blocking or
