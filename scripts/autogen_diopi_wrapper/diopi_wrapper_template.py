@@ -108,15 +108,33 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, c
     if (dims.size() <= 0) {
         return std::vector<int64_t>();
     }
-    std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
-    for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
-        if (keepdim) {
-            output_shape[*iter] = 1;
-        } else {
-            output_shape.erase(output_shape.begin() + (*iter));
+    if (keepdim) {
+        std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
+        for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+            auto dim = *iter;
+            dim += dim < 0 ? input_shape.size() : 0;
+            output_shape[dim] = 1;
         }
+        return output_shape;
+    } else {
+        std::vector<int64_t> output_shape;
+        output_shape.reserve(input_shape.size() - dims.size());
+        for (int i = 0; i < input_shape.size(); ++i) {
+            bool reduce_dim = false;
+            for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+                auto dim = *iter;
+                dim += dim < 0 ? input_shape.size() : 0;
+                if (dim == i) {
+                    reduce_dim = true;
+                    break;
+                }
+            }
+            if (reduce_dim == false) {
+                output_shape.push_back(input_shape.at(i));
+            }
+        }
+        return output_shape;
     }
-    return output_shape;
 }
 
 
