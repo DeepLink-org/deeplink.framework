@@ -226,7 +226,7 @@ class AscendCodegen(torch.fx.Interpreter):
         with compile_func_body.indent():
             compile_func_body.splice(
                 f"""
-                    std::string graph_name = "BuildGraph" + graph_id;
+                    std::string graph_name = "BuildGraph";
                     Graph graph(graph_name.c_str());
                     Status ret = genGraph(graph);
                     if (ret != SUCCESS) {{
