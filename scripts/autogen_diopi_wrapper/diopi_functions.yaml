@@ -168,10 +168,13 @@
 - schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
   custom_code_at_the_beginning: |
     const auto input_shape = input.sizes();
-    std::vector<int64_t> stat_shape(input_shape.cbegin(), input_shape.cbegin() + (input_shape.size() - normalized_shape.size()));
-    auto options = input.options().dtype(at::kFloat);
-    auto save_mean = at::empty(stat_shape, options);
-    auto save_invstd = at::empty(stat_shape, options);
+    const int axis = input_shape.size() - normalized_shape.size();
+    const int64_t M = c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+    std::vector<int64_t> stats_shape(input_shape.size(), 1);
+    std::copy(input_shape.begin(), input_shape.begin() + axis, stats_shape.begin());
+    auto options = input.options();
+    auto save_mean = at::empty(stats_shape, options);
+    auto save_invstd = at::empty(stats_shape, options);
     auto out = at::empty_like(input);
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
@@ -187,6 +190,7 @@
   interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
 
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
+  #autocompare: disable # TODO: cpu impl not support half now
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
@@ -344,9 +348,11 @@
   interface: diopiRelu(ctx, out, self)
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiRandperm(ctx, out, n, 0)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandperm(ctx, out, n, seed)
@@ -465,6 +471,7 @@
   interface: diopiDropout(ctx, out, mask, input, p, train)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
+  autocompare: disable
   custom_code_at_the_beginning: |
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
@@ -827,16 +834,19 @@
   interface: diopiClamp(ctx, out, self, min, max)
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: diopiRandomInp(ctx, self, 0, &to, seed)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   custom_code_at_the_beginning: |
     const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
