@@ -1,7 +1,7 @@
 
 import torch_dipu
 import torch
-
+import random
 from torch import nn
 import os
 import sys
@@ -14,9 +14,10 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-def setup(backend, rank, world_size):
+def setup(backend, rank, world_size, port):
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    os.environ['MASTER_PORT'] = str(port)
+    print("comm using port:", str(port))
     # initialize the process group
     dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
 
@@ -35,7 +36,7 @@ class ToyModel(nn.Module):
         # return self.net2(self.relu(o1))
         return self.net2(x)
 
-def demo_basic_ddp(rank, world_size):
+def demo_basic_ddp(rank, world_size, port):
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
@@ -45,7 +46,7 @@ def demo_basic_ddp(rank, world_size):
     # dev1 = "cpu"
 
     # debugat(rank)
-    setup(backend, rank, world_size)
+    setup(backend, rank, world_size, port)
 
     for i in range(1, 4):
         # create model and move it to GPU with id rank
@@ -71,14 +72,14 @@ def demo_basic_ddp(rank, world_size):
         print(model.net2.weight.grad)
     cleanup()
 
-def demo_allreduce(rank, world_size):
+def demo_allreduce(rank, world_size, port):
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
     dev1 = rank
 
     # debugat(rank)
-    setup(backend, rank, world_size)
+    setup(backend, rank, world_size, port)
 
     world_size = dist.get_world_size()
 
@@ -88,7 +89,7 @@ def demo_allreduce(rank, world_size):
         print(te_result)
     cleanup()
     
-def demo_model_parallel(rank, world_size):
+def demo_model_parallel(rank, world_size, port):
     print(f"Running DDP with model parallel example on rank {rank}.")
     backend  ="nccl"
     dev1 = rank
@@ -114,20 +115,22 @@ def demo_model_parallel(rank, world_size):
 
     cleanup()
 
-def run_demo(demo_fn, world_size):
+def run_demo(demo_fn, world_size, port):
     mp.spawn(demo_fn,
-             args=(world_size,),
+             args=(world_size, port,),
              nprocs=world_size,
              join=True)
+
 
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
     # world_size = 1
     # demo_allreduce(0, world_size)
     # demo_basic_ddp(0, world_size)
+    port = random.randint(10000, 60000)
 
     world_size = 2
-    run_demo(demo_basic_ddp, world_size)
-    run_demo(demo_allreduce, world_size)
+    run_demo(demo_basic_ddp, world_size, port)
+    run_demo(demo_allreduce, world_size, port)
 
     # run_demo(demo_model_parallel, world_size)
