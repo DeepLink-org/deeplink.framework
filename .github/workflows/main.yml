@@ -29,7 +29,7 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc dipu_poc_diopi && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
           else
@@ -48,7 +48,7 @@ jobs:
           echo ${GITHUB_WORKSPACE}
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
-          ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source,${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc_diopi/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           result=`ssh ${CLUSTER_CAMB} """
