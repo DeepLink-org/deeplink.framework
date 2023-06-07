@@ -53,20 +53,20 @@ def demo_basic_ddp(rank, world_size):
         # ddp_model = DDP(model, device_ids=[dev1])
         ddp_model = DDP(model)
 
-        # loss_fn = nn.MSELoss()
-        # optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
-        # optimizer.zero_grad()
+        loss_fn = nn.MSELoss()
+        optimizer = optim.SGD(ddp_model.parameters(), lr=0.001, foreach=False)
+        optimizer.zero_grad()
   
         in1 = torch.randn(20, 10).to(dev1)
         in1.requires_grad = True
         outputs = ddp_model(in1)
         outputs.backward(torch.ones_like(outputs))
 
-        # labels = torch.randn(20, 5).to(dev1)
-        # o1 = loss_fn(outputs, labels)
-        # o1.backward()
-        # optimizer.step()
-        # torch.cuda.synchronize()
+        labels = torch.randn(20, 5).to(dev1)
+        o1 = loss_fn(outputs, labels)
+        o1.backward()
+        optimizer.step()
+        torch.cuda.synchronize()
         print("--------after bwd sync")
         print(model.net2.weight.grad)
     cleanup()
@@ -119,10 +119,6 @@ def run_demo(demo_fn, world_size):
              args=(world_size,),
              nprocs=world_size,
              join=True)
-    # use mpi
-    # rank = int(os.environ['OMPI_COMM_WORLD_RANK'])
-    # world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
-    # demo_fn(rank, world_size)
 
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
@@ -131,7 +127,7 @@ if __name__ == "__main__":
     # demo_basic_ddp(0, world_size)
 
     world_size = 2
-    # run_demo(demo_basic_ddp, world_size)
+    run_demo(demo_basic_ddp, world_size)
     run_demo(demo_allreduce, world_size)
 
     # run_demo(demo_model_parallel, world_size)
