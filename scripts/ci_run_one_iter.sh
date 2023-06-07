@@ -29,7 +29,7 @@ original_list=(
 )
 
 length=${#original_list[@]}
-max_parall=2
+max_parall=1
 random_model_num=100 #如果超过，会自动设置为模型总数
 
 if [ $random_model_num -gt $length ]; then
@@ -69,6 +69,7 @@ pip install xtcocotools
 pip install scikit-image
 pip install decord
 pip install munkres
+pip install imgaug
 
 mkdir one_iter_data
 
