@@ -34,7 +34,7 @@ namespace devapis {
 
 
 // Macro to print and abort on a non-successful NCCL return value.
-#define NCCL_ASSERT(cmd)                            \
+#define NCCL_THROW(cmd)                            \
   do {                                                   \
     ncclResult_t result = cmd;                           \
     if (result != ncclSuccess) {                         \
@@ -45,7 +45,7 @@ namespace devapis {
           __FILE__,                                      \
           __LINE__,                                      \
           err.c_str());                                  \
-      abort();                                           \
+      TORCH_CHECK(false, err);                           \
     }                                                    \
   } while (0)
 
@@ -54,7 +54,7 @@ namespace devapis {
 
   DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm) {
     ncclResult_t ncclAsyncErr_;
-    NCCL_ASSERT(ncclCommGetAsyncError(comm, &ncclAsyncErr_));
+    NCCL_THROW(ncclCommGetAsyncError(comm, &ncclAsyncErr_));
     if (ncclAsyncErr_ != ncclSuccess) {
       return DICL_SUCCESS;
     } else {
@@ -63,42 +63,42 @@ namespace devapis {
   }
 
   DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {
-    NCCL_ASSERT(ncclGetUniqueId(uniqueId));
+    NCCL_THROW(ncclGetUniqueId(uniqueId));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks, commUniqueId uniqueId,
                                           int rank, int localDeviceId) {
-    NCCL_ASSERT(ncclCommInitRank(comm, nranks, uniqueId, rank));
+    NCCL_THROW(ncclCommInitRank(comm, nranks, uniqueId, rank));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclCommDestroy(ncclComm_t comm) {
-    NCCL_ASSERT(ncclCommDestroy(comm));
+    NCCL_THROW(ncclCommDestroy(comm));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff, size_t count, at::ScalarType datatype,
                               const ReduceOp& reduceOp, diclComm_t comm, deviceStream_t stream) {
-    NCCL_ASSERT(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], comm, stream));
+    NCCL_THROW(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclBroadcast(const void *sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                               int root, diclComm_t comm, deviceStream_t stream) {
-    NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, count, ncclDataType[datatype], root, comm, stream));
+    NCCL_THROW(ncclBroadcast(sendbuff, recvbuff, count, ncclDataType[datatype], root, comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype,
                               diclComm_t comm, deviceStream_t stream) {
-    NCCL_ASSERT(ncclAllGather(sendBuf, recvBuf, count, ncclDataType[datatype], comm, stream));
+    NCCL_THROW(ncclAllGather(sendBuf, recvBuf, count, ncclDataType[datatype], comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                             const ReduceOp& reduceOp, int root, diclComm_t comm, deviceStream_t stream) {
-    NCCL_ASSERT(ncclReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], root, comm, stream));
+    NCCL_THROW(ncclReduce(sendbuff, recvbuff, count, ncclDataType[datatype], ncclOp[reduceOp], root, comm, stream));
     return DICL_SUCCESS;
   }
 
@@ -109,13 +109,13 @@ namespace devapis {
 
   DIPU_API diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype, int peer,
                           diclComm_t comm, deviceStream_t stream){
-    NCCL_ASSERT(ncclSend(sendbuff, count, ncclDataType[datatype], peer, comm, stream));
+    NCCL_THROW(ncclSend(sendbuff, count, ncclDataType[datatype], peer, comm, stream));
     return DICL_SUCCESS;
   }
 
   DIPU_API diclResult_t diclRecv(void* recvbuff, size_t count, at::ScalarType datatype, int peer,
                           diclComm_t comm, deviceStream_t stream) {
-    NCCL_ASSERT(ncclRecv(recvbuff, count, ncclDataType[datatype], peer, comm, stream));
+    NCCL_THROW(ncclRecv(recvbuff, count, ncclDataType[datatype], peer, comm, stream));
     return DICL_SUCCESS;
   }
 

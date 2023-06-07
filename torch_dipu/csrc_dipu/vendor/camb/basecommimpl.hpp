@@ -32,7 +32,7 @@ namespace devapis {
         std::string err = "CNCL error in: " + std::string(__FILE__) + ":" + \
             std::to_string(__LINE__) + ", " +                               \
             std::string(cnclGetErrorStr(error));                            \
-        throw std::runtime_error(err);                                      \
+        TORCH_CHECK(false, err);                                            \
       }                                                                     \
     } while (0)
 
@@ -51,14 +51,14 @@ namespace devapis {
       }                                                                     \
     } while (0)
 
-  #define DICL_RET(cmd)                                              \
+  #define CNCL_RET(cmd)                                              \
     do {                                                                    \
       cnclResult_t error = cmd;                                             \
       if (error != CNCL_RET_SUCCESS) {                                      \
         std::string err = "CNCL error in: " + std::string(__FILE__) + ":" + \
             std::to_string(__LINE__) + ", " +                               \
             std::string(cnclGetErrorStr(error));                            \
-        throw std::runtime_error(err);                                      \
+      TORCH_CHECK(false, err);                                              \
       }                                                                     \
     } while (0)
 

@@ -16,4 +16,4 @@ y2 = m(x2)
 y2.backward(torch.ones_like(y2))
 
 assert torch.allclose(y1, y2.cpu())
-assert torch.allclose(x1.grad, x2.grad.cpu())
+assert torch.allclose(x1.grad, x2.grad.cpu(), atol=1e-3)

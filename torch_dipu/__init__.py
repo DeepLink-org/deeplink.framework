@@ -2,6 +2,7 @@
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 os.environ['MLU_INVOKE_BLOCKING'] = '1'
+os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 
 import torch
 from typing import (Tuple, List, Union, Sequence)
