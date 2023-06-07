@@ -14,7 +14,6 @@ function clone_needed_repo() {
     MMDETECTION3D_VERSION=one_iter_for_mmcv_2.0
     MMACTION2_VERSION=one_iter_for_mmcv_2.0
     MMOCR_VERSION=one_iter_for_mmcv_2.0
-    MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     SMART_VERSION=slc/test_one_iter
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
