@@ -10,6 +10,26 @@ c10::optional<at::Tensor> dipu_to_cpu(const c10::optional<at::Tensor> & device_t
     return cpu_tensor;
 }
 
+at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
+    auto cpu_tensor = devtensor.cpu();
+    auto intype = devtensor.options().dtype_opt()->toScalarType();
+    if (intype == at::ScalarType::Half) {
+      return cpu_tensor.to(at::ScalarType::Float);
+    } else {
+      return cpu_tensor;
+    }  
+}
+
+at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& out) {
+  std::cout << "custom fallback to cpu, name=" << "silu_out" << std::endl;
+
+  auto self_cpu = to_cpu_no_half(self);
+  auto out_cpu = to_cpu_no_half(self);
+  out_cpu = at::silu_out(self_cpu, out_cpu);
+  out.copy_(out_cpu.to(at::ScalarType::Half));
+  return out;
+}
+
 ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_native_batch_norm_out(
     const at::Tensor & input, const c10::optional<at::Tensor> & weight_opt,
     const c10::optional<at::Tensor> & bias_opt,
