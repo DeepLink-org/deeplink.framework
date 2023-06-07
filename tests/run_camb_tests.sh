@@ -4,6 +4,7 @@ set -ex
 source tests/common.sh
 
 function run_dipu_tests {
+  export DIPU_DUMP_OP_ARGS=1
   #run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   export DIPU_FORCE_FALLBACK_OPS_LIST=argmax.out
   run_test "${PYTORCH_DIR}/test/test_reductions.py" "$@" -v TestReductionsDIPU

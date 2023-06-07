@@ -588,7 +588,7 @@
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = at::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1) == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
