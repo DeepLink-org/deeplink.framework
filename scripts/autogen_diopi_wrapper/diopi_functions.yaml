@@ -901,7 +901,8 @@
 
 - schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
   custom_code_at_the_beginning: |
-    at::Tensor out, indices, counts;
+    at::Tensor out, counts;
+    auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
   interface: diopiUnique(ctx, &out_ptr, self, &dim, sorted, return_counts, indices, &counts_ptr);
@@ -914,7 +915,8 @@
 
 - schema: "_unique2(Tensor self, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
   custom_code_at_the_beginning: |
-    at::Tensor out, indices, counts;
+    at::Tensor out, counts;
+    auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
   interface: diopiUnique(ctx, &out_ptr, self, nullptr, sorted, return_counts, indices, &counts_ptr);
