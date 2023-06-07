@@ -66,6 +66,7 @@ pip install shapely
 pip install numba
 pip install pyclipper
 pip install xtcocotools
+pip install skimage
 
 mkdir one_iter_data
 
