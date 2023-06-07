@@ -4,12 +4,15 @@
 #include <c10/core/Device.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/utils/pybind.h>
+#include <pybind11/chrono.h>
+
 
 #include "exportapi.h"
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/runtime/core/device.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
+#include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -40,7 +43,8 @@ static void registerDIPUDeviceProperties(py::module& m) {
 
 static void exportDevices(py::module& m) {
    // Device Management.
-  m.attr("dipu_vendor") = VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dipu_vendor") = devapis::VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void { 
     devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
@@ -163,12 +167,41 @@ static void exportEvent(py::module& m) {
     });
 }
 
+static void exportCommunicator(py::module& m) {
+
+  pybind11::class_<ProcessGroupDICL, c10d::Backend, c10::intrusive_ptr<ProcessGroupDICL>>(m, "ProcessGroupDICL")
+    .def(
+        py::init([](const c10::intrusive_ptr<c10d::Store>& store,
+                    int rank,
+                    int size,
+                    const std::chrono::milliseconds& timeout) {
+          return createProcessGroupDICL(store, rank, size, timeout);
+        }),
+        py::arg("store"),
+        py::arg("rank"),
+        py::arg("size"),
+        py::arg("timeout") = kBackendDefaultTimeout,
+        py::call_guard<py::gil_scoped_release>())
+    .def("store", &ProcessGroupDICL::getStore)
+    .def("timeout", [](ProcessGroupDICL& self) {
+        // need enhance to support tiemout
+          return kBackendDefaultTimeout;
+    });
+
+
+  // py::object mdist = py::module::import("torch.distributed");
+  // py::object register_backend = mdist.attr("Backend").attr("register_backend");
+  // The first parameter is the backend name used by user in invoking
+  // torch.distributed.init_process_group().
+  // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
   exportDevices(m);
   exportStream(m);
   exportEvent(m);
- 
+  exportCommunicator(m);
 }
 }  // end ns dipu

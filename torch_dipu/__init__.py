@@ -2,6 +2,7 @@
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 os.environ['MLU_INVOKE_BLOCKING'] = '1'
+os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 
 import torch
 from typing import (Tuple, List, Union, Sequence)
@@ -15,7 +16,8 @@ from torch_dipu import dipu
 from torch_dipu.dipu import *
 from torch.serialization import register_package
 from .dipu.device import _get_device_index
-
+from .dipu.distributed import apply_dist_patch
+from .dipu.tensor import apply_tensor_type_patch
 
 def validate_dipu_device(location):
     device = _get_device_index(location, True)
@@ -90,7 +92,7 @@ def apply_tensor_method_patch():
 
 # mock device functions in generated/python_torch_functionsEverything.cpp
 def apply_torch_function_patch():
-    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, name = "no_name", static_func = True)
+    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, static_func = True)
     torch.ones = GetTorchFuncProxy(torch.ones)
     torch.ones_like = GetTorchFuncProxy(torch.ones_like)
     torch.zeros = GetTorchFuncProxy(torch.zeros)
@@ -178,5 +180,8 @@ def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
     apply_temp_patch()
+    apply_dist_patch()
+    apply_tensor_type_patch()
+
 
 apply_patches()

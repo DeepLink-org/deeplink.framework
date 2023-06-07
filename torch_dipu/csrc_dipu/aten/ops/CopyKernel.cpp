@@ -29,7 +29,7 @@ namespace dipu::native {
   }
   inline int64_t getCopyBytes(const at::Tensor& dst, const at::Tensor& src) {
     if (dst.nbytes() != src.nbytes()) {  // outer bytes must same. different type is unsuported
-      throw std::runtime_error("dipu copy with different size is not allowed"); 
+      TORCH_CHECK(false, "dipu copy with different size is not allowed");
     }
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();

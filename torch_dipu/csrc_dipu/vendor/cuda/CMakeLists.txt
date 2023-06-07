@@ -1,16 +1,21 @@
 # if torch compiled with cuda, find torch do find cuda. compile only cpu not.
 find_package(CUDA "11.0" REQUIRED)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+find_package(NCCL REQUIRED)
+
 if (CUDA_FOUND)
     message(STATUS "CUDA Libraries: " ${CUDA_LIBRARIES})
     message(STATUS "CUDA include: " ${CUDA_INCLUDE_DIRS})
     message(STATUS "NVCC Path: ${CUDA_TOOLKIT_ROOT_DIR}/bin")
+    message(STATUS "NCCL include Path:  ${NCCL_INCLUDE_DIR}")
+    message(STATUS "NCCL lib Path:  ${NCCL_LIBRARIES}")
 endif()
 
-set(VENDOR_INCLUDE_DIRS "${CUDA_INCLUDE_DIRS}" PARENT_SCOPE)
+set(VENDOR_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS} ${NCCL_INCLUDE_DIR} PARENT_SCOPE)
 
 # cuda is full lib path? libcudart_static.aThreads::Threadsdl/usr/lib64/librt.so
-# set(VENDOR_LIB_DIRS "" PARENT_SCOPE)
+set(VENDOR_LIB_DIRS ${NCCL_LIBRARIES} PARENT_SCOPE)
 
 
 file(GLOB SRC_FILES  *.cpp)
