@@ -56,7 +56,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/datasets/detection/coco  data/coco
         ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
         ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
-        ln -s /nvme/share/share_data/datasets/action/Kinetics400 data/kinetics400
+        ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
         ln -s /nvme/share/share_data/datasets/ocr/det/icdar2015 data/icdar2015     
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."

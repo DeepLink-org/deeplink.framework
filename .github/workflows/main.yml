@@ -198,15 +198,17 @@ jobs:
           bb_path=$(pwd)
           echo $bb_path
           pwd
-          export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmaction2:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmpretrain:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmocr:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmdetection3d:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmdetection:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmengine:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/mmcv:$PYTHONPATH
-          export PYTHONPATH=${bb_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          # export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
+          # export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmaction2:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmpretrain:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmocr:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmdetection3d:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmdetection:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmengine:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/mmcv:$PYTHONPATH
+          # export PYTHONPATH=${bb_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  " python path : $PYTHONPATH"
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_run_one_iter.sh 
           """
@@ -297,6 +299,7 @@ jobs:
           echo  " okk"
           # source scripts/ci_one_iter.sh source_pythonpath ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH

@@ -29,7 +29,7 @@ original_list=(
 )
 
 length=${#original_list[@]}
-max_parall=4
+max_parall=2
 random_model_num=100 #如果超过，会自动设置为模型总数
 
 if [ $random_model_num -gt $length ]; then
