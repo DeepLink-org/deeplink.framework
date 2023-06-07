@@ -12,7 +12,6 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
-import ptvsd
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 def setup(backend, rank, world_size):
@@ -30,12 +29,9 @@ class ToyModel(nn.Module):
         # self.net1 = nn.Linear(10, 10)
         # self.relu = nn.ReLU()
         self.net2 = nn.Linear(10, 5)
-        # self.relu.register_full_backward_hook(hook_bwd1)
-        # self.relu.register_full_backward_pre_hook(hook_pre_bwd)
 
     def forward(self, x):
         # o1 = self.net1(x)
-        # o1.register_hook(hook_tensor1)
         # return self.net2(self.relu(o1))
         return self.net2(x)
 
