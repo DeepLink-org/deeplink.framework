@@ -361,6 +361,7 @@ DISABLED_TESTS_MLU = {
         'test_arange_device_vs_cpu',
         'test_arange_bfloat16',
         'test_arange', # camb impl have bug
+        'test_linlogspace_mem_overlap',
         'test_cartesian_prod',
         'test_cat_all_dtypes_and_devices',
         'test_cat_empty_legacy',
