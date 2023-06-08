@@ -698,8 +698,7 @@ def main():
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
             if mergeed_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code
-            else:
-                op_register_code += register_code
+            op_register_code += register_code
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],
