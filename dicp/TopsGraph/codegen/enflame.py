@@ -30,7 +30,7 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Slice', 'Select']
+need_args = ['Dot', 'Slice', 'Select']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -456,8 +456,27 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Div({x}, {y});"
     
     @staticmethod
-    def Dot(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+    def Dot(op_var, node, args_dict, args):
+        args_str = []
+        src_code = '\n'
+
+        for i in range(0, len(args)):
+            tmp_data_type = args[i].meta['val'].dtype.__str__()
+            if tmp_data_type != 'torch.float32':
+                tmp_shape = '{' + str(args[i].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+                src_code += f"builder::Type {args_dict[args[i].name]}_dot_type({tmp_shape}, builder::PrimitiveType::F32());\n"
+                src_code += f"builder::Op {args_dict[args[i].name]}_tmp = builder::Convert({args_dict[args[i].name]}, {args_dict[args[i].name]}_dot_type);\n"
+                args_str.append(f"{args_dict[args[i].name]}_tmp")
+
+        src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({'{0}'}, {'{0}'}, {'{2}'}, {'{1}'});\n"
+        src_code += f"builder::Op {op_var}_tmp = builder::DotGeneral({', '.join(args_str)}, {op_var}_dims_attr);\n"
+
+        data_type = node.meta['val'].dtype.__str__()            
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code += f"builder::Type {op_var}_type({shape}, {type_set[data_type]});\n"
+        src_code += f"builder::Op {op_var} = builder::Convert({op_var}_tmp, {op_var}_type);\n\n"
+
+        return src_code
     
     @staticmethod
     def Gemm(op_var, x, y):
