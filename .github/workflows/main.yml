@@ -296,8 +296,6 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           bash scripts/ci_one_iter.sh build_cuda
-          echo  " okk"
-          # source scripts/ci_one_iter.sh source_pythonpath ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
@@ -309,5 +307,5 @@ jobs:
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          echo  " python path : $PYTHONPATH"
+          echo  "python path : $PYTHONPATH"
           bash scripts/ci_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
