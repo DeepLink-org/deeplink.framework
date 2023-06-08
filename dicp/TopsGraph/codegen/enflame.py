@@ -873,7 +873,6 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var}_split0 = builder::Slice({args_dict[args[0].name]}, {op_var}part0_start_indices, {op_var}part0_limit_indices, {op_var}stride);\n"
         src_code += f"builder::Op {op_var}_split1 = builder::Slice({args_dict[args[0].name]}, {op_var}part1_start_indices, {op_var}_in_shape, {op_var}stride);\n"
         
-        # TODO: reshape
         out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         data_type = args[0].meta['val'].dtype.__str__()
         src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
@@ -895,10 +894,17 @@ class EnflameOverrides(OpOverrides):
     def Viewasreal(op_var, node, x):
         src_code = f"int {op_var}irel = 0;\n"
         src_code += f"int {op_var}iimg = 1;\n"
-        src_code += f"builder::Op {op_var}real = builder::GetTupleElement({x}, {op_var}irel);\n"
-        src_code += f"builder::Op {op_var}imag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+        src_code += f"builder::Op {op_var}_real = builder::GetTupleElement({x}, {op_var}irel);\n"
+        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+        
+        out_shape = '{' + str(list(node.meta['val'].shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
+        data_type = node.meta['val'].dtype.__str__()
+        src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
+        src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_real, {op_var}_reshape_type);\n"
+        src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_imag, {op_var}_reshape_type);\n"
+        
         t = '{'
-        t += f"{op_var}real, {op_var}imag"
+        t += f"{op_var}_tmp0, {op_var}_tmp1"
         t += '}'
 
         src_code += f"std::vector<builder::Op> {op_var}real_imag = {t};\n"
