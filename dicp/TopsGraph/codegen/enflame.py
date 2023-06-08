@@ -419,14 +419,18 @@ class EnflameOverrides(OpOverrides):
                         val = node.meta['val']
 
                     data_type = '' if isinstance(val, type(None)) else val.dtype.__str__()
-                
-                    if data_type == 'torch.int64':
-                        src_code.writeline(f'int {op_var}_const_value{count} = {str(args[i])};')
-                    else:
-                        src_code.writeline(f'float {op_var}_const_value{count} = {str(args[i])};')
-  
+                    
                     src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {type_set[data_type]});")
-                    src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_value_type{count});\n')
+                    
+                    if data_type == 'torch.int64':
+                        src_code.writeline(f'int {op_var}_const_value{count} = static_cast<int64_t>({str(args[i])});')
+                        src_code.writeline(f"builder::Op {op_var}_const{count}_t = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::S64()));\n")
+                        src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Convert({op_var}_const{count}_t, {op_var}_const_value_type{count});\n')
+                    else:
+                        src_code.writeline(f'float {op_var}_const_value{count} = static_cast<float>({str(args[i])});')
+                        src_code.writeline(f"builder::Op {op_var}_const{count}_t = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n")
+                        src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Convert({op_var}_const{count}_t, {op_var}_const_value_type{count});\n')
+                        
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
         return src_code, args_str
