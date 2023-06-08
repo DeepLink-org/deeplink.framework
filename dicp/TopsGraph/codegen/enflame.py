@@ -30,7 +30,7 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Dot', 'Slice', 'Select', 'Complex']
+need_args = ['Div', 'Dot', 'Slice', 'Select', 'Complex']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -451,9 +451,34 @@ class EnflameOverrides(OpOverrides):
     def Mul(op_var, x, y):
         return f"builder::Op {op_var} = builder::Mul({x}, {y});"
     
+    # TODO: Refine code
     @staticmethod
-    def Div(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Div({x}, {y});"
+    def Div(op_var, node, args_dict, args):
+        args_str = []
+        src_code = "\n"
+        
+        input_type = args[0].meta['val'].dtype.__str__()
+        out_type = node.meta['val'].dtype.__str__()
+        
+        input_shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        
+        if input_type == "torch.float16":
+            src_code += f"{args_dict[args[0].name]} = builder::Convert({args_dict[args[0].name]}, builder::Type({input_shape}, builder::PrimitiveType::F32()));\n"
+        
+        args_str.append(f"{args_dict[args[0].name]}")
+        
+        src_code += f"float {op_var}_const_value = static_cast<float>({str(args[1])});"
+        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n"
+        
+        args_str.append(f"{op_var}_const")
+        
+        src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
+        
+        if out_type == "torch.float16":
+            src_code += f"{op_var} = builder::Convert({op_var}, builder::Type({out_shape}, builder::PrimitiveType::F16()));\n"
+            
+        return src_code
     
     @staticmethod
     def Dot(op_var, node, args_dict, args):
