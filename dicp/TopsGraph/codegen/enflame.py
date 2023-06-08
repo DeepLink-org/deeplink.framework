@@ -937,15 +937,9 @@ class EnflameOverrides(OpOverrides):
         t += f"{op_var}mul_real, {op_var}mul_imag"
         t += '}'
 
-        src_code += f"std::vector<builder::Op>  {op_var}outputs {t};\n"
-        src_code += f"std::vector<builder::PrimitiveType>  {op_var}tuple_dtype;\n"
-        src_code += f"std::vector<std::vector<int64_t>>  {op_var}tuple_shape;\n"
-        src_code += f"for (uint i = 0; i <  {op_var}outputs.size(); i++) " + '{' + "\n"
-        src_code += f"   {op_var}tuple_shape.push_back( {op_var}outputs[i].GetType().GetShape());\n"
-        src_code += f"   {op_var}tuple_dtype.push_back( {op_var}outputs[i].GetType().GetPrimitiveType());\n"
-        src_code += "}\n"
-        src_code += f"builder::Type  {op_var}outputs_type( {op_var}tuple_shape,  {op_var}tuple_dtype);\n"
-        src_code += f"builder::Op  {op_var} = builder::Tuple( {op_var}outputs,  {op_var}outputs_type);\n"
+        src_code += f"std::vector<builder::Op> {op_var}outputs {t};\n"
+        src_code += f"builder::Op {op_var} = builder::Tuple( {op_var}outputs);\n"
+        
         return src_code
 
     @staticmethod
