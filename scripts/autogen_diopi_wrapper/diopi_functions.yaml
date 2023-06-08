@@ -587,7 +587,6 @@
   interface: diopiMean(ctx, out, self, diopi_size);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
-  register_op: False
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = at::empty(output_shape, self.options());
@@ -1232,3 +1231,14 @@
       out.resize_({numel});
     }
   interface: diopiArange(ctx, out, start, end, step)
+
+- schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: True
+  custom_code_at_the_beginning: |
+    std::vector<diopiConstTensorHandle_t> indices_vec;
+    indices.reserve(indices.size());
+    for (auto iter = indices.begin(); iter != indices.end(); ++iter) {
+      indices_vec.push_back(diopi_helper::toDiopiTensorHandle(*iter));
+    }
+
+  interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())

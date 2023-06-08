@@ -159,6 +159,7 @@ def create_param_list_from_schema(schema):
         'Generator ?\?' : 'c10::optional<at::Generator>',
         'Device ?\?' : 'c10::optional<c10::Device>',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
+        'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
