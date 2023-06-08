@@ -276,12 +276,18 @@ jobs:
     needs: [Build-POC-Cuda]
     runs-on: tps-pytorch-ci
     steps:
-      - name: run-one-iter-tools
+      - name: build some env
         run: |
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
           bash scripts/ci_one_iter.sh build_cuda
+
+      - name: run-one-iter-tools
+        run: |
+          set -e
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+          source scripts/ci_nv_env.sh
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
           export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH

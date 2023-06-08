@@ -108,9 +108,9 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    echo "cardnum:$cardnum  model:$p2"
-    CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    echo "cardnum:$cur_cardnum  model:$p2"
+    CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
 
     # 记录结束时间（以纳秒为单位）
     endTime=$(date +%s%N)
