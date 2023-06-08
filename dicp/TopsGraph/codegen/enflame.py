@@ -720,19 +720,34 @@ class EnflameOverrides(OpOverrides):
     def Slice(op_var, node, args_dict, args):
         shape0 = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code = "\n"
         if shape != shape0:
-            raise ValueError("Slice args error!")
-
-        rank = len(args[0].meta['val'].shape)
-
-        start_indices = [0 for x in range(0, rank)]    
-        start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-        limit_indices = shape
-        stride = [1 for x in range(0, rank)]
-        stride = '{' + ', '.join(map(str, stride)) + '}'   
-
-        src_code = f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
-
+            shape = args[0].meta['val'].shape
+            rank = len(shape)
+            dim = int(args[1])
+            
+            start_indices = [0 for x in range(0, rank)]    
+            start_indices[dim] = int(args[2])
+            start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
+            
+            limit_indices = [x for x in shape]
+            limit_indices[dim] = int(args[3])
+            limit_indices = '{' + ', '.join(map(str, limit_indices)) + '}'   
+            
+            stride = [1 for x in range(0, rank)]
+            stride = '{' + ', '.join(map(str, stride)) + '}' 
+            
+            src_code += f"auto {op_var} = builder::SliceInDim({args_dict[args[0].name]}, {int(args[2])}, {int(args[3])}, {1}, {dim});\n"
+            
+        else:
+            rank = len(args[0].meta['val'].shape)
+            start_indices = [0 for x in range(0, rank)]    
+            start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
+            limit_indices = shape
+            stride = [1 for x in range(0, rank)]
+            stride = '{' + ', '.join(map(str, stride)) + '}'   
+            src_code += f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
+        
         return src_code
     
     @staticmethod
