@@ -755,24 +755,30 @@ class EnflameOverrides(OpOverrides):
         shape = args[0].meta['val'].shape
         rank = len(shape)
         dim = int(args[1])
-
-        start_indices = [0 for i in range(0, rank)]    
+        
+        index = (int(args[2]) + shape[dim]) % shape[dim]
+        
+        start_indices = [0 for i in range(0, rank)]  
+          
+        start_indices[dim] = index
         start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-
+        
         limit_indices = [x for x in shape]
-        limit_indices[dim] = 0
+        limit_indices[dim] = index + 1
         limit_indices = '{' + ', '.join(map(str, limit_indices)) + '}'
-
+        
         stride = [1 for x in range(0, rank)]
         stride = '{' + ', '.join(map(str, stride)) + '}' 
-
-        src_code = f"auto {op_var}_t = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
+        
+        src_code = "\n"
+        
+        src_code += f"auto {op_var}_t = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
 
         src_code += f"builder::Type {op_var}_axes_type({'{' + '1' + '}'}, builder::PrimitiveType::S64());\n"
         src_code += f"std::vector<int64_t> {op_var}_axes_data = {'{' + str(dim) + '}'};\n"
         src_code += f"builder::Op {op_var}_axes = builder::Const(hlir_builder, ({op_var}_axes_data.data()), {op_var}_axes_type);\n"
         src_code += f"auto {op_var} = builder::Squeeze({op_var}_t, {op_var}_axes);\n"
-
+        
         return src_code
     
     @staticmethod
