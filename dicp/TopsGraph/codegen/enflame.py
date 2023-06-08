@@ -345,7 +345,22 @@ class EnflameOverrides(OpOverrides):
         src_code = IndentedBuffer()
         args_str = [op_var]
         count = 0
-        if process_name(node.name, node.target) in need_node:
+        
+        name = process_name(node.name, node.target)
+        if name == "Reshape" and "complex" in args[0].name:
+            args_str.append(node)
+            src_code.writeline(f"builder::Op {args_dict[args[0].name]}_0 = builder::GetTupleElement({args_dict[args[0].name]}, 0);\n")
+            src_code.writeline(f"builder::Op {args_dict[args[0].name]}_1 = builder::GetTupleElement({args_dict[args[0].name]}, 1);\n")
+            args_str.append(f"{args_dict[args[0].name]}_0")
+            args_str.append(f"{args_dict[args[0].name]}_1")
+            args_str.append(str(args[1]).replace('[', '{').replace(']', '}'))
+            return src_code, args_str
+        elif name in need_args:
+            args_str.append(node)
+            args_str.append(args_dict)
+            args_str.append(args)
+            return src_code, args_str
+        elif name in need_node:
             gen_const_flag = False
             args_str.append(node)
 
@@ -364,7 +379,7 @@ class EnflameOverrides(OpOverrides):
                 args_str.append(f'{op_var}_type{count}')
                 count += 1
             elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-                if "reducemean" in node.name and len(args) != 1 and i == 1:
+                if "reduce" in node.name and len(args) != 1 and i == 1:
                     tmp = args[1].copy()
                     tmp.sort()
                     for j in range(0, len(tmp)):
@@ -547,7 +562,13 @@ class EnflameOverrides(OpOverrides):
         data_type = node.meta['val'].dtype.__str__()
         src_code = f'builder::Type {op_var}_reshape_shape({shape}, {type_set[data_type]});\n'
         tmp = f'{op_var}_reshape_shape'
-        src_code += f"builder::Op {op_var} = builder::Reshape({args_str[0]}, {tmp});\n\n"
+        if len(args_str) == 2:
+            src_code += f"builder::Op {op_var} = builder::Reshape({args_str[0]}, {tmp});\n\n"
+        else:
+            src_code += f"builder::Op {op_var}_0 = builder::Reshape({args_str[0]}, {tmp});\n\n"
+            src_code += f"builder::Op {op_var}_1 = builder::Reshape({args_str[1]}, {tmp});\n\n"
+            src_code += f"std::vector<builder::Op> {op_var}_outputs = {'{' + op_var +'_0, ' + op_var + '_1' + '}'};\n"
+            src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);\n\n"
         return src_code
     
     @staticmethod
