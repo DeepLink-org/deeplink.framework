@@ -273,7 +273,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         args = []
         for i in range(len(self.input_args)):
             args.append('arg' + str(i))
-        call_body.writeline(f"{', '.join(args)}, = args")
+        if args:
+            call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline(f"args.clear()")
 
         bufs = []
@@ -515,9 +516,9 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Full(op_var, node, *args_str):
-        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
-        src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
-        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
+        src_code = f"std::vector<int64_t> {op_var}_in_shape{args_str[0]};\n"
+        src_code += f"builder::Type {op_var}_type({op_var}_in_shape, builder::PrimitiveType::F32());\n"
+        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {node.args[1]}, {op_var}_type);\n"
         return src_code
     
     @staticmethod
