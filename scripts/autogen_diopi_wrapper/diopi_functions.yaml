@@ -1223,6 +1223,7 @@
   interface:  diopiFloor(ctx, out,self);
 
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False # camb impl have bug
   custom_code_at_the_beginning: |
     if (out.numel() == 0) {
       int64_t numel = std::floor((end.to<double>() - start.to<double>()) / step.to<double>());
