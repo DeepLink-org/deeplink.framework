@@ -10,7 +10,7 @@ original_list=(
     # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco" #已通过
     "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024"  #已通过
-    # "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024" #已通过
+    "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024" #已通过
     "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192" #已通过
     # "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class"
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" #已通过
@@ -51,12 +51,13 @@ done
 
 LOCK_FILE="./my_one_iter_card.lock"
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$      #本管道用于控制并行
-mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储当前card num
+mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储card_list
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
 done 
-echo  $((0)) >&788
 
+used_card_list=()
+echo "${used_card_list[@]}" >&788
 pids=()
 
 export ONE_ITER_TOOL_DEVICE=dipu
@@ -77,11 +78,19 @@ for ((i=0; i<$random_model_num; i++)); do
 
     #锁机制保证有序
     while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
-    sleep 1
+        sleep 1
     done
-    read  cardnum <&788
-    next_cardnum=$(((cardnum+1) % $max_cardnum))
-    echo  $((next_cardnum)) >&788
+    read -r -a used_card_list <&788
+    cur_cardnum=$((-1))
+    for ((i=0;i<$max_cardnum;i++)); do
+        if [[ ! ${used_card_list[@]}  =~ $i ]]; then
+            cur_cardnum=$((i))
+            break
+        fi
+    done
+    echo $cur_cardnum
+    used_card_list+=($((cur_cardnum)))
+    echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
     
 
@@ -119,11 +128,26 @@ for ((i=0; i<$random_model_num; i++)); do
     # 显示结果
     echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} min"
     touch "$pid.done" 
-    sleep 2
 
-    echo  "after add place row $i"  1>&796
+
+    # 将卡设置为空闲
+    while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
+        sleep 1
+    done
+    read -r -a used_card_list <&788
+    index=$((0))
+    for i in ${used_card_list[*]}; do
+    if [[ $cur_cardnum == $i ]]; then
+        unset 'used_card_list[index]'
+        echo "remove $cur_cardnum "
+    fi
+    index=$(( $index + 1 ))
+    done
+    echo "${used_card_list[@]}" >&788
+    rmdir "${LOCK_FILE}"
     
 
+    echo  "after add place row $i"  1>&796
 }&
 pid=$!  # 存储子进程的PID号
 pids+=("$pid")
