@@ -21,7 +21,7 @@ original_list=(
     # "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask-rcnn_r50_fpn_1x_coco"   #存在问题
     # "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k --no-pin-memory"   #已通过
     # "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"
-    "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"
+    # "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"  #爆显存
     "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"
     "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024"
     # "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
@@ -89,6 +89,8 @@ for ((i=0; i<$random_model_num; i++)); do
         fi
     done
     used_card_list+=($((cur_cardnum)))
+    echo "${used_card_list[@]}" >&788
+    rmdir "${LOCK_FILE}"
 
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
@@ -105,9 +107,6 @@ for ((i=0; i<$random_model_num; i++)); do
         echo "make dir"
     fi
     echo "cardnum:$cur_cardnum  model:$p2  pid: $BASHPID"
-
-    echo "${used_card_list[@]}" >&788
-    rmdir "${LOCK_FILE}"
 
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
