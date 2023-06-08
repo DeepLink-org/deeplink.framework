@@ -1224,6 +1224,8 @@
 
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    int64_t numel = std::floor((end.to<double>() - start.to<double>()) / step.to<double>());
-    out = at::empty({numel}, out.options());
+    if (out.numel() == 0) {
+      int64_t numel = std::floor((end.to<double>() - start.to<double>()) / step.to<double>());
+      out.resize_({numel});
+    }
   interface: diopiArange(ctx, out, start, end, step)

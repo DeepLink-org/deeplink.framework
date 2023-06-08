@@ -7,7 +7,7 @@ function run_dipu_tests {
   export DIPU_DUMP_OP_ARGS=1
 
   export DIPU_FORCE_FALLBACK_OPS_LIST=fill_.Scalar
-  run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v TestTensorCreationDIPU
+  run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v TestTensorCreationDIPU # --locals -f
   unset DIPU_FORCE_FALLBACK_OPS_LIST
 
   #run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
