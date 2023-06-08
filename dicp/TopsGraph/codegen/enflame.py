@@ -951,12 +951,10 @@ class EnflameOverrides(OpOverrides):
             
         return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
 
-
     @staticmethod
     def Softmax(op_var, node, x, z):
         y = node.args[1]
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
-
 
     @staticmethod
     def Logsoftmax(op_var, node, x, z):
