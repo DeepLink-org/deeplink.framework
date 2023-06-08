@@ -30,7 +30,7 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Select']
+need_args = ['Slice', 'Select']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -665,6 +665,25 @@ class EnflameOverrides(OpOverrides):
         new_args_str.append(f"{op_var}_gather_type")
         
         src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
+
+        return src_code
+    
+    @staticmethod
+    def Slice(op_var, node, args_dict, args):
+        shape0 = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        if shape != shape0:
+            raise ValueError("Slice args error!")
+
+        rank = len(args[0].meta['val'].shape)
+
+        start_indices = [0 for x in range(0, rank)]    
+        start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
+        limit_indices = shape
+        stride = [1 for x in range(0, rank)]
+        stride = '{' + ', '.join(map(str, stride)) + '}'   
+
+        src_code = f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
 
         return src_code
     
