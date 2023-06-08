@@ -128,8 +128,8 @@ def hardswish(a):
     return tops_op.Hardswish(a)
 
 @register_conversion(torch.ops.aten.clone)
-def clone(*args):
-    return tops_op.Copy(*args)
+def clone(*args, **kargs):
+    return tops_op.Copy(*args, **kargs)
 
 @register_conversion(torch.ops.aten.neg)
 def neg(*args):
@@ -238,7 +238,7 @@ def sigmoid(*args, **kwargs):
     return tops_op.Sigmoid(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.slice.Tensor)
-def enflameslice(*args, **kwargs):
+def slice(*args, **kwargs):
     return tops_op.Slice(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.where.self)

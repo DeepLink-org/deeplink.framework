@@ -64,7 +64,7 @@ class Operator():
 
 class Add(Operator):
     def __init__(self, a, b):
-        super().__init__("add")
+        super().__init__("Add")
         self.a = a
         self.b = b
         self.torch_op = aten.add.Tensor
@@ -231,8 +231,8 @@ class Hardswish(Operator):
 
 
 class Copy(Operator):
-    def __init__(self, *args):
-        super().__init__("clone")
+    def __init__(self, *args, **kargs):
+        super().__init__("Clone")
         self.args = args
         self.torch_op = aten.clone
 
@@ -475,7 +475,7 @@ class Embedding(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Embedding")
         self.args = args
-        self.args = kwargs
+        self.kargs = kwargs
         self.torch_op = aten.embedding.default
 
 class Equal(Operator):
