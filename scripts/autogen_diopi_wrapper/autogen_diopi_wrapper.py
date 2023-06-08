@@ -642,7 +642,7 @@ def functions_code_gen(fun_config):
                 aten_fun_name=['dipu::native::' + fun_name],
                 diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
                 force_fallback=['false' if fun_config.get('force_fallback', False) in [False, 'False'] else 'true'],
-                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name],
+                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name.replace('_autocompare', '')],
 
         )
     return fbody, register_body
