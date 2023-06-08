@@ -37,7 +37,7 @@ if [ $random_model_num -gt $length ]; then
     random_model_num=$length
 fi
 
-echo $length
+echo "modelnum: $length  chosen model num: $random_model_num"
 selected_list=()
 
 # 随机选取模型
@@ -82,13 +82,13 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     read -r -a used_card_list <&788
     cur_cardnum=$((-1))
-    for ((i=0;i<$max_cardnum;i++)); do
+    for ((i=1;i<$max_cardnum;i++)); do
         if [[ ! ${used_card_list[@]}  =~ $i ]]; then
             cur_cardnum=$((i))
             break
         fi
     done
-    echo "cardnum:  $cur_cardnum"
+    echo "cardnum:  $cur_cardnum   pid: $BASHPID"
     used_card_list+=($((cur_cardnum)))
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
