@@ -101,23 +101,21 @@ def get_total_compute_time():
 
 class MemoryPool:
     def __init__(self):
-        self.ids = []
-        self.params = {}
-        cur_dir = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(cur_dir, 'memory_pool.pkl'), 'rb') as f:
-            self.memory_infos = pickle.load(f)
-
-        for _, v in self.memory_infos.items():
-            temp_buffer, ret = acl.rt.malloc(v['size'],
-                                             ACL_MEM_MALLOC_HUGE_FIRST)
-            check_ret("acl.rt.malloc", ret)
-            self.params[v['index']] = {
-                'size': v['size'],
-                'device_ptr': temp_buffer,
-            }
-            self.ids.append(v['index'])
+        self.weight_ids = []
+        self.input_ids = []
+        self.output_ids = []
         
-        self.work_size = 16 * 1024 * 1024 * 1024
+        self.weights = {}
+        self.inputs = {}
+        self.outputs = {}
+        
+        self.init_weights()
+        self.init_inputs()
+        self.init_outputs()
+        self.init_work_weight_ptr()
+    
+    def init_work_weight_ptr(self):
+        self.work_size = 15 * 1024 * 1024 * 1024
         self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
@@ -126,7 +124,59 @@ class MemoryPool:
         self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
+        
+    def init_weights(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_weight.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
 
+        for _, v in self.memory_infos.items():
+            temp_buffer, ret = acl.rt.malloc(v['size'],
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.weights[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.weight_ids.append(v['index'])
+    
+    def init_inputs(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_input.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
+
+        for _, v in self.memory_infos.items():
+            if v['size'] == 0:
+                size = 1
+            else:
+                size = v['size']
+            temp_buffer, ret = acl.rt.malloc(size,
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.inputs[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.input_ids.append(v['index'])
+
+    def init_outputs(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_output.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
+
+        for _, v in self.memory_infos.items():
+            if v['size'] == 0:
+                size = 1
+            else:
+                size = v['size']
+            temp_buffer, ret = acl.rt.malloc(size,
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.outputs[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.output_ids.append(v['index'])     
 
 memory_pool = MemoryPool()
 
@@ -153,20 +203,10 @@ class AscendExecutor(object):
 
         self.input_size = acl.mdl.get_num_inputs(self.model_desc)
         self.output_size = acl.mdl.get_num_outputs(self.model_desc)
-
+        self.init_resource()
 
     def release_resource(self):
-        for i, data in enumerate(self.input_data):
-            if i in memory_pool.ids:
-                continue
-            ret = acl.rt.free(data["buffer"])
-            check_ret("acl.rt.free", ret)
-        self.input_data = []
-
-        while self.output_data:
-            item = self.output_data.pop()
-            ret = acl.rt.free(item["buffer"])
-            check_ret("acl.rt.free", ret)
+        pass
             
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()
@@ -201,20 +241,18 @@ class AscendExecutor(object):
     def _gen_data_buffer(self, size, des):
         func = buffer_method[des]
         for i in range(size):
-            if des == "in" and i in memory_pool.ids:
-                temp_buffer = memory_pool.params[i]['device_ptr']
-                temp_buffer_size = memory_pool.params[i]['size']
-            else:
-                # check temp_buffer dtype
-                temp_buffer_size = func(self.model_desc, i)
-                if temp_buffer_size == 0:
-                    temp_buffer, ret = acl.rt.malloc(1,
-                                                    ACL_MEM_MALLOC_HUGE_FIRST)
-                    check_ret("acl.rt.malloc", ret)
+            if des == "in":
+                if i in memory_pool.weight_ids:
+                    temp_buffer = memory_pool.weights[i]['device_ptr']
+                    temp_buffer_size = memory_pool.weights[i]['size']
                 else:
-                    temp_buffer, ret = acl.rt.malloc(temp_buffer_size,
-                                                ACL_MEM_MALLOC_HUGE_FIRST)
-                    check_ret("acl.rt.malloc", ret)
+                    temp_buffer_size = func(self.model_desc, i)
+                    temp_buffer = memory_pool.inputs[i]['device_ptr']       
+            elif des == "out":
+                temp_buffer_size = func(self.model_desc, i)
+                temp_buffer = memory_pool.outputs[i]['device_ptr']               
+            else:
+                raise RuntimeError('invalid params!')
 
             if des == "in":
                 self.input_data.append({"buffer": temp_buffer,
@@ -239,17 +277,17 @@ class AscendExecutor(object):
                 ptr = dataset[i]
                 if item["size"] == 0:
                     continue
-
-                if i in memory_pool.ids:
-                    if 'host_ptr' not in memory_pool.params[i].keys():
+                
+                if i in memory_pool.weight_ids:
+                    if 'host_ptr' not in memory_pool.weights[i].keys():
                         ret = acl.rt.memcpy(item["buffer"],
                                             item["size"],
                                             ptr,
                                             item["size"],
                                             policy)
                         check_ret("acl.rt.memcpy", ret)
-                        memory_pool.params[i]['host_ptr'] = ptr
-                else:    
+                        memory_pool.weights[i]['host_ptr'] = ptr
+                else:
                     ret = acl.rt.memcpy(item["buffer"],
                                         item["size"],
                                         ptr,
@@ -309,14 +347,9 @@ class AscendExecutor(object):
         return result
 
     def run(self, images):
-        self.run_start_time = time.time()
         self._data_from_host_to_device(images)
-        self.run_h2d_time = time.time()
         self.forward()
-        self.run_exe_time = time.time()
-        a = self._data_from_device_to_host()
-        self.run_d2h_time = time.time()
-        return a
+        return self._data_from_device_to_host()
 
     def forward(self):
         ret = acl.mdl.execute(self.model_id,
@@ -363,22 +396,7 @@ class AscendModel():
         self.exe = AscendExecutor(self.device_id, self.model_path)
         
     def run(self, images):
-        start_time = time.time()
-        self.exe.init_resource()
-        init_time = time.time()
         result = self.exe.run(images)
-        run_time = time.time()
-        self.exe.release_resource()
-        release_time = time.time()
-
-        print('h2d time:', self.exe.run_h2d_time - self.exe.run_start_time)
-        print('exe time:', self.exe.run_exe_time - self.exe.run_h2d_time)
-        print('d2h time:', self.exe.run_d2h_time - self.exe.run_exe_time)
-
-        print()
-        print('init time:', init_time - start_time)
-        print('run time:', run_time - init_time)
-        print('release time:', release_time - run_time)
         return result
 
 if __name__ == '__main__':
