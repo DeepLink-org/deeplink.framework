@@ -82,17 +82,13 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     read -r -a used_card_list <&788
     cur_cardnum=$((-1))
-    for ((i=1;i<$max_cardnum;i++)); do
-        if [[ ! ${used_card_list[@]}  =~ $i ]]; then
-            cur_cardnum=$((i))
+    for ((j=1;j<$max_cardnum;j++)); do
+        if [[ ! ${used_card_list[@]}  =~ $j ]]; then
+            cur_cardnum=$((j))
             break
         fi
     done
-    echo "cardnum:  $cur_cardnum   pid: $BASHPID"
     used_card_list+=($((cur_cardnum)))
-    echo "${used_card_list[@]}" >&788
-    rmdir "${LOCK_FILE}"
-    
 
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
@@ -108,7 +104,11 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    echo "cardnum:$cur_cardnum  model:$p2"
+    echo "cardnum:$cur_cardnum  model:$p2  pid: $BASHPID"
+
+    echo "${used_card_list[@]}" >&788
+    rmdir "${LOCK_FILE}"
+
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
 
@@ -136,8 +136,8 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     read -r -a used_card_list <&788
     index=$((0))
-    for i in ${used_card_list[*]}; do
-    if [[ $cur_cardnum == $i ]]; then
+    for j in ${used_card_list[*]}; do
+    if [[ $cur_cardnum == $j ]]; then
         unset 'used_card_list[index]'
         echo "remove cardnum: $cur_cardnum "
     fi
