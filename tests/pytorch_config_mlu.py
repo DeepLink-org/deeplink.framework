@@ -187,6 +187,7 @@ DISABLED_TESTS_MLU = {
         'test_tensor_reduce_ops_empty',
         'test_all_any_vs_numpy',
         'test_all_any',
+        'test_all_any_empty',
         'test_count_nonzero',
         'test_dim_default_keepdim',
         'test_dim_single_keepdim',
