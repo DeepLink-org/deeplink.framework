@@ -28,9 +28,9 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad',
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
+             'Viewasreal', 'Complexmul', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Div', 'Dot', 'Slice', 'Select', 'Complex']
+need_args = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -968,13 +968,19 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Concatenate(op_var, node, x):
-        shape = node.meta["val"][0].shape
+    def Concatenate(op_var, node, args_dict, args):
         y = node.args[1]
         if (node.args[1] < 0 ):
-            y = len(shape) + node.args[1]
+            y = len(node.meta["val"][0].shape) + node.args[1]
             
-        return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
+        args_str = []
+        for arg in args[0]:
+            arg_shape = arg.meta['val'].shape
+            if 0 in arg_shape:
+                continue
+            args_str.append(args_dict[arg.name])
+            
+        return f"builder::Op {op_var} = builder::Concatenate({'{' + ','.join(args_str) + '}'}, {y});"
 
     @staticmethod
     def Softmax(op_var, node, x, z):
