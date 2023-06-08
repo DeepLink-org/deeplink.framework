@@ -903,7 +903,9 @@
   custom_code_at_the_beginning: |
     at::Tensor out, counts, indices;
     if (return_inverse) {
-      indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
+      const auto ndims = self.sizes().size();
+      dim += ndims < 0 ? ndims : 0;
+      indices = at::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
     }
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
