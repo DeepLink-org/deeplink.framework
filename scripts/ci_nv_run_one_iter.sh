@@ -3,7 +3,7 @@
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     # "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"   #已通过
-    # "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k --no-pin-memory" #精度没过
+    "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k --no-pin-memory" #精度没过
     # "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin-large_16xb64_in1k --no-pin-memory" #已通过
     # "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vit-base-p16_64xb64_in1k-384px --no-pin-memory"  #已通过
     # "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"  #已通过
@@ -21,9 +21,9 @@ original_list=(
     # "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask-rcnn_r50_fpn_1x_coco"   #存在问题
     # "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k --no-pin-memory"   #已通过
     # "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"
-    # "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"  #爆显存
-    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"
-    "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024"
+    "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"  #爆显存
+    # "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024" #已通过，但13min
+    # "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" #已通过
     # "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
     # "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"    #已通过
 )
@@ -125,7 +125,7 @@ for ((i=0; i<$random_model_num; i++)); do
     minutes=$((minutes % 60))
 
     # 显示结果
-    echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} min"
+    echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} sec"
     touch "$pid.done" 
 
 
@@ -154,35 +154,35 @@ read -r p1 p2 p3 p4 <<< ${selected_list[i]}
 echo "PID: $pid ,name:$p2"  # 输出子进程的PID号
 done
 
-while true; do
-    all_finished=true
-    for index in "${!pids[@]}"; do
-        pid="${pids[index]}"
-        if ! kill -0 "$pid" 2>/dev/null; then
-            # 如果存在 "$pid.done"，那直接删
-            if [ -f "$pid.done" ]; then
-                echo "Child process with PID $pid exited successfully."
-                rm -rf "$pid.done"
-                unset 'pids[index]'  # 删除相应的数组元素
-                continue
-            fi
-            echo "Child process with PID $pid encountered an error. Exiting all child processes."
-            # 结束所有子进程
-            for pid_to_kill in "${pids[@]}"; do
-                kill "$pid_to_kill" 2>/dev/null
-            done
-            exit 1
-        fi
-        all_finished=false
-    done
+# while true; do
+#     all_finished=true
+#     for index in "${!pids[@]}"; do
+#         pid="${pids[index]}"
+#         if ! kill -0 "$pid" 2>/dev/null; then
+#             # 如果存在 "$pid.done"，那直接删
+#             if [ -f "$pid.done" ]; then
+#                 echo "Child process with PID $pid exited successfully."
+#                 rm -rf "$pid.done"
+#                 unset 'pids[index]'  # 删除相应的数组元素
+#                 continue
+#             fi
+#             echo "Child process with PID $pid encountered an error. Exiting all child processes."
+#             # 结束所有子进程
+#             for pid_to_kill in "${pids[@]}"; do
+#                 kill "$pid_to_kill" 2>/dev/null
+#             done
+#             exit 1
+#         fi
+#         all_finished=false
+#     done
 
-    if $all_finished; then
-        break
-    fi
+#     if $all_finished; then
+#         break
+#     fi
 
-    sleep 2  # 适当调整轮询的间隔时间
-done
+#     sleep 2  # 适当调整轮询的间隔时间
+# done
 
-# wait
+wait
 
 echo Done
