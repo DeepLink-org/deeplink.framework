@@ -944,12 +944,11 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Concatenate(op_var, node, x):
-        # dim in torch.cat ranges:
-        # [-len(x.shape.size()), len(x.shape.size())-1]
-        # handle negative dim for tops side.
+        shape = node.meta["val"][0].shape
         y = node.args[1]
         if (node.args[1] < 0 ):
-            y = len(node.meta["val"][0].shape) + node.args[1] + 1
+            y = len(shape) + node.args[1]
+            
         return f"builder::Op {op_var} = builder::Concatenate({x}, {y});"
 
 
