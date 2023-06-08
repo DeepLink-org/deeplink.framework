@@ -10,7 +10,7 @@ original_list=(
     # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco" #已通过
     "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024"  #已通过
-    "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024" #已通过
+    # "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024" #已通过
     "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192" #已通过
     # "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class"
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" #已通过
@@ -102,8 +102,6 @@ for ((i=0; i<$random_model_num; i++)); do
     echo "cardnum:$cardnum  model:$p2"
     CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
-    echo  "after add place row $i"  1>&796
-    touch "$pid.done" 
 
     # 记录结束时间（以纳秒为单位）
     endTime=$(date +%s%N)
@@ -120,6 +118,11 @@ for ((i=0; i<$random_model_num; i++)); do
 
     # 显示结果
     echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} min"
+    touch "$pid.done" 
+    sleep 2
+
+    echo  "after add place row $i"  1>&796
+    
 
 }&
 pid=$!  # 存储子进程的PID号
