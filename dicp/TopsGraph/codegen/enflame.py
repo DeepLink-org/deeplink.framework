@@ -19,7 +19,8 @@ from torch._inductor.codegen.common import OpOverrides
 from ..config import tops_debug
 
 
-type_set = {"torch.float32": "builder::PrimitiveType::F32()",
+type_set = {"torch.float16": "builder::PrimitiveType::F16()",
+            "torch.float32": "builder::PrimitiveType::F32()",
             "torch.int64": "builder::PrimitiveType::S64()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
@@ -68,6 +69,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         
         data_type = self.cur_node.meta['val'].dtype.__str__()
         if data_type not in type_set.keys():
+            print("data_type:", data_type, flush=True)
             raise ValueError("Type error")
     
         in_shape = self.get_shape()
@@ -404,13 +406,11 @@ class EnflameOverrides(OpOverrides):
                     data_type = '' if isinstance(val, type(None)) else val.dtype.__str__()
                 
                     if data_type == 'torch.int64':
-                        out_type = 'builder::PrimitiveType::S64()'
                         src_code.writeline(f'int {op_var}_const_value{count} = {str(args[i])};')
                     else:
-                        out_type = 'builder::PrimitiveType::F32()'
                         src_code.writeline(f'float {op_var}_const_value{count} = {str(args[i])};')
   
-                    src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {out_type});")
+                    src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {type_set[data_type]});")
                     src_code.writeline(f'builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_value_type{count});\n')
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
@@ -494,7 +494,8 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Scalar(op_var, node, *args_str):
-        src_code = f"builder::Type {op_var}_scalar_type({'{' + '1' +'}'}, builder::PrimitiveType::F32());\n"
+        data_type = node.meta['val'].dtype.__str__()
+        src_code = f"builder::Type {op_var}_scalar_type({'{' + '1' +'}'}, {type_set[data_type]});\n"
         src_code += f"std::vector<float> {op_var}_scalar_data(1, {node.args[0]});\n"
         src_code += f"auto {op_var} = builder::Const(hlir_builder, static_cast<void *>({op_var}_scalar_data.data()), {op_var}_scalar_type);\n"
         return src_code
@@ -517,7 +518,8 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Full(op_var, node, *args_str):
-        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, builder::PrimitiveType::F32());\n"
+        data_type = node.meta['val'].dtype.__str__()
+        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, {type_set[data_type]});\n"
         src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
         return src_code
@@ -542,7 +544,8 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Reshape(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f'builder::Type {op_var}_reshape_shape({shape}, ptype);\n'
+        data_type = node.meta['val'].dtype.__str__()
+        src_code = f'builder::Type {op_var}_reshape_shape({shape}, {type_set[data_type]});\n'
         tmp = f'{op_var}_reshape_shape'
         src_code += f"builder::Op {op_var} = builder::Reshape({args_str[0]}, {tmp});\n\n"
         return src_code
@@ -629,6 +632,7 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Gather(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__()
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         
         new_args_str = []
@@ -636,7 +640,7 @@ class EnflameOverrides(OpOverrides):
         new_args_str.append(args_str[1])
         new_args_str.append(str(node.args[1]))
         
-        src_code = f"builder::Type {op_var}_gather_type({shape}, builder::PrimitiveType::F32());\n"
+        src_code = f"builder::Type {op_var}_gather_type({shape}, {type_set[data_type]});\n"
         new_args_str.append(f"{op_var}_gather_type")
         
         src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
