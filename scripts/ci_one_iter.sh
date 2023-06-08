@@ -1,5 +1,4 @@
 #!/bin/bash
-#因为涉及到pythonpath的设置，因此请使用source来执行此脚本
 
 function clone_needed_repo() {
     # clone some repositories
@@ -90,11 +89,6 @@ case $1 in
         (
             build_needed_repo
             build_dataset camb
-        ) \
-        || exit -1;;
-    source_pythonpath)
-        (
-            add_repo_pythonpath $2
         ) \
         || exit -1;;
     *)

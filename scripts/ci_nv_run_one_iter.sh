@@ -29,8 +29,9 @@ original_list=(
 )
 
 length=${#original_list[@]}
-max_parall=4
+max_parall=8
 random_model_num=100 #如果超过，会自动设置为模型总数
+max_cardnum=8
 
 if [ $random_model_num -gt $length ]; then
     random_model_num=$length
@@ -48,11 +49,13 @@ for ((i=0; i<random_model_num; i++)); do
     length=${#original_list[@]}
 done
 
-
-mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
+LOCK_FILE="./my_one_iter_card.lock"
+mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$      #本管道用于控制并行
+mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储当前card num
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
 done 
+echo  $((0)) >&788
 
 pids=()
 
@@ -71,6 +74,17 @@ for ((i=0; i<$random_model_num; i++)); do
 
     pid=$BASHPID  # 存储子进程的PID号
     read -u 796
+
+    #锁机制保证有序
+    while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
+    sleep 1
+    done
+    read  cardnum <&788
+    next_cardnum=$(((cardnum+1) % $max_cardnum))
+    echo  $((next_cardnum)) >&788
+    rmdir "${LOCK_FILE}"
+    
+
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"
@@ -85,8 +99,9 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    echo "cardnum:$cardnum  model:$p2"
+    CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    CUDA_VISIBLE_DEVICES=$cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
     echo  "after add place row $i"  1>&796
     touch "$pid.done" 
 
