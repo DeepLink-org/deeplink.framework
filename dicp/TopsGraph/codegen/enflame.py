@@ -27,10 +27,10 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
 
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Dot', 'Slice', 'Select']
+need_args = ['Dot', 'Slice', 'Select', 'Complex']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -853,36 +853,42 @@ class EnflameOverrides(OpOverrides):
                    f");\n" \
 
         return src_code
+    
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod
-    def Complex(op_var, node, x):
-        src = f"auto {op_var}part0_limit_indices =  {x}_in_shape;\n"
-        src += f"int {op_var}in_shape_size = {x}_in_shape.size();\n"
-        src += f"{op_var}part0_limit_indices[{op_var}in_shape_size - 1]--;\n"
+    def Complex(op_var, node, args_dict, args):
+        shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        
+        src_code = f"std::vector<int64_t> {op_var}_in_shape{shape};\n"
+        src_code += f"int {op_var}in_shape_size = {op_var}_in_shape.size();\n"
+        
+        src_code += f"auto {op_var}part0_limit_indices =  {op_var}_in_shape;\n"
+        src_code += f"{op_var}part0_limit_indices[{op_var}in_shape_size - 1]--;\n"
 
-        src += f"std::vector<int64_t> {op_var}part0_start_indices({op_var}in_shape_size, 0);\n"
-        src += f"std::vector<int64_t> {op_var}part1_start_indices({op_var}in_shape_size, 0);\n"
-        src += f"{op_var}part1_start_indices[{op_var}in_shape_size - 1] = 1;\n"
-        src += f"std::vector<int64_t> {op_var}stride( {op_var}in_shape_size, 1);\n"
+        src_code += f"std::vector<int64_t> {op_var}part0_start_indices({op_var}in_shape_size, 0);\n"
+        src_code += f"std::vector<int64_t> {op_var}part1_start_indices({op_var}in_shape_size, 0);\n"
+        src_code += f"{op_var}part1_start_indices[{op_var}in_shape_size - 1] = 1;\n"
+        src_code += f"std::vector<int64_t> {op_var}stride( {op_var}in_shape_size, 1);\n"
 
-        src += f"builder::Op {op_var}split0 = builder::Slice({x}, {op_var}part0_start_indices, {op_var}part0_limit_indices, {op_var}stride);\n"
-        src += f"builder::Op {op_var}split1 = builder::Slice({x}, {op_var}part1_start_indices, {x}_in_shape, {op_var}stride);\n"
+        src_code += f"builder::Op {op_var}_split0 = builder::Slice({args_dict[args[0].name]}, {op_var}part0_start_indices, {op_var}part0_limit_indices, {op_var}stride);\n"
+        src_code += f"builder::Op {op_var}_split1 = builder::Slice({args_dict[args[0].name]}, {op_var}part1_start_indices, {op_var}_in_shape, {op_var}stride);\n"
+        
+        # TODO: reshape
+        out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        data_type = args[0].meta['val'].dtype.__str__()
+        src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
+        src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_split0, {op_var}_reshape_type);\n"
+        src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_split1, {op_var}_reshape_type);\n"
 
         t = '{'
-        t += f"{op_var}split0, {op_var}split1"
+        t += f"{op_var}_tmp0, {op_var}_tmp1"
         t += '}'
+        
+        src_code += f"std::vector<builder::Op> {op_var}outputs{t};\n"
 
-        src += f"//\n"
-        src += f"std::vector<builder::Op>  {op_var}outputs {t};\n"
-        src += f"std::vector<builder::PrimitiveType>  {op_var}tuple_dtype;\n"
-        src += f"std::vector<std::vector<int64_t>>  {op_var}tuple_shape;\n"
-        src += f"for (uint i = 0; i < {op_var}outputs.size(); i++) " + '{' + "\n"
-        src += f"   {op_var}tuple_shape.push_back( {op_var}outputs[i].GetType().GetShape());\n"
-        src += f"   {op_var}tuple_dtype.push_back( {op_var}outputs[i].GetType().GetPrimitiveType());\n"
-        src += "}\n"
-        src += f"builder::Type  {op_var}outputs_type( {op_var}tuple_shape,  {op_var}tuple_dtype);\n"
-        src += f"builder::Op  {op_var} = builder::Tuple( {op_var}outputs,  {op_var}outputs_type);\n"
-        return src
+        src_code += f"builder::Op {op_var} = builder::Tuple({op_var}outputs);\n"
+        
+        return src_code
 
     # tops.tuple(a, bi)====>[a,b]
     @staticmethod
