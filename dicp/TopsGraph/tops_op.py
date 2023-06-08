@@ -9,16 +9,19 @@ from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
 
+use_dynamic_shapes = False
+use_fake_tensor = True
+
 class Operator():
     __name__: str
 
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+        self.shape_env = ShapeEnv() if use_dynamic_shapes else None
         self.fake_mode = (
             FakeTensorMode(shape_env=self.shape_env)
-            if config.use_fake_tensor
+            if use_fake_tensor
             else nullcontext()
         )
 
@@ -26,15 +29,37 @@ class Operator():
         return self.__name__
 
     def __call__(self, *args, **kwargs):
-        new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        new_args = []
+        for arg in args:
+            if isinstance(arg, list):
+                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
+            else:
+                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
+        new_args = tuple(new_args)
+        
         fake_mode = None
         for arg in new_args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
+            elif isinstance(arg, list):
+                for x in arg:
+                    if isinstance(x, FakeTensor):
+                        fake_mode = x.fake_mode
+                        break
+                if fake_mode is not None:
+                    break
         if fake_mode is None:
             fake_mode = self.fake_mode
-        new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
+            
+        tmp_args = []
+        for arg in new_args:
+            if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
+                tmp_args.append(arg)
+            else:
+                tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
+        new_args = tuple(tmp_args)
+
         return self.torch_op(*new_args, **kwargs)
 
 class Add(Operator):
