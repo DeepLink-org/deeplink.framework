@@ -243,6 +243,10 @@ def slice(*args, **kwargs):
 
 @register_conversion(torch.ops.aten.where.self)
 def select(*args, **kwargs):
+    return tops_op.Where(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.select.int)
+def select(*args, **kwargs):
     return tops_op.Select(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scatter.value)

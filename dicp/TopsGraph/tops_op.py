@@ -437,6 +437,14 @@ class Slice(Operator):
         self.args = args
         self.args = kwargs
         self.torch_op = aten.slice.Tensor
+        
+        
+class Where(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Where")
+        self.args = args
+        self.args = kwargs
+        self.torch_op = aten.where.self
 
 
 class Select(Operator):
@@ -444,7 +452,7 @@ class Select(Operator):
         super().__init__("Select")
         self.args = args
         self.args = kwargs
-        self.torch_op = aten.where.self
+        self.torch_op = aten.select.int
 
 
 # scatter_value = torch.ops.aten.scatter.value(fulllike, 1, unsqueeze, -1.0);  fulllike = unsqueeze = None
@@ -469,7 +477,7 @@ class Scalar(Operator):
         self.args = args
         self.args = kwargs
         self.torch_op = aten.scalar_tensor.default
-
+        
 
 class Embedding(Operator):
     def __init__(self, *args, **kwargs):

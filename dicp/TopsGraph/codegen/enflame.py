@@ -29,6 +29,8 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
 
+need_args = ['Select']
+
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
             return 'Conv2D_Grad'
@@ -503,7 +505,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Select(op_var, *args):
+    def Where(op_var, *args):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
     @staticmethod
@@ -638,6 +640,31 @@ class EnflameOverrides(OpOverrides):
         new_args_str.append(f"{op_var}_gather_type")
         
         src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});\n"
+
+        return src_code
+    
+    @staticmethod
+    def Select(op_var, node, args_dict, args):
+        shape = args[0].meta['val'].shape
+        rank = len(shape)
+        dim = int(args[1])
+
+        start_indices = [0 for i in range(0, rank)]    
+        start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
+
+        limit_indices = [x for x in shape]
+        limit_indices[dim] = 0
+        limit_indices = '{' + ', '.join(map(str, limit_indices)) + '}'
+
+        stride = [1 for x in range(0, rank)]
+        stride = '{' + ', '.join(map(str, stride)) + '}' 
+
+        src_code = f"auto {op_var}_t = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
+
+        src_code += f"builder::Type {op_var}_axes_type({'{' + '1' + '}'}, builder::PrimitiveType::S64());\n"
+        src_code += f"std::vector<int64_t> {op_var}_axes_data = {'{' + str(dim) + '}'};\n"
+        src_code += f"builder::Op {op_var}_axes = builder::Const(hlir_builder, ({op_var}_axes_data.data()), {op_var}_axes_type);\n"
+        src_code += f"auto {op_var} = builder::Squeeze({op_var}_t, {op_var}_axes);\n"
 
         return src_code
     
