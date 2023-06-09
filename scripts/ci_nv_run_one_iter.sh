@@ -84,6 +84,7 @@ for ((i=0; i<$random_model_num; i++)); do
         used_card_list+=($((cur_cardnum)))
         echo "${used_card_list[@]}" >&788
         rmdir "${LOCK_FILE}"
+        break
     done
 
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
