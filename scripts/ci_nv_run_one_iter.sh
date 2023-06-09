@@ -74,7 +74,7 @@ for ((i=0; i<$random_model_num; i++)); do
     read -r -a used_card_list <&788
     export USED_CARD="${used_card_list[@]}"
     cur_card=$(sh scripts/detect_available_card.sh 20)
-    read -r cur_cardnum cur_card_G  <<< ${result}
+    read -r cur_cardnum cur_card_G  <<< ${cur_card}
     used_card_list+=($((cur_cardnum)))
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
