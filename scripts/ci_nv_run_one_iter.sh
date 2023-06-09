@@ -72,7 +72,8 @@ for ((i=0; i<$random_model_num; i++)); do
         sleep 1
     done
     read -r -a used_card_list <&788
-    cur_card=$(sh scripts/detect_available_card.sh 20 $used_card_list)
+    export USED_CARD="${used_card_list[@]}"
+    cur_card=$(sh scripts/detect_available_card.sh 20)
     read -r cur_cardnum cur_card_G  <<< ${result}
     used_card_list+=($((cur_cardnum)))
     echo "${used_card_list[@]}" >&788
@@ -131,7 +132,6 @@ for ((i=0; i<$random_model_num; i++)); do
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
     
-
     echo  "after add place row $i"  1>&796
 }&
 pid=$!  # 存储子进程的PID号
