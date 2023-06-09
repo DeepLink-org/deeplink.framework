@@ -71,6 +71,7 @@ std::string dumpArg(const container<T1> & t) {
     return stream.str();
 }
 
+
 template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
@@ -106,8 +107,14 @@ std::string dumpArg(const std::array<T, N>& t) {
 template<>
 std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
     std::stringstream stream;
-    for (auto iter = t.begin(); iter != t.end(); ++iter) {
-        //stream << dumpArg(*iter) << " ";
+    stream << "size:" << t.size() << std::endl;
+    for (int i = 0; i < t.size(); ++i) {
+        bool has_value = t[i].has_value();
+        stream << "\t" << i << "th: has_value:" << has_value << " ";
+        if (has_value) {
+            stream << t[i].value();
+        }
+        stream << std::endl;
     }
     return stream.str();
 }
