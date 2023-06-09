@@ -91,6 +91,11 @@ std::string dumpArg(const at::Scalar& scalar) {
 }
 
 template<>
+std::string dumpArg(const c10::string_view& str) {
+    return dumpArg(std::string(str.data()));
+}
+
+template<>
 std::string dumpArg(const at::Generator& generator) {
     return "";
 }
@@ -112,7 +117,7 @@ std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
         bool has_value = t[i].has_value();
         stream << "\t" << i << "th: has_value:" << has_value << " ";
         if (has_value) {
-            stream << t[i].value();
+            stream << dumpArg(t[i].value());
         }
         stream << std::endl;
     }
