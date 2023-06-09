@@ -1200,3 +1200,11 @@
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
 
+- schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    std::vector<diopiConstTensorHandle_t> indices_vec;
+    indices.reserve(indices.size());
+    for (auto iter = indices.begin(); iter != indices.end(); ++iter) {
+      indices_vec.push_back(diopi_helper::toDiopiTensorHandle(*iter));
+    }
+  interface: diopiIndexPut(ctx, self, self, values, indices_vec.data(), indices_vec.size(), accumulate)
