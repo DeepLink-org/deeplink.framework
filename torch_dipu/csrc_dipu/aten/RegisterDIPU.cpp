@@ -54,11 +54,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 
   std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
 
-  const static std::vector<std::string> custom_fallback_operators_list{
-    "aten::native_batch_norm",
-    "aten::native_batch_norm.out",
-    "aten::native_batch_norm_backward",
-  };
+  const static std::vector<std::string> custom_fallback_operators_list;
   auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
   if (iter != custom_fallback_operators_list.cend()) {
     dipu::native::cpu_fallback(op, stack);
