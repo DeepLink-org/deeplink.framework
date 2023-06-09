@@ -73,7 +73,7 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     read -r -a used_card_list <&788
     cur_cardnum=$((-1))
-    for ((j=1;j<$max_cardnum;j++)); do
+    for ((j=0;j<$max_cardnum;j++)); do
         if [[ ! ${used_card_list[@]}  =~ $j ]]; then
             cur_cardnum=$((j))
             break
