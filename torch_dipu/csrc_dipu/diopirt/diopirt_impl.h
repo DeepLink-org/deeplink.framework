@@ -16,7 +16,6 @@ using deviceStream_t = dipu::deviceStream_t;
 
 extern "C" {
 struct diopiContext {
-    // TODO(caikun): use dipu stream? can only use device stream?
     deviceStream_t stream;
     // 1. use arrays to hold tensor that avoid tensor deleting when leaving scope
     // 2. The address of each array must be fixed, so use list instead of vector
