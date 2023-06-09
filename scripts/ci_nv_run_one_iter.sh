@@ -20,9 +20,9 @@ original_list=(
 )
 
 length=${#original_list[@]}
-max_parall=7
+max_parall=8   #实际并行数会取决于该设置和空闲卡数的较大值
 random_model_num=8 #如果超过，会自动设置为模型总数,目前随机选取8个模型
-max_cardnum=8
+
 
 if [ $random_model_num -gt $length ]; then
     random_model_num=$length
@@ -42,7 +42,7 @@ done
 
 LOCK_FILE="./my_one_iter_card.lock"
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$      #本管道用于控制并行
-mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储card_list
+mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储card_list,即已占用的卡
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
 done 
@@ -72,13 +72,8 @@ for ((i=0; i<$random_model_num; i++)); do
         sleep 1
     done
     read -r -a used_card_list <&788
-    cur_cardnum=$((-1))
-    for ((j=0;j<$max_cardnum;j++)); do
-        if [[ ! ${used_card_list[@]}  =~ $j ]]; then
-            cur_cardnum=$((j))
-            break
-        fi
-    done
+    cur_card=$(sh scripts/detect_available_card.sh 20 $used_card_list)
+    read -r cur_cardnum cur_card_G  <<< ${result}
     used_card_list+=($((cur_cardnum)))
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
@@ -97,7 +92,7 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    echo "cardnum:$cur_cardnum  model:$p2  pid: $BASHPID"
+    echo "cardnum:$cur_cardnum  model:$p2  pid: $BASHPID  cur_card_free:$cur_card_G"
 
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
     CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh

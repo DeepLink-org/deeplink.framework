@@ -6,7 +6,7 @@ function clone_needed_repo() {
     #define some version
     MMCV_VERSION=v2.0.0
     MMENGINE_VERSION=v0.7.3
-    MMPRETRAIN_VERSION=dipu_test_model_one_iter
+    MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=one_iter_for_mmcv_2.0
     MMSEGMENTATION_VERSION=one_iter_for_mmcv_2.0
     MMPOSE_VERSION=one_iter_for_mmcv_2.0
@@ -33,17 +33,6 @@ function build_needed_repo() {
     cd ..
 }
 
-function add_repo_pythonpath(){
-    basic_path=$1
-    # export PYTHONPATH=$basic_path/mmaction2:$PYTHONPATH
-    # export PYTHONPATH=$basic_path/mmpretrain:$PYTHONPATH
-    # export PYTHONPATH=$basic_path/mmocr:$PYTHONPATH
-    # export PYTHONPATH=$basic_path/mmdetection3d:$PYTHONPATH
-    # export PYTHONPATH=$basic_path/mmdetection:$PYTHONPATH
-    export PYTHONPATH=$basic_path/mmengine:$PYTHONPATH
-    export PYTHONPATH=$basic_path/mmcv:$PYTHONPATH
-    export PYTHONPATH=$basic_path/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-}
 
 function build_dataset(){
     # link dataset
