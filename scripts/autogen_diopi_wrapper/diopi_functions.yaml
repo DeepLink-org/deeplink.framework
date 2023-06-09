@@ -586,6 +586,21 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self, diopi_size);
 
+- schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    auto out = at::empty(output_shape, self.options());
+    bool unbiased = correction.value_or(1) == 1;
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
+- schema: "std.correction_out(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+    bool unbiased = correction.value_or(1) == 1;
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
+
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
   custom_code_at_the_beginning: |
@@ -885,7 +900,12 @@
 
 - schema: "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
   custom_code_at_the_beginning: |
-    at::Tensor out, indices, counts;
+    at::Tensor out, counts, indices;
+    if (return_inverse) {
+      const auto ndims = self.sizes().size();
+      dim += ndims < 0 ? ndims : 0;
+      indices = at::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
+    }
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
   interface: diopiUnique(ctx, &out_ptr, self, &dim, sorted, return_counts, indices, &counts_ptr);
@@ -898,7 +918,10 @@
 
 - schema: "_unique2(Tensor self, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor out, Tensor indices, Tensor counts)"
   custom_code_at_the_beginning: |
-    at::Tensor out, indices, counts;
+    at::Tensor out, counts, indices;
+    if (return_inverse) {
+      indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
+    }
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
   interface: diopiUnique(ctx, &out_ptr, self, nullptr, sorted, return_counts, indices, &counts_ptr);
@@ -1199,6 +1222,26 @@
 
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
+
+- schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: False # camb impl have bug
+  custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+      int64_t numel = std::floor((end.to<double>() - start.to<double>()) / step.to<double>());
+      out.resize_({numel});
+    }
+  interface: diopiArange(ctx, out, start, end, step)
+
+- schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
+  register_op: True
+  custom_code_at_the_beginning: |
+    std::vector<diopiConstTensorHandle_t> indices_vec;
+    indices.reserve(indices.size());
+    for (auto iter = indices.begin(); iter != indices.end(); ++iter) {
+      indices_vec.push_back(diopi_helper::toDiopiTensorHandle(*iter));
+    }
+
+  interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_code_at_the_beginning: |
