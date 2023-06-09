@@ -11,7 +11,7 @@ x[index] = 0
 assert torch.allclose(x.cpu(), torch.zeros_like(x.cpu()))
 
 
-for shape in [(30, 40, 50), (3, 4, 5), (2, 3), (10,)]:
+for shape in [(9, 4, 11, 3), (3, 4, 5), (2, 3), (10,)]:
     values = torch.randn(shape)
     input =  torch.randn(shape)
     indices_cpu = []
