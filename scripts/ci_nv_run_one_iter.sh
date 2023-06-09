@@ -14,7 +14,6 @@ original_list=(
     "mmaction2 recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb.py workdirs_tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb"   
     "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet-b2_8xb32_in1k --no-pin-memory"  
     "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k --no-pin-memory"   
-    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024" 
     "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" 
     "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"    
 )
@@ -68,16 +67,24 @@ for ((i=0; i<$random_model_num; i++)); do
     read -u 796
 
     #锁机制保证有序
-    while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
-        sleep 1
+    while true; do
+        while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
+            sleep 1
+        done
+        read -r -a used_card_list <&788
+        export USED_CARD="${used_card_list[@]}"
+        cur_card=$(sh scripts/detect_available_card.sh 20)
+        read -r cur_cardnum cur_card_G  <<< ${cur_card}
+            if [[ $cur_cardnum == -1 ]]; then
+                echo "${used_card_list[@]}" >&788
+                rmdir "${LOCK_FILE}"
+                sleep 5
+                continue
+            fi
+        used_card_list+=($((cur_cardnum)))
+        echo "${used_card_list[@]}" >&788
+        rmdir "${LOCK_FILE}"
     done
-    read -r -a used_card_list <&788
-    export USED_CARD="${used_card_list[@]}"
-    cur_card=$(sh scripts/detect_available_card.sh 20)
-    read -r cur_cardnum cur_card_G  <<< ${cur_card}
-    used_card_list+=($((cur_cardnum)))
-    echo "${used_card_list[@]}" >&788
-    rmdir "${LOCK_FILE}"
 
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
@@ -169,6 +176,6 @@ while true; do
     sleep 2  # 适当调整轮询的间隔时间
 done
 
-wait
+# wait
 
 echo Done

@@ -29,39 +29,40 @@ memory_threshold=$1
 read -r -a used_card_list <<< "$USED_CARD"
 
 
-# 循环检测显存剩余大小
-while true; do
-  for ((id=0; id<num_cards; id++)); do
-    flag=0
-    for j in ${used_card_list[*]}; do
-      if [[ $id == $j ]]; then
-          flag=-1
-          break
-      fi
-    done
-    if [[ $flag == -1 ]]; then
-          continue
-    fi
-
-    # 获取当前显卡的剩余显存大小
-    free_memory=$(get_memory_info $id)
-    total_memory=$(get_total_memory $id)
-
-    # 计算已使用显存大小
-    used_memory=$((total_memory - free_memory))
-
-    remained_per=$(echo "scale=2; $free_memory / $total_memory" | bc)
-    remained_G=$(echo "scale=2; $free_memory / $((1024))" | bc)
-    remained_int=$((free_memory/1024))
-    # echo "$id  $remained_per  $remained_G"
-
-    if [[ $remained_int -gt $memory_threshold ]]; then
-        echo $id
-        echo $remained_G
-        exit 0
+# 检测显存剩余大小
+for ((id=0; id<num_cards; id++)); do
+  flag=0
+  for j in ${used_card_list[*]}; do
+    if [[ $id == $j ]]; then
+        flag=-1
+        break
     fi
   done
-  # 休眠2秒后再次检测
-  sleep 2
+  if [[ $flag == -1 ]]; then
+        continue
+  fi
+
+  # 获取当前显卡的剩余显存大小
+  free_memory=$(get_memory_info $id)
+  total_memory=$(get_total_memory $id)
+
+  # 计算已使用显存大小
+  used_memory=$((total_memory - free_memory))
+
+  remained_per=$(echo "scale=2; $free_memory / $total_memory" | bc)
+  remained_G=$(echo "scale=2; $free_memory / $((1024))" | bc)
+  remained_int=$((free_memory/1024))
+  # echo "$id  $remained_per  $remained_G"
+
+  if [[ $remained_int -gt $memory_threshold ]]; then
+      echo $id
+      echo $remained_G
+      exit 0
+  fi
 done
+# 休眠2秒后再次检测
+echo -1
+echo 0
+
+
 
