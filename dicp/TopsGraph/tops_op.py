@@ -438,6 +438,13 @@ class ZerosLike(Operator):
         self.torch_op = aten.zeros_like
 
 
+class OnesLike(Operator):
+    def __init__(self, *args):
+        super().__init__("OnesLike")
+        self.args = args
+        self.torch_op = aten.ones_like
+
+
 class Scalar(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Scalar")

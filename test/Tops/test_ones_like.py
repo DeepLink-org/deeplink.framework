@@ -10,7 +10,7 @@ class MyModule(torch.nn.Module):
 
     def forward(self, a):
         layer0 = torch.ops.aten.add(a, a)
-        layer1 = torch.ops.aten.zeros_like(layer0)
+        layer1 = torch.ops.aten.ones_like(layer0)
         layer2 = torch.ops.aten.add(layer0, layer1)
         return layer2
 
@@ -27,4 +27,4 @@ tm = MyModule()
 torchm = torch.compile(tm)
 r1 = torchm(a)
 
-print(f'Tests zeros_like result\n{torch.allclose(t1, r1, equal_nan=True)}')
+print(f'Tests ones_like result\n{torch.allclose(t1, r1, equal_nan=True)}')

@@ -8,23 +8,22 @@ class MyModule(torch.nn.Module):
         self.param = torch.nn.Parameter(torch.rand(3, 4))
         self.linear = torch.nn.Linear(4, 5)
 
-    def forward(self, a):
-        layer0 = torch.ops.aten.add(a, a)
-        layer1 = torch.ops.aten.zeros_like(layer0)
+    def forward(self, a, b):
+        layer0 = torch.ops.aten.mul(a, a)
+        layer1 = torch.ops.aten.full_like(a, b)
         layer2 = torch.ops.aten.add(layer0, layer1)
         return layer2
 
-x = random.randint(1, 10)
-y = random.randint(1, 10)
-a = torch.randn(x, y)
+a = torch.randn(10, 10)
+b = random.randint(1, 10)
 
 menflame = MyModule()
 compiled_model = torch.compile(menflame, backend="topsgraph")
-t1 = compiled_model(a)
+t1 = compiled_model(a, b)
  
 torch._dynamo.reset()
 tm = MyModule()
 torchm = torch.compile(tm)
-r1 = torchm(a)
+r1 = torchm(a, b)
 
-print(f'Tests zeros_like result\n{torch.allclose(t1, r1, equal_nan=True)}')
+print(f'Tests full_like result\n{torch.allclose(t1, r1, equal_nan=True)}')

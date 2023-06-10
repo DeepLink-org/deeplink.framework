@@ -253,6 +253,10 @@ def scatter(*args, **kwargs):
 def zeroslike(*args, **kwargs):
     return tops_op.ZerosLike(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.ones_like)
+def oneslike(*args, **kwargs):
+    return tops_op.OnesLike(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.scalar_tensor.default)
 def scalar(*args, **kwargs):
     return tops_op.Scalar(*args, **kwargs)
