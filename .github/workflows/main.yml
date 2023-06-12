@@ -186,7 +186,7 @@ jobs:
         run: |
           ssh ${CLUSTER_CAMB} '
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           echo  "python path : ${PYTHONPATH}"
