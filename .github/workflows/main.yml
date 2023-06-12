@@ -189,7 +189,17 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
           pwd
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          basic_path=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+          export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh 
           """
