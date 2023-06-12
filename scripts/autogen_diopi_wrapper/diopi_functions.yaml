@@ -1191,6 +1191,17 @@
     auto out = at::empty({output_shape}, self.options());
   interface: diopiIndexSelect(ctx, out, self, dim, index)
 
+- schema: "hardswish.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiHardswish(ctx, out, self)
+
+- schema: "hardswish_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiHardswishInp(ctx, self);
+
+- schema: "hardswish_backward(Tensor grad_output, Tensor self) -> Tensor grad_input"
+  custom_code_at_the_beginning: |
+    auto grad_input = at::empty(self.sizes(), grad_output.options());
+  interface: diopiHardswishBackward(ctx, grad_input, grad_output, self)
+
 - schema: "sigmoid.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSigmoid(ctx,out,self)
 
