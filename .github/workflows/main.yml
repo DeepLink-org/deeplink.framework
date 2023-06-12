@@ -184,17 +184,17 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
-          ssh ${CLUSTER_CAMB} '
+          ssh ${CLUSTER_CAMB} """
           set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          cd '${NFS_PATH}'/'${GITHUB_RUN_NUMBER}'/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           echo  "python path : ${PYTHONPATH}"
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
+          srun --job-name='${GITHUB_RUN_NUMBER}'_'${GITHUB_JOB}' --partition='${SLURM_PAR_CAMB}' --gres=mlu:'${MLU_REQUESTS}' sh scripts/ci_one_iter.sh build_camb 
           pwd
          
           echo  "python path : ${PYTHONPATH}"
-          basic_path="${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb"
+          basic_path="'${NFS_PATH}'/'${GITHUB_RUN_NUMBER}'/Build-POC-Camb"
           echo " basic_path : ${basic_path}"
           export PYTHONPATH="${basic_path}/mmpose:$PYTHONPATH"
           export PYTHONPATH="${basic_path}/mmaction2:$PYTHONPATH"
@@ -207,8 +207,8 @@ jobs:
           export PYTHONPATH="${basic_path}/mmcv:$PYTHONPATH"
           export PYTHONPATH="${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH"
           echo  "python path : $PYTHONPATH"
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh 
-          '
+          srun --job-name='${GITHUB_JOB}' --partition='${SLURM_PAR_CAMB}'  --gres=mlu:'${MLU_REQUESTS}' sh scripts/ci_camb_run_one_iter.sh 
+          """
 
   Clone:
     name: clone code on cuda
