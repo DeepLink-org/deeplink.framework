@@ -186,7 +186,7 @@ def test_resnetmy():
     m = _resnetmyself().to(device)
     # print(m)
 
-    optimizer = optim.SGD(m.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(m.parameters(), lr=0.001, momentum=0.9, foreach=False)
 
     in1 = torch.range(1, 602112).reshape(1, 3, 448, 448).to(device)
     # in1 = torch.range(1, 200704).reshape(1, 64, 56, 56).to(device)
