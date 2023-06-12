@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo  "python path : $PYTHONPATH"
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"   
@@ -16,7 +18,8 @@ original_list=(
     "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k --no-pin-memory"   
     "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" 
     "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
-    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"    
+    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"   
+    "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
 )
 
 length=${#original_list[@]}
@@ -104,8 +107,12 @@ for ((i=0; i<$random_model_num; i++)); do
     fi
     echo "cardnum:$cur_cardnum  model:$p2  pid: $BASHPID  cur_card_free:$cur_card_G"
 
-    CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    if [ $p2 == "configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py" ]; then
+        CUDA_VISIBLE_DEVICES=$cur_cardnum python mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py
+    else
+        CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+        CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    fi
 
     # 记录结束时间（以纳秒为单位）
     endTime=$(date +%s%N)

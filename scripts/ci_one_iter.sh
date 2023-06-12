@@ -13,6 +13,7 @@ function clone_needed_repo() {
     MMDETECTION3D_VERSION=one_iter_for_mmcv_2.0
     MMACTION2_VERSION=one_iter_for_mmcv_2.0
     MMOCR_VERSION=one_iter_for_mmcv_2.0
+    MMAGIC=one_iter_for_mmcv_2.0
     SMART_VERSION=dev_for_mmcv2.0
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
@@ -23,8 +24,11 @@ function clone_needed_repo() {
     rm -rf mmdetection3d && git clone -b ${MMDETECTION3D_VERSION} https://github.com/DeepLink-org/mmdetection3d.git
     rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
+    rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
     rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
+    git lfs install
+
 }
 
 function build_needed_repo() {
@@ -46,6 +50,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
         ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
         ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
+        ln -s /nvme/share/share/tangding/stable-diffusion-v1-5 data/stable-diffusion-v1-5
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."
         mkdir data
