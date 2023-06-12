@@ -17,7 +17,7 @@ for shape in [(5, 4, 2, 3), (3, 4, 5), (2, 3), (10,)]:
         indices_cpu = []
         indices_device = []
         for i in range(len(shape)):
-            indice = torch.randint(0, shape[i], (numel,))
+            indice = torch.randint(0, min(shape), (numel,))
             indices_cpu.append(indice)
             indices_device.append(indice.cuda())
             values = torch.randn(numel) * 100
