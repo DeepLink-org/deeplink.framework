@@ -191,7 +191,10 @@ jobs:
           source scripts/ci_camb_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
           pwd
+         
+          echo  "python path : ${PYTHONPATH}"
           basic_path="${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb"
+          echo " basic_path : ${basic_path}"
           export PYTHONPATH="${basic_path}/mmpose:$PYTHONPATH"
           export PYTHONPATH="${basic_path}/mmaction2:$PYTHONPATH"
           export PYTHONPATH="${basic_path}/mmpretrain:$PYTHONPATH"
