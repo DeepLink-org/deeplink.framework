@@ -174,13 +174,16 @@ jobs:
     steps:
       - name: clone-repos
         run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+          else
+            git checkout ${{ github.sha }} &&  git merge --no-edit main
+          fi
           bash scripts/ci_one_iter.sh clone
-          """     
-          rm -rf SMART && git clone -b dev_for_mmcv2.0 https://github.com/ParrotsDL/SMART.git 
-          rsync -a --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+          rsync -a --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+
+
 
       - name: run-one-iter-tools
         run: |
@@ -189,25 +192,10 @@ jobs:
           cd '${NFS_PATH}'/'${GITHUB_RUN_NUMBER}'/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
-          echo  "python path : ${PYTHONPATH}"
+          echo  "python path : '${PYTHONPATH}'"
           srun --job-name='${GITHUB_RUN_NUMBER}'_'${GITHUB_JOB}' --partition='${SLURM_PAR_CAMB}' --gres=mlu:'${MLU_REQUESTS}' sh scripts/ci_one_iter.sh build_camb 
           pwd
-         
-          echo  "python path : ${PYTHONPATH}"
-          basic_path="'${NFS_PATH}'/'${GITHUB_RUN_NUMBER}'/Build-POC-Camb"
-          echo " basic_path : ${basic_path}"
-          export PYTHONPATH="'${basic_path}'/mmpose:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmaction2:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmpretrain:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmocr:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmsegmentation:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmdetection3d:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmdetection:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmagic:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmengine:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/mmcv:$PYTHONPATH"
-          export PYTHONPATH="'${basic_path}'/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH"
-          echo  "python path : ${PYTHONPATH}"
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           srun --job-name='${GITHUB_JOB}' --partition='${SLURM_PAR_CAMB}'  --gres=mlu:'${MLU_REQUESTS}' sh scripts/ci_camb_run_one_iter.sh 
           """
 
