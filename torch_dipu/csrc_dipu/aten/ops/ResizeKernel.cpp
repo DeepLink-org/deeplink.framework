@@ -8,7 +8,7 @@
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
-
+#include <csrc_dipu/runtime/core/MemChecker.h>
 
 using c10::device_or_default;
 using c10::layout_or_default;
@@ -35,6 +35,8 @@ namespace dipu::native {
     size_t nbytes = std::min(storage->nbytes(), newsize_bytes);
     at::DataPtr data = allocator->allocate(newsize_bytes);  // alloc new 
     if (storage->data_ptr()) {   // copy old to new
+      MemChecker::instance().check(data.get());
+      MemChecker::instance().check(storage->data());
       dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, device, data.get(),
             device, storage->data());
     }
