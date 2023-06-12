@@ -1240,7 +1240,6 @@
     for (auto iter = indices.begin(); iter != indices.end(); ++iter) {
       indices_vec.push_back(diopi_helper::toDiopiTensorHandle(*iter));
     }
-
   interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
