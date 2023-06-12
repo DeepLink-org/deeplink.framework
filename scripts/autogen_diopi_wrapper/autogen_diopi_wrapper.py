@@ -372,6 +372,7 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = re.sub('\.grad_input', '_outf', opname)
     opname = re.sub('\.dim_max', '_outf', opname)
     opname = re.sub('\.dim_min', '_outf', opname)
+    opname = re.sub('\.correction', '', opname)
     opname = opname.replace('.', '_')
     opname = opname.split('.')[0]
     if opname[-1] == '_':
