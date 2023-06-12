@@ -182,7 +182,7 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CLUSTER_CAMB} "
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -202,7 +202,7 @@ jobs:
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh 
-          """
+          "
 
   Clone:
     name: clone code on cuda
