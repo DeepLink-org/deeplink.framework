@@ -41,6 +41,7 @@ function build_dataset(){
     # link dataset
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation..."
+        rm -rf data
         mkdir data
         ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
         ln -s /nvme/share/share_data/datasets/detection/coco  data/coco
@@ -52,6 +53,7 @@ function build_dataset(){
         ln -s /nvme/share/share/tangding/stable-diffusion-v1-5 data/stable-diffusion-v1-5
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."
+        rm -rf data
         mkdir data
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
         ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco

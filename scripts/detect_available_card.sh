@@ -60,7 +60,7 @@ for ((id=0; id<num_cards; id++)); do
       exit 0
   fi
 done
-# 休眠2秒后再次检测
+
 echo -1
 echo 0
 
