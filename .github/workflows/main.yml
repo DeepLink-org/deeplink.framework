@@ -42,8 +42,17 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
-          echo "-----t1-----"
+          ls -alh ./
+          echo "-----l1-----"
+          ls -alh ../
+          echo "-----l2-----"
+          ls -alh ../../
+          echo "-----l3-----"
+
+
           echo ${GITHUB_WORKSPACE}
+
+
           echo ${{ github.repository }}
           echo ${GITHUB_RUN_NUMBER}
           echo "-----t2-----"
@@ -109,6 +118,10 @@ jobs:
     steps:
       - name: Build dipu-poc
         run: |
+          echo "---t1----"
+          echo ${GITHUB_RUN_NUMBER}
+          echo ${GITHUB_JOB}
+
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
