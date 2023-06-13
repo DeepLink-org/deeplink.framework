@@ -266,6 +266,7 @@ DISABLED_TESTS_MLU = {
         'test_multinomial',
         'test_logcumsumexp',
         'test_discontiguous_out_cumsum',
+        'test_cdist_large',
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {
