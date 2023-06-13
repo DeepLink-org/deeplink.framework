@@ -159,6 +159,7 @@ def create_param_list_from_schema(schema):
         'Generator ?\?' : 'c10::optional<at::Generator>',
         'Device ?\?' : 'c10::optional<c10::Device>',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
+        'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
@@ -371,6 +372,7 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = re.sub('\.grad_input', '_outf', opname)
     opname = re.sub('\.dim_max', '_outf', opname)
     opname = re.sub('\.dim_min', '_outf', opname)
+    opname = re.sub('\.correction', '', opname)
     opname = opname.replace('.', '_')
     opname = opname.split('.')[0]
     if opname[-1] == '_':
@@ -642,7 +644,7 @@ def functions_code_gen(fun_config):
                 aten_fun_name=['dipu::native::' + fun_name],
                 diopi_fun_name=[get_fun_name_from_cppsignature(diopi_interface).replace('diopi', '::diopi')],
                 force_fallback=['false' if fun_config.get('force_fallback', False) in [False, 'False'] else 'true'],
-                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name],
+                fallbackFunc=['dipu::native::' + 'custom_fallback_' + fun_name.replace('_autocompare', '')],
 
         )
     return fbody, register_body
@@ -698,8 +700,7 @@ def main():
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
             if mergeed_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code
-            else:
-                op_register_code += register_code
+            op_register_code += register_code
 
     autogened_file = file_template.substitute(
         functions_code=[functions_code],

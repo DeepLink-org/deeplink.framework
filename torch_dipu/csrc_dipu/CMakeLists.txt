@@ -16,6 +16,8 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
     runtime/core/allocator.cpp
     runtime/core/DIPU*.cpp
     runtime/core/device.cpp
+    runtime/core/MemChecker.cpp
+    runtime/distributed/*.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
@@ -70,6 +72,9 @@ set(BIND_FILES
     ${BIND_SRC_FILES}
 )
 add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
+# default hidden setting scope is incorrect and cannot open now because it cause diopirt hidden, 
+# so temporarily use this target level setting. enhance in future. todo
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 
 

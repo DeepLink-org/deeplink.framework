@@ -25,8 +25,8 @@ function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                 \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
-        --use_diopi_adapter True                                                    \
-        --diopi_adapter_header torch_dipu/csrc_dipu/vendor/camb/diopi_adapter.hpp   \
+        --use_diopi_adapter True \
+        --diopi_adapter_header third_party/DIOPI/DIOPI-PROTO/include/diopi/diopi_adaptors.hpp \
         --autocompare False                                                         \
         --print_func_call_info True                                                 \
         --print_op_arg True
@@ -59,15 +59,16 @@ case $1 in
             autogen_diopi_wrapper
             build_dipu_lib
             build_dipu_py
-        ) \
-        || exit -1;;
+        ) || exit -1;;
+    build_diopi)
+        build_diopi_lib || exit -1;;
+    build_autogen_diopi_wrapper)
+        autogen_diopi_wrapper || exit -1;;
     build_dipu_only)
         (
-            autogen_diopi_wrapper
-            build_dipu_lib
-            build_dipu_py
-        ) \
-        || exit -1;;
+         autogen_diopi_wrapper
+         build_dipu_lib
+         build_dipu_py) || exit -1;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac

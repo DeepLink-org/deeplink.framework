@@ -13,6 +13,8 @@ function build_dipu_py() {
 }
 
 function config_dipu_nv_cmake() {
+    # export NCCL_ROOT="you nccl path should exist"
+
     mkdir -p build && cd ./build && rm -rf ./*
     echo "config_dipu_nv_cmake PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
@@ -28,7 +30,8 @@ function autogen_diopi_wrapper() {
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
         --use_diopi_adapter False                                                   \
         --autocompare False                                                         \
-        --print_func_call_info True
+        --print_func_call_info True                                                 \
+        --print_op_arg True
 }
 
 function build_diopi_lib() {
