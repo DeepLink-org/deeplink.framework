@@ -201,7 +201,7 @@ def softmax(*args, **kwargs):
 def range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.bmm.default)
+@register_conversion(torch.ops.aten.dot.default)
 def dot(*args, **kwargs):
     return tops_op.Dot(*args, **kwargs)
 
@@ -253,9 +253,13 @@ def select(*args, **kwargs):
 def scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.zeros)
-def zeros(*args, **kwargs):
-    return tops_op.Zeros(*args, **kwargs)
+@register_conversion(torch.ops.aten.zeros_like)
+def zeroslike(*args, **kwargs):
+    return tops_op.ZerosLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.ones_like)
+def oneslike(*args, **kwargs):
+    return tops_op.OnesLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scalar_tensor.default)
 def scalar(*args, **kwargs):

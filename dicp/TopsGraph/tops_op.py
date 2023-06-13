@@ -332,7 +332,7 @@ class Dot(Operator):
         super().__init__("Dot")
         self.args = args
         self.args = kwargs
-        self.torch_op = aten.bmm.default
+        self.torch_op = aten.dot.default
 
 
 class Concatenate(Operator):
@@ -439,11 +439,18 @@ class Scatter(Operator):
         self.torch_op = aten.scatter.value
 
 
-class Zeros(Operator):
+class ZerosLike(Operator):
     def __init__(self, *args):
-        super().__init__("Zeros")
+        super().__init__("ZerosLike")
         self.args = args
-        self.torch_op = aten.zeros
+        self.torch_op = aten.zeros_like
+
+
+class OnesLike(Operator):
+    def __init__(self, *args):
+        super().__init__("OnesLike")
+        self.args = args
+        self.torch_op = aten.ones_like
 
 
 class Scalar(Operator):
