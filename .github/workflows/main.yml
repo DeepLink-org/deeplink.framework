@@ -47,6 +47,8 @@ jobs:
           echo ${{ github.repository }}
           echo ${GITHUB_RUN_NUMBER}
           echo "-----t2-----"
+          echo "${pwd}"
+          echo "-----t3-----"
 
           ls -alh /home/autolink/rsync/sourcecode/
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
