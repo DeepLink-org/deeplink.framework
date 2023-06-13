@@ -34,6 +34,10 @@ jobs:
           ls -alh ../../
           echo "---------------"
 
+
+          ls -alh ../../../
+          echo "---------------"
+
           echo `pwd`
           cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc dipu_poc_diopi && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
