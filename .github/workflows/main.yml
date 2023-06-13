@@ -28,12 +28,12 @@ jobs:
         run: |
           ls -alh ./
           echo "---------------"
+
           ls -alh ../
           echo "---------------"
 
           ls -alh ../../
           echo "---------------"
-
 
           ls -alh ../../../
           echo "---------------"
@@ -56,6 +56,18 @@ jobs:
       - name: Rsync to Server
         run: |
           echo ${GITHUB_WORKSPACE}
+          ls -alh /home
+          echo "---------------"
+
+          ls -alh /home/autolink
+          echo "---------------"
+
+          ls -alh /home/autolink/rsync
+          echo "---------------"
+
+          ls -alh /home/autolink/rsync/sourcecode
+          echo "---------------"
+
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
