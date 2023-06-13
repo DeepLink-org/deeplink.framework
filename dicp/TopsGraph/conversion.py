@@ -127,6 +127,10 @@ def transpose(a, b, c):
 def hardswish(a):
     return tops_op.Hardswish(a)
 
+@register_conversion(torch.ops.aten.hardswish_backward)
+def hardswishbackward(a, b):
+    return tops_op.HardswishBackward(a, b)
+
 @register_conversion(torch.ops.aten.clone)
 def clone(*args):
     return tops_op.Copy(*args)
@@ -296,6 +300,10 @@ def logsoftmax(*args, **kwargs):
 @register_conversion(torch.ops.aten.gelu.default)
 def gelu(*args, **kwargs):
     return tops_op.Gelu(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.gelu_backward.default)
+def gelubackward(*args, **kwargs):
+    return tops_op.GeluBackward(*args, **kwargs)
 
 # Patterns
 def register_pattern(Pattern):

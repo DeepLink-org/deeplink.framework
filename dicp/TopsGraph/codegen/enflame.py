@@ -39,7 +39,7 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Oneslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu']
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -558,6 +558,11 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::HardSwish({x});"
 
     @staticmethod
+    def Hardswish_Grad(op_var, x, y):
+        a, b, c = 3.0, 6.0, 6.0
+        return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, {a}, {b}, {c});"
+
+    @staticmethod
     def Reshape(op_var, node, *args_str):
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f'builder::Type {op_var}_reshape_shape({shape}, ptype);\n'
@@ -894,3 +899,10 @@ class EnflameOverrides(OpOverrides):
         if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
             y = "false"
         return f"builder::Op {op_var} = builder::Gelu({x}, {y});"
+
+    @staticmethod
+    def Gelu_Grad(op_var, node, x, y):
+        z = "true"
+        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
+            z = "false"
+        return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"
