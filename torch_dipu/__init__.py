@@ -80,6 +80,12 @@ def apply_tensor_method_patch():
             return self.new_empty(size, device = device)
         if isinstance(arg, Tensor):
             return self.new_tensor(arg, device = device) 
+        elif isinstance(arg, torch.storage.TypedStorage) or isinstance(arg, torch.storage.UntypedStorage):
+            if (isinstance(device, torch.device) and device.type != 'cpu') or \
+                isinstance(device, str) and torch.device(device).type != 'cpu':
+                print(f"torch.Tensor.new_tensor(storage: torch.storage) is not supported on out-of-tree device")
+
+            return self.new_tensor(arg, device = device)
         elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
             return self.new_tensor(arg, device = device) 
         else:
