@@ -49,9 +49,7 @@ jobs:
           ls -alh ../../
           echo "-----l3-----"
 
-
           echo ${GITHUB_WORKSPACE}
-
 
           echo ${{ github.repository }}
           echo ${GITHUB_RUN_NUMBER}
