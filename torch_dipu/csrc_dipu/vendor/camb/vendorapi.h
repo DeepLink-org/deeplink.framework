@@ -14,25 +14,19 @@ namespace dipu {
 #define DIPU_CALLCNRT(Expr)                                                         \
     {                                                                               \
         ::cnrtRet_t ret = Expr;                                                     \
-        if (ret != ::CNRT_RET_SUCCESS) {                                            \
-            TORCH_CHECK(false, "call cnrt error, expr = ", #Expr, ", ret = ", ret); \
-        }                                                                           \
+        TORCH_CHECK(ret == ::CNRT_RET_SUCCESS, "call cnrt error, expr = ", #Expr, ", ret = ", ret); \
     }
 
 #define DIPU_CALLCNDEV(Expr)                                                         \
     {                                                                                \
         ::cndevRet_t ret = Expr;                                                     \
-        if (ret != ::CNDEV_SUCCESS) {                                                \
-            TORCH_CHECK(false, "call cndev error, expr = ", #Expr, ", ret = ", ret); \
-        }                                                                            \
+        TORCH_CHECK(ret == ::CNDEV_SUCCESS, "call cndev error, expr = ", #Expr, ", ret = ", ret); \
     }
   
 #define DIPU_CALLCNNL(Expr)                                                         \
     {                                                                               \
         ::cnnlStatus_t ret = Expr;                                                  \
-        if (ret != ::CNNL_STATUS_SUCCESS) {                                         \
-            TORCH_CHECK(false, "call cnnl error, expr = ", #Expr, ", ret = ", ret); \
-        }                                                                           \
+        TORCH_CHECK(ret == ::CNNL_STATUS_SUCCESS, "call cnnl error, expr = ", #Expr, ", ret = ", ret); \
     }
 
 
