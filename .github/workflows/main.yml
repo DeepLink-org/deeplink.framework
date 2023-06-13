@@ -122,6 +122,8 @@ jobs:
 
           ssh ${CLUSTER_CAMB} """
           set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/
+          ls -alh
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
