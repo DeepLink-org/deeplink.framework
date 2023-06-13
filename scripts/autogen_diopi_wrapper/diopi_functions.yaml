@@ -888,7 +888,7 @@
     at::Tensor out, counts, indices;
     if (return_inverse) {
       const auto ndims = self.sizes().size();
-      dim += (ndims < 0 ? ndims : 0);
+      dim += (dim < 0 ? ndims : 0);
       indices = at::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
     }
     diopiTensorHandle_t out_ptr = nullptr;
