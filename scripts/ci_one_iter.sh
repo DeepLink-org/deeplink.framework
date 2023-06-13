@@ -4,8 +4,8 @@ function clone_needed_repo() {
     # clone some repositories
 
     #define some version
-    MMCV_VERSION=v2.0.0
-    MMENGINE_VERSION=v0.7.3
+    MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
+    MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=one_iter_for_mmcv_2.0
     MMSEGMENTATION_VERSION=one_iter_for_mmcv_2.0
@@ -25,9 +25,9 @@ function clone_needed_repo() {
     rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
     rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
-    rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-
+    rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
+    cd mmcv && git checkout ${MMCV_VERSION} && cd ..
 }
 
 function build_needed_repo() {

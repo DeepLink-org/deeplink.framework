@@ -23,8 +23,7 @@ original_list=(
     # "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"
 )
 
-pip install lpips
-pip install resize_right
+
 
 length=${#original_list[@]}
 max_parall=4   #实际并行数会取决于该设置和空闲卡数的较大值
