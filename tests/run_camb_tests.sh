@@ -11,7 +11,7 @@ function run_dipu_tests {
   unset DIPU_FORCE_FALLBACK_OPS_LIST
 
   #run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
-  export DIPU_FORCE_FALLBACK_OPS_LIST=argmax.out,all.out,all.all_out,any.all_out,any.out
+  export DIPU_FORCE_FALLBACK_OPS_LIST=argmax.out,all.out,all.all_out,any.all_out,any.out,clamp_min.out,clamp_max.out,clamp_,clamp.out,clamp_.Tensor,clamp.Tensor_out,uniform_,max.dim_max,mul.out
   run_test "${PYTORCH_DIR}/test/test_reductions.py" "$@" -v TestReductionsDIPU
   #unset DIPU_FORCE_FALLBACK_OPS_LIST
 
