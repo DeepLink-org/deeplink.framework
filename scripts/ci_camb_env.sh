@@ -22,5 +22,6 @@ export NEUWARE_HOME=/usr/local/neuware
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
+export DIPU_FORCE_FALLBACK_OPS_LIST=arange.start_out,mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,aten::native_batch_norm.out,aten::native_batch_norm,native_batch_norm_backward,hardtanh_backward.grad_input,hardtanh_backward
 
 source activate $ENV_NAME
