@@ -71,11 +71,12 @@ std::string dumpArg(const container<T1> & t) {
     return stream.str();
 }
 
+
 template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
-        stream << "sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options();
+        stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
     } else {
         stream << "undefined";
     }
@@ -87,6 +88,11 @@ std::string dumpArg(const at::Scalar& scalar) {
     std::stringstream stream;
     stream << scalar;
     return stream.str();
+}
+
+template<>
+std::string dumpArg(const c10::string_view& str) {
+    return dumpArg(std::string(str.data()));
 }
 
 template<>
@@ -102,6 +108,57 @@ std::string dumpArg(const std::array<T, N>& t) {
     }
     return stream.str();
 }
+
+template<>
+std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
+    std::stringstream stream;
+    stream << "size:" << t.size() << std::endl;
+    for (int i = 0; i < t.size(); ++i) {
+        bool has_value = t[i].has_value();
+        stream << "\t" << i << "th: has_value:" << has_value << " ";
+        if (has_value) {
+            stream << dumpArg(t[i].value());
+        }
+        stream << std::endl;
+    }
+    return stream.str();
+}
+
+
+template<typename T1, typename T2 , template<typename elem1> class container1, template<typename elem2> class container2>
+std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, const container2<T2> & dims, bool keepdim) {
+    if (dims.size() <= 0) {
+        return std::vector<int64_t>();
+    }
+    if (keepdim) {
+        std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
+        for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+            auto dim = *iter;
+            dim += dim < 0 ? input_shape.size() : 0;
+            output_shape[dim] = 1;
+        }
+        return output_shape;
+    } else {
+        std::vector<int64_t> output_shape;
+        output_shape.reserve(input_shape.size() - dims.size());
+        for (int i = 0; i < input_shape.size(); ++i) {
+            bool reduce_dim = false;
+            for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+                auto dim = *iter;
+                dim += dim < 0 ? input_shape.size() : 0;
+                if (dim == i) {
+                    reduce_dim = true;
+                    break;
+                }
+            }
+            if (reduce_dim == false) {
+                output_shape.push_back(input_shape.at(i));
+            }
+        }
+        return output_shape;
+    }
+}
+
 
 
 std::string _allclose(const at::Tensor& a, const at::Tensor& b) {

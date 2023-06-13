@@ -24,3 +24,5 @@ export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fi
 
 
 source activate $ENV_NAME
+
+echo  "python path : ${PYTHONPATH}"
