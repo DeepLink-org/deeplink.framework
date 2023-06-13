@@ -9,13 +9,16 @@ class MyModule(torch.nn.Module):
 
     def forward(self, a, b):
         layer0 = torch.ops.aten.mul(a, b)
-        layer1 = torch.ops.aten.gelu_backward(layer0, a, approximate='none')
-        layer2 = torch.ops.aten.gelu_backward(layer1, b)
-        layer3 = torch.ops.aten.gelu_backward(layer1, layer2, approximate='tanh')
+        layer1 = torch.nn.functional.gelu(layer0, approximate='none')
+        layer2 = torch.nn.functional.gelu(layer1)
+        layer3 = torch.nn.functional.gelu(layer2, approximate='tanh')
         layer4 = torch.ops.aten.mul(layer2, layer3)
-        return layer4
+        loss = torch.nn.CrossEntropyLoss()
+        result_loss = loss(layer4, b)
+        result_loss.backward()
+        return result_loss
 
-a = torch.randn(5, 5)
+a = torch.randn(5, 5, requires_grad=True)
 b = torch.randn(5, 5)
 
 menflame = MyModule()
@@ -28,3 +31,4 @@ torchm = torch.compile(tm)
 r1 = torchm(a, b)
 
 print(f'Tests gelu_backward result\n{torch.allclose(t1, r1, equal_nan=True)}')
+print(f'Please check if generated code contains \'GeluGrad\'')

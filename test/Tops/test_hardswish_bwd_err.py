@@ -9,12 +9,16 @@ class MyModule(torch.nn.Module):
 
     def forward(self, a, b):
         layer0 = torch.ops.aten.add(a, b)
-        layer1 = torch.ops.aten.sub(a, b)
-        layer2 = torch.ops.aten.hardswish_backward(layer0, layer1)
-        layer3 = torch.ops.aten.mul(layer1, layer2)
-        return layer3
+        layer1 = torch.ops.aten.mul(a, b)
+        layer2 = torch.ops.aten.add(layer0, layer1)
+        layer3 = torch.nn.functional.hardswish(layer0)
+        layer4 = torch.ops.aten.mul(layer3, layer3)
+        loss = torch.nn.CrossEntropyLoss()
+        result_loss = loss(layer4, b)
+        result_loss.backward()
+        return result_loss
 
-a = torch.randn(10, 10)
+a = torch.randn(10, 10, requires_grad=True)
 b = torch.randn(10, 10)
 
 menflame = MyModule()
@@ -27,3 +31,4 @@ torchm = torch.compile(tm)
 r1 = torchm(a, b)
 
 print(f'Tests hardswish_backward result\n{torch.allclose(t1, r1, equal_nan=True)}')
+print(f'Please check if generated code contains \'HardSwishGrad\'')
