@@ -65,10 +65,8 @@ std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
 template<typename T1, template<typename elem> class container>
 std::string dumpArg(const container<T1> & t) {
     std::stringstream stream;
-    int i = 0;
-    stream << "size:" << t.size() << std::endl;
     for (auto iter = t.begin(); iter != t.end(); ++iter) {
-        stream << "\t" << i++ << "th:" << dumpArg(*iter) << std::endl;
+        stream << dumpArg(*iter) << std::endl;
     }
     return stream.str();
 }
