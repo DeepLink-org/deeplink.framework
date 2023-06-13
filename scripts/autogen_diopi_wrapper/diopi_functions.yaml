@@ -1302,7 +1302,9 @@
 - schema: "_cdist_forward(Tensor x1, Tensor x2, float p, int? compute_mode) -> Tensor"
   custom_code_at_the_beginning: |
     int64_t* compute_mode_ptr = compute_mode.has_value() ? (&compute_mode.value()) : nullptr;
-    auto out = at::empty({x1.size(0), x1.size(1), x2.size(1)}, x1.options());
+    auto output_shape = x1.sizes().vec();
+    output_shape.back() = x2.size(-2);
+    auto out = at::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
 
 - schema: "erfinv.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
