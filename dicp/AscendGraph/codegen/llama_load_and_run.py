@@ -115,12 +115,12 @@ class MemoryPool:
         self.init_work_weight_ptr()
     
     def init_work_weight_ptr(self):
-        self.work_size = 15 * 1024 * 1024 * 1024
+        self.work_size = 18 * 1024 * 1024 * 1024
         self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
         
-        self.weight_size = 8000
+        self.weight_size = 9600
         self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
@@ -142,7 +142,7 @@ class MemoryPool:
     
     def init_inputs(self):
         cur_dir = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(cur_dir, 'memory_pool_input.pkl'), 'rb') as f:
+        with open(os.path.join(cur_dir, 'memory_pool_input_new_fix.pkl'), 'rb') as f:
             self.memory_infos = pickle.load(f)
 
         for _, v in self.memory_infos.items():
@@ -161,7 +161,7 @@ class MemoryPool:
 
     def init_outputs(self):
         cur_dir = os.path.dirname(os.path.abspath(__file__))
-        with open(os.path.join(cur_dir, 'memory_pool_output.pkl'), 'rb') as f:
+        with open(os.path.join(cur_dir, 'memory_pool_output_new_fix.pkl'), 'rb') as f:
             self.memory_infos = pickle.load(f)
 
         for _, v in self.memory_infos.items():

@@ -1573,6 +1573,8 @@ class AscendOverrides:
 
         dim = int(dim)
         start = int(start)
+        start = start if start >= 0 else x_shape[dim] + start
+        
         assert dim >= 0 and dim < len(x_shape)
         assert start >=0 and start < x_shape[dim]
         
