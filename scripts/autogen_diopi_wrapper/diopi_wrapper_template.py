@@ -65,18 +65,23 @@ std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
 template<typename T1, template<typename elem> class container>
 std::string dumpArg(const container<T1> & t) {
     std::stringstream stream;
+    int i = 0;
+    stream << "size:" << t.size() << std::endl;
     for (auto iter = t.begin(); iter != t.end(); ++iter) {
-        stream << dumpArg(*iter) << ", ";
+        stream << "\t" << i++ << "th:" << dumpArg(*iter) << std::endl;
     }
     return stream.str();
 }
-
 
 template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
         stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
+        static int dump_tensor_all_elemnuments = std::atoi(std::getenv("DIPU_DUMP_OP_ARGS"));
+        if (dump_tensor_all_elemnuments > 1) {
+            stream << std::endl << tensor;
+        }
     } else {
         stream << "undefined";
     }
