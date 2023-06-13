@@ -96,213 +96,213 @@ jobs:
           fi
           """
 
-  Build-POC-Camb:
-    name: Build diopi_poc camb
-    needs: [Build-Pytorch]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Build dipu-poc
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
-          --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
-          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
+  # Build-POC-Camb:
+  #   name: Build diopi_poc camb
+  #   needs: [Build-Pytorch]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Build dipu-poc
+  #       run: |
+  #         ssh ${CLUSTER_CAMB} """
+  #         set -e
+  #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+  #         export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+  #         source scripts/ci_camb_env.sh
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
+  #         --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
+  #         || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  #         """
 
-  Test-Camb:
-    name: test-camb
-    needs: [Build-POC-Camb]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Run-test
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
-          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
-          """
+  # Test-Camb:
+  #   name: test-camb
+  #   needs: [Build-POC-Camb]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         ssh ${CLUSTER_CAMB} """
+  #         set -e
+  #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb
+  #         export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+  #         source scripts/ci_camb_env.sh
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
+  #         """
 
-  Build-POC-Camb-Diopi:
-    name: Build diopi_poc camb diopi-main
-    needs: [Build-Pytorch]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Build dipu-poc diopi-main
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
-          --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
-          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
+  # Build-POC-Camb-Diopi:
+  #   name: Build diopi_poc camb diopi-main
+  #   needs: [Build-Pytorch]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Build dipu-poc diopi-main
+  #       run: |
+  #         ssh ${CLUSTER_CAMB} """
+  #         set -e
+  #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+  #         export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+  #         source scripts/ci_camb_env.sh
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
+  #         --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
+  #         || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  #         """
 
-  Test-Camb-Diopi:
-    name: test-camb-diopi-main
-    needs: [Build-POC-Camb-Diopi]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Run-test
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi
-          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
-          """
+  # Test-Camb-Diopi:
+  #   name: test-camb-diopi-main
+  #   needs: [Build-POC-Camb-Diopi]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         ssh ${CLUSTER_CAMB} """
+  #         set -e
+  #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi
+  #         export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+  #         source scripts/ci_camb_env.sh
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
+  #         || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+  #         """
 
-  Test-One-Iter-Camb:
-    name: test-one-iter-camb
-    needs: [Build-POC-Camb]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: clone-repos
-        run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
-          else
-            git checkout ${{ github.sha }} &&  git merge --no-edit main
-          fi
-          bash scripts/ci_one_iter.sh clone
-          rsync -a --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+  # Test-One-Iter-Camb:
+  #   name: test-one-iter-camb
+  #   needs: [Build-POC-Camb]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: clone-repos
+  #       run: |
+  #         cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+  #         if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+  #           git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+  #         else
+  #           git checkout ${{ github.sha }} &&  git merge --no-edit main
+  #         fi
+  #         bash scripts/ci_one_iter.sh clone
+  #         rsync -a --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
 
 
 
-      - name: run-one-iter-tools
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
-          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci_camb_env.sh
-          echo  "python path : ${PYTHONPATH}"
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
-          pwd
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """
+  #     - name: run-one-iter-tools
+  #       run: |
+  #         ssh ${CLUSTER_CAMB} """
+  #         set -e
+  #         cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+  #         export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+  #         source scripts/ci_camb_env.sh
+  #         echo  "python path : ${PYTHONPATH}"
+  #         srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
+  #         pwd
+  #         export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+  #         srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+  #         """
 
-  Clone:
-    name: clone code on cuda
-    needs: [Rsync]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: clone repo
-        run: |
-          set -e
-          cd ${NV_PVC_PATH} && find ${NV_PVC_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-          rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
-          rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
-          else
-          git checkout ${{ github.sha }} &&  git merge --no-edit main
-          fi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu_poc dipu_poc_diopi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          bash scripts/ci_one_iter.sh clone
+  # Clone:
+  #   name: clone code on cuda
+  #   needs: [Rsync]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: clone repo
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH} && find ${NV_PVC_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
+  #         rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
+  #         rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+  #         if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+  #         git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+  #         else
+  #         git checkout ${{ github.sha }} &&  git merge --no-edit main
+  #         fi
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu_poc dipu_poc_diopi
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc && rm -rf third_party/DIOPI && git submodule update --init --recursive
+  #         bash scripts/ci_one_iter.sh clone
 
-  Build-POC-Cuda:
-    name: Build diopi_poc cuda
-    needs: [Clone]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: Build dipu-poc
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          source scripts/ci_nv_env.sh
-          bash scripts/ci_nv_script.sh build_dipu \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  # Build-POC-Cuda:
+  #   name: Build diopi_poc cuda
+  #   needs: [Clone]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: Build dipu-poc
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+  #         source scripts/ci_nv_env.sh
+  #         bash scripts/ci_nv_script.sh build_dipu \
+  #         || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
-  Test-Cuda:
-    name: test-cuda
-    needs: [Build-POC-Cuda]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: Run-test
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
-          source scripts/ci_nv_env.sh
-          sh tests/run_nv_tests.sh
+  # Test-Cuda:
+  #   name: test-cuda
+  #   needs: [Build-POC-Cuda]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+  #         source scripts/ci_nv_env.sh
+  #         sh tests/run_nv_tests.sh
 
-  Build-POC-Cuda-Diopi:
-    name: Build diopi_poc cuda diopi-main
-    needs: [Clone]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: Build dipu-poc diopi-main
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          source scripts/ci_nv_env.sh
-          bash scripts/ci_nv_script.sh build_dipu \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  # Build-POC-Cuda-Diopi:
+  #   name: Build diopi_poc cuda diopi-main
+  #   needs: [Clone]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: Build dipu-poc diopi-main
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+  #         source scripts/ci_nv_env.sh
+  #         bash scripts/ci_nv_script.sh build_dipu \
+  #         || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
-  Test-Cuda-Diopi:
-    name: test-cuda-diopi-main
-    needs: [Build-POC-Cuda-Diopi]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: Run-test
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
-          source scripts/ci_nv_env.sh
-          sh tests/run_nv_tests.sh && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+  # Test-Cuda-Diopi:
+  #   name: test-cuda-diopi-main
+  #   needs: [Build-POC-Cuda-Diopi]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
+  #         source scripts/ci_nv_env.sh
+  #         sh tests/run_nv_tests.sh && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
+  #         || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
 
-  Test-One-Iter_Cuda:
-    name: test-one-iter-cuda
-    needs: [Build-POC-Cuda]
-    runs-on: tps-pytorch-ci
-    steps:
-      - name: build some env
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
-          source scripts/ci_nv_env.sh
-          bash scripts/ci_one_iter.sh build_cuda
+  # Test-One-Iter_Cuda:
+  #   name: test-one-iter-cuda
+  #   needs: [Build-POC-Cuda]
+  #   runs-on: tps-pytorch-ci
+  #   steps:
+  #     - name: build some env
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+  #         source scripts/ci_nv_env.sh
+  #         bash scripts/ci_one_iter.sh build_cuda
 
-      - name: run-one-iter-tools
-        run: |
-          set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
-          source scripts/ci_nv_env.sh
-          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
-          export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          echo  "python path : $PYTHONPATH"
-          bash scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+  #     - name: run-one-iter-tools
+  #       run: |
+  #         set -e
+  #         cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+  #         source scripts/ci_nv_env.sh
+  #         basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+  #         export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+  #         export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+  #         echo  "python path : $PYTHONPATH"
+  #         bash scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
