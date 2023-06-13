@@ -19,8 +19,20 @@ from torch._inductor.codegen.common import OpOverrides
 from ..config import tops_debug
 
 
-type_set = {"torch.float32": "builder::PrimitiveType::F32()",
+type_set = {"torch.float16": "builder::PrimitiveType::F16()",
+            "torch.half": "builder::PrimitiveType::F16()",
+            "torch.float32": "builder::PrimitiveType::F32()",
+            "torch.float": "builder::PrimitiveType::F32()",
+            "torch.float64": "builder::PrimitiveType::F64()",
+            "torch.double": "builder::PrimitiveType::F64()",
+            "torch.int8": "builder::PrimitiveType::S8()",
+            "torch.int16": "builder::PrimitiveType::S16()",
+            "torch.short": "builder::PrimitiveType::S16()",
+            "torch.int32": "builder::PrimitiveType::S32()",
+            "torch.int": "builder::PrimitiveType::S32()",
             "torch.int64": "builder::PrimitiveType::S64()",
+            "torch.long": "builder::PrimitiveType::S64()",
+            "torch.uint8": "builder::PrimitiveType::U8()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
