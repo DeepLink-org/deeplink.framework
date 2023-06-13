@@ -4,7 +4,7 @@
 #include <iostream>
 
 static std::string force_fallback_operators_list = []()-> std::string {
-    std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in);
+    std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
     std::string content(";");
     if (stream.is_open()) {
       while (!stream.eof()) {
@@ -28,7 +28,7 @@ bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
   } else {
-    const std::string pattern = "(([;, ]+)|())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|())";
+    const std::string pattern = "(([;, ]+)|^())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|()$)";
     const bool matched_result = std::regex_search(force_fallback_operators_list, std::regex(pattern));
     if (matched_result) {
       return true;
@@ -143,7 +143,7 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
 }
 
 // c10d ops (eg： allreduce) needs this fallback reg, cpu/cuda also register this key's fallback in VariableFallbackKernel.cpp.
-// this reg shouldn't affect (todo: need futher test) existing aten ops autograd fallback op, because they reg specialized autogradNotImplementedFallback 
+// this reg shouldn't affect (todo: need futher test) existing aten ops autograd fallback op, because they reg specialized autogradNotImplementedFallback
 // in generated/VariableTypeEverything.cpp for Autograd which has high priority. (todo: if affect, change to reg fallback only on c10d op)
 TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
   m.fallback(torch::CppFunction::makeFallthrough());
