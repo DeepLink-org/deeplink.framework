@@ -1260,7 +1260,7 @@
 - schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     std::vector<diopiConstTensorHandle_t> indices_vec;
-    indices.reserve(indices.size());
+    indices_vec.reserve(indices.size());
     for (auto iter = indices.begin(); iter != indices.end(); ++iter) {
       indices_vec.push_back(diopi_helper::toDiopiTensorHandle(*iter));
     }
