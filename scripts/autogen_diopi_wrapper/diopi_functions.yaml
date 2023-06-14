@@ -1332,3 +1332,12 @@
 
 - schema: "erfinv_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiErfInp(ctx, self)
+
+- schema: "polar(Tensor abs, Tensor angle) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto dtype = c10::toComplexType(abs.scalar_type());
+    auto out = at::empty(abs.sizes(), abs.options().dtype(dtype));
+  interface: diopiPolar(ctx, out, abs, angle)
+
+- schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiPolar(ctx, out, abs, angle)
