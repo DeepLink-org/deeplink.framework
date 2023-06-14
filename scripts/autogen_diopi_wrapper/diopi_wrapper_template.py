@@ -66,7 +66,7 @@ template<typename T1, template<typename elem> class container>
 std::string dumpArg(const container<T1> & t) {
     std::stringstream stream;
     for (auto iter = t.begin(); iter != t.end(); ++iter) {
-        stream << dumpArg(*iter) << std::endl;
+        stream << dumpArg(*iter) << ", ";
     }
     return stream.str();
 }
