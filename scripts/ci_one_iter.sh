@@ -32,7 +32,7 @@ function clone_needed_repo() {
 
 function build_needed_repo() {
     cd mmcv
-    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext --inplace
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
 }
 
