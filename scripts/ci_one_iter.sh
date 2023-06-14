@@ -36,6 +36,7 @@ function build_needed_repo() {
     cd ..
     cd mmagic
     pip install -e . -v
+    cd ..
 }
 
 
