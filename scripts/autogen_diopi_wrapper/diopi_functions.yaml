@@ -132,6 +132,11 @@
   interface: diopiMul(ctx, out, self, other)
 
 - schema: "logical_and.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+        auto shape = at::infer_size(self.sizes(), other.sizes());
+        out.resize_(shape);
+    }
   interface: diopiLogicalAnd(ctx, out, self, other);
 
 - schema: "logical_and_(Tensor(a!) self, Tensor other) -> Tensor(a!)"
