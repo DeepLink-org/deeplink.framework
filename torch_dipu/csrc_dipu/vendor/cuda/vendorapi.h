@@ -14,9 +14,7 @@ namespace dipu {
 #define DIPU_CALLCUDA(Expr)                                                     \
 {                                                                               \
     cudaError_t ret = Expr;                                                     \
-    if (ret != ::cudaSuccess) {                                                 \
-        TORCH_CHECK(false, "call cuda error, expr = ", #Expr, ", ret = ", ret); \
-    }                                                                           \
+    TORCH_CHECK(ret == ::cudaSuccess, "call cuda error, expr = ", #Expr, ", ret = ", ret); \
 }
 
 using deviceStream_t = cudaStream_t;

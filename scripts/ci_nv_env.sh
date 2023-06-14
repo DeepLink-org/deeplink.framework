@@ -11,8 +11,6 @@ export CUDA_PATH=${PLATFORM}/dep/cuda11.0-cudnn8.0
 export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.0
 export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.0
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
-export ATEN_ROOT=${PLATFORM}/dep/PatATen_v1.3.2_gcc5.4_cuda11.0
-export PPLBASE_ROOT=${PLATFORM}/dep/pplbase
 export VENDOR_INCLUDE_DIRS=${PLATFORM}/dep/cuda11.0-cudnn8.0/include
 
 export LD_LIBRARY_PATH=${CONDA_ROOT}/lib:$LD_LIBRARY_PATH
