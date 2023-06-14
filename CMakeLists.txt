@@ -39,16 +39,16 @@ endif()
 
 
 # findTorch encounter some error, need check。
-set(Torch_DIR ${PYTORCH_DIR}/share/cmake/Torch)
-find_package(Torch REQUIRED)
-if (NOT Torch_FOUND)
-    message(FATAL_ERROR "libtorch is required but not found")
-else()
-    link_directories(${PYTORCH_DIR}/torch/lib)
-    include_directories(${TORCH_INCLUDE_DIRS})
-    message(STATUS "Found Torch Version: ${Torch_VERSION}")
-    message(STATUS "Torch TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
-endif()
+# set(Torch_DIR ${PYTORCH_DIR}/share/cmake/Torch)
+# find_package(Torch REQUIRED)
+# if (NOT Torch_FOUND)
+#     message(FATAL_ERROR "libtorch is required but not found")
+# else()
+#     link_directories(${PYTORCH_DIR}/torch/lib)
+#     include_directories(${TORCH_INCLUDE_DIRS})
+#     message(STATUS "Found Torch Version: ${Torch_VERSION}")
+#     message(STATUS "Torch TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+# endif()
 
 
 set(TORCH_LIBRARY_DIR "${PYTORCH_DIR}/torch/lib")
