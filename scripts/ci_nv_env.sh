@@ -23,6 +23,8 @@ export PIP_CONFIG_FILE=${CONDA_ROOT}/envs/${ENV_NAME}/.pip/pip.conf
 
 export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
+export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
+export DIPU_PATH=$(pwd)/torch_dipu
 export PYTORCH_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
