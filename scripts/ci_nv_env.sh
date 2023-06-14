@@ -23,7 +23,7 @@ export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export PYTORCH_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
-export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}:${pwd} 
+export PYTHONPATH=${PYTORCH_DIR}:${pwd}:${PYTHONPATH}
 export PATH=/nvme/share/share/platform/dep/patchelf-0.12/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/include/python3.8
