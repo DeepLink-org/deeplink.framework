@@ -140,7 +140,7 @@
 - schema: "logical_and(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
     auto shape = at::infer_size(self.sizes(), other.sizes());
-    auto out = at::empty(shape, self.options());
+    auto out = at::empty(shape, self.options().dtype(at::kBool));
   interface: diopiLogicalAnd(ctx, out, self, other);
 
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
