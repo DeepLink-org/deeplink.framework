@@ -30,10 +30,10 @@ original_list=(
     "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
 )
 
-
+pip install pyquaternion
 
 length=${#original_list[@]}
-max_parall=4   #实际并行数会取决于该设置和空闲卡数的较大值
+max_parall=7   #实际并行数会取决于该设置和空闲卡数的较大值
 random_model_num=100 #如果超过，会自动设置为模型总数,目前随机选取4个模型
 
 
