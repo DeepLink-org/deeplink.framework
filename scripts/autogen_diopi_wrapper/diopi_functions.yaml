@@ -21,14 +21,14 @@
 
 - schema: "add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    TORCH_CHECK(at::can_cast(self.scalar_type(), other.type()));
-    if ((self.scalar_type() != other.type()) && c10::isFloatingType(other.type())) {
-      self = self.to(other.type());
-    }
+    TORCH_CHECK(!( (c10::isFloatingType(other.type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
+        " result type Float can't be cast to the desired output type Int");
   interface: diopiAddInpScalar(ctx, self, other, alpha)
 
 - schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    TORCH_CHECK(!( (c10::isFloatingType(other.scalar_type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
+        " result type Float can't be cast to the desired output type Int");
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add__scalar(self, other.item(), alpha);
     }
