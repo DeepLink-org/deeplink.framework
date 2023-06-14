@@ -33,6 +33,7 @@ original_list=(
 pip install pyquaternion
 pip install trimesh
 pip install lyft_dataset_sdk
+pip install nuscenes
 
 length=${#original_list[@]}
 max_parall=7   #实际并行数会取决于该设置和空闲卡数的较大值
