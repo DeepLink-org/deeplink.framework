@@ -19,11 +19,11 @@ original_list=(
     # "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" 
     # "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
     # # "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"   
-    # "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
+    "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
     # # "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory"
     # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"  #已通过
-    "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class" #少库，已装
-    # "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco" #爆显存，已更改为30  精度问题
+    # "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class" #卷积依赖
+    # "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco" #精度问题
     # "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco" #已通过
     # "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask-rcnn_r50_fpn_1x_coco"  #出错
     # "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"  #已通过
