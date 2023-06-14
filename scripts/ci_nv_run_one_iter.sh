@@ -30,7 +30,7 @@ original_list=(
     # "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"  #卷积算子未实现
 )
 
-pip install numpy==1.23.0
+
 
 length=${#original_list[@]}
 max_parall=7   #实际并行数会取决于该设置和空闲卡数的较大值
