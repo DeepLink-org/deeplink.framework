@@ -9,7 +9,7 @@ TEST_PRECISIONS = {
     'test_sum_dipu_bfloat16': 0.1,
 }
 
-DISABLED_TESTS_MLU = {
+DISABLED_TESTS_CUDA = {
     # test_linalg.py
     'TestLinalgDIPU': {
         'test_addmm_sizes', # diopiMulScalar: cnnlExpand] Check failed: output != NULL
@@ -430,4 +430,4 @@ DISABLED_TESTS_MLU = {
     },
 }
 
-DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_MLU)
+DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CUDA)
