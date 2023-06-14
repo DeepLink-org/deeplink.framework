@@ -34,6 +34,8 @@ function build_needed_repo() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
+    cd mmagic
+    pip install -e . -v
 }
 
 
