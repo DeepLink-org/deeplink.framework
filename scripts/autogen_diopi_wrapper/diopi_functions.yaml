@@ -20,13 +20,14 @@
   interface: diopiAddScalar(ctx, out, self, other, alpha)
 
 - schema: "add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
-  register_op: False
   custom_code_at_the_beginning: |
     TORCH_CHECK(at::can_cast(self.scalar_type(), other.type()));
+    if ((self.scalar_type() != other.type()) && c10::isFloatingType(other.type())) {
+      self = self.to(other.type());
+    }
   interface: diopiAddInpScalar(ctx, self, other, alpha)
 
 - schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
-  register_op: False
   custom_code_at_the_beginning: |
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_add__scalar(self, other.item(), alpha);
@@ -1306,6 +1307,11 @@
     output_shape.back() = x2.size(-2);
     auto out = at::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
+
+- schema: "_cdist_backward(Tensor grad, Tensor x1, Tensor x2, float p, Tensor cdist) -> Tensor grad_input"
+  custom_code_at_the_beginning: |
+    auto grad_input = at::empty(x1.sizes(), grad.options());
+  interface: diopiCdistBackward(ctx, grad_input, grad, x1, x2, p, cdist)
 
 - schema: "erfinv.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiErf(ctx, out, self)
