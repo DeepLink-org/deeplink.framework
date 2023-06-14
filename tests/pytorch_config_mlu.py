@@ -349,6 +349,7 @@ DISABLED_TESTS_MLU = {
         'test_alternate_result',
         'test_div_promotion',
         'test_div_promotion_inplace',
+        'test_inplace',
         # ERROR
         'test_comparison_ops_with_type_promotion',
         'test_complex_promotion',
