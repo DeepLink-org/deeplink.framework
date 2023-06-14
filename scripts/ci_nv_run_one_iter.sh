@@ -31,7 +31,7 @@ original_list=(
 )
 
 
-
+pip install numpy==1.24.3
 length=${#original_list[@]}
 max_parall=7   #实际并行数会取决于该设置和空闲卡数的较大值
 random_model_num=100 #如果超过，会自动设置为模型总数,目前随机选取4个模型
