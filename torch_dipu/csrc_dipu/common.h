@@ -44,6 +44,7 @@ enum class VendorDeviceType : enum_t {
   NPU,  //ascend
   CUDA, //cuda
   GCU,  //gcu
+  SUPA, //Biren
 };
 
 constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
@@ -52,6 +53,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
     case VendorDeviceType::CUDA: return "CUDA";
     case VendorDeviceType::NPU: return "NPU";
     case VendorDeviceType::GCU: return "GCU";
+    case VendorDeviceType::SUPA: return "SUPA";
   }
 }
 
@@ -69,7 +71,7 @@ enum class OpStatus: enum_t {
 };
 
 enum class MemCPKind: enum_t {
-  D2H, 
+  D2H,
   H2D,
   D2D,
 };
