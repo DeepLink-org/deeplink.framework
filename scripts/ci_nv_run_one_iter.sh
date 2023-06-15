@@ -2,6 +2,8 @@
 
 echo  "python path : $PYTHONPATH"
 
+export DIPU_DUMP_OP_ARGS=1
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     # "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"   
@@ -57,7 +59,7 @@ mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$      #本管道用�
 mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储card_list,即已占用的卡
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
-done 
+done
 
 used_card_list=()
 echo "${used_card_list[@]}" >&788
@@ -139,7 +141,7 @@ for ((i=0; i<$random_model_num; i++)); do
 
     # 显示结果
     echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} sec"
-    touch "$pid.done" 
+    touch "$pid.done"
 
 
     # 将卡设置为空闲
@@ -157,7 +159,7 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
-    
+
     echo  "after add place row $i"  1>&796
 }&
 pid=$!  # 存储子进程的PID号

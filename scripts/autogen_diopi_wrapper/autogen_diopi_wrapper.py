@@ -162,6 +162,7 @@ def create_param_list_from_schema(schema):
         'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
+        'float ?\?' : 'c10::optional<double>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
@@ -434,7 +435,9 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     op_name = get_op_name_from_schema(fun_config['schema'])
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
-    debug_code = f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code = "if (dumpOpArgs()) {\n\t"
+    debug_code += f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code += "}\n"
     return debug_code
 
 def create_int_array_process_code(int_array_list):
