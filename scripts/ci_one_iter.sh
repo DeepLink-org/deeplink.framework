@@ -30,12 +30,18 @@ function clone_needed_repo() {
     cd mmcv && git checkout ${MMCV_VERSION} && cd ..
 }
 
-function build_needed_repo() {
+function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
     cd mmagic
     pip install -e . -v --no-deps
+    cd ..
+}
+
+function build_needed_repo_camb() {
+    cd mmcv
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
 }
 
@@ -80,13 +86,13 @@ case $1 in
         || exit -1;;
     build_cuda)
         (
-            build_needed_repo
+            build_needed_repo_cuda
             build_dataset cuda
         ) \
         || exit -1;;
     build_camb)
         (
-            build_needed_repo
+            build_needed_repo_camb
             build_dataset camb
         ) \
         || exit -1;;
