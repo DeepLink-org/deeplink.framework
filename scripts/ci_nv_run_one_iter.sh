@@ -19,7 +19,7 @@ original_list=(
     "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" 
     # "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
     # "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"   #时间过长
-    "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
+    # "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
     "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k --no-pin-memory" #时间过长
     # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"  #已通过
     # # "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class" #卷积依赖
@@ -121,7 +121,7 @@ for ((i=0; i<$random_model_num; i++)); do
         CUDA_VISIBLE_DEVICES=$cur_cardnum python mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py
     else
         CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-        CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
+        # CUDA_VISIBLE_DEVICES=$cur_cardnum sh SMART/tools/one_iter_tool/compare_one_iter.sh
     fi
 
     # 记录结束时间（以纳秒为单位）
