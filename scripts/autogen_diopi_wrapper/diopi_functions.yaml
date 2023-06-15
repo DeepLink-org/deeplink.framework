@@ -1192,6 +1192,11 @@
     auto out = at::empty({output_shape}, self.options());
   interface: diopiIndexSelect(ctx, out, self, dim, index)
 
+- schema: "hardswish(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = at::empty(self.sizes(), self.options());
+  interface: diopiHardswish(ctx, out, self)
+
 - schema: "hardswish.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiHardswish(ctx, out, self)
 
@@ -1275,10 +1280,13 @@
   interface: diopiMinimum(ctx,out, self, other)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    const auto str =  std::string("None");
-    const char* appr = str.data();
-  interface: diopiScatterScalar(ctx,out, self, dim, value, index, appr)
+  interface: diopiScatterScalar(ctx, out, self, dim, value, index, "None")
+
+- schema: "scatter.value_reduce_out(Tensor self, int dim, Tensor index, Scalar value, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiScatterScalar(ctx, out, self, dim, value, index, reduce.data())
+
+- schema: "scatter.src_out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiScatter(ctx, out, self, dim, src, index, "None")
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
