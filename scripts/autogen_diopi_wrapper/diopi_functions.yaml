@@ -1087,6 +1087,8 @@
     auto grad_input = at::empty(self.sizes(), grad_output.options());
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 
+#- schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
+#  interface: diopiUpsampleNearest(ctx, out, self, size);
 
 - schema: "sin(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
