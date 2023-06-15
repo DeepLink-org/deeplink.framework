@@ -21,7 +21,7 @@ def test_max_pool2d(x, devicestr : str):
     x.requires_grad_(True)
     kernel_size = (2, 2)
     stride = (2, 2)
-    out = torch.nn.functional.max_pool2d(x, kernel_size=kernel_size, stride=stride, return_indices=False)
+    out = torch.nn.MaxPool2d(kernel_size=kernel_size, stride=stride)(x)
     print(f"out = {out}")
 
     grad_output = torch.ones_like(out).to(device)
