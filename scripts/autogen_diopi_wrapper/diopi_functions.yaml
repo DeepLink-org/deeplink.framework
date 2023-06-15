@@ -1087,8 +1087,33 @@
     auto grad_input = at::empty(self.sizes(), grad_output.options());
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 
-#- schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
-#  interface: diopiUpsampleNearest(ctx, out, self, size);
+- schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(self.sizes().size());
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      std::copy(self.sizes().begin(), self.sizes().end(), size.begin());
+      size[0] = std::floor(size[0] * scales_h.value_or(1.0));
+      size[1] = std::floor(size[1] * scales_w.value_or(1.0));
+    }
+  interface: diopiUpsampleNearest(ctx, out, self, size);
+
+- schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(self.sizes().size());
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      std::copy(self.sizes().begin(), self.sizes().end(), size.begin());
+      size[0] = std::floor(size[0] * scales_h.value_or(1.0));
+      size[1] = std::floor(size[1] * scales_w.value_or(1.0));
+    }
+  interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, "bilinear");
 
 - schema: "sin(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1285,13 +1310,13 @@
   interface: diopiMinimum(ctx,out, self, other)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiScatterScalar(ctx, out, self, dim, value, index, "None")
+  interface: diopiScatterScalar(ctx, out, self, dim, value, index, nullptr)
 
 - schema: "scatter.value_reduce_out(Tensor self, int dim, Tensor index, Scalar value, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatterScalar(ctx, out, self, dim, value, index, reduce.data())
 
 - schema: "scatter.src_out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiScatter(ctx, out, self, dim, src, index, "None")
+  interface: diopiScatter(ctx, out, self, dim, src, index, nullptr)
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
