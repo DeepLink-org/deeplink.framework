@@ -1113,6 +1113,32 @@
     }
   interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, "bilinear");
 
+- schema: "upsample_nearest2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+    }
+  interface: diopiUpsampleNearestBackward(ctx, grad_input, grad_output, size, input_size)
+
+- schema: "upsample_bilinear2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+    }
+  interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, "bilinear")
+
 - schema: "sin(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
