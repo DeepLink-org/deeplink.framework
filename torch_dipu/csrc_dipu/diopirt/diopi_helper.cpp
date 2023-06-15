@@ -90,6 +90,10 @@ namespace diopi_helper {
         return diopi_dtype_float32;
     case at::ScalarType::Double:
         return diopi_dtype_float64;
+    case at::ScalarType::ComplexFloat:
+        return diopi_dtype_complex64;
+    case at::ScalarType::ComplexDouble:
+        return diopi_dtype_complex128;
     default:
         TORCH_CHECK(false, "invalid scalar type, type is ", type);
     }
