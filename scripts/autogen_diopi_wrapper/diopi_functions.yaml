@@ -1310,13 +1310,13 @@
   interface: diopiMinimum(ctx,out, self, other)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiScatterScalar(ctx, out, self, dim, value, index, nullptr)
+  interface: diopiScatterScalar(ctx, out, self, dim, value, index, "")
 
 - schema: "scatter.value_reduce_out(Tensor self, int dim, Tensor index, Scalar value, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatterScalar(ctx, out, self, dim, value, index, reduce.data())
 
 - schema: "scatter.src_out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiScatter(ctx, out, self, dim, src, index, nullptr)
+  interface: diopiScatter(ctx, out, self, dim, src, index, "")
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
