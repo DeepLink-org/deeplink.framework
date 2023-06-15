@@ -14,7 +14,7 @@ function clone_needed_repo() {
     MMACTION2_VERSION=one_iter_for_mmcv_2.0
     MMOCR_VERSION=one_iter_for_mmcv_2.0
     MMAGIC=one_iter_for_mmcv_2.0
-    SMART_VERSION=gqw/one_iter_compare_change
+    SMART_VERSION=gqw/change_random_seed
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
