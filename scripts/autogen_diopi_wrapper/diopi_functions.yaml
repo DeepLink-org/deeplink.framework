@@ -1090,28 +1090,26 @@
 - schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(self.sizes().size());
+    std::vector<int64_t> size(2);
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      std::copy(self.sizes().begin(), self.sizes().end(), size.begin());
-      size[0] = std::floor(size[0] * scales_h.value_or(1.0));
-      size[1] = std::floor(size[1] * scales_w.value_or(1.0));
+      size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
+      size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleNearest(ctx, out, self, size);
 
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(self.sizes().size());
+    std::vector<int64_t> size(2);
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      std::copy(self.sizes().begin(), self.sizes().end(), size.begin());
-      size[0] = std::floor(size[0] * scales_h.value_or(1.0));
-      size[1] = std::floor(size[1] * scales_w.value_or(1.0));
+      size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
+      size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, "bilinear");
 
