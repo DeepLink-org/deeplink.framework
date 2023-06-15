@@ -1249,7 +1249,6 @@
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
 
-<<<<<<< Updated upstream
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     if (out.numel() == 0) {
