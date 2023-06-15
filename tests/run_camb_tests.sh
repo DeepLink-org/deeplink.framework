@@ -4,7 +4,15 @@ set -ex
 source tests/common.sh
 
 function run_dipu_tests {
+  export DIPU_DUMP_OP_ARGS=1
+  echo "fill_.Scalar" >> .dipu_force_fallback_op_list.config
+  run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v TestTensorCreationDIPU # --locals -f
+  echo "" >  .dipu_force_fallback_op_list.config
+
   #run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
+  echo "argmax.out,all.out,all.all_out,any.all_out,any.out" >> .dipu_force_fallback_op_list.config
+  run_test "${PYTORCH_DIR}/test/test_reductions.py" "$@" -v TestReductionsDIPU
+
   run_test "${PYTORCH_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
   run_test "${PYTORCH_DIR}/test/test_type_hints.py" "$@" -v
   run_test "${PYTORCH_DIR}/test/test_type_info.py" "$@" -v

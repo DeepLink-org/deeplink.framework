@@ -163,6 +163,60 @@ DISABLED_TESTS_MLU = {
         'test_copysign_subgradient',
     },
 
+    # test_reductions.py
+    'TestReductionsDIPU':{
+        #"test_dim_arg_reduction_scalar",
+        #"test_dim_default_argmax",
+        # CASHED
+        'test_dim_ndim_limit',
+        'test_identity',
+        'test_nan_policy_omit',
+        'test_nan_policy_propagate',
+        'test_noncontiguous_all',
+        'test_noncontiguous_expanded',
+        'test_noncontiguous_innermost',
+        'test_noncontiguous_outermost',
+        'test_noncontiguous_transposed',
+        'test_reference_masked',
+        'test_result_dtype',
+        # ERROR
+        'test_ref_duplicate_values',
+        'test_ref_extremal_values',
+        'test_ref_scalar_input',
+        'test_ref_small_input',
+        'test_tensor_reduce_ops_empty',
+        'test_all_any_vs_numpy',
+        'test_all_any',
+        'test_all_any_empty',
+        'test_count_nonzero',
+        'test_dim_default_keepdim',
+        'test_dim_single_keepdim',
+        'test_dim_multi_unsorted_keepdim',
+        'test_dim_multi_keepdim',
+        'test_dim_multi',
+        'test_dim_none_keepdim',
+        'test_dim_none',
+        'test_dim_default',
+        'test_max',
+        'test_min',
+        'test_mode',
+        'test_nansum',
+        'test_dim_multi_unsorted',
+        'test_dim_single',
+        'test_histc',
+        'test_nansum_out',
+        'test_nansum_out_dtype',
+        'test_quantile_backward',
+        'test_logsumexp',
+        # FAIL
+        'test_argminmax_multiple',
+        'test_dim_reduction',
+        'test_empty_tensor_nonempty_slice',
+        'test_sum_dim_reduction_uint8_overflow',
+        'test_median_nan_values',
+        'test_tensor_compare_ops_empty',
+    },
+
     # test_torch.py
     'TestTorchDeviceTypeDIPU': {
         # CRASHED
@@ -212,6 +266,7 @@ DISABLED_TESTS_MLU = {
         'test_multinomial',
         'test_logcumsumexp',
         'test_discontiguous_out_cumsum',
+        'test_cdist_large',
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {
@@ -304,6 +359,34 @@ DISABLED_TESTS_MLU = {
         'test_many_promotions',
     },
 
+    # test_tensor_creation_ops.py
+    'TestTensorCreationDIPU': {
+        'test_arange_device_vs_cpu',
+        'test_arange_bfloat16',
+        'test_arange', # camb impl have bug
+        'test_linlogspace_mem_overlap',
+        'test_cartesian_prod',
+        'test_cat_all_dtypes_and_devices',
+        'test_cat_empty_legacy',
+        'test_cat_mem_overlap',
+        'test_cat_out',
+        'test_combinations',
+        'test_linspace',
+        'test_linspace_deduction',
+        'test_linspace_vs_numpy_integral',
+        'test_meshgrid_vs_numpy',
+        'test_random',
+        'test_random_bool',
+        'test_random_default',
+        'test_random_from_to',
+        'test_random_from_to_bool',
+        'test_random_full_range',
+        'test_random_to',
+        'test_repeat_interleave',
+        'test_roll',
+        'test_tensor_factories_empty',
+        'test_zeros_dtype_layout_device_match',
+    },
     # test_nn.py
     'TestNN':{
         # CRASHED

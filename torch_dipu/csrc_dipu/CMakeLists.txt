@@ -16,6 +16,7 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
     runtime/core/allocator.cpp
     runtime/core/DIPU*.cpp
     runtime/core/device.cpp
+    runtime/core/MemChecker.cpp
     runtime/distributed/*.cpp
 )
 

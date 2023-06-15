@@ -3,6 +3,10 @@ import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 os.environ['MLU_INVOKE_BLOCKING'] = '1'
 os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
+# os.environ['DIPU_MEM_CHECK'] = '1'
+# os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
+# os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
+# os.environ['DIPU_MEM_CHECK_ENABLE_BACKTRACE'] = '1'
 
 import torch
 from typing import (Tuple, List, Union, Sequence)
@@ -76,6 +80,12 @@ def apply_tensor_method_patch():
             return self.new_empty(size, device = device)
         if isinstance(arg, Tensor):
             return self.new_tensor(arg, device = device) 
+        elif isinstance(arg, torch.storage.TypedStorage) or isinstance(arg, torch.storage.UntypedStorage):
+            if (isinstance(device, torch.device) and device.type != 'cpu') or \
+                isinstance(device, str) and torch.device(device).type != 'cpu':
+                print(f"torch.Tensor.new_tensor(storage: torch.storage) is not supported on out-of-tree device")
+
+            return self.new_tensor(arg, device = device)
         elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
             return self.new_tensor(arg, device = device) 
         else:

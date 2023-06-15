@@ -10,6 +10,7 @@
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/runtime/core/MemChecker.h>
 
 
 using c10::device_or_default;
@@ -46,6 +47,7 @@ namespace dipu::native {
     void* src_ptr = src_cast.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(dst);
     dipu::devapis::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
       /// need add host cache allocator
@@ -64,6 +66,7 @@ namespace dipu::native {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(src);
     dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
         // DIPU_LOGW("Copy data back to CPU device with " \
@@ -119,6 +122,8 @@ namespace dipu::native {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(src);
+    MemChecker::instance().check(dst);
     dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
     if (non_blocking) {
@@ -189,6 +194,7 @@ namespace dipu::native {
     AT_DISPATCH_ALL_TYPES_AND2(at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu", [&] {
           scalar_t value;
           dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
+          MemChecker::instance().check(self);
           dipu::devapis::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t), &value, self.data_ptr<scalar_t>());
           dipu::devapis::syncStream(stream.rawstream());
           r =  at::Scalar(value);

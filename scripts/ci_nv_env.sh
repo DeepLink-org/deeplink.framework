@@ -11,8 +11,6 @@ export CUDA_PATH=${PLATFORM}/dep/cuda11.0-cudnn8.0
 export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.0
 export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.0
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
-export ATEN_ROOT=${PLATFORM}/dep/PatATen_v1.3.2_gcc5.4_cuda11.0
-export PPLBASE_ROOT=${PLATFORM}/dep/pplbase
 
 export LD_LIBRARY_PATH=${CONDA_ROOT}/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${CUDA_PATH}/extras/CUPTI/lib64/:$LD_LIBRARY_PATH
@@ -34,5 +32,6 @@ export PYTORCH_TEST_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_d
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 export CUDA_LAUNCH_BLOCKING=1
+export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out
 
 source activate $ENV_NAME
