@@ -19,6 +19,11 @@ export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/dipu_poc/include/python3.8"
 
 export NEUWARE_HOME=/usr/local/neuware
+export NEUWARE_ROOT_DIR=/usr/local/neuware
+export VENDOR_INCLUDE_DIRS=/usr/local/neuware/include
+export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
+export DIPU_PATH=$(pwd)/torch_dipu
+export PYTHONPATH=$(pwd):${PYTHONPATH} #将dipu_poc纳入环境中
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
