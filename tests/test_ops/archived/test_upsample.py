@@ -36,3 +36,27 @@ m = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 y1 = m(input_3x3)
 y2 = m(input_3x3.cuda())
 assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
+
+m = nn.Upsample(scale_factor=2, mode='nearest')
+x1 = input.clone()
+x2 = input.cuda()
+x1.requires_grad = True
+x2.requires_grad = True
+y1 = m(x1)
+y2 = m(x2)
+y1.backward(torch.ones_like(y1))
+y2.backward(torch.ones_like(y2))
+assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
+assert torch.allclose(x1.grad, x2.grad.cpu(), atol = 1e-3)
+
+m = nn.Upsample(scale_factor=2, mode='bilinear')  # align_corners=False
+x1 = input.clone()
+x2 = input.cuda()
+x1.requires_grad = True
+x2.requires_grad = True
+y1 = m(x1)
+y2 = m(x2)
+y1.backward(torch.ones_like(y1))
+y2.backward(torch.ones_like(y2))
+assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
+assert torch.allclose(x1.grad, x2.grad.cpu(), atol = 1e-3)
