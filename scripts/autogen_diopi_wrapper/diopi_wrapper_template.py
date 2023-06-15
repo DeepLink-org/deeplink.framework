@@ -78,7 +78,7 @@ std::string dumpArg(const at::Tensor& tensor) {
         stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
         static int dump_tensor_all_elemnuments = std::atoi(std::getenv("DIPU_DUMP_OP_ARGS"));
         if (dump_tensor_all_elemnuments > 1) {
-            stream << std::endl << tensor;
+            stream << std::endl << tensor.cpu();
         }
     } else {
         stream << "undefined";
