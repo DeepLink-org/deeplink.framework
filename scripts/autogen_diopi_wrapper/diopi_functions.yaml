@@ -1366,7 +1366,7 @@
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
     for (int i = 0; i < indices.size(); ++i) {
-      indices_tensor_vec[i] = indices[i].value_or(at::Tensor()).to(self.device());
+      indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
   interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())
@@ -1376,7 +1376,7 @@
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
     for (int i = 0; i < indices.size(); ++i) {
-      indices_tensor_vec[i] = indices[i].value_or(at::Tensor()).to(self.device());
+      indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
   interface: diopiIndexPut(ctx, self, self, values, indices_vec.data(), indices_vec.size(), accumulate)
