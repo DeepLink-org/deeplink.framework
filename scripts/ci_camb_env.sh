@@ -27,7 +27,7 @@ export PYTHONPATH=$(pwd):${PYTHONPATH} #将dipu_poc纳入环境中
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
-export DIPU_FORCE_FALLBACK_OPS_LIST=arange.start_out,mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,hardtanh_backward.grad_input,hardtanh_backward,add_out,_index_put_impl_,scatter.value_reduce_out,scatter.value_out,uniform_
+export DIPU_FORCE_FALLBACK_OPS_LIST=arange.start_out,mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,hardtanh_backward.grad_input,hardtanh_backward,add_out,_index_put_impl_,scatter.value_reduce_out,scatter.value_out,uniform_,sigmoid_backward.grad_input,
 
 
 source activate $ENV_NAME
