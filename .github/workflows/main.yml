@@ -29,6 +29,8 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc dipu_poc_diopi && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
           echo "------- ref name is ---------"${GITHUB_REF_NAME}
+          echo "${{ github.head_ref	}} "
+          echo "${{ github.base_ref }} "
           echo "can get pull request"
           echo "{$GITHUB_EVENT_NAME}"
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
