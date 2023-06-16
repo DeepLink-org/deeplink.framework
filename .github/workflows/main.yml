@@ -160,7 +160,7 @@ jobs:
           """
 
   Test-Camb-Diopi:
-    name: test-camb-diopi-main
+    name: test-camb-diopi-latest-target
     needs: [Build-POC-Camb-Diopi]
     runs-on: github-poc-ci
     env:
