@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'dev_v0.25'
 
 env:
   NFS_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
@@ -40,7 +41,7 @@ jobs:
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            cd DIPOI && git checkout ${{ github.base_ref }}
+            cd ./DIOPI && git checkout ${{ github.base_ref }}
           fi
 
       - name: ci interruptible and support pr ci
@@ -229,7 +230,7 @@ jobs:
     
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            cd ./DIPOI && git checkout ${{ github.base_ref }}
+            cd ./DIOPI && git checkout ${{ github.base_ref }}
           fi
 
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
