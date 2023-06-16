@@ -150,3 +150,4 @@ if __name__=='__main__':
         print("Error:", e)
         if p is not None:
             p.terminate()
+        exit(1)
