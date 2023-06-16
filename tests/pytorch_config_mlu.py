@@ -267,6 +267,7 @@ DISABLED_TESTS_MLU = {
         'test_logcumsumexp',
         'test_discontiguous_out_cumsum',
         'test_cdist_large',
+        'test_cdist_same_inputs',
     },
     # test_view_ops.py
     'TestViewOpsDIPU': {

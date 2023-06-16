@@ -60,3 +60,26 @@ y1.backward(torch.ones_like(y1))
 y2.backward(torch.ones_like(y2))
 assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
 assert torch.allclose(x1.grad, x2.grad.cpu(), atol = 1e-3)
+
+#torch.nn.functional.interpolate(input, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None, antialias=False)
+x1 = input.clone()
+x2 = input.cuda()
+x1.requires_grad = True
+x2.requires_grad = True
+y1 = torch.nn.functional.interpolate(x1, size=None, scale_factor=(4, 8), mode='nearest')
+y2 = torch.nn.functional.interpolate(x2, size=None, scale_factor=(4, 8), mode='nearest')
+y1.backward(torch.ones_like(y1))
+y2.backward(torch.ones_like(y2))
+assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
+assert torch.allclose(x1.grad, x2.grad.cpu(), atol = 1e-3)
+
+x1 = input.clone()
+x2 = input.cuda()
+x1.requires_grad = True
+x2.requires_grad = True
+y1 = torch.nn.functional.interpolate(x1, size=None, scale_factor=(4, 8), mode='bilinear')
+y2 = torch.nn.functional.interpolate(x2, size=None, scale_factor=(4, 8), mode='bilinear')
+y1.backward(torch.ones_like(y1))
+y2.backward(torch.ones_like(y2))
+assert torch.allclose(y1, y2.cpu(), atol = 1e-3)
+assert torch.allclose(x1.grad, x2.grad.cpu(), atol = 1e-3)
