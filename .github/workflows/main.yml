@@ -17,6 +17,7 @@ env:
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
   NV_PVC_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
   NV_SOURCE_PATH: '/nvme/share/share/github/sourcecode'
+  MERGE_BRANCH: 'main'
 
 
 jobs:
@@ -27,6 +28,8 @@ jobs:
       - name: clone repo
         run: |
           cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc dipu_poc_diopi && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          echo "------- ref name is ---------"${GITHUB_REF_NAME}
+          echo "{$GITHUB_EVENT_NAME}"
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
           else
