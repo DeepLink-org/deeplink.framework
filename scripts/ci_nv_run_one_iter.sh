@@ -2,7 +2,7 @@
 
 echo  "python path : $PYTHONPATH"
 
-export DIPU_DUMP_OP_ARGS=1
+export DIPU_DUMP_OP_ARGS=0
 
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
