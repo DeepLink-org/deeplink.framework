@@ -4,8 +4,8 @@ function clone_needed_repo() {
     # clone some repositories
 
     #define some version
-    MMCV_VERSION=v2.0.0
-    MMENGINE_VERSION=v0.7.3
+    MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
+    MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=one_iter_for_mmcv_2.0
     MMSEGMENTATION_VERSION=one_iter_for_mmcv_2.0
@@ -25,14 +25,23 @@ function clone_needed_repo() {
     rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
     rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
-    rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-
+    rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
+    cd mmcv && git checkout ${MMCV_VERSION} && cd ..
 }
 
-function build_needed_repo() {
+function build_needed_repo_cuda() {
     cd mmcv
-    MMCV_WITH_OPS=1 python setup.py build_ext --inplace
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
+    cd ..
+    cd mmagic
+    pip install -e . -v --no-deps
+    cd ..
+}
+
+function build_needed_repo_camb() {
+    cd mmcv
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
 }
 
@@ -50,7 +59,8 @@ function build_dataset(){
         ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
         ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
         ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
-        ln -s /nvme/share/share/tangding/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."
         rm -rf data
@@ -76,13 +86,13 @@ case $1 in
         || exit -1;;
     build_cuda)
         (
-            build_needed_repo
+            build_needed_repo_cuda
             build_dataset cuda
         ) \
         || exit -1;;
     build_camb)
         (
-            build_needed_repo
+            build_needed_repo_camb
             build_dataset camb
         ) \
         || exit -1;;
