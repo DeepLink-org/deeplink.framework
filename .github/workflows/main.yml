@@ -26,12 +26,13 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          echo "${{ github.base_ref }} "
           cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
+            echo "${{ github.base_ref }} "
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
           else
-          git checkout ${{ github.sha }}
+            echo $GITHUB_EVENT_NAME
+            git checkout ${{ github.sha }}
           fi
           cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
