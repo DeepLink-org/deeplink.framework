@@ -6,7 +6,6 @@ import subprocess as sp
 import pynvml
 import time
 
-sys.stdout.flush = True
 
 #set some params
 max_parall = 4
@@ -93,7 +92,6 @@ def process_one_iter(q,model_info):
     hour = run_time//3600
     minute = (run_time-3600*hour)//60
     second = run_time-3600*hour-60*minute
-    # 输出
     print ("The running time of {} :{h} hours {m} mins {} secs".format(p2,hour,minute,second))
 
     used_card = q.get(True)
@@ -139,6 +137,7 @@ if __name__=='__main__':
     q = Queue()
     used_card = []
     q.put(used_card)
+    p = None
     try:
         with Pool(max_parall) as p:
             for i in range(random_model_num):
@@ -148,7 +147,6 @@ if __name__=='__main__':
                 p.join()
                 print('All subprocesses done.')
     except Exception as e:
-        # 捕获子进程的异常
         print("Error:", e)
-        # 终止所有子进程和父进程
-        p.terminate()
+        if p is not None:
+            p.terminate()
