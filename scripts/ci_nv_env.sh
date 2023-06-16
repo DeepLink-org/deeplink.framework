@@ -32,6 +32,6 @@ export PYTORCH_TEST_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_d
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 export CUDA_LAUNCH_BLOCKING=1
-export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out
+#export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out
 
 source activate $ENV_NAME
