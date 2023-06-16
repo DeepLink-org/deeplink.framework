@@ -1121,8 +1121,8 @@
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
-      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleNearestBackward(ctx, grad_input, grad_output, size, input_size)
 
@@ -1134,8 +1134,8 @@
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
-      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, "bilinear")
 
