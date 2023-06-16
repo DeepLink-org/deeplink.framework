@@ -10,7 +10,7 @@ original_list=(
     # mmdetection
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"
     "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco"
-    "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"
+    #"mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco"
     # mmsegmentation
     "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024"
@@ -21,26 +21,30 @@ original_list=(
     "mmaction2 recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb.py workdirs_tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb"
 )
 
+# original_list=(
+#     "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"
+# )
+
 length=${#original_list[@]}
 max_parall=1
 random_model_num=100 #如果超过，会自动设置为模型总数
 
-if [ $random_model_num -gt $length ]; then
-    random_model_num=$length
-fi
-
 echo $length
 selected_list=()
 
-# 随机选取模型
-for ((i=0; i<random_model_num; i++)); do
-    random_index=$((RANDOM % length))
-    random_element=${original_list[random_index]}
-    selected_list+=("$random_element")
-    original_list=("${original_list[@]:0:random_index}" "${original_list[@]:random_index+1}")
-    length=${#original_list[@]}
-done
-
+if [ $random_model_num -gt $length ]; then
+    random_model_num=$length
+    # 随机选取模型
+    for ((i=0; i<random_model_num; i++)); do
+        random_index=$((RANDOM % length))
+        random_element=${original_list[random_index]}
+        selected_list+=("$random_element")
+        original_list=("${original_list[@]:0:random_index}" "${original_list[@]:random_index+1}")
+        length=${#original_list[@]}
+    done
+else
+    selected_list=("${original_list[@]}")
+fi
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
