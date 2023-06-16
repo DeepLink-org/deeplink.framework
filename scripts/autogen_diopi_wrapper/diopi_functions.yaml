@@ -1303,8 +1303,8 @@
     int64_t max_target_length = *std::max_element(target_lengths.begin(), target_lengths.end());;
     auto neg_log_likelihood = at::empty({batch_size}, log_probs.options());
     auto log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
-    auto input_lengths_tensor = at::empty({input_lengths.size()}, at::kLong);
-    auto target_lengths_tensor =  at::empty({target_lengths.size()}, at::kLong);
+    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, ReductionNone, zero_infinity);  # TODO: param log_alpha ?
@@ -1318,8 +1318,8 @@
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     auto grad_input = at::empty(log_probs.sizes(), grad.options());
-    auto input_lengths_tensor = at::empty({input_lengths.size()}, at::kLong);
-    auto target_lengths_tensor =  at::empty({target_lengths.size()}, at::kLong);
+    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLossBackward(ctx, grad_input, grad, log_probs, targets, input_lengths_tensor, target_lengths_tensor, neg_log_likelihood, log_alpha, blank, ReductionNone, zero_infinity)
