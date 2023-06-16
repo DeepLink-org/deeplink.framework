@@ -105,13 +105,13 @@ jobs:
           """
 
   Build-POC-Camb:
-    name: Build diopi_poc camb
+    name: Build dipu camb
     needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
     steps:
-      - name: Build dipu-poc
+      - name: Build dipu
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
@@ -141,13 +141,13 @@ jobs:
           """
 
   Build-POC-Camb-Diopi:
-    name: Build diopi_poc camb diopi-main
+    name: Build dipu camb diopi-latest-target
     needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
     steps:
-      - name: Build dipu-poc diopi-main
+      - name: Build dipu diopi-latest-target
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
@@ -237,11 +237,11 @@ jobs:
           bash scripts/ci_one_iter.sh clone
 
   Build-POC-Cuda:
-    name: Build diopi_poc cuda
+    name: Build dipu cuda
     needs: [Clone]
     runs-on: tps-pytorch-ci
     steps:
-      - name: Build dipu-poc
+      - name: Build dipu
         run: |
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
@@ -262,11 +262,11 @@ jobs:
           sh tests/run_nv_tests.sh
 
   Build-POC-Cuda-Diopi:
-    name: Build diopi_poc cuda diopi-main
+    name: Build dipu cuda diopi-latest-target
     needs: [Clone]
     runs-on: tps-pytorch-ci
     steps:
-      - name: Build dipu-poc diopi-main
+      - name: Build dipu diopi-latest-target
         run: |
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
