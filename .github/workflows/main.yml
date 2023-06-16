@@ -117,6 +117,7 @@ jobs:
           echo "---t1----"
           echo ${GITHUB_RUN_NUMBER}
           echo ${GITHUB_JOB}
+          echo ${CLUSTER_CAMB}
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
@@ -215,6 +216,12 @@ jobs:
             git checkout ${{ github.sha }} &&  git merge --no-edit main
           fi
           bash scripts/ci_one_iter.sh clone
+          echo "-----after clone mmcv-----"
+          ls -alh ./
+          echo "-----lll-----"
+          ls -alh ../
+          echo "-----lllll-----"
+          echo ${GITHUB_WORKSPACE}
           rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
 
 
@@ -223,7 +230,12 @@ jobs:
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
+          ls -alh ./
+          echo `pwd`
+          echo '--------start------'
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          ls -alh ./
+          echo '--------work------'
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
           echo  "python path : ${PYTHONPATH}"
