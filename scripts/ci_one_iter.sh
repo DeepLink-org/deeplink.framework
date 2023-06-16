@@ -6,14 +6,14 @@ function clone_needed_repo() {
     #define some version
     MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
     MMENGINE_VERSION=v0.7.4
-    MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
-    MMDETECTION_VERSION=one_iter_for_mmcv_2.0
-    MMSEGMENTATION_VERSION=one_iter_for_mmcv_2.0
-    MMPOSE_VERSION=one_iter_for_mmcv_2.0
-    MMDETECTION3D_VERSION=one_iter_for_mmcv_2.0
-    MMACTION2_VERSION=one_iter_for_mmcv_2.0
-    MMOCR_VERSION=one_iter_for_mmcv_2.0
-    MMAGIC=one_iter_for_mmcv_2.0
+    MMPRETRAIN_VERSION=test_dipu_v1.0.0rc7_one_iter_tool
+    MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
+    MMSEGMENTATION_VERSION=dipu_v1.0.0_one_iter_tool
+    MMPOSE_VERSION=dipu_v1.0.0_one_iter_tool
+    MMDETECTION3D_VERSION=dipu_v1.1.0_one_iter_tool
+    MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
+    MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
+    MMAGIC=dipu_v1.0.0_one_iter_tool
     SMART_VERSION=dev_for_mmcv2.0
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
