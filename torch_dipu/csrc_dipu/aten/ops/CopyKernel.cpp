@@ -1,11 +1,16 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/core/NamedTensor.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
 #include <c10/util/accumulate.h>
+#include <c10/util/Exception.h>
+#include <c10/util/ArrayRef.h>
+#include <c10/core/Layout.h>
 #include <ATen/Dispatch.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/runtime/core/MemChecker.h>
 
 
 using c10::device_or_default;
@@ -15,6 +20,8 @@ using c10::TensorImpl;
 using at::Layout;
 using dipu::devapis::current_device;
 using dipu::devapis::deviceId_t;
+using c10::IntArrayRef;
+
 namespace dipu::native {
 
   // need abstract cast strategy before copy, some device(eg camb) not support all types,
@@ -23,11 +30,11 @@ namespace dipu::native {
   }
   inline int64_t getCopyBytes(const at::Tensor& dst, const at::Tensor& src) {
     if (dst.nbytes() != src.nbytes()) {  // outer bytes must same. different type is unsuported
-      throw std::runtime_error("dipu copy with different size is not allowed"); 
+      TORCH_CHECK(false, "dipu copy with different size is not allowed");
     }
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    // view or expand is supported
+    // a view one +  a real stor one  is supported
     return srcBytes < dstBytes ? srcBytes : dstBytes;
   }
 
@@ -40,6 +47,7 @@ namespace dipu::native {
     void* src_ptr = src_cast.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(dst);
     dipu::devapis::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
       /// need add host cache allocator
@@ -58,21 +66,52 @@ namespace dipu::native {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(src);
     dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
-        DIPU_LOGE("Copy data back to CPU device with " \
-            "non_blocking is not supported now ");
+        // DIPU_LOGW("Copy data back to CPU device with " \
+        //     "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {
       dipu::devapis::syncStream(stream.rawstream());
     }
   }
 
+  inline bool isDiffStrides(const IntArrayRef stride1, const IntArrayRef stride2) {
+    if (stride1.size() != stride2.size()) {
+      return true;
+    }
+    for (auto i = 0; i < stride1.size() ; i++ ) {
+      if (stride1[i] != stride2[i]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   //  1. expand, 2. patial view. 3. type cast.
-  inline bool isStorageSizeDiff(const at::Tensor& dst, const at::Tensor& src) {
+  inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
+    // assume layout always = not suppport Sparse layout
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided, "only Strided layout is supported");
+  
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    return srcBytes != dstBytes || dst.nbytes() != src.nbytes();
+    if (srcBytes != dstBytes || dst.numel() != src.numel() || dst.options().dtype() != src.options().dtype()) {
+      return false;
+    }
+    if (isDiffStrides(dst.strides(), src.strides())) {
+      return false;
+    }
+    // view(with no-zero offset) direct copy may cause err(not sure how long real stor data should be copyed) not supported
+     if (dst.storage_offset() != 0 || src.storage_offset() != 0) {
+      return false;
+    }
+    // even tensors have zero offset and same stride/type cannot do simple safe direct copy 
+    // because we cannot simply decide how much data will be copyed from raw stor (unless check stride).
+    // so we always return false now. 
+    // need enhance in future, because always copy with the help of cpu is toooo0 slow.
+    // **** check if copy safely using tensor.nbytes() when is_contiguous() = true.
+    return false;
   }
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
@@ -83,11 +122,13 @@ namespace dipu::native {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
+    MemChecker::instance().check(src);
+    MemChecker::instance().check(dst);
     dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
     if (non_blocking) {
-        DIPU_LOGE("Copy between devices with " \
-            "non_blocking is not supported now ");
+        // DIPU_LOGW("warnning: Copy between devices with " \
+        //     "non_blocking is not supported now ");
       dipu::devapis::syncStream(stream.rawstream());
     } else {
       dipu::devapis::syncStream(stream.rawstream());
@@ -119,7 +160,7 @@ namespace dipu::native {
     if (names.has_value()) {
       internal_set_names_inplace(self, names);
     }
-    if (isStorageSizeDiff(self, src)) {
+    if (!canDirectCopy(self, src)) {
       at::Tensor src_cpu = src;
       // src to cpu
       if (dipu::isDeviceTensor(src)) {
@@ -153,6 +194,7 @@ namespace dipu::native {
     AT_DISPATCH_ALL_TYPES_AND2(at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu", [&] {
           scalar_t value;
           dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
+          MemChecker::instance().check(self);
           dipu::devapis::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t), &value, self.data_ptr<scalar_t>());
           dipu::devapis::syncStream(stream.rawstream());
           r =  at::Scalar(value);

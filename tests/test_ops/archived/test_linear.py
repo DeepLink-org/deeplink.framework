@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 import torch_dipu
 import torch.nn as nn
@@ -35,3 +36,20 @@ x = torch.arange(24, dtype=torch.float).reshape(2, 2, 2, 3)
 label = torch.randn(2, 2, 2, 2)
 test_linear(x, label, "dipu")
 test_linear(x, label, "cpu")
+
+
+a = torch.randn(2,2,4).cuda()
+a.requires_grad=True
+m = torch.nn.Linear(4,4, bias=False).cuda()
+b = m(a)
+loss = b.mean()
+loss.backward()
+print('a.grad:',a.grad)
+
+a = torch.randn(2,2,4).cuda()
+a.requires_grad=True
+m = torch.nn.Linear(4,4, bias=True).cuda()
+b = m(a)
+loss = b.mean()
+loss.backward()
+print('a.grad:',a.grad)

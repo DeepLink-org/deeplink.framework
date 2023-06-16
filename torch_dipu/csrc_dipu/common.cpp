@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include "./common.h"
 
 namespace dipu {

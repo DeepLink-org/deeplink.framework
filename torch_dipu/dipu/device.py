@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 from functools import partial
 from typing import Optional, Tuple, Union
 

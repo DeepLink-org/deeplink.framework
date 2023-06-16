@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <c10/core/Device.h>
@@ -8,6 +9,8 @@
 
 
 namespace dipu {
+
+extern devapis::VendorDeviceType VENDOR_TYPE;
 
 namespace devapis {
 

@@ -1,12 +1,70 @@
+// Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
+#include <regex>
+#include <iostream>
+
+static std::string force_fallback_operators_list = []()-> std::string {
+    std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
+    std::string content(";");
+    if (stream.is_open()) {
+      while (!stream.eof()) {
+        std::string line;
+        stream >> line;
+        content += ";" + line + ';';
+      }
+    }
+    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+    if (env != nullptr) {
+      content += ';';
+      content += env;
+    }
+    return content;
+}();
+
+
+namespace dipu {
+
+bool get_force_fallback(const char* opname) {
+  if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
+    return false;
+  } else {
+    const std::string pattern = "(([;, ]+)|^())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|()$)";
+    const bool matched_result = std::regex_search(force_fallback_operators_list, std::regex(pattern));
+    if (matched_result) {
+      return true;
+    }
+  }
+  return false;
+}
+
+namespace native {
+void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
+}
+
+}
 
 namespace at {
 
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
   const auto name = c10::toString(op.operator_name());
+
+  TORCH_CHECK(name.find("foreach") == std::string::npos,
+    "Currently the foreach operator does not support fallback");
+
   std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
-  at::native::cpu_fallback(op, stack);
+
+  const static std::vector<std::string> custom_fallback_operators_list{
+    "aten::native_batch_norm",
+    "aten::native_batch_norm.out",
+    "aten::native_batch_norm_backward",
+  };
+  auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
+  if (iter != custom_fallback_operators_list.cend()) {
+    dipu::native::cpu_fallback(op, stack);
+  } else {
+    at::native::cpu_fallback(op, stack);
+  }
 }
 
 
@@ -72,6 +130,14 @@ namespace {
     return at::native::zero_(self);
   }
 
+  // it's a view op, However it's not registered by RegisterCompositeExplicitAutograd.cpp,  
+  // but by cpu/cuda backend.
+  at::Tensor wrapper_DIPU__unfold(const at::Tensor & self, int64_t dimension, int64_t size, int64_t step) {
+    // No device check
+    // DeviceGuard omitted
+    return at::native::unfold(self, dimension, size, step);
+  }
+
   at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor & self) {
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_local_scalar_dense_dipu(self);
@@ -82,6 +148,13 @@ namespace {
 
 TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
+}
+
+// c10d ops (eg： allreduce) needs this fallback reg, cpu/cuda also register this key's fallback in VariableFallbackKernel.cpp.
+// this reg shouldn't affect (todo: need futher test) existing aten ops autograd fallback op, because they reg specialized autogradNotImplementedFallback
+// in generated/VariableTypeEverything.cpp for Autograd which has high priority. (todo: if affect, change to reg fallback only on c10d op)
+TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+  m.fallback(torch::CppFunction::makeFallthrough());
 }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
@@ -97,6 +170,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("view_as_real", TORCH_FN(wrapper_DIPU__view_as_real));
   m.impl("view_as_complex", TORCH_FN(wrapper_DIPU__view_as_complex));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
+  m.impl("unfold", TORCH_FN(wrapper_DIPU__unfold));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 }
 

@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <stdio.h>
 
 #include "./diopirt_impl.h"
@@ -87,6 +88,11 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     c10::DeviceType at_device = diopihelper::toATenDevice(device);
     auto options = at::TensorOptions(at_device).dtype(at_type);
     at::Tensor t = at::empty(at_dims, options);
+    if (stride) {
+        at::IntArrayRef at_stride(stride->data, stride->len);
+        t = t.as_strided(at_dims, at_stride);
+    }
+
     ctx->arrays.emplace_back(std::move(t));
     *tensor = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
     return diopiSuccess;

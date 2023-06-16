@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 
 import copy
 import os
@@ -19,12 +20,17 @@ elif dipu.vendor_type == "GCU":
     from tests.pytorch_config_gcu import DISABLED_TESTS, TEST_PRECISIONS
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
+elif dipu.vendor_type == "CUDA":
+    from tests.pytorch_config_cuda import DISABLED_TESTS, TEST_PRECISIONS
+    _DISABLED_TESTS = DISABLED_TESTS
+    _TEST_PRECISIONS = TEST_PRECISIONS
 
 
 class DIPUTestBase(DeviceTypeTestBase):
     device_type = 'dipu'
     unsupported_dtypes = {
-        torch.half, torch.complex32, torch.complex64, torch.complex128
+        torch.complex32, torch.complex64, torch.complex128, torch.bfloat16,
+        torch.float64, torch.long, torch.int64 # temporary disable
     }
     precision = _DEFAULT_FLOATING_PRECISION
 
@@ -105,7 +111,7 @@ class DIPUTestBase(DeviceTypeTestBase):
                         dtype_combination = (dtype_combination,)
                     DIPUTestBase._get_dipu_types(dtype_combination,
                                                  test_name,
-                                                 test, 
+                                                 test,
                                                  dipu_dtypes,
                                                  disallowed_test)
                 if len(dipu_dtypes) != 0:

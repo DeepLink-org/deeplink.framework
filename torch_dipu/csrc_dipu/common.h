@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <ATen/Utils.h>
@@ -43,6 +44,7 @@ enum class VendorDeviceType : enum_t {
   NPU,  //ascend
   CUDA, //cuda
   GCU,  //gcu
+  SUPA, //Biren
   STPU, //stpu
 };
 
@@ -52,6 +54,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
     case VendorDeviceType::CUDA: return "CUDA";
     case VendorDeviceType::NPU: return "NPU";
     case VendorDeviceType::GCU: return "GCU";
+    case VendorDeviceType::SUPA: return "SUPA";
     case VendorDeviceType::STPU: return "STPU";
   }
 }
@@ -70,10 +73,19 @@ enum class OpStatus: enum_t {
 };
 
 enum class MemCPKind: enum_t {
-  D2H, 
+  D2H,
   H2D,
   D2D,
 };
+
+typedef enum {
+  /*! The operation was successful. */
+  DICL_SUCCESS = 0x0,
+
+  /*! undefined error */
+  DICL_ERR_UNDEF = 0x01000,
+
+} diclResult_t;
 
 } // end ns devapis
 
@@ -85,7 +97,7 @@ const auto DIPU_DISPATCH_AUTOGRAD_KEY = c10::DispatchKey::AutogradPrivateUse1;
 
 const auto DIPU_Backend_TYPE = c10::Backend::PrivateUse1;
 
-extern devapis::VendorDeviceType VENDOR_TYPE;
+const auto DICL_BACKEND_NAME = "dicl";
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 

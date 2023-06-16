@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 
 #include <execinfo.h>
 #include <cxxabi.h>
@@ -11,6 +12,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include <c10/util/Exception.h>
 
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include "DIPUCachingAllocator.h"
@@ -360,7 +363,7 @@ public:
       return memory_stats.at(device);
     } else {
       LOG(FATAL) << "Caching Allocator: wrong device!";
-      throw std::runtime_error("get_memory_stats_for_device: device idx error");      
+      TORCH_CHECK(false, "get_memory_stats_for_device: device idx error");
     }
   }
 

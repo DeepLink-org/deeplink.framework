@@ -1,6 +1,8 @@
+// Copyright (c) 2023, DeepLink.
 #include <cuda_runtime_api.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/common.h>
+#include <c10/util/Exception.h>
 
 namespace dipu {
 DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::CUDA;
@@ -141,7 +143,7 @@ EventStatus getEventStatus(deviceEvent_t event) {
         ::cudaGetLastError(); /* reset internal error state*/
         return devapis::EventStatus::PENDING;
     } else {
-        throw std::runtime_error("dipu device error");
+        TORCH_CHECK(false, "unexpected event status in getEventStatus, ret = ", ret);
     }
 }
 
@@ -161,7 +163,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
     if (r != ::cudaSuccess) {
         if(throwExcepion) {
             ::cudaGetLastError(); /* reset internal error state*/
-            throw std::runtime_error("alloc failed in dipu");
+            TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r);
         }
         else if(r == ::cudaErrorMemoryAllocation) {
             return OpStatus::ERR_NOMEM;

@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include "DIPUGuardImpl.h"
 
 namespace dipu {

@@ -1,3 +1,4 @@
+# Copyright (c) 2023, DeepLink.
 import torch
 from .device import __diputype__
 
@@ -30,3 +31,15 @@ class CharTensor(metaclass=_MetaTensorType):
     dtype = torch.int8
 class BoolTensor(metaclass=_MetaTensorType):
     dtype = torch.bool
+
+
+_default_tensor_type = FloatTensor
+
+def __set_default_tensor_type(type = FloatTensor):
+  print(" warnning!! dipu not support default tensor setting now!, this func is empty")
+  global _default_tensor_type
+  _default_tensor_type = type
+
+# need enhance, seems change tensor define is need 
+def apply_tensor_type_patch():
+  torch.set_default_tensor_type = __set_default_tensor_type

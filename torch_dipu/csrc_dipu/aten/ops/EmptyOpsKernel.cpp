@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/EmptyTensor.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
@@ -34,7 +35,7 @@ namespace dipu::native {
         allocator,
         true);
 
-    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY, dipu::DIPU_DISPATCH_AUTOGRAD_KEY});
+    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
     auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl), dipu_ks, dtype);
 
     // Default at::TensorImpl has size [0]
@@ -61,7 +62,7 @@ namespace dipu::native {
     auto dtype = dtype_or_default(dtype_opt);
 
     c10::Allocator *allocator = dipu::getDIPUAllocator();
-    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY, dipu::DIPU_DISPATCH_AUTOGRAD_KEY});
+    constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
     return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks, dtype);
   }
 

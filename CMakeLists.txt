@@ -11,6 +11,7 @@ list(APPEND DEVICE_CAMB "CAMB" "camb")
 list(APPEND DEVICE_CUDA "CUDA" "cuda")
 list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
+list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_STPU "STPU" "stpu")
 
 # config
@@ -30,18 +31,21 @@ elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
 elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
     set(USE_TOPSRIDER ON)
     set(UsedVendor topsrider)
+elseif (${DEVICE} IN_LIST DEVICE_SUPA)
+    set(USE_SUPA ON)
+    set(UsedVendor supa)
 elseif (${DEVICE} IN_LIST DEVICE_STPU)
     set(USE_STPU ON)
     set(UsedVendor stpu)
 else()
-    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND")
+    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
 
 
 
 # findTorch encounter some error, need check。
-# set(Torch_DIR ${PYTORCH_DIR}/torch/share/cmake/Torch)
+# set(Torch_DIR ${PYTORCH_DIR}/share/cmake/Torch)
 # find_package(Torch REQUIRED)
 # if (NOT Torch_FOUND)
 #     message(FATAL_ERROR "libtorch is required but not found")
