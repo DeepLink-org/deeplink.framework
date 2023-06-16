@@ -36,7 +36,13 @@ jobs:
           fi
           cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
+
+          #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            cd DIPOI && git checkout ${{ github.base_ref }}
+          fi
+
       - name: ci interruptible and support pr ci
         run: |
           cd ${GITHUB_WORKSPACE}/dipu && bash scripts/ci_interruptible.sh
@@ -215,12 +221,17 @@ jobs:
           rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
           rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
           else
-          git checkout ${{ github.sha }}
+            git checkout ${{ github.sha }}
           fi
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu dipu_diopi
+    
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            cd ./DIPOI && git checkout ${{ github.base_ref }}
+          fi
+
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           bash scripts/ci_one_iter.sh clone
 
