@@ -2,7 +2,9 @@ import os
 import sys
 import random
 from multiprocessing import Pool, Queue
+import subprocess as sp
 import pynvml
+import time
 
 sys.stdout.flush = True
 
@@ -14,6 +16,12 @@ print("python path: {}".format(os.environ.get('PYTHONPATH',None)))
 
 os.environ['DIPU_DUMP_OP_ARGS'] = "0"
 
+
+def run_cmd(cmd):
+    cp = sp.run(cmd,shell=True,encoding="utf-8")
+    if cp.returncode != 0:
+        error = "Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
+        raise Exception(error)
 
 def get_gpu_info():
     pynvml.nvmlInit()
@@ -33,14 +41,64 @@ def get_gpu_info():
     
     return device_count, gpu_info
 
-def find_available_card(mem_threshold):
+def find_available_card(mem_threshold,used_card):
     device_count,gpu_info = get_gpu_info()
     while True:
         for i in range(device_count):
-            if(gpu_info[i]["free_memory"]>=mem_threshold)
+            if(gpu_info[i]["free_memory"]>=mem_threshold and (not i in used_card) ):
+                return i,gpu_info[i]["free_memory"]
+            
+        time.sleep(5)
 
 def process_one_iter(q,model_info):
+    used_card = q.get(True)
+    available_card , cur_gpu_free = find_available_card(30,used_card)
+    used_card.append(available_card)
+    q.put(used_card)
 
+    begin_time = time.time()
+
+    model_info_list = model_info.split()
+    if(len(model_info_list)<3 or len(model_info_list)>4):
+        print("wrong model info in  {}".format(model_info))
+    p1 = model_info_list[0]
+    p2 = model_info_list[1]
+    p3 = model_info_list[2]
+    p4 = model_info_list[3] if len(model_info_list)==4 else ""
+
+    train_path = p1+"/tools/train.py"
+    config_path = p1 + "/configs/" + p2
+    work_dir="--work-dir=./one_iter_data/" + p3
+    opt_arg = p4
+    os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
+
+    print(train_path,config_path,work_dir,opt_arg)
+
+    if not os.path.exists(os.environ['ONE_ITER_TOOL_STORAGE_PATH']):            
+        os.makedirs(os.environ['ONE_ITER_TOOL_STORAGE_PATH']) 
+
+    print("cardnum:{},model:{},cur_card_free:{}".format(available_card,p2,cur_gpu_free))
+
+    if(p2=="configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
+        cmd = "CUDA_VISIBLE_DEVICES={} python mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py".format(available_card)
+        run_cmd(cmd)
+    else:
+        cmd1 = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(available_card,train_path,config_path,work_dir,opt_arg)
+        cmd2 = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(available_card)
+        run_cmd(cmd1)
+        run_cmd(cmd2)
+
+    end_time = time.time()
+    run_time = round(end_time-begin_time)
+    hour = run_time//3600
+    minute = (run_time-3600*hour)//60
+    second = run_time-3600*hour-60*minute
+    # 输出
+    print ("The running time of {} :{h} hours {m} mins {} secs".format(p2,hour,minute,second))
+
+    used_card = q.get(True)
+    used_card.remove(available_card)
+    q.put(used_card)
 
 
 
@@ -79,13 +137,8 @@ if __name__=='__main__':
     os.mkdir("one_iter_data")
 
     q = Queue()
-    # p = Pool(max_parall)
-    # for i in range(random_model_num):
-    #     p.apply_async(process_one_iter, args=(q,selected_list[i]))
-    # print('Waiting for all subprocesses done...')
-    # p.close()
-    # p.join()
-    # print('All subprocesses done.')
+    used_card = []
+    q.put(used_card)
     try:
         with Pool(max_parall) as p:
             for i in range(random_model_num):
