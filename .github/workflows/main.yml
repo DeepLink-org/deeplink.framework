@@ -26,6 +26,7 @@ jobs:
     steps:
       - name: clone repo
         run: |
+          ping CAMB
           echo "${{ github.base_ref }} "
           cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
