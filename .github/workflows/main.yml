@@ -190,7 +190,25 @@ jobs:
     steps:
       - name: clone-repos
         run: |
+          ls -alh ./
+          echo "-----l1-----"
+          echo `pwd`
+          echo "-----l2-----"
+
           cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          
+          ls -alh ./
+          echo "-----l3-----"
+          ls -alh ../
+          echo "-----l3-----"
+          echo `pwd`
+          echo "-----l4-----"
+
+          echo ${GITHUB_WORKSPACE}
+          echo ${{ github.repository }}
+          echo ${GITHUB_RUN_NUMBER}
+          echo "-----t2-----"
+          
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
           else
