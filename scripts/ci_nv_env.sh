@@ -12,6 +12,7 @@ export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.0
 export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.0
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
+
 export LD_LIBRARY_PATH=${CONDA_ROOT}/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${CUDA_PATH}/extras/CUPTI/lib64/:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=${MPI_ROOT}/lib:$LD_LIBRARY_PATH
@@ -21,6 +22,8 @@ export PIP_CONFIG_FILE=${CONDA_ROOT}/envs/${ENV_NAME}/.pip/pip.conf
 
 export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
+export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
+export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
@@ -30,6 +33,10 @@ export PYTHON_INCLUDE_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0
 export PYTORCH_DIR_110=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/pytorch1.10
 export PYTORCH_TEST_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
+
+export PYTHONPATH=$(pwd):${PYTHONPATH}
+export NCCL_INCLUDE_DIRS=${NCCL_ROOT}/include
+export VENDOR_INCLUDE_DIRS=${CUDA_PATH}/include
 
 export CUDA_LAUNCH_BLOCKING=1
 export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out

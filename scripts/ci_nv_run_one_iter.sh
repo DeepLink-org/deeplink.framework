@@ -2,25 +2,31 @@
 
 echo  "python path : $PYTHONPATH"
 
+export DIPU_DUMP_OP_ARGS=1
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
-     "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"   
+    "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k --no-pin-memory"   
+    "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin-large_16xb64_in1k --no-pin-memory"   
     "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vit-base-p16_64xb64_in1k-384px --no-pin-memory"  
     "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"  
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco" 
-    "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024"  
     "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192" 
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" 
     "mmaction2 recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb.py workdirs_tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb"   
     "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet-b2_8xb32_in1k --no-pin-memory"  
     "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k --no-pin-memory"   
-    "mmsegmentation pspnet/pspnet_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_pspnet_r50-d8_4xb2-40k_cityscapes-512x1024" 
     "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
+    "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco" 
+    "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"  
+    "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024" 
+    "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024"
 )
+
 
 length=${#original_list[@]}
 max_parall=4   #实际并行数会取决于该设置和空闲卡数的较大值
-random_model_num=4 #如果超过，会自动设置为模型总数,目前随机选取8个模型
+random_model_num=4 #如果超过，会自动设置为模型总数,目前随机选取4个模型
 
 
 if [ $random_model_num -gt $length ]; then
@@ -44,7 +50,7 @@ mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$      #本管道用�
 mkfifo ./fifo2.$$ && exec 788<> ./fifo2.$$ && rm -f ./fifo2.$$   #本管道用于存储card_list,即已占用的卡
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
-done 
+done
 
 used_card_list=()
 echo "${used_card_list[@]}" >&788
@@ -60,11 +66,12 @@ for ((i=0; i<$random_model_num; i++)); do
 {
     set -e
     
-    # 记录开始时间（以纳秒为单位）
-    startTime=$(date +%s%N)
 
     pid=$BASHPID  # 存储子进程的PID号
     read -u 796
+
+    # 记录开始时间（以纳秒为单位）
+    startTime=$(date +%s%N)
 
     #锁机制保证有序
     while true; do
@@ -73,7 +80,7 @@ for ((i=0; i<$random_model_num; i++)); do
         done
         read -r -a used_card_list <&788
         export USED_CARD="${used_card_list[@]}"
-        cur_card=$(sh scripts/detect_available_card.sh 20)
+        cur_card=$(sh scripts/detect_available_card.sh 30)
         read -r cur_cardnum cur_card_G  <<< ${cur_card}
             if [[ $cur_cardnum == -1 ]]; then
                 echo "${used_card_list[@]}" >&788
@@ -125,7 +132,7 @@ for ((i=0; i<$random_model_num; i++)); do
 
     # 显示结果
     echo "The running time of ${p2} ：${hours} H ${minutes} min ${seconds} sec"
-    touch "$pid.done" 
+    touch "$pid.done"
 
 
     # 将卡设置为空闲
@@ -143,7 +150,7 @@ for ((i=0; i<$random_model_num; i++)); do
     done
     echo "${used_card_list[@]}" >&788
     rmdir "${LOCK_FILE}"
-    
+
     echo  "after add place row $i"  1>&796
 }&
 pid=$!  # 存储子进程的PID号

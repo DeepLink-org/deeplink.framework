@@ -110,6 +110,12 @@ def create_transform_input_to_cpu_code(fun_config):
     for input in optional_inputs:
         input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>({input}.value().cpu()) : {input};\n"
 
+    optional_tensor_list_inputs = re.findall('Tensor *\? *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
+    for input in optional_tensor_list_inputs:
+        input_process_code += f"\nc10::List<c10::optional<at::Tensor>> {input}_cpu;\n"
+        input_process_code += f"for (int i = 0; i < {input}.size();++i)" + " {\n"
+        input_process_code += f"\t{input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>({input}[i].value().cpu()) : {input}[i]);\n"
+        input_process_code += "}\n"
 
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     for output in outputs:
@@ -162,6 +168,7 @@ def create_param_list_from_schema(schema):
         'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
         'int ?\?' : 'c10::optional<int64_t>' ,
+        'float ?\?' : 'c10::optional<double>' ,
         '([\(, ]*)int ([\w\d_]+)' : R'\1int64_t \2',
         '([\(, ]*)float ([\w\d_]+)' : R'\1double \2',
         '([\(, ]*)SymInt ([\w\d_]+)' : R'\1c10::SymInt \2',
@@ -400,7 +407,8 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
     tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
-    for input in inputs + optional_inputs + outputs + tensors_arrays:
+    optional_tensor_list_inputs = re.findall('Tensor *\? *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
+    for input in inputs + optional_inputs + outputs + tensors_arrays + optional_tensor_list_inputs:
         code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
 
     return code
@@ -434,7 +442,9 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     op_name = get_op_name_from_schema(fun_config['schema'])
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
-    debug_code = f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code = "if (dumpOpArgs()) {\n\t"
+    debug_code += f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code += "}\n"
     return debug_code
 
 def create_int_array_process_code(int_array_list):

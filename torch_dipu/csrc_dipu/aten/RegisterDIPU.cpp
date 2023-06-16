@@ -130,6 +130,14 @@ namespace {
     return at::native::zero_(self);
   }
 
+  // it's a view op, However it's not registered by RegisterCompositeExplicitAutograd.cpp,  
+  // but by cpu/cuda backend.
+  at::Tensor wrapper_DIPU__unfold(const at::Tensor & self, int64_t dimension, int64_t size, int64_t step) {
+    // No device check
+    // DeviceGuard omitted
+    return at::native::unfold(self, dimension, size, step);
+  }
+
   at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor & self) {
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_local_scalar_dense_dipu(self);
@@ -162,6 +170,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("view_as_real", TORCH_FN(wrapper_DIPU__view_as_real));
   m.impl("view_as_complex", TORCH_FN(wrapper_DIPU__view_as_complex));
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
+  m.impl("unfold", TORCH_FN(wrapper_DIPU__unfold));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
 }
 

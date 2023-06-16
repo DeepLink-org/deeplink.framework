@@ -30,7 +30,7 @@ function autogen_diopi_wrapper() {
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
         --use_diopi_adapter False                                                   \
         --autocompare False                                                         \
-        --print_func_call_info True                                                 \
+        --print_func_call_info False                                               \
         --print_op_arg True
 }
 
