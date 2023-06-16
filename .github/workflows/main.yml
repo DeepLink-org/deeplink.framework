@@ -181,14 +181,12 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE} && rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
           else
-            git checkout ${{ github.sha }} &&  git merge --no-edit main
+            git checkout ${{ github.sha }}
           fi
           bash scripts/ci_one_iter.sh clone
           rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
-
-
 
       - name: run-one-iter-tools
         run: |
@@ -217,9 +215,9 @@ jobs:
           rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
           rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
           else
-          git checkout ${{ github.sha }} &&  git merge --no-edit main
+          git checkout ${{ github.sha }}
           fi
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu dipu_diopi
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
