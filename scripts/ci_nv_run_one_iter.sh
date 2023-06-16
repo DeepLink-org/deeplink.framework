@@ -66,7 +66,7 @@ export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
 # export ONE_ITER_TOOL_IORANDOM_SEED=$RANDOM     #模型iodata选取的随机数种子
 # export ONE_ITER_TOOL_IOSAVE_RATIO=0.2          #iodata存储选取的比例
-g
+
 mkdir one_iter_data
 
 for ((i=0; i<$random_model_num; i++)); do
