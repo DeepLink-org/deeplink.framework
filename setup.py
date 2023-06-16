@@ -193,7 +193,7 @@ setup(
     name="torch_dipu",
     version=VERSION,
     description='DIPU extension for PyTorch',
-    url='https://github.com/OpenComputeLab/dipu_poc',
+    url='https://github.com/DeepLink-org/dipu',
     packages=["torch_dipu"],
     ext_modules=[
         CppExtensionBuilder.genDIPUExt(),
