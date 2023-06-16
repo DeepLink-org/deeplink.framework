@@ -20,6 +20,10 @@ elif dipu.vendor_type == "GCU":
     from tests.pytorch_config_gcu import DISABLED_TESTS, TEST_PRECISIONS
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
+elif dipu.vendor_type == "CUDA":
+    from tests.pytorch_config_cuda import DISABLED_TESTS, TEST_PRECISIONS
+    _DISABLED_TESTS = DISABLED_TESTS
+    _TEST_PRECISIONS = TEST_PRECISIONS
 
 
 class DIPUTestBase(DeviceTypeTestBase):

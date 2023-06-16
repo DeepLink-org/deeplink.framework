@@ -5,6 +5,7 @@ source tests/common.sh
 
 function run_dipu_tests {
   export DIPU_DUMP_OP_ARGS=1
+  export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
   # run_test "${PYTORCH_TEST_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
   run_test "${PYTORCH_TEST_DIR}/test/test_type_hints.py" "$@" -v
@@ -13,8 +14,8 @@ function run_dipu_tests {
   # run_test "${PYTORCH_TEST_DIR}/test/test_unary_ufuncs.py" "$@" -v TestUnaryUfuncsDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_binary_ufuncs.py" "$@" -v TestBinaryUfuncsDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU #--subprocess
-  # run_test "${PYTORCH_TEST_DIR}/test/test_indexing.py" "$@" -v TestIndexingDIPU
-  # run_test "${PYTORCH_TEST_DIR}/test/test_indexing.py" "$@" -v NumpyTestsDIPU
+  #run_test "${PYTORCH_TEST_DIR}/test/test_indexing.py" "$@" -v TestIndexingDIPU
+  #run_test "${PYTORCH_TEST_DIR}/test/test_indexing.py" "$@" -v NumpyTestsDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_view_ops.py" "$@" -v TestViewOpsDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_type_promotion.py" "$@" -v TestTypePromotionDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_nn.py" "$@" -v TestNN

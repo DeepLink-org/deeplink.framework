@@ -17,6 +17,7 @@ function config_dipu_cmake() {
     cd ./build && rm -rf ./*
     PYTORCH_DIR="/you_pytorch/torch20/pytorch"
     PYTHON_INCLUDE_DIR="/you_conda/envs/torch20/include/python3.8"
+
     # export NEUWARE_ROOT="/usr/local/neuware-2.4.1/"
 
     # export NCCL_ROOT="you nccl path when use cuda device"
