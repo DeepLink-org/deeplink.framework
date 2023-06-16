@@ -26,11 +26,12 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          echo "------- ref name is ---------"${GITHUB_REF_NAME}
+          echo "$GITHUB_REF_NAME"
           echo "${{ github.head_ref	}} "
           echo "${{ github.base_ref }} "
+          echo "$GITHUB_REF"
           echo "can get pull request"
-          echo "{$GITHUB_EVENT_NAME}" 
+          echo "$GITHUB_EVENT_NAME" 
           cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
