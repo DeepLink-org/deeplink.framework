@@ -682,7 +682,7 @@ class AscendOverrides:
                            auto {name}_preprocess = op::Const("{name}_preprocess")
                              .set_attr_value({name}_perm_tensor);
                         """
-        src_code = f"""
+        src_code += f"""
                        auto {name} = op::Transpose("{name}")
                          .set_input_x({input})
                          .set_input_perm({name}_preprocess);
