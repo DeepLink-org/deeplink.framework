@@ -2,10 +2,7 @@ import acl
 import os
 import numpy as np
 import time
-
-
-# the range for dynamic shape
-max_range = 32
+import pickle
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -52,6 +49,12 @@ ACL_MDL_OUTPUTQ_NUM_SIZET = 11
 ACL_MDL_OUTPUTQ_ADDR_PTR = 12
 ACL_MDL_WORKSPACE_MEM_OPTIMIZE = 13
 
+ACL_MDL_LOAD_FROM_FILE = 1
+ACL_MDL_LOAD_FROM_FILE_WITH_MEM = 2
+ACL_MDL_LOAD_FROM_MEM = 3
+ACL_MDL_LOAD_FROM_MEM_WITH_MEM = 4
+ACL_MDL_LOAD_FROM_FILE_WITH_Q = 5
+
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
         return np.float32
@@ -77,6 +80,7 @@ buffer_method = {
 
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
+        import pdb;pdb.set_trace()
         raise Exception("{} failed ret={}"
                         .format(message, ret))
         
@@ -94,8 +98,90 @@ def get_total_compute_time():
     global total_compute_time
     return total_compute_time
 
+
+class MemoryPool:
+    def __init__(self):
+        self.weight_ids = []
+        self.input_ids = []
+        self.output_ids = []
+        
+        self.weights = {}
+        self.inputs = {}
+        self.outputs = {}
+        
+        self.init_weights()
+        self.init_inputs()
+        self.init_outputs()
+        self.init_work_weight_ptr()
+    
+    def init_work_weight_ptr(self):
+        self.work_size = 18 * 1024 * 1024 * 1024
+        self.work_ptr, ret = acl.rt.malloc(self.work_size,
+                                            ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
+        
+        self.weight_size = 9600
+        self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
+                                            ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
+        
+    def init_weights(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_weight.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
+
+        for _, v in self.memory_infos.items():
+            temp_buffer, ret = acl.rt.malloc(v['size'],
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.weights[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.weight_ids.append(v['index'])
+    
+    def init_inputs(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_input_new_fix.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
+
+        for _, v in self.memory_infos.items():
+            if v['size'] == 0:
+                size = 1
+            else:
+                size = v['size']
+            temp_buffer, ret = acl.rt.malloc(size,
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.inputs[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.input_ids.append(v['index'])
+
+    def init_outputs(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(cur_dir, 'memory_pool_output_new_fix.pkl'), 'rb') as f:
+            self.memory_infos = pickle.load(f)
+
+        for _, v in self.memory_infos.items():
+            if v['size'] == 0:
+                size = 1
+            else:
+                size = v['size']
+            temp_buffer, ret = acl.rt.malloc(size,
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+            self.outputs[v['index']] = {
+                'size': v['size'],
+                'device_ptr': temp_buffer,
+            }
+            self.output_ids.append(v['index'])     
+
+memory_pool = MemoryPool()
+
 class AscendExecutor(object):
-    def __init__(self, device_id, dims, model_path) -> None:
+    def __init__(self, device_id, model_path) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
         self.model_id = None                # pointer
@@ -107,96 +193,66 @@ class AscendExecutor(object):
         self.load_input_dataset = None
         self.load_output_dataset = None
 
-        self.input_dims = dims
+        # load model
+        self.load_model()
+        print("model_id:{}".format(self.model_id))
+        
+        self.model_desc = acl.mdl.create_desc()
+        ret = acl.mdl.get_desc(self.model_desc, self.model_id)
+        check_ret("acl.mdl.get_desc", ret)
 
+        self.input_size = acl.mdl.get_num_inputs(self.model_desc)
+        self.output_size = acl.mdl.get_num_outputs(self.model_desc)
         self.init_resource()
 
     def release_resource(self):
-        print("Releasing resources stage:")
-        ret = acl.mdl.unload(self.model_id)
-        check_ret("acl.mdl.unload", ret)
-        if self.model_desc:
-            acl.mdl.destroy_desc(self.model_desc)
-            self.model_desc = None
-
-        while self.input_data:
-            item = self.input_data.pop()
-            ret = acl.rt.free(item["buffer"])
-            check_ret("acl.rt.free", ret)
-
-        while self.output_data:
-            item = self.output_data.pop()
-            ret = acl.rt.free(item["buffer"])
-            check_ret("acl.rt.free", ret)
+        pass
             
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 1)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, ACL_MDL_LOAD_FROM_FILE_WITH_MEM)
         check_ret("set_config_opt", ret) 
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
         check_ret("set_config_opt", ret)
+        
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, memory_pool.weight_ptr)
+        check_ret("set_config_opt", ret)
+        
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, memory_pool.weight_size)
+        check_ret("set_config_opt", ret)
+        
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
+        check_ret("set_config_opt", ret)
+        
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        check_ret("set_config_opt", ret)     
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
         check_ret("set_config_opt", ret)
 
         self.model_id, ret = acl.mdl.load_with_config(config_handle)
         check_ret("acl.mdl.load_with_config", ret)
-        print("model_id:{}".format(self.model_id))
 
     def init_resource(self):
-        print("init resource stage:")
-        # load model
-        self.load_model()
-
-        self.model_desc = acl.mdl.create_desc()
-        self._get_model_info()
-        print("init resource success")
-
-    def _get_model_info(self,):
-        ret = acl.mdl.get_desc(self.model_desc, self.model_id)
-        check_ret("acl.mdl.get_desc", ret)
-        input_size = acl.mdl.get_num_inputs(self.model_desc)
-        output_size = acl.mdl.get_num_outputs(self.model_desc)
-
-        self._gen_data_buffer(input_size, des="in")
-        self._gen_data_buffer(output_size, des="out")
-
+        self._gen_data_buffer(self.input_size, des="in")
+        self._gen_data_buffer(self.output_size, des="out")
+        
     def _gen_data_buffer(self, size, des):
         func = buffer_method[des]
         for i in range(size):
-            # check temp_buffer dtype
-            temp_buffer_size = func(self.model_desc, i)
-            if des == "in" and self.input_dims is not None and i in self.input_dims.keys():
-                tot_size = 1
-                for elem in self.input_dims[i]:
-                    tot_size *= elem
-                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
-                np_dtype = get_np_dtype(dtype)
-                temp_buffer_size = tot_size * np.dtype(np_dtype).itemsize
-
-            if temp_buffer_size == 0:
-                if self.input_dims is not None and des == "out":
-                    dims, ret = acl.mdl.get_output_dims(self.model_desc, i)
-                    check_ret("acl.mdl.get_output_dims", ret)
-                    dims = dims["dims"]
-                    dims = [max_range if dim == -1 else dim for dim in dims]
-                    temp_buffer_size = 1
-                    for d in dims:
-                        temp_buffer_size *= d
-                    dtype = acl.mdl.get_output_data_type(self.model_desc, i)
-                    np_dtype = get_np_dtype(dtype)
-                    temp_buffer_size *= np.dtype(np_dtype).itemsize
-                    temp_buffer, ret = acl.rt.malloc(temp_buffer_size,
-                                                 ACL_MEM_MALLOC_HUGE_FIRST)
+            if des == "in":
+                if i in memory_pool.weight_ids:
+                    temp_buffer = memory_pool.weights[i]['device_ptr']
+                    temp_buffer_size = memory_pool.weights[i]['size']
                 else:
-                    temp_buffer, ret = acl.rt.malloc(1,
-                                                 ACL_MEM_MALLOC_HUGE_FIRST)
-                check_ret("acl.rt.malloc", ret)
+                    temp_buffer_size = func(self.model_desc, i)
+                    temp_buffer = memory_pool.inputs[i]['device_ptr']       
+            elif des == "out":
+                temp_buffer_size = func(self.model_desc, i)
+                temp_buffer = memory_pool.outputs[i]['device_ptr']               
             else:
-                temp_buffer, ret = acl.rt.malloc(temp_buffer_size,
-                                             ACL_MEM_MALLOC_HUGE_FIRST)
-                check_ret("acl.rt.malloc", ret)
+                raise RuntimeError('invalid params!')
 
             if des == "in":
                 self.input_data.append({"buffer": temp_buffer,
@@ -209,53 +265,43 @@ class AscendExecutor(object):
         temp_data_buffer = self.input_data \
             if policy == ACL_MEMCPY_HOST_TO_DEVICE \
             else self.output_data
-
         if len(dataset) == 0 and policy == ACL_MEMCPY_DEVICE_TO_HOST:
-            for i, item in enumerate(self.output_data):
-                if self.input_dims is not None:
-                    out = acl.mdl.get_dataset_tensor_desc(self.load_output_dataset, i)
-                    tsize = acl.get_tensor_desc_num_dims(out)
-                    out_dim = []
-                    tot_size = 1
-                    for d in range(tsize):
-                        out_dim.append(acl.get_tensor_desc_dim(out, d))
-                        tot_size *= out_dim[-1]
-                    dtype = acl.mdl.get_output_data_type(self.model_desc, i)
-                    np_dtype = get_np_dtype(dtype)
-                    tot_size *= np.dtype(np_dtype).itemsize
-                else:
-                    dims, ret = acl.mdl.get_cur_output_dims(self.model_desc, i)
-                    check_ret("acl.mdl.get_cur_output_dims", ret)
-                    out_dim = dims["dims"]
-                    tot_size = item["size"]
-
-                temp, ret = acl.rt.malloc_host(tot_size)
+            for item in self.output_data:
+                temp, ret = acl.rt.malloc_host(item["size"])
                 if ret != 0:
                     raise Exception("can't malloc_host ret={}".format(ret))
-                dataset.append({"size": tot_size, "buffer": temp, "dims": out_dim})
+                dataset.append({"size": item["size"], "buffer": temp})
 
         for i, item in enumerate(temp_data_buffer):
             if policy == ACL_MEMCPY_HOST_TO_DEVICE:
                 ptr = dataset[i]
                 if item["size"] == 0:
                     continue
-                ret = acl.rt.memcpy(item["buffer"],
-                                    item["size"],
-                                    ptr,
-                                    item["size"],
-                                    policy)
-                check_ret("acl.rt.memcpy", ret)
-
+                
+                if i in memory_pool.weight_ids:
+                    if 'host_ptr' not in memory_pool.weights[i].keys():
+                        ret = acl.rt.memcpy(item["buffer"],
+                                            item["size"],
+                                            ptr,
+                                            item["size"],
+                                            policy)
+                        check_ret("acl.rt.memcpy", ret)
+                        memory_pool.weights[i]['host_ptr'] = ptr
+                else:
+                    ret = acl.rt.memcpy(item["buffer"],
+                                        item["size"],
+                                        ptr,
+                                        item["size"],
+                                        policy)
+                    check_ret("acl.rt.memcpy", ret)
             else:
                 ptr = dataset[i]["buffer"]
                 ret = acl.rt.memcpy(ptr,
-                                    dataset[i]["size"],
+                                    item["size"],
                                     item["buffer"],
-                                    dataset[i]["size"],
+                                    item["size"],
                                     policy)
                 check_ret("acl.rt.memcpy", ret)
-
-        return dataset
 
     def _gen_dataset(self, type_str="input"):
         dataset = acl.mdl.create_dataset()
@@ -290,10 +336,9 @@ class AscendExecutor(object):
         #print("data interaction from device to host")
         res = []
         # copy device to host
-        res = self._data_interaction(res, ACL_MEMCPY_DEVICE_TO_HOST)
+        self._data_interaction(res, ACL_MEMCPY_DEVICE_TO_HOST)
         #print("data interaction from device to host success")
         result = self.get_result(res)
-        self._destroy_databuffer()
         # free host memory
         for item in res:
             ptr = item['buffer']
@@ -307,25 +352,11 @@ class AscendExecutor(object):
         return self._data_from_device_to_host()
 
     def forward(self):
-        #print('execute stage:')
-        if self.input_dims is not None:
-            for key, value in self.input_dims.items():
-                dtype = acl.mdl.get_input_data_type(self.model_desc, key)
-                tensorDesc = acl.create_tensor_desc(0, value, dtype)
-                dataset, ret = acl.mdl.set_dataset_tensor_desc(self.load_input_dataset,
-                                                tensorDesc, key)
-                check_ret("acl.mdl.set_dataset_tensor_desc", ret)
-                assert(dataset == self.load_input_dataset)
-        start = time.time()
         ret = acl.mdl.execute(self.model_id,
                               self.load_input_dataset,
                               self.load_output_dataset)
-        end = time.time()
-        increase_compute_time(end - start)
         check_ret("acl.mdl.execute", ret)
-        # self._destroy_databuffer()
-        # print('execute time: ', end - start)
-        # print('execute stage success')
+        self._destroy_databuffer()
 
     def _destroy_databuffer(self):
         for dataset in [self.load_input_dataset, self.load_output_dataset]:
@@ -344,39 +375,29 @@ class AscendExecutor(object):
         result = []
         
         for i, temp in enumerate(output_data):
-            out_dim = temp["dims"]
+            dims, ret = acl.mdl.get_cur_output_dims(self.model_desc, i)
+            check_ret("acl.mdl.get_cur_output_dims", ret)
+            
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
             np_dtype = get_np_dtype(dtype)
+            out_dim = dims['dims']
 
             ptr = temp["buffer"]
             bytes_data = acl.util.ptr_to_bytes(ptr, temp["size"])
             data = np.frombuffer(bytes_data, dtype=np_dtype).reshape(tuple(out_dim))
             result.append(data)
         return result
+    
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
-
+        self.exe = AscendExecutor(self.device_id, self.model_path)
+        
     def run(self, images):
-        exe = AscendExecutor(self.device_id, self.model_path)
-        result = exe.run(images)
-        exe.release_resource()
+        result = self.exe.run(images)
         return result
-
-
-class AscendModel():
-    def __init__(self, device_id, model_path) -> None:
-        self.device_id = device_id          # int
-        self.model_path = model_path        # str
-
-    def run(self, images, dims=None):
-        exe = AscendExecutor(self.device_id, dims, self.model_path)
-        result = exe.run(images)
-        exe.release_resource()
-        return result
-
 
 if __name__ == '__main__':
     current_dir = os.path.dirname(os.path.abspath(__file__))

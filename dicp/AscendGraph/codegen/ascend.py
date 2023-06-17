@@ -418,7 +418,7 @@ class AscendCodegen(torch.fx.Interpreter):
         with compile_func_body.indent():
             compile_func_body.splice(
                 f"""
-                    std::string graph_name = "BuildGraph" + graph_id;
+                    std::string graph_name = "BuildGraph";
                     Graph graph(graph_name.c_str());
                     Status ret = genGraph(graph);
                     if (ret != SUCCESS) {{
@@ -667,29 +667,26 @@ class AscendOverrides:
     @staticmethod
     def transpose(name, node, input, dim0, dim1):
         input_shape = list(node.args[0].meta['val'].shape)
-        output_shape = list(node.meta['val'].shape)
-        
-        if input_shape == output_shape:
-            src_code = f'''
-                      auto {name} = op::Identity("{name}")
-                        .set_input_x({input});
-            '''
-            return src_code
-        shape_size = len(output_shape)
-        shape_str = '{' + ','.join(map(str, output_shape)) + '}' 
-
-        if dynamic_shape_str(shape_str):
-            src_code = process_shape_str(shape_str, name)
+        rank = len(input_shape)
+        dim0 = int(dim0)
+        dim1 = int(dim1)
+        perm = [num for num in range(rank)]
+        perm[dim0] = dim1
+        perm[dim1] = dim0
+        perm_str = '{' + ','.join(map(str, perm)) + '}'
+        if dynamic_shape_str(perm_str):
+            src_code = process_shape_str(perm_str, name)
         else:
-            src_code = f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
+            src_code = f"""
+                           auto {name}_perm_tensor = genTensorWithData<int>({{ {rank} }}, FORMAT_NCHW, DT_INT32, {perm_str});
                            auto {name}_preprocess = op::Const("{name}_preprocess")
-                           .set_attr_value({name}_reshape_tensor);
+                             .set_attr_value({name}_perm_tensor);
                         """
-        src_code += f"""
-                       auto {name} = op::Reshape("{name}")
+        src_code = f"""
+                       auto {name} = op::Transpose("{name}")
                          .set_input_x({input})
-                         .set_input_shape({name}_preprocess);
-                    """
+                         .set_input_perm({name}_preprocess);
+                    """                    
         return src_code
 
     @staticmethod
@@ -1840,6 +1837,8 @@ class AscendOverrides:
 
         dim = int(dim)
         start = int(start)
+        start = start if start >= 0 else x_shape[dim] + start
+        
         assert dim >= 0 and dim < len(x_shape)
         assert start >=0 and start < x_shape[dim]
         
