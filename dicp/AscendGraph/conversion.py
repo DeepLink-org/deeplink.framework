@@ -1,5 +1,6 @@
 import functools
 import operator
+import _operator
 import torch
 import dicp.AscendGraph.ascend_op as ascend_op
 from abc import ABC, abstractmethod
@@ -208,6 +209,14 @@ def where(condition, a, b):
 @registe_conversion(torch.ops.aten.view)
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
+
+@registe_conversion(_operator.mul)
+def inmul(a, b):
+    return ascend_op.InMul(a, b)
+
+@registe_conversion(torch.ops.aten.sym_size)
+def symsize(x, dim):
+    return ascend_op.SymSize(x, dim)
 
 @registe_conversion(operator.getitem)
 def identity(x, idx):

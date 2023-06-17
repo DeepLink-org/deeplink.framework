@@ -57,10 +57,16 @@ class AscendCodeCache:
             loaded = cdll.LoadLibrary(output_path)
             loaded.compile(output_graph_path.encode())
             
-            from dicp.AscendGraph.codegen.load_and_run import AscendExecutor
-            exe = AscendExecutor(0, output_graph_path + '.om')
+            if not os.path.exists(output_graph_path + '.om'):
+                output_graph_path += '_linux_x86_64'
+            assert(os.path.exists(output_graph_path + '.om'))
+
+            from dicp.AscendGraph.codegen.load_and_run import AscendExecutor, AscendModel
+            # exe = AscendExecutor(0, dims, output_graph_path + '.om')
+            exe = AscendModel(0, output_graph_path + '.om')
             cls.cache[key] = exe
             cls.cache[key].key = key
+
         return cls.cache[key]
 
 class AsyncCompileAscend(AsyncCompile):

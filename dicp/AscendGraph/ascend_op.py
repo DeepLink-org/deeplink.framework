@@ -1,4 +1,5 @@
 import torch
+import _operator
 from typing import Tuple
 from contextlib import nullcontext
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
@@ -249,6 +250,7 @@ class ExpandD(Operator):
     def __call__(self, x, dims):
         if hasattr(x, 'meta'):
             x = x.meta['val']
+        dims = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in dims]
         return x.expand(dims)
 
 
@@ -391,7 +393,28 @@ class TranShape(Operator):
         super().__init__("view")
         self.x = x
         self.shape = shape
-        self.torch_op = aten.reshape
+
+    def __call__(self, x, shape):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
+        return aten.reshape(x, shape)
+
+
+class InMul(Operator):
+    def __init__(self, a, b):
+        super().__init__("inmul")
+        self.a = a
+        self.b = b
+        self.torch_op = _operator.mul
+
+
+class SymSize(Operator):
+    def __init__(self, x, dim):
+        super().__init__("symsize")
+        self.x = x
+        self.dim = dim
+        self.torch_op = aten.sym_size
 
 
 class Identity(Operator):

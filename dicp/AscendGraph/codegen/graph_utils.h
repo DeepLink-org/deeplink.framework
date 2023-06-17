@@ -52,11 +52,14 @@ ge::Tensor genTensorWithData(const std::vector<int64_t>& tensor_shape, ge::Forma
   return result;
 }
 
-ge::Operator genInput(const std::string op_name, const std::vector<int64_t> shape, ge::Format format, ge::DataType data_type){
+ge::Operator genInput(const std::string op_name, const std::vector<int64_t> shape, ge::Format format, ge::DataType data_type, int index = -1){
   TensorDesc tensor_desc_data_op = TensorDesc(ge::Shape(shape), format, data_type);
   auto op = op::Data(op_name.c_str());
   op.update_input_desc_x(tensor_desc_data_op);
   op.update_output_desc_y(tensor_desc_data_op);
+  if (index > -1) {
+    op.set_attr_index(index);
+  }
   return op;
 }
 
@@ -77,9 +80,8 @@ public:
     }
   }
 
-  void saveGraph(const std::string& path, const Graph& graph) {
+  void saveGraph(const std::string& path, const Graph& graph, std::map<AscendString, AscendString>& options) {
     ModelBufferData model;
-    std::map<AscendString, AscendString> options;
 
     auto status = aclgrphBuildModel(graph, options, model);
     if (status == GRAPH_SUCCESS) {

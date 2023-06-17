@@ -12,7 +12,9 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
              'view_as_complex', 'view_as_real', 'slice', 'select',
-             'pow', 'cat', 'expand', 'transpose']
+             'pow', 'cat', 'expand', 'transpose', 'inmul']
+
+sym_to_inputs = {}
 
 def get_graph_id():
     global graph_id
@@ -42,6 +44,124 @@ def get_reduction_str(r):
         raise RuntimeError("not supported yet!")
 
 
+def simple_operation(expr, name, token):
+    if token == '-':
+        opr = 'Sub'
+    elif token == '+':
+        opr = 'Add'
+    else:
+        raise RuntimeError("not supported yet!")
+
+    exprs = expr.split(token)
+    exprs = [expr.strip() for expr in exprs]
+    #!TODO only support tensor minus constant
+    assert(len(exprs) == 2)
+    try:
+        int(exprs[1])
+    except ValueError:
+        raise RuntimeError("not supported yet!")
+
+    src_code = f"""
+                    auto {name}_y_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {exprs[1]} }});
+                    auto {name}_y = op::Const("{name}_y")
+                      .set_attr_value({name}_y_tensor);
+                    auto {name} = op::{opr}("{name}")
+                      .set_input_x1({exprs[0]})
+                      .set_input_x2({name}_y);
+                    graph.AddOp({name});
+                """
+    return src_code
+
+
+def process_shape_str(shape_str, name, suffix=""):
+    shape = shape_str.strip('{}').split(',')
+    src_code = f""""""
+    pattern = []
+    count = 0
+    for elem in shape:
+        elem = elem.strip()
+        flag = True
+        try:
+            int(elem)
+        except ValueError:
+            flag = False
+        if not flag:
+            if len(pattern) > 0:
+                shape_str = '{' + ','.join(map(str, pattern)) + '}'
+                src_code += f"""
+                                auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
+                                auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
+                                  .set_attr_value({name}_dim_tensor_{count});
+                            """
+                pattern = []
+                count += 1
+
+            for key in sym_to_inputs:
+                if key in elem:
+                    elem = elem.replace(key, sym_to_inputs[key])
+
+            #!TODO deal with more complicated expressions
+            if '-' in elem:
+                src_code += simple_operation(elem, name+'_dim_'+str(count), '-')
+            elif '+' in elem:
+                src_code += simple_operation(elem, name+'_dim_'+str(count), '+')
+            else:
+                src_code += f"""
+                                auto& {name}_dim_{count} = {elem};
+                             """
+            count += 1
+        else:
+            pattern.append(elem)
+
+    if len(pattern) > 0:
+        shape_str = '{' + ','.join(map(str, pattern)) + '}'
+        src_code += f"""
+                        auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
+                        auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
+                          .set_attr_value({name}_dim_tensor_{count});
+                    """
+    else:
+        count -= 1
+    count += 1
+
+    src_code += f"""
+                    auto {name}_preprocess{suffix} = op::ConcatD("{name}_preprocess{suffix}")
+                        .create_dynamic_input_x({count})
+                """
+    for i in range(count):
+        src_code += f"""
+                        .set_dynamic_input_x({i}, {name}_dim_{i})
+                    """
+    src_code += f"""
+                        .set_attr_concat_dim(0)
+                        .set_attr_N({count});
+                    graph.AddOp({name}_preprocess{suffix});
+                """
+
+    return src_code
+
+
+def dynamic_shape_str(shape_str):
+    shape = shape_str.strip('{}').split(',')
+    for elem in shape:
+        elem = elem.strip()
+        flag = True
+        try:
+            int(elem)
+        except ValueError:
+            flag = False
+        if not flag:
+            return True
+    return False
+
+
+def symint_in_shape(shape):
+    for elem in shape:
+        if isinstance(elem, torch.SymInt):
+            return True
+    return False
+
+
 class AscendCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
         self.graph = graph
@@ -56,21 +176,47 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args_names = []
         self.output_args = []
 
+        self.dynamic_inputs = []
+        self.dynamic_shape = []
+        self.actual_shape = []
+        self.dynamic_index = []
+
+        self.symint_outputs = []
+
+        sym_to_inputs = {}
+
         super().__init__(graph)
 
     def placeholder(self, name, target, args, kwargs):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
-        if isinstance(fake_tensor, torch.SymInt):
-            tensor_shape = '{}'
-            tensor_format = "FORMAT_ND"
-            ascend_dtype = "ge::DataType::DT_INT32"
-        else:
-            tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-            tensor_format = "FORMAT_NCHW"
-            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-        self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype});''')
+
+        try:
+            if isinstance(fake_tensor, torch.SymInt):
+                sym_to_inputs.update({fake_tensor.node.str(): self.args_dict[name]})
+                tensor_shape = f"{{1}}"
+                tensor_format = "FORMAT_ND"
+                ascend_dtype = "ge::DataType::DT_INT32"
+            elif symint_in_shape(fake_tensor.shape):
+                # deal with dynamic shape -1
+                shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
+                actual_shape = fake_tensor.shape # [elem.node._hint if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
+                tensor_shape = '{' + ','.join(map(str, shape)) + '}'
+                tensor_format = "FORMAT_NCHW"
+                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+                self.dynamic_inputs.append(self.args_dict[name])
+                self.dynamic_shape.append(shape)
+                self.actual_shape.append(actual_shape)
+                self.dynamic_index.append(len(self.input_args_names))
+            else:
+                tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
+                tensor_format = "FORMAT_NCHW"
+                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+        except:
+            import pdb;pdb.set_trace()
+
+        self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype}, {len(self.input_args_names)});''')
         self.input_args_names.append(self.args_dict[name])
 
     def call_function(self, name, target, args, kwargs):
@@ -119,11 +265,15 @@ class AscendCodegen(torch.fx.Interpreter):
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
                 self.output_names.append(name)
-                if node in self.input_args or name in unique_output_names:
+                if name in unique_output_names:
                     continue
                 else:
                     unique_output_names.append(name)
                     self.graph_output_names.append(name)
+
+                #!TODO any more accurate method 
+                if node in self.input_args:
+                    self.symint_outputs.append(name)
             else:
                 self.output_names.append(str(node))
         input_str = 'std::vector<Operator> graph_inputs {' + ','.join(self.input_args_names) + '};'
@@ -163,19 +313,58 @@ class AscendCodegen(torch.fx.Interpreter):
         )
         return self.import_code.getvalue()
 
+    def process_sym_name(self, st):
+        if '+' in st:
+            sp = st.split('+')
+            assert(len(sp) == 2)
+            sp = [elem.strip() for elem in sp]
+            return sym_to_inputs[sp[0]] + '+' + sp[1]
+        elif '-' in st:
+            sp = st.split('-')
+            assert(len(sp) == 2)
+            sp = [elem.strip() for elem in sp]
+            return sym_to_inputs[sp[0]] + '-' + sp[1]
+        else:
+            return sym_to_inputs[st]
+
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
 
+        if len(self.dynamic_inputs) > 0:
+          args = ['_' if not arg in sym_to_inputs.values() else arg for arg in self.args]
+          call_body.writeline(f"({','.join(args)}) = args")
+          dim_len = 0
+          for shape in self.actual_shape:
+              dim_len += len(shape)
+          dims = f'''dims = {{'''
+          for idx, elem in enumerate(self.actual_shape):
+              if len(elem) == 0:
+                  continue
+              elem = [self.process_sym_name(dim.node.str()) if isinstance(dim, torch.SymInt) else dim for dim in elem]
+              dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
+          dims = dims[:-1] + f'''}}'''
+        else:
+          dims = f'''dims = None'''
+        call_body.writeline(dims)
+
+        call_body.splice(f"""
+                             for idx in range(len(args)):
+                                 if isinstance(args[idx], int):
+                                     args[idx] = torch.tensor(args[idx], device='cpu', dtype=torch.int32)
+                         """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
         call_body.writeline(f"args.clear()")
 
-        call_str = [f'output_np = kernel_cpp_0(inputs_data)']
+        call_str = [f'output_np = kernel_cpp_0(inputs_data, dims)']
         for i, name in enumerate(self.graph_output_names):
-            call_str.append(f'{name} = torch.from_numpy(output_np[{i}])')
-
+            if not name in self.symint_outputs:
+                call_str.append(f'{name} = torch.from_numpy(output_np[{i}])')
+            else:
+                call_str.extend([f'del {name}',
+                                 f'{name} = int(output_np[{i}])'])
         call_body.writelines(call_str)
         del_args = [f'del ' + x for x in self.args if x not in self.output_names]
         call_body.writelines(del_args)
@@ -206,6 +395,9 @@ class AscendCodegen(torch.fx.Interpreter):
             if isinstance(val, torch.SymInt):
                 code_str = f'''{name} = random.randint(0, 4)'''
             else:
+                # shape = tuple(val.size())
+                #if name in self.batch_input_convert.keys():
+                #    shape.insert(0, 1)
                 shape = str(tuple(val.size()))
                 stride = str(tuple(val.stride()))
                 device = val.device.type
@@ -234,14 +426,33 @@ class AscendCodegen(torch.fx.Interpreter):
                         return FAILED;
                     }}
                     std::cout<<"Generate simple graph success."<<std::endl;
-                    
+                """
+                , strip=True
+            )
+
+            compile_func_body.writeline(f'''std::map<AscendString, AscendString> options;''')
+            if len(self.dynamic_inputs) > 0:
+              compile_func_body.writeline(f'''options.insert({{''')
+              compile_func_body.writeline(f'''{{ge::ir_option::INPUT_FORMAT, "NCHW"}},''')
+              code_str = f'''{{ge::ir_option::INPUT_SHAPE, "'''
+
+              for idx, name in enumerate(self.dynamic_inputs):
+                  code_str += name + ':'
+                  code_str += ','.join(map(str, self.dynamic_shape[idx])) + ';'
+              code_str = code_str[:-1] + f'''"}},\n'''
+              code_str += f'''}});\n'''
+              compile_func_body.writeline(code_str)
+
+            compile_func_body.splice(
+                f"""
                     AclgraphBuilder builder;
-                    builder.saveGraph(graph_path, graph);
+                    builder.saveGraph(graph_path, graph, options);
                     std::cout << "graph path: " << graph_path << std::endl;
                     return SUCCESS;
                 """
                 , strip=True
             )
+
         compile_func = IndentedBuffer()
         compile_func.writeline(f'extern "C" int compile(char* graph_path) {{')
         with compile_func.indent():
@@ -466,13 +677,18 @@ class AscendOverrides:
             return src_code
         shape_size = len(output_shape)
         shape_str = '{' + ','.join(map(str, output_shape)) + '}' 
-        src_code = f"""
-                       auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
+
+        if dynamic_shape_str(shape_str):
+            src_code = process_shape_str(shape_str, name)
+        else:
+            src_code = f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
+                           auto {name}_preprocess = op::Const("{name}_preprocess")
+                           .set_attr_value({name}_reshape_tensor);
+                        """
+        src_code += f"""
                        auto {name} = op::Reshape("{name}")
                          .set_input_x({input})
-                         .set_input_shape({name}_reshape);
+                         .set_input_shape({name}_preprocess);
                     """
         return src_code
 
@@ -579,6 +795,42 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
+    def symsize(name, x, dim):
+        src_code = f"""
+                       auto {name}_shape = op::Shape("{name}_shape")
+                         .set_input_x({x});
+                       auto {name}_dim_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {dim} }});
+                       auto {name}_dim = op::Const("{name}_dim")
+                         .set_attr_value({name}_dim_tensor);
+                       auto {name} = op::Gather("{name}")
+                         .set_input_x({x})
+                         .set_input_indices({name}_dim);
+                       graph.AddOp({name}_shape);
+                       graph.AddOp({name}_dim);
+                       graph.AddOp({name});
+                    """
+
+        return src_code
+
+    @staticmethod
+    def inmul(name, node, x, y):
+        (x_node, y_node) = node.args
+        assert(not isinstance(y_node, torch.fx.node.Node))
+        # y is scalar
+        cpp_dtype = "float"
+        ascend_dtype = "ge::DataType::DT_FLOAT"
+        src_code = f"""
+                        auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({y}) }});
+                        auto {name}_scalar = op::Const("{name}_scalar")
+                          .set_attr_value({name}_scalar_tensor);
+                        auto {name} = op::Mul("{name}")
+                          .set_input_x1({x})
+                          .set_input_x2({name}_scalar);
+                    """
+
+        return src_code
+
+    @staticmethod
     def view(name, node, x, size):
         numel = node.meta['val'].numel()
         shape = list(node.meta['val'].shape)
@@ -600,13 +852,17 @@ class AscendOverrides:
             shape = list(map(str, shape))
             shape_str = '{' + ','.join(shape) + '}'
 
-        src_code = f"""
-                       auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
+        if dynamic_shape_str(shape_str):
+            src_code = process_shape_str(shape_str, name)
+        else:
+            src_code = f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
+                           auto {name}_preprocess = op::Const("{name}_preprocess") 
+                           .set_attr_value({name}_reshape_tensor);
+                        """
+        src_code += f"""
                        auto {name} = op::Reshape("{name}")
                          .set_input_x({x})
-                         .set_input_shape({name}_reshape);
+                         .set_input_shape({name}_preprocess);
                     """
 
         return src_code
@@ -1527,26 +1783,33 @@ class AscendOverrides:
         x_dtype = node.target.x.node.meta['val'].dtype
         y_shape = list(node.meta['val'].shape)
         assert x_shape[-1] == 2
-        
+
         dim = len(x_shape) - 1
         shape_size = len(y_shape)
         shape_str = '{' + ','.join(map(str, y_shape)) + '}'
         output_dtype = 'DT_COMPLEX64' if x_dtype == torch.float32 else 'DT_COMPLEX128'
+
         src_code = f"""auto {name}_split = op::SplitD("{name}_split")
                          .set_input_x({x})
                          .set_attr_split_dim({dim})
                          .set_attr_num_split(2)
                          .create_dynamic_output_y(2);
-                       auto {name}_complex = op::Complex("{name}__complex")
+                       auto {name}_complex = op::Complex("{name}_complex")
                            .set_input_real({name}_split, 0)
                            .set_input_imag({name}_split, 1)
                            .set_attr_Tout({output_dtype});
-                       auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
+                  """
+        if dynamic_shape_str(shape_str):
+            src_code += process_shape_str(shape_str, name)
+        else:
+            src_code += f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
+                            auto {name}_preprocess = op::Const("{name}_preprocess") 
+                            .set_attr_value({name}_reshape_tensor);
+                         """
+        src_code += f"""
                        auto {name} = op::Reshape("{name}")
                          .set_input_x({name}_complex)
-                         .set_input_shape({name}_reshape);
+                         .set_input_shape({name}_preprocess);
                   """
         return src_code
       
@@ -1555,6 +1818,7 @@ class AscendOverrides:
         assert node.meta['val'].dtype == torch.float32
         x_shape = list(node.target.x.node.meta['val'].shape)
         dim = len(x_shape) - 1
+
         src_code = f"""auto {name}_real = op::Real("{name}_real")
                            .set_input_input({x});
                        auto {name}_imag = op::Imag("{name}_imag")
@@ -1605,18 +1869,25 @@ class AscendOverrides:
         # Kernel output is right, but aot_autograd changed it when process alis in
         # torch/_functorch/aot_autograd.py(530)gen_alias_from_base().
         # TODO(tangzhiyi): fix this
-        src_code = f"""
-                       auto {name}_offset_tensor = genTensorWithData<int>({shape_size}, FORMAT_ND, DT_INT32, {offset_str});
-                       auto {name}_size_tensor = genTensorWithData<int>({shape_size}, FORMAT_ND, DT_INT32, {size_str});
-                       auto {name}_offset = op::Const("{name}_offset")
-                         .set_attr_value({name}_offset_tensor);
-                       auto {name}_size = op::Const("{name}_size")
-                         .set_attr_value({name}_size_tensor);
-
+        if dynamic_shape_str(offset_str):
+            src_code = process_shape_str(offset_str, name, '_offset')
+        else:
+            src_code = f"""auto {name}_offset_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {offset_str});
+                           auto {name}_preprocess_offset = op::Const("{name}_preprocess_offset")
+                           .set_attr_value({name}_offset_tensor);
+                        """
+        if dynamic_shape_str(size_str):
+            src_code += process_shape_str(size_str, name, '_size')
+        else:
+            src_code += f"""auto {name}_size_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {size_str});
+                            auto {name}_preprocess_size = op::Const("{name}_preprocess_size")
+                            .set_attr_value({name}_size_tensor);
+                        """
+        src_code += f"""
                        auto {name} = op::Slice("{name}")
                            .set_input_x({x})
-                           .set_input_offsets({name}_offset)
-                           .set_input_size({name}_size);
+                           .set_input_offsets({name}_preprocess_offset)
+                           .set_input_size({name}_preprocess_size);
                     """
         return src_code
 
@@ -1678,19 +1949,26 @@ class AscendOverrides:
         size_str = '{' + ','.join(map(str, size)) + '}'
         y_shape_size = '{' + str(len(y_shape)) + '}'
         y_shape_str = '{' + ','.join(map(str, y_shape)) + '}'
-        
-        src_code = f"""
-                       auto {name}_offset_tensor = genTensorWithData<int>({shape_size}, FORMAT_ND, DT_INT32, {offset_str});
-                       auto {name}_size_tensor = genTensorWithData<int>({shape_size}, FORMAT_ND, DT_INT32, {size_str});
-                       auto {name}_offset = op::Const("{name}_offset")
-                         .set_attr_value({name}_offset_tensor);
-                       auto {name}_size = op::Const("{name}_size")
-                         .set_attr_value({name}_size_tensor);
 
+        if dynamic_shape_str(offset_str):
+            src_code = process_shape_str(offset_str, name, '_offset')
+        else:
+            src_code = f"""auto {name}_offset_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {offset_str});
+                           auto {name}_preprocess_offset = op::Const("{name}_preprocess_offset")
+                           .set_attr_value({name}_offset_tensor);
+                        """
+        if dynamic_shape_str(size_str):
+            src_code += process_shape_str(size_str, name, '_size')
+        else:
+            src_code += f"""auto {name}_size_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {size_str});
+                            auto {name}_preprocess_size = op::Const("{name}_preprocess_size")
+                            .set_attr_value({name}_size_tensor);
+                        """
+        src_code += f"""
                        auto {name}_slice = op::Slice("{name}_slice")
                            .set_input_x({x})
-                           .set_input_offsets({name}_offset)
-                           .set_input_size({name}_size);
+                           .set_input_offsets({name}_preprocess_offset)
+                           .set_input_size({name}_preprocess_size);
                        
                        auto {name}_reshape_tensor = genTensorWithData<int>({y_shape_size}, FORMAT_ND, DT_INT32, {y_shape_str});
                        auto {name}_reshape = op::Const("{name}_reshape") 
