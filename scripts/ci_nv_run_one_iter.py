@@ -143,11 +143,12 @@ if __name__=='__main__':
             for i in range(random_model_num):
                 p.apply_async(process_one_iter, args=(q,selected_list[i]))
             print('Waiting for all subprocesses done...')
-        p.close()
-        p.join()
-        print('All subprocesses done.')
+            p.close()
+            p.join()
+            print('All subprocesses done.')
     except Exception as e:
         print("Error:", e)
         if p is not None:
+            print("kill all!")
             p.terminate()
         exit(1)
