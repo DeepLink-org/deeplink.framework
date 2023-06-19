@@ -30,7 +30,6 @@ function autogen_diopi_wrapper() {
         --autocompare False                                                                   \
         --print_func_call_info True                                                           \
         --print_op_arg True                                                                   \
-        --fun_config_dict '{"current_device": "camb"}'                                        \
 
     # only test mulity config autogen
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
