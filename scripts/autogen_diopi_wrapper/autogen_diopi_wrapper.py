@@ -709,7 +709,7 @@ def main():
             current_device = mergeed_fun_config.get('current_device', '')
             if current_device not in (mergeed_fun_config['device'] + ['all',]):
                 continue
-            if ('-' + current_device) in (mergeed_fun_config['device'] + ['all',]):
+            if ('-' + current_device) in (mergeed_fun_config['device']):
                 continue
 
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
