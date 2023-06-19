@@ -4,7 +4,7 @@ set -ex
 source tests/common.sh
 
 function run_dipu_tests {
-  export DIPU_DUMP_OP_ARGS=1
+  unset DIPU_DUMP_OP_ARGS
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
   # run_test "${PYTORCH_TEST_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
