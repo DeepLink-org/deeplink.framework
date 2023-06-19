@@ -19,7 +19,7 @@ os.environ['DIPU_DUMP_OP_ARGS'] = "0"
 def run_cmd(cmd):
     cp = sp.run(cmd,shell=True,encoding="utf-8")
     if cp.returncode != 0:
-        error = "Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
+        error = "Some thing wrong has happened when running command [{}]:{}".format(cmd,cp.stderr)
         raise Exception(error)
 
 def get_gpu_info():
@@ -97,6 +97,11 @@ def process_one_iter(q,model_info):
     used_card.remove(available_card)
     q.put(used_card)
 
+def handle_error(error):
+    print("Error: {}".format(error),flush=True)
+    if p is not None:
+        print("Kill all!",flush=True)
+        p.terminate()
 
 
 if __name__=='__main__':
@@ -141,14 +146,11 @@ if __name__=='__main__':
     try:
         p = Pool(max_parall)
         for i in range(random_model_num):
-            p.apply_async(process_one_iter, args=(q,selected_list[i]))
+            p.apply_async(process_one_iter, args=(q,selected_list[i]),error_callback=handle_error)
         print('Waiting for all subprocesses done...',flush=True)
         p.close()
         p.join()
         print('All subprocesses done.',flush=True)
     except Exception as e:
         print("Error:{}".format(e),flush=True)
-        if p is not None:
-            print("kill all!",flush=True)
-            p.terminate()
         exit(1)
