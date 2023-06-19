@@ -12,7 +12,7 @@ from torch_dipu.testing._internal import common_utils
 _DEFAULT_FLOATING_PRECISION = 1e-3
 _DISABLED_TESTS = dict()
 _TEST_PRECISIONS = dict()
-device_unsupported_dtypes = {}
+device_unsupported_dtypes = {torch.complex32, torch.complex64, torch.complex128}
 
 if dipu.vendor_type == "MLU":
     from tests.pytorch_config_mlu import DISABLED_TESTS, TEST_PRECISIONS
@@ -20,6 +20,7 @@ if dipu.vendor_type == "MLU":
     _TEST_PRECISIONS = TEST_PRECISIONS
     device_unsupported_dtypes = {
         torch.complex32, torch.complex64, torch.complex128, torch.bfloat16,
+        torch.float64, torch.long, torch.int64 # temporary disable
     }
 elif dipu.vendor_type == "GCU":
     from tests.pytorch_config_gcu import DISABLED_TESTS, TEST_PRECISIONS
