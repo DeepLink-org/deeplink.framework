@@ -1365,11 +1365,15 @@
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
+    diopiTensorHandle_t out_ptr = nullptr;
     for (int i = 0; i < indices.size(); ++i) {
       indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
-  interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())
+  interface: diopiIndex(ctx, &out_ptr, self, indices_vec.data(), indices_vec.size())
+  custom_code_before_return: |
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_code_at_the_beginning: |

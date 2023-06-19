@@ -1,4 +1,4 @@
-name: dipu_poc  ci
+name: dipu  ci
 on:
   workflow_dispatch:
   push:
@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'dev_v0.25'
 
 env:
   NFS_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
@@ -26,28 +27,39 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc dipu_poc_diopi && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+            echo "${{ github.base_ref }} "
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
           else
-          git checkout ${{ github.sha }} &&  git merge --no-edit main
+            echo $GITHUB_EVENT_NAME
+            git checkout ${{ github.sha }}
           fi
-          cd ${GITHUB_WORKSPACE} && cp -R dipu_poc dipu_poc_diopi
-          cd ${GITHUB_WORKSPACE}/dipu_poc && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          cd ${GITHUB_WORKSPACE}/dipu_poc_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
+          cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
+
+          #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
+          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            cd ./DIOPI && git checkout ${{ github.base_ref }}
+          fi
+
       - name: ci interruptible and support pr ci
         run: |
-          cd ${GITHUB_WORKSPACE}/dipu_poc && bash scripts/ci_interruptible.sh
+          cd ${GITHUB_WORKSPACE}/dipu && bash scripts/ci_interruptible.sh
         env:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           echo ${GITHUB_WORKSPACE}
+          echo ${{ github.repository }}
+          echo ${CLUSTER_CAMB}
+          echo `pwd`
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_poc_diopi/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -93,13 +105,13 @@ jobs:
           """
 
   Build-POC-Camb:
-    name: Build diopi_poc camb
+    name: Build dipu camb
     needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
     steps:
-      - name: Build dipu-poc
+      - name: Build dipu
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
@@ -129,13 +141,13 @@ jobs:
           """
 
   Build-POC-Camb-Diopi:
-    name: Build diopi_poc camb diopi-main
+    name: Build dipu camb diopi-latest-target
     needs: [Build-Pytorch]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
     steps:
-      - name: Build dipu-poc diopi-main
+      - name: Build dipu diopi-latest-target
         run: |
           ssh ${CLUSTER_CAMB} """
           set -e
@@ -148,7 +160,7 @@ jobs:
           """
 
   Test-Camb-Diopi:
-    name: test-camb-diopi-main
+    name: test-camb-diopi-latest-target
     needs: [Build-POC-Camb-Diopi]
     runs-on: github-poc-ci
     env:
@@ -174,16 +186,14 @@ jobs:
     steps:
       - name: clone-repos
         run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
           else
-            git checkout ${{ github.sha }} &&  git merge --no-edit main
+            git checkout ${{ github.sha }}
           fi
           bash scripts/ci_one_iter.sh clone
-          rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ${GITHUB_WORKSPACE}/ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
-
-
+          rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
 
       - name: run-one-iter-tools
         run: |
@@ -191,8 +201,9 @@ jobs:
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          echo 'pytorch dir: ${PYTORCH_DIR}'
           source scripts/ci_camb_env.sh
-          echo  "python path : ${PYTHONPATH}"
+          echo 'python path : ${PYTHONPATH}'
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmagic:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb 
           pwd
@@ -209,26 +220,31 @@ jobs:
           set -e
           cd ${NV_PVC_PATH} && find ${NV_PVC_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
-          rm -rf dipu_poc && git clone https://github.com/DeepLink-org/dipu_poc.git && cd dipu_poc
+          rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit main
+            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
           else
-          git checkout ${{ github.sha }} &&  git merge --no-edit main
+            git checkout ${{ github.sha }}
           fi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu_poc dipu_poc_diopi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_poc && rm -rf third_party/DIOPI && git submodule update --init --recursive
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu dipu_diopi
+    
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            cd ./DIOPI && git checkout ${{ github.base_ref }}
+          fi
+
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           bash scripts/ci_one_iter.sh clone
 
   Build-POC-Cuda:
-    name: Build diopi_poc cuda
+    name: Build dipu cuda
     needs: [Clone]
     runs-on: tps-pytorch-ci
     steps:
-      - name: Build dipu-poc
+      - name: Build dipu
         run: |
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -246,14 +262,14 @@ jobs:
           sh tests/run_nv_tests.sh
 
   Build-POC-Cuda-Diopi:
-    name: Build diopi_poc cuda diopi-main
+    name: Build dipu cuda diopi-latest-target
     needs: [Clone]
     runs-on: tps-pytorch-ci
     steps:
-      - name: Build dipu-poc diopi-main
+      - name: Build dipu diopi-latest-target
         run: |
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_poc_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
           bash scripts/ci_nv_script.sh build_dipu \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
