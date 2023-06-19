@@ -30,8 +30,8 @@ def get_gpu_info():
     for i in range(device_count):
         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
         memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        total_memory = memory_info.total / 1024**3  # 转换为以MB为单位
-        free_memory = memory_info.free / 1024**3  # 转换为以MB为单位
+        total_memory = memory_info.total / 1024**3  # 转换为以GB为单位
+        free_memory = memory_info.free / 1024**3  # 转换为以GB为单位
         
         gpu_info.append({"gpu_id": i,  "total_memory": total_memory, "free_memory": free_memory})
     
