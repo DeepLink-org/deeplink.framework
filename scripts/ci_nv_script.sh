@@ -31,7 +31,7 @@ function autogen_diopi_wrapper() {
         --use_diopi_adapter False                                                   \
         --autocompare False                                                         \
         --print_func_call_info False                                               \
-        --print_op_arg True
+        --print_op_arg False
 }
 
 function build_diopi_lib() {
