@@ -91,7 +91,7 @@ def process_one_iter(q,model_info):
     hour = run_time//3600
     minute = (run_time-3600*hour)//60
     second = run_time-3600*hour-60*minute
-    print ("The running time of {} :{h} hours {m} mins {} secs".format(p2,hour,minute,second),flush=True)
+    print ("The running time of {} :{} hours {} mins {} secs".format(p2,hour,minute,second),flush=True)
 
     used_card = q.get(True)
     used_card.remove(available_card)
