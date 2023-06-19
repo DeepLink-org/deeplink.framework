@@ -17,12 +17,12 @@ $header_include_code
 
 namespace dipu::native {
 
-bool checkDiopiReturnValue() {
+inline bool checkDiopiReturnValue() {
     static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
     return enable;
 }
 
-void synchronizeIfEnable() {
+inline void synchronizeIfEnable() {
     static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
     if (mode != nullptr) {
         DIPU_LOG_ONCE << "The synchronous operation is performed after "
@@ -32,20 +32,20 @@ void synchronizeIfEnable() {
     return;
 }
 
-bool dumpOpArgs() {
+inline bool dumpOpArgs() {
     bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
     return enable;
 }
 
 template<typename T>
-std::string dumpArg(const T& t) {
+static std::string dumpArg(const T& t) {
     std::stringstream stream;
     stream << t;
     return stream.str();
 }
 
 template<typename T1>
-std::string dumpArg(const c10::optional<T1>  & opt_t) {
+static std::string dumpArg(const c10::optional<T1>  & opt_t) {
     std::stringstream stream;
     if (opt_t.has_value()) {
         stream << dumpArg(opt_t.value());
@@ -54,7 +54,7 @@ std::string dumpArg(const c10::optional<T1>  & opt_t) {
 }
 
 template<typename T>
-std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
+static std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
     std::stringstream stream;
     if (opt_t.has_value()) {
         stream << dumpArg(opt_t.value());
@@ -63,7 +63,7 @@ std::string dumpArg(const c10::OptionalArrayRef<T>  & opt_t) {
 }
 
 template<typename T1, template<typename elem> class container>
-std::string dumpArg(const container<T1> & t) {
+static std::string dumpArg(const container<T1> & t) {
     std::stringstream stream;
     for (auto iter = t.begin(); iter != t.end(); ++iter) {
         stream << dumpArg(*iter) << ", ";
@@ -105,7 +105,7 @@ std::string dumpArg(const at::Generator& generator) {
 }
 
 template<typename T, size_t N>
-std::string dumpArg(const std::array<T, N>& t) {
+static std::string dumpArg(const std::array<T, N>& t) {
     std::stringstream stream;
     for (auto iter = t.begin(); iter != t.end(); ++iter) {
         stream << dumpArg(*iter) << " ";
@@ -130,7 +130,7 @@ std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
 
 
 template<typename T1, typename T2 , template<typename elem1> class container1, template<typename elem2> class container2>
-std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, const container2<T2> & dims, bool keepdim) {
+static std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, const container2<T2> & dims, bool keepdim) {
     if (dims.size() <= 0) {
         return std::vector<int64_t>();
     }
@@ -165,7 +165,7 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, c
 
 
 
-std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
+static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
     if(a.defined() && b.defined()) {
         try {
             return at::allclose(a.cpu(), b.cpu(), 1e-3, 1e-3, true) ? "allclose" : "not_close";

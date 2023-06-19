@@ -2,7 +2,7 @@
 
 namespace dipu::native {
 
-c10::optional<at::Tensor> dipu_to_cpu(const c10::optional<at::Tensor> & device_tensor) {
+static c10::optional<at::Tensor> dipu_to_cpu(const c10::optional<at::Tensor> & device_tensor) {
     c10::optional<at::Tensor> cpu_tensor = c10::nullopt;
     if (device_tensor.has_value() && device_tensor.value().defined()) {
         cpu_tensor = device_tensor.value().cpu();
@@ -10,7 +10,7 @@ c10::optional<at::Tensor> dipu_to_cpu(const c10::optional<at::Tensor> & device_t
     return cpu_tensor;
 }
 
-at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
+static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
     auto cpu_tensor = devtensor.cpu();
     auto intype = devtensor.options().dtype_opt()->toScalarType();
     if (intype == at::ScalarType::Half) {
@@ -20,7 +20,7 @@ at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
     }
 }
 
-at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& out) {
+static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& out) {
   std::cout << "custom fallback to cpu, name=" << "silu_out" << std::endl;
 
   auto self_cpu = to_cpu_no_half(self);
@@ -30,7 +30,7 @@ at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& ou
   return out;
 }
 
-::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_native_batch_norm_out(
+static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_native_batch_norm_out(
     const at::Tensor & input, const c10::optional<at::Tensor> & weight_opt,
     const c10::optional<at::Tensor> & bias_opt,
     const c10::optional<at::Tensor> & running_mean_opt,
@@ -64,7 +64,7 @@ at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& ou
   return std::tie(out, save_mean, save_invstd);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm(const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
+static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm(const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt, const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training, double momentum, double eps) {
   std::cout << "enter into fallback native_batch_norm" << std::endl;
@@ -91,7 +91,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch
       training, momentum, eps, out, save_mean, save_invstd);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm_backward(
+static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm_backward(
         const at::Tensor& grad_out, const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
         const c10::optional<at::Tensor>& running_mean_opt, const c10::optional<at::Tensor>& running_var_opt,
         const c10::optional<at::Tensor>& save_mean_opt, const c10::optional<at::Tensor>& save_invstd_opt,

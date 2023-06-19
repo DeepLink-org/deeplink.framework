@@ -705,6 +705,13 @@ def main():
         mergeed_fun_config = dict(args.fun_config_dict)
         mergeed_fun_config.update(vars(args))
         mergeed_fun_config.update(fun_config)
+        if 'device' in mergeed_fun_config:
+            current_device = mergeed_fun_config.get('current_device', '')
+            if current_device not in (mergeed_fun_config['device'] + ['all',]):
+                continue
+            if ('-' + current_device) in (mergeed_fun_config['device']):
+                continue
+
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
