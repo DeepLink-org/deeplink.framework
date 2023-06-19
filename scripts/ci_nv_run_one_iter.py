@@ -11,7 +11,7 @@ import time
 max_parall = 4
 random_model_num = 4
 
-print("python path: {}".format(os.environ.get('PYTHONPATH',None)))
+print("python path: {}".format(os.environ.get('PYTHONPATH',None)),flush=True)
 
 os.environ['DIPU_DUMP_OP_ARGS'] = "0"
 
@@ -58,7 +58,7 @@ def process_one_iter(q,model_info):
 
     model_info_list = model_info.split()
     if(len(model_info_list)<3 or len(model_info_list)>4):
-        print("wrong model info in  {}".format(model_info))
+        print("wrong model info in  {}".format(model_info),flush=True)
     p1 = model_info_list[0]
     p2 = model_info_list[1]
     p3 = model_info_list[2]
@@ -70,12 +70,12 @@ def process_one_iter(q,model_info):
     opt_arg = p4
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
-    print(train_path,config_path,work_dir,opt_arg)
+    print("{} {} {} {}".format(train_path,config_path,work_dir,opt_arg),flush=True)
 
     if not os.path.exists(os.environ['ONE_ITER_TOOL_STORAGE_PATH']):            
         os.makedirs(os.environ['ONE_ITER_TOOL_STORAGE_PATH']) 
 
-    print("cardnum:{},model:{},cur_card_free:{}".format(available_card,p2,cur_gpu_free))
+    print("cardnum:{},model:{},cur_card_free:{}".format(available_card,p2,cur_gpu_free),flush=True)
 
     if(p2=="configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
         cmd = "CUDA_VISIBLE_DEVICES={} python mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py".format(available_card)
@@ -91,7 +91,7 @@ def process_one_iter(q,model_info):
     hour = run_time//3600
     minute = (run_time-3600*hour)//60
     second = run_time-3600*hour-60*minute
-    print ("The running time of {} :{h} hours {m} mins {} secs".format(p2,hour,minute,second))
+    print ("The running time of {} :{h} hours {m} mins {} secs".format(p2,hour,minute,second),flush=True)
 
     used_card = q.get(True)
     used_card.remove(available_card)
@@ -123,7 +123,7 @@ if __name__=='__main__':
     if(random_model_num>length):
         random_model_num = length  
 
-    print("model num:{}, chosen model num:{}".format(length,random_model_num))
+    print("model num:{}, chosen model num:{}".format(length,random_model_num),flush=True)
 
     #random choose model
     selected_list = random.sample(original_list, random_model_num)
@@ -142,13 +142,13 @@ if __name__=='__main__':
         p = Pool(max_parall)
         for i in range(random_model_num):
             p.apply_async(process_one_iter, args=(q,selected_list[i]))
-        print('Waiting for all subprocesses done...')
+        print('Waiting for all subprocesses done...',flush=True)
         p.close()
         p.join()
-        print('All subprocesses done.')
+        print('All subprocesses done.',flush=True)
     except Exception as e:
-        print("Error:", e)
+        print("Error:{}".format(e),flush=True)
         if p is not None:
-            print("kill all!")
+            print("kill all!",flush=True)
             p.terminate()
         exit(1)
