@@ -29,20 +29,19 @@ def get_gpu_info():
     
     for i in range(device_count):
         handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-        gpu_name = pynvml.nvmlDeviceGetName(handle).decode()
         memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
         total_memory = memory_info.total / 1024**3  # 转换为以MB为单位
         free_memory = memory_info.free / 1024**3  # 转换为以MB为单位
         
-        gpu_info.append({"gpu_id": i, "gpu_name": gpu_name, "total_memory": total_memory, "free_memory": free_memory})
+        gpu_info.append({"gpu_id": i,  "total_memory": total_memory, "free_memory": free_memory})
     
     pynvml.nvmlShutdown()
     
     return device_count, gpu_info
 
 def find_available_card(mem_threshold,used_card):
-    device_count,gpu_info = get_gpu_info()
     while True:
+        device_count,gpu_info = get_gpu_info()
         for i in range(device_count):
             if(gpu_info[i]["free_memory"]>=mem_threshold and (not i in used_card) ):
                 return i,gpu_info[i]["free_memory"]
