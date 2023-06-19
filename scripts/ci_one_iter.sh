@@ -5,7 +5,7 @@ function clone_needed_repo() {
 
     #define some version
     MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
-    MMENGINE_VERSION=v0.7.4
+    MMENGINE_VERSION=v0.7.3
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
     MMSEGMENTATION_VERSION=dipu_v1.0.0_one_iter_tool
@@ -57,7 +57,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
         ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
         ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
-        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
+        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015
         ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
         ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
