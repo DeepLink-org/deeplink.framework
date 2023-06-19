@@ -110,6 +110,12 @@ def create_transform_input_to_cpu_code(fun_config):
     for input in optional_inputs:
         input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>({input}.value().cpu()) : {input};\n"
 
+    optional_tensor_list_inputs = re.findall('Tensor *\? *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
+    for input in optional_tensor_list_inputs:
+        input_process_code += f"\nc10::List<c10::optional<at::Tensor>> {input}_cpu;\n"
+        input_process_code += f"for (int i = 0; i < {input}.size();++i)" + " {\n"
+        input_process_code += f"\t{input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>({input}[i].value().cpu()) : {input}[i]);\n"
+        input_process_code += "}\n"
 
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     for output in outputs:
@@ -401,7 +407,8 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
     tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
-    for input in inputs + optional_inputs + outputs + tensors_arrays:
+    optional_tensor_list_inputs = re.findall('Tensor *\? *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
+    for input in inputs + optional_inputs + outputs + tensors_arrays + optional_tensor_list_inputs:
         code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
 
     return code

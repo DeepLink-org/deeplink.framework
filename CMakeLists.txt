@@ -12,6 +12,7 @@ list(APPEND DEVICE_CUDA "CUDA" "cuda")
 list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
+list(APPEND DEVICE_STPU "STPU" "stpu")
 
 # config
 include(cmake/BaseFuncions.cmake)
@@ -33,9 +34,14 @@ elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
 elseif (${DEVICE} IN_LIST DEVICE_SUPA)
     set(USE_SUPA ON)
     set(UsedVendor supa)
+elseif (${DEVICE} IN_LIST DEVICE_STPU)
+    set(USE_STPU ON)
+    set(UsedVendor stpu)
 else()
     message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
+
+
 
 
 # findTorch encounter some error, need check。

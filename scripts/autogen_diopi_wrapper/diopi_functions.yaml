@@ -1121,8 +1121,8 @@
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
-      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleNearestBackward(ctx, grad_input, grad_output, size, input_size)
 
@@ -1134,8 +1134,8 @@
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
     } else {
-      size[0] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_h.value_or(1.0));
-      size[1] = std::floor((*(input_sizeVector.rbegin() + 2)) * scales_w.value_or(1.0));
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
     }
   interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, "bilinear")
 
@@ -1365,18 +1365,22 @@
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
+    diopiTensorHandle_t out_ptr = nullptr;
     for (int i = 0; i < indices.size(); ++i) {
-      indices_tensor_vec[i] = indices[i].value_or(at::Tensor());
+      indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
-  interface: diopiIndex(ctx, &out, self, indices_vec.data(), indices_vec.size())
+  interface: diopiIndex(ctx, &out_ptr, self, indices_vec.data(), indices_vec.size())
+  custom_code_before_return: |
+    dipu::getCurrentDIPUStream().synchronize();
+    out = *reinterpret_cast<at::Tensor*>(out_ptr);
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
     for (int i = 0; i < indices.size(); ++i) {
-      indices_tensor_vec[i] = indices[i].value_or(at::Tensor());
+      indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
   interface: diopiIndexPut(ctx, self, self, values, indices_vec.data(), indices_vec.size(), accumulate)

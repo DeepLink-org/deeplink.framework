@@ -33,7 +33,7 @@ void synchronizeIfEnable() {
 }
 
 bool dumpOpArgs() {
-    static bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
+    bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
     return enable;
 }
 
@@ -76,9 +76,10 @@ std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
         stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
-        static int dump_tensor_all_elemnuments = std::atoi(std::getenv("DIPU_DUMP_OP_ARGS"));
+        const auto env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+        int dump_tensor_all_elemnuments = env_ptr ? std::atoi(env_ptr) : 0;
         if (dump_tensor_all_elemnuments > 1) {
-            stream << std::endl << tensor.cpu();
+            stream << std::endl << tensor;
         }
     } else {
         stream << "undefined";
