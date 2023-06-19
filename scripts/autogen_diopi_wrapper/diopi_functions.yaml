@@ -653,7 +653,7 @@
   interface: diopiMaxPool2dBackward(ctx, grad_input, grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices)
 
 - schema: "max_pool2d_backward(Tensor grad_output, Tensor input, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor? indices=None) -> Tensor"
-  device: [-camb]
+  device: [topsrider]
   register_op: False
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
@@ -661,7 +661,7 @@
   interface: diopiMaxPool2dBackward(ctx, out, grad_output, input, kernel_size, stride, padding, dilation, ceil_mode, indices)
 
 - schema: "max_pool2d(Tensor input, int[2] kernel_size=1, int[2] stride=1, int[2] padding=0, int[2] dilation=1, bool ceil_mode=False) -> Tensor"
-  device: [-camb]
+  device: [topsrider]
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
     int64_t batch_size = input.size(0);
