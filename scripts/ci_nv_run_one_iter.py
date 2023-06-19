@@ -1,7 +1,7 @@
 import os
 import sys
 import random
-from multiprocessing import Pool, Queue
+from multiprocessing import Pool, Queue, Manager
 import subprocess as sp
 import pynvml
 import time
@@ -134,18 +134,19 @@ if __name__=='__main__':
 
     os.mkdir("one_iter_data")
 
-    q = Queue()
+    manager = Manager()
+    q = manager.Queue()
     used_card = []
     q.put(used_card)
     p = None
     try:
-        with Pool(max_parall) as p:
-            for i in range(random_model_num):
-                p.apply_async(process_one_iter, args=(q,selected_list[i]))
-            print('Waiting for all subprocesses done...')
-            p.close()
-            p.join()
-            print('All subprocesses done.')
+        p = Pool(max_parall)
+        for i in range(random_model_num):
+            p.apply_async(process_one_iter, args=(q,selected_list[i]))
+        print('Waiting for all subprocesses done...')
+        p.close()
+        p.join()
+        print('All subprocesses done.')
     except Exception as e:
         print("Error:", e)
         if p is not None:
