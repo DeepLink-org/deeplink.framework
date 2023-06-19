@@ -706,7 +706,7 @@ def main():
         mergeed_fun_config.update(vars(args))
         mergeed_fun_config.update(fun_config)
         if 'device' in mergeed_fun_config:
-            current_device = mergeed_fun_config.get('current_device', 'all')
+            current_device = mergeed_fun_config.get('current_device', '')
             if current_device not in (mergeed_fun_config['device'] + ['all',]):
                 continue
             if ('-' + current_device) in (mergeed_fun_config['device'] + ['all',]):
