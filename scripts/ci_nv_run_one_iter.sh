@@ -57,7 +57,7 @@ echo "${used_card_list[@]}" >&788
 pids=()
 
 export ONE_ITER_TOOL_DEVICE=dipu
-export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
+export ONE_ITER_TOOL_DEVICE_COMPARE=origin
 
 
 mkdir one_iter_data
