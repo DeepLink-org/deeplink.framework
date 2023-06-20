@@ -52,15 +52,15 @@ function build_dataset(){
         echo "Executing CUDA operation..."
         rm -rf data
         mkdir data
-        ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
-        ln -s /nvme/share/share_data/datasets/detection/coco  data/coco
-        ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
-        ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
-        ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
-        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
-        ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
-        ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
-        ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmcls/imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/coco  data/coco
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/kitti data/kitti
+        #ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/det/icdar2015/imgs data/icdar2015     
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
+        #ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        #ln -s /mnt/lustre/share_data/PAT/datasets/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation..."
         rm -rf data
