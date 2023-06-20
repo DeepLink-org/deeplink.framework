@@ -27,7 +27,6 @@ bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
   } else {
-    const std::string pattern = "(([;, ]+)|^())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|()$)";
     std::stringstream strstream(force_fallback_operators_list);
     std::string force_fallback_pattern;
     while(std::getline(strstream, force_fallback_pattern, ',')) {
@@ -40,7 +39,6 @@ bool get_force_fallback(const char* opname) {
       }
     }
   }
-
   return false;
 }
 
