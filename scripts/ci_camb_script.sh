@@ -29,7 +29,13 @@ function autogen_diopi_wrapper() {
         --diopi_adapter_header third_party/DIOPI/DIOPI-PROTO/include/diopi/diopi_adaptors.hpp \
         --autocompare  False \
         --print_func_call_info True                                                           \
-        --print_op_arg True
+        --print_op_arg True                                                                   \
+
+    # only test mulity config autogen
+    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
+        --config scripts/autogen_diopi_wrapper/custom_diopi_functions.yaml          \
+        --out torch_dipu/csrc_dipu/aten/ops/CustomAutoGenedKernels.cpp              \
+        --use_diopi_adapter False                                                   \
 
 }
 

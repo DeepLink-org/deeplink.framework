@@ -24,12 +24,13 @@ function config_dipu_cmake() {
 
 
 function autogen_diopi_wrapper() {
-    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
-        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
-        --use_diopi_adapter True \
-        --diopi_adapter_header third_party/DIOPI/DIOPI-ADAPTOR/diopi_adaptors.hpp \
+    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
+        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                 \
+        --use_diopi_adapter True                                                    \
+        --diopi_adapter_header third_party/DIOPI/DIOPI-ADAPTOR/diopi_adaptors.hpp   \
         --autocompare False                                                         \
-            --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
+        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
+        --fun_config_dict '{"current_device": "topsrider"}'
 }
 
 function build_dipu_lib() {
