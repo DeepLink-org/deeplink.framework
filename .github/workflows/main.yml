@@ -194,6 +194,7 @@ jobs:
             git checkout ${{ github.sha }}
           fi
           bash scripts/ci_one_iter.sh clone
+          cd mmlab_pack
           rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/
 
       - name: build-some-env
