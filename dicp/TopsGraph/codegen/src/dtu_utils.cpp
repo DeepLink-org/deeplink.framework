@@ -14,7 +14,7 @@ bool file_exists(const char *filename) { return (access(filename, 0) == 0); }
 void compile(std::shared_ptr<builder::Builder> builder,
              topsExecutable_t *exe_ptr) {
   topsgraphProgram program;
-  
+
   // get the built IR from builder
   auto hlir_module = builder->GetModule();
   auto ret = topsgraphCreateProgramFromModule(&program, hlir_module.get());
@@ -51,7 +51,7 @@ void compile(std::shared_ptr<builder::Builder> builder,
 }
 
 int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
-        std::vector<void *> &output_ptrs, int device_id) {
+        std::vector<void *> &output_ptrs, int device_id, bool dipu_flag) {
   void *inputs[MAX_NUM] = {0};
   void *outputs[MAX_NUM] = {0};
   void *dev_input = nullptr;
@@ -89,21 +89,23 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
 
   // 3. prepare data, H2D
   auto before_time0 = std::chrono::high_resolution_clock::now();
-  for (size_t i = 0; i < input_count; i++) {
-    topsMallocForResource(&dev_input, input_size[i], res_bundle);
-    topsMemcpyAsync(
-        dev_input,
-        input_ptrs[i],
-        input_size[i],
-        topsMemcpyHostToDevice,
-        stream);
-    topsStreamSynchronize(stream);
-    inputs[i] = dev_input;
-  }
-
-  for (size_t i = 0; i < output_count; i++) {
-    topsMallocForResource(&dev_output, output_size[i], res_bundle);
-    outputs[i] = dev_output;
+  if (!dipu_flag) {
+    for (size_t i = 0; i < input_count; i++) {
+      topsMallocForResource(&dev_input, input_size[i], res_bundle);
+      topsMemcpyAsync(
+          dev_input,
+          input_ptrs[i],
+          input_size[i],
+          topsMemcpyHostToDevice,
+          stream);
+      topsStreamSynchronize(stream);
+      inputs[i] = dev_input;
+    }
+    
+    for (size_t i = 0; i < output_count; i++) {
+      topsMallocForResource(&dev_output, output_size[i], res_bundle);
+      outputs[i] = dev_output;
+    }
   }
   auto after_time0 = std::chrono::high_resolution_clock::now();
 
@@ -113,17 +115,33 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
 
   // 4. run
   auto before_time = std::chrono::high_resolution_clock::now();
-  ret = topsLaunchExecutableV2(
-      exe_ptr,
-      res_bundle,
-      inputs,
-      input_count,
-      nullptr,
-      nullptr,
-      outputs,
-      output_count,
-      stream);
-  topsStreamSynchronize(stream);
+  if (dipu_flag) {
+    ret = topsLaunchExecutableV2(
+        exe_ptr,
+        res_bundle,
+        static_cast<void **>(input_ptrs.data()),
+        input_count,
+        nullptr,
+        nullptr,
+        static_cast<void **>(output_ptrs.data()),
+        output_count,
+        stream);
+    topsStreamSynchronize(stream);
+  }
+  else {
+    ret = topsLaunchExecutableV2(
+        exe_ptr,
+        res_bundle,
+        inputs,
+        input_count,
+        nullptr,
+        nullptr,
+        outputs,
+        output_count,
+        stream);
+    topsStreamSynchronize(stream);
+  }
+    
   if (ret != topsSuccess) {
     std::cout << "topsLaunchExecutable fail,  ret = " << ret << std::endl;
     return -1;
@@ -135,31 +153,32 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
                           after_time - before_time)
                           .count())
             << std::endl;
-
-  for (size_t i = 0; i < output_count; i++) {
-    // 5. D2H
-    ret = topsMemcpyAsync(
-        output_ptrs[i],
-        outputs[i],
-        output_size[i],
-        topsMemcpyDeviceToHost,
-        stream);
-    topsStreamSynchronize(stream);
-    if (ret != 0) {
-      std::cout << "topsMemcpyAsync fail,  ret = " << ret << std::endl;
-      return -1;
+  if (!dipu_flag) {
+    for (size_t i = 0; i < output_count; i++) {
+      // 5. D2H
+      ret = topsMemcpyAsync(
+          output_ptrs[i],
+          outputs[i],
+          output_size[i],
+          topsMemcpyDeviceToHost,
+          stream);
+      topsStreamSynchronize(stream);
+      if (ret != 0) {
+        std::cout << "topsMemcpyAsync fail,  ret = " << ret << std::endl;
+        return -1;
+      }
+      topsStreamSynchronize(stream);
     }
-    topsStreamSynchronize(stream);
-  }
 
-  // 6. release data
-  for (size_t i = 0; i < input_count; i++) {
-    topsFree(inputs[i]);
+    // 6. release data
+    for (size_t i = 0; i < input_count; i++) {
+      topsFree(inputs[i]);
+    }
+    for (size_t i = 0; i < output_count; i++) {
+      topsFree(outputs[i]);
+    }
   }
-  for (size_t i = 0; i < output_count; i++) {
-    topsFree(outputs[i]);
-  }
-
+  
   // topsDestroyExecutable(exe_ptr);
   topsStreamDestroy(stream);
   topsDestroyResource(res_bundle);

@@ -37,7 +37,8 @@ int run(
     topsExecutable_t exe_ptr,
     std::vector<void*>& input_ptrs,
     std::vector<void*>& output_ptrs,
-    int device_id);
+    int device_id,
+    bool dipu_flag);
 
 int runV2(
     topsExecutable_t exe_ptr,

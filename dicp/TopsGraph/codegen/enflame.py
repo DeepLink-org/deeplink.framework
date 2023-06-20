@@ -16,7 +16,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
-from ..config import tops_debug, device_id
+from ..config import tops_debug, dipu_flag, device_id
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
@@ -254,7 +254,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         return compile_graph_code.getvalue()
 
     def gen_tensor(self, prefix, tensor):
-        res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        if dipu_flag and prefix == "empty_strided":
+            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xla:{device_id}', dtype={tensor.dtype})"
+        else:
+            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
         return res
 
     def gen_empty_tensor(self, tensor):
@@ -271,6 +274,10 @@ class EnflameCodegen(torch.fx.Interpreter):
             args.append('arg' + str(i))
         call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline(f"args.clear()")
+        
+        if dipu_flag:
+            for i in range(len(self.input_args)):
+                call_body.writeline(f"arg{str(i)} = arg{str(i)}.to('xla:{device_id}')")
 
         bufs = []
         for i in range(len(self.output_args)):
@@ -294,6 +301,9 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         for arg in args:
             call_body.writeline(f'del {arg}')
+        
+        if dipu_flag:
+            bufs = [f"{buf}.cpu()" for buf in bufs]
         
         call_body.writeline(f"return ({', '.join(bufs)})")
 
