@@ -19,7 +19,7 @@ env:
   PYTORCH_BASE_DIR: '/mnt/cache/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
-  NV_PVC_PATH: '/mnt/cache/share/parrotsci/github/cibuild/github/cibuild/${{ github.repository }}'
+  NV_PVC_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   NV_SOURCE_PATH: '/nvme/share/share/github/sourcecode'
 
 
