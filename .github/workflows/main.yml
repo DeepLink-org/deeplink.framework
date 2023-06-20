@@ -201,7 +201,7 @@ jobs:
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo '`pytorch dir: ${PYTORCH_DIR}`''
+          echo '`pytorch dir: ${PYTORCH_DIR}`'
           source scripts/ci_camb_env.sh
           `export PYTHONPATH=$(pwd):${PYTHONPATH}` #将dipu_poc纳入环境中
           echo 'python path : ${PYTHONPATH}'
