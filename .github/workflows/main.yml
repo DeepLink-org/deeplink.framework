@@ -216,7 +216,7 @@ jobs:
   Clone:
     name: clone code on cuda
     needs: [Rsync]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: clone repo
         run: |
@@ -261,7 +261,7 @@ jobs:
   Build-POC-Cuda:
     name: Build dipu cuda
     needs: [Clone]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: Build dipu
         run: |
@@ -276,7 +276,7 @@ jobs:
   Test-Cuda:
     name: test-cuda
     needs: [Build-POC-Cuda]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: Run-test
         run: |
@@ -290,7 +290,7 @@ jobs:
   Build-POC-Cuda-Diopi:
     name: Build dipu cuda diopi-latest-target
     needs: [Clone]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: Build dipu diopi-latest-target
         run: |
@@ -305,7 +305,7 @@ jobs:
   Test-Cuda-Diopi:
     name: test-cuda-diopi-main
     needs: [Build-POC-Cuda-Diopi]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: Run-test
         run: |
@@ -320,7 +320,7 @@ jobs:
   Test-One-Iter_Cuda:
     name: test-one-iter-cuda
     needs: [Build-POC-Cuda]
-    runs-on: tps-pytorch-ci
+    runs-on: tps-diopi-ci
     steps:
       - name: build some env
         run: |
