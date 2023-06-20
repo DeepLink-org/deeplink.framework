@@ -209,7 +209,7 @@ jobs:
           echo 'python path : \${PYTHONPATH}'
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmcv:$PYTHONPATH
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci_one_iter.sh build_camb
           """
 
       - name: run-one-iter-tools
@@ -314,7 +314,7 @@ jobs:
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
-          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
           export PYTHONPATH=$(pwd):${PYTHONPATH}
