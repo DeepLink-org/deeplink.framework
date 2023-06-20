@@ -5,18 +5,17 @@
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
-    std::string content(";");
+    std::string content;
+    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+    if (env != nullptr) {
+      content += env;
+    }
     if (stream.is_open()) {
       while (!stream.eof()) {
         std::string line;
         stream >> line;
-        content += ";" + line + ';';
+        content += "," + line;
       }
-    }
-    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
-    if (env != nullptr) {
-      content += ';';
-      content += env;
     }
     return content;
 }();
@@ -29,11 +28,19 @@ bool get_force_fallback(const char* opname) {
     return false;
   } else {
     const std::string pattern = "(([;, ]+)|^())(aten::)*(c10::)*" + std::string(opname) + "(([ ,;]+)|()$)";
-    const bool matched_result = std::regex_search(force_fallback_operators_list, std::regex(pattern));
-    if (matched_result) {
-      return true;
+    std::stringstream strstream(force_fallback_operators_list);
+    std::string force_fallback_pattern;
+    while(std::getline(strstream, force_fallback_pattern, ',')) {
+      if (force_fallback_pattern.size() <= 0) {
+        continue;
+      }
+      bool force_fallback = std::regex_match(opname, std::regex(force_fallback_pattern));
+      if (force_fallback) {
+        return true;
+      }
     }
   }
+
   return false;
 }
 
@@ -130,7 +137,7 @@ namespace {
     return at::native::zero_(self);
   }
 
-  // it's a view op, However it's not registered by RegisterCompositeExplicitAutograd.cpp,  
+  // it's a view op, However it's not registered by RegisterCompositeExplicitAutograd.cpp,
   // but by cpu/cuda backend.
   at::Tensor wrapper_DIPU__unfold(const at::Tensor & self, int64_t dimension, int64_t size, int64_t step) {
     // No device check
