@@ -3,6 +3,9 @@
 function clone_needed_repo() {
     # clone some repositories
 
+    mkdir -p mmlab_pack
+    cd mmlab_pack
+
     #define some version
     MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
     MMENGINE_VERSION=v0.7.4
@@ -28,6 +31,7 @@ function clone_needed_repo() {
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
     rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
     cd mmcv && git checkout ${MMCV_VERSION} && cd ..
+    cd ..
 }
 
 function build_needed_repo_cuda() {
@@ -51,7 +55,7 @@ function build_dataset(){
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation..."
         rm -rf data
-        mkdir data
+        mkdir  data
         ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
         ln -s /nvme/share/share_data/datasets/detection/coco  data/coco
         ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes

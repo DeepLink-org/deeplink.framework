@@ -118,6 +118,7 @@ jobs:
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
+          mkdir -p mmlab_pack
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci_camb_script.sh build_dipu \
           || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -193,7 +194,7 @@ jobs:
             git checkout ${{ github.sha }}
           fi
           bash scripts/ci_one_iter.sh clone
-          rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
+          rsync -a --include='mmagic/***' --include='mmocr/***' --include='mmpose/***' --include='mmdetection3d/***' --include='mmaction2/***' --include='mmsegmentation/***' --include='mmcv/***' --include='mmpretrain/***' --include='mmdetection/***' --include='mmengine/***' --include='SMART/***' --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/
 
       - name: build-some-env
         run: |
@@ -205,7 +206,7 @@ jobs:
           source scripts/ci_camb_env.sh
           export PYTHONPATH=\$(pwd):\${PYTHONPATH} #将dipu_poc纳入环境中
           echo 'python path : \${PYTHONPATH}'
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:$PYTHONPATH
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmcv:$PYTHONPATH
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb
           """
 
@@ -215,10 +216,11 @@ jobs:
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo 'pytorch dir: ${PYTORCH_DIR}'
+          echo 'pytorch dir: \${PYTORCH_DIR}'
           source scripts/ci_camb_env.sh
           echo 'python path : \${PYTHONPATH}'
-          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmagic:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmagic:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmengine:/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+          cd mmlab_pack
           pwd
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
@@ -321,7 +323,7 @@ jobs:
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci_nv_env.sh
-          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda
+          basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
@@ -336,4 +338,5 @@ jobs:
           export PYTHONPATH=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
-          bash scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          cd mmlab_pack
+          bash ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
