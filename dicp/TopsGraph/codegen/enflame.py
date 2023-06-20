@@ -30,7 +30,7 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad',
              'Viewasreal', 'Complexmul', 'Softmax', 'Logsoftmax', 'Gelu']
 
-need_args = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 def process_name(name, target):
     if target.__name__ == 'convolution_backward':
@@ -355,10 +355,9 @@ class EnflameOverrides(OpOverrides):
             args_str.append(f"{args_dict[args[0].name]}_1")
             args_str.append(str(args[1]).replace('[', '{').replace(']', '}'))
             return src_code, args_str
-        elif name in need_args:
+        elif name in need_dict:
             args_str.append(node)
             args_str.append(args_dict)
-            args_str.append(args)
             return src_code, args_str
         elif name in need_node:
             gen_const_flag = False
@@ -457,7 +456,8 @@ class EnflameOverrides(OpOverrides):
     
     # TODO: Refine code
     @staticmethod
-    def Div(op_var, node, args_dict, args):
+    def Div(op_var, node, args_dict):
+        args = node.args
         args_str = []
         src_code = "\n"
         
@@ -485,7 +485,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Dot(op_var, node, args_dict, args):
+    def Dot(op_var, node, args_dict):
+        args = node.args
         args_str = []
         src_code = '\n'
 
@@ -717,7 +718,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Slice(op_var, node, args_dict, args):
+    def Slice(op_var, node, args_dict):
+        args = node.args
         shape0 = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = "\n"
@@ -751,7 +753,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Select(op_var, node, args_dict, args):
+    def Select(op_var, node, args_dict):
+        args = node.args
         shape = args[0].meta['val'].shape
         rank = len(shape)
         dim = int(args[1])
@@ -906,25 +909,29 @@ class EnflameOverrides(OpOverrides):
     
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod
-    def Complex(op_var, node, args_dict, args):
+    def Complex(op_var, node, args_dict):
+        args = node.args
         shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         
         src_code = f"std::vector<int64_t> {op_var}_in_shape{shape};\n"
-        src_code += f"int {op_var}in_shape_size = {op_var}_in_shape.size();\n"
         
-        src_code += f"auto {op_var}part0_limit_indices =  {op_var}_in_shape;\n"
-        src_code += f"{op_var}part0_limit_indices[{op_var}in_shape_size - 1]--;\n"
+        src_code += f"int {op_var}_in_shape_size = {op_var}_in_shape.size();\n"
+        
+        src_code += f"std::vector<int64_t> {op_var}_part0_start_indices({op_var}_in_shape_size, 0);\n"
+        src_code += f"auto {op_var}_part0_limit_indices =  {op_var}_in_shape;\n"
+        src_code += f"{op_var}_part0_limit_indices[{op_var}_in_shape_size - 1]--;\n"
+        
+        src_code += f"std::vector<int64_t> {op_var}_part1_start_indices({op_var}_in_shape_size, 0);\n"
+        src_code += f"{op_var}_part1_start_indices[{op_var}_in_shape_size - 1] = 1;\n"
+        
+        src_code += f"std::vector<int64_t> {op_var}_stride( {op_var}_in_shape_size, 1);\n"
 
-        src_code += f"std::vector<int64_t> {op_var}part0_start_indices({op_var}in_shape_size, 0);\n"
-        src_code += f"std::vector<int64_t> {op_var}part1_start_indices({op_var}in_shape_size, 0);\n"
-        src_code += f"{op_var}part1_start_indices[{op_var}in_shape_size - 1] = 1;\n"
-        src_code += f"std::vector<int64_t> {op_var}stride( {op_var}in_shape_size, 1);\n"
-
-        src_code += f"builder::Op {op_var}_split0 = builder::Slice({args_dict[args[0].name]}, {op_var}part0_start_indices, {op_var}part0_limit_indices, {op_var}stride);\n"
-        src_code += f"builder::Op {op_var}_split1 = builder::Slice({args_dict[args[0].name]}, {op_var}part1_start_indices, {op_var}_in_shape, {op_var}stride);\n"
+        src_code += f"builder::Op {op_var}_split0 = builder::Slice({args_dict[args[0].name]}, {op_var}_part0_start_indices, {op_var}_part0_limit_indices, {op_var}_stride);\n"
+        src_code += f"builder::Op {op_var}_split1 = builder::Slice({args_dict[args[0].name]}, {op_var}_part1_start_indices, {op_var}_in_shape, {op_var}_stride);\n"
         
         out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         data_type = args[0].meta['val'].dtype.__str__()
+        
         src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
         src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_split0, {op_var}_reshape_type);\n"
         src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_split1, {op_var}_reshape_type);\n"
@@ -933,22 +940,21 @@ class EnflameOverrides(OpOverrides):
         t += f"{op_var}_tmp0, {op_var}_tmp1"
         t += '}'
         
-        src_code += f"std::vector<builder::Op> {op_var}outputs{t};\n"
+        src_code += f"std::vector<builder::Op> {op_var}_outputs{t};\n"
 
-        src_code += f"builder::Op {op_var} = builder::Tuple({op_var}outputs);\n"
+        src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);\n"
         
         return src_code
 
     # tops.tuple(a, bi)====>[a,b]
     @staticmethod
     def Viewasreal(op_var, node, x):
-        src_code = f"int {op_var}irel = 0;\n"
-        src_code += f"int {op_var}iimg = 1;\n"
-        src_code += f"builder::Op {op_var}_real = builder::GetTupleElement({x}, {op_var}irel);\n"
-        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+        src_code = f"builder::Op {op_var}_real = builder::GetTupleElement({x}, 0);\n"
+        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, 1;\n"
         
         out_shape = '{' + str(list(node.meta['val'].shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
         data_type = node.meta['val'].dtype.__str__()
+        
         src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
         src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_real, {op_var}_reshape_type);\n"
         src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_imag, {op_var}_reshape_type);\n"
@@ -957,43 +963,43 @@ class EnflameOverrides(OpOverrides):
         t += f"{op_var}_tmp0, {op_var}_tmp1"
         t += '}'
 
-        src_code += f"std::vector<builder::Op> {op_var}real_imag = {t};\n"
+        src_code += f"std::vector<builder::Op> {op_var}_real_imag = {t};\n"
         dimension = len(node.meta['val'].shape)-1
-        src_code += f'builder::Op {op_var} = builder::Concatenate({op_var}real_imag, {dimension});\n'
+        src_code += f'builder::Op {op_var} = builder::Concatenate({op_var}_real_imag, {dimension});\n'
 
         return src_code
 
     #(a + bi)(c + di) = (ac -bd) + (ad + bd)i
     @staticmethod
     def Complexmul(op_var, node, x, y):
-        src_code = f"int {op_var}irel = 0;\n"
-        src_code += f"int {op_var}iimg = 1;\n"
-        src_code += f"builder::Op {op_var}xreal = builder::GetTupleElement({x}, {op_var}irel);\n"
-        src_code += f"builder::Op {op_var}ximag = builder::GetTupleElement({x}, {op_var}iimg);\n"
+        src_code = f"builder::Op {op_var}_xreal = builder::GetTupleElement({x}, 0);\n"
+        src_code += f"builder::Op {op_var}_ximag = builder::GetTupleElement({x}, 1;\n"
 
-        src_code += f"builder::Op {op_var}yreal = builder::GetTupleElement({y}, {op_var}irel);\n"
-        src_code += f"builder::Op {op_var}yimag = builder::GetTupleElement({y}, {op_var}iimg);\n"
+        src_code += f"builder::Op {op_var}_yreal = builder::GetTupleElement({y}, 0);\n"
+        src_code += f"builder::Op {op_var}_yimag = builder::GetTupleElement({y}, 1;\n"
 
-        src_code += f"builder::Op {op_var}xreal_yreal = builder::Mul({op_var}xreal, {op_var}yreal);\n"
-        src_code += f"builder::Op {op_var}ximag_yimag = builder::Mul({op_var}ximag, {op_var}yimag);\n"
+        src_code += f"builder::Op {op_var}_xreal_yreal = builder::Mul({op_var}_xreal, {op_var}_yreal);\n"
+        src_code += f"builder::Op {op_var}_ximag_yimag = builder::Mul({op_var}_ximag, {op_var}_yimag);\n"
 
-        src_code += f"builder::Op {op_var}xreal_yimag = builder::Mul({op_var}xreal, {op_var}yimag);\n"
-        src_code += f"builder::Op {op_var}ximag_yreal = builder::Mul({op_var}ximag, {op_var}yreal);\n"
+        src_code += f"builder::Op {op_var}_xreal_yimag = builder::Mul({op_var}_xreal, {op_var}_yimag);\n"
+        src_code += f"builder::Op {op_var}_ximag_yreal = builder::Mul({op_var}_ximag, {op_var}_yreal);\n"
 
-        src_code += f"builder::Op {op_var}mul_real = builder::Sub({op_var}xreal_yreal, {op_var}ximag_yimag);\n"
-        src_code += f"builder::Op {op_var}mul_imag = builder::Add({op_var}xreal_yimag, {op_var}ximag_yreal);\n"
+        src_code += f"builder::Op {op_var}_mul_real = builder::Sub({op_var}_xreal_yreal, {op_var}_ximag_yimag);\n"
+        src_code += f"builder::Op {op_var}_mul_imag = builder::Add({op_var}_xreal_yimag, {op_var}_ximag_yreal);\n"
 
         t = '{'
-        t += f"{op_var}mul_real, {op_var}mul_imag"
+        t += f"{op_var}_mul_real, {op_var}_mul_imag"
         t += '}'
 
-        src_code += f"std::vector<builder::Op> {op_var}outputs {t};\n"
-        src_code += f"builder::Op {op_var} = builder::Tuple( {op_var}outputs);\n"
+        src_code += f"std::vector<builder::Op> {op_var}_outputs {t};\n"
+        src_code += f"builder::Op {op_var} = builder::Tuple( {op_var}_outputs);\n"
         
         return src_code
 
     @staticmethod
-    def Concatenate(op_var, node, args_dict, args):
+    def Concatenate(op_var, node, args_dict):
+        args = node.args
+        
         y = node.args[1]
         if (node.args[1] < 0 ):
             y = len(node.meta["val"][0].shape) + node.args[1]

@@ -9,19 +9,16 @@ from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
 
-use_dynamic_shapes = False
-use_fake_tensor = True
-
 class Operator():
     __name__: str
 
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if use_dynamic_shapes else None
+        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
         self.fake_mode = (
             FakeTensorMode(shape_env=self.shape_env)
-            if use_fake_tensor
+            if config.use_fake_tensor
             else nullcontext()
         )
 
