@@ -33,13 +33,6 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getite
 need_dict = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 def process_name(name, target):
-    if target.__name__ == 'convolution_backward':
-            return 'Conv2D_Grad'
-    if target.__name__ == 'max_pool2d_with_indices':
-        return 'MaxPool2D'
-    if target.__name__ == 'max_pool2d_with_indices_backward':
-        return 'MaxPool2D_Grad'
-    
     if hasattr(target, "name"):
         real_op = target.name().split('::')[-1]
         if real_op.find('.') != -1:

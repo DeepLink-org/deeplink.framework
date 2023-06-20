@@ -66,19 +66,9 @@ class Add(Operator):
         self.b = b
         self.torch_op = aten.add.Tensor
 
-'''
-class Addmm(Operator):
-    def __init__(self, a, b, c):
-        super().__init__("addmm")
-        self.a = a
-        self.b = b
-        self.c = c
-        self.torch_op = aten.addmm
-'''
-
 class AddDefalut(Operator):
     def __init__(self, a, b):
-        super().__init__("add")
+        super().__init__("Add")
         self.a = a
         self.b = b
         self.torch_op = aten.add.default
@@ -93,21 +83,21 @@ class Gemm(Operator):
 
 class Abs(Operator):
     def __init__(self, a):
-        super().__init__("abs")
+        super().__init__("Abs")
         self.a = a
         self.torch_op = aten.abs
 
 
 class LessEqual(Operator):
     def __init__(self, *args):
-        super().__init__("lessequal")
+        super().__init__("Lessequal")
         self.args = args
         self.torch_op = aten.le.Scalar
 
 
 class Mul(Operator):
     def __init__(self, a, b):
-        super().__init__("mul")
+        super().__init__("Mul")
         self.a = a
         self.b = b
         self.torch_op = aten.mul
@@ -123,7 +113,7 @@ class ComplexMul(Operator):
 
 class Div(Operator):
     def __init__(self, a, b):
-        super().__init__("div")
+        super().__init__("Div")
         self.a = a
         self.b = b
         self.torch_op = aten.div
@@ -131,7 +121,7 @@ class Div(Operator):
 
 class Sub(Operator):
     def __init__(self, a, b):
-        super().__init__("sub")
+        super().__init__("Sub")
         self.a = a
         self.b = b
         self.torch_op = aten.sub
@@ -139,27 +129,27 @@ class Sub(Operator):
 
 class Sqrt(Operator):
     def __init__(self, a):
-        super().__init__("sqrt")
+        super().__init__("Sqrt")
         self.a = a
         self.torch_op = aten.sqrt
 
 class Square(Operator):
     def __init__(self, *args):
-        super().__init__("square")
+        super().__init__("Square")
         self.args = args
         self.torch_op = aten.square
 
 
 class Exp(Operator):
     def __init__(self, a):
-        super().__init__("exp")
+        super().__init__("Exp")
         self.a = a
         self.torch_op = aten.exp
 
 
 class Relu(Operator):
     def __init__(self, a):
-        super().__init__("relu")
+        super().__init__("Relu")
         self.a = a
         self.torch_op = aten.relu
 
@@ -173,9 +163,9 @@ class ReduceSum(Operator):
 
 class ReduceMean(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("reducemean")
+        super().__init__("Reducemean")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.mean
 
 
@@ -183,13 +173,13 @@ class ReduceMax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("ReduceMax")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.amax
 
 
 class Squeeze(Operator):
     def __init__(self, a, b):
-        super().__init__("squeeze")
+        super().__init__("Squeeze")
         self.a = a
         self.b = b
         self.torch_op = aten.squeeze
@@ -197,7 +187,7 @@ class Squeeze(Operator):
 
 class Unsqueeze(Operator):
     def __init__(self, a, b):
-        super().__init__("unsqueeze")
+        super().__init__("Unsqueeze")
         self.a = a
         self.b = b
         self.torch_op = aten.unsqueeze
@@ -205,7 +195,7 @@ class Unsqueeze(Operator):
 
 class Transpose(Operator):
     def __init__(self, a, b):
-        super().__init__("transpose")
+        super().__init__("Transpose")
         self.a = a
         self.b = b
         self.torch_op = aten.permute
@@ -213,7 +203,7 @@ class Transpose(Operator):
 
 class Transpose1(Operator):
     def __init__(self, a, b, c):
-        super().__init__("transpose")
+        super().__init__("Transpose")
         self.a = a
         self.b = b
         self.c = c
@@ -236,14 +226,14 @@ class Copy(Operator):
 
 class Neg(Operator):
     def __init__(self, *args):
-        super().__init__("neg")
+        super().__init__("Neg")
         self.args = args
         self.torch_op = aten.neg
 
 
 class Reshape(Operator):
     def __init__(self, a, b):
-        super().__init__("reshape")
+        super().__init__("Reshape")
         self.a = a
         self.b = b
         self.torch_op = aten.view
@@ -275,14 +265,14 @@ class ConvolutionBackward(Operator):
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args):
-        super().__init__("max_pool2d_with_indices")
+        super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
 
 
 class Max_pool2d_with_indices_backward(Operator):
     def __init__(self, *args):
-        super().__init__("max_pool2d_with_indices_backward")
+        super().__init__("MaxPool2D_GRad")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices_backward
 
@@ -296,7 +286,7 @@ class Gather(Operator):
 
 class Log(Operator):
     def __init__(self, *args):
-        super().__init__("log")
+        super().__init__("Log")
         self.args = args
         self.torch_op = aten.log
 
@@ -313,15 +303,15 @@ class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Batch_Norm")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
 
 
 class BatchNormBackward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("batchnorm_backward")
+        super().__init__("BatchnormBackward")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.native_batch_norm_backward.default
 
 
@@ -329,15 +319,15 @@ class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten._softmax.default
 
 
 class Range(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("range")
+        super().__init__("Range")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.arange.start
 
 
@@ -345,13 +335,13 @@ class Dot(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Dot")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.bmm.default
 
 
 class Concatenate(Operator):
     def __init__(self, x, dim):
-        super().__init__("concatenate")
+        super().__init__("Concatenate")
         self.x = x
         self.dim = dim
         self.torch_op = aten.cat.default
@@ -366,17 +356,17 @@ class Concatenate(Operator):
 
 class EmptyLike(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("empty_like")
+        super().__init__("Empty_like")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
 
 
 class Euqal(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("eauql")
+        super().__init__("Equal")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.eq.Tensor
 
 
@@ -384,7 +374,7 @@ class Expand(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Expand")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.expand.default
 
 
@@ -392,7 +382,7 @@ class Full(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Full")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.full.default
 
 
@@ -400,31 +390,31 @@ class FullLike(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("FullLike")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.full_like.default
 
 
 class Max(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("max")
+        super().__init__("Max")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.maximum.default
 
 
 class Pow(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("pow")
+        super().__init__("Pow")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.pow.Tensor_Scalar
 
 
 class Sigmoid(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("sigmoid")
+        super().__init__("Sigmoid")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.sigmoid.default
 
 
@@ -432,7 +422,7 @@ class Slice(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Slice")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
         
         
@@ -440,7 +430,7 @@ class Where(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Where")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.where.self
 
 
@@ -448,16 +438,16 @@ class Select(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Select")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.select.int
 
 
 # scatter_value = torch.ops.aten.scatter.value(fulllike, 1, unsqueeze, -1.0);  fulllike = unsqueeze = None
 class Scatter(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("scatter")
+        super().__init__("Scatter")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.scatter.value
 
 
@@ -472,7 +462,7 @@ class Scalar(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Scalar")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.scalar_tensor.default
         
 
@@ -494,7 +484,7 @@ class Tile(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Tile")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten.repeat.default
 
 
@@ -503,7 +493,7 @@ class ConvertElementType(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Convert")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = torch.ops.prims.convert_element_type.default
 
 
@@ -511,7 +501,7 @@ class ViewAsComplex(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Complex")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_complex
 
 
@@ -519,12 +509,12 @@ class ViewAsReal(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Viewasreal")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_real
 
 class UnsafeView(Operator):
     def __init__(self, a, b):
-        super().__init__("reshape")
+        super().__init__("Reshape")
         self.a = a
         self.b = b
         self.torch_op = aten._unsafe_view.default
@@ -534,7 +524,7 @@ class Logsoftmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Logsoftmax")
         self.args = args
-        self.args = kwargs
+        self.kwargs = kwargs
         self.torch_op = aten._log_softmax.default
 
 
