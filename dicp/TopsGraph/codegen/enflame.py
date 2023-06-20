@@ -16,7 +16,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
-from ..config import tops_debug
+from ..config import tops_debug, device_id
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
@@ -119,7 +119,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             with open('codegen.py', 'w') as f:
                 f.write(test)
             print("*******************Generated code*******************")
-            print(test)
+            print(test, flush=True)
 
         return test
 
@@ -195,7 +195,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 func_body.writeline(f'output_ptrs.emplace_back(output_ptr{str(i)});')
-        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs);')
+        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs, {device_id});')
 
         input_paras = ''
         for i in range(0, len(self.input_args)):
