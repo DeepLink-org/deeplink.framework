@@ -9,6 +9,8 @@ os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 # os.environ['DIPU_MEM_CHECK_ENABLE_BACKTRACE'] = '1'
 mockcuda = False if os.environ.get("DIPU_MOCK_CUDA", 'True').lower()=='false' else True
 
+print("import torch_dipu successfully")
+
 import torch
 from typing import (Tuple, List, Union, Sequence)
 from torch.types import (_int, _size, Device, Number)

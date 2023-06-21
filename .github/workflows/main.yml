@@ -203,9 +203,9 @@ jobs:
           set -e
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo 'pytorch dir: \${PYTORCH_DIR}'
+          echo "pytorch dir: \${PYTORCH_DIR}"
           source scripts/ci_camb_env.sh
-          echo 'python path : \${PYTHONPATH}'
+          echo "python path : \${PYTHONPATH}"
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack/mmcv:$PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci_one_iter.sh build_camb
