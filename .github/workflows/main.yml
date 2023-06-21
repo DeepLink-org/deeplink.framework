@@ -235,29 +235,11 @@ jobs:
           cd ./DIOPI && git checkout xt/change_to_pt2.0
           # fi
           cd ${GITHUB_WORKSPACE}/dipu_diopi && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          cd ${GITHUB_WORKSPACE} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
-          && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive && pwd && ls
-          # bash scripts/ci_one_iter.sh clone
+          bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          result=`ssh ${CLUSTER_1984} """
-                  mkdir -p ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  cd ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  if [ ! -f ${CI_BUILD_FLAG} ]; then
-                    touch ${CI_BUILD_FLAG}
-                  fi
-                  cat ${CI_BUILD_FLAG}
-                  """`
-          echo "result:${result}"
-          if [ "${result}x" = "${PYTORCH_COMMIT}"x ]; then
-            echo "pytorch:${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT} exist."
-          else
-            echo "pytorch not exist, copy pytorch to ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            ssh ${CLUSTER_1984} "rm -rf ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            rsync -a --delete ${GITHUB_WORKSPACE}/* ${CLUSTER_CAMB}:${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}/
-          fi
-
+  
   Build-POC-Cuda:
     name: Build dipu cuda
     needs: [Clone]
@@ -267,7 +249,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1984} """
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci_nv_script.sh build_dipu \
           || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
