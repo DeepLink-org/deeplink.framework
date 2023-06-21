@@ -316,7 +316,8 @@ jobs:
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
-          bash scripts/ci_one_iter.sh build_cuda
+          cd mmlab_pack
+          bash ../scripts/ci_one_iter.sh build_cuda
 
       - name: run-one-iter-tools
         run: |
