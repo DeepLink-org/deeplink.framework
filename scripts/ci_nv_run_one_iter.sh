@@ -26,7 +26,7 @@ original_list=(
 
 length=${#original_list[@]}
 max_parall=4   #实际并行数会取决于该设置和空闲卡数的较大值
-random_model_num=4 #如果超过，会自动设置为模型总数,目前随机选取4个模型
+random_model_num=100 #如果超过，会自动设置为模型总数,目前随机选取4个模型
 
 
 if [ $random_model_num -gt $length ]; then
@@ -57,7 +57,7 @@ echo "${used_card_list[@]}" >&788
 pids=()
 
 export ONE_ITER_TOOL_DEVICE=dipu
-export ONE_ITER_TOOL_DEVICE_COMPARE=origin
+export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
 
 mkdir one_iter_data

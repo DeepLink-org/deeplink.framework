@@ -34,7 +34,7 @@ done
 pids=()
 
 export ONE_ITER_TOOL_DEVICE=dipu
-export ONE_ITER_TOOL_DEVICE_COMPARE=origin
+export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
 
 
 mkdir one_iter_data

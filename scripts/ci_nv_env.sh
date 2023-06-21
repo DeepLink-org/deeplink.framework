@@ -34,7 +34,7 @@ export PYTORCH_DIR_110=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_di
 export PYTORCH_TEST_DIR=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-# export PYTHONPATH=$(pwd):${PYTHONPATH}
+export PYTHONPATH=$(pwd):${PYTHONPATH}
 export NCCL_INCLUDE_DIRS=${NCCL_ROOT}/include
 export VENDOR_INCLUDE_DIRS=${CUDA_PATH}/include
 

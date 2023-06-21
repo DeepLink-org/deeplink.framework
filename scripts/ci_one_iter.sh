@@ -17,7 +17,7 @@ function clone_needed_repo() {
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
-    SMART_VERSION=slc/solve-camb-one-iter-cpu
+    SMART_VERSION=yb/support_one_iter_define_cpu_gpu
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git

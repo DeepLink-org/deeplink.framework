@@ -23,6 +23,8 @@ export NEUWARE_ROOT_DIR=${NEUWARE_HOME}
 export VENDOR_INCLUDE_DIRS=${NEUWARE_HOME}/include
 export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
 export DIPU_PATH=${DIPU_ROOT}
+export PYTHONPATH=$(pwd):${PYTHONPATH}
+
 
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
