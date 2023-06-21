@@ -221,7 +221,7 @@ jobs:
       - name: clone repo
         run: |
           set -e
-          cd ${NV_PVC_PATH} && find ${NV_PVC_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
+          cd ${GITHUB_WORKSPACE} && find ${GITHUB_WORKSPACE}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
           rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
@@ -238,7 +238,7 @@ jobs:
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive && pwd && ls
           cd dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          bash scripts/ci_one_iter.sh clone
+          # bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
