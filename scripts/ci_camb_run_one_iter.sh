@@ -42,6 +42,8 @@ else
     done
 fi
 
+echo select_list: ${selected_list[@]}
+
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
     echo  "init add placed row $i" >&796
