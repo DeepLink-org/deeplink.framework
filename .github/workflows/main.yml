@@ -229,15 +229,14 @@ jobs:
           else
             git checkout ${{ github.sha }}
           fi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu dipu_diopi
-    
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            cd ./DIOPI && git checkout xt/change_to_pt2.0
-          fi
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
+          cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
+          cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
+          # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+          cd ./DIOPI && git checkout xt/change_to_pt2.0
+          # fi
+          cd ${GITHUB_WORKSPACE}/dipu_diopi && rm -rf third_party/DIOPI && git submodule update --init --recursive
+          cd ${GITHUB_RUN_NUMBER} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive && pwd && ls
-          cd dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           # bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
@@ -256,7 +255,7 @@ jobs:
           else
             echo "pytorch not exist, copy pytorch to ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
             ssh ${CLUSTER_1984} "rm -rf ${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            rsync -a --delete ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/pytorch/* ${CLUSTER_CAMB}:${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}/
+            rsync -a --delete ${GITHUB_WORKSPACE}/* ${CLUSTER_CAMB}:${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}/
           fi
 
   Build-POC-Cuda:
