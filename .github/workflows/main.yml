@@ -235,7 +235,7 @@ jobs:
           cd ./DIOPI && git checkout xt/change_to_pt2.0
           # fi
           cd ${GITHUB_WORKSPACE}/dipu_diopi && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          cd ${GITHUB_RUN_NUMBER} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
+          cd ${GITHUB_WORKSPACE} && git clone https://github.com/pytorch/pytorch.git && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive && pwd && ls
           # bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
