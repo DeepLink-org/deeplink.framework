@@ -12,7 +12,7 @@ on:
 env:
   NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
-  SLURM_PAR_SH1984: ${{ vars.SLURM_PAR_SH1984 }}
+  SLURM_PAR_SH1984: 'pat_rd -x SH-IDC1-10-198-8-58,SH-IDC1-10-198-8-87'
   CLUSTER_CAMB: CAMB
   CLUSTER_1984: SH1984
   GPU_REQUESTS: 1
