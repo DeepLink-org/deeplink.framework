@@ -8,7 +8,7 @@ function clone_needed_repo() {
     cd mmlab_pack
 
     #define some version
-    MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
+    MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
