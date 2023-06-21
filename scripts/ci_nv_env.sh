@@ -1,4 +1,6 @@
 PLATFORM=/mnt/cache/share/platform
+echo "==================================================="
+echo ${PLATFORM}
 ENV_NAME=pt2.0_diopi
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
