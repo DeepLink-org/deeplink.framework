@@ -3,7 +3,8 @@
 function clone_needed_repo() {
     # clone some repositories
 
-    mkdir -p mmlab_pack
+    rm -rf mmlab_pack
+    mkdir  mmlab_pack
     cd mmlab_pack
 
     #define some version

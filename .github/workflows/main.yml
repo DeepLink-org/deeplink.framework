@@ -317,7 +317,8 @@ jobs:
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
           cd mmlab_pack
-          bash ../scripts/ci_one_iter.sh build_cuda
+          echo  "python path : $PYTHONPATH"
+          sh ../scripts/ci_one_iter.sh build_cuda
 
       - name: run-one-iter-tools
         run: |
@@ -340,4 +341,4 @@ jobs:
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
-          bash ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          sh ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
