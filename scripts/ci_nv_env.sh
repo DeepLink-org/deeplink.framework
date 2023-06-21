@@ -13,6 +13,8 @@ export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.0
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
 
+
+
 export LD_LIBRARY_PATH=${CONDA_ROOT}/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=${CUDA_PATH}/lib64:${CUDA_PATH}/extras/CUPTI/lib64/:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=${MPI_ROOT}/lib:$LD_LIBRARY_PATH
@@ -40,5 +42,7 @@ export VENDOR_INCLUDE_DIRS=${CUDA_PATH}/include
 
 export CUDA_LAUNCH_BLOCKING=1
 #export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out
+export PATH=/nvme/share/share_data/fandaoyi/bins:${PATH}
+
 
 source activate $ENV_NAME
