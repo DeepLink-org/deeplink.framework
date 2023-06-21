@@ -14,7 +14,7 @@ class MyModule(torch.nn.Module):
         r = torch.ops.aten.div(a, b)
         return r
 
-a = torch.arange(16).reshape(4, 4)
+a = torch.arange(16).reshape(4, 4).float()
 b = 128
 
 m = MyModule()

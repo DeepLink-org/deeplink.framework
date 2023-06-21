@@ -153,6 +153,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
                           after_time - before_time)
                           .count())
             << std::endl;
+  
   if (!dipu_flag) {
     for (size_t i = 0; i < output_count; i++) {
       // 5. D2H

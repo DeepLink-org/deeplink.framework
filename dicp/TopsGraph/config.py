@@ -6,7 +6,7 @@ from torch._inductor.decomposition import decompositions
 
 tops_debug = True if os.getenv('TOPS_DEBUG', default='False') == 'True' else False
 
-dipu_flag = os.getenv('DICP_TOPS_DIPU_FLAG', default='false')
+dipu_flag = True if os.getenv('DICP_TOPS_DIPU_FLAG', default='False') == 'True' else False
 
 if torch.distributed.is_initialized():
     device_id = torch.distributed.get_rank()

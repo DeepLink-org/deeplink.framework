@@ -132,6 +132,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             f"""
                 from ctypes import c_void_p, c_long
                 import torch
+                import torch_dipu
                 import random
                 from torch import empty_strided, as_strided, device
                 from dicp.TopsGraph.compile import AsyncCompileTopsGraph
@@ -195,7 +196,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 func_body.writeline(f'output_ptrs.emplace_back(output_ptr{str(i)});')
-        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs, {device_id});')
+        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs, {device_id}, {"true" if dipu_flag else "false"});')
 
         input_paras = ''
         for i in range(0, len(self.input_args)):
@@ -420,6 +421,8 @@ class EnflameOverrides(OpOverrides):
                         val = node.meta['val']
 
                     data_type = '' if isinstance(val, type(None)) else val.dtype.__str__()
+                    if data_type == "torch.bool":
+                        data_type = "torch.float32"
                     
                     src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {type_set[data_type]});")
                     
@@ -952,7 +955,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Viewasreal(op_var, node, x):
         src_code = f"builder::Op {op_var}_real = builder::GetTupleElement({x}, 0);\n"
-        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, 1;\n"
+        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, 1);\n"
         
         out_shape = '{' + str(list(node.meta['val'].shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
         data_type = node.meta['val'].dtype.__str__()
@@ -975,10 +978,10 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Complexmul(op_var, node, x, y):
         src_code = f"builder::Op {op_var}_xreal = builder::GetTupleElement({x}, 0);\n"
-        src_code += f"builder::Op {op_var}_ximag = builder::GetTupleElement({x}, 1;\n"
+        src_code += f"builder::Op {op_var}_ximag = builder::GetTupleElement({x}, 1);\n"
 
         src_code += f"builder::Op {op_var}_yreal = builder::GetTupleElement({y}, 0);\n"
-        src_code += f"builder::Op {op_var}_yimag = builder::GetTupleElement({y}, 1;\n"
+        src_code += f"builder::Op {op_var}_yimag = builder::GetTupleElement({y}, 1);\n"
 
         src_code += f"builder::Op {op_var}_xreal_yreal = builder::Mul({op_var}_xreal, {op_var}_yreal);\n"
         src_code += f"builder::Op {op_var}_ximag_yimag = builder::Mul({op_var}_ximag, {op_var}_yimag);\n"

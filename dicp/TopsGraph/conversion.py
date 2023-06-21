@@ -282,8 +282,8 @@ def ViewAsComplex(x):
     return tops_op.ViewAsComplex(x)
 
 @register_conversion(torch.ops.aten.view_as_real)
-def ViewAsComplex(*args, **kwargs):
-    return tops_op.ViewAsComplex(*args, **kwargs)
+def ViewAsReal(*args, **kwargs):
+    return tops_op.ViewAsReal(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._unsafe_view.default)
 def UnsafeView(a, b):
