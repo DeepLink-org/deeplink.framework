@@ -6,6 +6,7 @@ source tests/common.sh
 function run_dipu_tests {
   export DIPU_DUMP_OP_ARGS=1
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
+  run_test "${PYTORCH_TEST_DIR}/test/nn/test_convolution.py" -v TestConvolutionNNDeviceTypeDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
   run_test "${PYTORCH_TEST_DIR}/test/test_type_hints.py" "$@" -v
