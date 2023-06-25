@@ -264,7 +264,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1984} """
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh
           """
@@ -293,10 +293,10 @@ jobs:
         run: |
           ssh ${CLUSTER_1984} """
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd ${GITHUB_JOB} && ls
           source scripts/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Test-One-Iter_Cuda:
@@ -308,9 +308,9 @@ jobs:
         run: |
           ssh ${CLUSTER_1984} """
           set -e
-          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
+          cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && cd ${GITHUB_JOB} && ls
           source scripts/ci_nv_env.sh
-          export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:$PYTHONPATH
+          export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/mmcv:$PYTHONPATH
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci_one_iter.sh build_cuda
           """
 
