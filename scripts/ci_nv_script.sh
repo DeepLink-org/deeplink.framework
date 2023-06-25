@@ -46,7 +46,7 @@ function build_diopi_lib() {
     sh scripts/build_impl.sh clean
     sh scripts/build_impl.sh torch || exit -1
 
-    cd ../../../..
+    cd ../../..
     unset Torch_DIR
     PYTHONPATH=$RESTORE_PYTHONPATH
 }
