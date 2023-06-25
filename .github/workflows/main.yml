@@ -340,5 +340,5 @@ jobs:
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
           mkdir -p torch_dipu
-          cp ../torch_dipu/libtorch_dipu.so torch_dipu/
+          ln -s ../torch_dipu/libtorch_dipu.so torch_dipu/libtorch_dipu.so
           bash ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
