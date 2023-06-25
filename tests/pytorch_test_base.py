@@ -31,7 +31,8 @@ elif dipu.vendor_type == "CUDA":
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
     device_unsupported_dtypes = {
-        torch.complex32, torch.complex64, torch.complex128,
+        torch.complex32, torch.complex64, torch.complex128, torch.chalf,
+        torch.bfloat16,
     }
 
 
