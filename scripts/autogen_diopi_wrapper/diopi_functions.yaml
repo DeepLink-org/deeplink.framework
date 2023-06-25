@@ -1426,8 +1426,13 @@
 - schema: "_cdist_forward(Tensor x1, Tensor x2, float p, int? compute_mode) -> Tensor"
   custom_code_at_the_beginning: |
     int64_t* compute_mode_ptr = compute_mode.has_value() ? (&compute_mode.value()) : nullptr;
-    auto output_shape = x1.sizes().vec();
-    output_shape.back() = x2.size(-2);
+    auto x1_shape = x1.sizes().vec();
+    auto x2_shape = x2.sizes().vec();
+    std::fill(x1_shape.end() - 2, x1_shape.end(), 1);
+    std::fill(x2_shape.end() - 2, x2_shape.end(), 1);
+    auto output_shape = at::infer_size(x1_shape, x2_shape);
+    *output_shape.rbegin() = x2.size(-2);
+    *(output_shape.rbegin() + 1) = x1.size(-2);
     auto out = at::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
 
