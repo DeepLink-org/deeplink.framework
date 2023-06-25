@@ -423,7 +423,7 @@
     ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, false, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
   size_attr: [stride, padding, dilation]
@@ -467,6 +467,45 @@
           std::get<0>(result), std::get<1>(result), std::get<2>(result),
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
+
+- schema: "conv_transpose2d.input(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] output_padding=0, int groups=1, int[2] dilation=1) -> Tensor"
+  autograd: True
+  size_attr: [stride, padding, output_padding, dilation]
+  custom_code_at_the_beginning: |
+    const int64_t n = input.size(0);
+    const int64_t w_in = input.size(-1);
+    const int64_t h_in = input.size(-2);
+    const int64_t kernel_width = weight.size(-1);
+    const int64_t kernel_height = weight.size(-2);
+    const int64_t h_out = (h_in - 1) * stride[0] - 2 * padding[0] + (dilation[0] * (kernel_height - 1) + 1) + output_padding[0];
+    const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
+    const int64_t c_out = weight.size(1) * groups;
+    auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
+    auto out = at::empty(output_shape, input.options());
+  interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
+  forward_process_code: |
+    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
+  saved_data: [stride, padding, dilation, groups, bias_has_value, input, weight, output_padding]
+  cal_grad_code: |
+      auto grad_output = grad_outputs.at(0);
+      auto input = input_.toTensor();
+      auto weight = weight_.toTensor();
+      auto padding = padding_.toIntVector();
+      auto stride = stride_.toIntVector();
+      auto dilation = dilation_.toIntVector();
+      auto output_padding = output_padding_.toIntVector();
+      bool bias_has_value = bias_has_value_.toBool();
+      auto groups = groups_.toInt();
+      std::vector<int64_t> bias_sizes;
+      if (bias_has_value) {
+        bias_sizes.push_back(grad_output.size(1));
+      }
+      std::array<bool, 3> output_mask;
+      output_mask[0] = input.requires_grad();
+      output_mask[1] = weight.requires_grad();
+      output_mask[2] = bias_has_value;
+      bool transposed = true;
+  backward_schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
 
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
   custom_code_at_the_beginning: |
@@ -523,20 +562,6 @@
     outputs[0] = out;
     return outputs;
   wrappter_custom_return: return self;
-
-
-#- schema: "convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
-- schema: "conv_transpose2d.input(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] output_padding=0, int groups=1, int[2] dilation=1) -> Tensor"
-  custom_code_at_the_beginning: |
-    int64_t input_width = input.size(3);
-    int64_t input_height = input.size(2);
-    int64_t output_height = (input_height - 1) * stride_height - 2 * pad_height + (dilation_height * (kernel_height - 1) + 1) + output_padding_height;
-    int64_t output_width = (input_width - 1) * stride_width - 2 * pad_width + (dilation_width * (kernel_width - 1) + 1) + output_padding_width;
-
-  // Batch size + input planes
-  int64_t batch_size = input.size(0);
-    auto out = at::empty(output_shape, input.options());
-  interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
