@@ -57,7 +57,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
         ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
         ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
-        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015     
+        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015
         ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
         ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
