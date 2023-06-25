@@ -339,4 +339,6 @@ jobs:
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
+          mkdir -p torch_dipu
+          cp ../torch_dipu/libtorch_dipu.so torch_dipu/
           bash ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
