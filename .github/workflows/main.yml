@@ -233,7 +233,7 @@ jobs:
           cd ./DIOPI && git checkout xt/change_to_pt2.0
           # fi
           cd ${GITHUB_WORKSPACE}/dipu_diopi && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          bash scripts/ci_one_iter.sh clone
+          # bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
