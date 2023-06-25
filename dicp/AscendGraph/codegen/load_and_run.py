@@ -5,7 +5,7 @@ import time
 
 
 # the range for dynamic shape
-max_range = 32
+max_range = 128
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -352,17 +352,6 @@ class AscendExecutor(object):
             bytes_data = acl.util.ptr_to_bytes(ptr, temp["size"])
             data = np.frombuffer(bytes_data, dtype=np_dtype).reshape(tuple(out_dim))
             result.append(data)
-        return result
-
-class AscendModel():
-    def __init__(self, device_id, model_path) -> None:
-        self.device_id = device_id          # int
-        self.model_path = model_path        # str
-
-    def run(self, images):
-        exe = AscendExecutor(self.device_id, self.model_path)
-        result = exe.run(images)
-        exe.release_resource()
         return result
 
 
