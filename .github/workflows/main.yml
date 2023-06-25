@@ -233,7 +233,7 @@ jobs:
           cd ./DIOPI && git checkout xt/change_to_pt2.0
           # fi
           cd ${GITHUB_WORKSPACE}/dipu_diopi && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          # bash scripts/ci_one_iter.sh clone
+          bash scripts/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source ${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/source-main/
@@ -249,7 +249,6 @@ jobs:
           set -e
           cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci_nv_env.sh
-          # pip uninstall dataclasses
           echo "=================================================="
           echo ${SLURM_PAR_SH1984}
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci_nv_script.sh build_dipu \
@@ -323,5 +322,5 @@ jobs:
           source scripts/ci_nv_env.sh
           export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpose:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmaction2:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmpretrain:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmocr:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmsegmentation:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmdetection3d:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmdetection:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmagic:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/data/stable-diffusion-v1-5:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmagic/mmagic/models/editors/stable_diffusion:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmcv:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           echo  "python path : $PYTHONPATH"
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash -c scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} sh scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """

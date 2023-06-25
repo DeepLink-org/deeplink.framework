@@ -106,7 +106,6 @@ class CPPLibBuild(build_clib, object):
 class CppExtensionBuilder:
     include_directories = [
         BASE_DIR +"/torch_dipu",
-        BASE_DIR + "/third_party/DIOPI/DIOPI-IMPL/third_party/pybind11/include"
     ]
 
     extra_link_args = []
