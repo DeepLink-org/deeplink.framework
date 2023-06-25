@@ -44,36 +44,7 @@ function build_diopi_lib() {
     echo "build_diopi_lib PYTHONPATH: ${PYTHONPATH}"
     sed -i "/option(HIP/a set(Torch_DIR $Torch_DIR)" torch/CMakeLists.txt
     sh scripts/build_impl.sh clean
-    sh scripts/build_impl.sh torch_dyload || exit -1
-
-    cd lib
-    cp ${PYTORCH_DIR_110}/torch/lib/libtorch.so .
-    cp ${PYTORCH_DIR_110}/torch/lib/libc10.so .
-    cp ${PYTORCH_DIR_110}/torch/lib/libc10_cuda.so .
-    cp ${PYTORCH_DIR_110}/torch/lib/libtorch_cpu.so .
-    cp ${PYTORCH_DIR_110}/torch/lib/libtorch_cuda.so .
-    mv libc10.so libc10.so.1.10
-    mv libc10_cuda.so libc10_cuda.so.1.10
-    mv libtorch.so libtorch.so.1.10
-    mv libtorch_cpu.so libtorch_cpu.so.1.10
-    mv libtorch_cuda.so libtorch_cuda.so.1.10
-    patchelf --set-soname libc10.so.1.10 libc10.so.1.10
-    patchelf --set-soname libc10_cuda.so.1.10 libc10_cuda.so.1.10
-    patchelf --set-soname libtorch.so.1.10 libtorch.so.1.10
-    patchelf --set-soname libtorch_cpu.so.1.10 libtorch_cpu.so.1.10
-    patchelf --set-soname libtorch_cuda.so.1.10 libtorch_cuda.so.1.10
-    patchelf --replace-needed libc10.so libc10.so.1.10 libdiopi_real_impl.so
-    patchelf --replace-needed libc10_cuda.so libc10_cuda.so.1.10 libdiopi_real_impl.so
-    patchelf --replace-needed libtorch.so libtorch.so.1.10 libdiopi_real_impl.so
-    patchelf --replace-needed libtorch_cpu.so libtorch_cpu.so.1.10 libdiopi_real_impl.so
-    patchelf --replace-needed libtorch_cuda.so libtorch_cuda.so.1.10 libdiopi_real_impl.so
-    patchelf --replace-needed libc10.so libc10.so.1.10 libc10_cuda.so.1.10
-    patchelf --replace-needed libc10.so libc10.so.1.10 libtorch_cpu.so.1.10
-    patchelf --replace-needed libc10.so libc10.so.1.10 libtorch_cuda.so.1.10
-    patchelf --replace-needed libc10_cuda.so libc10_cuda.so.1.10 libtorch_cuda.so.1.10
-    patchelf --replace-needed libtorch_cpu.so libtorch_cpu.so.1.10 libtorch_cuda.so.1.10
-    patchelf --replace-needed libtorch_cpu.so libtorch_cpu.so.1.10 libtorch.so.1.10
-    patchelf --replace-needed libtorch_cuda.so libtorch_cuda.so.1.10 libtorch.so.1.10
+    sh scripts/build_impl.sh torch || exit -1
 
     cd ../../../..
     unset Torch_DIR
@@ -90,7 +61,6 @@ function build_dipu_lib() {
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
-    patchelf --add-needed torch_dipu/libtorch_dipu.so third_party/DIOPI/DIOPI-IMPL/lib/libtorch.so.1.10
 }
 
 case $1 in
