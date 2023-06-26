@@ -69,6 +69,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+    echo "python path: $PYTHONPATH"
 }
 
 
@@ -106,34 +107,20 @@ function build_dataset(){
 
 case $1 in
     clone)
-        (
-            clone_needed_repo
-        ) \
-        || exit -1;;
+        clone_needed_repo;;
     build_cuda)
-        (
-            build_needed_repo_cuda
-            build_dataset cuda
-        ) \
-        || exit -1;;
+        build_needed_repo_cuda
+        build_dataset cuda;;
     build_camb)
-        (
-            build_needed_repo_camb
-            build_dataset camb
-        ) \
-        || exit -1;;
+        build_needed_repo_camb
+        build_dataset camb;;
     export_pythonpath_camb)
-        (
-            export_repo_pythonpath camb $2
-        ) \
-        || exit -1;;
+        export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)
-        (
-            export_repo_pythonpath cuda $2
-        ) \
-        || exit -1;;
+        export_repo_pythonpath cuda $2;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac
+
 
 
