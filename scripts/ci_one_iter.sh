@@ -38,7 +38,6 @@ function build_needed_repo_cuda() {
     pip install -e . -v --no-deps
     cd ../mmpretrain
     pip install -e .
-    cd ..
 }
 
 function build_needed_repo_camb() {
@@ -52,6 +51,7 @@ function build_dataset(){
     # link dataset
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation..."
+        pwd
         rm -rf data
         mkdir data
         ln -s /mnt/lustre/share_data/PAT/datasets/mmcls/imagenet data/imagenet
