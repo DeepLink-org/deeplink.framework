@@ -1,8 +1,8 @@
 # Copyright (c) 2023, DeepLink.
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-os.environ['MLU_INVOKE_BLOCKING'] = '1'
-os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
+#os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+#os.environ['MLU_INVOKE_BLOCKING'] = '1'
+#os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 # os.environ['DIPU_MEM_CHECK'] = '1'
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
@@ -16,7 +16,7 @@ from torch import Tensor
 
 # use env to control?
 from torch_dipu import _C
-from torch_dipu import dipu 
+from torch_dipu import dipu
 from torch_dipu.dipu import *
 from torch.serialization import register_package
 from .dipu.device import _get_device_index
@@ -56,7 +56,7 @@ def _dipu_tag(obj):
 # Tensor. _reduce_ex_internal  use numpy now
 # register_package(30, _dipu_tag, _dipu_deserialize)
 
-# mock device functions in generated/python_variable_methods.cpp 
+# mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
     torch.Tensor.to = GetDeviceProxy(torch.Tensor.to)
     torch.Tensor.is_pinned = GetDeviceProxy(torch.Tensor.is_pinned)
@@ -72,14 +72,14 @@ def apply_tensor_method_patch():
 
     # tensor.new is legacy func, not support out-of-tree device
     # this temp solution not support all new parameter now, need enhance.
-    # how to support storage? 
+    # how to support storage?
     def _legacy_new_mocker(self, arg = None, size: _size = None, device: Device = None):
         device = device if device else self.device
         # test in cuda:: seems Tensor.new(size) return uncertain value in torch 2.0
         if size is not None:
             return self.new_empty(size, device = device)
         if isinstance(arg, Tensor):
-            return self.new_tensor(arg, device = device) 
+            return self.new_tensor(arg, device = device)
         elif isinstance(arg, torch.storage.TypedStorage) or isinstance(arg, torch.storage.UntypedStorage):
             if (isinstance(device, torch.device) and device.type != 'cpu') or \
                 isinstance(device, str) and torch.device(device).type != 'cpu':
@@ -87,7 +87,7 @@ def apply_tensor_method_patch():
 
             return self.new_tensor(arg, device = device)
         elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
-            return self.new_tensor(arg, device = device) 
+            return self.new_tensor(arg, device = device)
         else:
             return None
 
@@ -174,7 +174,7 @@ def apply_temp_patch():
 
         def _settitem_wrapper(self, indices: Union[None, _int, slice, Tensor, List, Tuple], val: Union[Tensor, Number]) -> Tensor:
             return raw_op(self, __id2cpu(indices), val)
-            
+
         if is_get_item:
             return _getitem_wrapper
         else:
