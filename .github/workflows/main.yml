@@ -197,6 +197,23 @@ jobs:
           cd ..
           rsync -a --include='mmlab_pack/***'  --exclude='*' ./ ${CLUSTER_CAMB}:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
 
+
+      - name: build-some-env
+        run: |
+          ssh ${CLUSTER_CAMB} """
+          set -e
+          cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
+          export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          echo "pytorch dir: \${PYTORCH_DIR}"
+          source scripts/ci_camb_env.sh
+          basic_path=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
+          export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
+          export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
+          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          cd mmlab_pack
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci_one_iter.sh build_camb
+          """
+
       - name: run-one-iter-tools
         run: |
           ssh ${CLUSTER_CAMB} """
@@ -217,10 +234,7 @@ jobs:
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/SMART/tools/one_iter_tool/one_iter:\$PYTHONPATH
-          echo "pytorch dir: \${PYTORCH_DIR}"
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci_one_iter.sh build_camb
-          pwd
           srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
@@ -315,6 +329,7 @@ jobs:
           basic_path=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+          export PYTHONPATH=${pwd}:$PYTHONPATH
           cd mmlab_pack
           bash ../scripts/ci_one_iter.sh build_cuda
 
@@ -340,5 +355,4 @@ jobs:
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
           mkdir -p torch_dipu
-          # ln -s ../torch_dipu/libtorch_dipu.so torch_dipu/libtorch_dipu.so
           bash ../scripts/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
