@@ -22,14 +22,14 @@ static void DIPUDeleter(void* ptr) {
 
 class DIPU_API DIPUAllocator: public c10::Allocator {
 public:
-  c10::DataPtr allocate(size_t size) const {
+  inline virtual c10::DataPtr allocate(size_t size) const {
     auto idx = devapis::current_device();
     return this->allocate(size, idx);
   }
   c10::DeleterFnPtr raw_deleter() const override {
     return &DIPUDeleter;
   }
-protected:
+private:
   c10::DataPtr allocate(size_t nbytes, c10::DeviceIndex device_index) const {
     std::lock_guard<std::mutex> lock(dipu_mutex);
     void* data = nullptr;
@@ -39,8 +39,5 @@ protected:
   }
 };
 
-c10::Allocator* getDIPUCachingAllocator(void);
-
-c10::Allocator* getDIPUAllocator(void);
 
 }  // namespace torch_dipu
