@@ -135,5 +135,5 @@ case $1 in
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac
-exit 0
+
 
