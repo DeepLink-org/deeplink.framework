@@ -1455,3 +1455,12 @@
 
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiPolar(ctx, out, abs, angle)
+
+- schema: "lerp.Scalar_out(Tensor input, Tensor end, Scalar weight, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLerpScalar(ctx, out, input, end, weight)
+
+- schema: "lerp.Tensor_out(Tensor input, Tensor end, Tensor weight, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLerpTensor(ctx, out, input, end, weight)
+
+- schema: "atan.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAtan(ctx, out, self)
