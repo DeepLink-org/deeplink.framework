@@ -19,17 +19,6 @@ void compile(std::shared_ptr<builder::Builder> builder,
   auto hlir_module = builder->GetModule();
   auto ret = topsgraphCreateProgramFromModule(&program, hlir_module.get());
 
-  /*const char *options[] = {"-arch=gcu210", "-resource=1c4s",
-                           "-hlir=tops-hlir-pipeline"};*/
-
-  // const char* options[] = {
-  //     "-arch=gcu200", "-resource=4c24s", "-hlir=tops-hlir-pipeline"};
-  
-  // const char* options[] = {
-  //     "-arch=gcu200",
-  //     "-resource=4c24s",
-  //     "-hlir=hlir-pytorch-pipeline{dynamic-shape=true enable-fusion=false}"};
-
   const char* options[] = {
       "-arch=gcu200",
       "-resource=4c24s",
@@ -59,11 +48,9 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
 
   topsError_t ret;
   topsStream_t stream;
-  // topsResource_t res_bundle;
 
   topsSetDevice(device_id);
   topsStreamCreate(&stream);
-  // topsCreateResourceForExecutable(&res_bundle, exe_ptr);
 
   // 2.1 query InputCount,output_count
   uint64_t input_count = 0, output_count = 0;
@@ -88,7 +75,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
             topsSuccess);
 
   // 3. prepare data, H2D
-  auto before_time0 = std::chrono::high_resolution_clock::now();
   if (!dipu_flag) {
     for (size_t i = 0; i < input_count; i++) {
       topsMalloc(&dev_input, input_size[i]);
@@ -107,14 +93,8 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
       outputs[i] = dev_output;
     }
   }
-  auto after_time0 = std::chrono::high_resolution_clock::now();
-
-  std::cout << "Data H2D time costing:"
-            << double(std::chrono::duration_cast<std::chrono::milliseconds>(after_time0 - before_time0).count())
-            << std::endl;
 
   // 4. run
-  auto before_time = std::chrono::high_resolution_clock::now();
   if (dipu_flag) {
     ret = topsLaunchExecutableV2(
         exe_ptr,
@@ -146,13 +126,6 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     std::cout << "topsLaunchExecutable fail,  ret = " << ret << std::endl;
     return -1;
   }
-  auto after_time = std::chrono::high_resolution_clock::now();
-
-  std::cout << "Running time costing:"
-            << double(std::chrono::duration_cast<std::chrono::milliseconds>(
-                          after_time - before_time)
-                          .count())
-            << std::endl;
   
   if (!dipu_flag) {
     for (size_t i = 0; i < output_count; i++) {
