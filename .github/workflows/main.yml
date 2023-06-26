@@ -173,8 +173,8 @@ jobs:
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
-          || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Camb-Diopi \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Camb-Diopi && exit 1 )
           """
 
   Test-One-Iter-Camb:
