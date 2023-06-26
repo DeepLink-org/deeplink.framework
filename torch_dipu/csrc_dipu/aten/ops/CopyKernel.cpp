@@ -10,8 +10,8 @@
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/runtime/core/DIPUCachingHostAllocator.h>
 #include <csrc_dipu/runtime/core/MemChecker.h>
-
 
 using c10::device_or_default;
 using c10::layout_or_default;
@@ -50,8 +50,8 @@ namespace dipu::native {
     MemChecker::instance().check(dst);
     dipu::devapis::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
-      /// need add host cache allocator
-      dipu::devapis::syncStream(stream.rawstream());
+      auto* ctx = src_cast.storage().data_ptr().get_context();
+      CachingHostAllocator_recordEvent(src_ptr, ctx, stream);
     } else {
       dipu::devapis::syncStream(stream.rawstream());
     }
@@ -69,9 +69,8 @@ namespace dipu::native {
     MemChecker::instance().check(src);
     dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
-        // DIPU_LOGW("Copy data back to CPU device with " \
-        //     "non_blocking is not supported now ");
-      dipu::devapis::syncStream(stream.rawstream());
+      auto* ctx = dst.storage().data_ptr().get_context();
+      CachingHostAllocator_recordEvent(dst_ptr, ctx, stream);
     } else {
       dipu::devapis::syncStream(stream.rawstream());
     }

@@ -2,6 +2,9 @@
 #include "RegisterDIPU.hpp"
 #include <regex>
 #include <iostream>
+#include <c10/util/Exception.h>
+
+#include <csrc_dipu/common.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -143,6 +146,32 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
+  bool wrapper_BackendSelect_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+      // Only CPU tensors can be pinned
+    if (!self.is_cpu()) {
+      return false;
+    }
+
+    c10::DispatchKeySet dk = c10::DispatchKeySet(c10::computeDispatchKey(c10::nullopt, self.layout(), device.value_or(dipu::DIPU_DEVICE_TYPE)));
+    return at::_ops::is_pinned::redispatch(dk, self, device);
+  }
+
+  at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
+    TORCH_CHECK(self.device().is_cpu(), "cannot pin '", self.toString(), "' only dense CPU tensors can be pinned");
+    c10::DispatchKeySet dk = c10::DispatchKeySet(c10::computeDispatchKey(c10::nullopt, self.layout(), device.value_or(dipu::DIPU_DEVICE_TYPE)));
+    return at::_ops::_pin_memory::redispatch(dk, self, device);
+  }
+
+  bool wrapper_DIPU_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+    const OptionalDeviceGuard device_guard(device_of(self));
+    return dnative::is_pinned(self, device);
+  }
+
+  at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
+    const OptionalDeviceGuard device_guard(device_of(self));
+    return dnative::_pin_memory(self, device);
+  }
+
 }  // inner anonymous namespace
 
 
@@ -172,6 +201,29 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("unfold", TORCH_FN(wrapper_DIPU__unfold));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
+  m.impl("is_pinned", TORCH_FN(wrapper_DIPU_is_pinned));
+  m.impl("_pin_memory", TORCH_FN(wrapper_DIPU__pin_memory));
+}
+
+class IgnoreWarningHandler : public c10::WarningHandler {
+public:
+  void process(const c10::Warning& warning) {
+    // do nothing
+  }
+};
+
+c10::WarningHandler* getIgnoreHandler() {
+  static IgnoreWarningHandler handler_ = IgnoreWarningHandler();
+  return &handler_;
+}
+
+// override BackendSelect is_pinned and _pin_memory operator
+TORCH_LIBRARY_IMPL(aten, BackendSelect, m) {
+  // disable override warning log which like
+  // [W OperatorEntry.cpp:159] Warning: Overriding a previously registered kernel for the same operator and the same dispatch key
+  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
+  m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"), TORCH_FN(wrapper_BackendSelect_is_pinned));
+  m.impl(TORCH_SELECTIVE_NAME("aten::_pin_memory"), TORCH_FN(wrapper_BackendSelect__pin_memory));
 }
 
 }  //end ns at
