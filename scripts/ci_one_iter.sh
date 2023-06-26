@@ -38,6 +38,7 @@ function build_needed_repo_cuda() {
     pip install -e . -v --no-deps
     cd ../mmpretrain
     pip install -e .
+    cd ..
 }
 
 function build_needed_repo_camb() {
