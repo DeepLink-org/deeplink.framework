@@ -725,32 +725,24 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Slice(op_var, node, args_dict):
         args = node.args
-        shape0 = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        in_shape = '{' + ', '.join(map(str, args[0].meta['val'].shape)) + '}'
+        out_shape = '{' + ', '.join(map(str, node.meta['val'].shape)) + '}'
+        
+        shape = args[0].meta['val'].shape
+        rank = len(shape)
+        dim = int(args[1])
+        
         src_code = "\n"
-        if shape != shape0:
-            shape = args[0].meta['val'].shape
-            rank = len(shape)
-            dim = int(args[1])
+        if in_shape != out_shape:
+            start_indice = (int(args[2]) + shape[dim]) % shape[dim]
+            limit_indice = int(args[3]) if int(args[3]) < shape[dim] else shape[dim]
             
-            start_indices = [0 for x in range(0, rank)]    
-            start_indices[dim] = int(args[2])
-            start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-            
-            limit_indices = [x for x in shape]
-            limit_indices[dim] = int(args[3])
-            limit_indices = '{' + ', '.join(map(str, limit_indices)) + '}'   
-            
-            stride = [1 for x in range(0, rank)]
-            stride = '{' + ', '.join(map(str, stride)) + '}' 
-            
-            src_code += f"auto {op_var} = builder::SliceInDim({args_dict[args[0].name]}, {int(args[2])}, {int(args[3])}, {1}, {dim});\n"
+            src_code += f"auto {op_var} = builder::SliceInDim({args_dict[args[0].name]}, {start_indice}, {limit_indice}, {1}, {dim});\n"
             
         else:
-            rank = len(args[0].meta['val'].shape)
             start_indices = [0 for x in range(0, rank)]    
             start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-            limit_indices = shape
+            limit_indices = in_shape
             stride = [1 for x in range(0, rank)]
             stride = '{' + ', '.join(map(str, stride)) + '}'   
             src_code += f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
