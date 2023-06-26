@@ -36,6 +36,8 @@ function build_needed_repo_cuda() {
     cd ..
     cd mmagic
     pip install -e . -v --no-deps
+    cd ../mmengine
+    python setup.py develop --user
     cd ..
 }
 
