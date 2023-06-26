@@ -80,7 +80,7 @@ for ((i=0; i<$random_model_num; i++)); do
         done
         read -r -a used_card_list <&788
         export USED_CARD="${used_card_list[@]}"
-        cur_card=$(sh ../scripts/detect_available_card.sh 30)
+        cur_card=$(sh ../scripts/ci/nv/detect_available_card.sh 30)
         read -r cur_cardnum cur_card_G  <<< ${cur_card}
             if [[ $cur_cardnum == -1 ]]; then
                 echo "${used_card_list[@]}" >&788

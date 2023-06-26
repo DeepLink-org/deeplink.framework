@@ -46,10 +46,36 @@ function build_needed_repo_camb() {
 }
 
 
+function export_repo_pythonpath(){
+    basic_path="$2"
+    if [ "$1" = "cuda" ]; then
+        echo "Executing CUDA operation in pythonpath..."
+        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
+    elif [ "$1" = "camb" ]; then
+        echo "Executing CAMB operation in pythonpath..."
+    else
+        echo "Invalid parameter. Please specify 'cuda' or 'camb'."
+        exit 1
+    fi
+    export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+}
+
+
 function build_dataset(){
     # link dataset
     if [ "$1" = "cuda" ]; then
-        echo "Executing CUDA operation..."
+        echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
         ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
@@ -62,7 +88,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
-        echo "Executing CAMB operation..."
+        echo "Executing CAMB operation in build dataset..."
         rm -rf data
         mkdir data
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
@@ -94,6 +120,16 @@ case $1 in
         (
             build_needed_repo_camb
             build_dataset camb
+        ) \
+        || exit -1;;
+    export_pythonpath_camb)
+        (
+            export_repo_pythonpath camb $2
+        ) \
+        || exit -1;;
+    export_pythonpath_cuda)
+        (
+            export_repo_pythonpath cuda $2
         ) \
         || exit -1;;
     *)
