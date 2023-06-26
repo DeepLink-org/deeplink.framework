@@ -59,11 +59,11 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
 
   topsError_t ret;
   topsStream_t stream;
-  topsResource_t res_bundle;
+  // topsResource_t res_bundle;
 
   topsSetDevice(device_id);
   topsStreamCreate(&stream);
-  topsCreateResourceForExecutable(&res_bundle, exe_ptr);
+  // topsCreateResourceForExecutable(&res_bundle, exe_ptr);
 
   // 2.1 query InputCount,output_count
   uint64_t input_count = 0, output_count = 0;
@@ -91,7 +91,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   auto before_time0 = std::chrono::high_resolution_clock::now();
   if (!dipu_flag) {
     for (size_t i = 0; i < input_count; i++) {
-      topsMallocForResource(&dev_input, input_size[i], res_bundle);
+      topsMalloc(&dev_input, input_size[i]);
       topsMemcpyAsync(
           dev_input,
           input_ptrs[i],
@@ -101,9 +101,9 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
       topsStreamSynchronize(stream);
       inputs[i] = dev_input;
     }
-    
+
     for (size_t i = 0; i < output_count; i++) {
-      topsMallocForResource(&dev_output, output_size[i], res_bundle);
+      topsMalloc(&dev_output, output_size[i]);
       outputs[i] = dev_output;
     }
   }
@@ -118,7 +118,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   if (dipu_flag) {
     ret = topsLaunchExecutableV2(
         exe_ptr,
-        res_bundle,
+        nullptr,
         static_cast<void **>(input_ptrs.data()),
         input_count,
         nullptr,
@@ -131,7 +131,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   else {
     ret = topsLaunchExecutableV2(
         exe_ptr,
-        res_bundle,
+        nullptr,
         inputs,
         input_count,
         nullptr,
@@ -179,10 +179,8 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
       topsFree(outputs[i]);
     }
   }
-  
-  // topsDestroyExecutable(exe_ptr);
+
   topsStreamDestroy(stream);
-  topsDestroyResource(res_bundle);
 
   return 0;
 }
