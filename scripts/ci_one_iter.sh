@@ -36,7 +36,8 @@ function build_needed_repo_cuda() {
     cd ..
     cd mmagic
     pip install -e . -v --no-deps
-    cd ..
+    cd ../mmpretrain
+    pip install -e .
 }
 
 function build_needed_repo_camb() {
