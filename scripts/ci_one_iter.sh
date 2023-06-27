@@ -55,8 +55,8 @@ function build_dataset(){
         pwd
         rm -rf data
         mkdir data
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmcls/imagenet data/imagenet
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/coco  data/coco
+        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/mmlab_coco  data/coco
         ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/kitti data/kitti
         #ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400
