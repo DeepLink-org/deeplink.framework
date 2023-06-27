@@ -42,7 +42,7 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def add(a, b):
+def Add(a, b):
     return tops_op.Add(a, b)
 
 @register_conversion(torch.ops.aten.add.default)
@@ -50,11 +50,11 @@ def AddDefalut(a, b):
     return tops_op.AddDefalut(a, b)
 
 @register_conversion(torch.ops.aten.abs)
-def abs(a):
+def Abs(a):
     return tops_op.Abs(a)
 
 @register_conversion(torch.ops.aten.mul)
-def mul(a, b):
+def Mul(a, b):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
             if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :
@@ -62,69 +62,69 @@ def mul(a, b):
     return tops_op.Mul(a, b)
 
 @register_conversion(torch.ops.aten.div)
-def div(a, b):
+def Div(a, b):
     return tops_op.Div(a, b)
 
 @register_conversion(torch.ops.aten.sub)
-def sub(a, b):
+def Sub(a, b):
     return tops_op.Sub(a, b)
 
 @register_conversion(torch.ops.aten.sqrt)
-def sqrt(a):
+def Sqrt(a):
     return tops_op.Sqrt(a)
 
 @register_conversion(torch.ops.aten.square)
-def square(*args):
+def Square(*args):
     return tops_op.Square(*args)
 
 @register_conversion(torch.ops.aten.reciprocal)
-def reciprocal(a):
+def Reciprocal(a):
     return tops_op.Reciprocal(a)
 
 @register_conversion(torch.ops.aten.rsqrt)
-def rsqrt(a):
+def Rsqrt(a):
     return tops_op.Rsqrt(a)
 
 @register_conversion(torch.ops.aten.exp)
-def exp(a):
+def Exp(a):
     return tops_op.Exp(a)
 
 @register_conversion(torch.ops.aten.relu)
-def relu(a):
+def Relu(a):
     return tops_op.Relu(a)
 
 @register_conversion(torch.ops.aten.sum)
-def sum(*args):
+def Sum(*args):
     return tops_op.ReduceSum(*args)
 
 @register_conversion(torch.ops.aten.sum.dim_IntList)
-def sumdim(*args):
+def Sumdim(*args):
     return tops_op.ReduceSum(*args)
 
 @register_conversion(operator.getitem)
-def getitem(x, idx):
+def Getitem(x, idx):
     return tops_op.Getitem(x, idx)
 
 # torch.ops.aten.squeeze.dim(,[])
 # torch.ops.aten.squeeze.dims(,)
 @register_conversion(torch.ops.aten.squeeze)
-def squeeze(a, b):
+def Squeeze(a, b):
     return tops_op.Squeeze(a, b)
 
 @register_conversion(torch.ops.aten.unsqueeze)
-def unsqueeze(a, b):
+def Unsqueeze(a, b):
     return tops_op.Unsqueeze(a, b)
 
 @register_conversion(torch.ops.aten.permute)
-def permute(a, b):
+def Permute(a, b):
     return tops_op.Transpose(a, b)
 
 @register_conversion(torch.ops.aten.transpose)
-def transpose(a, b, c):
+def Transpose(a, b, c):
     return tops_op.Transpose1(a, b, c)
 
 @register_conversion(torch.ops.aten.hardswish)
-def hardswish(a):
+def Hardswish(a):
     return tops_op.Hardswish(a)
 
 @register_conversion(torch.ops.aten.hardswish_backward)
@@ -132,125 +132,129 @@ def hardswishbackward(a, b):
     return tops_op.HardswishBackward(a, b)
 
 @register_conversion(torch.ops.aten.clone)
-def clone(*args):
-    return tops_op.Copy(*args)
+def Clone(*args, **kargs):
+    return tops_op.Copy(*args, **kargs)
 
 @register_conversion(torch.ops.aten.neg)
-def neg(*args):
+def Neg(*args):
     return tops_op.Neg(*args)
 
 # %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
 #                          (args = (%relu_16, [-1, -2], True), kwargs = {})
 @register_conversion(torch.ops.aten.mean)
-def mean(*args):
+def Mean(*args):
     return tops_op.ReduceMean(*args)
 
 @register_conversion(torch.ops.aten.view)
-def view(a, b):
+def View(a, b):
     return tops_op.Reshape(a, b)
 
 @register_conversion(torch.ops.aten.convolution)
-def convolution(*args):
+def Convolution(*args):
     return tops_op.Convolution(*args)
 
 @register_conversion(torch.ops.aten.convolution_backward.default)
-def convolution_backward(*args):
+def ConvolutionBackward(*args):
     return tops_op.ConvolutionBackward(*args)
 
 @register_conversion(torch.ops.aten.le.Scalar)
-def le(*args):
+def Le(*args):
     return tops_op.LessEqual(*args)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
-def max_pool2d_with_indices(*args):
+def Max_pool2d_with_indices(*args):
     return tops_op.Max_pool2d_with_indices(*args)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
-def max_pool2d_with_indices_backward(*args):
+def Max_pool2d_with_indices_backward(*args):
     return tops_op.Max_pool2d_with_indices_backward(*args)
 
 @register_conversion(torch.ops.aten.gather)
-def gather(*args):
+def Gather(*args):
     return tops_op.Gather(*args)
 
 @register_conversion(torch.ops.aten.log)
-def log(*args):
+def Log(*args):
     return tops_op.Log(*args)
 
 @register_conversion(torch.ops.aten.amax)
-def max(*args, **kwargs):
+def Max(*args, **kwargs):
     return tops_op.ReduceMax(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.mm)
-def gemm(*args, **kwargs):
+def Gemm(*args, **kwargs):
     return tops_op.Gemm(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
-def batchnorm(*args, **kwargs):
+def Batchnorm(*args, **kwargs):
     return tops_op.BatchNorm(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.native_batch_norm_backward.default)
-def bathnormbackward(*args, **kwargs):
+def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._softmax.default)
-def softmax(*args, **kwargs):
+def Softmax(*args, **kwargs):
     return tops_op.Softmax(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.arange.start)
-def range(*args, **kwargs):
+def Range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.dot.default)
-def dot(*args, **kwargs):
+@register_conversion(torch.ops.aten.bmm.default)
+def Dot(*args, **kwargs):
     return tops_op.Dot(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.cat.default)
-def concatenate(*args, **kwargs):
+def Concatenate(*args, **kwargs):
     return tops_op.Concatenate(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.empty_like.default)
-def empty_like(*args, **kwargs):
+def EmptyLike(*args, **kwargs):
     return tops_op.EmptyLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.eq.Tensor)
-def eauql(*args, **kwargs):
+def Euqal(*args, **kwargs):
     return tops_op.Euqal(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.expand.default)
-def expand(*args, **kwargs):
+def Expand(*args, **kwargs):
     return tops_op.Expand(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.full.default)
-def full(*args, **kwargs):
+def Full(*args, **kwargs):
     return tops_op.Full(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.full_like.default)
-def fulllike(*args, **kwargs):
+def FullLike(*args, **kwargs):
     return tops_op.FullLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.maximum.default)
-def maximum(*args, **kwargs):
+def Maximum(*args, **kwargs):
     return tops_op.Max(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.pow.Tensor_Scalar)
-def pow(*args, **kwargs):
+def Pow(*args, **kwargs):
     return tops_op.Pow(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.sigmoid.default)
-def sigmoid(*args, **kwargs):
+def Sigmoid(*args, **kwargs):
     return tops_op.Sigmoid(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.slice.Tensor)
-def enflameslice(*args, **kwargs):
+def Slice(*args, **kwargs):
     return tops_op.Slice(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.where.self)
-def select(*args, **kwargs):
+def Where(*args, **kwargs):
+    return tops_op.Where(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.select.int)
+def Select(*args, **kwargs):
     return tops_op.Select(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scatter.value)
-def scatter(*args, **kwargs):
+def Scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.zeros_like)
@@ -262,43 +266,43 @@ def oneslike(*args, **kwargs):
     return tops_op.OnesLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scalar_tensor.default)
-def scalar(*args, **kwargs):
+def Scalar(*args, **kwargs):
     return tops_op.Scalar(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.embedding)
-def embedding(*args, **kwargs):
+def Embedding(*args, **kwargs):
     return tops_op.Embedding(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.eq.Scalar)
-def eq(*args):
+def Eq(*args):
     return tops_op.Equal(*args)
 
 @register_conversion(torch.ops.aten.repeat.default)
-def tile(*args, **kwargs):
+def Tile(*args, **kwargs):
     return tops_op.Tile(*args, **kwargs)
 
 @register_conversion(torch.ops.prims.convert_element_type.default)
-def convertelementtype(*args, **kwargs):
+def ConvertElementType(*args, **kwargs):
     return tops_op.ConvertElementType(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.view_as_complex)
-def view_as_complex(x):
+def ViewAsComplex(x):
     return tops_op.ViewAsComplex(x)
 
 @register_conversion(torch.ops.aten.view_as_real)
-def view_as_real(*args, **kwargs):
+def ViewAsReal(*args, **kwargs):
     return tops_op.ViewAsReal(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._unsafe_view.default)
-def unsafe_view(a, b):
+def UnsafeView(a, b):
     return tops_op.UnsafeView(a, b)
 
 @register_conversion(torch.ops.aten._log_softmax.default)
-def logsoftmax(*args, **kwargs):
+def Logsoftmax(*args, **kwargs):
     return tops_op.Logsoftmax(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.gelu.default)
-def gelu(*args, **kwargs):
+def Gelu(*args, **kwargs):
     return tops_op.Gelu(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.gelu_backward.default)
@@ -311,6 +315,7 @@ def register_pattern(Pattern):
     patterns.append(Pattern)
     return Pattern
 
+
 class BaseReplacePattern(ABC):
     @abstractmethod
     def pattern(*args, **kwargs):
@@ -319,6 +324,7 @@ class BaseReplacePattern(ABC):
     @abstractmethod
     def replacement(*args, **kwargs):
         pass
+    
 
 @register_pattern
 class ReplacePatternAddmm:
@@ -328,10 +334,10 @@ class ReplacePatternAddmm:
     def replacement(a, b, c):
         
         return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
+    
 
 # %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-
 @register_pattern
 class ReplacePatternVar:
     def pattern(a, b):
@@ -347,6 +353,7 @@ class ReplacePatternVar:
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return x_var
+    
 
 # %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
@@ -365,6 +372,7 @@ class ReplacePatternVarMean:
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return tops_op.ret_tuples(x_var, mean1)
+    
 
 @register_pattern
 class ReplacePatternT:

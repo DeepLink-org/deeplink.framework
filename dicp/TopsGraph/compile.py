@@ -50,7 +50,7 @@ class EnflameCodeCache:
                        f'{codegen_path}/src/common_ops.cpp', 
                        f'{codegen_path}/src/conv2d_grad.cpp', 
                        f'{codegen_path}/src/maxpool2d_grad.cpp', 
-                       '-D_GLIBCXX_USE_CXX11_ABI=0', '-fPIC', '-shared', '-I/usr/include/dtu', 
+                       '-O0', '-D_GLIBCXX_USE_CXX11_ABI=0', '-fPIC', '-shared', '-I/usr/include/dtu', 
                        '-I/usr/include/dtu/3_0/runtime', '-L/usr/lib', 
                        f'-I{codegen_path}/include', 
                        '-o' + output_path, input_path, '-ldtu_sdk']

@@ -9,11 +9,11 @@ class MyModule(torch.nn.Module):
         self.linear = torch.nn.Linear(4, 5)
 
     def forward(self, a, b):
-        r = torch.ops.aten.select(a, 3, -1)
+        r = torch.ops.aten.sub(a, b)
         return r
 
-a = torch.randn(1, 32, 32, 32, dtype=torch.float32)
-b = torch.randn(1, 32, 32, dtype=torch.float16)
+a = torch.randn(1, 32, 32, 32, dtype=torch.float16)
+b = torch.randn(1, 32, 32, 1, dtype=torch.float16)
 
 m = MyModule()
 compiled_model = torch.compile(m, backend="topsgraph")

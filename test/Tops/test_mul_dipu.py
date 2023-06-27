@@ -1,32 +1,37 @@
 import torch
 import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch_dipu
+
+from dicp.TopsGraph.config import device_id
 
 class MyModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        self.param = torch.nn.Parameter(torch.rand(3, 4))
+        self.linear = torch.nn.Linear(4, 5)
 
-    def forward(self, input):
-        m = torch.nn.Softmax(dim=3)
-        output = m(input)
+    def forward(self, x):
+        output = torch.mul(x, 2)
         return output
 
-a = torch.randn(1, 32, 32, 32, dtype=torch.float32)
+x = torch.arange(2, 18).reshape(4, 4)
 
 m = MyModule()
 compiled_model = torch.compile(m, backend="topsgraph")
-r1 = compiled_model(a)
+r1= compiled_model(x.to(f"xla:{device_id}")).cpu()
 
 torch._dynamo.reset()
 
 m = MyModule()
-compiled_model = torch.compile(m, backend="inductor")
-r2 = compiled_model(a)
+r2 = m(x).cpu()
 
 print(f'\n****************************\n')
+
+print(f"r1: {r1}", flush=True)
+print(f"r2: {r2}", flush=True)
 
 print(f"r1 - r2:\n{r1 - r2}")
 
 print(f"nan test: r1-{torch.isnan(r1).any()}, r2-{torch.isnan(r2).any()}" )
-print(f'torch.allclose:\n{torch.allclose(r1, r2)}')
+print(f'torch.allclose:{torch.allclose(r1, r2)}')
 print(f'torch.eq:{torch.eq(r1, r2).all()}')

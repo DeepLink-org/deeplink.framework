@@ -1,7 +1,5 @@
 #include "maxpool2d_grad.h"
 
-#include <dtu/hlir_builder/hlir_builder_ops.h>
-
 builder::Op enflame::MaxPool2D(
     std::shared_ptr<builder::Builder> tmp_builder,
     builder::Op input,
