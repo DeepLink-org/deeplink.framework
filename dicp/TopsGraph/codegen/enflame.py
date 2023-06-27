@@ -20,15 +20,25 @@ from ..config import tops_debug, dipu_flag, device_id
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
+            "torch.half": "builder::PrimitiveType::F16()",
             "torch.float32": "builder::PrimitiveType::F32()",
+            "torch.float": "builder::PrimitiveType::F32()",
+            "torch.float64": "builder::PrimitiveType::F64()",
+            "torch.double": "builder::PrimitiveType::F64()",
+            "torch.int8": "builder::PrimitiveType::S8()",
+            "torch.int16": "builder::PrimitiveType::S16()",
+            "torch.short": "builder::PrimitiveType::S16()",
+            "torch.int32": "builder::PrimitiveType::S32()",
+            "torch.int": "builder::PrimitiveType::S32()",
             "torch.int64": "builder::PrimitiveType::S64()",
+            "torch.long": "builder::PrimitiveType::S64()",
+            "torch.uint8": "builder::PrimitiveType::U8()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
-
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeros', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad',
-             'Viewasreal', 'Complexmul', 'Softmax', 'Logsoftmax', 'Gelu']
+need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Oneslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
 need_dict = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
 
@@ -273,7 +283,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         args = []
         for i in range(len(self.input_args)):
             args.append('arg' + str(i))
-        call_body.writeline(f"{', '.join(args)}, = args")
+        if args:
+            call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline(f"args.clear()")
         
         if dipu_flag:
@@ -579,18 +590,24 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
     @staticmethod
-    def Zeros(op_var, node, *args_str):
+    def Zeroslike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()            
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});\n\n"
         return src_code
+
+    @staticmethod
+    def Oneslike(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__()            
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]});\n\n"
+        return src_code
     
     @staticmethod
     def Full(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        src_code = f"builder::Type {op_var}_type({'{' + '1' + '}'}, {type_set[data_type]});\n"
-        src_code += f"std::vector<float> {op_var}_data = {'{' + str(node.args[1]) + '}'};\n"
-        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, ({op_var}_data.data()), {op_var}_type);\n"
+        src_code = f"std::vector<int64_t> {op_var}_in_shape{args_str[0]};\n"
+        src_code += f"builder::Type {op_var}_type({op_var}_in_shape, builder::PrimitiveType::F32());\n"
+        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {node.args[1]}, {op_var}_type);\n"
         return src_code
     
     @staticmethod
@@ -609,6 +626,11 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Hardswish(op_var, x):
         return f"builder::Op {op_var} = builder::HardSwish({x});"
+
+    @staticmethod
+    def Hardswish_Grad(op_var, x, y):
+        a, b, c = 3.0, 6.0, 6.0
+        return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, {a}, {b}, {c});"
 
     @staticmethod
     def Reshape(op_var, node, *args_str):
@@ -1026,3 +1048,10 @@ class EnflameOverrides(OpOverrides):
         if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
             y = "false"
         return f"builder::Op {op_var} = builder::Gelu({x}, {y});"
+
+    @staticmethod
+    def Gelu_Grad(op_var, node, x, y):
+        z = "true"
+        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
+            z = "false"
+        return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"

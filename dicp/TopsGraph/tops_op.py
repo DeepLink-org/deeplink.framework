@@ -217,6 +217,14 @@ class Hardswish(Operator):
         self.torch_op = aten.hardswish
 
 
+class HardswishBackward(Operator):
+    def __init__(self, a, b):
+        super().__init__("Hardswish_Grad")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.hardswish_backward
+
+
 class Copy(Operator):
     def __init__(self, *args, **kargs):
         super().__init__("Clone")
@@ -338,7 +346,6 @@ class Dot(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.bmm.default
 
-
 class Concatenate(Operator):
     def __init__(self, x, dim):
         super().__init__("Concatenate")
@@ -451,11 +458,18 @@ class Scatter(Operator):
         self.torch_op = aten.scatter.value
 
 
-class Zeros(Operator):
+class ZerosLike(Operator):
     def __init__(self, *args):
-        super().__init__("Zeros")
+        super().__init__("ZerosLike")
         self.args = args
-        self.torch_op = aten.zeros
+        self.torch_op = aten.zeros_like
+
+
+class OnesLike(Operator):
+    def __init__(self, *args):
+        super().__init__("OnesLike")
+        self.args = args
+        self.torch_op = aten.ones_like
 
 
 class Scalar(Operator):
@@ -534,6 +548,14 @@ class Gelu(Operator):
         self.args = args
         self.kwarg = kwargs
         self.torch_op = aten.gelu.default
+
+
+class GeluBackward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Gelu_Grad")
+        self.args = args
+        self.kwarg = kwargs
+        self.torch_op = aten.gelu_backward.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap

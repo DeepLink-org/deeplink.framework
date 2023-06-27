@@ -127,6 +127,10 @@ def Transpose(a, b, c):
 def Hardswish(a):
     return tops_op.Hardswish(a)
 
+@register_conversion(torch.ops.aten.hardswish_backward)
+def hardswishbackward(a, b):
+    return tops_op.HardswishBackward(a, b)
+
 @register_conversion(torch.ops.aten.clone)
 def Clone(*args, **kargs):
     return tops_op.Copy(*args, **kargs)
@@ -253,9 +257,13 @@ def Select(*args, **kwargs):
 def Scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.zeros)
-def Zeros(*args, **kwargs):
-    return tops_op.Zeros(*args, **kwargs)
+@register_conversion(torch.ops.aten.zeros_like)
+def zeroslike(*args, **kwargs):
+    return tops_op.ZerosLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.ones_like)
+def oneslike(*args, **kwargs):
+    return tops_op.OnesLike(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.scalar_tensor.default)
 def Scalar(*args, **kwargs):
@@ -296,6 +304,10 @@ def Logsoftmax(*args, **kwargs):
 @register_conversion(torch.ops.aten.gelu.default)
 def Gelu(*args, **kwargs):
     return tops_op.Gelu(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.gelu_backward.default)
+def gelubackward(*args, **kwargs):
+    return tops_op.GeluBackward(*args, **kwargs)
 
 # Patterns
 def register_pattern(Pattern):
