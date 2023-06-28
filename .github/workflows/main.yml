@@ -326,6 +326,8 @@ jobs:
           pip install imgaug
           pip install rapidfuzz
           export PYTHONPATH=${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/mmengine:${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/mmcv:$PYTHONPATH
+          echo "**************************************"
+          echo $PYTHONPATH
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci_one_iter.sh build_cuda
           """
 
