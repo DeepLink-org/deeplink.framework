@@ -6,7 +6,7 @@
 #include <c10/core/TensorImpl.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/runtime/core/DIPUCachingHostAllocator.h>
+#include <csrc_dipu/runtime/core/DIPUHostAllocator.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 namespace dipu::native {
@@ -17,11 +17,13 @@ bool DIPUATenFunctions::is_pinned(const at::Tensor& self, c10::optional<at::Devi
     return false;
   }
 
-  return dipu::devapis::isPinnedPtr(self.storage().data());
+  // prefer using dipu::isPinnedPtr instead of dipu::devapis::isPinnedPtr
+  // because device may not support it
+  return dipu::isPinnedPtr(self.storage().data());
 }
 
 at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
-  auto allocator = dipu::getPinnedMemoryAllocator();
+  auto allocator = dipu::getHostAllocator();
   auto storage = c10::Storage(
       c10::Storage::use_byte_size_t(),
       at::detail::computeStorageNbytes(self.sizes(), self.strides(), self.dtype().itemsize()),
