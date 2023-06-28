@@ -339,12 +339,19 @@ class Range(Operator):
         self.torch_op = aten.arange.start
 
 
+class Dotgeneral(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Dotgeneral")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.bmm.default
+
 class Dot(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Dot")
         self.args = args
         self.kwargs = kwargs
-        self.torch_op = aten.bmm.default
+        self.torch_op = aten.dot.default
 
 class Concatenate(Operator):
     def __init__(self, x, dim):

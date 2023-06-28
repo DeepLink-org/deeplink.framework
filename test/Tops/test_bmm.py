@@ -21,10 +21,15 @@ class MyModule(torch.nn.Module):
         return r
 
 a = torch.randn(1, 3, 3, 2, dtype=torch.float16)
-b = torch.randn(1, 3, 2, 3, dtype=torch.float16)
+b = torch.randn(1, 3, 2, 3, dtype=torch.float32)
 
 m = MyModule()
 compiled_model = torch.compile(m, backend="topsgraph")
 r1 = compiled_model(a, b)
 
-print(r1)
+torch._dynamo.reset()
+tm = MyModule()
+torchm = torch.compile(tm)
+t1 = torchm(a, b)
+
+print(f'Tests bmm result\n{torch.allclose(t1, r1, equal_nan=True)}')

@@ -40,7 +40,7 @@ need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Oneslike', 'Full', 'Fu
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
-need_dict = ['Div', 'Dot', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -501,7 +501,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Dot(op_var, node, args_dict):
+    def Dotgeneral(op_var, node, args_dict):
         args = node.args
         args_str = []
         src_code = '\n'
@@ -513,6 +513,8 @@ class EnflameOverrides(OpOverrides):
                 src_code += f"builder::Type {args_dict[args[i].name]}_dot_type({tmp_shape}, builder::PrimitiveType::F32());\n"
                 src_code += f"builder::Op {args_dict[args[i].name]}_tmp = builder::Convert({args_dict[args[i].name]}, {args_dict[args[i].name]}_dot_type);\n"
                 args_str.append(f"{args_dict[args[i].name]}_tmp")
+            else:
+                args_str.append(f"{args_dict[args[i].name]}")
 
         src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({'{0}'}, {'{0}'}, {'{2}'}, {'{1}'});\n"
         src_code += f"builder::Op {op_var}_tmp = builder::DotGeneral({', '.join(args_str)}, {op_var}_dims_attr);\n"
@@ -524,6 +526,10 @@ class EnflameOverrides(OpOverrides):
 
         return src_code
     
+    @staticmethod
+    def Dot(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+
     @staticmethod
     def Gemm(op_var, x, y):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"

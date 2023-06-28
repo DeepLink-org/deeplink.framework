@@ -11,7 +11,7 @@ class MyModule(torch.nn.Module):
         layer0 = torch.ops.aten.add(a, b)
         layer1 = torch.ops.aten.abs(layer0)
         layer2 = torch.ops.aten.dot(layer0, layer1)
-        layer3 = torch.ops.aten.div(layer2, layer0)
+        layer3 = torch.ops.aten.mul(layer2, layer2)
         return layer3
 
 a = torch.randn(5)

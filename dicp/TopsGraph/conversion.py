@@ -202,6 +202,10 @@ def Range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.bmm.default)
+def Dotgeneral(*args, **kwargs):
+    return tops_op.Dotgeneral(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.dot.default)
 def Dot(*args, **kwargs):
     return tops_op.Dot(*args, **kwargs)
 
