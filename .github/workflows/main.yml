@@ -236,6 +236,7 @@ jobs:
       - name: clone repo
         run: |
           set -e
+          mkdir -p ${NV_CI_PATH}
           cd ${NV_CI_PATH} && find ${NV_CI_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
           rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
