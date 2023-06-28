@@ -79,20 +79,7 @@ def check_ret(message, ret):
     if ret != ACL_SUCCESS:
         raise Exception("{} failed ret={}"
                         .format(message, ret))
-        
-total_compute_time = 0
 
-def zero_total_compute_time():
-    global total_compute_time
-    total_compute_time = 0
-
-def increase_compute_time(t):
-    global total_compute_time
-    total_compute_time += t
-    
-def get_total_compute_time():
-    global total_compute_time
-    return total_compute_time
 
 class AscendExecutor(object):
     def __init__(self, device_id, dims, model_path) -> None:
@@ -316,16 +303,11 @@ class AscendExecutor(object):
                                                 tensorDesc, key)
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
                 assert(dataset == self.load_input_dataset)
-        start = time.time()
         ret = acl.mdl.execute(self.model_id,
                               self.load_input_dataset,
                               self.load_output_dataset)
-        end = time.time()
-        increase_compute_time(end - start)
         check_ret("acl.mdl.execute", ret)
         # self._destroy_databuffer()
-        # print('execute time: ', end - start)
-        # print('execute stage success')
 
     def _destroy_databuffer(self):
         for dataset in [self.load_input_dataset, self.load_output_dataset]:

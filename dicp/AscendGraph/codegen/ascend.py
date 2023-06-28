@@ -192,29 +192,26 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
 
-        try:
-            if isinstance(fake_tensor, torch.SymInt):
-                sym_to_inputs.update({fake_tensor.node.str(): self.args_dict[name]})
-                tensor_shape = f"{{1}}"
-                tensor_format = "FORMAT_ND"
-                ascend_dtype = "ge::DataType::DT_INT32"
-            elif symint_in_shape(fake_tensor.shape):
-                # deal with dynamic shape -1
-                shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-                actual_shape = fake_tensor.shape # [elem.node._hint if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-                tensor_shape = '{' + ','.join(map(str, shape)) + '}'
-                tensor_format = "FORMAT_NCHW"
-                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-                self.dynamic_inputs.append(self.args_dict[name])
-                self.dynamic_shape.append(shape)
-                self.actual_shape.append(actual_shape)
-                self.dynamic_index.append(len(self.input_args_names))
-            else:
-                tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-                tensor_format = "FORMAT_NCHW"
-                ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-        except:
-            import pdb;pdb.set_trace()
+        if isinstance(fake_tensor, torch.SymInt):
+            sym_to_inputs.update({fake_tensor.node.str(): self.args_dict[name]})
+            tensor_shape = f"{{1}}"
+            tensor_format = "FORMAT_ND"
+            ascend_dtype = "ge::DataType::DT_INT32"
+        elif symint_in_shape(fake_tensor.shape):
+            # deal with dynamic shape -1
+            shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
+            actual_shape = fake_tensor.shape # [elem.node._hint if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
+            tensor_shape = '{' + ','.join(map(str, shape)) + '}'
+            tensor_format = "FORMAT_NCHW"
+            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+            self.dynamic_inputs.append(self.args_dict[name])
+            self.dynamic_shape.append(shape)
+            self.actual_shape.append(actual_shape)
+            self.dynamic_index.append(len(self.input_args_names))
+        else:
+            tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
+            tensor_format = "FORMAT_NCHW"
+            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
 
         self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype}, {len(self.input_args_names)});''')
         self.input_args_names.append(self.args_dict[name])
