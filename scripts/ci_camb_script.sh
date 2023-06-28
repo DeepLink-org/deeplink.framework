@@ -54,9 +54,9 @@ function build_dipu_lib() {
     echo "LIBRARY_PATH:${LIBRARY_PATH}"
     echo "LD_LIBRARY_PATH:${LD_LIBRARY_PATH}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
+    export LD_LIBRARY_PATH=$DIOPI_ROOT:$LD_LIBRARY_PATH;
     echo "LIBRARY_PATH:${LIBRARY_PATH}"
     echo "LD_LIBRARY_PATH:${LD_LIBRARY_PATH}"
-
     config_dipu_camb_cmake 2>&1 | tee ./cmake_camb.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
