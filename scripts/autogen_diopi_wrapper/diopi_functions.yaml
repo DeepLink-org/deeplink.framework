@@ -1400,6 +1400,7 @@
   interface: diopiArange(ctx, out, start, end, step)
 
 - schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
@@ -1414,6 +1415,7 @@
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
+  custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);

@@ -7,7 +7,7 @@ import torch
 from torch_dipu import mockcuda
 from torch_dipu import _C
 __dipu__ = 'dipu'
-__diputype__ = 'privateuseone'
+__diputype__ = 'xpu'
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
 
@@ -76,7 +76,7 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
     else:
         return _proxyFuncInst
 
-GetTorchFuncProxy = partial(GetDeviceProxy, pos = -1, name = "device", static_func = True)
+GetDeviceStaticProxy = partial(GetDeviceProxy, pos = -1, name = "device", static_func = True)
 
 def _lazy_init():
     pass

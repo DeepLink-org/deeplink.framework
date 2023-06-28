@@ -69,29 +69,8 @@ def apply_tensor_method_patch():
     torch.Tensor.new_ones = GetDeviceProxy(torch.Tensor.new_ones,  pos = -1)
     torch.Tensor.new_zeros = GetDeviceProxy(torch.Tensor.new_zeros,  pos = -1)
     # --- add other device func
-
-    # tensor.new is legacy func, not support out-of-tree device
-    # this temp solution not support all new parameter now, need enhance.
-    # how to support storage? 
-    def _legacy_new_mocker(self, arg = None, size: _size = None, device: Device = None):
-        device = device if device else self.device
-        # test in cuda:: seems Tensor.new(size) return uncertain value in torch 2.0
-        if size is not None:
-            return self.new_empty(size, device = device)
-        if isinstance(arg, Tensor):
-            return self.new_tensor(arg, device = device) 
-        elif isinstance(arg, torch.storage.TypedStorage) or isinstance(arg, torch.storage.UntypedStorage):
-            if (isinstance(device, torch.device) and device.type != 'cpu') or \
-                isinstance(device, str) and torch.device(device).type != 'cpu':
-                print(f"torch.Tensor.new_tensor(storage: torch.storage) is not supported on out-of-tree device")
-
-            return self.new_tensor(arg, device = device)
-        elif isinstance(arg, Tuple) or isinstance(arg, torch.Size) or isinstance(arg, List):
-            return self.new_tensor(arg, device = device) 
-        else:
-            return None
-
-    torch.Tensor.new = _legacy_new_mocker
+    # legacy api
+    torch.Tensor.new =  GetDeviceProxy(torch.Tensor.new,  pos = -1)
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
@@ -103,33 +82,33 @@ def apply_tensor_method_patch():
 # mock device functions in generated/python_torch_functionsEverything.cpp
 def apply_torch_function_patch():
     torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, static_func = True)
-    torch.ones = GetTorchFuncProxy(torch.ones)
-    torch.ones_like = GetTorchFuncProxy(torch.ones_like)
-    torch.zeros = GetTorchFuncProxy(torch.zeros)
-    torch.zeros_like = GetTorchFuncProxy(torch.zeros_like)
-    torch.as_tensor = GetTorchFuncProxy( torch.as_tensor)
-    torch.tensor = GetTorchFuncProxy(torch.tensor)
-    torch.arange = GetTorchFuncProxy(torch.arange)
-    torch.range = GetTorchFuncProxy(torch.range)
+    torch.ones = GetDeviceStaticProxy(torch.ones)
+    torch.ones_like = GetDeviceStaticProxy(torch.ones_like)
+    torch.zeros = GetDeviceStaticProxy(torch.zeros)
+    torch.zeros_like = GetDeviceStaticProxy(torch.zeros_like)
+    torch.as_tensor = GetDeviceStaticProxy( torch.as_tensor)
+    torch.tensor = GetDeviceStaticProxy(torch.tensor)
+    torch.arange = GetDeviceStaticProxy(torch.arange)
+    torch.range = GetDeviceStaticProxy(torch.range)
 
-    torch.empty = GetTorchFuncProxy(torch.empty)
-    torch.empty_like = GetTorchFuncProxy(torch.empty_like)
-    torch.empty_strided = GetTorchFuncProxy(torch.empty_strided)
+    torch.empty = GetDeviceStaticProxy(torch.empty)
+    torch.empty_like = GetDeviceStaticProxy(torch.empty_like)
+    torch.empty_strided = GetDeviceStaticProxy(torch.empty_strided)
 
-    torch.eye = GetTorchFuncProxy(torch.eye)
-    torch.full = GetTorchFuncProxy(torch.full)
-    torch.full_like = GetTorchFuncProxy(torch.full_like)
-    torch.from_file = GetTorchFuncProxy(torch.from_file)
-    torch._pin_memory = GetTorchFuncProxy(torch._pin_memory)
-    torch.scalar_tensor = GetTorchFuncProxy(torch.scalar_tensor)
+    torch.eye = GetDeviceStaticProxy(torch.eye)
+    torch.full = GetDeviceStaticProxy(torch.full)
+    torch.full_like = GetDeviceStaticProxy(torch.full_like)
+    torch.from_file = GetDeviceStaticProxy(torch.from_file)
+    torch._pin_memory = GetDeviceStaticProxy(torch._pin_memory)
+    torch.scalar_tensor = GetDeviceStaticProxy(torch.scalar_tensor)
 
-    torch.rand = GetTorchFuncProxy(torch.rand)
-    torch.rand_like = GetTorchFuncProxy(torch.rand_like)
-    torch.randint = GetTorchFuncProxy(torch.randint)
-    torch.randint_like = GetTorchFuncProxy(torch.randint_like)
-    torch.randn = GetTorchFuncProxy(torch.randn)
-    torch.randn_like = GetTorchFuncProxy(torch.randn_like)
-    torch.randperm = GetTorchFuncProxy(torch.randperm)
+    torch.rand = GetDeviceStaticProxy(torch.rand)
+    torch.rand_like = GetDeviceStaticProxy(torch.rand_like)
+    torch.randint = GetDeviceStaticProxy(torch.randint)
+    torch.randint_like = GetDeviceStaticProxy(torch.randint_like)
+    torch.randn = GetDeviceStaticProxy(torch.randn)
+    torch.randn_like = GetDeviceStaticProxy(torch.randn_like)
+    torch.randperm = GetDeviceStaticProxy(torch.randperm)
     if mockcuda:
         for attr in dipu.__all__:
             if hasattr(torch.cuda, attr):
@@ -140,7 +119,7 @@ def apply_torch_function_patch():
 def apply_temp_patch():
     _has_storage_raw = torch._C._has_storage
     def _has_storage_wrapper(x: Tensor):
-        if x.device.type == "privateuseone":
+        if x.device.type == diputype:
             return False
         else:
             return _has_storage_raw(x)
@@ -150,48 +129,13 @@ def apply_temp_patch():
         pass
     torch.jit.script = script_wrapper
 
-    # Temporary patch, current CPUFallback cannot handle List<c10::optional<at::Tensor>> indices parameter
-    # and cpu index_outf has an unnecessary device check.
-    def get_itemop_wrapper(raw_op, is_get_item = False):
-        def __id2cpu(indices):
-            if isinstance(indices, Tensor):
-                return indices.cpu()
-            elif isinstance(indices, Tuple) or isinstance(indices, List):
-                indicesList = list(indices)
-                for idx, item in enumerate(indicesList):
-                    if isinstance(item, Tensor):
-                        indicesList[idx] = item.cpu()
-                    elif isinstance(item, Sequence):
-                        indicesList[idx] = torch.tensor(item)
-                    else:
-                        indicesList[idx] = item
-                return tuple(indicesList)
-            else:
-                return indices
-
-        def _getitem_wrapper(self, indices: Union[None, _int, slice, Tensor, List, Tuple]) -> Tensor:
-            return raw_op(self, __id2cpu(indices))
-
-        def _settitem_wrapper(self, indices: Union[None, _int, slice, Tensor, List, Tuple], val: Union[Tensor, Number]) -> Tensor:
-            return raw_op(self, __id2cpu(indices), val)
-            
-        if is_get_item:
-            return _getitem_wrapper
-        else:
-            return _settitem_wrapper
-
-    torch.Tensor.__getitem__ = get_itemop_wrapper(torch.Tensor.__getitem__, True)
-
-    # although setitem (IndexPut) has no problem, but it's bwd use getitem (Index)
-    torch.Tensor. __setitem__ = get_itemop_wrapper(torch.Tensor.__setitem__)
-
 
 def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
     apply_temp_patch()
     apply_dist_patch()
-    apply_tensor_type_patch()
+    # apply_tensor_type_patch()
 
 
 apply_patches()

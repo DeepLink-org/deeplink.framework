@@ -155,12 +155,10 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
 }
 
-// c10d ops (eg： allreduce) needs this fallback reg, cpu/cuda also register this key's fallback in VariableFallbackKernel.cpp.
-// this reg shouldn't affect (todo: need futher test) existing aten ops autograd fallback op, because they reg specialized autogradNotImplementedFallback
-// in generated/VariableTypeEverything.cpp for Autograd which has high priority. (todo: if affect, change to reg fallback only on c10d op)
-TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
-  m.fallback(torch::CppFunction::makeFallthrough());
-}
+// Change to use XPU which already register this fallback in ATen/core/VariableFallbackKernel.cpp
+// TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+//   m.fallback(torch::CppFunction::makeFallthrough());
+// }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
