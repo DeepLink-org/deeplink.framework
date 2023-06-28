@@ -1,4 +1,5 @@
 import torch
+import acl
 
 
 def check_ret(message, ret):
@@ -6,19 +7,15 @@ def check_ret(message, ret):
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
-import acl
+
 ret = acl.init()
 check_ret("acl.init", ret)
 
 ret = acl.rt.set_device(0)
 check_ret("acl.rt.set_device", ret)
 
-import pickle
-# with open('transpose.pkl', 'wb') as f:
-#     a = torch.randn(1, 2, 3, 4)
-#     pickle.dump(a, f)
-with open('transpose.pkl', 'rb') as f:
-    a = pickle.load(f)
+
+a = torch.randn(1, 2, 3, 4)
 
 def fn(x):
     y = torch.transpose(x, 1, 2).contiguous()

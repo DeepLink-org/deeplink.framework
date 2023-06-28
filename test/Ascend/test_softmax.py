@@ -1,12 +1,5 @@
 import torch
-import torch._dynamo as dynamo
-import logging
-
-# dynamo.config.verbose = True
-# dynamo.config.log_level  = logging.INFO
-# dynamo.config.output_code  = True
-
-torch._logging.set_logs(dynamo=logging.DEBUG)
+import acl
 
 
 def check_ret(message, ret):
@@ -14,19 +7,13 @@ def check_ret(message, ret):
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
-import acl
 ret = acl.init()
 check_ret("acl.init", ret)
 
 ret = acl.rt.set_device(0)
 check_ret("acl.rt.set_device", ret)
 
-import pickle
-# with open('softmax.pkl', 'wb') as f:
-#     softmax = torch.randn(2, 3)
-#     pickle.dump(softmax, f)
-with open('softmax.pkl', 'rb') as f:
-    softmax = pickle.load(f)
+softmax = torch.randn(2, 3)
 
 def fn(x):
     y = torch.nn.functional.softmax(x, -1)

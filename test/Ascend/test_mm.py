@@ -1,12 +1,5 @@
 import torch
-import torch._dynamo as dynamo
-import logging
-
-# dynamo.config.verbose = True
-# dynamo.config.log_level  = logging.INFO
-# dynamo.config.output_code  = True
-
-torch._logging.set_logs(dynamo=logging.DEBUG)
+import acl
 
 
 def check_ret(message, ret):
@@ -14,25 +7,14 @@ def check_ret(message, ret):
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
-import acl
 ret = acl.init()
 check_ret("acl.init", ret)
 
 ret = acl.rt.set_device(0)
 check_ret("acl.rt.set_device", ret)
-
-import pickle
-# with open('mm1.pkl', 'wb') as f:
-#     mm1 = torch.randn(2, 3)
-#     pickle.dump(mm1, f)
-with open('mm1.pkl', 'rb') as f:
-    mm1 = pickle.load(f)
     
-# with open('mm2.pkl', 'wb') as f:
-#     mm2 = torch.randn(3, 3)
-#     pickle.dump(mm2, f)
-with open('mm2.pkl', 'rb') as f:
-    mm2 = pickle.load(f)
+mm1 = torch.randn(2, 3)
+mm2 = torch.randn(3, 3)
 
 def fn(mm1, mm2):
     y = torch.mm(mm1, mm2)

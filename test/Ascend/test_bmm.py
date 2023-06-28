@@ -1,38 +1,19 @@
 import torch
-import torch._dynamo as dynamo
-import logging
-
-# dynamo.config.verbose = True
-# dynamo.config.log_level  = logging.INFO
-# dynamo.config.output_code  = True
-
-#torch._logging.set_logs(dynamo=logging.DEBUG)
-
+import acl
 
 def check_ret(message, ret):
     if ret != 0:
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
-import acl
 ret = acl.init()
 check_ret("acl.init", ret)
 
 ret = acl.rt.set_device(0)
 check_ret("acl.rt.set_device", ret)
-
-import pickle
-# with open('bmm1.pkl', 'wb') as f:
-#     input = torch.randn(3, 3, 4)
-#     pickle.dump(input, f)
-with open('bmm1.pkl', 'rb') as f:
-    input = pickle.load(f)
     
-# with open('bmm2.pkl', 'wb') as f:
-#     mat2 = torch.randn(3, 4, 5)
-#     pickle.dump(mat2, f)
-with open('bmm2.pkl', 'rb') as f:
-    mat2 = pickle.load(f)
+input = torch.randn(3, 3, 4)
+mat2 = torch.randn(3, 4, 5)
 
 def fn(input, mat2):
     y = torch.bmm(input, mat2)
