@@ -31,6 +31,8 @@ function clone_needed_repo() {
 }
 
 function build_needed_repo_cuda() {
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo $PYTHONPATH
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
