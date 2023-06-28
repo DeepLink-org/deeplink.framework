@@ -1,4 +1,4 @@
-set -x
+# set -x
 PLATFORM=/mnt/lustre/share/platform
 ENV_NAME=dipu_poc
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
@@ -34,3 +34,5 @@ export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.T
 source activate $ENV_NAME
 
 echo  "python path : ${PYTHONPATH}"
+echo  "LIBRARY_PATH path : ${LIBRARY_PATH}"
+echo  "LD_LIBRARY_PATH path : ${LD_LIBRARY_PATH}"
