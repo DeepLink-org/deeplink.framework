@@ -3,6 +3,7 @@
 
 #include "DIPUStream.h"
 #include "DIPUGuard.h"
+#include "DIPUEventPool.h"
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <cstdint>
 #include <utility>
@@ -28,7 +29,7 @@ public:
     try {
       if (is_created_) {
         DIPUGuard guard(device_index_);
-        devapis::destroyEvent(event_);
+        restoreEventToPool(event_);
       }
     } catch (...) { /* No throw */ }
   }
@@ -119,7 +120,7 @@ private:
   void createEvent(c10::DeviceIndex device_index) {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
-    devapis::createEvent(&event_);
+    getEventFromPool(event_);
     is_created_ = true;
   }
 
