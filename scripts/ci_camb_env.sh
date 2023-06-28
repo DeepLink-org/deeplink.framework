@@ -1,3 +1,4 @@
+set -x
 PLATFORM=/mnt/lustre/share/platform
 ENV_NAME=dipu_poc
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
