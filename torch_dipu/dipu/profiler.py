@@ -91,6 +91,11 @@ class dipu_profiler(object):
             for evt in self._torch_profiler.profiler.function_events:
                 if evt.trace_name is None:
                     continue
+                input_shape = []
+                if evt.input_shapes is not None:
+                    for i in evt.input_shapes:
+                        if len(i) != 0:
+                            input_shape.append(i)
                 f.write(
                     '{"name": "%s", '
                     '"ph": "X", '
@@ -99,6 +104,7 @@ class dipu_profiler(object):
                     '"tid": %s, '
                     '"pid": "CPU functions", '
                     '"args": {}}, '
+                    '"args": {%s}}, '
                     % (
                         evt.trace_name,
                         evt.time_range.start,
@@ -107,6 +113,8 @@ class dipu_profiler(object):
                         if not evt.is_remote
                         else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "'
                         # '"input shape": ' + ('"%s"' % str(evt.input_shapes)),
+                        else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "',
+                        '"input shape": ' + ('"%s"' % str(input_shape)),
                         
                     )
                 )
