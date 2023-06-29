@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
+#include "allocator.h"
 
 namespace dipu {
 
@@ -13,7 +14,13 @@ public:
   ~RawCachingAllocator() {
 
   }
+
+  inline virtual c10::DataPtr allocate(size_t size) const {
+    return raw_allocator_->allocate(size);
+  }
+
 };
 
+DIPU_REGISTER_ALLOCATOR("RAW", dipu::DIPU_DEVICE_TYPE, DIPUAllocator, RawCachingAllocator, 0);
 
 }  // namespace dipu
