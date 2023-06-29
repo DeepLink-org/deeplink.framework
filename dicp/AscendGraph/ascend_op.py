@@ -1,9 +1,11 @@
 import torch
+import _operator
 from typing import Tuple
 from contextlib import nullcontext
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
+from torch.utils._pytree import tree_map, tree_flatten
 
 aten = torch.ops.aten
 
@@ -12,23 +14,41 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
-        self.fake_mode = (
-            FakeTensorMode(shape_env=self.shape_env)
-            if config.use_fake_tensor
-            else nullcontext()
-        )
+        if torch.__version__.startswith("2.0"):
+            self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+            self.fake_mode = (
+                FakeTensorMode(shape_env=self.shape_env)
+                if config.use_fake_tensor
+                else nullcontext()
+            )
+        elif torch.__version__.startswith("2.1"):
+            self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
+            self.fake_mode = (
+                FakeTensorMode(shape_env=self.shape_env)
+                if config.fake_tensor_allow_meta
+                else nullcontext()
+            )
+        else:
+            raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
     
     def __call__(self, *args, **kwargs):
-        new_args = tuple(arg if not hasattr(arg, 'meta') else arg.meta['val'] for arg in args)
+        def get_meta(x):
+            return x if not hasattr(x, 'meta') else x.meta['val']
+        new_args = tree_map(get_meta, args)
+        
         fake_mode = None
-        for arg in new_args:
+        tmp_args, _ = tree_flatten(new_args)
+        for arg in tmp_args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
-        if fake_mode is None:
-            fake_mode = self.fake_mode
-        new_args = tuple(arg if not isinstance(arg, torch.Tensor) else FakeTensor.from_tensor(arg, fake_mode) for arg in new_args)
+        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+
+        def make_faketensor(x):
+            if not isinstance(x, torch.Tensor) or isinstance(x, FakeTensor):
+                return x
+            return FakeTensor.from_tensor(x, fake_mode)
+        new_args = tree_map(make_faketensor, new_args)
         return self.torch_op(*new_args, **kwargs)
 
 
@@ -147,9 +167,9 @@ class Transpose(Operator):
 
 
 class ToCopy(Operator):
-    def __init__(self, input, dtype, layout, device):
-        super().__init__("convert_element_type")
-        self.input = input
+    def __init__(self, x, dtype, layout, device):
+        super().__init__("_to_copy")
+        self.x = x
         self.dtype = dtype
         self.layout = layout
         self.device = device
@@ -230,6 +250,7 @@ class ExpandD(Operator):
     def __call__(self, x, dims):
         if hasattr(x, 'meta'):
             x = x.meta['val']
+        dims = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in dims]
         return x.expand(dims)
 
 
@@ -372,7 +393,28 @@ class TranShape(Operator):
         super().__init__("view")
         self.x = x
         self.shape = shape
-        self.torch_op = aten.reshape
+
+    def __call__(self, x, shape):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
+        return aten.reshape(x, shape)
+
+
+class InMul(Operator):
+    def __init__(self, a, b):
+        super().__init__("inmul")
+        self.a = a
+        self.b = b
+        self.torch_op = _operator.mul
+
+
+class SymSize(Operator):
+    def __init__(self, x, dim):
+        super().__init__("symsize")
+        self.x = x
+        self.dim = dim
+        self.torch_op = aten.sym_size
 
 
 class Identity(Operator):
@@ -619,6 +661,23 @@ class Slice(Operator):
         self.end = end
         self.step = step
         self.torch_op = aten.slice
+        
+
+class Cat(Operator):
+    def __init__(self, x, dim=0):
+        super().__init__("cat")
+        self.x = x
+        self.dim = dim
+        self.torch_op = aten.cat
+        
+
+class Select(Operator):
+    def __init__(self, x, dim, index):
+        super().__init__("select")
+        self.x = x
+        self.dim = dim
+        self.index = index
+        self.torch_op = aten.select
 
 
 @torch.fx.wrap
