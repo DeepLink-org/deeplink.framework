@@ -240,22 +240,20 @@ jobs:
       - name: clone repo
         run: |
           set -e
-          ifconfig
-          cd ${NV_CI_PATH} && find ${NV_CI_PATH}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-          rm -rf ${GITHUB_RUN_NUMBER} && mkdir -p ${GITHUB_RUN_NUMBER} && cd ${GITHUB_RUN_NUMBER}
+          cd ${GITHUB_WORKSPACE} && find ${GITHUB_WORKSPACE}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
           rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           #   git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
           # else
           git checkout ${{ github.sha }}
           # fi
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && cp -R dipu dipu_diopi
+          cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           cd ./DIOPI && git checkout xt/change_to_pt2.0
           # fi
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
+          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
