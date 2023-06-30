@@ -1455,3 +1455,8 @@
 
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiPolar(ctx, out, abs, angle)
+
+- schema: "isnan(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
+  interface: diopiIsnan(ctx, out, self)
