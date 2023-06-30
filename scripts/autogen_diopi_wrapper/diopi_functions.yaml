@@ -157,8 +157,8 @@
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
     at::Tensor out1, out2;
-    bool compute_stats = training || input.requires_grad() || (weight.has_value() && weight.value().requires_grad()) || (bias.has_value() && bias.value().requires_grad());
-    if (!compute_stats) {
+    bool compute_stats = (input.requires_grad() || (weight.has_value() && weight.value().requires_grad()) || (bias.has_value() && bias.value().requires_grad()));
+    if (!training || !compute_stats) {
         // do not require save_mean/save_invstd when no_grad or test mode
         out1 = at::empty({0}, options);
         out2 = at::empty({0}, options);
