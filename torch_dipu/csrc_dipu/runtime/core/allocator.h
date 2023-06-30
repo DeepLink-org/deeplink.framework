@@ -7,16 +7,30 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/runtime/core/MemChecker.h>
+#include <iostream>
 
 namespace dipu {
+
+
+#define DIPU_DEBUG_ALLOCATOR(x)                                                                 \
+  {                                                                                             \
+    static bool enable = std::getenv("DIPU_DEBUG_ALLOCATOR") != nullptr;                        \
+    if (enable)                                                                                 \
+    {                                                                                           \
+      std::cout << __FILE__ << ":" << __FUNCTION__ << ":" << __LINE__ << " " << x << std::endl; \
+    }                                                                                           \
+  }
+
 
 static void DIPUDeleter(void* ptr) {
   if (ptr) {
     MemChecker::instance().erase(ptr);
+    DIPU_DEBUG_ALLOCATOR("devapis::freeDevice: free " << ptr);
     devapis::freeDevice(ptr);
     ptr = nullptr;
   }
 }
+
 
 class DIPU_API DIPUAllocator: public c10::Allocator {
 public:
@@ -34,13 +48,14 @@ private:
     std::lock_guard<std::mutex> lock(mutex_);
     void* data = nullptr;
     devapis::mallocDevice(&data, nbytes);
+    DIPU_DEBUG_ALLOCATOR("devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
     MemChecker::instance().insert(data, nbytes);
     return {data, data, &DIPUDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
   }
 };
 
 
-void setAllocator(const std::string& name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0);
+void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0);
 c10::Allocator* getAllocator(c10::DeviceType device_type);
 
 struct AllocatorRegisterer {
@@ -56,4 +71,4 @@ struct AllocatorRegisterer {
   static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator, priority);          \
   }
 
-}  // namespace torch_dipu
+}  // namespace dipu
