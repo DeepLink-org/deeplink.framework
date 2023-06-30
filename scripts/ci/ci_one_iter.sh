@@ -51,7 +51,7 @@ function export_repo_pythonpath(){
     basic_path="$2"
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in pythonpath..."
-        export PYTHONPATH=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
