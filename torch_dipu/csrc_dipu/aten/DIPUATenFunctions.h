@@ -87,6 +87,9 @@ struct DIPUATenFunctions {
     static at::Tensor div(const at::Tensor & self, const at::Scalar & other);
     static at::Tensor& div_(at::Tensor & self, const at::Scalar & other);
 
+    static bool is_pinned(const at::Tensor& self, c10::optional<at::Device> device);
+    static at::Tensor _pin_memory(const at::Tensor& self, c10::optional<at::Device> device);
+
 };
 
 }  // namespace dipu::native
