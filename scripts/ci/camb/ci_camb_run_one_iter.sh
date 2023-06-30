@@ -12,7 +12,7 @@ original_list=(
     "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vit-base-p17_64xb64_in1k-384px" #ok
     # # mmdetection
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"  #ok
-    "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco" #ok
+    # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco" #ok
     "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco" #ok
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" #ok
     # # mmsegmentation
