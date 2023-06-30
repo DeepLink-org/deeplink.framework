@@ -32,9 +32,10 @@ inline void synchronizeIfEnable() {
     return;
 }
 
-inline bool dumpOpArgs() {
-    bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
-    return enable;
+inline int dumpOpArgLevel() {
+    const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+    int level = env_ptr ? std::atoi(env_ptr) : 0;
+    return level;
 }
 
 template<typename T>
@@ -76,9 +77,7 @@ std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
         stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
-        const auto env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
-        int dump_tensor_all_elemnuments = env_ptr ? std::atoi(env_ptr) : 0;
-        if (dump_tensor_all_elemnuments > 1) {
+        if (dumpOpArgLevel() > 2) {
             stream << std::endl << tensor;
         }
     } else {
