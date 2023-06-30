@@ -7,7 +7,7 @@ from torch_dipu.testing._internal.common_utils import dipu, TestCase, run_tests
 
 class TestSchema(TestCase):
 
-    def test_arange(self):
+    def test_sgn(self):
         x_cuda = torch.tensor([3+4j, 7-24j, 0, 1+2j]).cuda()
         x_cpu = x_cuda.cpu()
 
