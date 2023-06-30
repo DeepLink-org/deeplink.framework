@@ -24,9 +24,10 @@ export VENDOR_INCLUDE_DIRS=${NEUWARE_HOME}/include
 export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
 export DIPU_PATH=${DIPU_ROOT}
 
-export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
+#export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
 export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,scatter.value_reduce_out,_unique2,sort
+export DIPU_DEBUG_ALLOCATOR=1
 
 
 source activate $ENV_NAME
