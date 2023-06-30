@@ -1,5 +1,5 @@
 
-n clone_needed_repo() {
+clone_needed_repo() {
     # clone some repositories
 
     #define some version
