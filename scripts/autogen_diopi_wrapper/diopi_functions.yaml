@@ -1459,28 +1459,43 @@
 - schema: "im2col(Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
-    const auto input_shape = self.sizes();
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 3) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(),1);
+    }
+
     int num_blocks = 1;
     for(int i=0;i<2;i++)
       num_blocks *= int((input_shape[i + 2] + 2 * padding[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1;
     int channels = input_shape[1];
     for(int i=0;i<2;i++)
       channels *= kernel_size[i];
-    std::vector<int64_t> out_shape({input_shape[0], channels, num_blocks});
+
+    std::vector<int64_t> out_shape({channels, num_blocks});
+    if(batched_input)
+      out_shape.insert(out_shape.begin(),input_shape[0]);
     auto out = at::empty({out_shape}, self.options());
   interface: diopiIm2Col(ctx, out, self, kernel_size, dilation, padding, stride)
 
 - schema: "col2im(Tensor self, SymInt[2] output_size, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
-    const auto input_shape = self.sizes();
-    //for (int i = 0;i< 2;++i) {
-    //   out_shape[i] = output_size.at(i).expect_int();
-    // }
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 2) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(),1);
+    }
+
     int channels = input_shape[1];
     for(int i=0;i<2;i++)
       channels = channels / kernel_size[i];
-    std::vector<int64_t> out_shape({input_shape[0], channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
+    
+    std::vector<int64_t> out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
+    if(batched_input)
+      out_shape.insert(out_shape.begin(),input_shape[0]);
     auto out = at::empty({out_shape}, self.options());
   interface: diopiCol2Im(ctx, out, self, output_size, kernel_size, dilation, padding, stride)
 
