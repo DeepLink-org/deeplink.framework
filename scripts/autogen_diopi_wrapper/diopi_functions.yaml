@@ -1460,3 +1460,8 @@
   custom_code_at_the_beginning: |
     auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
   interface: diopiIsnan(ctx, out, self)
+
+- schema: "embedding_dense_backward(Tensor grad, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor grad_input"
+  custom_code_at_the_beginning: |
+    auto grad_input = at::zeros({num_weights, grad.size(-1)}, grad.options());
+  interface: diopiEmbeddingDenseBackward(ctx, grad_input, grad, indices, num_weights, padding_idx, scale_grad_by_freq)
