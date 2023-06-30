@@ -36,7 +36,7 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Oneslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
+need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Empty_Like', 'Oneslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
@@ -600,6 +600,13 @@ class EnflameOverrides(OpOverrides):
         data_type = node.meta['val'].dtype.__str__()            
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});\n\n"
+        return src_code
+
+    @staticmethod
+    def Empty_Like(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__() 
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code = f"builder::Op {op_var} = builder::EmptyLike({args_str[0]}, {type_set[data_type]}, {{0}});\n\n"
         return src_code
 
     @staticmethod
