@@ -26,8 +26,8 @@ original_list=(
     #"mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k --no-pin-memory"
 
 length=${#original_list[@]}
-max_parall=6
-random_model_num=100 #如果超过，会自动设置为模型总数
+max_parall=4
+random_model_num=4 #如果超过，会自动设置为模型总数
 
 echo $length
 selected_list=()
