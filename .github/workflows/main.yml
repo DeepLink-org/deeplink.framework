@@ -173,8 +173,8 @@ jobs:
           cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Camb-Diopi
           export PYTORCH_DIR=${PYTORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Cuda-Diopi \
-          || ( cd ${NV_PVC_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-POC-Camb-Diopi \
+          || ( cd ${NFS_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Camb-Diopi && exit 1 )
           """
 
   Test-One-Iter-Camb:
@@ -207,7 +207,7 @@ jobs:
           export PYTHONPATH=${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmagic:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpretrain:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmaction2:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmocr:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmpose:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmsegmentation:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection3d:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmdetection:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmengine:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmcv:${NFS_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_one_iter.sh build_camb
           pwd
-          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          srun --job-name=${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh scripts/ci_camb_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
   Clone:
