@@ -43,10 +43,10 @@ jobs:
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
 
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
-          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            cd ./DIOPI && git checkout xt/change_to_pt2.0
-          fi
+          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git &&
+          # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+          cd ./DIOPI && git checkout xt/change_to_pt2.0
+          # fi
 
       - name: ci interruptible and support pr ci
         run: |
@@ -250,7 +250,7 @@ jobs:
           cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          cd ./DIOPI && git checkout xt/change_to_pt2.0
+          cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
           # fi
           cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
