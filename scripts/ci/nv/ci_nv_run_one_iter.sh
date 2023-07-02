@@ -31,7 +31,6 @@ original_list=(
     # "mmagic configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable-diffusion_ddim_denoisingunet.py" 
 )
 
-)
 
 length=${#original_list[@]}
 max_parall=1
