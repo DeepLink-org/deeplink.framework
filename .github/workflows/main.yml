@@ -339,7 +339,7 @@ jobs:
           echo "**************************************"
           echo $PYTHONPATH
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci_one_iter.sh build_cuda
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
 
       - name: run-one-iter-tools
