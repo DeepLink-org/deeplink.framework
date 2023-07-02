@@ -332,10 +332,10 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
-          basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
-          export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
-          export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
-          export PYTHONPATH=${pwd}:$PYTHONPATH
+          basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
+          export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
+          export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
+          export PYTHONPATH=\${pwd}:\$PYTHONPATH
           echo "**************************************"
           echo $PYTHONPATH
           cd mmlab_pack
@@ -349,7 +349,7 @@ jobs:
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
-          source scripts/ci/ci_one_iter.sh export_pythonpath_cuda ${basic_path}
+          source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
           sh ../scripts/ci/nv/ci_nv_run_one_iter.sh ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${SLURM_PAR_SH1984} ${GPU_REQUESTS} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
