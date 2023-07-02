@@ -1,8 +1,5 @@
 # Copyright (c) 2023, DeepLink.
 import os
-# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-# os.environ['MLU_INVOKE_BLOCKING'] = '1'
-# os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 # os.environ['DIPU_MEM_CHECK'] = '1'
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
