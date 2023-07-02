@@ -332,7 +332,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
-          basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
+          basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\${pwd}:\$PYTHONPATH
