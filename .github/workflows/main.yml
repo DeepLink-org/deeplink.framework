@@ -253,6 +253,7 @@ jobs:
           # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
           # fi
+          cd ${GITHUB_WORKSPACE}/dipu
           rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           ssh ${CLUSTER_1984} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
