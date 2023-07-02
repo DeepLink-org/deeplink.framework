@@ -39,8 +39,6 @@ class DIPU_API CacheAllocator: public c10::Allocator {
     }
 
   public:
-    virtual c10::DataPtr allocate(size_t n) = 0;
-
     size_t cached() {
       return currCached_;
     }

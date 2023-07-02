@@ -15,7 +15,7 @@ public:
 
   }
 
-  inline virtual c10::DataPtr allocate(size_t size) const {
+  c10::DataPtr allocate(size_t size) const override{
     auto rawData = raw_allocator()->allocate(size);
     DIPU_DEBUG_ALLOCATOR("RawCachingAllocator: malloc " << size << " nbytes, ptr:" << rawData.get());
     return rawData;

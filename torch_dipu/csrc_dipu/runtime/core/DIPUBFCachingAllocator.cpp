@@ -411,10 +411,10 @@ public:
             }
         }
     }
-
    c10::DataPtr allocate(size_t nbytes) const {
 
    }
+#if 0
 
    c10::DataPtr allocate_ptr(size_t nbytes) {
     if (!nbytes) {
@@ -452,6 +452,7 @@ public:
     c10::DataPtr makeDataPtr(void* ptr) const {
 
     }
+#endif
 };
 
 DIPU_REGISTER_ALLOCATOR("BF", dipu::DIPU_DEVICE_TYPE, DIPUAllocator, BFCachingAllocator, 0);
