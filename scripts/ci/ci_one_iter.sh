@@ -19,11 +19,11 @@ clone_needed_repo() {
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
     rm -rf mmdetection && git clone -b ${MMDETECTION_VERSION} https://github.com/DeepLink-org/mmdetection.git
     rm -rf mmsegmentation && git clone -b ${MMSEGMENTATION_VERSION} https://github.com/DeepLink-org/mmsegmentation.git
-    #rm -rf mmpose && git clone -b ${MMPOSE_VERSION} https://github.com/DeepLink-org/mmpose.git
-    #rm -rf mmdetection3d && git clone -b ${MMDETECTION3D_VERSION} https://github.com/DeepLink-org/mmdetection3d.git
-    #rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
-    #rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
-    #rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
+    rm -rf mmpose && git clone -b ${MMPOSE_VERSION} https://github.com/DeepLink-org/mmpose.git
+    rm -rf mmdetection3d && git clone -b ${MMDETECTION3D_VERSION} https://github.com/DeepLink-org/mmdetection3d.git
+    rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
+    rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
+    rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
     rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
     cd mmcv && git checkout ${MMCV_VERSION} && cd ..
@@ -32,9 +32,9 @@ clone_needed_repo() {
 function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
-    # cd ..
-    #cd mmagic
-    #pip install -e . -v --no-deps
+    cd ..
+    cd mmagic
+    pip install -e . -v --no-deps
     cd ../mmpretrain
     pip install -e .
     cd ..
@@ -88,7 +88,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/kitti data/kitti
         #ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015/imgs data/icdar2015
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mixture/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
         #ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         #ln -s /mnt/lustre/share_data/PAT/datasets/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
