@@ -1477,7 +1477,7 @@
 
     std::vector<int64_t> out_shape({channels, num_blocks});
     if(batched_input == true){
-      out_shape.insert(out_shape.begin(),input_shape[0]);
+      out_shape.insert(out_shape.begin(), input_shape[0]);
     }
     auto out = at::empty({out_shape}, self.options());
   interface: diopiIm2Col(ctx, out, self, kernel_size, dilation, padding, stride)
@@ -1499,7 +1499,7 @@
       
     std::vector<int64_t> out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
     if(batched_input == true){
-      out_shape.insert(out_shape.begin(),input_shape[0]);
+      out_shape.insert(out_shape.begin(), input_shape[0]);
     }
     auto out = at::empty({out_shape}, self.options());
   interface: diopiCol2Im(ctx, out, self, output_size, kernel_size, dilation, padding, stride)
