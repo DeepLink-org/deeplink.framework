@@ -53,8 +53,8 @@ for ((i=0; i<random_model_num; i++)); do
 done
 
 job_name=$1
-partition=$2
-gpu_request=$3
+partition=${@:3}
+gpu_request=$2
 echo $job_name
 echo $partition
 echo $gpu_request
