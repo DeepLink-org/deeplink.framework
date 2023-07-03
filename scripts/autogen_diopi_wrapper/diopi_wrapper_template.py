@@ -77,26 +77,9 @@ template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
-        std::string memory_format;
-        switch (tensor.suggest_memory_format()) {
-            case torch::MemoryFormat::Contiguous:
-                memory_format = "Contiguous";
-                break;
-            case torch::MemoryFormat::Preserve:
-                memory_format = "Preserve";
-                break;
-            case torch::MemoryFormat::ChannelsLast:
-                memory_format = "ChannelsLast";
-                break;
-            case torch::MemoryFormat::ChannelsLast3d:
-                memory_format = "ChannelsLast3d";
-                break;
-            default:
-                memory_format = "Unknown";
-        }
         stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," << "dtype=" << tensor.dtype()
         << ", device=" << tensor.device() << ", layout=" << tensor.layout() << ", requires_grad=" << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory=" << (tensor.is_pinned() ? "true" : "false") 
-        << ", memory_format="  << memory_format << tensor.options() << ",data_ptr:" << tensor.data_ptr();
+        << ", memory_format="  << tensor.suggest_memory_format() << ", " << tensor.options() << ",data_ptr:" << tensor.data_ptr();
         if (dumpOpArgLevel() > 2) {
             stream << std::endl << tensor;
         }
