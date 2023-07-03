@@ -70,7 +70,8 @@ pids=()
 
 export ONE_ITER_TOOL_DEVICE=dipu
 export ONE_ITER_TOOL_DEVICE_COMPARE=cpu
-
+export ONE_ITER_TOOL_IORANDOM_SEED=10086    #随机存储模型输入输出的随机数种子
+export ONE_ITER_TOOL_IOSAVE_RATIO=0.2       #随机存储模型输入输出的比例
 
 mkdir one_iter_data
 
