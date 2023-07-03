@@ -169,6 +169,21 @@
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
 
+- schema: "native_group_norm(Tensor input, Tensor? weight, Tensor? bias, SymInt N, SymInt C, SymInt HxW, int group, float eps) -> (Tensor, Tensor, Tensor)"
+  custom_code_at_the_beginning: |
+    auto out0 = at::empty_like(input);
+    auto options = input.options().dtype(at::kFloat);
+    auto out1 = at::empty({N.expect_int(), group}, options);
+    auto out2 = at::empty({N.expect_int(), group}, options);
+  interface: diopiGroupNorm(ctx, out0, out1, out2, input, weight, bias, group, eps);
+
+- schema: "native_group_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, SymInt N, SymInt C, SymInt HxW, int group, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
+  custom_code_at_the_beginning: |
+    auto out0 = output_mask[0] ? at::empty_like(input) : at::Tensor();
+    auto out1 = output_mask[1] ? at::empty_like(weight.value()) : at::Tensor();
+    auto out2 = output_mask[2] ? at::empty_like(weight.value()) : at::Tensor();
+  interface: diopiGroupNormBackward(ctx, out0, out1, out2, grad_out, input, weight, mean, rstd, group);
+
 - schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
   custom_code_at_the_beginning: |
     const auto input_shape = input.sizes();
@@ -468,6 +483,23 @@
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
 
+- schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  register_op: False
+  size_attr: [stride, padding, dilation, bias_sizes, output_padding]
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input;
+    at::Tensor grad_weight;
+    at::Tensor grad_bias;
+    grad_input = at::empty(input.sizes(), input.options());
+    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    if (output_mask[2]) {
+        c10::IntArrayRef bias_size = { grad_output.size(1) };
+        grad_bias = at::empty(bias_size, grad_output.options());
+    }
+  custom_code_before_call_diopi: |
+    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
+  interface: diopiConvTranspose2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, output_padding, groups);
+
 - schema: "conv_transpose2d.input(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] output_padding=0, int groups=1, int[2] dilation=1) -> Tensor"
   autograd: True
   size_attr: [stride, padding, output_padding, dilation]
@@ -504,8 +536,12 @@
       output_mask[0] = input.requires_grad();
       output_mask[1] = weight.requires_grad();
       output_mask[2] = bias_has_value;
-      bool transposed = true;
-  backward_schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  backward_schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  backward_return_code: |
+    std::vector<at::Tensor>  outputs = {
+          std::get<0>(result), std::get<1>(result), std::get<2>(result),
+          at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
+    return outputs;
 
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
   custom_code_at_the_beginning: |
