@@ -414,8 +414,13 @@
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
-    grad_input = at::empty(input.sizes(), input.options());
-    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    if (output_mask[0]) {
+      grad_input = at::empty(input.sizes(), input.options());
+    }
+    if (output_mask[1]) {
+      grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    }
+
     if (output_mask[2]) {
         c10::IntArrayRef bias_size = { grad_output.size(1) };
         grad_bias = at::empty(bias_size, grad_output.options());
