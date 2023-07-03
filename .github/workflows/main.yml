@@ -216,7 +216,6 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
-          LO_SLURM_PAR=$(echo "$SLURM_PAR_CAMB")
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
