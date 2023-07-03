@@ -296,7 +296,7 @@ jobs:
 
   Build-POC-Cuda-Diopi:
     name: Build dipu cuda diopi-latest-target
-    needs: [Clone]
+    needs: [Rsync]
     runs-on: tps-diopi-ci
     steps:
       - name: Build dipu diopi-latest-target
