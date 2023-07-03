@@ -275,8 +275,8 @@ jobs:
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
           echo "=================================================="
-          echo ${SLURM_PAR_SH1984}
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+          echo ${SLURM_PAR_SH1988}
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -291,7 +291,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh
           """
 
   Build-POC-Cuda-Diopi:
@@ -305,7 +305,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -320,7 +320,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -342,7 +342,7 @@ jobs:
           echo "**************************************"
           echo $PYTHONPATH
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1984} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
 
       - name: run-one-iter-tools
@@ -355,5 +355,5 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
           echo  "python path : \$PYTHONPATH"
           cd mmlab_pack
-          sh ../scripts/ci/nv/ci_nv_run_one_iter.sh ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${GPU_REQUESTS} ${SLURM_PAR_SH1984} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          sh ../scripts/ci/nv/ci_nv_run_one_iter.sh ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${GPU_REQUESTS} ${SLURM_PAR_SH1988} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
