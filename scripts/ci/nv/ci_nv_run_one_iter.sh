@@ -55,6 +55,9 @@ done
 job_name=$1
 partition=$2
 gpu_request=$3
+echo $job_name
+echo $partition
+echo $gpu_request
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
