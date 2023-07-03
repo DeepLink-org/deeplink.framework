@@ -94,8 +94,9 @@ std::string dumpArg(const at::Tensor& tensor) {
             default:
                 memory_format = "Unknown";
         }
-        stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," << "dtype=" << tensor.dtype() << ", device=" << tensor.device() << ", layout=" << tensor.layout() << ", requires_grad=" << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory=" << (tensor.is_pinned() ? "true" : "false") << ", memory_format=" 
-          << memory_format << ",data_ptr:" << tensor.data_ptr();
+        stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," << "dtype=" << tensor.dtype()
+        << ", device=" << tensor.device() << ", layout=" << tensor.layout() << ", requires_grad=" << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory=" << (tensor.is_pinned() ? "true" : "false") 
+        << ", memory_format="  << memory_format << tensor.options() << ",data_ptr:" << tensor.data_ptr();
         if (dumpOpArgLevel() > 2) {
             stream << std::endl << tensor;
         }
