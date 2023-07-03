@@ -21,7 +21,7 @@ class TestSchema(TestCase):
 
 
     def test_im2col_col2im(self):
-        #input_dim=4
+        #input_dim=3
         for shape in ([1, 7, 8],):
             numel = 1
             for i in range(len(shape)):
