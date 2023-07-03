@@ -85,8 +85,10 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    srun --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    srun --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    GITHUB_JOB_NAME="${GITHUB_JOB}_${p3}"
+
+    srun --job-name==${GITHUB_JOB_NAME} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    srun --job-name==${GITHUB_JOB_NAME} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/compare_one_iter.sh
     echo  "after add place row $i"  1>&796
     touch "$pid.done"
 
