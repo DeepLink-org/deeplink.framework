@@ -64,9 +64,9 @@ jobs:
           ssh ${CLUSTER_CAMB} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CLUSTER_1984} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
+          ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -259,9 +259,9 @@ jobs:
   #         cd ${GITHUB_WORKSPACE}/dipu
   #         rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
   #         bash ../scripts/ci/ci_one_iter.sh clone
-  #         ssh ${CLUSTER_1984} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
-  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1984}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
-  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1984}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
+  #         ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
+  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
+  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
   
   Build-POC-Cuda:
     name: Build dipu cuda
@@ -270,7 +270,7 @@ jobs:
     steps:
       - name: Build dipu
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
@@ -287,7 +287,7 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci/nv/ci_nv_env.sh
@@ -301,7 +301,7 @@ jobs:
     steps:
       - name: Build dipu diopi-latest-target
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
@@ -316,7 +316,7 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
@@ -331,7 +331,7 @@ jobs:
     steps:
       - name: build some env
         run: |
-          ssh ${CLUSTER_1984} """
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
@@ -347,7 +347,7 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
-          ssh ${CLUSTER_1984} """ex
+          ssh ${CLUSTER_1988} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
           source scripts/ci/nv/ci_nv_env.sh
