@@ -26,7 +26,7 @@ export DIPU_PATH=${DIPU_ROOT}
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
 
-export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,scatter.value_reduce_out,_unique2,_cdist_forward,_cdist_backward
+export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,scatter.value_reduce_out,_unique2,sort,_cdist_forward,_cdist_backward
 
 
 source activate $ENV_NAME
