@@ -4,7 +4,9 @@
 #include "allocator.h"
 #include <stdint.h>
 #include <map>
+#include <unorder_map>
 #include <list>
+#include <deque>
 #include <mutex>
 
 namespace dipu {
@@ -24,12 +26,13 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 512;
+    static constexpr size_t kMinAllocationSize = 16;
     size_t allocateSize = ((nbytes + kMinAllocationSize - 1) / kMinAllocationSize) * kMinAllocationSize;
     return allocateSize;
   }
 
-  mutable std::map<int, std::map<bool, std::list<void*>>> allCached; // size, using, void*
+  mutable std::map<int, std::map<bool, std::deque<void*>>> allCached; // size, using, void*
+  //mutable std::unorder_map<size_t, std::deque<void*>> idel_blocks_;
 
   mutable c10::Device device_;
   using mutex_t = std::recursive_mutex;
@@ -37,7 +40,7 @@ public:
 
   c10::DataPtr allocate(size_t size) const override{
     const size_t nbytes = getAllocateSize(size);
-    std::lock_guard<mutex_t> lk(mutex_);
+    //std::lock_guard<mutex_t> lk(mutex_);
     auto& blocks = allCached[nbytes];
     auto& using_blocks = blocks[true];
     auto& idel_blocks = blocks[false];
@@ -64,7 +67,7 @@ public:
   void restore(size_t size, void* ptr) const {
     const size_t nbytes = getAllocateSize(size);
     DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
-    std::lock_guard<mutex_t> lk(mutex_);
+    //std::lock_guard<mutex_t> lk(mutex_);
     auto& blocks = allCached[nbytes];
     auto& using_blocks = blocks[true];
     auto& idel_blocks = blocks[false];
