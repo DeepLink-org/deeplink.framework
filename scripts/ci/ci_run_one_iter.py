@@ -11,9 +11,10 @@ import yaml
 max_parall = 4
 random_model_num = 4
 device_type = sys.argv[1]
-github_job = sys.argv[2]
-slurm_par = sys.argv[3]
-gpu_requests = sys.argv[4]
+github_job = os.environ.get('GITHUB_JOB')
+slurm_par = os.environ.get('SLURM_PAR')
+gpu_requests = os.environ.get('GPU_REQUESTS')
+print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job,slurm_par,gpu_requests))
 
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
