@@ -18,43 +18,8 @@ from torch import Tensor
 from torch_dipu import _C
 from torch_dipu import dipu 
 from torch_dipu.dipu import *
-from torch.serialization import register_package
-from .dipu.device import _get_device_index
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
-
-def validate_dipu_device(location):
-    device = _get_device_index(location, True)
-
-    if not is_available():
-        raise RuntimeError('Attempting to deserialize object on a DIPU '
-                           'device but dipu is_available() is False. '
-                           'If you are running on a CPU-only machine, '
-                           'please use torch.load with map_location=torch.device(\'cpu\') '
-                           'to map your storages to the CPU.')
-    cnt = device_count()
-    if device >= cnt:
-        raise RuntimeError('Attempting to deserialize object on DIPU device '
-                           f'{device} but dipu.device_count() is {cnt}. Please use '
-                           'torch.load with map_location to map your storages '
-                           'to an existing device.')
-    return device
-
-def _dipu_deserialize(obj, location):
-    if location.startswith(dipu.diputype):
-        device = validate_dipu_device(location)
-        if getattr(obj, "_torch_load_uninitialized", False):
-            with dipu.device(device):
-                return torch.UntypedStorage(obj.nbytes(), device=torch.device(location))
-        else:
-            return obj.dipu(device)
-
-def _dipu_tag(obj):
-    if obj.device.type == dipu.diputype:
-        return dipu.diputype + str(obj.device.index)
-
-# Tensor. _reduce_ex_internal  use numpy now
-# register_package(30, _dipu_tag, _dipu_deserialize)
 
 # mock device functions in generated/python_variable_methods.cpp 
 def apply_tensor_method_patch():
@@ -81,7 +46,7 @@ def apply_tensor_method_patch():
 
 # mock device functions in generated/python_torch_functionsEverything.cpp
 def apply_torch_function_patch():
-    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, static_func = True)
+    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, caller = "static")
     torch.ones = GetDeviceStaticProxy(torch.ones)
     torch.ones_like = GetDeviceStaticProxy(torch.ones_like)
     torch.zeros = GetDeviceStaticProxy(torch.zeros)
@@ -117,14 +82,6 @@ def apply_torch_function_patch():
 
 # temp solution, need redesign storage
 def apply_temp_patch():
-    _has_storage_raw = torch._C._has_storage
-    def _has_storage_wrapper(x: Tensor):
-        if x.device.type == diputype:
-            return False
-        else:
-            return _has_storage_raw(x)
-    torch._C._has_storage = _has_storage_wrapper
-
     def script_wrapper(*args, **kwargs):
         pass
     torch.jit.script = script_wrapper
@@ -133,9 +90,9 @@ def apply_temp_patch():
 def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
-    apply_temp_patch()
     apply_dist_patch()
-    # apply_tensor_type_patch()
+    apply_tensor_type_patch()
+    apply_temp_patch()
 
 
 apply_patches()

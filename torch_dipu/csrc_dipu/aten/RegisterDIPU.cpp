@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
+#include <ATen/core/op_registration/adaption.h>
 #include <regex>
 #include <iostream>
 
@@ -148,6 +149,42 @@ namespace {
     return dnative::_local_scalar_dense_dipu(self);
   }
 
+  at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self, at::Storage source) {
+    // No device check
+    // DeviceGuard omitted
+    int64_t new_size = static_cast<int64_t>(source.nbytes() / self.dtype().itemsize());
+    return dnative::set_storage_dipu_(self, std::move(source), 0, new_size, {});
+  }
+
+  at::Tensor& wrapper_DIPU_source_Storage_offset_set_(at::Tensor& self, at::Storage source, c10::SymInt storage_offset, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
+    // No device check
+    // DeviceGuard omitted
+    return dnative::set_storage_dipu_(self, source, storage_offset.expect_int(), C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride));
+  }
+
+  at::Tensor & wrapper_DIPU_source_Tensor_set_(at::Tensor& self, const at::Tensor & source) {
+    // No device check
+    // DeviceGuard omitted
+    if (self.unsafeGetTensorImpl() != source.unsafeGetTensorImpl()) {
+      return dnative::set_storage_dipu_(self, source.storage(), source.storage_offset(), source.sizes(), source.strides());
+    }
+    return self;
+  }
+
+  at::Tensor& wrapper_DIPU__set_(at::Tensor & self) {
+    c10::optional<Device> common_device = nullopt;
+    (void)common_device; // Suppress unused variable warning
+    c10::impl::check_and_update_common_device(common_device, self, "wrapper_DIPU__set_", "self");
+    const OptionalDeviceGuard device_guard(device_of(self));
+    return dnative::set_dipu_(self);
+  }
+
+  bool wrapper_DIPU__is_set_to(const at::Tensor& self, const at::Tensor& tensor) {
+    // No device check
+    // DeviceGuard omitted
+    return at::native::is_set_to(self, tensor);
+  }
+
 }  // inner anonymous namespace
 
 
@@ -175,6 +212,11 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("unfold", TORCH_FN(wrapper_DIPU__unfold));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
+  m.impl("set_.source_Storage", TORCH_FN(wrapper_DIPU_source_Storage_set_));
+  m.impl("set_.source_Storage_storage_offset", TORCH_FN(wrapper_DIPU_source_Storage_offset_set_));
+  m.impl("set_.source_Tensor", TORCH_FN(wrapper_DIPU_source_Tensor_set_));
+  m.impl("set_", TORCH_FN(wrapper_DIPU__set_));
+  m.impl("is_set_to", TORCH_FN(wrapper_DIPU__is_set_to));
 }
 
 }  //end ns at

@@ -7,6 +7,7 @@ from .random_dipu import *
 from .memory import *
 from .streams import *
 from .tensor import *
+from .storages import *
 
 # DIPU need follow api in https://pytorch.org/docs/stable/cuda.html, but shoudln't appear name
 # as "gpu" or "cuda" (mock cuda is another problem)
