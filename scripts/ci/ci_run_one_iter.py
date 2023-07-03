@@ -11,9 +11,9 @@ import yaml
 max_parall = 4
 random_model_num = 4
 device_type = sys.argv[1]
-github_job = os.environ.get('GITHUB_JOB')
-slurm_par = os.environ.get('SLURM_PAR')
-gpu_requests = os.environ.get('GPU_REQUESTS')
+github_job = sys.argv[2]
+slurm_par = sys.argv[3]
+gpu_requests = sys.argv[4]
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 flag = False #if encount error
 
@@ -57,8 +57,8 @@ def process_one_iter(model_info):
 
     github_job_name = github_job+"_"+p2
 
-    cmd1 = "srun --job-name==${} --partition=${}  --gres=${} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-    cmd2 = "srun --job-name==${} --partition=${}  --gres=${} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    cmd1 = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+    cmd2 = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
     run_cmd(cmd1)
     run_cmd(cmd2)
 

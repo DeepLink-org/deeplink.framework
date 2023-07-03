@@ -27,8 +27,6 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          LO_SLURM_PAR=$(echo "$SLURM_PAR_CAMB")
-          echo $LO_SLURM_PAR
           cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             echo "${{ github.base_ref }} "
@@ -232,7 +230,7 @@ jobs:
           export GITHUB_JOB=${GITHUB_JOB}
           export SLURM_PAR="${LO_SLURM_PAR}"
           export GPU_REQUESTS="mlu:${MLU_REQUESTS}"
-          python ../scripts/ci/ci_run_one_iter.py camb && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} ${SLURM_PAR_CAMB} "mlu:${MLU_REQUESTS}" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
   Clone:
