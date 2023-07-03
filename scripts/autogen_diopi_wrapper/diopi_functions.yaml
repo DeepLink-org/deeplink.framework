@@ -1536,7 +1536,15 @@
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiPolar(ctx, out, abs, angle)
 
-<<<<<<< HEAD
+- schema: "lerp.Scalar_out(Tensor input, Tensor end, Scalar weight, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLerpScalar(ctx, out, input, end, weight)
+
+- schema: "lerp.Tensor_out(Tensor input, Tensor end, Tensor weight, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiLerpTensor(ctx, out, input, end, weight)
+
+- schema: "atan.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiAtan(ctx, out, self)
+
 - schema: "isnan(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
@@ -1546,7 +1554,7 @@
   custom_code_at_the_beginning: |
     auto grad_input = at::zeros({num_weights, grad.size(-1)}, grad.options());
   interface: diopiEmbeddingBackward(ctx, grad_input, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
-=======
+
 - schema: "im2col(Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
@@ -1600,4 +1608,3 @@
 
 - schema: "triu.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiTriu(ctx, out, self, diagonal)
->>>>>>> d6dda787565a30572483351e738521b2f578ba58
