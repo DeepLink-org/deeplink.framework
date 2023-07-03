@@ -33,8 +33,8 @@ original_list=(
 
 
 length=${#original_list[@]}
-max_parall=1
-random_model_num=8 #如果超过，会自动设置为模型总数
+max_parall=8
+random_model_num=40 #如果超过，会自动设置为模型总数
 
 if [ $random_model_num -gt $length ]; then
     random_model_num=$length
