@@ -156,8 +156,15 @@
     const int64_t dim_c = input.size(1);
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
-    auto out1 = at::empty({dim_c}, options);
-    auto out2 = at::empty({dim_c}, options);
+    at::Tensor out1, out2;
+    if (!training) {
+        // do not require save_mean/save_invstd when in test mode
+        out1 = at::empty({0}, options);
+        out2 = at::empty({0}, options);
+    } else {
+        out1 = at::empty({dim_c}, options);
+        out2 = at::empty({dim_c}, options);
+    }
   interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
