@@ -34,6 +34,11 @@ static void DIPUDeleter(void* ptr) {
 
 class DIPU_API DIPUAllocator: public c10::Allocator {
 public:
+  DIPUAllocator() {
+    auto device = devapis::current_device();
+    devapis::setDevice(device);
+  }
+
   inline virtual c10::DataPtr allocate(size_t size) const {
     auto idx = devapis::current_device();
     return this->allocate(size, idx);

@@ -28,6 +28,7 @@ export DIPU_PATH=${DIPU_ROOT}
 
 export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,scatter.value_reduce_out,_unique2,sort
 export DIPU_DEBUG_ALLOCATOR=1
+export DIPU_MEMCACHING_ALGORITHM=BS
 
 
 source activate $ENV_NAME

@@ -5,7 +5,7 @@ echo "pwd: $(pwd)"
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
     echo "building dipu_py PYTORCH_DIR: ${PYTORCH_DIR}"
-    export CMAKE_BUILD_TYPE=debug
+    export CMAKE_BUILD_TYPE=Debug
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
@@ -30,7 +30,7 @@ function autogen_diopi_wrapper() {
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
         --use_diopi_adapter False                                                   \
         --autocompare False                                                         \
-        --print_func_call_info False                                               \
+        --print_func_call_info True                                                 \
         --print_op_arg True
 }
 

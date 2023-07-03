@@ -51,7 +51,11 @@ class DIPU_API CacheAllocator: public c10::Allocator {
       TORCH_CHECK(raw_allocator_);
     }
 
-    virtual ~CacheAllocator() {};
+    virtual ~CacheAllocator() {
+
+    };
+
+    virtual void empty_cache() {};
 };
 
 

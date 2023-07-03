@@ -40,5 +40,6 @@ export VENDOR_INCLUDE_DIRS=${CUDA_PATH}/include
 #export CUDA_LAUNCH_BLOCKING=1
 #export DIPU_FORCE_FALLBACK_OPS_LIST=_index_put_impl_,index.Tensor_out
 export DIPU_DEBUG_ALLOCATOR=1
+export DIPU_MEMCACHING_ALGORITHM=BS
 
 source activate $ENV_NAME
