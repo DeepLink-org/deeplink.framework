@@ -39,13 +39,14 @@ jobs:
           fi
           cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
 
-          #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
-          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
           pwd
           cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
           # fi
+
+          #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
+          cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
 
       - name: ci interruptible and support pr ci
         run: |
@@ -54,10 +55,6 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
-          echo ${GITHUB_WORKSPACE}
-          echo ${{ github.repository }}
-          echo ${CLUSTER_CAMB}
-          echo `pwd`
           cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
           && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
@@ -328,6 +325,20 @@ jobs:
     needs: [Build-POC-Cuda]
     runs-on: tps-diopi-ci
     steps:
+      - name: clone-repos
+        run: |
+          cd ${GITHUB_WORKSPACE}/dipu
+          # && rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
+          # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+          #   git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
+          # else
+          #   git checkout ${{ github.sha }}
+          # fi
+          rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh clone
+          cd ..
+          rsync -a --include='mmlab_pack/***'  --exclude='*' ./ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/
+
       - name: build some env
         run: |
           ssh ${CLUSTER_1988} """
