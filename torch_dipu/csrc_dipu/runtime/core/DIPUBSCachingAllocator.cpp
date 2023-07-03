@@ -15,6 +15,10 @@ static void deleteBSContext(void*);
 
 class BSCachingAllocator: public CacheAllocator {
 
+  mutable std::unordered_map<size_t, std::deque<void*>> idel_blocks_;
+  mutable c10::Device device_;
+  using mutex_t = std::recursive_mutex;
+  mutable mutex_t mutex_;
 
 public:
   BSCachingAllocator(c10::Allocator* raw_allocator): CacheAllocator(raw_allocator), device_(c10::DeviceType::CPU) {
@@ -26,37 +30,25 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 16;
+    static constexpr size_t kMinAllocationSize = 512;
     size_t allocateSize = ((nbytes + kMinAllocationSize - 1) / kMinAllocationSize) * kMinAllocationSize;
     return allocateSize;
   }
 
-  mutable std::map<int, std::map<bool, std::deque<void*>>> allCached; // size, using, void*
-  //mutable std::unorder_map<size_t, std::deque<void*>> idel_blocks_;
-
-  mutable c10::Device device_;
-  using mutex_t = std::recursive_mutex;
-  mutable mutex_t mutex_;
-
   c10::DataPtr allocate(size_t size) const override{
     const size_t nbytes = getAllocateSize(size);
-    //std::lock_guard<mutex_t> lk(mutex_);
-    auto& blocks = allCached[nbytes];
-    auto& using_blocks = blocks[true];
-    auto& idel_blocks = blocks[false];
+    std::lock_guard<mutex_t> lk(mutex_);
     void* ptr = nullptr;
+    auto& idel_blocks = idel_blocks_[nbytes];
     if (!idel_blocks.empty()) {
       ptr = idel_blocks.front();
       idel_blocks.pop_front();
-      using_blocks.push_back(ptr);
       DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
     } else {
-      //ptr = raw_allocator()->raw_allocate(nbytes);
       auto data_ptr = raw_allocator()->allocate(nbytes);
       ptr = data_ptr.get();
       device_ = data_ptr.device();
       data_ptr.release_context();
-      using_blocks.push_back(ptr);
       DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
@@ -67,20 +59,14 @@ public:
   void restore(size_t size, void* ptr) const {
     const size_t nbytes = getAllocateSize(size);
     DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
-    //std::lock_guard<mutex_t> lk(mutex_);
-    auto& blocks = allCached[nbytes];
-    auto& using_blocks = blocks[true];
-    auto& idel_blocks = blocks[false];
-    idel_blocks.push_back(ptr);
-    std::remove(using_blocks.begin(), using_blocks.end(), ptr);
+    std::lock_guard<mutex_t> lk(mutex_);
+    idel_blocks_[nbytes].push_back(ptr);
   }
 
   void empty_cache() {
-    for (auto size_iter = allCached.begin(); size_iter != allCached.end(); size_iter++) {
-      const auto nbytes = size_iter->first;
-      auto& blocks = allCached[nbytes];
-      auto& using_blocks = blocks[true];
-      auto& idel_blocks = blocks[false];
+    std::lock_guard<mutex_t> lk(mutex_);
+    for(auto iter = idel_blocks_.begin(); iter != idel_blocks_.end(); ++iter) {
+      auto& idel_blocks = iter->second;
       while (!idel_blocks.empty()) {
         auto ptr = idel_blocks.front();
         raw_allocator()->raw_deallocate(ptr);
