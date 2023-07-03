@@ -38,7 +38,7 @@ original_list=(
 
 length=${#original_list[@]}
 max_parall=4   #实际并行数会取决于该设置和空闲卡数的较大值
-random_model_num=20 #如果超过，会自动设置为模型总数,目前随机选取4个模型
+random_model_num=4 #如果超过，会自动设置为模型总数,目前随机选取4个模型
 
 
 if [ $random_model_num -gt $length ]; then

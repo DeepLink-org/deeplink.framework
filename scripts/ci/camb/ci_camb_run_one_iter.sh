@@ -27,7 +27,7 @@ original_list=(
 
 length=${#original_list[@]}
 max_parall=4
-random_model_num=15 #如果超过，会自动设置为模型总数
+random_model_num=4 #如果超过，会自动设置为模型总数
 
 echo $length
 selected_list=()

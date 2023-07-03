@@ -14,7 +14,7 @@ function clone_needed_repo() {
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
-    SMART_VERSION=gqw/save_less_iodata
+    SMART_VERSION=dev_for_mmcv2.0
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
