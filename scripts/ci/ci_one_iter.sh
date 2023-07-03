@@ -4,7 +4,7 @@ function clone_needed_repo() {
     # clone some repositories
 
     #define some version
-    MMCV_VERSION=9b1209fadbc0d336fa5d0207c2d9f14fb7a4d5fa
+    MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
@@ -46,10 +46,39 @@ function build_needed_repo_camb() {
 }
 
 
+function export_repo_pythonpath(){
+    basic_path="$2"
+    if [ "$1" = "cuda" ]; then
+        echo "Executing CUDA operation in pythonpath..."
+        export PYTHONPATH=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
+    elif [ "$1" = "camb" ]; then
+        echo "Executing CAMB operation in pythonpath..."
+        export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+    else
+        echo "Invalid parameter. Please specify 'cuda' or 'camb'."
+        exit 1
+    fi
+    export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmocr:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmsegmentation:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+    # export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
+    echo "python path: $PYTHONPATH"
+}
+
+
 function build_dataset(){
     # link dataset
     if [ "$1" = "cuda" ]; then
-        echo "Executing CUDA operation..."
+        echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
         ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
@@ -62,7 +91,7 @@ function build_dataset(){
         ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
-        echo "Executing CAMB operation..."
+        echo "Executing CAMB operation in build dataset..."
         rm -rf data
         mkdir data
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
@@ -80,24 +109,20 @@ function build_dataset(){
 
 case $1 in
     clone)
-        (
-            clone_needed_repo
-        ) \
-        || exit -1;;
+        clone_needed_repo;;
     build_cuda)
-        (
-            build_needed_repo_cuda
-            build_dataset cuda
-        ) \
-        || exit -1;;
+        build_needed_repo_cuda
+        build_dataset cuda;;
     build_camb)
-        (
-            build_needed_repo_camb
-            build_dataset camb
-        ) \
-        || exit -1;;
+        build_needed_repo_camb
+        build_dataset camb;;
+    export_pythonpath_camb)
+        export_repo_pythonpath camb $2;;
+    export_pythonpath_cuda)
+        export_repo_pythonpath cuda $2;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac
-exit 0
+
+
 

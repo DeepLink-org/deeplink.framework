@@ -179,6 +179,12 @@ void freeDevice(void* p) {
     DIPU_CALLCUDA(::cudaFree(p))
 }
 
+bool isPinnedPtr(const void *p) {
+    ::cudaPointerAttributes attr;
+    DIPU_CALLCUDA(::cudaPointerGetAttributes(&attr, p))
+    return attr.type == cudaMemoryTypeHost;
+}
+
 void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
     DIPU_CALLCUDA(::cudaMemsetAsync(ptr, val, size, stream))
 }

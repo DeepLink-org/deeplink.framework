@@ -89,6 +89,8 @@ DIPU_API OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion= true
 
 DIPU_API void freeDevice(void* p);
 
+DIPU_API bool isPinnedPtr(const void *p);
+
 // (asynchronous) set val
 DIPU_API void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size);
 
