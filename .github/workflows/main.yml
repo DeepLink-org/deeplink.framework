@@ -333,4 +333,4 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda ${basic_path}
           echo  "python path : $PYTHONPATH"
           cd mmlab_pack
-          bash ../scripts/ci/nv/ci_nv_run_one_iter.sh && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/nv/ci_nv_run_one_iter.py && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
