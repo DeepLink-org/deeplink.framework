@@ -12,7 +12,7 @@ original_list=(
     "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vit-base-p17_64xb64_in1k-384px" #ok
     # # mmdetection
     "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"  #ok
-    "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco" #ok
+    # "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster-rcnn_r101_fpn_1x_coco" #ok
     "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco" #ok
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" #ok
     # # mmsegmentation
@@ -85,8 +85,10 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    srun --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    srun --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    GITHUB_JOB_NAME="${GITHUB_JOB}_${p3}"
+
+    srun --job-name==${GITHUB_JOB_NAME} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    srun --job-name==${GITHUB_JOB_NAME} --partition=${SLURM_PAR_CAMB}  --gres=mlu:${MLU_REQUESTS} sh SMART/tools/one_iter_tool/compare_one_iter.sh
     echo  "after add place row $i"  1>&796
     touch "$pid.done"
 
