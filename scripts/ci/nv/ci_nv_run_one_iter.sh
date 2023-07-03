@@ -76,27 +76,9 @@ for ((i=0; i<$random_model_num; i++)); do
     # 记录开始时间（以纳秒为单位）
     startTime=$(date +%s%N)
 
-    #锁机制保证有序
-    while true; do
-        while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
-            sleep 1
-        done
-        read -r -a used_card_list <&788
-        export USED_CARD="${used_card_list[@]}"
-        cur_card=$(sh ../scripts/ci/nv/detect_available_card.sh 30)
-        read -r cur_cardnum cur_card_G  <<< ${cur_card}
-            if [[ $cur_cardnum == -1 ]]; then
-                echo "${used_card_list[@]}" >&788
-                rmdir "${LOCK_FILE}"
-                sleep 5
-                continue
-            fi
-        used_card_list+=($((cur_cardnum)))
-        echo "${used_card_list[@]}" >&788
-        rmdir "${LOCK_FILE}"
-        break
-    done
-
+    pid=$BASHPID  # 存储子进程的PID号
+    read -u 796
+    echo "===========", ${selected_list[i]}
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"
