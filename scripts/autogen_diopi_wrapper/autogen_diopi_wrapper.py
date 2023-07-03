@@ -143,7 +143,7 @@ def create_print_op_args_code(fun_config):
     code = ''
     if len(inputs) < 0:
         return code
-    code += "if (dumpOpArgs()) {\n"
+    code += "if (dumpOpArgLevel() > 1) {\n"
     for input in inputs:
         input = input.strip()
         code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
@@ -442,7 +442,7 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     op_name = get_op_name_from_schema(fun_config['schema'])
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
-    debug_code = "if (dumpOpArgs()) {\n\t"
+    debug_code = "if (dumpOpArgLevel() > 0) {\n\t"
     debug_code += f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
     debug_code += "}\n"
     return debug_code
@@ -705,6 +705,13 @@ def main():
         mergeed_fun_config = dict(args.fun_config_dict)
         mergeed_fun_config.update(vars(args))
         mergeed_fun_config.update(fun_config)
+        if 'device' in mergeed_fun_config:
+            current_device = mergeed_fun_config.get('current_device', '')
+            if current_device not in (mergeed_fun_config['device'] + ['all',]):
+                continue
+            if ('-' + current_device) in (mergeed_fun_config['device']):
+                continue
+
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
         functions_code += fun_code
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:

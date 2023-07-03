@@ -652,6 +652,44 @@
   size_attr: [kernel_size, stride, padding, dilation]
   interface: diopiMaxPool2dBackward(ctx, grad_input, grad_output, self, kernel_size, stride, padding, dilation, ceil_mode, indices)
 
+- schema: "max_pool2d_backward(Tensor grad_output, Tensor input, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor? indices=None) -> Tensor"
+  device: [topsrider]
+  register_op: False
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    auto out = at::empty(input.sizes(), grad_output.options());
+  interface: diopiMaxPool2dBackward(ctx, out, grad_output, input, kernel_size, stride, padding, dilation, ceil_mode, indices)
+
+- schema: "max_pool2d(Tensor input, int[2] kernel_size=1, int[2] stride=1, int[2] padding=0, int[2] dilation=1, bool ceil_mode=False) -> Tensor"
+  device: [topsrider]
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    int64_t batch_size = input.size(0);
+    int64_t channel = input.size(1);
+    int64_t height = input.size(2);
+    int64_t width = input.size(3);
+    int64_t out_height = std::floor((height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1);
+    int64_t out_width = std::floor((width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1);
+    c10::SmallVector<int64_t, 4> output_size = {batch_size, channel, out_height, out_width};
+    at::Tensor out = at::empty(output_size, input.options());
+  interface: diopiMaxPool2d(&context, out, input, kernel_size, stride, padding, dilation, ceil_mode)
+  autograd: True
+  saved_data: [kernel_size, stride, padding, dilation, input, ceil_mode]
+  backward_schema: "max_pool2d_backward(Tensor grad_output, Tensor input, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor? indices=None) -> Tensor"
+  cal_grad_code: |
+    auto input = input_.toTensor();
+    auto grad_output = grad_outputs.at(0);
+    auto kernel_size = kernel_size_.toIntVector();
+    auto padding = padding_.toIntVector();
+    auto stride = stride_.toIntVector();
+    auto dilation = dilation_.toIntVector();
+    bool ceil_mode = ceil_mode_.toBool();
+    at::Tensor indices;
+  backward_return_code: |
+    std::vector<at::Tensor> outputs(6);
+    outputs[0] = result;
+    return outputs;
+
 - schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiNLLLoss(ctx, out, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
@@ -1303,8 +1341,8 @@
     int64_t max_target_length = *std::max_element(target_lengths.begin(), target_lengths.end());;
     auto neg_log_likelihood = at::empty({batch_size}, log_probs.options());
     auto log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
-    auto input_lengths_tensor = at::empty({input_lengths.size()}, at::kLong);
-    auto target_lengths_tensor =  at::empty({target_lengths.size()}, at::kLong);
+    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, ReductionNone, zero_infinity);  # TODO: param log_alpha ?
@@ -1318,8 +1356,8 @@
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     auto grad_input = at::empty(log_probs.sizes(), grad.options());
-    auto input_lengths_tensor = at::empty({input_lengths.size()}, at::kLong);
-    auto target_lengths_tensor =  at::empty({target_lengths.size()}, at::kLong);
+    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLossBackward(ctx, grad_input, grad, log_probs, targets, input_lengths_tensor, target_lengths_tensor, neg_log_likelihood, log_alpha, blank, ReductionNone, zero_infinity)
@@ -1388,8 +1426,13 @@
 - schema: "_cdist_forward(Tensor x1, Tensor x2, float p, int? compute_mode) -> Tensor"
   custom_code_at_the_beginning: |
     int64_t* compute_mode_ptr = compute_mode.has_value() ? (&compute_mode.value()) : nullptr;
-    auto output_shape = x1.sizes().vec();
-    output_shape.back() = x2.size(-2);
+    auto x1_shape = x1.sizes().vec();
+    auto x2_shape = x2.sizes().vec();
+    std::fill(x1_shape.end() - 2, x1_shape.end(), 1);
+    std::fill(x2_shape.end() - 2, x2_shape.end(), 1);
+    auto output_shape = at::infer_size(x1_shape, x2_shape);
+    *output_shape.rbegin() = x2.size(-2);
+    *(output_shape.rbegin() + 1) = x1.size(-2);
     auto out = at::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
 
@@ -1412,3 +1455,57 @@
 
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiPolar(ctx, out, abs, angle)
+
+- schema: "im2col(Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 3) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(), 1);
+    }
+
+    int num_blocks = 1;
+    for(int i = 0; i < 2; i++){
+      num_blocks *= int((input_shape[i + 2] + 2 * padding[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1;
+    }
+    int channels = input_shape[1];
+    for(int i = 0; i < 2; i++){
+      channels *= kernel_size[i];
+    }
+
+    std::vector<int64_t> out_shape({channels, num_blocks});
+    if(batched_input == true){
+      out_shape.insert(out_shape.begin(), input_shape[0]);
+    }
+    auto out = at::empty({out_shape}, self.options());
+  interface: diopiIm2Col(ctx, out, self, kernel_size, dilation, padding, stride)
+
+- schema: "col2im(Tensor self, SymInt[2] output_size, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 2) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(), 1);
+    }
+
+    int channels = input_shape[1];
+    for(int i = 0; i < 2; i++){
+      channels = channels / kernel_size[i];
+    }
+      
+    std::vector<int64_t> out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
+    if(batched_input == true){
+      out_shape.insert(out_shape.begin(), input_shape[0]);
+    }
+    auto out = at::empty({out_shape}, self.options());
+  interface: diopiCol2Im(ctx, out, self, output_size, kernel_size, dilation, padding, stride)
+
+- schema: "sgn.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSgn(ctx, out,self)
+
+- schema: "triu.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTriu(ctx, out, self, diagonal)
