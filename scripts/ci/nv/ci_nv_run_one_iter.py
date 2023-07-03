@@ -10,7 +10,7 @@ import time
 #set some params
 max_parall = 4
 random_model_num = 4
-flag = False #if encount error
+os.environ['error_flag'] = "0" #if encount error
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
 
@@ -104,7 +104,7 @@ def handle_error(error):
     if p is not None:
         print("Kill all!", flush = True)
         p.terminate()
-    flag = True
+    os.environ['error_flag'] = "1"
 
 if __name__=='__main__':
     original_list = [
@@ -164,7 +164,7 @@ if __name__=='__main__':
         print('Waiting for all subprocesses done...', flush = True)
         p.close()
         p.join()
-        if(~flag):
+        if(os.environ['error_flag'] != "0"):
             exit(1)
         print('All subprocesses done.', flush = True)
     except Exception as e:
