@@ -61,7 +61,6 @@ function build_dipu_lib() {
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
-    patchelf --add-needed $(pwd)/torch_dipu/libtorch_dipu.so third_party/DIOPI/DIOPI-IMPL/lib/libtorch.so.1.10
 }
 
 case $1 in
