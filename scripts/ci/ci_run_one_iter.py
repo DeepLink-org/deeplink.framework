@@ -15,6 +15,7 @@ github_job = os.environ.get('GITHUB_JOB')
 slurm_par = os.environ.get('SLURM_PAR')
 gpu_requests = os.environ.get('GPU_REQUESTS')
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
+flag = False #if encount error
 
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
@@ -75,7 +76,8 @@ def handle_error(error):
     if p is not None:
         print("Kill all!", flush = True)
         p.terminate()
-        exit(1)
+    flag = True
+
 
 if __name__=='__main__':
     curPath = os.path.dirname(os.path.realpath(__file__))
@@ -113,6 +115,8 @@ if __name__=='__main__':
         print('Waiting for all subprocesses done...', flush = True)
         p.close()
         p.join()
+        if(~flag):
+            exit(1)
         print('All subprocesses done.', flush = True)
     except Exception as e:
         print("Error:{}".format(e), flush = True)

@@ -216,6 +216,7 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
+          LO_SLURM_PAR="${SLURM_PAR_CAMB}"
           ssh ${CLUSTER_CAMB} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb
@@ -225,9 +226,9 @@ jobs:
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
-          echo "par camb:${SLURM_PAR_CAMB}"
+          echo "par camb:${LO_SLURM_PAR}"
           export GITHUB_JOB=${GITHUB_JOB}
-          export SLURM_PAR="${SLURM_PAR_CAMB}"
+          export SLURM_PAR="${LO_SLURM_PAR}"
           export GPU_REQUESTS="mlu:${MLU_REQUESTS}"
           python ../scripts/ci/ci_run_one_iter.py camb && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
