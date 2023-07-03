@@ -1598,3 +1598,13 @@
 
 - schema: "triu.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiTriu(ctx, out, self, diagonal)
+
+- schema: "isnan(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
+  interface: diopiIsnan(ctx, out, self)
+
+- schema: "embedding_backward(Tensor grad, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor grad_input"
+  custom_code_at_the_beginning: |
+    auto grad_input = at::zeros({num_weights, grad.size(-1)}, grad.options());
+  interface: diopiEmbeddingBackward(ctx, grad_input, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
