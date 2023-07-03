@@ -70,7 +70,7 @@ for ((i=0; i<$random_model_num; i++)); do
 
     pid=$BASHPID  # 存储子进程的PID号
     read -u 796
-    echo "===========", ${selected_list[i]}
+    echo "===========, ${selected_list[i]}"
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"

@@ -225,7 +225,7 @@ jobs:
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
-          sh ../scripts/ci/camb/ci_camb_run_one_iter.sh ${GITHUB_JOB} ${SLURM_PAR_CAMB} ${MLU_REQUESTS} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} ${SLURM_PAR_CAMB} "mlu:${MLU_REQUESTS}" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
   Clone:
