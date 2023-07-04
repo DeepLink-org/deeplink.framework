@@ -498,7 +498,6 @@
 
 - schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
-  autocompare: disable
   size_attr: [stride, padding, dilation, bias_sizes, output_padding]
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
@@ -516,7 +515,6 @@
 
 - schema: "conv_transpose2d.input(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] output_padding=0, int groups=1, int[2] dilation=1) -> Tensor"
   autograd: True
-  autocompare: disable
   size_attr: [stride, padding, output_padding, dilation]
   custom_code_at_the_beginning: |
     const int64_t n = input.size(0);
