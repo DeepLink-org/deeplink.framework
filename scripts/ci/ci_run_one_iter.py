@@ -5,6 +5,7 @@ from multiprocessing import Pool, Queue, Manager
 import subprocess as sp
 import time
 import yaml
+import shutil
 
 
 #set some params
@@ -126,6 +127,7 @@ if __name__=='__main__':
         p.close()
         p.join()
         if(os.environ['error_flag'] != "0"):
+            shutil.rmtree("one_iter_data")
             exit(1)
         print('All subprocesses done.', flush = True)
     except Exception as e:
