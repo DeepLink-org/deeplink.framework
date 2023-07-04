@@ -428,10 +428,33 @@
     outputs[0] = result;
     return outputs;
 
+- schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  register_op: False
+  size_attr: [stride, padding, dilation, bias_sizes]
+  device: [camb]
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input;
+    at::Tensor grad_weight;
+    at::Tensor grad_bias;
+    if (output_mask[0] || 1) { //TODO:fix later
+      grad_input = at::empty(input.sizes(), input.options());
+    }
+    if (output_mask[1] || 1) { //TODO:fix later
+      grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    }
+    if (output_mask[2] || 1) {
+        c10::IntArrayRef bias_size = { grad_output.size(1) };
+        grad_bias = at::empty(bias_size, grad_output.options());
+    }
+    ::diopiSize_t output_paddingDiopiSize;
+  custom_code_before_call_diopi: |
+    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
 
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
   size_attr: [stride, padding, dilation, bias_sizes]
+  device: [-camb]
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
     at::Tensor grad_weight;
