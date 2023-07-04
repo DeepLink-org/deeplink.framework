@@ -270,7 +270,7 @@ diopi dyload init
 
 ## 4. 新硬件Runtime接入实现
 ### 4.1 接入流程示意图
- ![结构图](../../_static/image/DIPU/SOP_01.png)
+ ![结构图](img/SOP_01.png)
 ### 4.2 核心代码添加
 - 在``dipu/torch_dipu/csrc_dipu/common.h``中定义了DIPU支持的硬件类型，我们需要在`VendorDeviceType`枚举类中添加 STPU 的硬件后端，并在这个文件中的`VendorTypeToStr`函数里添加新硬件支持。后续这个文件中可能有更多的函数会涉及到硬件类型，按需添加即可
 - `dipu/torch_dipu/csrc_dipu/vendor`文件夹中存有各个硬件后端的*runtime*接入代码，我们需要根据`dipu/torch_dipu/csrc_dipu/runtime/device/deviceapis.h`中的声明，创建`deviceimpl.cpp`去根据硬件自己底层的*runtime*接口实现对应的函数。下面是`deviceapis.h`中的`createStream`函数的在国产硬件上的实现样例：
