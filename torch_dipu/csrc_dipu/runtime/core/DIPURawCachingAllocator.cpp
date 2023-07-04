@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
-#include "allocator.h"
 
 namespace dipu {
 
@@ -17,10 +16,13 @@ public:
 
   c10::DataPtr allocate(size_t size) const override{
     auto rawData = raw_allocator()->allocate(size);
-    DIPU_DEBUG_ALLOCATOR("RawCachingAllocator: malloc " << size << " nbytes, ptr:" << rawData.get());
+    DIPU_DEBUG_ALLOCATOR(4, "RawCachingAllocator: malloc " << size << " nbytes, ptr:" << rawData.get());
     return rawData;
   }
 
+  struct Context {
+    
+  };
 };
 
 DIPU_REGISTER_ALLOCATOR("RAW", dipu::DIPU_DEVICE_TYPE, DIPUAllocator, RawCachingAllocator, 0);

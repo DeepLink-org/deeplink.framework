@@ -3,6 +3,9 @@
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
+#include "DIPUDeviceAllocator.h"
+#include "DIPUHostAllocator.h"
+#include "DIPUEvent.h"
 
 #include "DIPUStream.h"
 #include <map>
@@ -11,19 +14,6 @@ namespace dipu {
 
 class DIPU_API CacheAllocator: public c10::Allocator {
   c10::Allocator* raw_allocator_ = nullptr;
-
-  // maximum memory allowed to be cached
-  const size_t limit_ ;
-
-  // cached memory.
-  std::atomic<size_t> currCached_ { 0 };
-  size_t peakCached_ { 0 };
-
-  // allocated memory.
-  std::atomic<size_t> currAllocated_ { 0 };
-  size_t peakAllocated_ { 0 };
-  protected:
-
 
   protected:
     c10::Allocator* raw_allocator() const {
@@ -39,15 +29,7 @@ class DIPU_API CacheAllocator: public c10::Allocator {
     }
 
   public:
-    size_t cached() {
-      return currCached_;
-    }
-
-    size_t available() {
-      return limit_ - currCached_;
-    }
-
-    explicit CacheAllocator(c10::Allocator* raw_allocator, size_t limit = 1 << 30):raw_allocator_(raw_allocator), limit_(limit) {
+    explicit CacheAllocator(c10::Allocator* raw_allocator):raw_allocator_(raw_allocator) {
       TORCH_CHECK(raw_allocator_);
     }
 
@@ -58,6 +40,21 @@ class DIPU_API CacheAllocator: public c10::Allocator {
     virtual void empty_cache() {};
 };
 
+void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0);
+c10::Allocator* getAllocator(c10::DeviceType device_type);
+
+struct AllocatorRegisterer {
+  explicit AllocatorRegisterer(const std::string name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0) {
+    setAllocator(name, device_type, allocator, priority);
+  }
+};
+
+#define DIPU_REGISTER_ALLOCATOR(name, device_type, RawAllocator, CachingAllocator, priority)        \
+  namespace {                                                                                       \
+  static RawAllocator raw_allocator;                                                                \
+  static CachingAllocator cache_allocator(&raw_allocator);                                          \
+  static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator, priority);          \
+  }
 
 
 }  // namespace dipu

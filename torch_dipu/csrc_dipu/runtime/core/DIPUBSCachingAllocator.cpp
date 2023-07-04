@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
-#include "allocator.h"
+#include "DIPUDeviceAllocator.h"
 #include <stdint.h>
 #include <map>
 #include <unordered_map>
@@ -16,6 +16,7 @@ static void deleteBSContext(void*);
 class BSCachingAllocator: public CacheAllocator {
 
   mutable std::unordered_map<size_t, std::deque<void*>> idel_blocks_;
+  mutable std::unordered_map<void*, DIPUEvent> events_;
   mutable c10::Device device_;
   using mutex_t = std::recursive_mutex;
   mutable mutex_t mutex_;
@@ -43,13 +44,13 @@ public:
     if (!idel_blocks.empty()) {
       ptr = idel_blocks.front();
       idel_blocks.pop_front();
-      DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
+      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
     } else {
       auto data_ptr = raw_allocator()->allocate(nbytes);
       ptr = data_ptr.get();
       device_ = data_ptr.device();
       data_ptr.release_context();
-      DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, device_);
@@ -58,7 +59,7 @@ public:
 
   void restore(size_t size, void* ptr) const {
     const size_t nbytes = getAllocateSize(size);
-    DIPU_DEBUG_ALLOCATOR("BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     std::lock_guard<mutex_t> lk(mutex_);
     idel_blocks_[nbytes].push_back(ptr);
   }

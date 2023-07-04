@@ -12,7 +12,7 @@
 
 namespace dipu {
 
-class DIPUHostAllocator final {
+class DIPUHostAllocatorImpl final {
 public:
   std::pair<void*, void*> allocate(size_t size) {
     if (size == 0) {
@@ -57,12 +57,17 @@ private:
   std::unordered_set<const void*> blocks_;
 };
 
-static DIPUHostAllocator dipu_host_allocator;
+namespace {
+
+static DIPUHostAllocatorImpl dipu_host_allocator;
+
 static void DIPUHostAllocatorDeleter(void* ctx) {
   dipu_host_allocator.free(ctx);
 }
 
-class DIPUHostAllocatorWrapper : public c10::Allocator {
+}
+
+class DIPUHostAllocator : public c10::Allocator {
 public:
   c10::DataPtr allocate(size_t size) const {
     auto ptr_and_ctx = dipu_host_allocator.allocate(size);
@@ -74,7 +79,7 @@ public:
   }
 };
 
-static DIPUHostAllocatorWrapper dipu_host_allocator_wrapper;
+static DIPUHostAllocator dipu_host_allocator_wrapper;
 
 at::Allocator* getHostAllocator() {
   return &dipu_host_allocator_wrapper;

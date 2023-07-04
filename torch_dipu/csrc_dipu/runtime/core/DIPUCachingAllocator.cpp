@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
-#include "allocator.h"
+
+#include "DIPUCachingAllocator.h"
 #include <map>
 #include <tuple>
 

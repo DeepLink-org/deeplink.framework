@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
-#include "allocator.h"
 #include <queue>
 #include <vector>
 #include <stack>
@@ -336,6 +335,7 @@ private:
         return id;
     }
 
+    #if 0
     int extend(size_t nbytes, StreamSetHandle &set) {
         if (nbytes > available()) {
             shrink(set);
@@ -371,7 +371,7 @@ private:
         int id = newChunk(ptr, currBytes, set->id);
         return id;
     }
-
+    #endif
     StreamSetHandle& checkStream(size_t stream) {
         if (stream >= streamSets_.size()) {
             streamSets_.resize(stream + 1);
