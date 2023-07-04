@@ -1606,5 +1606,5 @@
 
 - schema: "embedding_backward(Tensor grad, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor grad_input"
   custom_code_at_the_beginning: |
-    auto grad_input = at::zeros({num_weights, grad.size(-1)}, grad.options());
-  interface: diopiEmbeddingBackward(ctx, grad_input, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
+    auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
+  interface: diopiEmbeddingBackward(ctx, grad_weight, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
