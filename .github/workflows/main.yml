@@ -11,15 +11,14 @@ on:
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
+  NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
   SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
   SLURM_PAR_SH1988: "pat_rd -x SH-IDC1-10-198-8-58,SH-IDC1-10-198-8-87"
   CLUSTER_CAMB: CAMB
   CLUSTER_1988: SH1984
-  GPU_REQUESTS: 1
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
-  NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
 
 
 jobs:
@@ -40,10 +39,10 @@ jobs:
           cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
 
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-          pwd
-          cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
-          # fi
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            pwd
+            cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
+          fi
           cd ${GITHUB_WORKSPACE}/dipu
           rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
@@ -218,39 +217,13 @@ jobs:
           cd mmlab_pack
           sh ../scripts/ci/camb/ci_camb_run_one_iter.sh ${GITHUB_JOB} ${SLURM_PAR_CAMB} ${MLU_REQUESTS} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
-
-  # Clone:
-  #   name: clone code on cuda
-  #   needs: [Rsync]
-  #   runs-on: tps-diopi-ci
-  #   steps:
-  #     - name: clone repo
-  #       run: |
-  #         set -e
-  #         cd ${GITHUB_WORKSPACE} && find ${GITHUB_WORKSPACE}/ -maxdepth 1 -ctime 1 -type d |xargs rm -rf
-  #         rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
-  #         # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-  #         #   git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
-  #         # else
-  #         git checkout ${{ github.sha }}
-  #         # fi
-  #         cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
-  #         cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-  #         cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
-  #         # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-  #         cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
-  #         # fi
-  #         cd ${GITHUB_WORKSPACE}/dipu
-  #         rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
-  #         bash ../scripts/ci/ci_one_iter.sh clone
-  #         ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
-  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
-  #         rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
   
   Build-POC-Cuda:
     name: Build dipu cuda
     needs: [Rsync]
     runs-on: tps-diopi-ci
+    env:
+      GPU_REQUESTS: 1
     steps:
       - name: Build dipu
         run: |
@@ -258,8 +231,6 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
-          echo "=================================================="
-          echo ${SLURM_PAR_SH1988}
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
@@ -268,6 +239,8 @@ jobs:
     name: test-cuda-diopi
     needs: [Build-POC-Cuda]
     runs-on: tps-diopi-ci
+    env:
+      GPU_REQUESTS: 1
     steps:
       - name: Run-test
         run: |
@@ -282,6 +255,8 @@ jobs:
     name: Build dipu cuda diopi-latest-target
     needs: [Rsync]
     runs-on: tps-diopi-ci
+    env:
+      GPU_REQUESTS: 1
     steps:
       - name: Build dipu diopi-latest-target
         run: |
@@ -297,12 +272,14 @@ jobs:
     name: test-cuda-diopi-latest-target
     needs: [Build-POC-Cuda-Diopi]
     runs-on: tps-diopi-ci
+    env:
+      GPU_REQUESTS: 1
     steps:
       - name: Run-test
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi && ls
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -312,19 +289,19 @@ jobs:
     name: test-one-iter-cuda
     needs: [Build-POC-Cuda]
     runs-on: tps-diopi-ci
+    env:
+      GPU_REQUESTS: 1
     steps:
       - name: build some env
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci/nv/ci_nv_env.sh
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\${pwd}:\$PYTHONPATH
-          echo "**************************************"
-          echo $PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
@@ -333,7 +310,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda
           source scripts/ci/nv/ci_nv_env.sh
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}

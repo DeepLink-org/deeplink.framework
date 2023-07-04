@@ -38,19 +38,14 @@ function build_diopi_lib() {
     cd third_party/DIOPI/
     git checkout .
     cd DIOPI-IMPL
-    RESTORE_PYTHONPATH=$PYTHONPATH
-    export PYTHONPATH=$PYTORCH_DIR_110:$PYTHONPATH
-    export Torch_DIR=${PYTORCH_DIR_110}/torch/share/cmake
-    echo "build_diopi_lib PYTHONPATH: ${PYTHONPATH}"
     echo "build_diopi_lib PATH: ${PATH}"
     which cmake
-    sed -i "/option(HIP/a set(Torch_DIR $Torch_DIR)" torch/CMakeLists.txt
+    # sed -i "/option(HIP/a set(Torch_DIR $Torch_DIR)" torch/CMakeLists.txt
     sh scripts/build_impl.sh clean
     sh scripts/build_impl.sh torch || exit -1
 
     cd ../../..
     unset Torch_DIR
-    PYTHONPATH=$RESTORE_PYTHONPATH
 }
 
 function build_dipu_lib() {

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export DIPU_DUMP_OP_ARGS=1
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     # mmpretrain
@@ -40,7 +42,7 @@ if [ $random_model_num -gt $length ]; then
     random_model_num=$length
 fi
 
-echo $length
+echo "modelnum: $length  chosen model num: $random_model_num"
 selected_list=()
 
 # 随机选取模型
@@ -55,9 +57,6 @@ done
 job_name=$1
 partition=${@:3}
 gpu_request=$2
-echo $job_name
-echo $partition
-echo $gpu_request
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
