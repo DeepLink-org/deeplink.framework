@@ -48,10 +48,20 @@ def process_one_iter(model_info):
     opt_arg = p4
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
+    storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
+
     print("{} {} {} {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
 
-    if not os.path.exists(os.environ['ONE_ITER_TOOL_STORAGE_PATH']):            
-        os.makedirs(os.environ['ONE_ITER_TOOL_STORAGE_PATH']) 
+    if not os.path.exists(storage_path):            
+        os.makedirs(storage_path) 
+    
+    if device_type == 'camb':
+        base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
+        src = f'{base_data_src}/{p3}/baseline'
+        if not os.path.exists(src):            
+            os.makedirs(src) 
+        dst = f'{storage_path}/baseline'
+        os.symlink(src, dst)
 
     print("model:{}".format(p2), flush = True)
 
