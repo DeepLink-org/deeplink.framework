@@ -42,10 +42,14 @@ public:
     void* ptr = nullptr;
     auto& idel_blocks = idel_blocks_[nbytes];
     if (!idel_blocks.empty()) {
-      ptr = idel_blocks.front();
-      idel_blocks.pop_front();
-      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
-    } else {
+      auto& event = events_[ptr];
+      if (event.query()) {
+        ptr = idel_blocks.front();
+        idel_blocks.pop_front();
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
+      }
+    }
+    if (ptr == nullptr){
       auto data_ptr = raw_allocator()->allocate(nbytes);
       ptr = data_ptr.get();
       device_ = data_ptr.device();
@@ -61,6 +65,7 @@ public:
     const size_t nbytes = getAllocateSize(size);
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     std::lock_guard<mutex_t> lk(mutex_);
+    events_[ptr].record();
     idel_blocks_[nbytes].push_back(ptr);
   }
 
@@ -70,8 +75,10 @@ public:
       auto& idel_blocks = iter->second;
       while (!idel_blocks.empty()) {
         auto ptr = idel_blocks.front();
+        events_[ptr].synchronize();
         raw_allocator()->raw_deallocate(ptr);
         idel_blocks.pop_front();
+        events_.erase(ptr);
       }
     }
   }
