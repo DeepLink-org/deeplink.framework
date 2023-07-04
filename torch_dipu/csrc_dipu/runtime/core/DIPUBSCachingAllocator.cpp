@@ -50,7 +50,7 @@ public:
       if (event.query()) {
         ptr = temp_ptr;
         DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this << ",find_count:" << find_count << "/" << max_find_count);
-        event.record();
+        events_.erase(ptr);
         break;
       } else {
         idel_blocks.push_back(temp_ptr);
@@ -62,7 +62,6 @@ public:
       ptr = data_ptr.get();
       device_ = data_ptr.device();
       data_ptr.release_context();
-      events_[ptr].record();
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
