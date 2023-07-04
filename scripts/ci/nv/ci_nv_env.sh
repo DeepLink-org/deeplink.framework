@@ -33,7 +33,7 @@ export PATH=${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/bi
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/include/python3.8
 export PYTORCH_DIR_110=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
-export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages/torch
+export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 export NCCL_INCLUDE_DIRS=${NCCL_ROOT}/include
