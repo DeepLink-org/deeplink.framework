@@ -1602,7 +1602,7 @@
 - schema: "isnan(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
-  interface: diopiIsnan(ctx, out, self)
+  interface: diopiIsNan(ctx, out, self)
 
 - schema: "embedding_backward(Tensor grad, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor grad_input"
   custom_code_at_the_beginning: |
