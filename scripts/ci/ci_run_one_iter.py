@@ -8,7 +8,7 @@ import yaml
 
 
 #set some params
-max_parall = 4
+max_parall = 8
 random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
