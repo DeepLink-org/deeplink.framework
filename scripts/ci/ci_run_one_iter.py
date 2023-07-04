@@ -55,8 +55,6 @@ def process_one_iter(model_info):
     if not os.path.exists(storage_path):            
         os.makedirs(storage_path) 
 
-    os.environ['DEVIECE_TYPE'] = device_type
-
     if device_type == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
         src = f'{base_data_src}/{p3}/baseline'
