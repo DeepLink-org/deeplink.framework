@@ -49,8 +49,8 @@ public:
       auto& event = events_[temp_ptr];
       if (event.query()) {
         ptr = temp_ptr;
-        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this << ",find_count:" << find_count << "/" << max_find_count);
         events_.erase(ptr);
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this << ",find_count:" << find_count << "/" << max_find_count << ", event num:" << events_.size());
         break;
       } else {
         idel_blocks.push_back(temp_ptr);
