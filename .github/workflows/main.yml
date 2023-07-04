@@ -189,20 +189,6 @@ jobs:
     env:
       MLU_REQUESTS: 1
     steps:
-      - name: clone-repos
-        run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
-          else
-            git checkout ${{ github.sha }}
-          fi
-          rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
-          bash ../scripts/ci/ci_one_iter.sh clone
-          cd ..
-          rsync -a --include='mmlab_pack/***'  --exclude='*' ./ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/
-
-
       - name: build-some-env
         run: |
           ssh ${CLUSTER_CAMB} """
@@ -301,7 +287,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu_diopi ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -316,7 +302,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda && ls
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi && ls
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -327,21 +313,6 @@ jobs:
     needs: [Build-POC-Cuda]
     runs-on: tps-diopi-ci
     steps:
-      # - name: clone-repos
-      #   run: |
-      #     cd ${GITHUB_WORKSPACE}/dipu
-      #     git branch
-      #     # && rm -rf dipu && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
-      #     # if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-      #     #   git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
-      #     # else
-      #     #   git checkout ${{ github.sha }}
-      #     # fi
-      #     rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
-      #     bash ../scripts/ci/ci_one_iter.sh clone
-      #     cd ..
-      #     rsync -a --include='mmlab_pack/***'  --exclude='*' ./ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/
-
       - name: build some env
         run: |
           ssh ${CLUSTER_1988} """
