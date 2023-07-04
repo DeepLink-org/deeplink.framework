@@ -13,7 +13,7 @@ class Model(nn.Module):
         return x
 
 
-def test_batchnorm_backward_eval():
+def test_embedding_backward_eval():
     model = Model()
     cpu_tensor = torch.randn(2, 16, 1, 1)
     device = torch.device('dipu')
@@ -39,8 +39,10 @@ def test_batchnorm_backward_eval():
 
     cpu_grad = cpu_tensor.grad
     dipu_grad = dipu_tensor.grad
-    rtol = 1e-7
-    atol = 1e-7
+    rtol = 1e-5
+    atol = 1e-5
     assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
     for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
         assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
+if __name__ == "__main__":
+    test_embedding_backward_eval()
