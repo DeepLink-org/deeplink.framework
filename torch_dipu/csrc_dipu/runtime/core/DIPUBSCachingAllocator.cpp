@@ -41,19 +41,28 @@ public:
     std::lock_guard<mutex_t> lk(mutex_);
     void* ptr = nullptr;
     auto& idel_blocks = idel_blocks_[nbytes];
-    if (!idel_blocks.empty()) {
-      auto& event = events_[ptr];
+    int find_count = 0;
+    const int max_find_count = idel_blocks.size();
+    while ((find_count++) < max_find_count) {
+      auto  temp_ptr = idel_blocks.front();
+      idel_blocks.pop_front();
+      auto& event = events_[temp_ptr];
       if (event.query()) {
-        ptr = idel_blocks.front();
-        idel_blocks.pop_front();
-        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this);
+        ptr = temp_ptr;
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this << ",find_count:" << find_count << "/" << max_find_count);
+        event.record();
+        break;
+      } else {
+        idel_blocks.push_back(temp_ptr);
       }
     }
+
     if (ptr == nullptr){
       auto data_ptr = raw_allocator()->allocate(nbytes);
       ptr = data_ptr.get();
       device_ = data_ptr.device();
       data_ptr.release_context();
+      events_[ptr].record();
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
