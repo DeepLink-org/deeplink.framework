@@ -9,7 +9,7 @@ import yaml
 
 #set some params
 max_parall = 4
-random_model_num = 4
+random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
 slurm_par = sys.argv[3]
@@ -54,7 +54,9 @@ def process_one_iter(model_info):
 
     if not os.path.exists(storage_path):            
         os.makedirs(storage_path) 
-    
+
+    os.environ['DEVIECE_TYPE'] = device_type
+
     if device_type == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
         src = f'{base_data_src}/{p3}/baseline'

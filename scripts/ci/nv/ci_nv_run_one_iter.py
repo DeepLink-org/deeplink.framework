@@ -10,7 +10,7 @@ import yaml
 
 #set some params
 max_parall = 4
-random_model_num = 4
+random_model_num = 100
 os.environ['error_flag'] = "0" #if encount error
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
