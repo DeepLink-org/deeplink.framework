@@ -4,9 +4,9 @@ import numpy as np
 import torch_dipu
 
 class Model(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self):
         super(Model, self).__init__()
-        self.op1 = nn.nn.Embedding(10, 3)
+        self.op1 = nn.Embedding(10, 3)
 
     def forward(self, x):
         x = self.op1(x)
@@ -15,11 +15,9 @@ class Model(nn.Module):
 
 def test_embedding_backward_eval():
     model = Model()
-    cpu_tensor = torch.randn(2, 16, 1, 1)
+    cpu_tensor = input = torch.LongTensor([[1, 2, 4, 5], [4, 3, 2, 9]])
     device = torch.device('dipu')
     dipu_tensor = cpu_tensor.to(device)
-    cpu_tensor.requires_grad = True
-    dipu_tensor.requires_grad = True
 
     out = model(cpu_tensor)
     loss = out.sum()
@@ -41,7 +39,6 @@ def test_embedding_backward_eval():
     dipu_grad = dipu_tensor.grad
     rtol = 1e-5
     atol = 1e-5
-    assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
     for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
         assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
 if __name__ == "__main__":
