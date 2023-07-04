@@ -21,27 +21,26 @@ def test_batchnorm_backward_eval():
     cpu_tensor.requires_grad = True
     dipu_tensor.requires_grad = True
 
-    for i in range(1):
-        out = model(cpu_tensor)
-        loss = out.sum()
-        loss.backward()
-        cpu_grad_list = []
-        for _, module in model.named_parameters():
-            cpu_grad_list.append(module.grad)
-            module.grad = None
+    out = model(cpu_tensor)
+    loss = out.sum()
+    loss.backward()
+    cpu_grad_list = []
+    for _, module in model.named_parameters():
+        cpu_grad_list.append(module.grad)
+        module.grad = None
 
-        model = model.to(device)
-        out = model(dipu_tensor)
-        loss = out.sum()
-        loss.backward()
-        dipu_grad_list = []
-        for _, module in model.named_parameters():
-            dipu_grad_list.append(module.grad.cpu())
+    model = model.to(device)
+    out = model(dipu_tensor)
+    loss = out.sum()
+    loss.backward()
+    dipu_grad_list = []
+    for _, module in model.named_parameters():
+        dipu_grad_list.append(module.grad.cpu())
 
-        cpu_grad = cpu_tensor.grad
-        dipu_grad = dipu_tensor.grad
-        rtol = 1e-7
-        atol = 1e-7
+    cpu_grad = cpu_tensor.grad
+    dipu_grad = dipu_tensor.grad
+    rtol = 1e-7
+    atol = 1e-7
+    assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
+    for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
         assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
-        for cpu_grad, dipu_grad in zip(cpu_grad_list, dipu_grad_list):
-            assert np.allclose(cpu_grad.numpy(), dipu_grad.cpu().numpy(), rtol, atol, True)
