@@ -130,6 +130,7 @@ if __name__=='__main__':
     os.environ['ONE_ITER_TOOL_DEVICE'] = "dipu"
     os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "cpu"
 
+
     os.mkdir("one_iter_data")
 
     manager = Manager()
