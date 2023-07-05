@@ -1455,14 +1455,26 @@
 - schema: "clamp_min.out(Tensor self, Scalar min, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiClampMinScalar(ctx, out, self, min)
 
+- shcema: "clamp_min.Tensor_out(Tensor self, Tensor min, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClampMin(ctx, out, self, min)
+
 - schema: "clamp_min_(Tensor(a!) self, Scalar min) -> Tensor(a!)"
   interface: diopiClampMinInpScalar(ctx, self, min)
+
+- schema: "clamp_min_.Tensor(Tensor(a!) self, Tensor min) -> Tensor(a!)"
+  interface: diopiClampMinInp(ctx, self, min)
 
 - schema: "clamp_max.out(Tensor self, Scalar max, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiClampMaxScalar(ctx, out, self, max)
 
+- shcema: "clamp_max.Tensor_out(Tensor self, Tensor max, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiClampMax(ctx, out, self, max)
+
 - schema: "clamp_max_(Tensor(a!) self, Scalar max) -> Tensor(a!)"
   interface: diopiClampMaxInpScalar(ctx, self, max)
+
+- schema: "clamp_max_.Tensor(Tensor(a!) self, Tensor max) -> Tensor(a!)"
+  interface: diopiClampMaxInp(ctx, self, max)
 
 - schema: "minimum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMinimum(ctx,out, self, other)
