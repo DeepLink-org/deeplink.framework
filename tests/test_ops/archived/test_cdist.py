@@ -1,6 +1,4 @@
 import torch
-import os
-os.environ['DIPU_DUMP_OP_ARGS'] = '3'
 import torch_dipu
 from torch_dipu import dipu
 
