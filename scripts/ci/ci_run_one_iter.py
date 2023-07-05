@@ -16,7 +16,7 @@ github_job = sys.argv[2]
 slurm_par = sys.argv[3]
 gpu_requests = sys.argv[4]
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
-os.environ['error_flag'] = "0" #if encount error
+error_flag = 0 #if encount error
 
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
@@ -25,7 +25,7 @@ os.environ['DIPU_DUMP_OP_ARGS'] = "0"
 
 
 def run_cmd(cmd):
-    cp = sp.run(cmd,shell=True, encoding = "utf-8")
+    cp = sp.run(cmd, shell = True, encoding = "utf-8")
     if cp.returncode != 0:
         error = "Some thing wrong has happened when running command [{}]:{}".format(cmd, cp.stderr)
         raise Exception(error)
@@ -37,7 +37,8 @@ def process_one_iter(model_info):
 
     model_info_list = model_info.split()
     if(len(model_info_list) < 3 or len(model_info_list) > 4):
-        print("wrong model info in  {}".format(model_info), flush = True)
+        print("Wrong model info in  {}".format(model_info), flush = True)
+        exit(1)
     p1 = model_info_list[0]
     p2 = model_info_list[1]
     p3 = model_info_list[2]
@@ -51,7 +52,7 @@ def process_one_iter(model_info):
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
 
-    print("{} {} {} {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
+    print("train_path = {}, config_path = {}, work_dir = {}, opt_arg = {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
 
     if not os.path.exists(storage_path):            
         os.makedirs(storage_path) 
@@ -87,7 +88,7 @@ def handle_error(error):
     if p is not None:
         print("Kill all!", flush = True)
         p.terminate()
-    os.environ['error_flag'] = "1"
+    error_flag = 1
 
 
 if __name__=='__main__':
@@ -119,7 +120,7 @@ if __name__=='__main__':
 
     os.mkdir("one_iter_data")
 
-    p = None
+
     try:
         p = Pool(max_parall)
         for i in range(random_model_num):
@@ -127,7 +128,7 @@ if __name__=='__main__':
         print('Waiting for all subprocesses done...', flush = True)
         p.close()
         p.join()
-        if(os.environ['error_flag'] != "0"):
+        if(error_flag != 0):
             exit(1)
         print('All subprocesses done.', flush = True)
     except Exception as e:
