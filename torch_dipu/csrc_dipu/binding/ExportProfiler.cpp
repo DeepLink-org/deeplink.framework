@@ -1,7 +1,9 @@
 
 // Copyright (c) 2023, DeepLink.
-#include "exportapi.h"
+#include <torch/csrc/utils/pybind.h>
+#include <pybind11/chrono.h>
 
+#include "exportapi.h"
 #include <csrc_dipu/profiler/profiler.h>
 
 namespace py = pybind11;
