@@ -428,6 +428,30 @@ DISABLED_TESTS_CUDA = {
         'test_sparse_dense_dim',
         'test_clamp_propagates_nans', # [cnnlClip] Parameter min and max can not be null simultaneously.
     },
+    # test_convolution.py
+    'TestConvolutionNNDeviceTypeDIPU': {
+        'test_conv1d_same_padding',
+        'test_conv1d_valid_padding',
+        'test_conv1d_same_padding_backward',
+        'test_conv1d_valid_padding_backward',
+        'test_conv1d_vs_scipy',
+        'test_conv2d_same_padding',
+        'test_conv2d_same_padding_backward',
+        'test_conv2d_valid_padding',
+        'test_conv2d_valid_padding_backward',
+        'test_conv2d_vs_scipy',
+        'test_conv3d_same_padding',
+        'test_conv3d_valid_padding',
+        'test_conv3d_vs_scipy',
+        'test_conv3d_same_padding_backward',
+        'test_conv3d_valid_padding_backward',
+        'test_conv_double_backward_strided_with_3D_input_and_weight',
+        'test_conv_empty_channel',
+        'test_conv_noncontig_weights',
+        'test_conv_transpose_with_output_size_and_no_batch_dim',
+        'test_group_convTranspose_empty',
+        'test_convTranspose_empty',
+    },
 }
 
 DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CUDA)

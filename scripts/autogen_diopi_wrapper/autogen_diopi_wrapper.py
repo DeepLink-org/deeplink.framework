@@ -380,6 +380,7 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
     opname = re.sub('\.dim_max', '_outf', opname)
     opname = re.sub('\.dim_min', '_outf', opname)
     opname = re.sub('\.correction', '', opname)
+    opname = re.sub('\.input', '', opname)
     opname = opname.replace('.', '_')
     opname = opname.split('.')[0]
     if opname[-1] == '_':
@@ -459,7 +460,7 @@ def create_int_array_process_code(int_array_list):
 
 def create_autograd_function_name(op_name):
     op_name = 'Dipu' + op_name[0].upper() + op_name[1:]
-    for patten in re.findall('_[a-z]{1}', op_name):
+    for patten in re.findall('[_\.][a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
     op_name = op_name.replace('_', 'Inp')
     return op_name + 'Function'

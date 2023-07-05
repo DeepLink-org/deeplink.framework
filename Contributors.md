@@ -1,8 +1,6 @@
-# 开发者指南
+# 贡献代码
 
-## 贡献代码
-
-欢迎加入 DIPU 社区，我们致力于连接 PyTorch 深度学习框架和标准算子接口，使得 PyTorch 框架能够在人工智能芯片上做训练、推理。我们欢迎任何类型的贡献，包括但不限于
+欢迎加入 DIPU 社区，我们致力于打造训练框架和人工智能芯片之间的标准算子接口，我们欢迎任何类型的贡献，包括但不限于
 
 **修复错误**
 
@@ -33,47 +31,54 @@
 
 #### 1. 复刻仓库
 
-当你第一次提交拉取请求时，先复刻仓库原代码库，这里以 dipu 为例。点击 GitHub 页面右上角的 **Fork** 按钮，复刻后的代码库将会出现在你的 GitHub 个人主页下。
+当你第一次提交拉取请求时，先复刻仓库原代码库。点击 GitHub 页面右上角的 **Fork** 按钮，复刻后的代码库将会出现在你的 GitHub 个人主页下。
+<!--
+（图片待修改）
+<img src="" width="1200">
+-->
 将代码克隆到本地
 
 ```shell
-git clone git@github.com:{username}/dipu.git
+git clone git@github.com:{username}/DIPU.git
 ```
 
 添加原代码库为上游代码库
 
 ```bash
-git remote add upstream git@github.com::DeepLink-org/dipu
+git remote add upstream git@github.com:DeepLink-org/DIPU
 ```
 
 检查 remote 是否添加成功，在终端输入 `git remote -v`
 
 ```bash
-origin	git@github.com:{username}/dipu.git (fetch)
-origin	git@github.com:{username}/dipu.git (push)
-upstream	git@github.com:DeepLink-org/dipu (fetch)
-upstream	git@github.com:DeepLink-org/dipu (push)
+origin	git@github.com:{username}/DIPU.git (fetch)
+origin	git@github.com:{username}/DIPU.git (push)
+upstream	git@github.com:DeepLink-org/DIPU (fetch)
+upstream	git@github.com:DeepLink-org/DIPU (push)
 ```
 
-> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 git clone 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
+> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 git clone 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu 。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
 
 
 #### 2. 创建开发分支
 
-我们需要基于 main 创建开发分支，建议的分支命名规则为 `username/pr_name`。
+我们需要基于 master 创建开发分支，建议的分支命名规则为 `username/pr_name`。
 
 ```shell
-git checkout -b yhc/refactor_contributing_doc
+git checkout -b xxx/refactor_contributing_doc
 ```
 
-在后续的开发中，如果本地仓库的 main 分支落后于 upstream 的 main 分支，我们需要先拉取 upstream 的代码进行同步，再执行上面的命令
+在后续的开发中，如果本地仓库的 master 分支落后于 upstream 的 master 分支，我们需要先拉取 upstream 的代码进行同步，再执行上面的命令
 
 ```shell
-git pull upstream main
+git pull upstream master
 ```
 
 
-#### 3. 推送代码到远程
+#### 3. 提交代码并在本地通过dipu测试
+提交的代码需要通过dipu在各设备上的测例和模型one_iter测试。
+
+#### 4. 推送代码到远程
 将代码推送到远程仓库，如果是第一次推送，可以在 `git push` 后加上 `-u` 参数以关联远程分支
 
 ```shell
@@ -83,7 +88,7 @@ git push -u origin {branch_name}
 这样下次就可以直接使用 `git push` 命令推送代码了，而无需指定分支和远程仓库。
 
 
-#### 4. 提交拉取请求（PR）
+#### 5. 提交拉取请求（PR）
 
 (1) 在 GitHub 的 Pull request 界面创建拉取请求
 
@@ -98,29 +103,29 @@ git push -u origin {branch_name}
 
 (1) PR 描述应该包含修改理由、修改内容以及修改后带来的影响，并关联相关 Issue（具体方式见[文档](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)）
 
-(2) 如果是第一次为 dipu 做贡献，需要签署 CLA
+(2) 如果是第一次为 DIPU 做贡献，需要签署 CLA
 
 (3) 检查提交的 PR 是否通过 CI（集成测试）
-
 
 (4) 如果 PR 通过了 CI，那么就可以等待其他开发者的 review，并根据 reviewer 的意见，修改代码，并重复 [3](#3-提交代码进行ci验证)-[4](#4-代码review分支合并) 步骤，直到 reviewer 同意合入 PR。
 
 所有 reviewer 同意合入 PR 后，我们会尽快将 PR 合并到主分支。
 
-#### 5. 解决冲突
+
+#### 6. 解决冲突
 
 随着时间的推移，我们的代码库会不断更新，这时候，如果你的 PR 与主分支存在冲突，你需要解决冲突，解决冲突的方式有两种：
 
 ```shell
 git fetch --all --prune
-git rebase upstream/main
+git rebase upstream/master
 ```
 
 或者
 
 ```shell
 git fetch --all --prune
-git merge upstream/main
+git merge upstream/master
 ```
 
 如果你非常善于处理冲突，那么可以使用 rebase 的方式来解决冲突，因为这能够保证你的 commit log 的整洁。如果你不太熟悉 `rebase` 的使用，那么可以使用 `merge` 的方式来解决冲突。
@@ -144,4 +149,4 @@ git merge upstream/main
    - 描述里介绍`拉取请求`的主要修改内容，结果，以及对其他部分的影响, 参考`拉取请求`模板
    - 关联相关的`议题` (issue) 和其他`拉取请求`
 
-5. 如果引入了其他三方库，或借鉴了三方库的代码，请确认他们的许可证和 dipu License 兼容，并在借鉴的代码上补充 `This code is inspired from http://`
+5. 如果引入了其他三方库，或借鉴了三方库的代码，请确认他们的许可证和 DIPU License 兼容，并在借鉴的代码上补充 `This code is inspired from http://`。
