@@ -180,7 +180,7 @@ jobs:
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\${PWD}:\$PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_CAMB} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci/ci_one_iter.sh build_camb
           """
@@ -282,7 +282,7 @@ jobs:
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\${PWD}:\$PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SLURM_PAR_SH1988} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
