@@ -68,25 +68,22 @@ setattr(_StorageBase, 'is_dipu', is_dipu_storage)
 _StorageBase.dipu = _dipu_storage
 
 
-class _MetaDIPUStor(type):
-  _raw_storage = torch.UntypedStorage
-  _do_stor = GetDeviceProxy(torch.UntypedStorage, pos = -1, caller="class_new")
-
-  def __instancecheck__(cls, inst):
-    if isinstance(inst, _MetaDIPUStor._raw_storage):
-      return True
-    return False
-
-class DIPUUntypedStorage(metaclass=_MetaDIPUStor):
-  def __new__(cls, *args, **kwargs):
-    return DIPUUntypedStorage._do_stor(*args, **kwargs)
-
-torch.UntypedStorage = DIPUUntypedStorage
-
-# torch.UntypedStorage = GetDeviceStaticProxy(torch.UntypedStorage)
-
-
-
-# should we mock cuda in storage api which is a low level api or should we ensure all 
+# should we mock cuda/dipu in storage api which is a low level api or should we ensure all 
 # upper layer cuda api are mocked so low level are always dipu storage?  
+
 # _StorageBase.cuda/is_cuda = 
+
+# class _MetaDIPUStor(type):
+#   _raw_storage = torch.UntypedStorage
+#   _do_stor = GetDeviceProxy(torch.UntypedStorage, pos = -1, caller="class_new")
+
+#   def __instancecheck__(cls, inst):
+#     if isinstance(inst, _MetaDIPUStor._raw_storage):
+#       return True
+#     return False
+
+# class DIPUUntypedStorage(metaclass=_MetaDIPUStor):
+#   def __new__(cls, *args, **kwargs):
+#     return DIPUUntypedStorage._do_stor(*args, **kwargs)
+
+# torch.UntypedStorage = DIPUUntypedStorage
