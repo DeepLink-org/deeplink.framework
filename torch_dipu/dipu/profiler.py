@@ -103,7 +103,6 @@ class dipu_profiler(object):
                     '"dur": %s, '
                     '"tid": %s, '
                     '"pid": "CPU functions", '
-                    '"args": {}}, '
                     '"args": {%s}}, '
                     % (
                         evt.trace_name,
@@ -111,8 +110,6 @@ class dipu_profiler(object):
                         evt.time_range.elapsed_us(),
                         evt.thread
                         if not evt.is_remote
-                        else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "'
-                        # '"input shape": ' + ('"%s"' % str(evt.input_shapes)),
                         else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "',
                         '"input shape": ' + ('"%s"' % str(input_shape)),
                         

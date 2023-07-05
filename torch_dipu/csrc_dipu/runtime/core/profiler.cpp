@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <deque>
 
+#include <c10/util/Exception.h>
+
 #include "profiler.h"
 
 
@@ -13,10 +15,7 @@ namespace dipu {
 
 namespace profile {
 
-
-
 #define STREAM_THREAD_NAME ":Dipu stream "
-
 
 class DeviceEvent final {
 private:
@@ -241,9 +240,7 @@ private:
     DeviceRecordsImpl() {}
 
     deviceEvent_t beginEvent() const {
-        if (!pTracker_) {
-            throw std::runtime_error("dipu profiler error with pTracker is not inited");
-        }
+        TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
         return pTracker_->begin().get();
     }
 
@@ -283,18 +280,14 @@ public:
 
     void addDeviceRecord(DeviceRecord record) {
         std::lock_guard<std::mutex> lk(mtx_);
-        if (!pTracker_) {
-            throw std::runtime_error("dipu profiler error with pTracker is not inited");
-        }
+        TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
         records_.push_back(record);
     }
 
     void flush() {
         std::lock_guard<std::mutex> lk(mtx_);
         if (records_.size() > 0) {
-            if (!pTracker_) {
-                throw std::runtime_error("dipu profiler error with pTracker is not inited");
-            }
+            TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
             auto& trakcer = *pTracker_;
             trakcer.sync();
             float ratio = trakcer.ratio();
@@ -362,7 +355,7 @@ void setProfileOpen(bool profileFlag) {
 
 thread_local std::string sProfileScopeName = "";
 thread_local size_t sProfileScopeId = 0;
-size_t moduleId = 10000;  // avoid clash with pytorch id
+thread_local size_t moduleId = 10000;  // avoid clash with pytorch id
 
 void setScopePair(const std::string& name, size_t id) {
     sProfileScopeName = name;
@@ -441,12 +434,8 @@ DeviceRecordCreator::~DeviceRecordCreator() {
 
 void DeviceRecordCreator::end() {
     if (!end_) {
-        if (!pStart_) {
-            throw std::runtime_error("dipu profiler error with pStart_ is not inited");
-        }
-        if (!pStop_) {
-            throw std::runtime_error("dipu profiler error with pStop_ is not inited");
-        }
+        TORCH_CHECK(pStart_, "dipu profiler error with pStart_ is not inited");
+        TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
         dipu::devapis::recordEvent(pStop_->get(), stream_);
         DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
                 pStart_, pStop_, (size_t)stream_,

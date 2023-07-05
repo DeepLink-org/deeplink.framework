@@ -31,13 +31,6 @@ typedef std::pair<string_t, size_t> scope_pair_t;
  */
 bool isEnable();
 
-/*
- * get profile string
- */
-string_t getProfileString();
-
-
-
 void FlushAllRecords();
 void abandonAllRecords();
 size_t timestamp(const time_point& t);
