@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export DIPU_DUMP_OP_ARGS=1
+
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     # mmpretrain
@@ -14,11 +16,11 @@ original_list=(
     "mmdetection ssd/ssd300_coco.py workdirs_ssd300_coco" 
     "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco" 
     "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet_r50_fpn_1x_coco"  
-    # # mmpose
+    ## mmpose
     # "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192" 
-    # # mmaction2
+    ## mmaction2
     # "mmaction2 recognition/tsn/tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb.py workdirs_tsn_imagenet-pretrained-r50_8xb32-1x1x3-100e_kinetics400-rgb" 
-    # # mmocr    
+    # mmocr    
     # "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
     # mmsegmentation
     "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_r50-d8_4xb2-40k_cityscapes-512x1024" 
@@ -33,14 +35,14 @@ original_list=(
 
 
 length=${#original_list[@]}
-max_parall=1
-random_model_num=8 #如果超过，会自动设置为模型总数
+max_parall=8
+random_model_num=40 #如果超过，会自动设置为模型总数
 
 if [ $random_model_num -gt $length ]; then
     random_model_num=$length
 fi
 
-echo $length
+echo "modelnum: $length  chosen model num: $random_model_num"
 selected_list=()
 
 # 随机选取模型
@@ -53,8 +55,8 @@ for ((i=0; i<random_model_num; i++)); do
 done
 
 job_name=$1
-partition=$2
-gpu_request=$3
+partition=${@:3}
+gpu_request=$2
 
 mkfifo ./fifo.$$ && exec 796<> ./fifo.$$ && rm -f ./fifo.$$
 for ((i=0; i<$max_parall; i++)); do
@@ -76,27 +78,9 @@ for ((i=0; i<$random_model_num; i++)); do
     # 记录开始时间（以纳秒为单位）
     startTime=$(date +%s%N)
 
-    #锁机制保证有序
-    while true; do
-        while ! mkdir "${LOCK_FILE}" 2>/dev/null; do
-            sleep 1
-        done
-        read -r -a used_card_list <&788
-        export USED_CARD="${used_card_list[@]}"
-        cur_card=$(sh ../scripts/ci/nv/detect_available_card.sh 30)
-        read -r cur_cardnum cur_card_G  <<< ${cur_card}
-            if [[ $cur_cardnum == -1 ]]; then
-                echo "${used_card_list[@]}" >&788
-                rmdir "${LOCK_FILE}"
-                sleep 5
-                continue
-            fi
-        used_card_list+=($((cur_cardnum)))
-        echo "${used_card_list[@]}" >&788
-        rmdir "${LOCK_FILE}"
-        break
-    done
-
+    pid=$BASHPID  # 存储子进程的PID号
+    read -u 796
+    echo "===========", ${selected_list[i]}
     read -r p1 p2 p3 p4 <<< ${selected_list[i]}
     train_path="${p1}/tools/train.py"
     config_path="${p1}/configs/${p2}"

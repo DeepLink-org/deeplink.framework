@@ -459,7 +459,7 @@ def create_int_array_process_code(int_array_list):
 
 def create_autograd_function_name(op_name):
     op_name = 'Dipu' + op_name[0].upper() + op_name[1:]
-    for patten in re.findall('_[a-z]{1}', op_name):
+    for patten in re.findall('[_\.][a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
     op_name = op_name.replace('_', 'Inp')
     return op_name + 'Function'
