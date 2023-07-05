@@ -12,10 +12,10 @@ on:
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
-  SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
-  SLURM_PAR_SH1988: "pat_rd -x SH-IDC1-10-198-8-58,SH-IDC1-10-198-8-87"
-  CLUSTER_CAMB: CAMB
-  CLUSTER_1988: SH1984
+  CAMB_SLURM_PAR: ${{ vars.CAMB_SLURM_PAR }}
+  SH1988_SLURM_PAR: ${{ vars.SH1988_SLURM_PAR }}
+  CAMB_CLUSTER: CAMB
+  1988_CLUSTER: SH1984
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
@@ -40,7 +40,6 @@ jobs:
 
           cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            pwd
             cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
           fi
           cd ${GITHUB_WORKSPACE}/dipu
@@ -56,30 +55,12 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
-          cd /home/autolink/rsync/sourcecode/pytorch && git checkout master && git pull \
-          && git checkout ${PYTORCH_COMMIT} && git submodule update --init --recursive
           ssh ${CLUSTER_CAMB} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
           rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
-          result=`ssh ${CLUSTER_CAMB} """
-                  mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  if [ ! -f ${CI_BUILD_FLAG} ]; then
-                    touch ${CI_BUILD_FLAG}
-                  fi
-                  cat ${CI_BUILD_FLAG}
-                  """`
-          echo "result:${result}"
-          if [ "${result}x" = "${PYTORCH_COMMIT}"x ]; then
-            echo "pytorch:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT} exist."
-          else
-            echo "pytorch not exist, copy pytorch to ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            ssh ${CLUSTER_CAMB} "rm -rf ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            rsync -a --delete /home/autolink/rsync/sourcecode/pytorch/* ${CLUSTER_CAMB}:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}/
-          fi
 
   Build-Pytorch:
     name: Build pytorch
@@ -314,7 +295,6 @@ jobs:
           source scripts/ci/nv/ci_nv_env.sh
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-          echo  "python path : \$PYTHONPATH"
           cd mmlab_pack
           sh ../scripts/ci/nv/ci_nv_run_one_iter.sh ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${GPU_REQUESTS} ${SLURM_PAR_SH1988} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
