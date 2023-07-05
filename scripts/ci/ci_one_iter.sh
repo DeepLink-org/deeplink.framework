@@ -5,10 +5,10 @@ clone_needed_repo() {
     #define some version
     MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
     MMENGINE_VERSION=v0.7.4
-    MMPRETRAIN_VERSION=xt/test_DIOPI_2.0
-    MMDETECTION_VERSION=xt/test_pytorch2.0
-    MMSEGMENTATION_VERSION=xt/test_pytorch2.0
-    MMPOSE_VERSION=xt/test_pytorch2.0
+    MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
+    MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
+    MMSEGMENTATION_VERSION=dipu_v1.0.0_one_iter_tool
+    MMPOSE_VERSION=dipu_v1.0.0_one_iter_tool
     MMDETECTION3D_VERSION=dipu_v1.1.0_one_iter_tool
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
@@ -85,10 +85,9 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/mmlab_coco  data/coco
         ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/kitti data/kitti
-        #ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015/imgs data/icdar2015
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
+        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
         #ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
         #ln -s /mnt/lustre/share_data/PAT/datasets/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     elif [ "$1" = "camb" ]; then
