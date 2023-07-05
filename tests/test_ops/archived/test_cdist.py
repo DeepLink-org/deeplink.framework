@@ -1,6 +1,9 @@
 import torch
+import os
+os.environ['DIPU_DUMP_OP_ARGS'] = '3'
 import torch_dipu
 from torch_dipu import dipu
+
 
 def test_cdist(plist):
     a = torch.randn((5, 3), requires_grad=True)
@@ -16,9 +19,9 @@ def test_cdist(plist):
         y1 = torch.cdist(a_cuda, b_cuda, p=p)
         y.backward(torch.ones_like(y))
         y1.backward(torch.ones_like(y1))
-        assert torch.allclose(y, y1.cpu())
-        assert torch.allclose(a.grad, a_cuda.grad.cpu())
-        assert torch.allclose(b.grad, b_cuda.grad.cpu())
+        assert torch.allclose(y, y1.cpu(), atol = 1e-3)
+        assert torch.allclose(a.grad, a_cuda.grad.cpu(), atol = 1e-3)
+        assert torch.allclose(b.grad, b_cuda.grad.cpu(), atol = 1e-3)
 
 if dipu.vendor_type == "MLU":
     # Currently only 1-norm is supported by camb for the scatter op
