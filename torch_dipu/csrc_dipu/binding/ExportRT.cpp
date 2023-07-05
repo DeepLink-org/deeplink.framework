@@ -13,7 +13,6 @@
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 #include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
-#include <csrc_dipu/profiler/profiler.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -197,19 +196,6 @@ static void exportCommunicator(py::module& m) {
   // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
-static void exportProfiler(py::module& m) {
-  m.def("profile_start", &dipu::profile::startProfile);
-  m.def("profile_end", &dipu::profile::endProfile);
-  m.def("profiler_flush", &dipu::profile::FlushAllRecords);
-  py::class_<dipu::profile::Record>(m, "_DIPUProfilerRecord")
-      .def_readonly("name", &dipu::profile::Record::name)
-      .def_readonly("opid", &dipu::profile::Record::opId)
-      .def_readonly("begin", &dipu::profile::Record::begin)
-      .def_readonly("end", &dipu::profile::Record::end)
-      .def_readonly("thread_idx", &dipu::profile::Record::threadIdx);
-  m.def("get_record", &dipu::profile::getRecordList);
-}
-
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -217,7 +203,5 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportStream(m);
   exportEvent(m);
   exportCommunicator(m);
-  exportProfiler(m);
- 
 }
 }  // end ns dipu
