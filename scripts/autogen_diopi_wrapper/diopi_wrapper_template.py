@@ -8,6 +8,7 @@ diopi_wrapper_file_template_content = \
 #include <type_traits>
 
 #include <torch/csrc/autograd/custom_function.h>
+#include <torch/types.h>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
@@ -32,9 +33,10 @@ inline void synchronizeIfEnable() {
     return;
 }
 
-inline bool dumpOpArgs() {
-    bool enable = std::getenv("DIPU_DUMP_OP_ARGS") != nullptr;
-    return enable;
+inline int dumpOpArgLevel() {
+    const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+    int level = env_ptr ? std::atoi(env_ptr) : 0;
+    return level;
 }
 
 template<typename T>
@@ -75,10 +77,10 @@ template<>
 std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
-        stream << "numel:" << tensor.numel() << ",sizes:" << tensor.sizes() << ", stride:" << tensor.strides() << ",is_view:" << tensor.is_view() << "," <<tensor.options() << ",data_ptr:" << tensor.data_ptr();
-        const auto env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
-        int dump_tensor_all_elemnuments = env_ptr ? std::atoi(env_ptr) : 0;
-        if (dump_tensor_all_elemnuments > 1) {
+        stream << "numel: " << tensor.numel() << ",sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
+        << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false") 
+        << ", memory_format: "  << tensor.suggest_memory_format() << ",  data_ptr: " << tensor.data_ptr();
+        if (dumpOpArgLevel() > 2) {
             stream << std::endl << tensor;
         }
     } else {

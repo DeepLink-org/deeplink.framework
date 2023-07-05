@@ -156,8 +156,15 @@
     const int64_t dim_c = input.size(1);
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
-    auto out1 = at::empty({dim_c}, options);
-    auto out2 = at::empty({dim_c}, options);
+    at::Tensor out1, out2;
+    if (!training) {
+        // do not require save_mean/save_invstd when in test mode
+        out1 = at::empty({0}, options);
+        out2 = at::empty({0}, options);
+    } else {
+        out1 = at::empty({dim_c}, options);
+        out2 = at::empty({dim_c}, options);
+    }
   interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
 - schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
@@ -168,6 +175,21 @@
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
+
+- schema: "native_group_norm(Tensor input, Tensor? weight, Tensor? bias, SymInt N, SymInt C, SymInt HxW, int group, float eps) -> (Tensor, Tensor, Tensor)"
+  custom_code_at_the_beginning: |
+    auto out0 = at::empty_like(input);
+    auto options = input.options().dtype(at::kFloat);
+    auto out1 = at::empty({N.expect_int(), group}, options);
+    auto out2 = at::empty({N.expect_int(), group}, options);
+  interface: diopiGroupNorm(ctx, out0, out1, out2, input, weight, bias, group, eps);
+
+- schema: "native_group_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, SymInt N, SymInt C, SymInt HxW, int group, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
+  custom_code_at_the_beginning: |
+    auto out0 = output_mask[0] ? at::empty_like(input) : at::Tensor();
+    auto out1 = output_mask[1] ? at::empty_like(weight.value()) : at::Tensor();
+    auto out2 = output_mask[2] ? at::empty_like(weight.value()) : at::Tensor();
+  interface: diopiGroupNormBackward(ctx, out0, out1, out2, grad_out, input, weight, mean, rstd, group);
 
 - schema: "native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor out, Tensor save_mean, Tensor save_invstd)"
   custom_code_at_the_beginning: |
@@ -423,7 +445,7 @@
     ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, false, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
   size_attr: [stride, padding, dilation]
@@ -466,6 +488,66 @@
     std::vector<at::Tensor>  outputs = {
           std::get<0>(result), std::get<1>(result), std::get<2>(result),
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
+    return outputs;
+
+- schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  register_op: False
+  size_attr: [stride, padding, dilation, bias_sizes, output_padding]
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input;
+    at::Tensor grad_weight;
+    at::Tensor grad_bias;
+    grad_input = at::empty(input.sizes(), input.options());
+    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    if (output_mask[2]) {
+        c10::IntArrayRef bias_size = { grad_output.size(1) };
+        grad_bias = at::empty(bias_size, grad_output.options());
+    }
+  custom_code_before_call_diopi: |
+    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
+  interface: diopiConvTranspose2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, output_padding, groups);
+
+- schema: "conv_transpose2d.input(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] output_padding=0, int groups=1, int[2] dilation=1) -> Tensor"
+  autograd: True
+  size_attr: [stride, padding, output_padding, dilation]
+  custom_code_at_the_beginning: |
+    const int64_t n = input.size(0);
+    const int64_t w_in = input.size(-1);
+    const int64_t h_in = input.size(-2);
+    const int64_t kernel_width = weight.size(-1);
+    const int64_t kernel_height = weight.size(-2);
+    const int64_t h_out = (h_in - 1) * stride[0] - 2 * padding[0] + (dilation[0] * (kernel_height - 1) + 1) + output_padding[0];
+    const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
+    const int64_t c_out = weight.size(1) * groups;
+    auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
+    auto out = at::empty(output_shape, input.options());
+  interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
+  forward_process_code: |
+    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
+  saved_data: [stride, padding, dilation, groups, bias_has_value, input, weight, output_padding]
+  cal_grad_code: |
+      auto grad_output = grad_outputs.at(0);
+      auto input = input_.toTensor();
+      auto weight = weight_.toTensor();
+      auto padding = padding_.toIntVector();
+      auto stride = stride_.toIntVector();
+      auto dilation = dilation_.toIntVector();
+      auto output_padding = output_padding_.toIntVector();
+      bool bias_has_value = bias_has_value_.toBool();
+      auto groups = groups_.toInt();
+      std::vector<int64_t> bias_sizes;
+      if (bias_has_value) {
+        bias_sizes.push_back(grad_output.size(1));
+      }
+      std::array<bool, 3> output_mask;
+      output_mask[0] = input.requires_grad();
+      output_mask[1] = weight.requires_grad();
+      output_mask[2] = bias_has_value;
+  backward_schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  backward_return_code: |
+    std::vector<at::Tensor>  outputs = {
+          std::get<0>(result), std::get<1>(result), std::get<2>(result),
+          at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
 
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
@@ -523,8 +605,6 @@
     outputs[0] = out;
     return outputs;
   wrappter_custom_return: return self;
-
-
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
@@ -1428,8 +1508,13 @@
 - schema: "_cdist_forward(Tensor x1, Tensor x2, float p, int? compute_mode) -> Tensor"
   custom_code_at_the_beginning: |
     int64_t* compute_mode_ptr = compute_mode.has_value() ? (&compute_mode.value()) : nullptr;
-    auto output_shape = x1.sizes().vec();
-    output_shape.back() = x2.size(-2);
+    auto x1_shape = x1.sizes().vec();
+    auto x2_shape = x2.sizes().vec();
+    std::fill(x1_shape.end() - 2, x1_shape.end(), 1);
+    std::fill(x2_shape.end() - 2, x2_shape.end(), 1);
+    auto output_shape = at::infer_size(x1_shape, x2_shape);
+    *output_shape.rbegin() = x2.size(-2);
+    *(output_shape.rbegin() + 1) = x1.size(-2);
     auto out = at::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
 
@@ -1452,3 +1537,57 @@
 
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiPolar(ctx, out, abs, angle)
+
+- schema: "im2col(Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 3) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(), 1);
+    }
+
+    int num_blocks = 1;
+    for(int i = 0; i < 2; i++){
+      num_blocks *= int((input_shape[i + 2] + 2 * padding[i] - dilation[i] * (kernel_size[i] - 1) - 1) / stride[i]) + 1;
+    }
+    int channels = input_shape[1];
+    for(int i = 0; i < 2; i++){
+      channels *= kernel_size[i];
+    }
+
+    std::vector<int64_t> out_shape({channels, num_blocks});
+    if(batched_input == true){
+      out_shape.insert(out_shape.begin(), input_shape[0]);
+    }
+    auto out = at::empty({out_shape}, self.options());
+  interface: diopiIm2Col(ctx, out, self, kernel_size, dilation, padding, stride)
+
+- schema: "col2im(Tensor self, SymInt[2] output_size, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
+  size_attr: [kernel_size, stride, padding, dilation]
+  custom_code_at_the_beginning: |
+    auto input_shape = self.sizes().vec();
+    bool batched_input = true;
+    if (input_shape.size() == 2) {
+      batched_input = false;
+      input_shape.insert(input_shape.begin(), 1);
+    }
+
+    int channels = input_shape[1];
+    for(int i = 0; i < 2; i++){
+      channels = channels / kernel_size[i];
+    }
+      
+    std::vector<int64_t> out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
+    if(batched_input == true){
+      out_shape.insert(out_shape.begin(), input_shape[0]);
+    }
+    auto out = at::empty({out_shape}, self.options());
+  interface: diopiCol2Im(ctx, out, self, output_size, kernel_size, dilation, padding, stride)
+
+- schema: "sgn.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSgn(ctx, out,self)
+
+- schema: "triu.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiTriu(ctx, out, self, diagonal)

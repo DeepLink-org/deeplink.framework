@@ -122,7 +122,11 @@ void freeDevice(void *p) {
   DIPU_CALLCNRT(::cnrtFree(p))
 }
 
-
+bool isPinnedPtr(const void *p) {
+    ::cnrtPointerAttributes_t attr;
+    DIPU_CALLCNRT(::cnrtPointerGetAttributes(&attr, p))
+    return attr.type == cnrtMemTypeHost;
+}
 
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst, deviceId_t srcDevId, const void *src) {
