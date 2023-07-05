@@ -9,7 +9,7 @@ def test_stor1():
   device = "cuda:0"
   # args is int8,
   args = [[1, 0, 0, 0, 4, 0, 0, 0, 12, 0, 0, 0]]
-  s1 = torch.UntypedStorage(*args, device=device)
+  s1 = torch.UntypedStorage(*args, device=diputype)
   assert s1.device.type == diputype
   #  little endian
   x = torch.arange(1, device = device, dtype=torch.int32)

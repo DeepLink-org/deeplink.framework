@@ -33,8 +33,11 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Ten
 static c10::List<c10::optional<at::Tensor>> to_cpu( const c10::List<c10::optional<at::Tensor>>& indices) {
   c10::List<c10::optional<at::Tensor>> indices_cpu;
   indices_cpu.reserve(indices.size());
+  // input as x[1:2, [1, 2]], Slice by first dimension already executed before this index(),
+  // in this case, indices[0] is an undefinedTensor.
   for (int i = 0; i < indices.size(); ++i) {
-    indices_cpu.push_back(indices[i].has_value() ? indices[i].value().to("cpu") : at::Tensor());
+    indices_cpu.push_back((indices[i].has_value() && indices[i].value().defined()) ?
+                          indices[i].value().to("cpu") : at::Tensor());
   }
   return indices_cpu;
 }
