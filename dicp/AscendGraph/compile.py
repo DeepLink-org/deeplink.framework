@@ -14,18 +14,18 @@ class AscendCodeCache:
     @classmethod
     def load(cls, source_code):
         picked_vec_isa = pick_vec_isa()
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
         key, input_path = write(
             source_code,
             "cpp",
-            extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa),
+            extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) + 'local_rank' + str(local_rank),
         )
+        output_path = input_path[:-3] + 'so'
+        output_graph_path = input_path[:-4] + '/graph'
+        print('output_path: ', output_graph_path)
 
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        output_path = input_path[:-4] + f'{local_rank}.so'
-        output_graph_path = os.path.split(output_path)[0] + f'/{local_rank}/graph'
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
-        print('output_path: ', output_graph_path)
         start = time.time()
         if key not in cls.cache:
             if not os.path.exists(output_path):
@@ -57,7 +57,7 @@ class AscendCodeCache:
                 print('compile time:', time.time() - start)
                 loaded = cdll.LoadLibrary(output_path)
                 loaded.compile(output_graph_path.encode())
-                
+
                 if not os.path.exists(output_graph_path + '.om'):
                     output_graph_path += '_linux_x86_64'
                 assert(os.path.exists(output_graph_path + '.om'))
