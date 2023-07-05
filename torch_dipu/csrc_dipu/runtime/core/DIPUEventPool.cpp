@@ -2,18 +2,20 @@
 #include <list>
 #include <mutex>
 #include <functional>
-
+#include <iostream>
 
 namespace dipu {
 
 template<typename T>
 class EventPool final {
 protected:
-    std::list<T> eventPool_;
+    std::list<T> event_pool_;
+    unsigned int allocate_num_ = 0;
 
     std::function<void(T&)> allocator_;
     std::function<void(T&)> deleter_;
-    std::mutex eventMtx_;
+    using mutex_t = std::recursive_mutex;
+    mutex_t event_mutex_;
 
 public:
     EventPool(const std::function<void(T&)>& allocator,
@@ -29,26 +31,29 @@ public:
     ~EventPool() = default;
 
     void release() {
-        std::unique_lock<std::mutex> _(eventMtx_);
-        for (auto& event : eventPool_) {
+        std::lock_guard<mutex_t> _(event_mutex_);
+        for (auto& event : event_pool_) {
             deleter_(event);
+            allocate_num_--;
         }
-        eventPool_.clear();
+        event_pool_.clear();
     }
 
     void get(T& event) {
-        std::unique_lock<std::mutex> _(eventMtx_);
-        if (eventPool_.empty()) {
+        std::lock_guard<mutex_t> _(event_mutex_);
+        if (event_pool_.empty()) {
             allocator_(event);
+            allocate_num_++;
         } else {
-            event = eventPool_.back();
-            eventPool_.pop_back();
+            event = event_pool_.back();
+            event_pool_.pop_back();
         }
+        // std::cout << "EventPool size:" << event_pool_.size() << ", allocated:" << allocate_num_ << std::endl;
     }
 
     void restore(T& event) {
-        std::unique_lock<std::mutex> _(eventMtx_);
-        eventPool_.emplace_back(event);
+        std::lock_guard<mutex_t> _(event_mutex_);
+        event_pool_.emplace_back(event);
     }
 };
 
