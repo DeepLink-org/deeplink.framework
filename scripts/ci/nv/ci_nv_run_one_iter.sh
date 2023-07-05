@@ -3,6 +3,7 @@
 export DIPU_DUMP_OP_ARGS=1
 
 pip install pyquaternion
+pip install trimesh
 
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
@@ -127,34 +128,35 @@ read -r p1 p2 p3 p4 <<< ${selected_list[i]}
 echo "PID: $pid ,name:$p2"  # 输出子进程的PID号
 done
 
-while true; do
-    all_finished=true
-    for index in "${!pids[@]}"; do
-        pid="${pids[index]}"
-        if ! kill -0 "$pid" 2>/dev/null; then
-            # 如果存在 "$pid.done"，那直接删
-            if [ -f "$pid.done" ]; then
-                echo "Child process with PID $pid exited successfully."
-                rm -rf "$pid.done"
-                unset 'pids[index]'  # 删除相应的数组元素
-                continue
-            fi
-            echo "Child process with PID $pid encountered an error. Exiting all child processes."
-            # 结束所有子进程
-            for pid_to_kill in "${pids[@]}"; do
-                kill "$pid_to_kill" 2>/dev/null
-            done
-            exit 1
-        fi
-        all_finished=false
-    done
+# while true; do
+#     all_finished=true
+#     for index in "${!pids[@]}"; do
+#         pid="${pids[index]}"
+#         if ! kill -0 "$pid" 2>/dev/null; then
+#             # 如果存在 "$pid.done"，那直接删
+#             if [ -f "$pid.done" ]; then
+#                 echo "Child process with PID $pid exited successfully."
+#                 rm -rf "$pid.done"
+#                 unset 'pids[index]'  # 删除相应的数组元素
+#                 continue
+#             fi
+#             echo "Child process with PID $pid encountered an error. Exiting all child processes."
+#             # 结束所有子进程
+#             for pid_to_kill in "${pids[@]}"; do
+#                 kill "$pid_to_kill" 2>/dev/null
+#             done
+#             exit 1
+#         fi
+#         all_finished=false
+#     done
 
-    if $all_finished; then
-        break
-    fi
+#     if $all_finished; then
+#         break
+#     fi
 
-    sleep 2  # 适当调整轮询的间隔时间
-done
+#     sleep 2  # 适当调整轮询的间隔时间
+# done
+wait
 
 
 echo Done
