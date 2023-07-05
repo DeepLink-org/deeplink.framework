@@ -1470,6 +1470,9 @@
 - schema: "scatter.src_out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatter(ctx, out, self, dim, src, index, "")
 
+- schema: "scatter.reduce_out(Tensor self, int dim, Tensor index, Tensor src, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
+
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
 
