@@ -22,11 +22,10 @@ class AscendCodeCache:
         )
         output_path = input_path[:-3] + 'so'
         output_graph_path = input_path[:-4] + '/graph'
+        print('output_path: ', output_graph_path)
+
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
-        print('input_path:', input_path)
-        print('output_path: ', output_path)
-        print('output_graph_path: ', output_graph_path)
         start = time.time()
         if key not in cls.cache:
             if not os.path.exists(output_path):
@@ -58,7 +57,7 @@ class AscendCodeCache:
                 print('compile time:', time.time() - start)
                 loaded = cdll.LoadLibrary(output_path)
                 loaded.compile(output_graph_path.encode())
-                
+
                 if not os.path.exists(output_graph_path + '.om'):
                     output_graph_path += '_linux_x86_64'
                 assert(os.path.exists(output_graph_path + '.om'))
