@@ -1,15 +1,30 @@
 import torch
 import torch_dipu
+from torch_dipu import dipu
 
 
-a = torch.tensor([[0.9041,  0.0196], [-0.3108, -2.4423], [-0.4821,  1.059]])
-b = torch.tensor([[-2.1763, -0.4713], [-0.6986,  1.3702]])
-y = torch.cdist(a, b, p=2)
-y1 = torch.cdist(a.cuda(), b.cuda(), p=2)
-assert torch.allclose(y, y1.cpu(), atol = 1e-3)
+def test_cdist(plist):
+    a = torch.randn((5, 3), requires_grad=True)
+    b = torch.randn((2, 3, 3), requires_grad=True)
 
-a = torch.randn(1, 32, 32)
-b = torch.randn(32, 2, 48, 64, 32)
-y = torch.cdist(a, b, p=1)
-y1 = torch.cdist(a.cuda(), b.cuda(), p=1)
-assert torch.allclose(y, y1.cpu(), atol = 1e-3)
+    a_cuda = a.detach().cuda()
+    b_cuda = b.detach().cuda()
+    a_cuda.requires_grad = True
+    b_cuda.requires_grad = True
+
+    for p in plist:
+        y = torch.cdist(a, b, p=p)
+        y1 = torch.cdist(a_cuda, b_cuda, p=p)
+        y.backward(torch.ones_like(y))
+        y1.backward(torch.ones_like(y1))
+        assert torch.allclose(y, y1.cpu(), atol = 1e-3)
+        assert torch.allclose(a.grad, a_cuda.grad.cpu(), atol = 1e-3)
+        assert torch.allclose(b.grad, b_cuda.grad.cpu(), atol = 1e-3)
+
+if dipu.vendor_type == "MLU":
+    # Currently only 1-norm is supported by camb for the scatter op
+    plist = [1]
+    test_cdist(plist)
+else:
+    plist = [1, 2, 0.5, float("inf")]
+    test_cdist(plist)

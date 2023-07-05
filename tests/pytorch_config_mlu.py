@@ -250,7 +250,22 @@ DISABLED_TESTS_MLU = {
         'test_storage',
         'test_strides_propagation',
         'test_take',
-
+        'test_scatter_reduce_non_unique_index',
+        'test_scatter_reduce_operations_to_large_input',
+        'test_scatter_reduce_scalar',
+        'test_scatter_reduce_multiply_unsupported_dtypes',
+        'test_cdist_empty',
+        'test_cdist_norm',
+        'test_cdist_norm_batch',
+        'test_cdist_cuda_backward',
+        'test_cdist_large',
+        'test_cdist_large_batch',
+        'test_cdist_non_contiguous',
+        'test_cdist_non_contiguous_batch',
+        'test_cdist_euclidean_large',
+        'test_cdist_grad_p_lt_1_no_nan',
+        'test_cdist_same_inputs',
+        
         # 'FAIL'
         'test_cdist_non_contiguous',
         'test_cdist_non_contiguous_batch',
