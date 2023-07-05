@@ -18,7 +18,6 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
     runtime/core/device.cpp
     runtime/core/MemChecker.cpp
     runtime/distributed/*.cpp
-    runtime/core/profiler.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
@@ -28,6 +27,7 @@ file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
 )
 
 file(GLOB DIOPI_RT_FILES diopirt/*.cpp)
+file(GLOB PROFILER_FILES profiler/*.cpp)
 
 # vendor src
 add_subdirectory(vendor/${UsedVendor})
@@ -45,6 +45,7 @@ set(SOURCE_FILES
     ${OP_SRC_FILES}
     ${DIOPI_RT_FILES}
     ${VENDOR_FILES}
+    ${PROFILER_FILES}
 )
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})

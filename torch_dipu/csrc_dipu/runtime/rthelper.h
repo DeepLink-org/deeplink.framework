@@ -6,4 +6,3 @@
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
-#include <csrc_dipu/runtime/core/profiler.h>

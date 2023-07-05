@@ -22,7 +22,7 @@ from torch.serialization import register_package
 from .dipu.device import _get_device_index
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
-from .dipu.profiler import dipu_profiler, dipu_kineto_available
+from .profiler.profiler import dipu_profiler, dipu_kineto_available
 
 def validate_dipu_device(location):
     device = _get_device_index(location, True)
