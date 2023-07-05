@@ -455,7 +455,7 @@ public:
 #endif
 };
 
-DIPU_REGISTER_ALLOCATOR("BF", dipu::DIPU_DEVICE_TYPE, DIPUAllocator, BFCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR("BF", dipu::DIPU_DEVICE_TYPE, BFCachingAllocator, 0);
 
 #if 0
 

@@ -22,10 +22,10 @@ namespace dipu {
 
   static void DIPUDeviceAllocatorDeleter(void *ptr);
 
-  class DIPU_API DIPUAllocator : public c10::Allocator
+  class DIPU_API DIPUDeviceAllocator : public c10::Allocator
   {
   public:
-    DIPUAllocator()
+    DIPUDeviceAllocator()
     {
       auto device = devapis::current_device();
       devapis::setDevice(device);

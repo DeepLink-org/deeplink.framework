@@ -49,9 +49,23 @@ struct AllocatorRegisterer {
   }
 };
 
-#define DIPU_REGISTER_ALLOCATOR(name, device_type, RawAllocator, CachingAllocator, priority)        \
+template<c10::DeviceType>
+struct RawAllocator;
+
+template<>
+struct RawAllocator<dipu::DIPU_DEVICE_TYPE> {
+  using type = DIPUDeviceAllocator;
+};
+
+template<>
+struct RawAllocator<at::DeviceType::CPU> {
+  //using type = DIPUHostAllocator;  // TODO: support pin memory
+};
+
+
+#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                      \
   namespace {                                                                                       \
-  static RawAllocator raw_allocator;                                                                \
+  static RawAllocator<device_type>::type raw_allocator;                                             \
   static CachingAllocator cache_allocator(&raw_allocator);                                          \
   static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator, priority);          \
   }
