@@ -1531,7 +1531,14 @@
 
 - schema: "_cdist_backward(Tensor grad, Tensor x1, Tensor x2, float p, Tensor cdist) -> Tensor grad_input"
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(x1.sizes(), grad.options());
+    auto x1_shape = x1.sizes().vec();
+    auto x2_shape = x2.sizes().vec();
+    std::fill(x1_shape.end() - 2, x1_shape.end(), 1);
+    std::fill(x2_shape.end() - 2, x2_shape.end(), 1);
+    auto grad_shape = at::infer_size(x1_shape, x2_shape);
+    *grad_shape.rbegin() = x1.size(-1);
+    *(grad_shape.rbegin() + 1) = x1.size(-2);
+    auto grad_input = at::empty(grad_shape, grad.options());
   interface: diopiCdistBackward(ctx, grad_input, grad, x1, x2, p, cdist)
 
 - schema: "erfinv.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
