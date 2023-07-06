@@ -40,14 +40,14 @@ function autogen_diopi_wrapper() {
 }
 
 function build_diopi_lib() {
-    cd third_party/DIOPI/DIOPI-IMPL
+    cd third_party/DIOPI/impl
     sh scripts/build_impl.sh clean
     sh scripts/build_impl.sh ${DIOPI_IMPL}
     cd -
 }
 
 function build_dipu_lib() {
-    export DIOPI_ROOT=$PWD/third_party/DIOPI/DIOPI-IMPL/lib/
+    export DIOPI_ROOT=$PWD/third_party/DIOPI/impl/lib/
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
 
     autogen_diopi_wrapper
