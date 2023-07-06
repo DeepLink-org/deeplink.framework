@@ -6,6 +6,7 @@ import subprocess as sp
 import time
 import yaml
 import shutil
+import multiprocessing
 
 
 #set some params
@@ -16,7 +17,7 @@ github_job = sys.argv[2]
 slurm_par = sys.argv[3]
 gpu_requests = sys.argv[4]
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
-error_flag = 0 #if encount error
+error_flag = multiprocessing.Value('i',0) #if encount error
 
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)

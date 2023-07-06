@@ -6,13 +6,13 @@ import subprocess as sp
 import pynvml
 import time
 import yaml
-import shutil
+import multiprocessing
 
 
 #set some params
 max_parall = 4
 random_model_num = 4
-error_flag = 0 #if encount error
+error_flag = multiprocessing.Value('i',0) #if encount error
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
 
