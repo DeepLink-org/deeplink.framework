@@ -14,7 +14,7 @@ random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
 gpu_requests = sys.argv[3]
-slurm_par_arg = sys.argv[4]
+slurm_par_arg = sys.argv[4:]
 slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
