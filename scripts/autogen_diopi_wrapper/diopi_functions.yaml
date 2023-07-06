@@ -1239,7 +1239,8 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
-  interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, "bilinear");
+    const char* mode = "bilinear";
+  interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, mode);
 
 - schema: "upsample_nearest2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
   size_attr: [size]
@@ -1265,7 +1266,8 @@
       size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
       size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
     }
-  interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, "bilinear")
+    const char* mode = "bilinear";
+  interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, mode)
 
 - schema: "sin(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
