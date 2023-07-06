@@ -7,7 +7,7 @@ import torch
 from torch_dipu import mockcuda
 from torch_dipu import _C
 __dipu__ = 'dipu'
-__diputype__ = 'privateuseone'
+__diputype__ = 'xpu'
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
 
@@ -50,7 +50,7 @@ class _DIPUDevice(metaclass=_MetaDeviceType):
 torch.device = _DIPUDevice
 
 # wrap device related func
-def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
+def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
     def _replaceDevice(args, kwargs):
         # pos device
         if pos >= 0 and pos < len(args) and (isinstance(args[pos], int)
@@ -71,12 +71,20 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", static_func = False):
     def _proxyFuncStatic(*args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(*args, **kwargs)
-    if static_func:
+    
+    # class __new__ always pass cls parameter to args
+    def _proxyNewClass(cls, *args, **kwargs):
+        args, kwargs = _replaceDevice(args, kwargs)
+        return rawfunc(*args, **kwargs)
+  
+    if caller == "static":
         return _proxyFuncStatic
+    elif caller == "class_new":
+        return _proxyNewClass
     else:
         return _proxyFuncInst
 
-GetTorchFuncProxy = partial(GetDeviceProxy, pos = -1, name = "device", static_func = True)
+GetDeviceStaticProxy = partial(GetDeviceProxy, pos = -1, name = "device", caller = "static")
 
 def _lazy_init():
     pass
@@ -141,7 +149,7 @@ def synchronize(_device=None):
             if :attr:`device` is ``None`` (default).
     """
     _lazy_init()
-    with device(_device):
+    with devicectx(_device):
         return _C._dipu_synchronize()
 
 
@@ -151,7 +159,7 @@ def is_available():
     return device_count() > 0
 
 
-class device(object):
+class devicectx(object):
     r"""Context-manager that changes the selected device.
 
     Arguments:
@@ -176,7 +184,7 @@ class device(object):
         return False
 
 
-class device_of(device):
+class device_of(devicectx):
     r"""Context-manager that changes the current device to that of given object.
 
     You can use both tensors and storages as arguments. If a given object is
