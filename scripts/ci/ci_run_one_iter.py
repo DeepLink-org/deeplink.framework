@@ -23,7 +23,7 @@ print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True
 
 os.environ['DIPU_DUMP_OP_ARGS'] = "0"
 
-os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = 1.0
+os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"
 
 
 def run_cmd(cmd):
