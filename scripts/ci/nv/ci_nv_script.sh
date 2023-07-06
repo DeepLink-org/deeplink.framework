@@ -37,7 +37,7 @@ function autogen_diopi_wrapper() {
 function build_diopi_lib() {
     cd third_party/DIOPI/
     git checkout .
-    cd DIOPI-IMPL
+    cd impl
     RESTORE_PYTHONPATH=$PYTHONPATH
     export PYTHONPATH=$PYTORCH_DIR_110:$PYTHONPATH
     export Torch_DIR=${PYTORCH_DIR_110}/torch/share/cmake
@@ -90,7 +90,7 @@ function build_dipu_lib() {
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
-    patchelf --add-needed $(pwd)/torch_dipu/libtorch_dipu.so third_party/DIOPI/DIOPI-IMPL/lib/libtorch.so.1.10
+    patchelf --add-needed $(pwd)/torch_dipu/libtorch_dipu.so third_party/DIOPI/impl/lib/libtorch.so.1.10
 }
 
 case $1 in
