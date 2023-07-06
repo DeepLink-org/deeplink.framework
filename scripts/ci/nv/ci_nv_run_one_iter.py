@@ -108,7 +108,7 @@ def handle_error(error):
     if p is not None:
         print("Kill all!", flush = True)
         p.terminate()
-    error_flag = 1
+    error_flag.value = 1
 
 if __name__=='__main__':
     curPath = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -147,7 +147,7 @@ if __name__=='__main__':
         print('Waiting for all subprocesses done...', flush = True)
         p.close()
         p.join()
-        if(error_flag != 0):
+        if(error_flag.value != 0):
             exit(1)
         print('All subprocesses done.', flush = True)
     except Exception as e:
