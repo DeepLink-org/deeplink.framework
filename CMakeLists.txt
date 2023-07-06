@@ -66,7 +66,7 @@ include_directories(${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
-set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/DIOPI-PROTO")
+set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
 include_directories(${DIOPI_PROTO_PATH}/include)
 set(DIOPI_IMPL_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/DIOPI-IMPL")
 include_directories(${DIOPI_IMPL_PATH}/third_party/pybind11/include)

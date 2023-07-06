@@ -65,7 +65,7 @@ git submodule update --init --recursive
 # PYTHON_INCLUDE_DIR="/home/$USER/env/py3.8/include/python3.8"
 
 # DIPU_DEVICE设置成厂商在dipu的设备名，即 https://github.com/DeepLink-org/dipu/blob/main/CMakeLists.txt 中的DEVICE_CAMB、DEVICE_ASCEND对应的字符串
-# DIOPI_IMPL设置成厂商在DIOPI_IMPL的实现代号，即 https://github.com/DeepLink-org/DIOPI/blob/main/DIOPI-IMPL/CMakeLists.txt 中的IMPL_CAMB、IMPL_ASCEND等对应的字符串
+# DIOPI_IMPL设置成厂商在DIOPI/impl的实现代号，即 https://github.com/DeepLink-org/DIOPI/blob/main/impl/CMakeLists.txt 中的IMPL_CAMB、IMPL_ASCEND等对应的字符串
 # 示例
 # export DIPU_DEVICE=camb
 # export DIOPI_IMPL=camb
@@ -76,7 +76,7 @@ sh template_build_sh builddp $DIPU_DEVICE $DIOPI_IMPL
 ```
 ### 2.1.4 验证DIPU
 ``` bash
-export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/DIOPI-IMPL/lib
+export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/impl/lib
 export DIPU_ROOT=/home/$USER/code/dipu/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH; 
 export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
@@ -89,10 +89,10 @@ python tests/test_ops/archived/test_tensor_add.py
 
 ### 3.1 算子库接入（请参考DIOPI第三方芯片算子库）
 
-在接入DIPU之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI-PROTO 的声明进行了对应函数的实现，接入 DIOPI-IMPL。通过DIOPI-IMPL，我们可以编译出``libdiopi_impl.so``作为算子库文件
+在接入DIPU之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI的PROTO 声明进行了对应函数的实现，接入 DIOPI的IMPL。通过DIOPI的IMPL，我们可以编译出``libdiopi_impl.so``作为算子库文件
 - 细节可参考 [DIOPI仓库](https://github.com/DeepLink-org/DIOPI)
-- 需要注意的是，在我们进行一致性测试（DIOPI-TEST）时，会在编译时开启``DTEST=ON``，在我们接入DIPU时，编译的算子库应该关闭测试选项，即在cmake阶段使用``DTEST=OFF``
-- 下面是一个 DIOPI-IMPL 中的算子接入样例
+- 需要注意的是，在我们进行一致性测试（diopi_test）时，会在编译时开启``DTEST=ON``，在我们接入DIPU时，编译的算子库应该关闭测试选项，即在cmake阶段使用``DTEST=OFF``
+- 下面是一个 DIOPI的IMPL 中的算子接入样例
 ```c++
 __global__ void softmaxKernel(const float* in, float* out, int64_t outer_dim, int64_t inner_dim, int64_t axis_dim) {
     for (int64_t k = threadIdx.x; k < inner_dim; k += blockDim.x) {
@@ -182,7 +182,7 @@ $ python -c "import torch_dipu"
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                           \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                              \
         --use_diopi_adapter True                                                              \
-        --diopi_adapter_header third_party/DIOPI/DIOPI-PROTO/include/diopi/diopi_adaptors.hpp \
+        --diopi_adapter_header third_party/DIOPI/proto/include/diopi/diopi_adaptors.hpp \
         --autocompare  True                                                                   \
         --print_func_call_info True                                                           \
         --print_op_arg True

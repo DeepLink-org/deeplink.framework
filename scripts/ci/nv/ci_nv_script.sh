@@ -37,7 +37,7 @@ function autogen_diopi_wrapper() {
 function build_diopi_lib() {
     cd third_party/DIOPI/
     git checkout .
-    cd DIOPI-IMPL
+    cd impl
     echo "build_diopi_lib PATH: ${PATH}"
     which cmake
     # sed -i "/option(HIP/a set(Torch_DIR $Torch_DIR)" torch/CMakeLists.txt

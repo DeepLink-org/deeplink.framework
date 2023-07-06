@@ -42,6 +42,7 @@ extern "C" PyObject* initModule() {
   PyObject* module = PyModule_Create(&torchdipu_module);
 
   dipu::exportDIPURuntime(module);
+  dipu::exportProfiler(module);
   return module;
 }
 
