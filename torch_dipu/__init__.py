@@ -20,6 +20,7 @@ from torch_dipu import dipu
 from torch_dipu.dipu import *
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
+from .profiler.profiler import dipu_profiler, dipu_kineto_available
 
 # mock device functions in generated/python_variable_methods.cpp 
 def apply_tensor_method_patch():
@@ -87,11 +88,18 @@ def apply_temp_patch():
     torch.jit.script = script_wrapper
 
 
+def apply_profiler_patch():
+    setattr(torch.profiler, 'kineto_available', dipu_kineto_available)
+    setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
+    torch.profiler.profile = dipu_profiler
+
+
 def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
     apply_dist_patch()
     apply_tensor_type_patch()
+    apply_profiler_patch()
     apply_temp_patch()
 
 
