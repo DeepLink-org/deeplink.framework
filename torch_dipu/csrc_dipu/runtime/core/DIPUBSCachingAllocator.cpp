@@ -4,6 +4,7 @@
 #include "DIPUDeviceAllocator.h"
 #include <stdint.h>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <list>
 #include <deque>
@@ -16,20 +17,22 @@ static void deleteBSContext(void*);
 class BSCachingAllocator: public CacheAllocator {
 
   mutable std::unordered_map<size_t, std::deque<void*>> idel_blocks_;
+  mutable std::set<void*> allocated_;
   mutable std::unordered_map<void*, DIPUEvent> events_;
   mutable size_t idel_blocks_num_ = 0;
   mutable size_t total_blocks_num_ = 0;
   mutable c10::Device device_;
-  using mutex_t = std::recursive_mutex;
+  using mutex_t = std::mutex;
   mutable mutex_t mutex_;
 
 public:
   BSCachingAllocator(c10::Allocator* raw_allocator): CacheAllocator(raw_allocator), device_(c10::DeviceType::CPU) {
-
   }
 
   ~BSCachingAllocator() {
-    empty_cache();
+    while (!allocated_.empty()) {
+      empty_cache();
+    }
   }
 
   size_t getAllocateSize(size_t nbytes) const{
@@ -70,6 +73,7 @@ public:
       ptr = data_ptr.get();
       device_ = data_ptr.device();
       data_ptr.release_context();
+      allocated_.insert(ptr);
       total_blocks_num_++;
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
@@ -109,6 +113,7 @@ public:
         total_blocks_num_--;
         idel_blocks.pop_front();
         events_.erase(ptr);
+        allocated_.erase(ptr);
       }
     }
   }

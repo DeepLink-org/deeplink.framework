@@ -47,7 +47,9 @@ namespace dipu {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       void *data = nullptr;
-      devapis::mallocDevice(&data, nbytes);
+      if (nbytes > 0) {
+        devapis::mallocDevice(&data, nbytes);
+      }
       DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
       MemChecker::instance().insert(data, nbytes);
       return {data, data, &DIPUDeviceAllocatorDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
@@ -55,8 +57,7 @@ namespace dipu {
   };
 
   static void DIPUDeviceAllocatorDeleter(void *ptr) {
-    if (ptr)
-    {
+    if (ptr) {
       MemChecker::instance().erase(ptr);
       DIPU_DEBUG_ALLOCATOR(2, "devapis::freeDevice: free " << ptr);
       devapis::freeDevice(ptr);
