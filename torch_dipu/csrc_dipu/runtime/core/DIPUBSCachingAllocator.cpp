@@ -22,7 +22,7 @@ class BSCachingAllocator: public CacheAllocator {
   mutable size_t idel_blocks_num_ = 0;
   mutable size_t total_blocks_num_ = 0;
   mutable c10::Device device_;
-  using mutex_t = std::mutex;
+  using mutex_t = std::recursive_mutex;
   mutable mutex_t mutex_;
 
 public:
@@ -30,6 +30,7 @@ public:
   }
 
   ~BSCachingAllocator() {
+    // The allocator cannot be destructed before all tensors are destructed
     while (!allocated_.empty()) {
       empty_cache();
     }
