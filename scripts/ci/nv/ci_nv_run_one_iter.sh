@@ -2,10 +2,6 @@
 
 export DIPU_DUMP_OP_ARGS=1
 
-pip install pyquaternion
-pip install trimesh
-pip install lyft_dataset_sdk
-
 #创建一个二维的列表，分别为train文件位置，配置文件位置，workdir位置和可选参数
 original_list=(
     # # mmpretrain
@@ -101,8 +97,8 @@ for ((i=0; i<$random_model_num; i++)); do
         mkdir -p "$ONE_ITER_TOOL_STORAGE_PATH"
         echo "make dir"
     fi
-    srun --job-name=${job_name} -p ${partition} --gres=gpu:${gpu_request} sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
-    srun --job-name=${job_name} -p ${partition} --gres=gpu:${gpu_request} sh SMART/tools/one_iter_tool/compare_one_iter.sh
+    srun --job-name=${job_name} -p ${partition} --gres=gpu:${gpu_request} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/run_one_iter.sh ${train_path} ${config_path} ${work_dir} ${opt_arg}
+    srun --job-name=${job_name} -p ${partition} --gres=gpu:${gpu_request} --cpus-per-task=5 sh SMART/tools/one_iter_tool/compare_one_iter.sh
     echo  "after add place row $i"  1>&796
     touch "$pid.done"
 

@@ -1,3 +1,4 @@
+#!/bin/bash
 
 function clone_needed_repo() {
     # clone some repositories

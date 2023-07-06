@@ -261,7 +261,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
@@ -278,7 +278,7 @@ jobs:
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-POC-Cuda-Diopi
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-POC-Cuda-Diopi \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
