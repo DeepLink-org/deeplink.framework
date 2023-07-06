@@ -71,10 +71,10 @@ def process_one_iter(model_info):
 
     github_job_name = github_job+"_"+p2
 
-    cmd1 = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-    cmd2 = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
-    run_cmd(cmd1)
-    run_cmd(cmd2)
+    cmd_run_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+    cmd_cp_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    run_cmd(cmd_run_one_iter)
+    run_cmd(cmd_cp_one_iter)
 
     end_time = time.time()
     run_time = round(end_time - begin_time)

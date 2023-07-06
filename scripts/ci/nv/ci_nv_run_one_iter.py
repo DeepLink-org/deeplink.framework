@@ -83,13 +83,13 @@ def process_one_iter(q,model_info):
     print("cardnum:{},model:{},cur_card_free:{}".format(available_card, p2, cur_gpu_free), flush = True)
 
     if(p2 == "configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
-        cmd = "CUDA_VISIBLE_DEVICES={} sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh".format(available_card)
-        run_cmd(cmd)
+        cmd_run_cp = "CUDA_VISIBLE_DEVICES={} sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh".format(available_card)
+        run_cmd(cmd_run_cp)
     else:
-        cmd1 = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(available_card, train_path, config_path, work_dir, opt_arg)
-        cmd2 = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(available_card)
-        run_cmd(cmd1)
-        run_cmd(cmd2)
+        cmd_run_one_iter = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(available_card, train_path, config_path, work_dir, opt_arg)
+        cmd_cp_one_iter = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(available_card)
+        run_cmd(cmd_run_one_iter)
+        run_cmd(cmd_cp_one_iter)
 
     end_time = time.time()
     run_time = round(end_time - begin_time)
