@@ -68,7 +68,7 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 
   DIPU CPP层适配的 ATen 算子对应的是分派过程中最底层（*backend*层） 的算子或者 *composite* 层里等效为 *backend* 的算子。
 
-  这里面有一定的灵活性，以``Linear``算子为例，在 PyTorch 的 ``cpu/cuda`` 设备上，它被实现为一个 ``composite`` 算子，实际的 *backend* 层算子是组合算子内部调用的 ``addmm`` 或者更底层的 ``mm``。 而在 DIPU (``privateuse1``) 设备中，目前是注册了 一个 ``Linear`` 算子 ( DIOPI 有这个算子 ) 来替代组合算子，所以分派会直接走到新的 *backend* 层算子 ``Linear`` ，而不会在调用原来的 ``addmm/mm``。但是如果对应设备的 DIOPI-Impl 算子库 没有实现 ``diopiLinear`` 而是实现了 ``mm`` 算子，也是可以正常走通 ``Linear`` 的调用流程的。
+  这里面有一定的灵活性，以``Linear``算子为例，在 PyTorch 的 ``cpu/cuda`` 设备上，它被实现为一个 ``composite`` 算子，实际的 *backend* 层算子是组合算子内部调用的 ``addmm`` 或者更底层的 ``mm``。 而在 DIPU (``privateuse1``) 设备中，目前是注册了 一个 ``Linear`` 算子 ( DIOPI 有这个算子 ) 来替代组合算子，所以分派会直接走到新的 *backend* 层算子 ``Linear`` ，而不会在调用原来的 ``addmm/mm``。但是如果对应设备的 DIOPI 的 IMPL 算子库 没有实现 ``diopiLinear`` 而是实现了 ``mm`` 算子，也是可以正常走通 ``Linear`` 的调用流程的。
 
 ### 无侵入式的 PyTorch 扩展包:
   DIPU 没有直接修改 PyTorch 的代码，而是使用 out-of-tree 的方式接入新设备，详见[参考文档](https://pytorch.org/tutorials/advanced/extend_dispatcher.html)。
