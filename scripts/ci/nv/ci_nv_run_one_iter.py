@@ -83,7 +83,7 @@ def process_one_iter(q,model_info):
     print("cardnum:{},model:{},cur_card_free:{}".format(available_card, p2, cur_gpu_free), flush = True)
 
     if(p2 == "configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
-        cmd = "CUDA_VISIBLE_DEVICES={} python mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py".format(available_card)
+        cmd = "CUDA_VISIBLE_DEVICES={} sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh".format(available_card)
         run_cmd(cmd)
     else:
         cmd1 = "CUDA_VISIBLE_DEVICES={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(available_card, train_path, config_path, work_dir, opt_arg)
