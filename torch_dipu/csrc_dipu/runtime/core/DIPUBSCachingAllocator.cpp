@@ -56,7 +56,7 @@ public:
         ptr = temp_ptr;
         DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: reuse " << size << " bytes, ptr:" << ptr << ",block size:" << nbytes << ",allocator:" << this << ",find_count:" << find_count << "/" << max_find_count << ", event num:" << events_.size() << ",idel_blocks_num_:" << idel_blocks_num_ << ",total_blocks_num_" << total_blocks_num_);
         idel_blocks_num_--;
-        if (idel_blocks_num_ > 16) {
+        if (events_.size() > 64) {
           recycleEvent();
         }
         break;
