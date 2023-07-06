@@ -5,19 +5,28 @@
 #include <c10/core/Device.h>
 #include "DIPUDeviceAllocator.h"
 #include "DIPUHostAllocator.h"
+#include "DIPUAsyncResoursePool.h"
 #include "DIPUEvent.h"
 
 #include "DIPUStream.h"
 #include <map>
+#include <list>
 
 namespace dipu {
 
+using AsyncMemPool = AsyncResoursePool<std::tuple<void*, size_t>>;
+
 class DIPU_API CacheAllocator: public c10::Allocator {
   c10::Allocator* raw_allocator_ = nullptr;
+  AsyncMemPool* async_mem_pool_ = nullptr;
 
   protected:
     c10::Allocator* raw_allocator() const {
       return raw_allocator_;
+    }
+
+    AsyncMemPool* async_mem_pool() const {
+       return async_mem_pool_;
     }
 
     void* allocate_raw(size_t n) {
@@ -29,8 +38,16 @@ class DIPU_API CacheAllocator: public c10::Allocator {
     }
 
   public:
-    explicit CacheAllocator(c10::Allocator* raw_allocator):raw_allocator_(raw_allocator) {
-      TORCH_CHECK(raw_allocator_);
+    CacheAllocator() {
+
+    }
+
+    void set_raw_allocator(c10::Allocator* raw_allocator) {
+      raw_allocator_ = raw_allocator;
+    }
+
+    void set_async_mem_pool(AsyncMemPool* async_mem_pool) {
+      async_mem_pool_ = async_mem_pool;
     }
 
     virtual ~CacheAllocator() {
@@ -63,11 +80,17 @@ struct RawAllocator<at::DeviceType::CPU> {
 };
 
 
-#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                      \
-  namespace {                                                                                       \
-  static RawAllocator<device_type>::type raw_allocator;                                             \
-  static CachingAllocator cache_allocator(&raw_allocator);                                          \
-  static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator, priority);          \
+#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                                   \
+  namespace {                                                                                                    \
+  static RawAllocator<device_type>::type raw_allocator;                                                          \
+  static AsyncResoursePoolImpl<std::tuple<void*, size_t>, device_type, priority>  asyncMemPool;                  \
+  static CachingAllocator cache_allocator;                                                                       \
+  static int n = [&](){                                                                                          \
+    cache_allocator.set_raw_allocator(&raw_allocator);                                                           \
+    cache_allocator.set_async_mem_pool(&asyncMemPool);                                                           \
+    return 0;                                                                                                    \
+  }();                                                                                                           \
+  static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator,  priority);                      \
   }
 
 

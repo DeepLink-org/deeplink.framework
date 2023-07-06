@@ -387,7 +387,7 @@ private:
 
 
 public:
-  BFCachingAllocator(c10::Allocator* raw_allocator): CacheAllocator(raw_allocator) {
+  BFCachingAllocator() {
     // Avoid zero index later
     newChunk(nullptr, 0, 0);
   }

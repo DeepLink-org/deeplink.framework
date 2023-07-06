@@ -59,4 +59,7 @@ c10::Allocator*  getAllocator(c10::DeviceType device_type) {
   return nullptr;
 }
 
+
+
+
 }  // namespace dipu

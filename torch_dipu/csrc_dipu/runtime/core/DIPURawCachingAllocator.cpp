@@ -12,7 +12,7 @@ static void RawCachingAllocatorDeleter(void *ptr) {
 
 class RawCachingAllocator: public CacheAllocator {
 public:
-  RawCachingAllocator(c10::Allocator* raw_allocator): CacheAllocator(raw_allocator) {
+  RawCachingAllocator() {
 
   }
 
