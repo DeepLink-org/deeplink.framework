@@ -212,7 +212,8 @@ jobs:
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Camb/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
-          sh ../scripts/ci/camb/ci_camb_run_one_iter.sh ${GITHUB_JOB} ${CAMB_SLURM_PAR} ${MLU_REQUESTS} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} ${CAMB_SLURM_PAR} "mlu:${MLU_REQUESTS}" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
   
   Build-POC-Cuda:
@@ -312,5 +313,5 @@ jobs:
           basic_path=${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-POC-Cuda/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
           cd mmlab_pack
-          sh ../scripts/ci/nv/ci_nv_run_one_iter.sh ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${GPU_REQUESTS} ${SH1988_SLURM_PAR} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} ${GPU_REQUESTS} "gpu:${SH1988_SLURM_PAR}" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)

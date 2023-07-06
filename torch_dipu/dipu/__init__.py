@@ -7,6 +7,7 @@ from .random_dipu import *
 from .memory import *
 from .streams import *
 from .tensor import *
+from .storages import *
 
 # DIPU need follow api in https://pytorch.org/docs/stable/cuda.html, but shoudln't appear name
 # as "gpu" or "cuda" (mock cuda is another problem)
@@ -22,7 +23,7 @@ __all__ = [
     # device 
     "can_device_access_peer",  "current_device",  "device", "device_count", "device_of", "synchronize",
     "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
-    "GetDeviceProxy", "GetTorchFuncProxy", "diputype", "vendor_type",
+    "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
 
     # stream
     "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event",

@@ -9,7 +9,7 @@ from torch.types import _int
 from torch_dipu import _C
 from .utils import _dummy_type
 from .device import _get_device_index, _lazy_init
-from .device import device as dipu_device
+from .device import devicectx
 if not hasattr(_C, '_DIPUStreamBase'):
     # Define dummy base classes
     torch._C.__dict__['_DIPUStreamBase'] = _dummy_type('_DIPUStreamBase')
@@ -36,7 +36,7 @@ class Stream(_C._DIPUStreamBase):
         if device is None or ("stream_id" in kwargs and "device_index" in kwargs):
             super(Stream, self).__init__(priority=priority, **kwargs)
         else:
-            with dipu_device(device):
+            with devicectx(device):
                 super(Stream, self).__init__(priority=priority, **kwargs)
         return
 
@@ -186,7 +186,7 @@ class StreamContext:
         # If the stream is not on the current device, then
         # set the current stream on the device
         if self.src_prev_stream.device != cur_stream.device:
-            with dipu_device(cur_stream.device):
+            with devicectx(cur_stream.device):
                 self.dst_prev_stream = current_stream(cur_stream.device)
         set_stream(cur_stream)
 
