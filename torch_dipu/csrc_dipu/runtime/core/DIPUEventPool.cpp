@@ -1,5 +1,5 @@
 #include "DIPUEventPool.h"
-#include <list>
+#include <deque>
 #include <mutex>
 #include <functional>
 #include <iostream>
@@ -9,7 +9,7 @@ namespace dipu {
 template<typename T>
 class EventPool final {
 protected:
-    std::list<T> event_pool_;
+    std::deque<T> event_pool_;
     unsigned int allocate_num_ = 0;
 
     std::function<void(T&)> allocator_;

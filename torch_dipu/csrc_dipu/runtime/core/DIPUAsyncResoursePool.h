@@ -2,7 +2,7 @@
 #pragma once
 
 #include <mutex>
-#include <list>
+#include <deque>
 #include <tuple>
 #include "DIPUEvent.h"
 
@@ -14,6 +14,7 @@ public:
     virtual void add(const T& t) = 0;
     virtual T get() = 0;
     virtual bool ready() = 0;
+    virtual size_t size() = 0;
 };
 
 
@@ -23,7 +24,7 @@ class AsyncResoursePoolImpl: public AsyncResoursePool<T>{
 
 template<class T, int algorithm>
 class AsyncResoursePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncResoursePool<T>{
-  std::list<T> list_;
+  std::deque<T> list_;
   using mutex_t = std::mutex;
   mutex_t mutex_;
   public:
@@ -43,12 +44,16 @@ class AsyncResoursePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncReso
       std::lock_guard<mutex_t> lk(mutex_);
       return !list_.empty();
     }
+
+    size_t size() override {
+        return list_.size();
+    }
 };
 
 template<class T, int algorithm>
 class AsyncResoursePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResoursePool<T>{
     using Res = std::tuple<T, DIPUEvent>;
-    std::list<Res> list_;
+    std::deque<Res> list_;
     using mutex_t = std::mutex;
     mutex_t mutex_;
   public:
@@ -68,6 +73,10 @@ class AsyncResoursePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public Async
     bool ready() override {
       std::lock_guard<mutex_t> lk(mutex_);
       return (!list_.empty()) && (std::get<1>(list_.front())).query();
+    }
+
+    size_t size() override {
+        return list_.size();
     }
 };
 

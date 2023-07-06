@@ -44,6 +44,7 @@ public:
 
   c10::DataPtr allocate(size_t size) const override{
     const size_t nbytes = getAllocateSize(size);
+    flush_mem_pool();
     std::lock_guard<mutex_t> lk(mutex_);
     void* ptr = nullptr;
     auto& idel_blocks = idel_blocks_[nbytes];
@@ -88,6 +89,14 @@ public:
     }
   }
 
+  void flush_mem_pool() const {
+    std::lock_guard<mutex_t> lk(mutex_);
+     while (async_mem_pool()->ready()) {
+        auto mem = async_mem_pool()->get();
+        restore(std::get<1>(mem), std::get<0>(mem));
+      }
+  }
+
   struct Context {
     void* ptr_;
     size_t size_;
@@ -95,13 +104,10 @@ public:
     Context(void* ptr, size_t size, const BSCachingAllocator* allocator):ptr_(ptr), size_(size), allocator_(allocator) {
 
     }
-    
+
     ~Context() {
       allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_));
-      while (allocator_->async_mem_pool()->ready()) {
-        auto mem = allocator_->async_mem_pool()->get();
-        allocator_->restore(std::get<1>(mem), std::get<0>(mem));
-      }
+      allocator_->flush_mem_pool();
     }
   };
 
