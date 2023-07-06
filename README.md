@@ -93,18 +93,6 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 
 更多信息请参考：[dipu/tests](https://github.com/DeepLink-org/dipu/tree/main/tests)
 
-
-## 应用行业
-#### 1. 对硬件行业：
-
-实现软硬件解耦，根本性的破除生态壁垒。仅适配算子即可使用 PyTorch 最新版本的多种能力。
-
-#### 2. 对应用行业：
-
-实现主流框架与芯片高效适配，极大降低算力使用门槛，激活算力使用需求。
-融入 Torch 软件大生态，海量的优秀算法框架，让模型训练更简单。比如基于 DIPU，无需修改模型即可支持在不同的国产化设备上运行 ``mmcv`` 系列模型。理论上也可以支持其他模型在最少量修改后运行在多产国产硬件上。
-
-
 ## Learn More
 
 * [使用/设备接入教学](https://github.com/DeepLink-org/dipu/blob/main/SOP.md)
