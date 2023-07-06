@@ -1911,8 +1911,7 @@ class AscendOverrides:
                              .set_attr_dst_type({ascend_dtype});
             '''
             x_names.append(f'{name}_cast_{i}')
-            import pdb;pdb.set_trace()
-        src_code = f"""auto {name} = op::ConcatD("{name}")
+        src_code += f"""auto {name} = op::ConcatD("{name}")
                          .create_dynamic_input_x({x_size})"""
         
         for i, x in enumerate(x_names):
