@@ -59,7 +59,7 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
   3. DIPU 拥有一定的模拟 CUDA 接口的能力。简单来说就是在 Python 层 用前面 DIPU 设备层的接口来替换 ``torch.cuda`` 的同名接口。 
 
 
-  后面另有规划 DIPU 的配置化接口等能力，可以为不同的 *Vendor* 输入不同配置。以配置驱动的方式来指导 *Runtime* 和 DIOPI 算子适配流程的构建。
+  后面另有规划 DIPU 的配置化接口等能力，可s以为不同的 *Vendor* 输入不同配置。以配置驱动的方式来指导 *Runtime* 和 DIOPI 算子适配流程的构建。
 
 ## 相关功能介绍:
 ### Dispatch 机制与 DIOPI 算子库
@@ -81,7 +81,7 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 
 
 ### 算子适配能力
-  为了更好的接入 DIOPI 算子，DIPU 提供了一组 算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力，算子精度自动对比的能力（对比 DIOPI 算子 和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。 相关能力的具体说明参见 [SOP 文档](https://github.com/DeepLink-org/dipu/blob/main/SOP.md)的 *算子库接入*。
+  为了更好的接入 DIOPI 算子，DIPU 提供了一组 算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力，算子精度自动对比的能力（对比 DIOPI 算子 和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。 相关能力的具体说明参见 [Quick Start 文档](https://github.com/DeepLink-org/dipu/blob/main/QuickStart.md)的 *算子库接入*。
 
 
 ## 质量保障体系
@@ -95,6 +95,6 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 
 ## Learn More
 
-* [使用/设备接入教学](https://github.com/DeepLink-org/dipu/blob/main/SOP.md)
+* [使用/设备接入教学](https://github.com/DeepLink-org/dipu/blob/main/QuickStart.md)
 * [常见问题](https://github.com/DeepLink-org/dipu/blob/main/FAQ.md)
 * [开发者指南](https://github.com/DeepLink-org/dipu/blob/main/Contributors.md)
