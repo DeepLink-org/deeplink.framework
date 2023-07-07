@@ -10,7 +10,7 @@ export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
 
-export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib/
+export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTHONPATH}
@@ -21,7 +21,7 @@ export PYTHON_INCLUDE_DIR="/mnt/lustre/share/platform/env/miniconda3.8/envs/dipu
 
 export NEUWARE_ROOT_DIR=${NEUWARE_HOME}
 export VENDOR_INCLUDE_DIRS=${NEUWARE_HOME}/include
-export DIOPI_PATH=$(pwd)/third_party/DIOPI/DIOPI-PROTO
+export DIOPI_PATH=$(pwd)/third_party/DIOPI/proto
 export DIPU_PATH=${DIPU_ROOT}
 
 export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fixed
