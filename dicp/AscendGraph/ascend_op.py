@@ -661,7 +661,15 @@ class Slice(Operator):
         self.end = end
         self.step = step
         self.torch_op = aten.slice
-        
+
+
+class Stack(Operator):
+    def __init__(self, x, dim):
+        super().__init__("stack")
+        self.x = x
+        self.dim = dim
+        self.torch_op = aten.stack
+
 
 class Cat(Operator):
     def __init__(self, x, dim=0):

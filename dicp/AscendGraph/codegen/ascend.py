@@ -89,9 +89,9 @@ def process_shape_str(shape_str, name, suffix=""):
             if len(pattern) > 0:
                 shape_str = '{' + ','.join(map(str, pattern)) + '}'
                 src_code += f"""
-                                auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                                auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                                  .set_attr_value({name}_dim_tensor_{count});
+                                auto {name}_dim_tensor_{suffix}{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
+                                auto {name}_dim_{suffix}{count} = op::Const("{name}_dim_{suffix}{count}")
+                                  .set_attr_value({name}_dim_tensor_{suffix}{count});
                             """
                 pattern = []
                 count += 1
@@ -102,12 +102,12 @@ def process_shape_str(shape_str, name, suffix=""):
 
             #!TODO deal with more complicated expressions
             if '-' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '-')
+                src_code += simple_operation(elem, name+'_dim_'+suffix+str(count), '-')
             elif '+' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '+')
+                src_code += simple_operation(elem, name+'_dim_'+suffix+str(count), '+')
             else:
                 src_code += f"""
-                                auto& {name}_dim_{count} = {elem};
+                                auto& {name}_dim_{suffix}{count} = {elem};
                              """
             count += 1
         else:
@@ -116,9 +116,9 @@ def process_shape_str(shape_str, name, suffix=""):
     if len(pattern) > 0:
         shape_str = '{' + ','.join(map(str, pattern)) + '}'
         src_code += f"""
-                        auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                        auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                          .set_attr_value({name}_dim_tensor_{count});
+                        auto {name}_dim_tensor_{suffix}{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
+                        auto {name}_dim_{suffix}{count} = op::Const("{name}_dim_{suffix}{count}")
+                          .set_attr_value({name}_dim_tensor_{suffix}{count});
                     """
     else:
         count -= 1
@@ -130,7 +130,7 @@ def process_shape_str(shape_str, name, suffix=""):
                 """
     for i in range(count):
         src_code += f"""
-                        .set_dynamic_input_x({i}, {name}_dim_{i})
+                        .set_dynamic_input_x({i}, {name}_dim_{suffix}{i})
                     """
     src_code += f"""
                         .set_attr_concat_dim(0)
@@ -1827,6 +1827,23 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
+    def stack(name, x, dim):
+        x_list = x.strip('{}').split(', ')
+
+        src_code = f"""auto {name} = op::Pack("{name}")
+                           .create_dynamic_input_x({len(x_list)})
+                    """
+        for idx, item in enumerate(x_list):
+            src_code += f"""
+                            .set_dynamic_input_x({idx}, {item})
+                         """
+        src_code += f"""
+                        .set_attr_axis({dim})
+                        .set_attr_N({len(x_list)});
+                     """
+        return src_code
+
+    @staticmethod
     def slice(name, node, x, dim, start, end):
         # TODO(tangzhiyi): miss step parameter
         x_shape = list(node.target.x.node.meta['val'].shape)
@@ -1929,7 +1946,7 @@ class AscendOverrides:
         index = int(index)
         
         assert dim >= 0 and dim < len(x_shape)
-        start = index + x_shape[dim]
+        start = index if index >= 0 else index + x_shape[dim]
         end = start + 1
         offset = [0] * len(x_shape)
         offset[dim] = start
@@ -1965,13 +1982,19 @@ class AscendOverrides:
                            .set_input_x({x})
                            .set_input_offsets({name}_preprocess_offset)
                            .set_input_size({name}_preprocess_size);
-                       
-                       auto {name}_reshape_tensor = genTensorWithData<int>({y_shape_size}, FORMAT_ND, DT_INT32, {y_shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
+                    """
 
-                       auto {name} = op::Reshape("{name}")
-                         .set_input_x({name}_slice)
-                         .set_input_shape({name}_reshape);
-                       """
+        if dynamic_shape_str(y_shape_str):
+            src_code += process_shape_str(y_shape_str, name, '_reshape')
+        else:
+            src_code += f"""
+                            auto {name}_reshape_tensor = genTensorWithData<int>({y_shape_size}, FORMAT_ND, DT_INT32, {y_shape_str});
+                            auto {name}_preprocess_reshape = op::Const("{name}_preprocess_reshape")
+                                .set_attr_value({name}_reshape_tensor);
+                        """
+        src_code += f"""
+                        auto {name} = op::Reshape("{name}")
+                            .set_input_x({name}_slice)
+                            .set_input_shape({name}_preprocess_reshape);
+                    """
         return src_code
