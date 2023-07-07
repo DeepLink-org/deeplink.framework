@@ -34,6 +34,7 @@ public:
   ~BSCachingAllocator() {
     // The allocator cannot be destructed before all tensors are destructed
     while (!allocated_.empty()) {
+      flush_mem_pool();
       empty_cache();
     }
   }
