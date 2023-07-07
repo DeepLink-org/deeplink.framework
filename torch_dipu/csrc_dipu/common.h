@@ -89,13 +89,17 @@ typedef enum {
 
 } // end ns devapis
 
-const auto DIPU_DEVICE_TYPE = at::DeviceType::PrivateUse1;
 
-const auto DIPU_DISPATCH_KEY = c10::DispatchKey::PrivateUse1;
-const auto DIPU_DISPATCH_AUTOGRAD_KEY = c10::DispatchKey::AutogradPrivateUse1;
+// XPU is originally intel output-of-tree code https://github.com/intel/intel-extension-for-pytorch ( branch xpu-master )
+// we use this type but PrivateUse1 not to impersonate our DIPU device. because compared with PrivateUse1,
+// XPU has richer support in pytorch trunk and not too much feature in torch to interfere our logic (as XLA).
+const auto DIPU_DEVICE_TYPE = at::DeviceType::XPU;
+
+const auto DIPU_DISPATCH_KEY = c10::DispatchKey::XPU;
+const auto DIPU_DISPATCH_AUTOGRAD_KEY = c10::DispatchKey::AutogradXPU;
 
 
-const auto DIPU_Backend_TYPE = c10::Backend::PrivateUse1;
+const auto DIPU_Backend_TYPE = c10::Backend::XPU;
 
 const auto DICL_BACKEND_NAME = "dicl";
 
@@ -103,6 +107,6 @@ DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 
 } // end ns dipu
 
-#define DIPU_DEVICE_TYPE_MACRO PrivateUse1
-#define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO AutogradPrivateUse1
+#define DIPU_DEVICE_TYPE_MACRO XPU
+#define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO AutogradXPU
 

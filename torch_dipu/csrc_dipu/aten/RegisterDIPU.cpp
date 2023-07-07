@@ -3,8 +3,10 @@
 #include <regex>
 #include <iostream>
 #include <c10/util/Exception.h>
+#include <ATen/core/op_registration/adaption.h>
 
 #include <csrc_dipu/common.h>
+#include <csrc_dipu/profiler/profiler.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -82,58 +84,69 @@ namespace {
         c10::optional<at::Layout> layout_opt,
         c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt,
         c10::optional<at::MemoryFormat> memory_format_opt) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const DeviceGuard device_guard(device_or_default(device_opt));
     return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt, memory_format_opt);
   }
 
   at::Tensor wrapper_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const DeviceGuard device_guard(device_or_default(device_opt));
     return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
   }
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return dnative::copy_(self, src, non_blocking);
   }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::_reshape_alias(self, C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride));
   }
 
   // only used by cpu_fallback.
   at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor & self, const at::Tensor& dst) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     dst.resize_as_(self).copy_(self);
     return dst;
   }
 
   const at::Tensor& wrapper_resize_(const at::Tensor& self, at::IntArrayRef size, c10::optional<at::MemoryFormat> memory_format) {
     // add guard for device switch.
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return dnative::resize_(self, size, memory_format);
   }
 
   at::Tensor wrapper_DIPU__as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
       // No device check
     // DeviceGuard omitted
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::as_strided_tensorimpl(self, C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride), storage_offset.has_value() ? c10::make_optional(storage_offset->expect_int()) : c10::nullopt);
   }
 
   at::Tensor wrapper_DIPU__view(const at::Tensor & self, c10::SymIntArrayRef size) {
     // No device check
     // DeviceGuard omitted
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
   }
 
   at::Tensor wrapper_DIPU__view_as_real(const at::Tensor & self) {
     // DeviceGuard omitted
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::view_as_real(self);
   }
 
   at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor & self) {
     // DeviceGuard omitted
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::view_as_complex(self);
   }
 
   at::Tensor & wrapper_DIPU__zero_(at::Tensor & self) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return at::native::zero_(self);
   }
@@ -143,15 +156,54 @@ namespace {
   at::Tensor wrapper_DIPU__unfold(const at::Tensor & self, int64_t dimension, int64_t size, int64_t step) {
     // No device check
     // DeviceGuard omitted
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     return at::native::unfold(self, dimension, size, step);
   }
 
   at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor & self) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_local_scalar_dense_dipu(self);
   }
 
+  at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self, at::Storage source) {
+    // No device check
+    // DeviceGuard omitted
+    int64_t new_size = static_cast<int64_t>(source.nbytes() / self.dtype().itemsize());
+    return dnative::set_storage_dipu_(self, std::move(source), 0, new_size, {});
+  }
+
+  at::Tensor& wrapper_DIPU_source_Storage_offset_set_(at::Tensor& self, at::Storage source, c10::SymInt storage_offset, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
+    // No device check
+    // DeviceGuard omitted
+    return dnative::set_storage_dipu_(self, source, storage_offset.expect_int(), C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride));
+  }
+
+  at::Tensor & wrapper_DIPU_source_Tensor_set_(at::Tensor& self, const at::Tensor & source) {
+    // No device check
+    // DeviceGuard omitted
+    if (self.unsafeGetTensorImpl() != source.unsafeGetTensorImpl()) {
+      return dnative::set_storage_dipu_(self, source.storage(), source.storage_offset(), source.sizes(), source.strides());
+    }
+    return self;
+  }
+
+  at::Tensor& wrapper_DIPU__set_(at::Tensor & self) {
+    c10::optional<Device> common_device = nullopt;
+    (void)common_device; // Suppress unused variable warning
+    c10::impl::check_and_update_common_device(common_device, self, "wrapper_DIPU__set_", "self");
+    const OptionalDeviceGuard device_guard(device_of(self));
+    return dnative::set_dipu_(self);
+  }
+
+  bool wrapper_DIPU__is_set_to(const at::Tensor& self, const at::Tensor& tensor) {
+    // No device check
+    // DeviceGuard omitted
+    return at::native::is_set_to(self, tensor);
+  }
+
   bool wrapper_BackendSelect_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
       // Only CPU tensors can be pinned
     if (!self.is_cpu()) {
       return false;
@@ -162,17 +214,20 @@ namespace {
   }
 
   at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     TORCH_CHECK(self.device().is_cpu(), "cannot pin '", self.toString(), "' only dense CPU tensors can be pinned");
     c10::DispatchKeySet dk = c10::DispatchKeySet(c10::computeDispatchKey(c10::nullopt, self.layout(), device.value_or(dipu::DIPU_DEVICE_TYPE)));
     return at::_ops::_pin_memory::redispatch(dk, self, device);
   }
 
   bool wrapper_DIPU_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::is_pinned(self, device);
   }
 
   at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_pin_memory(self, device);
   }
@@ -184,12 +239,10 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
 }
 
-// c10d ops (eg： allreduce) needs this fallback reg, cpu/cuda also register this key's fallback in VariableFallbackKernel.cpp.
-// this reg shouldn't affect (todo: need futher test) existing aten ops autograd fallback op, because they reg specialized autogradNotImplementedFallback
-// in generated/VariableTypeEverything.cpp for Autograd which has high priority. (todo: if affect, change to reg fallback only on c10d op)
-TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
-  m.fallback(torch::CppFunction::makeFallthrough());
-}
+// Change to use XPU which already register this fallback in ATen/core/VariableFallbackKernel.cpp
+// TORCH_LIBRARY_IMPL(_, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+//   m.fallback(torch::CppFunction::makeFallthrough());
+// }
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
@@ -206,6 +259,11 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("zero_", TORCH_FN(wrapper_DIPU__zero_));
   m.impl("unfold", TORCH_FN(wrapper_DIPU__unfold));
   m.impl("_local_scalar_dense", TORCH_FN(wrapper_DIPU___local_scalar_dense));
+  m.impl("set_.source_Storage", TORCH_FN(wrapper_DIPU_source_Storage_set_));
+  m.impl("set_.source_Storage_storage_offset", TORCH_FN(wrapper_DIPU_source_Storage_offset_set_));
+  m.impl("set_.source_Tensor", TORCH_FN(wrapper_DIPU_source_Tensor_set_));
+  m.impl("set_", TORCH_FN(wrapper_DIPU__set_));
+  m.impl("is_set_to", TORCH_FN(wrapper_DIPU__is_set_to));
   m.impl("is_pinned", TORCH_FN(wrapper_DIPU_is_pinned));
   m.impl("_pin_memory", TORCH_FN(wrapper_DIPU__pin_memory));
 }

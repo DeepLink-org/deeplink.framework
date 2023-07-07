@@ -6,7 +6,7 @@
 
 using namespace dipu;
 void testcopy() {
-  torch::Device device(torch::kPrivateUse1);
+  torch::Device device(DIPU_DEVICE_TYPE);
   auto option1 = torch::dtype(c10::ScalarType::Double);
 
   torch::Tensor t1 = torch::ones({3, 6}, option1);
@@ -25,7 +25,7 @@ void testcopy() {
 
 void testDeviceSwitch() {
   devapis::setDevice(2);
-  torch::Device device(torch::kPrivateUse1);
+  torch::Device device(DIPU_DEVICE_TYPE);
   auto option1 = torch::dtype(c10::ScalarType::Float);
   torch::Tensor t1 = torch::ones({3, 6}, option1);
   t1 = t1.to(device);
@@ -37,7 +37,7 @@ void testDeviceSwitch() {
   stream2 = getDIPUStreamFromPool();
   setCurrentDIPUStream(stream2);
 
-  device = torch::Device(torch::kPrivateUse1);
+  device = torch::Device(DIPU_DEVICE_TYPE);
   torch::Tensor t2 = torch::ones({3, 6}, option1);
   t2 = t2.to(device);
   std::cout << t2 << std::endl;
