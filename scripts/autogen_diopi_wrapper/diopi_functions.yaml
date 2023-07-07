@@ -452,7 +452,7 @@
     if (output_mask[1]) {
       grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     }
-    if (output_mask[2] || 1) {
+    if (output_mask[2]) {
         c10::IntArrayRef bias_size = { grad_output.size(1) };
         grad_bias = at::empty(bias_size, grad_output.options());
     }
