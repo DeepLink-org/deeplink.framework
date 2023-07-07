@@ -299,7 +299,6 @@ class AscendCodegen(torch.fx.Interpreter):
             f"""
                 from ctypes import c_void_p, c_long
                 import torch
-                import torch_dipu
                 import random
                 from torch import empty_strided, as_strided, device
                 from dicp.AscendGraph.compile import AsyncCompileAscend
@@ -354,18 +353,18 @@ class AscendCodegen(torch.fx.Interpreter):
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
+        call_body.writeline(f"args.clear()")
 
-        call_str = [f'output_tensor = kernel_cpp_0(args)']
+        call_str = [f'output_np = kernel_cpp_0(inputs_data, dims)']
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
-                call_str.append(f'{name} = output_tensor[{i}]')
+                call_str.append(f'{name} = torch.from_numpy(output_np[{i}])')
             else:
                 call_str.extend([f'del {name}',
-                                 f'{name} = int(output_tensor[{i}])'])
+                                 f'{name} = int(output_np[{i}])'])
         call_body.writelines(call_str)
         del_args = [f'del ' + x for x in self.args if x not in self.output_names]
         call_body.writelines(del_args)
-        call_body.writeline(f"args.clear()")
         call_body.writeline(f"return ({', '.join(self.output_names)})")
 
         call_func = IndentedBuffer()
