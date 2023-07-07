@@ -20,6 +20,8 @@ class BSCachingAllocator: public CacheAllocator {
   mutable std::set<void*> allocated_;
   mutable size_t idel_blocks_num_ = 0;
   mutable size_t total_blocks_num_ = 0;
+  mutable size_t total_alocated_bytes_ = 0;
+  mutable size_t total_idel_bytes_ = 0;
   mutable c10::Device device_;
   using mutex_t = std::recursive_mutex;
   mutable mutex_t mutex_;
@@ -52,6 +54,7 @@ public:
     if (idel_blocks.size() > 0) {
       ptr = idel_blocks.front();
       idel_blocks.pop_front();
+      total_idel_bytes_ -= nbytes;
     }
     if (ptr == nullptr){
       auto data_ptr = raw_allocator()->allocate(nbytes);
@@ -60,6 +63,7 @@ public:
       data_ptr.release_context();
       allocated_.insert(ptr);
       total_blocks_num_++;
+      total_alocated_bytes_+= nbytes;
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator: allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
@@ -73,15 +77,21 @@ public:
     std::lock_guard<mutex_t> lk(mutex_);
     idel_blocks_[nbytes].push_back(ptr);
     idel_blocks_num_++;
+    total_idel_bytes_ += nbytes;
+    if ((total_idel_bytes_ > (512 << 20)) && ((1.0 * total_idel_bytes_ / total_alocated_bytes_) > 0.7)) {
+      empty_cache();
+    }
+
   }
 
-  void empty_cache() {
+  void empty_cache() const {
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = idel_blocks_.begin(); iter != idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;
       while (!idel_blocks.empty()) {
         auto ptr = idel_blocks.front();
         raw_allocator()->raw_deallocate(ptr);
+        total_alocated_bytes_ -= iter->first;
         total_blocks_num_--;
         idel_blocks.pop_front();
         allocated_.erase(ptr);
