@@ -13,8 +13,9 @@ max_parall = 8
 random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
-slurm_par = sys.argv[3]
-gpu_requests = sys.argv[4]
+gpu_requests = sys.argv[3]
+slurm_par_arg = sys.argv[4:]
+slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
 
@@ -66,13 +67,20 @@ def process_one_iter(model_info):
             os.makedirs(src) 
         dst = f'{storage_path}/baseline'
         os.symlink(src, dst)
+    if device_type == 'cuda':
+        base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
+        src = f'{base_data_src}/{p3}/baseline'
+        if not os.path.exists(src):            
+            os.makedirs(src) 
+        dst = f'{storage_path}/baseline'
+        os.symlink(src, dst)
 
     print("model:{}".format(p2), flush = True)
 
     github_job_name = github_job+"_"+p2
 
-    cmd_run_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-    cmd_cp_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    cmd_run_one_iter = "srun --job-name=={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+    cmd_cp_one_iter = "srun --job-name=={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)
 

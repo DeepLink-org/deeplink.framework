@@ -83,15 +83,14 @@ function build_dataset(){
         echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
-        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/mmlab_coco  data/coco
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
+        # ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kinetics400 data/kinetics400  #数据集还在迁移
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
-        #ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
-        #ln -s /mnt/lustre/share_data/PAT/datasets/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
         rm -rf data
