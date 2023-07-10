@@ -3,6 +3,7 @@ import dataclasses
 import functools
 import math
 import sys
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List
@@ -16,7 +17,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
-from ..config import tops_debug, dipu_flag, device_id
+from ..config import tops_debug, dipu_flag
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
@@ -55,6 +56,8 @@ def process_name(name, target):
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
         self.name = 'topsgraph'
+        self.device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
+        
         self.import_code = IndentedBuffer()
         
         self.args_dict = {}
@@ -70,6 +73,9 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
+        if dipu_flag:
+            self.device_id = self.cur_node.meta['val'].device.index
+            
         data_type = self.cur_node.meta['val'].dtype.__str__()
         if data_type not in type_set.keys():
             print("data_type:", data_type, flush=True)
@@ -206,7 +212,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 func_body.writeline(f'output_ptrs.emplace_back(output_ptr{str(i)});')
-        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs, {device_id}, {"true" if dipu_flag else "false"});')
+        func_body.writeline(f'run(exe_ptr, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
         input_paras = ''
         for i in range(0, len(self.input_args)):
@@ -266,7 +272,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_tensor(self, prefix, tensor):
         if dipu_flag:
-            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xla:{device_id}', dtype={tensor.dtype})"
+            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xla:{self.device_id}', dtype={tensor.dtype})"
         else:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
         return res
@@ -286,10 +292,6 @@ class EnflameCodegen(torch.fx.Interpreter):
         if args:
             call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline(f"args.clear()")
-        
-        if dipu_flag:
-            for i in range(len(self.input_args)):
-                call_body.writeline(f"arg{str(i)} = arg{str(i)}.to('xla:{device_id}')")
 
         bufs = []
         for i in range(len(self.output_args)):
@@ -313,9 +315,6 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         for arg in args:
             call_body.writeline(f'del {arg}')
-        
-        if dipu_flag:
-            bufs = [f"{buf}.cpu()" for buf in bufs]
         
         call_body.writeline(f"return ({', '.join(bufs)})")
 
