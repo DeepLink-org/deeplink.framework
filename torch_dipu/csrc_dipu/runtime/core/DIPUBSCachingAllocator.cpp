@@ -72,20 +72,17 @@ public:
     return data_ptr;
   }
 
-  void restore(size_t size, void* ptr) const {
+  void restore(size_t size, void* ptr) const{
     const size_t nbytes = getAllocateSize(size);
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator: restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     std::lock_guard<mutex_t> lk(mutex_);
     idel_blocks_[nbytes].push_back(ptr);
     idel_blocks_num_++;
     total_idel_bytes_ += nbytes;
-    if ((total_idel_bytes_ > (512 << 20)) && ((1.0 * total_idel_bytes_ / total_alocated_bytes_) > 0.7)) {
-      empty_cache();
-    }
-
   }
 
-  void empty_cache() const {
+  void empty_cache() override {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator: empty_cache ,allocator:"  << this);
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = idel_blocks_.begin(); iter != idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;

@@ -54,11 +54,14 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 
     };
 
-    virtual void empty_cache() {};
+    virtual void empty_cache() = 0;
 };
 
 void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0);
+
 c10::Allocator* getAllocator(c10::DeviceType device_type);
+
+void emptyCachedMem();
 
 struct AllocatorRegisterer {
   explicit AllocatorRegisterer(const std::string name, c10::DeviceType device_type, c10::Allocator* allocator, uint8_t priority = 0) {

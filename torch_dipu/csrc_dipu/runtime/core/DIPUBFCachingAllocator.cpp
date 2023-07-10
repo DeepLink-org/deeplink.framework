@@ -393,7 +393,7 @@ public:
   }
 
   ~BFCachingAllocator() {
-    emptyCache();
+    empty_cache();
     for (auto &set : streamSets_) {
         if (set != nullptr) {
              TORCH_CHECK(set->find(0) == -1, "Stream ", set->id ," has unreleased memory");
@@ -402,18 +402,18 @@ public:
   }
 
 
+    c10::DataPtr allocate(size_t nbytes) const {
 
-    void emptyCache() {
-        std::lock_guard<mutex_t> lk(mut_);
+    }
+
+    void empty_cache() override {
+    std::lock_guard<mutex_t> lk(mut_);
         for (auto &set : streamSets_) {
             if (set != nullptr) {
                 shrink(set);
             }
         }
     }
-   c10::DataPtr allocate(size_t nbytes) const {
-
-   }
 #if 0
 
    c10::DataPtr allocate_ptr(size_t nbytes) {
@@ -452,6 +452,7 @@ public:
     c10::DataPtr makeDataPtr(void* ptr) const {
 
     }
+
 #endif
 };
 

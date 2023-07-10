@@ -59,7 +59,14 @@ c10::Allocator*  getAllocator(c10::DeviceType device_type) {
   return nullptr;
 }
 
-
+void emptyCachedMem() {
+  auto allocator = getAllocator(dipu::DIPU_DEVICE_TYPE);
+  auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
+  DIPU_DEBUG_ALLOCATOR(10, __FUNCTION__ << " allocator:" << allocator << ", cached_allocator:" << cached_allocator);
+  if (cached_allocator != nullptr) {
+    cached_allocator->empty_cache();
+  }
+}
 
 
 }  // namespace dipu

@@ -12,6 +12,7 @@
 #include <csrc_dipu/runtime/core/device.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
+#include <csrc_dipu/runtime/core/DIPUCachingAllocator.h>
 #include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
@@ -46,17 +47,17 @@ static void exportDevices(py::module& m) {
   m.attr("dipu_vendor") = devapis::VendorTypeToStr(VENDOR_TYPE);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
-  m.def("_dipu_set_device", [](int idx) -> void { 
-    devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
+  m.def("_dipu_set_device", [](int idx) -> void {
+    devapis::setDevice(static_cast<devapis::deviceId_t>(idx));
   });
-  m.def("_dipu_get_device_count", []() -> int { 
+  m.def("_dipu_get_device_count", []() -> int {
     return devapis::getDeviceCount();
   });
   m.def("_dipu_current_device", []() -> int {
-    return static_cast<int>(devapis::current_device()); 
+    return static_cast<int>(devapis::current_device());
   });
-  m.def("_dipu_synchronize", []() -> void { 
-    devapis::syncDevice(); 
+  m.def("_dipu_synchronize", []() -> void {
+    devapis::syncDevice();
     return;
   });
   m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
@@ -101,7 +102,7 @@ static void exportStream(py::module& m) {
           py::tuple range = pybind11::make_tuple(0, 0);
           return range;
     })
-    // cpp properties 
+    // cpp properties
     .def_property_readonly("stream_id",
         [](DIPUStream& stream) -> c10::StreamId {
           return stream.id();
@@ -121,11 +122,11 @@ static void exportStream(py::module& m) {
           return stream.device();
     });
 
-  m.def("_dipu_setStream", [](c10::StreamId stream_id, c10::DeviceIndex device_index) -> void { 
+  m.def("_dipu_setStream", [](c10::StreamId stream_id, c10::DeviceIndex device_index) -> void {
       dipu::setCurrentDIPUStream(DIPUStream(device_index, stream_id));
     }, py::arg("stream_id") = 0, py::arg("device_index") = 0);
 
-  m.def("_dipu_getCurrentStream", [](c10::DeviceIndex devIdx) -> DIPUStream { 
+  m.def("_dipu_getCurrentStream", [](c10::DeviceIndex devIdx) -> DIPUStream {
     return dipu::getCurrentDIPUStream(devIdx);
   });
   m.def("_dipu_getDefaultStream", [](c10::DeviceIndex devIdx) -> DIPUStream {
@@ -157,7 +158,7 @@ static void exportEvent(py::module& m) {
           pybind11::gil_scoped_release no_gil;
           self.wait(stream);
         })
-      
+
     .def_property_readonly("dipu_event", [](DIPUEvent& self) {
           return (uint64_t)self.rawevent();
     })
@@ -196,6 +197,13 @@ static void exportCommunicator(py::module& m) {
   // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
+static void exportMemCaching(py::module& m) {
+  m.def("_dipu_emptyCache", []() {
+    emptyCachedMem();
+  });
+}
+
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -203,5 +211,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportStream(m);
   exportEvent(m);
   exportCommunicator(m);
+  exportMemCaching(m);
 }
 }  // end ns dipu
