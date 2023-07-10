@@ -2,8 +2,10 @@
 #include <ATen/core/NamedTensor.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/core/TensorImpl.h>
+#include <c10/core/Storage.h>
 #include <c10/util/accumulate.h>
 #include <ATen/native/ResizeCommon.h>
+#include <ATen/native/Resize.h>
 #include <c10/util/Exception.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
@@ -20,7 +22,7 @@ using at::IntArrayRef;
 using dipu::devapis::current_device;
 
 namespace dipu::native {
-  static inline void resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes) {
+  static inline void _resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes) {
     TORCH_CHECK(storage->resizable(), "Trying to resize storage that is not resizable");
     auto allocator = storage->allocator();
     TORCH_CHECK(allocator != nullptr, "Trying to resize storage without an allocator");
@@ -45,7 +47,7 @@ namespace dipu::native {
     storage->set_nbytes(newsize_bytes);
   }
 
-  static inline TensorImpl* resize_impl_dipu_(TensorImpl* self,
+  static inline TensorImpl* _resize_impl_dipu_(TensorImpl* self,
         IntArrayRef size, at::OptionalIntArrayRef stride) {
     if (self->sizes() == size && (!stride || self->strides() == stride)) {
       return self;
@@ -66,7 +68,7 @@ namespace dipu::native {
     const c10::Storage& storage = self->unsafe_storage();
     TORCH_CHECK(storage, "Tensor: invalid null storage");
     if (self->numel() > 0 && new_storage_size > storage.nbytes()) {
-      resize_bytes_dipu(storage.unsafeGetStorageImpl(), new_storage_size);
+      _resize_bytes_dipu(storage.unsafeGetStorageImpl(), new_storage_size);
     }
     return self;
   }
@@ -77,7 +79,7 @@ namespace dipu::native {
     }
     auto* self_ = self.unsafeGetTensorImpl();
     // not support stride now
-    resize_impl_dipu_(self_, size, /*strides=*/c10::nullopt);
+    _resize_impl_dipu_(self_, size, /*strides=*/c10::nullopt);
     if(optional_memory_format.has_value()) {
       auto memory_format =
           optional_memory_format.value();
@@ -88,5 +90,25 @@ namespace dipu::native {
       self_->empty_tensor_restride(memory_format);
     }
     return self;
+  }
+
+  at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result, c10::Storage storage,
+                                                   int64_t storage_offset, at::IntArrayRef size,
+                                                   at::IntArrayRef stride) {
+    at::native::checkSetStorage(result, storage, storage_offset, size, stride);
+
+    result.unsafeGetTensorImpl()->set_storage_offset(storage_offset);
+    at::OptionalIntArrayRef stride_opt = stride.data() != nullptr ?
+                                            at::OptionalIntArrayRef(stride) : c10::nullopt;
+    _resize_impl_dipu_(result.unsafeGetTensorImpl(), size, stride_opt);
+    return result;
+  }
+
+  at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& result) {
+    caffe2::TypeMeta dtype = result.dtype();
+    c10::Storage storage(c10::Storage::use_byte_size_t(), 0, dipu::getDIPUAllocator(), true);
+    DIPUATenFunctions::set_storage_dipu_(result, storage, 0, {0}, {});
+    TORCH_INTERNAL_ASSERT(dtype == result.dtype());
+    return result;
   }
 }

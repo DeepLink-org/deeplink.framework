@@ -3,7 +3,7 @@
 import collections
 
 from torch_dipu import _C
-from .device import current_device, _get_device_index
+from .device import current_device, _get_device_index, devicectx
 from .utils import is_initialized
 from .streams import current_stream, Stream
 
@@ -38,7 +38,7 @@ def caching_allocator_alloc(size, device=None, stream=None):
         raise TypeError('Invalid type for stream argument, must be '
                         '`torch_dipu.dipu.Stream` or `int` representing a pointer '
                         'to a exisiting stream')
-    with device(device):
+    with devicectx(device):
         return _C._dipu_dipuCachingAllocator_raw_alloc(size, stream)
 
 
