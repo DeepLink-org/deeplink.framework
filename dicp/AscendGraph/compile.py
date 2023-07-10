@@ -27,9 +27,10 @@ class AscendCodeCache:
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         start = time.time()
+        model_path = [f'{output_graph_path}.om', f'{output_graph_path}_linux_x86_64.om']
         if key not in cls.cache:
             if not os.path.exists(output_path) or \
-                not os.path.exists(f'{output_graph_path}.om'):
+                (not os.path.exists(model_path[0]) and not os.path.exists(model_path[1])):
                 cmd = ['/usr/bin/c++',
                     '-D_GLIBCXX_USE_CXX11_ABI=0',
                     '-fPIC',
@@ -59,11 +60,11 @@ class AscendCodeCache:
                 loaded = cdll.LoadLibrary(output_path)
                 loaded.compile(output_graph_path.encode())
 
-                if not os.path.exists(output_graph_path + '.om'):
-                    output_graph_path += '_linux_x86_64'
-                assert(os.path.exists(output_graph_path + '.om'))
+            if not os.path.exists(output_graph_path + '.om'):
+                output_graph_path += '_linux_x86_64'
+            assert(os.path.exists(output_graph_path + '.om'))
 
-            from dicp.AscendGraph.codegen.load_and_run import AscendExecutor, AscendModel
+            from dicp.AscendGraph.codegen.load_and_run import AscendModel
             exe = AscendModel(local_rank, output_graph_path + '.om')
             cls.cache[key] = exe
             cls.cache[key].key = key

@@ -353,9 +353,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device='cpu', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
-
-        call_str = [f'output_tensor = kernel_cpp_0(args)']
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')

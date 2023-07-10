@@ -114,7 +114,7 @@ class AscendExecutor(object):
         self.output_size = []
         self.output_dims = []
         self.output_dtypes = []
-
+        self.output_data = []
         self.input_dims = dims
 
         self.init_resource()
@@ -126,6 +126,11 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
+        
+        while self.output_data:
+            item = self.output_data.pop()
+            ret = acl.rt.free(item)
+            check_ret("acl.rt.free", ret)
             
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()
@@ -142,27 +147,46 @@ class AscendExecutor(object):
         check_ret("acl.mdl.load_with_config", ret)
         print("model_id:{}".format(self.model_id))
 
-    def init_resource(self):
-        print("init resource stage:")
-        # load model
-        self.load_model()
-
         self.model_desc = acl.mdl.create_desc()
         ret = acl.mdl.get_desc(self.model_desc, self.model_id)
         check_ret("acl.mdl.get_desc", ret)
 
+    def init_resource(self):
+        print("init resource stage:")
+
+        self.load_model()
         self.num_inputs = acl.mdl.get_num_inputs(self.model_desc)
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
         for i in range(self.num_inputs):
-            self.input_size.append(acl.mdl.get_input_size_by_index(self.model_desc, i))
+            temp_buffer_size = acl.mdl.get_input_size_by_index(self.model_desc, i)
+            if self.input_dims is not None and i in self.input_dims.keys():
+                tot_size = 1
+                for elem in self.input_dims[i]:
+                    tot_size *= elem
+                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
+                np_dtype = get_np_dtype(dtype)
+                temp_buffer_size = tot_size * np.dtype(np_dtype).itemsize
+            self.input_size.append(temp_buffer_size)
         for i in range(self.num_outputs):
-            dims, ret = acl.mdl.get_cur_output_dims(self.model_desc, i)
-            check_ret("acl.mdl.get_cur_output_dims", ret)
+            temp_buffer_size = acl.mdl.get_output_size_by_index(self.model_desc, i)
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
+            dims, ret = acl.mdl.get_output_dims(self.model_desc, i)
+            check_ret("acl.mdl.get_output_dims", ret)
+            dims = dims["dims"]    
+            if temp_buffer_size == 0:
+                if self.input_dims is not None:
+                    dims = [max_range if dim == -1 else dim for dim in dims]   
+                    temp_buffer_size = 1
+                    for d in dims:
+                        temp_buffer_size *= d
+                    np_dtype = get_np_dtype(dtype)
+                    temp_buffer_size *= np.dtype(np_dtype).itemsize
+                else:
+                    temp_buffer_size = 1
             self.output_dtypes.append(get_tensor_dtype(dtype))
-            self.output_dims.append(dims['dims'])
-            self.output_size.append(acl.mdl.get_output_size_by_index(self.model_desc, i))
-        
+            self.output_dims.append(dims)
+            self.output_size.append(temp_buffer_size)
+
         print("init resource success")
 
     def _prepare_input(self, images):
@@ -180,6 +204,16 @@ class AscendExecutor(object):
                 ret = acl.destroy_data_buffer(data)
                 check_ret("acl.destroy_data_buffer", ret)
 
+        if self.input_dims is not None:
+            for key, value in self.input_dims.items():
+                dtype = acl.mdl.get_input_data_type(self.model_desc, key)
+                format = acl.mdl.get_input_format(self.model_desc, key)
+                tensorDesc = acl.create_tensor_desc(dtype, value, format)
+                dataset, ret = acl.mdl.set_dataset_tensor_desc(self.load_input_dataset,
+                                                tensorDesc, key)
+                check_ret("acl.mdl.set_dataset_tensor_desc", ret)
+                assert(dataset == self.load_input_dataset)
+
     def _prepare_output(self, output_tensor):
         self.load_output_dataset = acl.mdl.create_dataset()
         for i in range(self.num_outputs):
@@ -191,13 +225,52 @@ class AscendExecutor(object):
                 ret = acl.destroy_data_buffer(data)
                 check_ret("acl.destroy_data_buffer", ret)
 
+    def _prepare_tmp_output(self):
+        self.load_output_dataset = acl.mdl.create_dataset()
+        for i in range(self.num_outputs):
+            temp_buffer, ret = acl.rt.malloc(self.output_size[i],
+                            ACL_MEM_MALLOC_HUGE_FIRST)            
+            data = acl.create_data_buffer(temp_buffer, self.output_size[i])
+            self.output_data.append(temp_buffer)
+            _, ret = acl.mdl.add_dataset_buffer(self.load_output_dataset, data)
+            if ret != ACL_SUCCESS:
+                ret = acl.destroy_data_buffer(data)
+                check_ret("acl.destroy_data_buffer", ret)
+
+    def _prepare_real_output(self, output_tensor):
+        for i in range(self.num_outputs):
+            out = acl.mdl.get_dataset_tensor_desc(self.load_output_dataset, i)
+            tsize = acl.get_tensor_desc_num_dims(out)
+            out_dim = []
+            tot_size = 1
+            for d in range(tsize):
+                out_dim.append(acl.get_tensor_desc_dim(out, d))
+                tot_size *= out_dim[-1]
+            dtype = acl.mdl.get_output_data_type(self.model_desc, i)
+            np_dtype = get_np_dtype(dtype)
+            tot_size *= np.dtype(np_dtype).itemsize
+            item = torch.empty(out_dim, dtype=self.output_dtypes[i], device='dipu')
+            output_tensor.append(item)
+            ret = acl.rt.memcpy(item.data_ptr(),
+                                tot_size,
+                                self.output_data[i],
+                                tot_size,
+                                ACL_MEMCPY_DEVICE_TO_DEVICE)
+            check_ret("acl.rt.memcpy", ret)            
+
     def run(self, images):
         assert len(images) > 0
         input = list(map(lambda x: x.to('dipu'), images))
         self._prepare_input(input)
         output = []
-        self._prepare_output(output)
-        self.forward()
+        if self.input_dims is not None:
+            self._prepare_tmp_output()
+            self.forward()
+            self._prepare_real_output(output)
+        else:
+            self._prepare_output(output)
+            self.forward()
+        self._destroy_databuffer()
         return output
 
     def forward(self):
@@ -205,7 +278,6 @@ class AscendExecutor(object):
                               self.load_input_dataset,
                               self.load_output_dataset)
         check_ret("acl.mdl.execute", ret)
-        self._destroy_databuffer()
 
     def _destroy_databuffer(self):
         for dataset in [self.load_input_dataset, self.load_output_dataset]:
