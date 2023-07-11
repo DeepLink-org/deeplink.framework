@@ -29,7 +29,9 @@ export MLU_INVOKE_BLOCKING=1     # TODO(caikun): remove this after copy issue fi
 export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,_unique2
 
 export DIPU_DEBUG_ALLOCATOR=15
-export DIPU_MEMCACHING_ALGORITHM=BS
+export DIPU_DEVICE_MEMCACHING_ALGORITHM=BS
+export DIPU_HOST_MEMCACHING_ALGORITHM=BS
+
 
 source activate $ENV_NAME
 

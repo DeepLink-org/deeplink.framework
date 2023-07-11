@@ -10,15 +10,11 @@ std::mutex DIPUDeviceAllocator::mutex_;
 
 namespace {
 
-static DIPUDeviceAllocator allocator;
-
 using RegisteredAllocator = std::map<c10::DeviceType, std::map<std::string, std::tuple<c10::Allocator*, uint8_t>>>;
 
 static std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
 
 static std::mutex dipu_register_allocator_mutex;
-
-REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, &allocator);
 
 }  // namespace
 
@@ -42,8 +38,13 @@ void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allo
 
 constexpr const char* dipu_default_memcaching_algorithm = "BS";
 
-std::string dipu_memcaching_algorithm = []() {
-  const char* env = std::getenv("DIPU_MEMCACHING_ALGORITHM");
+std::string dipu_device_memcaching_algorithm = []() {
+  const char* env = std::getenv("DIPU_DEVICE_MEMCACHING_ALGORITHM");
+  return env ? env : dipu_default_memcaching_algorithm;
+}();
+
+std::string dipu_host_memcaching_algorithm = []() {
+  const char* env = std::getenv("DIPU_HOST_MEMCACHING_ALGORITHM");
   return env ? env : dipu_default_memcaching_algorithm;
 }();
 
@@ -51,11 +52,11 @@ c10::Allocator*  getAllocator(c10::DeviceType device_type) {
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
   c10::Allocator* result = nullptr;
   auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
-
-  if (gDIPURegisterdAllocator[device_type].count(dipu_memcaching_algorithm) > 0) {
-    return std::get<0>(gDIPURegisterdAllocator[device_type][dipu_memcaching_algorithm]);
+  std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm : dipu_host_memcaching_algorithm);
+  if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
+    return std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
   }
-  TORCH_CHECK(false, "No allocator found for the device using the given algorithm:", device_type, dipu_memcaching_algorithm);
+  TORCH_CHECK(false, "No allocator found for the device using the given algorithm:", device_type, dipu_device_memcaching_algorithm);
   return nullptr;
 }
 

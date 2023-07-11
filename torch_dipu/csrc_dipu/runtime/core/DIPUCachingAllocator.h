@@ -82,12 +82,15 @@ struct RawAllocator<dipu::DIPU_DEVICE_TYPE> {
 
 template<>
 struct RawAllocator<at::DeviceType::CPU> {
-  //using type = DIPUHostAllocator;  // TODO: support pin memory
+  using type = DIPUHostAllocator;
 };
 
+#define CONCAT_(prefix, suffix) prefix##suffix
+#define CONCAT(prefix, suffix) CONCAT_(prefix, suffix)
+#define MAKE_UNIQUE_VARIABLE_NAME(prefix) CONCAT(prefix##_, __LINE__)
 
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                                   \
-  namespace {                                                                                                    \
+  namespace name##device_type{                                                                                   \
   static RawAllocator<device_type>::type raw_allocator;                                                          \
   static AsyncResoursePoolImpl<std::tuple<void*, size_t>, device_type, priority>  asyncMemPool;                  \
   static CachingAllocator cache_allocator;                                                                       \
@@ -96,7 +99,7 @@ struct RawAllocator<at::DeviceType::CPU> {
     cache_allocator.set_async_mem_pool(&asyncMemPool);                                                           \
     return 0;                                                                                                    \
   }();                                                                                                           \
-  static AllocatorRegisterer g_allocator_d(name, device_type, &cache_allocator,  priority);                      \
+  static AllocatorRegisterer g_allocator(#name, device_type, &cache_allocator,  priority);                       \
   }
 
 

@@ -8,7 +8,11 @@
 
 namespace dipu {
 
-DIPU_API c10::Allocator* getHostAllocator();
+class DIPUHostAllocator : public c10::Allocator {
+public:
+  c10::DataPtr allocate(size_t size) const;
+};
+
 DIPU_API bool isPinnedPtr(const void* ptr);
 
 }  // namespace dipu

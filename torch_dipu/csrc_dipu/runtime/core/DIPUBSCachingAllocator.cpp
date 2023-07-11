@@ -162,6 +162,7 @@ static void deleteBSContext(void* ptr) {
 }
 
 
-DIPU_REGISTER_ALLOCATOR("BS", dipu::DIPU_DEVICE_TYPE, BSCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(BS, dipu::DIPU_DEVICE_TYPE, BSCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(BS, at::DeviceType::CPU, BSCachingAllocator, 0);
 
 } // namespace dipu
