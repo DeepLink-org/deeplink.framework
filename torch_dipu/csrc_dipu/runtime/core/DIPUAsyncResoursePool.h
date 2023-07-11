@@ -80,6 +80,12 @@ class AsyncResoursePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public Async
       std::lock_guard<mutex_t> lk(mutex_);
       return list_.size();
     }
+
+    ~AsyncResoursePoolImpl() {
+      while (size() > 0) {
+        std::this_thread::yield();
+      }
+    }
 };
 
 } // namespace dipu
