@@ -31,8 +31,7 @@ public:
   }
 
   ~BSCachingAllocator() {
-    DIPU_DEBUG_ALLOCATOR(8, "~BSCachingAllocator: allocator:"  << this << ", allocated_.size:" << impl->allocated_.size() << ", idel_blocks_.size:"  << impl->idel_blocks_.size());
-    impl.reset(nullptr);
+    release_all_memory();
   }
 
   size_t getAllocateSize(size_t nbytes) const{
@@ -105,12 +104,23 @@ public:
   }
 
   void release_all_memory() const {
+    if (impl == nullptr) {
+      return;
+    }
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::release_all_memory allocator:"  << this);
-    flush_mem_pool();
+
+    while(async_mem_pool()->size() > 0) {
+      if (async_mem_pool()->ready()) {
+        async_mem_pool()->get();
+      } else {
+        std::this_thread::yield();
+      }
+    }
+
     for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
       raw_allocator()->raw_deallocate(*iter);
     }
-    impl->allocated_.clear();
+    impl.reset(nullptr);
   }
 
   void flush_mem_pool() const {
