@@ -32,12 +32,13 @@ public:
 
   ~BSCachingAllocator() {
     // The allocator cannot be destructed before all tensors are destructed
-    DIPU_DEBUG_ALLOCATOR(8, "~BSCachingAllocator: allocator:"  << this << "allocated_.size:" << impl->allocated_.size() << ", idel_blocks_.size:"  << impl->idel_blocks_.size());
-    while (!impl->allocated_.empty()) {
-      flush_mem_pool();
-      empty_cache();
+    DIPU_DEBUG_ALLOCATOR(8, "~BSCachingAllocator: allocator:"  << this << ", allocated_.size:" << impl->allocated_.size() << ", idel_blocks_.size:"  << impl->idel_blocks_.size());
+    while (async_mem_pool()->size() > 0) {
+      if (async_mem_pool()->ready()) {
+       flush_mem_pool();
+      }
     }
-    DIPU_DEBUG_ALLOCATOR(8, "~BSCachingAllocator: allocator:"  << this << "allocated_.size:" << impl->allocated_.size() << ", idel_blocks_.size:"  << impl->idel_blocks_.size());
+    empty_cache();
     impl.reset(nullptr);
   }
 
