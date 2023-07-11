@@ -38,7 +38,9 @@ public:
        flush_mem_pool();
       }
     }
-    empty_cache();
+    for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
+      raw_allocator()->raw_deallocate(*iter);
+    }
     impl.reset(nullptr);
   }
 
