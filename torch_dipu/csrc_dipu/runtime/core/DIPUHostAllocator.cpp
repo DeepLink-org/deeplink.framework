@@ -67,6 +67,9 @@ static void DIPUHostAllocatorDeleter(void* ctx) {
 
 }
 
+c10::DeleterFnPtr DIPUHostAllocator::raw_deleter() const {
+      return &DIPUHostAllocatorDeleter;
+}
 
  c10::DataPtr DIPUHostAllocator::allocate(size_t size) const {
     auto ptr_and_ctx = dipu_host_allocator.allocate(size);
@@ -76,8 +79,6 @@ static void DIPUHostAllocatorDeleter(void* ctx) {
         &DIPUHostAllocatorDeleter,
         at::DeviceType::CPU};
   }
-
-
 
 bool isPinnedPtr(const void* ptr) {
   dipu_host_allocator.isPinnedPtr(ptr);

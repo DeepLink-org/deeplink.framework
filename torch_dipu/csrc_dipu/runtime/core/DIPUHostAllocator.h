@@ -11,6 +11,8 @@ namespace dipu {
 class DIPUHostAllocator : public c10::Allocator {
 public:
   c10::DataPtr allocate(size_t size) const;
+
+  c10::DeleterFnPtr raw_deleter() const override;
 };
 
 DIPU_API bool isPinnedPtr(const void* ptr);

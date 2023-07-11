@@ -26,8 +26,7 @@ namespace dipu {
   class DIPU_API DIPUDeviceAllocator : public c10::Allocator
   {
   public:
-    DIPUDeviceAllocator()
-    {
+    DIPUDeviceAllocator() {
       auto device = devapis::current_device();
       devapis::setDevice(device);
     }
@@ -39,8 +38,7 @@ namespace dipu {
       return this->allocate(size, idx);
     }
 
-    c10::DeleterFnPtr raw_deleter() const override
-    {
+    c10::DeleterFnPtr raw_deleter() const override {
       return &DIPUDeviceAllocatorDeleter;
     }
 
