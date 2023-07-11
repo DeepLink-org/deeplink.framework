@@ -1,11 +1,8 @@
 import os
-os.environ["ECCL_RUNTIME_3_0_ENABLE"]="true"
-
 import torch
 import torch.fx
 import torch_dipu
 
-from dicp.TopsGraph.config import device_id
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -17,12 +14,14 @@ class MyModule(torch.nn.Module):
         r = torch.ops.aten.div(a, b)
         return r
 
+os.environ['DICP_TOPS_DIPU'] = 'True'
+device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
 a = torch.arange(16).reshape(4, 4).float()
-b = 1
+b = 2
 
 m = MyModule()
 compiled_model = torch.compile(m, backend="topsgraph")
-r1 = compiled_model(a.to(f"xla:{device_id}"), b).cpu()
+r1 = compiled_model(a.to(f"dipu:{device_id}"), b).cpu()
 
 torch._dynamo.reset()
 

@@ -1,8 +1,8 @@
+import os
 import torch
 import torch.fx
 import torch_dipu
 
-from dicp.TopsGraph.config import device_id
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -14,11 +14,13 @@ class MyModule(torch.nn.Module):
         output = torch.mul(x, 2)
         return output
 
+os.environ['DICP_TOPS_DIPU'] = 'True'
+device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
 x = torch.arange(2, 18).reshape(4, 4)
 
 m = MyModule()
 compiled_model = torch.compile(m, backend="topsgraph")
-r1= compiled_model(x.to(f"xla:{device_id}")).cpu()
+r1= compiled_model(x.to(f"dipu:{device_id}")).cpu()
 
 torch._dynamo.reset()
 

@@ -272,7 +272,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_tensor(self, prefix, tensor):
         if dipu_flag:
-            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xla:{self.device_id}', dtype={tensor.dtype})"
+            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
         else:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
         return res
