@@ -106,6 +106,7 @@ public:
 
   void release_all_memory() const {
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::release_all_memory allocator:"  << this);
+    flush_mem_pool();
     for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
       raw_allocator()->raw_deallocate(*iter);
     }
@@ -130,8 +131,10 @@ public:
 
     ~Context() {
       DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr_ << ", size_:" << size_);
-      allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_));
-      allocator_->flush_mem_pool();
+      if (allocator_->impl) {
+        allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_));
+        allocator_->flush_mem_pool();
+      }
     }
   };
 
