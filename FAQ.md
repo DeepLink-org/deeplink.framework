@@ -2,7 +2,7 @@
 
 #### 1. 国产硬件如何接入DIPU？
 
-请参考 [SOP](https://github.com/DeepLink-org/DIPU/blob/main/SOP.md)
+请参考 [Quick Start](https://github.com/DeepLink-org/DIPU/blob/main/QuickStart.md)
 
 #### 2. 加载DIPU模块训练模型，出现 `loss` 异常如何排查？
 
