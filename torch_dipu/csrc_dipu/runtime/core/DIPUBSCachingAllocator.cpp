@@ -23,7 +23,7 @@ class BSCachingAllocator: public CacheAllocator {
     c10::Device device_ = c10::DeviceType::CPU;
   };
   mutable std::unique_ptr<Impl> impl;
-  using mutex_t = std::mutex;
+  using mutex_t = std::recursive_mutex;
   mutable mutex_t mutex_;
 public:
   BSCachingAllocator() {
@@ -59,10 +59,22 @@ public:
       impl->total_idel_bytes_ -= nbytes;
     }
     if (ptr == nullptr){
-      auto data_ptr = raw_allocator()->allocate(nbytes);
-      ptr = data_ptr.get();
-      impl->device_ = data_ptr.device();
-      data_ptr.release_context();
+      for (size_t i = 0; i < 2; i++) {
+        try {
+          auto data_ptr = raw_allocator()->allocate(nbytes);
+          ptr = data_ptr.get();
+          impl->device_ = data_ptr.device();
+          data_ptr.release_context();
+          break;
+        }
+        catch(...) {
+          if (i == 0) {
+            empty_cache();
+          } else {
+            throw std::runtime_error("no device memory available");
+          }
+        }
+      }
       impl->allocated_.insert(ptr);
       impl->total_alocated_bytes_+= nbytes;
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
@@ -80,7 +92,7 @@ public:
     impl->total_idel_bytes_ += nbytes;
   }
 
-  void empty_cache() override {
+  void empty_cache() const override {
     flush_mem_pool();
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
     std::lock_guard<mutex_t> lk(mutex_);

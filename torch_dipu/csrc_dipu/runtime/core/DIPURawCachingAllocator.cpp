@@ -29,7 +29,7 @@ public:
     return c10::DataPtr(ptr, ptr, &RawCachingAllocatorDeleter, data_ptr.device());
   }
 
-  void empty_cache() override {
+  void empty_cache() const override {
 
   }
 

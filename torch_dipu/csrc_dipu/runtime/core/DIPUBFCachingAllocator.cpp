@@ -406,11 +406,11 @@ public:
 
     }
 
-    void empty_cache() override {
+    void empty_cache() const override {
     std::lock_guard<mutex_t> lk(mut_);
         for (auto &set : streamSets_) {
             if (set != nullptr) {
-                shrink(set);
+                //shrink(set);
             }
         }
     }
