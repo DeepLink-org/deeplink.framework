@@ -38,3 +38,6 @@ __all__ = [
 
     # not support mock cuda_graph now
 ]
+
+import atexit
+atexit.register(release_all_resources)

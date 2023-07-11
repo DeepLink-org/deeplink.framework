@@ -31,16 +31,7 @@ public:
   }
 
   ~BSCachingAllocator() {
-    // The allocator cannot be destructed before all tensors are destructed
     DIPU_DEBUG_ALLOCATOR(8, "~BSCachingAllocator: allocator:"  << this << ", allocated_.size:" << impl->allocated_.size() << ", idel_blocks_.size:"  << impl->idel_blocks_.size());
-    while (async_mem_pool()->size() > 0) {
-      if (async_mem_pool()->ready()) {
-       flush_mem_pool();
-      }
-    }
-    for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
-      raw_allocator()->raw_deallocate(*iter);
-    }
     impl.reset(nullptr);
   }
 
@@ -113,6 +104,14 @@ public:
     impl->idel_blocks_.clear();
   }
 
+  void release_all_memory() const {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::release_all_memory allocator:"  << this);
+    for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
+      raw_allocator()->raw_deallocate(*iter);
+    }
+    impl->allocated_.clear();
+  }
+
   void flush_mem_pool() const {
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::flush_mem_pool allocator:"  << this);
     while (async_mem_pool()->ready()) {
@@ -130,6 +129,7 @@ public:
     }
 
     ~Context() {
+      DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr_ << ", size_:" << size_);
       allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_));
       allocator_->flush_mem_pool();
     }

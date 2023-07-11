@@ -13,6 +13,7 @@
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 #include <csrc_dipu/runtime/core/DIPUCachingAllocator.h>
+#include <csrc_dipu/runtime/core/DIPUGlobals.h>
 #include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
@@ -200,6 +201,10 @@ static void exportCommunicator(py::module& m) {
 static void exportMemCaching(py::module& m) {
   m.def("_dipu_emptyCache", []() {
     emptyCachedMem();
+  });
+
+  m.def("release_all_resources", []() {
+    releaseAllResources();
   });
 }
 

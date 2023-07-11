@@ -68,5 +68,14 @@ void emptyCachedMem() {
   }
 }
 
+void releaseAllDeviceMem() {
+  auto allocator = getAllocator(dipu::DIPU_DEVICE_TYPE);
+  auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
+  DIPU_DEBUG_ALLOCATOR(10, __FUNCTION__ << " allocator:" << allocator << ", cached_allocator:" << cached_allocator);
+  if (cached_allocator != nullptr) {
+    cached_allocator->release_all_memory();
+  }
+}
+
 
 }  // namespace dipu

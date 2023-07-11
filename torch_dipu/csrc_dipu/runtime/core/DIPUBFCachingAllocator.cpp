@@ -414,6 +414,11 @@ public:
             }
         }
     }
+
+    void release_all_memory() const override {
+
+    }
+
 #if 0
 
    c10::DataPtr allocate_ptr(size_t nbytes) {

@@ -33,6 +33,10 @@ public:
 
   }
 
+  void release_all_memory() const override {
+
+  }
+
 };
 
 DIPU_REGISTER_ALLOCATOR("RAW", dipu::DIPU_DEVICE_TYPE, RawCachingAllocator, 0);
