@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# deprecated, please modify test_one_iter_model_list.yaml
+
 GITHUB_JOB=$1
 SLURM_PAR_CAMB=$2
 MLU_REQUESTS=$3

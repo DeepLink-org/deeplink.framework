@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# deprecated, please modify test_one_iter_model_list.yaml
+
 echo  "python path : $PYTHONPATH"
 
 export DIPU_DUMP_OP_ARGS=1
