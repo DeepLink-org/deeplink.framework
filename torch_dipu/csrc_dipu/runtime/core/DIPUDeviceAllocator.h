@@ -8,16 +8,17 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/runtime/core/MemChecker.h>
 #include <iostream>
+#include <thread>
 
 namespace dipu {
 
-#define DIPU_DEBUG_ALLOCATOR(mask, x) \
-  {                                   \
-    static int value = []() { auto env = std::getenv("DIPU_DEBUG_ALLOCATOR"); return env ? std::atoi(env) : 0; }();    \
-    if ((mask & value) == mask)       \
-    {                                 \
-      std::cout << x << std::endl;    \
-    }                                 \
+#define DIPU_DEBUG_ALLOCATOR(mask, x)                                                                                   \
+  {                                                                                                                     \
+    static int value = []() { auto env = std::getenv("DIPU_DEBUG_ALLOCATOR"); return env ? std::atoi(env) : 0; }();     \
+    if ((mask & value) == mask)                                                                                         \
+    {                                                                                                                   \
+      std::cout << "[" << std::this_thread::get_id() << "]" << x << std::endl;                                          \
+    }                                                                                                                   \
   }
 
   static void DIPUDeviceAllocatorDeleter(void *ptr);
@@ -34,8 +35,10 @@ namespace dipu {
     inline virtual c10::DataPtr allocate(size_t size) const
     {
       auto idx = devapis::current_device();
+      devapis::setDevice(idx);
       return this->allocate(size, idx);
     }
+
     c10::DeleterFnPtr raw_deleter() const override
     {
       return &DIPUDeviceAllocatorDeleter;
@@ -59,6 +62,8 @@ namespace dipu {
   static void DIPUDeviceAllocatorDeleter(void *ptr) {
     if (ptr) {
       MemChecker::instance().erase(ptr);
+      auto device = devapis::current_device();
+      devapis::setDevice(device);
       DIPU_DEBUG_ALLOCATOR(2, "devapis::freeDevice: free " << ptr);
       devapis::freeDevice(ptr);
       ptr = nullptr;
