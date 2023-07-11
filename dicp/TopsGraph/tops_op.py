@@ -90,7 +90,7 @@ class Abs(Operator):
 
 class LessEqual(Operator):
     def __init__(self, *args):
-        super().__init__("Lessequal")
+        super().__init__("LessEqual")
         self.args = args
         self.torch_op = aten.le.Scalar
 
@@ -163,7 +163,7 @@ class ReduceSum(Operator):
 
 class ReduceMean(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Reducemean")
+        super().__init__("ReduceMean")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.mean
@@ -280,7 +280,7 @@ class Max_pool2d_with_indices(Operator):
 
 class Max_pool2d_with_indices_backward(Operator):
     def __init__(self, *args):
-        super().__init__("MaxPool2D_GRad")
+        super().__init__("MaxPool2D_Grad")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices_backward
 
@@ -466,16 +466,18 @@ class Scatter(Operator):
 
 
 class ZerosLike(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("ZerosLike")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.zeros_like
 
 
 class OnesLike(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("OnesLike")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.ones_like
 
 

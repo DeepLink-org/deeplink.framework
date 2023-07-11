@@ -36,7 +36,7 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'Zeroslike', 'Empty_Like', 'Oneslike', 'Full', 'Fulllike', 'Getitem', 'Gather', 'Scatter',
+need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
@@ -50,7 +50,7 @@ def process_name(name, target):
     else:
         real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
 
-    return real_op.title()
+    return real_op
 
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
@@ -265,7 +265,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return compile_graph_code.getvalue()
 
     def gen_tensor(self, prefix, tensor):
-        if dipu_flag and prefix == "empty_strided":
+        if dipu_flag:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xla:{device_id}', dtype={tensor.dtype})"
         else:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
@@ -535,7 +535,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
     
     @staticmethod
-    def Lessequal(op_var, x, y):
+    def LessEqual(op_var, x, y):
         return f'builder::Op {op_var} = builder::LessEqual({x}, {y});'
     
     @staticmethod
@@ -596,7 +596,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
     @staticmethod
-    def Zeroslike(op_var, node, *args_str):
+    def ZerosLike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()            
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});\n\n"
@@ -610,7 +610,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Oneslike(op_var, node, *args_str):
+    def OnesLike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()            
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]});\n\n"
@@ -624,7 +624,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Fulllike(op_var, node, *args_str):
+    def FullLike(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()
         shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
         src_code = f"  builder::Op {op_var} = builder::FullLike({args_str[0]}, {str(node.args[1])}, {type_set[data_type]}, {shape});\n\n"
@@ -681,7 +681,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Unsqueeze({', '.join(args)});"
 
     @staticmethod
-    def Reducemean(op_var, *args):
+    def ReduceMean(op_var, *args):
         src_code = ''
         if len(args) == 3:
             src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {args[2]}, {args[1]});\n"
@@ -695,7 +695,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Reducemax(op_var, *args):
+    def ReduceMax(op_var, *args):
         src_code = ''
         if len(args) == 3:
             src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {args[2]}, {args[1]});\n"
@@ -709,7 +709,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Reducesum(op_var, *args):
+    def ReduceSum(op_var, *args):
         src_code = ''
         if len(args) == 3:
             src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {args[2]}, {args[1]});\n"
