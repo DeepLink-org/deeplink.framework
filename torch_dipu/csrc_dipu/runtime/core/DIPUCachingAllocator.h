@@ -84,9 +84,6 @@ struct RawAllocator<at::DeviceType::CPU> {
   using type = DIPUHostAllocator;
 };
 
-#define CONCAT_(prefix, suffix) prefix##suffix
-#define CONCAT(prefix, suffix) CONCAT_(prefix, suffix)
-#define MAKE_UNIQUE_VARIABLE_NAME(prefix) CONCAT(prefix##_, __LINE__)
 
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                                   \
   namespace name##device_type{                                                                                   \
