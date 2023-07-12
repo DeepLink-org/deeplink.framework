@@ -59,7 +59,7 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
   3. DIPU 拥有一定的模拟 CUDA 接口的能力。简单来说就是在 Python 层 用前面 DIPU 设备层的接口来替换 ``torch.cuda`` 的同名接口。 
 
 
-  后面另有规划 DIPU 的配置化接口等能力，可s以为不同的 *Vendor* 输入不同配置。以配置驱动的方式来指导 *Runtime* 和 DIOPI 算子适配流程的构建。
+  后面另有规划 DIPU 的配置化接口等能力，可以为不同的 *Vendor* 输入不同配置。以配置驱动的方式来指导 *Runtime* 和 DIOPI 算子适配流程的构建。
 
 ## 相关功能介绍:
 ### Dispatch 机制与 DIOPI 算子库
