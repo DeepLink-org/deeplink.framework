@@ -848,6 +848,18 @@
 - schema: "bitwise_and_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiBitwiseAndInpScalar(ctx, self, other)
 
+- schema: "bitwise_or.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseOr(ctx, out, self, other)
+
+- schema: "bitwise_or_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  interface: diopiBitwiseOrInp(ctx, self, other)
+
+- schema: "bitwise_or.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseOrScalar(ctx, out, self, other)
+
+- schema: "bitwise_or_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
+  interface: diopiBitwiseOrInpScalar(ctx, self, other)
+
 - schema: "bitwise_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiBitwiseNot(ctx, out, self)
 
@@ -1525,6 +1537,11 @@
 - schema: "scatter.reduce_out(Tensor self, int dim, Tensor index, Tensor src, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
 
+- schema: "scatter_add.out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    std::string reduce = "add"; 
+  interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
+
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
 
@@ -1682,3 +1699,6 @@
   custom_code_at_the_beginning: |
     auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
   interface: diopiEmbeddingBackward(ctx, grad_weight, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
+
+- schema: "sign.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiSign(ctx, out, self)
