@@ -30,6 +30,42 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Ten
   return out;
 }
 
+static c10::List<c10::optional<at::Tensor>> to_cpu( const c10::List<c10::optional<at::Tensor>>& indices) {
+  c10::List<c10::optional<at::Tensor>> indices_cpu;
+  indices_cpu.reserve(indices.size());
+  // input as x[1:2, [1, 2]], Slice by first dimension already executed before this index(),
+  // in this case, indices[0] is an undefinedTensor.
+  for (int i = 0; i < indices.size(); ++i) {
+    indices_cpu.push_back((indices[i].has_value() && indices[i].value().defined()) ?
+                          indices[i].value().to("cpu") : at::Tensor());
+  }
+  return indices_cpu;
+}
+static at::Tensor& custom_fallback_dipu_index_tensor_out(const at::Tensor& self,
+            const c10::List<c10::optional<at::Tensor>>& indices, at::Tensor& out) {
+  std::cout << "custom fallback to cpu, name=" << "index.Tensor_out" << std::endl;
+  auto indices_cpu = to_cpu(indices);
+
+  at::Tensor out_cpu = out.cpu();
+  at::index_outf(self.cpu(), indices_cpu, out_cpu);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor& custom_fallback_dipu__index_put_impl_(at::Tensor& self,
+              const c10::List<c10::optional<at::Tensor>>& indices,
+              const at::Tensor& values, bool accumulate, bool unsafe) {
+  std::cout << "custom fallback to cpu, name=" << "_index_put_impl_" << std::endl;
+
+  auto indices_cpu = to_cpu(indices);
+  at::Tensor self_cpu = self.cpu();
+  at::native::_index_put_impl_(self_cpu, indices_cpu, values.cpu(), accumulate, unsafe);
+  self.copy_(self_cpu);
+
+  return self;
+}
+
+
 static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_native_batch_norm_out(
     const at::Tensor & input, const c10::optional<at::Tensor> & weight_opt,
     const c10::optional<at::Tensor> & bias_opt,

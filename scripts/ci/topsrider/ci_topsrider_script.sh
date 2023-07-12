@@ -27,7 +27,7 @@ function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                 \
         --use_diopi_adapter True                                                    \
-        --diopi_adapter_header third_party/DIOPI/DIOPI-ADAPTOR/diopi_adaptors.hpp   \
+        --diopi_adapter_header third_party/DIOPI/adaptor/diopi_adaptors.hpp   \
         --autocompare False                                                         \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
         --fun_config_dict '{"current_device": "topsrider"}'

@@ -23,7 +23,13 @@ namespace at {
  void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack);
 
-#define DIPU_REGISTER_LOG std::cout
+#define DIPU_REGISTER_LOG(x)                                \
+    {                                                       \
+        const char* env = std::getenv("DIPU_DUMP_OP_ARGS"); \
+        if (env != nullptr && std::atoi(env) > 0) {         \
+            std::cout << x;                                 \
+        }                                                   \
+    }
 
 // Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
 // which described in design doc.
@@ -35,11 +41,11 @@ namespace at {
         m.impl(opname, TORCH_FN(wapperFunc));                                                                           \
     }  else {                                                                                                           \
         if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                                                          \
-            DIPU_REGISTER_LOG << #diopiFunc << " is not yet implemented, ";                                             \
+            DIPU_REGISTER_LOG(#diopiFunc << " is not yet implemented, ");                                               \
         } else {                                                                                                        \
-            DIPU_REGISTER_LOG << "force fallback has been set, ";                                                       \
+            DIPU_REGISTER_LOG("force fallback has been set, ");                                                         \
         }                                                                                                               \
-        DIPU_REGISTER_LOG << opname << " will be fallback to cpu" << std::endl;                                         \
+        DIPU_REGISTER_LOG(opname << " will be fallback to cpu" << std::endl);                                           \
         m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());                                    \
     }                                                                                                                   \
 } while (false);
@@ -49,11 +55,11 @@ namespace at {
         m.impl(opname, TORCH_FN(wapper_func));                                                                          \
     }  else {                                                                                                           \
         if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {                                                         \
-            DIPU_REGISTER_LOG << #diopi_func << " is not yet implemented, ";                                            \
+            DIPU_REGISTER_LOG(#diopi_func << " is not yet implemented, ")  ;                                            \
         } else {                                                                                                        \
-            DIPU_REGISTER_LOG << "force fallback has been set, ";                                                       \
+            DIPU_REGISTER_LOG("force fallback has been set, ");                                                         \
         }                                                                                                               \
-        DIPU_REGISTER_LOG << opname << " will be fallback to cpu" << std::endl;                                         \
+        DIPU_REGISTER_LOG(opname << " will be fallback to cpu" << std::endl);                                           \
         m.impl(opname, TORCH_FN(custom_fallback_func));                                                                 \
     }                                                                                                                   \
 } while (false);

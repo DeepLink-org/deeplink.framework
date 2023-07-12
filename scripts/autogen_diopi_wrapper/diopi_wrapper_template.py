@@ -12,6 +12,7 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
+#include "csrc_dipu/profiler/profiler.h"
 #include "CustomFallbackFunctions.hpp"
 
 $header_include_code
@@ -221,7 +222,9 @@ $cppsignautre {
 
     $custom_code_before_call_diopi
 
+    dipu::profile::RecordBlockCreator dipuRecorder("$diopi_fun_call_code");
     ::diopiError_t ret = $diopi_fun_call_code
+    dipuRecorder.end();
     if (checkDiopiReturnValue()) {
         TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
     }

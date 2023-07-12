@@ -3,7 +3,7 @@ set -e
 echo "pwd: $(pwd)"
 
 function build_diopi_lib() {
-    cd third_party/DIOPI/DIOPI-IMPL
+    cd third_party/DIOPI/impl
     sh scripts/build_impl.sh clean
     sh scripts/build_impl.sh ascend || exit -1
     cd -
@@ -36,7 +36,7 @@ function autogen_diopi_wrapper() {
 
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
-    export DIOPI_ROOT=$(pwd)/third_party/DIOPI/DIOPI-IMPL/lib
+    export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_ascend_cmake 2>&1 | tee ./build1.log
