@@ -36,6 +36,8 @@ function build_needed_repo_cuda() {
     cd ..
     cd mmagic
     pip install -e . -v --no-deps
+    cd ../mmpretrain
+    pip install -e .
     cd ..
 }
 
@@ -50,7 +52,7 @@ function export_repo_pythonpath(){
     basic_path="$2"
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in pythonpath..."
-        export PYTHONPATH=/nvme/share/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+        export PYTHONPATH=/mnt/cache/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
@@ -81,15 +83,14 @@ function build_dataset(){
         echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
-        ln -s /nvme/share/share_data/datasets/classification/imagenet data/imagenet
-        ln -s /nvme/share/share_data/datasets/detection/coco  data/coco
-        ln -s /nvme/share/share_data/datasets/segmentation/cityscapes data/cityscapes
-        ln -s /nvme/share/share_data/datasets/detection3d/kitti data/kitti
-        ln -s /nvme/share/share_data/chenwen/Kinetics400 data/kinetics400
-        ln -s /nvme/share/share_data/chenwen/ocr/det/icdar2015/imgs data/icdar2015
-        ln -s /nvme/share/share_data/datasets/ocr/recog/Syn90k/mnt/ramdisk/max/90kDICT32px data/mjsynth
-        ln -s /nvme/share/share_data/slc/stable-diffusion-v1-5 data/stable-diffusion-v1-5
-        ln -s /nvme/share/share_data/slc/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
+        # ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kinetics400 data/kinetics400  #数据集还在迁移
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
+
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
         rm -rf data
@@ -100,6 +101,11 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/torchvision/resnet50-0676ba61.pth data/resnet50-0676ba61.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/vgg16_caffe-292e1171.pth data/vgg16_caffe-292e1171.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
