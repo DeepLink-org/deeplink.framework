@@ -17,10 +17,8 @@ static std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
 static std::mutex dipu_register_allocator_mutex;
 
 static DIPUDeviceAllocator lowest_priority_device_allocator;
-static DIPUHostAllocator lowest_priority_host_allocator;
 static int n = [&]() {
   c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &lowest_priority_device_allocator, 0);
-  c10::SetAllocator(at::DeviceType::CPU, &lowest_priority_host_allocator, 0);
   return 0;
 }();
 
@@ -49,11 +47,10 @@ void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allo
     gDIPURegisterdAllocator[device_type][name] = std::make_tuple(allocator, priority);
   } else {
     if (std::get<1>(gDIPURegisterdAllocator[device_type][name]) < priority) {
-        gDIPURegisterdAllocator[device_type][name] = std::make_tuple(allocator, priority);
-        const std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm : dipu_host_memcaching_algorithm);
-        if (name == algorithm) {
-          c10::SetAllocator(device_type, allocator, priority | 0xF0);
-        }
+      gDIPURegisterdAllocator[device_type][name] = std::make_tuple(allocator, priority);
+      if (name == dipu_device_memcaching_algorithm && device_type == dipu::DIPU_DEVICE_TYPE) {
+        c10::SetAllocator(device_type, allocator, priority | 0xF0);
+      }
     } else {
         TORCH_CHECK(false, "A higher priority allocator is already registered for the same device:", device_type, name, priority);
     }
@@ -61,7 +58,6 @@ void setAllocator(const std::string name, c10::DeviceType device_type, c10::Allo
 }
 
 c10::Allocator*  getAllocator(c10::DeviceType device_type) {
-  std::cout << __FUNCTION__ << std::endl;
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
   c10::Allocator* result = nullptr;
   auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
