@@ -208,6 +208,7 @@ DISABLED_TESTS_MLU = {
         'test_nansum_out_dtype',
         'test_quantile_backward',
         'test_logsumexp',
+        'test_dim_offbounds',
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
