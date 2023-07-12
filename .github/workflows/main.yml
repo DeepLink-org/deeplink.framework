@@ -7,9 +7,8 @@ on:
       - dev_v0.25
   pull_request:
     branches:
-      - 'main'
-      - 'dev_v0.25'
-      - 'xt/*'
+      - main
+      - dev_v0.25
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
@@ -17,7 +16,7 @@ env:
   CAMB_SLURM_PAR: ${{ vars.CAMB_SLURM_PAR }}
   SH1988_SLURM_PAR: ${{ vars.SH1988_SLURM_PAR }}
   CLUSTER_CAMB: CAMB
-  CLUSTER_1988: SH1984
+  CLUSTER_1988: SH1988
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
