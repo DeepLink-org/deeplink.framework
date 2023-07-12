@@ -97,7 +97,7 @@ namespace {
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    #ifndef USE_CUDA
+    #ifdef USE_CUDA
       return dipu::copy_(self, src, non_blocking);
     #else
       return dnative::copy_(self, src, non_blocking);
