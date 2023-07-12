@@ -10,6 +10,7 @@ on:
     branches:
       - 'main'
       - 'dev_v0.25'
+      - 'xt/*'
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
