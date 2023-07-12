@@ -1,8 +1,9 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/record_function.h>
 #include <torch/torch.h>
 
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
-#include <csrc_dipu/common.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 #include "./ProcessGroupDICL.h"
 namespace dipu {
 namespace {
@@ -99,7 +100,7 @@ void ProcessGroupDICL::WorkDICL::synchronize() {
     // If we use the work to do barrier, we should block here
     for (auto& comm : diclComms_) {
       DIPUGuard dipuGuard(comm->device_);
-      devapis::syncDevice();
+      devproxy::syncDevice();
     }
   }
 }
@@ -212,7 +213,7 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std
   bool singleP2POp = isP2POp(opType, false);
   // For point-to-point communication, lower rank of the two will get unique id.
   if (rank_ == 0 || (singleP2POp && p2pRank == 0)) {
-    devapis::diclGetUniqueId(&diclID);
+    devproxy::diclGetUniqueId(&diclID);
   }
 
   broadcastUniqueID(&diclID, singleP2POp, devicesKey, p2pRank);
@@ -286,7 +287,7 @@ void ProcessGroupDICL::checkDeviceTensors(const std::vector<at::Tensor>& tensors
   if (tensors.size() == 0) {
     throw std::runtime_error("Tensor list must be nonempty");
   }
-  if (tensors.size() > static_cast<size_t>(devapis::getDeviceCount())) {
+  if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
     throw std::runtime_error(
         "Tensor list mustn't be larger than the number of available DIPUs");
   }
@@ -366,7 +367,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
           diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
-        return devapis::diclAllReduce(
+        return devproxy::diclAllReduce(
             input.data_ptr(),
             output.data_ptr(),
             (size_t)input.numel(),
@@ -390,7 +391,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
         DIPUStream& stream) {
       RECORD_FUNCTION("DiclBroadcast", std::vector<c10::IValue>({input}));
       const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
-      return devapis::diclBroadcast(
+      return devproxy::diclBroadcast(
           input.data_ptr(),
           input.data_ptr(),
           (size_t)input.numel(),
@@ -425,7 +426,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       // todo:: add recordStream after cacheAllocator ready
       // DIPUCachingAllocator::recordStream(
       //     output.storage().data_ptr(), stream);
-      return devapis::diclAllGather(
+      return devproxy::diclAllGather(
           input.data_ptr(),
           output.data_ptr(),
           (size_t)input.numel(),
@@ -465,7 +466,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::send(
         diclComm_t comm,
         DIPUStream& stream) {
       RECORD_FUNCTION("diclSend", std::vector<c10::IValue>({input}));
-      return devapis::diclSend(
+      return devproxy::diclSend(
           input.data_ptr(),
           (size_t)input.numel(),
           input.scalar_type(),
@@ -487,7 +488,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
         diclComm_t comm,
         DIPUStream& stream) {
       RECORD_FUNCTION("diclRecv", std::vector<c10::IValue>({input}));
-      return devapis::diclRecv(
+      return devproxy::diclRecv(
           input.data_ptr(),
           (size_t)input.numel(),
           input.scalar_type(),
@@ -502,7 +503,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::barrier(
     const BarrierOptions& opts) {
   std::vector<at::Device> devices;
   if (usedDeviceIdxs_.empty()) {
-    auto numDIPUs = devapis::getDeviceCount();
+    auto numDIPUs = devproxy::getDeviceCount();
     int16_t deviceIdx = static_cast<int16_t>(rank_ % std::max(static_cast<int>(numDIPUs), 1));
     devices.push_back(at::Device(dipu::DIPU_DEVICE_TYPE, deviceIdx));
   } else {

@@ -10,8 +10,8 @@
 #include <c10/util/SmallVector.h>
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/common.h>
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 namespace dipu {
 
@@ -66,12 +66,12 @@ public:
 
   void synchronize() const {
     c10::DeviceGuard guard{stream_.device()};
-    devapis::syncStream(rawstream());
+    devproxy::syncStream(rawstream());
   }
 
   bool isStreamEmpty() const {
     c10::DeviceGuard guard{device()};
-    return devapis::isStreamEmpty(rawstream());
+    return devproxy::isStreamEmpty(rawstream());
   }
 
   /// Explicit conversion to rtStream_t.

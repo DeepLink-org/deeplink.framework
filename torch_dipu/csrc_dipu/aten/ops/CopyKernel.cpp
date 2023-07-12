@@ -11,14 +11,13 @@
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/runtime/core/MemChecker.h>
-
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 using c10::device_or_default;
 using c10::layout_or_default;
 using c10::StorageImpl;
 using c10::TensorImpl;
 using at::Layout;
-using dipu::devapis::current_device;
 using dipu::devapis::deviceId_t;
 using c10::IntArrayRef;
 
@@ -48,12 +47,12 @@ namespace dipu::native {
     void* dst_ptr = dst.data_ptr();
 
     MemChecker::instance().check(dst);
-    dipu::devapis::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
+    dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
       /// need add host cache allocator
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     } else {
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     }
   }
 
@@ -67,13 +66,13 @@ namespace dipu::native {
     void* dst_ptr = dst.data_ptr();
 
     MemChecker::instance().check(src);
-    dipu::devapis::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
+    dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
     if (non_blocking) {
         // DIPU_LOGW("Copy data back to CPU device with " \
         //     "non_blocking is not supported now ");
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     } else {
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     }
   }
 
@@ -124,14 +123,14 @@ namespace dipu::native {
 
     MemChecker::instance().check(src);
     MemChecker::instance().check(dst);
-    dipu::devapis::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
+    dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
     if (non_blocking) {
         // DIPU_LOGW("warnning: Copy between devices with " \
         //     "non_blocking is not supported now ");
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     } else {
-      dipu::devapis::syncStream(stream.rawstream());
+      dipu::devproxy::syncStream(stream.rawstream());
     }
   }
 
@@ -195,8 +194,8 @@ namespace dipu::native {
           scalar_t value;
           dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
           MemChecker::instance().check(self);
-          dipu::devapis::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t), &value, self.data_ptr<scalar_t>());
-          dipu::devapis::syncStream(stream.rawstream());
+          dipu::devproxy::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t), &value, self.data_ptr<scalar_t>());
+          dipu::devproxy::syncStream(stream.rawstream());
           r =  at::Scalar(value);
         });
     return r;
