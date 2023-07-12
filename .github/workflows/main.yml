@@ -3,7 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - '**'
+      - main
+      - dev_v0.25
+      - wgs/*
   pull_request:
     branches:
       - 'main'
@@ -11,7 +13,7 @@ on:
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
-  NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
+  NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/DIPU'
   CAMB_SLURM_PAR: ${{ vars.CAMB_SLURM_PAR }}
   SH1988_SLURM_PAR: ${{ vars.SH1988_SLURM_PAR }}
   CLUSTER_CAMB: CAMB
@@ -20,6 +22,9 @@ env:
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
 
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   Rsync:
@@ -28,7 +33,7 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/dipu.git && cd dipu
+          cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/DIPU.git && cd DIPU
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             echo "${{ github.base_ref }} "
             git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
@@ -36,31 +41,31 @@ jobs:
             echo $GITHUB_EVENT_NAME
             git checkout ${{ github.sha }}
           fi
-          cd ${GITHUB_WORKSPACE} && cp -R dipu dipu_diopi
+          cd ${GITHUB_WORKSPACE} && cp -R DIPU DIPU_DIOPI
 
-          cd ${GITHUB_WORKSPACE}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
+          cd ${GITHUB_WORKSPACE}/DIPU && rm -rf third_party/DIOPI && git submodule update --init --recursive
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
           fi
-          cd ${GITHUB_WORKSPACE}/dipu
+          cd ${GITHUB_WORKSPACE}/DIPU
           rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/dipu_diopi/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-
-      - name: ci interruptible and support pr ci
-        run: |
-          cd ${GITHUB_WORKSPACE}/dipu && bash scripts/ci/ci_interruptible.sh
-        env:
-          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
+#
+#      - name: ci interruptible and support pr ci
+#        run: |
+#          cd ${GITHUB_WORKSPACE}/DIPU && bash scripts/ci/ci_interruptible.sh
+#        env:
+#          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           ssh ${CLUSTER_CAMB} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
+          rsync -a --delete ${GITHUB_WORKSPACE}/DIPU/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/DIPU_DIOPI/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/DIPU/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/DIPU_DIOPI/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           result=`ssh ${CLUSTER_CAMB} """
                   mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -227,7 +232,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -260,7 +265,7 @@ jobs:
         run: |
           ssh ${CLUSTER_1988} """
           set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
