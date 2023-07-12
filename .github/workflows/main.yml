@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - dev_v0.25
-      - wgs/*
   pull_request:
     branches:
       - 'main'
@@ -34,7 +33,7 @@ jobs:
     steps:
       - name: clone repo
         run: |
-          cd ${GITHUB_WORKSPACE} && rm -rf dipu dipu_diopi && git clone https://github.com/DeepLink-org/DIPU.git && cd DIPU
+          cd ${GITHUB_WORKSPACE} && rm -rf DIPU DIPU_DIOPI && git clone https://github.com/DeepLink-org/DIPU.git && cd DIPU
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             echo "${{ github.base_ref }} "
             git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
