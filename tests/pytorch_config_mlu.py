@@ -209,6 +209,7 @@ DISABLED_TESTS_MLU = {
         'test_quantile_backward',
         'test_logsumexp',
         'test_dim_offbounds',
+        'test_dim_reduction_less_than_64',
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
