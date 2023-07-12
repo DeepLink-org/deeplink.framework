@@ -27,7 +27,6 @@ static std::string force_fallback_operators_list = []()-> std::string {
 
 
 namespace dipu {
-
 bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
@@ -98,6 +97,9 @@ namespace {
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+    if (dipu::VENDOR_TYPE == dipu::devapis::VendorDeviceType::CUDA) {
+      return dipu::copy_(self, src, non_blocking);
+    }
     return dnative::copy_(self, src, non_blocking);
   }
 
