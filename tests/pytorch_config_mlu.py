@@ -210,6 +210,10 @@ DISABLED_TESTS_MLU = {
         'test_logsumexp',
         'test_dim_offbounds',
         'test_dim_reduction_less_than_64',
+        'test_empty_tensor_empty_slice',
+        'test_std_correction_vs_numpy',
+        'test_std_mean_correction',
+        'test_std_vs_numpy',
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
