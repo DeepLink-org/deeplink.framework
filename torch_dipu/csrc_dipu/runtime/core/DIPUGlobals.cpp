@@ -5,7 +5,6 @@
 namespace dipu {
 
 void releaseAllResources() {
-    std::cout << __FUNCTION__ << std::endl;
     releaseAllDeviceMem();
     releaseGlobalEventPool();
 }
