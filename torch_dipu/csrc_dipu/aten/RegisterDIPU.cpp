@@ -97,10 +97,11 @@ namespace {
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    if (dipu::VENDOR_TYPE == dipu::devapis::VendorDeviceType::CUDA) {
+    #ifndef USE_CUDA
       return dipu::copy_(self, src, non_blocking);
-    }
-    return dnative::copy_(self, src, non_blocking);
+    #else
+      return dnative::copy_(self, src, non_blocking);
+    #endif
   }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
