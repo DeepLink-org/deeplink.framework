@@ -3,8 +3,7 @@
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
-#include "DIPUDeviceAllocator.h"
-#include "DIPUHostAllocator.h"
+#include "DIPUAllocator.h"
 #include "DIPUAsyncResoursePool.h"
 #include "DIPUEvent.h"
 

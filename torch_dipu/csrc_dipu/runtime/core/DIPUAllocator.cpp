@@ -1,6 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
-#include "DIPUHostAllocator.h"
+#include "DIPUAllocator.h"
 
 #include <mutex>
 #include <unordered_set>
@@ -12,6 +12,43 @@
 
 namespace dipu {
 
+static void DIPUDeviceAllocatorDeleter(void *ptr) {
+    if (ptr) {
+      MemChecker::instance().erase(ptr);
+      auto device = devapis::current_device();
+      devapis::setDevice(device);
+      DIPU_DEBUG_ALLOCATOR(2, "devapis::freeDevice: free " << ptr);
+      devapis::freeDevice(ptr);
+      ptr = nullptr;
+    }
+}
+
+DIPUDeviceAllocator::DIPUDeviceAllocator() {
+  auto device = devapis::current_device();
+  devapis::setDevice(device);
+}
+
+c10::DataPtr DIPUDeviceAllocator::allocate(size_t size) const {
+  auto idx = devapis::current_device();
+  devapis::setDevice(idx);
+  return this->allocate(size, idx);
+}
+
+c10::DeleterFnPtr DIPUDeviceAllocator::raw_deleter() const {
+  return &DIPUDeviceAllocatorDeleter;
+}
+
+c10::DataPtr DIPUDeviceAllocator::allocate(size_t nbytes, c10::DeviceIndex device_index) const {
+      std::lock_guard<std::mutex> lock(mutex_);
+      void *data = nullptr;
+      if (nbytes > 0) {
+        devapis::mallocDevice(&data, nbytes);
+      }
+      DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
+      MemChecker::instance().insert(data, nbytes);
+      return {data, data, &DIPUDeviceAllocatorDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
+}
+
 class DIPUHostAllocatorImpl final {
 public:
   std::pair<void*, void*> allocate(size_t size) {
@@ -21,6 +58,7 @@ public:
 
     void* data = nullptr;
     devapis::mallocHost(&data, size);
+    DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocHost: malloc " << size << " nbytes, ptr:" << data);
     MemChecker::instance().insert(data, size);
     {
       std::lock_guard<std::mutex> lck(mtx_);
@@ -40,6 +78,7 @@ public:
     }
     MemChecker::instance().erase(ctx);
     devapis::freeHost(ctx);
+    DIPU_DEBUG_ALLOCATOR(2, "devapis::freeHost: free " << ctx);
     ctx = nullptr;
   }
 

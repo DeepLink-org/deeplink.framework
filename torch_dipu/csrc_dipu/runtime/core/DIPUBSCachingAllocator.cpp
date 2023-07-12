@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
-#include "DIPUDeviceAllocator.h"
 #include <stdint.h>
 #include <map>
 #include <set>
