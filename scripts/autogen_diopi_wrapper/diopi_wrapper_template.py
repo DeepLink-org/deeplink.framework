@@ -167,22 +167,29 @@ static std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_s
 }
 
 
-
 static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
     if(a.defined() && b.defined()) {
         try {
-            return at::allclose(a.cpu(), b.cpu(), 1e-3, 1e-3, true) ? "allclose" : "not_close";
+            if(at::allclose(a.cpu(), b.cpu(), 1e-4, 1e-5, true)) {
+                return "allclose";
+            } else {
+                auto diff = at::abs(a.cpu() - b.cpu());
+                auto mae = diff.mean().item<double>();
+                auto max_diff = diff.max().item<double>();
+                return "not_close, max diff: " + std::to_string(max_diff) + ", MAE: " + std::to_string(mae);
+            }
         } catch (...) {
-            return "compare_fail: not_close";
+            return "compare_error: not_close";
         }
     } else {
         if(a.defined() != b.defined()) {
-            return "not_close";
+            return "not_close, one of tensor inputs is empty";
         } else {
             return "allclose";
         }
     }
 }
+
 
 using namespace dipu::diopi_helper;
 
