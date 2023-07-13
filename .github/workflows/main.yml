@@ -11,14 +11,17 @@ on:
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
-  SLURM_PAR_CAMB: ${{ secrets.SLURM_PAR_CAMB }}
+  SLURM_PAR_CAMB: ${{ vars.CAMB_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
   CLUSTER_CAMB: CAMB
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
-  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
+  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
   NV_CI_PATH: '/nvme/share/share/github/cibuild/${{ github.repository }}'
   NV_SOURCE_PATH: '/nvme/share/share/github/sourcecode'
 
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   Rsync:
@@ -43,12 +46,6 @@ jobs:
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             cd ./DIOPI && git checkout ${{ github.base_ref }}
           fi
-
-      - name: ci interruptible and support pr ci
-        run: |
-          cd ${GITHUB_WORKSPACE}/dipu && bash scripts/ci/ci_interruptible.sh
-        env:
-          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           echo ${GITHUB_WORKSPACE}
