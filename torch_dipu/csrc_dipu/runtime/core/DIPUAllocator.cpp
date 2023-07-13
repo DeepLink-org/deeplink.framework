@@ -43,8 +43,8 @@ c10::DataPtr DIPUDeviceAllocator::allocate(size_t nbytes, c10::DeviceIndex devic
       void *data = nullptr;
       if (nbytes > 0) {
         devapis::mallocDevice(&data, nbytes);
+        DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
       }
-      DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
       MemChecker::instance().insert(data, nbytes);
       return {data, data, &DIPUDeviceAllocatorDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
 }

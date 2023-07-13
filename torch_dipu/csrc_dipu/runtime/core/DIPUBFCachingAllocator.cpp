@@ -61,10 +61,26 @@ private:
     static constexpr size_t kMaxExtendSize = kMinAllocationSize << 21u;  // 1GB
 
     void* allocateOnDevice(size_t nbytes) {
-        return allocate_fn(nbytes);
+        void* ptr = nullptr;
+        for (size_t i = 0; i < 2; i++) {
+            try {
+                ptr = allocate_fn(nbytes);
+                break;
+            }
+            catch(...) {
+                if (i == 0) {
+                    emptyCache();
+                } else {
+                    throw std::runtime_error("no device memory available");
+                }
+            }
+        }
+        DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocatorImpl: allocateOnDevice " << nbytes << " nbytes, ptr:" << ptr);
+        return ptr;
     }
 
-    void releaseOnDevice(void* ptr, size_t nbytes) {
+    void releaseOnDevice (void* ptr, size_t nbytes) {
+        DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocatorImpl: releaseOnDevice " << nbytes << " nbytes, ptr:" << ptr);
         deallocate_fn(ptr);
     }
 
@@ -399,18 +415,20 @@ public:
     }
 
     void set_mem_allocate_fn(allocate_fn_t allocate_fn, deallocate_fn_t deallocate_fn) {
+         DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: set_mem_allocate_fn ");
         this->allocate_fn = allocate_fn;
         this->deallocate_fn = deallocate_fn;
     }
 };
 
+static void deleteBFContext(void* ptr);
+
 class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
-    mutable std::map<void*, int> allocated_;
     mutable at::Device device_ = at::DeviceType::CPU;
 
 public:
-  BFCachingAllocator(): impl(new BFCachingAllocatorImpl()){
+  BFCachingAllocator() {
 
   }
 
@@ -418,37 +436,97 @@ public:
 
   }
 
-  c10::DataPtr allocate(size_t size) const override {
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes");
-    static bool inited = false;
-    if (inited) {
-        std::function<void*(size_t)> alloc_fn = [&](size_t nbytes) {
-            auto ptr = raw_allocator()->allocate(nbytes);
-            device_ = ptr.device();
-            return ptr.get();
-        };
-        std::function<void(void*)> dealloc_fn = std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this, std::placeholders::_1);
-        impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
-        inited = true;
-    }
-    std::pair<void*, int> block = impl->allocateRaw(size);
-    static std::function<void(void*)> deleter = [&](void* ptr){
-        int id = allocated_[ptr];
-        allocated_.erase(ptr);
+  void restore() const{
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:" << __FUNCTION__ << ",allocator:" << this);
+    while (async_mem_pool()->ready()) {
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
         impl->releaseRaw(ptr, id);
+    }
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:" << __FUNCTION__ << ",allocator:" << this << " over");
+  }
+
+  void check_impl() const{
+    if (impl) {
+        return;
+    }
+    impl.reset(new BFCachingAllocatorImpl());
+    std::function<void*(size_t)> alloc_fn = [&](size_t nbytes) {
+        auto ptr = raw_allocator()->allocate(nbytes);
+        device_ = ptr.device();
+        ptr.release_context();
+        return ptr.get();
     };
-    return c10::InefficientStdFunctionContext::makeDataPtr(std::get<0>(block), deleter, device_);
+    std::function<void*(size_t)> alloc_fn1 = std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this, std::placeholders::_1);
+    std::function<void(void*)> dealloc_fn = std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this, std::placeholders::_1);
+    impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
+  }
+
+  c10::DataPtr allocate(size_t size) const override {
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size);
+    check_impl();
+    std::pair<void*, int> block = impl->allocateRaw(size);
+    void* ptr = std::get<0>(block);
+    int id = std::get<1>(block);
+
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device_);
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr);
+    return data_ptr;
   }
 
   void empty_cache() const override {
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this);
     impl->emptyCache();
   }
 
   void release_all_memory() const override {
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this);
+    while (async_mem_pool()->size() > 0) {
+        if (!async_mem_pool()->ready()) {
+            std::this_thread::yield();
+            continue;
+        }
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
+        impl->releaseRaw(ptr, id);
+    }
+    impl.reset(nullptr);
+  }
 
+  struct Context {
+    void* ptr_;
+    size_t size_;
+    int id_;
+    const BFCachingAllocator* allocator_;
+    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):ptr_(ptr), size_(size), id_(id),allocator_(allocator) {
+
+    }
+
+    ~Context() {
+      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: free " << ptr_ << ", " << size_ << " nbytes, allocator:" << allocator_);
+      if (allocator_->impl) {
+        if (ptr_) {
+            allocator_->async_mem_pool()->add(std::make_tuple(ptr_, id_));
+        }
+        allocator_->restore();
+      }
+    }
+  };
+
+
+  void* makeContext(void* ptr, size_t size, int id) const{
+    auto* ctx = new Context(ptr, size, id, this);
+    return ctx;
   }
 
 };
+
+static void deleteBFContext(void* ptr) {
+  auto ctx = static_cast<BFCachingAllocator::Context*>(ptr);
+  delete ctx;
+}
 
 DIPU_REGISTER_ALLOCATOR(BF, dipu::DIPU_DEVICE_TYPE, BFCachingAllocator, 0);
 DIPU_REGISTER_ALLOCATOR(BF, at::DeviceType::CPU, BFCachingAllocator, 0);
