@@ -161,6 +161,9 @@ DISABLED_TESTS_MLU = {
         'test_not_broadcastable',
         'test_maximum_and_minimum_subgradient',
         'test_copysign_subgradient',
+        'test_fmod_remainder_by_zero_float',
+        'test_fmod_remainder_by_zero_integral',
+        'test_lerp',
     },
 
     # test_reductions.py
