@@ -12,10 +12,10 @@ on:
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   NV_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
-  CAMB_SLURM_PAR: ${{ vars.CAMB_SLURM_PAR }}
-  SH1988_SLURM_PAR: ${{ vars.SH1988_SLURM_PAR }}
-  CLUSTER_CAMB: CAMB
-  CLUSTER_1988: SH1984
+  CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR }}
+  CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR }}
+  CAMB_CLUSTER: CAMB
+  CUDA_CLUSTER: SH1984
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
@@ -55,13 +55,13 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
-          ssh ${CLUSTER_CAMB} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_CAMB}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CLUSTER_1988} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
-          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CLUSTER_1988}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
-          result=`ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${CUDA_CLUSTER} "mkdir -p ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu/ ${CUDA_CLUSTER}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu/
+          rsync -a --delete ${GITHUB_WORKSPACE}/dipu_diopi/ ${CUDA_CLUSTER}:${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/dipu-main/
+          result=`ssh ${CAMB_CLUSTER} """
                   mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   if [ ! -f ${CI_BUILD_FLAG} ]; then
@@ -74,58 +74,31 @@ jobs:
             echo "pytorch:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT} exist."
           else
             echo "pytorch not exist, copy pytorch to ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            ssh ${CLUSTER_CAMB} "rm -rf ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            rsync -a --delete /home/autolink/rsync/sourcecode/pytorch/* ${CLUSTER_CAMB}:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}/
+            ssh ${CAMB_CLUSTER} "rm -rf ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
+            rsync -a --delete /home/autolink/rsync/sourcecode/pytorch/* ${CAMB_CLUSTER}:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}/
           fi
-
-  Build-Pytorch:
-    name: Build pytorch
-    needs: [Rsync]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 0
-    steps:
-      - name: Build pytorch
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source
-          source scripts/ci/camb/ci_camb_env.sh
-          cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo "pwd: $(pwd)"
-          if [ -f ${CI_BUILD_FLAG} ]; then
-            echo "${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT} has been successfully compiled."
-          else
-            mkdir -p build && make clean
-            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
-            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0
-            srun --job-name=${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --time=40 \
-            --gres=mlu:${MLU_REQUESTS} python setup.py install --prefix=./install_path
-            echo "${PYTORCH_COMMIT}" > ${CI_BUILD_FLAG}
-          fi
-          """
 
   Build-Camb:
-    name: Build dipu camb
-    needs: [Build-Pytorch]
+    name: Build-dipu-camb
+    needs: [Rsync]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
     steps:
       - name: Build dipu
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --time=40 \
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
-  Test-Camb-Diopi:
-    name: test-camb-diopi
+  Test-Camb:
+    name: test-diopi-camb
     needs: [Build-Camb]
     runs-on: github-poc-ci
     env:
@@ -133,49 +106,12 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
-          """
-
-  Build-Camb-Diopi:
-    name: Build dipu camb diopi-latest-target
-    needs: [Build-Pytorch]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Build dipu diopi-latest-target
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --time=40 \
-          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
-          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
-
-  Test-Camb-Diopi-Latest-Target:
-    name: test-camb-diopi-latest-target
-    needs: [Build-Camb-Diopi]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Run-test
-        run: |
-          ssh ${CLUSTER_CAMB} """
-          set -e
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Diopi
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-Camb-Diopi \
-          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Diopi && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
 
   Test-One-Iter-Camb:
@@ -187,7 +123,7 @@ jobs:
     steps:
       - name: build-some-env
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -198,12 +134,12 @@ jobs:
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\${pwd}:\$PYTHONPATH
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CAMB_SLURM_PAR} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci/ci_one_iter.sh build_camb
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CAMB_PARTATION} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci/ci_one_iter.sh build_camb
           """
 
       - name: run-one-iter-tools
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} """
           set -e
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -213,86 +149,89 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
-          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" ${CAMB_SLURM_PAR} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" ${CAMB_PARTATION} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
+  
+  Build-Camb-Latest-Target:
+    name: Build-dipu-camb-latest-target
+    needs: [Rsync]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -e
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci/camb/ci_camb_env.sh
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  Test-Camb-Latest-Target:
+    name: test-diopi-camb-latest-target
+    needs: [Build-Camb-Latest-Target]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Run-test
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -e
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Diopi
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci/camb/ci_camb_env.sh
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-Camb-Diopi \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Diopi && exit 1 )
           """
   
   Build-Cuda:
-    name: Build dipu cuda
+    name: Build-dipu-cuda
     needs: [Rsync]
-    runs-on: tps-diopi-ci
+    runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
     steps:
       - name: Build dipu
         run: |
-          ssh ${CLUSTER_1988} """
+          ssh ${CUDA_CLUSTER} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
-  Test-Cuda-Diopi:
-    name: test-cuda-diopi
+  Test-Cuda:
+    name: test-diopi-cuda
     needs: [Build-Cuda]
-    runs-on: tps-diopi-ci
+    runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
     steps:
       - name: Run-test
         run: |
-          ssh ${CLUSTER_1988} """
+          ssh ${CUDA_CLUSTER} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh tests/run_nv_tests.sh
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh tests/run_nv_tests.sh
           """
-
-  Build-Cuda-Diopi:
-    name: Build dipu cuda diopi-latest-target
-    needs: [Rsync]
-    runs-on: tps-diopi-ci
-    env:
-      GPU_REQUESTS: 1
-    steps:
-      - name: Build dipu diopi-latest-target
-        run: |
-          ssh ${CLUSTER_1988} """
-          set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
-          source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G bash scripts/ci/nv/ci_nv_script.sh build_dipu \
-          || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
-
-  Test-Cuda-Diopi-Latest-Target:
-    name: test-cuda-diopi-latest-target
-    needs: [Build-Cuda-Diopi]
-    runs-on: tps-diopi-ci
-    env:
-      GPU_REQUESTS: 1
-    steps:
-      - name: Run-test
-        run: |
-          ssh ${CLUSTER_1988} """
-          set -e
-          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Diopi
-          source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Diopi \
-          || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
-
+  
   Test-One-Iter_Cuda:
     name: test-one-iter-cuda
     needs: [Build-Cuda]
-    runs-on: tps-diopi-ci
+    runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
     steps:
       - name: build some env
         run: |
-          ssh ${CLUSTER_1988} """
+          ssh ${CUDA_CLUSTER} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
@@ -301,12 +240,12 @@ jobs:
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\${pwd}:\$PYTHONPATH
           cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${SH1988_SLURM_PAR} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
 
       - name: run-one-iter-tools
         run: |
-          ssh ${CLUSTER_1988} """
+          ssh ${CUDA_CLUSTER} """
           set -e
           cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
@@ -314,5 +253,40 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
-          python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${SH1988_SLURM_PAR}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
+
+  Build-Cuda-Latest-Target:
+    name: Build-dipu-cuda-latest-target
+    needs: [Rsync]
+    runs-on: github-poc-ci
+    env:
+      GPU_REQUESTS: 1
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R dipu-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}
+          source scripts/ci/nv/ci_nv_env.sh
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+          || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  Test-Cuda-Latest-Target:
+    name: test-diopi-cuda-latest-target
+    needs: [Build-Cuda-Latest-Target]
+    runs-on: github-poc-ci
+    env:
+      GPU_REQUESTS: 1
+    steps:
+      - name: Run-test
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Diopi
+          source scripts/ci/nv/ci_nv_env.sh
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh tests/run_nv_tests.sh && cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Diopi \
+          || ( cd ${NV_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
