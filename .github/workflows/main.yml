@@ -12,14 +12,14 @@ on:
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
-  CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR }}
+  CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
   CAMB_CLUSTER: CAMB
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
-  CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/DeepLink-org/dipu'
-  CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR }}
+  CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
+  CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
   CUDA_CLUSTER: SH1988
   CI_BUILD_FLAG: "ci_build_flag"
-  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT }}  # pytorch tag 2.0
+  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}

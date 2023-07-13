@@ -36,9 +36,7 @@ function autogen_diopi_wrapper() {
 
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
-    export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_ascend_cmake 2>&1 | tee ./build1.log
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
