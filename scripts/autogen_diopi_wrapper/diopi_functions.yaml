@@ -1684,7 +1684,7 @@
   interface: diopiEmbeddingBackward(ctx, grad_weight, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
 
 - schema: linalg_qr.out(Tensor A, str mode='reduced', *, Tensor(a!) Q, Tensor(b!) R) -> (Tensor(a!) Q, Tensor(b!) R)
-  interface: diopiLinalgQROut(ctx, A, mode.data(), Q, R)
+  interface: diopiLinalgQR(ctx, A, mode.data(), Q, R)
 
 - schema: sign.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)
-  interface: diopiSignOut(ctx, out, self)
+  interface: diopiSign(ctx, out, self)
