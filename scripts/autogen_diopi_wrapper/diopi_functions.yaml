@@ -1688,3 +1688,8 @@
 
 - schema: sign.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSign(ctx, out, self)
+
+- schema: amax.out(Tensor self, int[1] dim=[], bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiAmax(ctx, out, self, dimDiopiSize, keepdim)
