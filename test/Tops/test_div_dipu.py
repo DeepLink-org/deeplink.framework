@@ -15,6 +15,7 @@ class MyModule(torch.nn.Module):
         return r
 
 os.environ['DICP_TOPS_DIPU'] = 'True'
+os.environ['DIPU_MOCK_CUDA'] = 'false'
 device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
 a = torch.arange(16).reshape(4, 4).float()
 b = 2
