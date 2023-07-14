@@ -458,9 +458,10 @@ public:
         ptr.release_context();
         return ptr.get();
     };
-    std::function<void*(size_t)> alloc_fn1 = std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this, std::placeholders::_1);
     std::function<void(void*)> dealloc_fn = std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this, std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
+    auto ptr = raw_allocator()->allocate(0);
+    device_ = ptr.device();
   }
 
   c10::DataPtr allocate(size_t size) const override {
