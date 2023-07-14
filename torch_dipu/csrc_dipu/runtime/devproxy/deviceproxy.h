@@ -1,15 +1,16 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <cstring>
+#include "../device/deviceapis.h"
 
-#include <csrc_dipu/vendor/vendorapi.h>
-#include "./basedef.h"
+using dipu::devapis::deviceId_t;
+using dipu::devapis::DIPUDeviceProperties;
+using dipu::devapis::EventStatus;
+using dipu::devapis::OpStatus;
 
 namespace dipu {
 
-extern devapis::VendorDeviceType VENDOR_TYPE;
-namespace devapis {
+namespace devproxy {
 
 DIPU_API deviceId_t current_device();
 
@@ -99,5 +100,6 @@ DIPU_API void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
 // (asynchronous) copy from a device to host
 DIPU_API void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
         /*Host dstDev,*/ void* dst, /*deviceId_t srcDevId,*/ const void* src);
-}  // end namespace devapis
+
+}  // end namespace devproxy
 }  // end namespace dipu

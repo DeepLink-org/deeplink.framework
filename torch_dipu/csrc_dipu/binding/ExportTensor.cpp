@@ -5,8 +5,10 @@
 #include <torch/csrc/Exceptions.h>
 #include <torch/csrc/utils/python_strings.h>
 #include <torch/csrc/utils/python_arg_parser.h>
+
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 #include "exportapi.h"
-#include <csrc_dipu/common.h>
 
 namespace dipu {
 static at::Tensor dispatch_to(const at::Tensor& self, at::Device device, bool non_blocking, bool copy, c10::optional<c10::MemoryFormat> optional_memory_format) {

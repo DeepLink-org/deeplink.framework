@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <vector> 
@@ -10,7 +11,7 @@
 #include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
-#include <csrc_dipu/common.h>
+#include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 #include <csrc_dipu/vendor/vendorapi.h>

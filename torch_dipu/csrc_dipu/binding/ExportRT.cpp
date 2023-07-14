@@ -6,13 +6,9 @@
 #include <torch/csrc/utils/pybind.h>
 #include <pybind11/chrono.h>
 
-
 #include "exportapi.h"
-#include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/core/device.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/runtime/core/DIPUEvent.h>
-#include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
+#include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -43,20 +39,20 @@ static void registerDIPUDeviceProperties(py::module& m) {
 
 static void exportDevices(py::module& m) {
    // Device Management.
-  m.attr("dipu_vendor") = devapis::VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void { 
-    devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
+    devproxy::setDevice(static_cast<devapis::deviceId_t>(idx)); 
   });
   m.def("_dipu_get_device_count", []() -> int { 
-    return devapis::getDeviceCount();
+    return devproxy::getDeviceCount();
   });
   m.def("_dipu_current_device", []() -> int {
-    return static_cast<int>(devapis::current_device()); 
+    return static_cast<int>(devproxy::current_device()); 
   });
   m.def("_dipu_synchronize", []() -> void { 
-    devapis::syncDevice(); 
+    devproxy::syncDevice(); 
     return;
   });
   m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
@@ -76,7 +72,7 @@ static void exportStream(py::module& m) {
             return DIPUStream(device_index, stream_id);
           } else if (stream_ptr) {
             return dipu::getStreamFromExternal(reinterpret_cast<deviceStream_t>(stream_ptr),
-                                               devapis::current_device());
+                                               devproxy::current_device());
           } else {
             return getDIPUStreamFromPool();
           }
