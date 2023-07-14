@@ -48,7 +48,6 @@ public:
             event = event_pool_.back();
             event_pool_.pop_back();
         }
-        // std::cout << "EventPool size:" << event_pool_.size() << ", allocated:" << allocate_num_ << std::endl;
     }
 
     void restore(T& event) {
