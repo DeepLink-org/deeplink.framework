@@ -1542,8 +1542,15 @@
     std::string reduce = "add"; 
   interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
 
+- schema: "remainder.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiRemainderScalar(ctx, out, self, other)
+  
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiRemainderTensor(ctx,out, self, other)
+  custom_code_at_the_beginning: |
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_remainder_scalar_out(self, other.item(), out);
+    }
+  interface: diopiRemainderTensor(ctx, out, self, other)
 
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |

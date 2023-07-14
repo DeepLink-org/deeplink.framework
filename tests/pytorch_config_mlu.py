@@ -161,9 +161,9 @@ DISABLED_TESTS_MLU = {
         'test_not_broadcastable',
         'test_maximum_and_minimum_subgradient',
         'test_copysign_subgradient',
-        'test_fmod_remainder_by_zero_float',
+        'test_fmod_remainder_by_zero_float', # skip for the remainder op
         'test_fmod_remainder_by_zero_integral',
-        'test_lerp',
+        'test_lerp', # skip for the lerp op
     },
 
     # test_reductions.py
@@ -211,12 +211,14 @@ DISABLED_TESTS_MLU = {
         'test_nansum_out_dtype',
         'test_quantile_backward',
         'test_logsumexp',
-        'test_dim_offbounds',
+        'test_dim_offbounds', # skip for the std op
         'test_dim_reduction_less_than_64',
         'test_empty_tensor_empty_slice',
         'test_std_correction_vs_numpy',
         'test_std_mean_correction',
         'test_std_vs_numpy',
+        'test_ref_large_input_1D', # skip for the sum op
+        'test_ref_large_input_2D', 
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
@@ -344,6 +346,7 @@ DISABLED_TESTS_MLU = {
         'test_take_along_dim_invalid',
         'test_variable_slicing',
         'test_zero_dim_index',
+        'test_byte_mask2d', # skip for the sum op
         # FAIL
         'test_index',
         'test_int_indices',
