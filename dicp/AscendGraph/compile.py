@@ -12,26 +12,16 @@ class AscendCodeCache:
     clear = staticmethod(cache.clear)
 
     @classmethod
-    def load(cls, source_code):
-        picked_vec_isa = pick_vec_isa()
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        key, input_path = write(
-            source_code,
-            "cpp",
-            extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) + 'local_rank' + str(local_rank),
-        )
-        output_path = input_path[:-3] + 'so'
-        output_graph_path = input_path[:-4] + '/graph'
-        print('output_path: ', output_graph_path)
-
+    def get_compile_lib(cls):
+        lib_path = "/tmp/dicp_ascend/graph_compile.so"
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
-        start = time.time()
-        model_path = [f'{output_graph_path}.om', f'{output_graph_path}_linux_x86_64.om']
-        if key not in cls.cache:
-            if not os.path.exists(output_path) or \
-                (not os.path.exists(model_path[0]) and not os.path.exists(model_path[1])):
-                cmd = ['/usr/bin/c++',
+        source_path = graph_util_path + '/graph_compile.cpp'
+        json_util_path = graph_util_path + '/nlohmann'
+        if not os.path.exists(lib_path):
+            os.system("mkdir -p /tmp/dicp_ascend" )
+            start = time.time()
+            cmd = ['/usr/bin/c++',
                     '-D_GLIBCXX_USE_CXX11_ABI=0',
                     '-fPIC',
                     '-shared',
@@ -44,21 +34,41 @@ class AscendCodeCache:
                     '-I/usr/local/Ascend/ascend-toolkit/latest/parser',
                     '-I/usr/local/Ascend/ascend-toolkit/latest/compiler/include',
                     '-I{}'.format(graph_util_path),
+                    '-I{}'.format(json_util_path),
                     '-L/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                     '-lgraph',
                     '-lge_runner',
-                    '-o' + output_path,
-                    input_path,
+                    '-o' + lib_path,
+                    source_path,
                     '-Wl,-rpath,/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                     '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libgraph.so',
-                    '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libge_runner.so',]
-                try:
-                    subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-                except subprocess.CalledProcessError as e:
-                    raise exc.CppCompileError(cmd, e.output) from e
-                print('compile time:', time.time() - start)
-                loaded = cdll.LoadLibrary(output_path)
-                loaded.compile(output_graph_path.encode())
+                    '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libge_runner.so',
+                    '/usr/local/Ascend/ascend-toolkit/latest/lib64/libgraph_base.so',]
+            try:
+                subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise exc.CppCompileError(cmd, e.output) from e
+            print('compile time:', time.time() - start)
+        return lib_path  
+
+    @classmethod
+    def load(cls, source_code):
+        picked_vec_isa = pick_vec_isa()
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        key, input_path = write(
+            source_code.strip(),
+            "json",
+            extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) + 'local_rank' + str(local_rank),
+        )
+        output_graph_path = input_path[:-5] + '/graph'
+        print('output_path: ', output_graph_path)
+
+        model_path = [f'{output_graph_path}.om', f'{output_graph_path}_linux_x86_64.om']
+        if key not in cls.cache:
+            if (not os.path.exists(model_path[0]) and not os.path.exists(model_path[1])):
+                lib_path = cls.get_compile_lib()
+                loaded = cdll.LoadLibrary(lib_path)
+                loaded.compile(output_graph_path.encode(), input_path.encode())
 
             if not os.path.exists(output_graph_path + '.om'):
                 output_graph_path += '_linux_x86_64'

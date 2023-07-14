@@ -1,9 +1,9 @@
 import torch
+import json
 
-from typing import Any
+from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
-
 
 graph_id = 0
 
@@ -162,6 +162,44 @@ def symint_in_shape(shape):
     return False
 
 
+def get_ascend_dtype(dtype: torch.dtype) -> str:
+    if dtype == torch.int64:
+        return "INT64"
+    elif dtype == torch.float32:
+        return "FLOAT"
+    elif dtype == torch.float16:
+        return "FLOAT16"
+    elif dtype == torch.int32:
+        return "INT32"
+    elif dtype == torch.complex64:
+        return "COMPLEX64"
+    else:
+        import pdb;pdb.set_trace()
+        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+    
+def get_ascend_dtype_num(dtype: str):
+    if dtype == "FLOAT":
+        return 0
+    elif dtype == "FLOAT16":
+        return 1
+    elif dtype == "INT32":
+        return 3
+    elif dtype == "INT64":
+        return 9
+    elif dtype == "COMPLEX64":
+        return 16
+    else:
+        import pdb;pdb.set_trace()
+        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+
+def get_cpp_dtype(dtype: torch.dtype) -> str:
+    if dtype == torch.int64:
+        return "INT64"
+    elif dtype == torch.float32:
+        return "FLOAT"
+    else:
+        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
+
 class AscendCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
         self.graph = graph
@@ -173,17 +211,19 @@ class AscendCodegen(torch.fx.Interpreter):
         self.graph_id = str(get_graph_id())
         self.args_dict = {}
         self.input_args = []
-        self.input_args_names = []
         self.output_args = []
 
         self.dynamic_inputs = []
         self.dynamic_shape = []
         self.actual_shape = []
         self.dynamic_index = []
-
         self.symint_outputs = []
 
-        sym_to_inputs = {}
+        self.data_nodes = []
+        self.common_nodes = []
+        self.graph_input_names = []
+        self.py_output_names = []
+        self.graph_output_names = []
 
         super().__init__(graph)
 
@@ -212,20 +252,30 @@ class AscendCodegen(torch.fx.Interpreter):
             tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
             tensor_format = "FORMAT_NCHW"
             ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-
-        self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype}, {len(self.input_args_names)});''')
-        self.input_args_names.append(self.args_dict[name])
+            
+        # gen data_nodes
+        self.data_nodes.append({
+            "op_name": self.args_dict[name],
+            "op_type": "Data",
+            "dims": fake_tensor.shape,
+            "format": "NCHW",
+            "data_type": get_cpp_dtype(fake_tensor.dtype).upper(),
+            "index": -1
+        })
+        self.graph_input_names.append(self.args_dict[name])
 
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = name
 
-        arg_code, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
-
+        _, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
-        op_code = getattr(self.override, real_op)(*args_list, **kwargs)
-        self.build_graph_code.splice(arg_code)
-        self.build_graph_code.splice(op_code, strip=True)
+        
+        op = getattr(self.override, real_op)(*args_list, **kwargs)
+        if isinstance(op, list):
+            self.common_nodes.extend(op)
+        else:
+            self.common_nodes.append(op)
 
     def call_method(self, name, target, args, kwargs):
         pass
@@ -251,48 +301,19 @@ class AscendCodegen(torch.fx.Interpreter):
         self.run()
         return self.generate_code()
 
-    def gen_build_graph_code(self):
-        graph_code = IndentedBuffer()
-        graph_code.splice(self.build_graph_code, strip=True)
-        output_str = []
-        self.output_names = []
-        self.graph_output_names = []
-        unique_output_names = []
+    def parse_outputs(self):
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
-                self.output_names.append(name)
-                if name in unique_output_names:
+                self.py_output_names.append(name)
+                if name in self.graph_output_names:
                     continue
                 else:
-                    unique_output_names.append(name)
                     self.graph_output_names.append(name)
-
-                #!TODO any more accurate method 
                 if node in self.input_args:
                     self.symint_outputs.append(name)
             else:
-                self.output_names.append(str(node))
-        input_str = 'std::vector<Operator> graph_inputs {' + ','.join(self.input_args_names) + '};'
-        output_str = 'std::vector<Operator> graph_outputs {' + ','.join(unique_output_names) + '};'
-        graph_code.writeline(input_str)
-        graph_code.writeline(output_str)
-        graph_code.writeline(f'graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);');
-        graph_code.writeline(f'return 0;')
-
-        return graph_code
-
-    def get_kernel_header(self):
-        return f"""
-                #include "graph_utils.h"
-                #include <iostream>
-                #include <fstream>
-                #include <string.h>
-                #include <stdint.h>
-                #include <memory>
-                #include <numeric>
-                #include <functional>
-               """
+                self.py_output_names.append(str(node))
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -361,10 +382,10 @@ class AscendCodegen(torch.fx.Interpreter):
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
         call_body.writelines(call_str)
-        del_args = [f'del ' + x for x in self.args if x not in self.output_names]
+        del_args = [f'del ' + x for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
         call_body.writeline(f"args.clear()")
-        call_body.writeline(f"return ({', '.join(self.output_names)})")
+        call_body.writeline(f"return ({', '.join(self.py_output_names)})")
 
         call_func = IndentedBuffer()
         call_func.writeline(f"def call(args):")
@@ -391,9 +412,6 @@ class AscendCodegen(torch.fx.Interpreter):
             if isinstance(val, torch.SymInt):
                 code_str = f'''{name} = random.randint(0, 4)'''
             else:
-                # shape = tuple(val.size())
-                #if name in self.batch_input_convert.keys():
-                #    shape.insert(0, 1)
                 shape = str(tuple(val.size()))
                 stride = str(tuple(val.stride()))
                 device = val.device.type
@@ -408,113 +426,115 @@ class AscendCodegen(torch.fx.Interpreter):
         with main_func.indent():
             main_func.splice(main_body)
         return main_func.getvalue()
-
-    def gen_compile_func_code(self):
-        compile_func_body = IndentedBuffer()
-        with compile_func_body.indent():
-            compile_func_body.splice(
-                f"""
-                    std::string graph_name = "BuildGraph";
-                    Graph graph(graph_name.c_str());
-                    Status ret = genGraph(graph);
-                    if (ret != SUCCESS) {{
-                        std::cout << "Generate simple graph failed."<<std::endl;
-                        return FAILED;
-                    }}
-                    std::cout<<"Generate simple graph success."<<std::endl;
-                """
-                , strip=True
-            )
-
-            compile_func_body.writeline(f'''std::map<AscendString, AscendString> options;''')
-            if len(self.dynamic_inputs) > 0:
-              compile_func_body.writeline(f'''options.insert({{''')
-              compile_func_body.writeline(f'''{{ge::ir_option::INPUT_FORMAT, "NCHW"}},''')
-              code_str = f'''{{ge::ir_option::INPUT_SHAPE, "'''
-
-              for idx, name in enumerate(self.dynamic_inputs):
-                  code_str += name + ':'
-                  code_str += ','.join(map(str, self.dynamic_shape[idx])) + ';'
-              code_str = code_str[:-1] + f'''"}},\n'''
-              code_str += f'''}});\n'''
-              compile_func_body.writeline(code_str)
-
-            compile_func_body.splice(
-                f"""
-                    AclgraphBuilder builder;
-                    builder.saveGraph(graph_path, graph, options);
-                    std::cout << "graph path: " << graph_path << std::endl;
-                    return SUCCESS;
-                """
-                , strip=True
-            )
-
-        compile_func = IndentedBuffer()
-        compile_func.writeline(f'extern "C" int compile(char* graph_path) {{')
-        with compile_func.indent():
-           compile_func.splice(compile_func_body)
-
-        compile_func.splice(f"""
-                             }}
-                             ''')
-                             """, strip=True)
-
-        return compile_func
+    
+    def gen_graph_json(self):
+        self.parse_outputs()
+        graph = {
+            "name": "graph",
+            "input_names": self.graph_input_names,
+            "output_names": self.graph_output_names,
+            "has_dynamic_shape": False,
+            "data_nodes": self.data_nodes,
+            "common_nodes": self.common_nodes,
+        }
+        return json.dumps(graph)
 
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
+        graph_json = self.gen_graph_json()
         compile_graph_code.splice(
             f"""
                 async_compile = AsyncCompileAscend()
                 kernel_cpp_0 = async_compile.ascend('''
+                {graph_json}
+                ''')
             """
             , strip=True
         )
-
-        compile_graph_code.splice(self.get_kernel_header(), strip=True)
-        src_code = f'uint32_t graph_id = {self.graph_id};\n'
-        src_code += f'int32_t genGraph(Graph& graph) {{\n'
-        compile_graph_code.splice(src_code)
-        
-        with compile_graph_code.indent():
-            compile_graph_code.splice(self.gen_build_graph_code())
-
-        compile_graph_code.writeline(f'}}')
-        compile_graph_code.splice(self.gen_compile_func_code())
-
         compile_graph_code.writeline('async_compile.wait(globals())')
         compile_graph_code.writeline('del async_compile')
-
         return compile_graph_code.getvalue()
 
     def generate_code(self):
         return (self.gen_import_code() + self.gen_compile_graph_code()+ self.gen_call_func() + self.gen_main_func())
 
 
-def get_ascend_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
-        return "ge::DataType::DT_INT64"
-    elif dtype == torch.float32:
-        return "ge::DataType::DT_FLOAT"
-    elif dtype == torch.float16:
-        return "ge::DataType::DT_FLOAT16"
-    elif dtype == torch.int32:
-        return "ge::DataType::DT_INT32"
-    elif dtype == torch.complex64:
-        return "ge::DataType::DT_COMPLEX64"
-    else:
-        import pdb;pdb.set_trace()
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+class AscendOperator:
+    def __init__(self, op_name: str, op_type: str):
+        self.op_name = op_name
+        self.op_type = op_type
+        self.inputs = []
+        self.attrs = []
+        
+    def to_node(self):
+        node = {
+            "op_name": self.op_name,
+            "op_type": self.op_type,            
+        }
+        if len(self.inputs) > 0:
+            node["inputs"] = self.inputs
+        if len(self.attrs) > 0:
+            node["attrs"] = self.attrs
+        return node
+        
+    def set_input(self, name, value):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+        })
+        
+    def set_attr_list_int(self, name: str, value: List[int]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "list_int",
+            "value": value,
+        })
+        
+    def set_attr_list_float(self, name: str, value: List[float]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "list_float",
+            "value": value,
+        })
+        
+    def set_attr_str(self, name: str, value: str):
+        self.attrs.append({
+            "name": name,
+            "value_type": "str",
+            "value": value,
+        })
+    
+    def set_attr_int(self, name: str, value: int):
+        self.attrs.append({
+            "name": name,
+            "value_type": "int",
+            "value": value
+        })
+
+    def set_attr_float(self, name: str, value: float):
+        self.attrs.append({
+            "name": name,
+            "value_type": "float",
+            "value": value
+        })
+    
+    def set_attr_tensor(self, name: str, data_type: str, 
+                        cpp_data_type: str,
+                        format: str,
+                        value: List,
+                        dims: List[int]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "tensor",
+            "tensor_data_type": data_type,
+            "tensor_cpp_data_type": cpp_data_type,
+            "tensor_format": format,
+            "tensor_value": value,
+            "tensor_dims": dims,
+        })
 
 
-def get_cpp_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
-        return "int64_t"
-    elif dtype == torch.float32:
-        return "float"
-    else:
-        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
-
+OP = AscendOperator
 
 class AscendOverrides:
     @staticmethod
@@ -528,61 +548,58 @@ class AscendOverrides:
         for i in range(len(args)):
             if isinstance(args[i], Node):
                 args_str.append(args_dict[args[i].name])
-            elif isinstance(args[i], bool):
-                args_str.append(str(args[i]).lower())
-            elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-                args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
-            elif isinstance(args[i], torch.dtype):
-                in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
-                args_str.append(f'{op_var}_type{count}')
-                count += 1
+            # elif isinstance(args[i], bool):
+            #     args_str.append(str(args[i]).lower())
+            # elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
+            #     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
+            # elif isinstance(args[i], torch.dtype):
+            #     in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+            #     src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
+            #     args_str.append(f'{op_var}_type{count}')
+            #     count += 1
             else:
-                args_str.append(str(args[i]))
+                args_str.append(args[i])
         return src_code, args_str
 
     @staticmethod
     def mul(name, node, x, y):
-        (x_node, y_node) = node.args
+        (_, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             src_code = f"""
                            auto {name} = op::Mul("{name}")
                              .set_input_x1({x})
                              .set_input_x2({y});
                         """
-        else:
-            # y is scalar
-            dtype = node.meta['val'].dtype
-            not_support_type = False
-            try:
-                cpp_dtype = get_cpp_dtype(dtype)
-                ascend_dtype = get_ascend_dtype(dtype)
-            except:
-                cpp_dtype = "float"
-                ascend_dtype = "ge::DataType::DT_FLOAT"
-                not_support_type = True
-            src_code = f"""
-                           auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({y}) }});
-                           auto {name}_scalar = op::Const("{name}_scalar")
-                             .set_attr_value({name}_scalar_tensor);"""
-            if not_support_type:
-                ascend_dtype = get_ascend_dtype(dtype)
-                src_code += f"""
-                           auto {name}_scalar_cast = op::Cast("{name}_scalar_cast")
-                             .set_input_x({name}_scalar)
-                             .set_attr_dst_type({ascend_dtype});
-                           auto {name} = op::Mul("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar_cast);
-                            """
-            else:
-                src_code += f"""
-                           auto {name} = op::Mul("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar);
-                            """
+            op = OP(name, "Mul")
+            op.set_input("x1", x)
+            op.set_input("x2", y)
+            return op.to_node()
 
-        return src_code
+        # y is scalar
+        dtype = node.meta['val'].dtype
+        not_support_type = False
+        try:
+            cpp_dtype = get_cpp_dtype(dtype)
+            ascend_dtype = get_ascend_dtype(dtype)
+        except:
+            cpp_dtype = "FLOAT"
+            ascend_dtype = "FLOAT"
+            not_support_type = True
+        
+        mul_op = OP(name, "Mul")
+        mul_op.set_input("x1", x)
+        scalar_op = OP(f"{name}_scalar", "Const")
+        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+        if not_support_type:
+            ascend_dtype = get_ascend_dtype(dtype)
+            cast_op = OP(f"{name}_scalar_cast", "Cast")
+            cast_op.set_input("x", f"{name}_scalar")
+            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+            mul_op.set_input("x2", f"{name}_scalar_cast")
+            return [scalar_op.to_node(), cast_op.to_node(), mul_op.to_node()]
+        else:
+            mul_op.set_input("x2", f"{name}_scalar")
+            return [scalar_op.to_node(), mul_op.to_node()]
 
     @staticmethod
     def add(name, node, x, y):
@@ -638,17 +655,13 @@ class AscendOverrides:
                          .set_input_x1({x})
                          .set_input_x2({y});
                     """
-
         return src_code
 
     @staticmethod
     def relu(name, x):
-        src_code = f"""
-                       auto {name} = op::Relu("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Relu")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def silu(name, x):
@@ -1019,15 +1032,14 @@ class AscendOverrides:
         return src_code
 
     @staticmethod
-    def _softmax(name, x, dim='', half_to_float='false'):
-        assert(half_to_float == 'false')
-        src_code = f"""
-                       std::vector<int64_t> {name}_dim{{ {dim} }};
-                       auto {name} = op::SoftmaxV2("{name}")
-                         .set_input_x({x})
-                         .set_attr_axes({name}_dim);
-                    """
-        return src_code
+    def _softmax(name, x, dim=-1, half_to_float=False):
+        assert(half_to_float == False)
+        op = OP(name, "SoftmaxV2")
+        op.set_input("x", x)
+        if isinstance(dim, int):
+            dim = [dim]
+        op.set_attr_list_int("axes", dim)
+        return op.to_node()
 
     @staticmethod
     def sum(name, x, axes='{}', keep_dims='false'):
