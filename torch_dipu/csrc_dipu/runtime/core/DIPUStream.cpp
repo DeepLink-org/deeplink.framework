@@ -83,15 +83,15 @@ private:
     DIPUGuard device_guard{devidx_};
     for (auto i = decltype(kStreamsPerPool){0}; i < kStreamsPerPool; ++i) {
       auto& raw_device_stream = pool_streams[i];
-      devapis::createStream(&raw_device_stream);
+      devproxy::createStream(&raw_device_stream);
     }
   }
 
   void _doInitDeivce() {
-    auto cur_device = devapis::current_device();
-    devapis::setDevice(devidx_);
-    devapis::createStream(&default_stream);
-    devapis::setDevice(cur_device);
+    auto cur_device = devproxy::current_device();
+    devproxy::setDevice(devidx_);
+    devproxy::createStream(&default_stream);
+    devproxy::setDevice(cur_device);
   }
 
 public:
@@ -148,7 +148,7 @@ public:
 static std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS> streamDeviceList; 
 
 static void initGlobalStreamState() {
-  num_dipus = devapis::getDeviceCount();
+  num_dipus = devproxy::getDeviceCount();
   // Check if the number of DIPU matches the expected compile-time max number
   // of DIPU.
   AT_ASSERTM(
@@ -169,7 +169,7 @@ static c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
 
   // check device id
   if (devIdx == -1) {
-    devIdx = devapis::current_device();
+    devIdx = devproxy::current_device();
   }
   AT_ASSERT(devIdx >= 0 && devIdx < num_dipus);
   streamDeviceList[devIdx]->initDevice();
