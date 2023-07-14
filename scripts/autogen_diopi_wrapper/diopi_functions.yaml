@@ -395,6 +395,10 @@
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+      std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+      out = at::empty(output_shape, self.options());
+      }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self, diopi_size)
 
