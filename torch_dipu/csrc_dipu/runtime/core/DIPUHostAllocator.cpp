@@ -6,8 +6,8 @@
 #include <unordered_set>
 #include <utility>
 
-#include <csrc_dipu/common.h>
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/core/MemChecker.h>
 
 namespace dipu {
@@ -20,7 +20,7 @@ public:
     }
 
     void* data = nullptr;
-    devapis::mallocHost(&data, size);
+    devproxy::mallocHost(&data, size);
     MemChecker::instance().insert(data, size);
     {
       std::lock_guard<std::mutex> lck(mtx_);
@@ -39,7 +39,7 @@ public:
       blocks_.erase(ctx);
     }
     MemChecker::instance().erase(ctx);
-    devapis::freeHost(ctx);
+    devproxy::freeHost(ctx);
     ctx = nullptr;
   }
 

@@ -8,7 +8,7 @@
 #include <diopi/functions.h>
 
 #include <csrc_dipu/runtime/rthelper.h>
-#include "util/Log.h"
+#include <csrc_dipu/utils/Log.h>
 
 using dnative = dipu::native::DIPUATenFunctions;
 

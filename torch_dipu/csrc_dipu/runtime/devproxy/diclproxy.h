@@ -1,21 +1,15 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <torch/csrc/distributed/c10d/Types.hpp>
-#include <c10/core/ScalarType.h>
+#include "../device/diclapis.h"
 
-#include <csrc_dipu/vendor/vendorapi.h>
-#include "./deviceapis.h"
-
+using dipu::devapis::diclResult_t;
+using dipu::devapis::ReduceOp;
 namespace dipu {
 
-// need add return status.
-namespace devapis {
-  // todo: define new diopi reduceop.
-  using ReduceOp = c10d::ReduceOp;
+// need enhance return status.
+namespace devproxy {
 
-  extern const int DICL_UNIQUE_ID_BYTES_SIZE;
-
-  // todo:: dipu only export devproxy but not devapis (which move o diopi)
   DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm);
 
   DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId);
@@ -36,13 +30,13 @@ namespace devapis {
   DIPU_API diclResult_t diclBroadcast(const void *sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                               int root, diclComm_t comm, deviceStream_t stream);
 
-  DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype,
+  DIPU_API diclResult_t diclAllGather(const void *sendbuff, void *recvbuff, size_t count, at::ScalarType datatype,
                               diclComm_t comm, deviceStream_t stream);
 
   DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff, size_t count, at::ScalarType datatype,
                             const ReduceOp& reduceOp, int root, diclComm_t comm, deviceStream_t stream);
 
-  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, at::ScalarType dataType, 
+  DIPU_API diclResult_t diclReduceScatter(void *sendbuff, void *recvbuff, uint64_t count, at::ScalarType datatype, 
                                   const ReduceOp& op, diclComm_t comm, deviceStream_t stream);
 
   DIPU_API diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype, int peer,
@@ -52,6 +46,6 @@ namespace devapis {
                           diclComm_t comm, deviceStream_t stream);
 
 
-} // namespace devapis
+} // namespace devproxy
 
 } // namespace dipu

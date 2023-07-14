@@ -2,7 +2,7 @@
 #include <ATen/Utils.h>
 
 #include "DIPUGeneratorImpl.h"
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 
 namespace dipu {
@@ -21,7 +21,7 @@ static std::vector<at::Generator> default_gens_dipu;
 * Warning: this function must only be called once!
 */
 void initDIPUGenerator() {
-  num_dipu = devapis::getDeviceCount();
+  num_dipu = devproxy::getDeviceCount();
   dipu_gens_init_flag.resize(num_dipu);
   default_gens_dipu.resize(num_dipu);
 }
@@ -35,7 +35,7 @@ void initDIPUGenerator() {
 const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
-    idx = devapis::current_device();
+    idx = devproxy::current_device();
   } else {
     TORCH_CHECK(idx >= 0 && idx < num_dipu);
   }
@@ -52,7 +52,7 @@ const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
 at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
-    idx = devapis::current_device();
+    idx = devproxy::current_device();
   }
   TORCH_CHECK(idx >= 0 && idx < num_dipu, "The device_index is invalid.");
   auto generator = vendorMakeGenerator(idx);
