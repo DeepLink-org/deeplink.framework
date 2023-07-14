@@ -62,17 +62,13 @@ def process_one_iter(model_info):
 
     if device_type == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
-        src = f'{base_data_src}/{p3}/baseline'
-        if not os.path.exists(src):            
-            os.makedirs(src) 
-        dst = f'{storage_path}/baseline'
-        os.symlink(src, dst)
-    if device_type == 'cuda':
+    elif device_type == 'cuda':
         base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
-        src = f'{base_data_src}/{p3}/baseline'
-        if not os.path.exists(src):            
-            os.makedirs(src) 
-        dst = f'{storage_path}/baseline'
+    src = f'{base_data_src}/{p3}/baseline'
+    if not os.path.exists(src):            
+        os.makedirs(src) 
+    dst = f'{storage_path}/baseline'
+    if not os.path.exists(dst):
         os.symlink(src, dst)
 
     print("model:{}".format(p2), flush = True)
