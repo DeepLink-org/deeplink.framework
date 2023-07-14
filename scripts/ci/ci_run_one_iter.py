@@ -86,7 +86,7 @@ def process_one_iter(model_info):
         cmd_run_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
         cmd_cp_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)        
     if device_type == 'cuda':
-        run_cmd("salloc -p {} -N8 -n8 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
+        run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)
 
