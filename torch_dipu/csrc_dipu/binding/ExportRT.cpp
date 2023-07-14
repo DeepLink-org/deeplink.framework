@@ -196,6 +196,23 @@ static void exportCommunicator(py::module& m) {
   // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
+static void patchStorage(py::module& m) {
+  // incremental patch StorageMethods.cpp THPStorage_resize_()
+  m.def("storage_resize_", [](at::Storage stor, int64_t newsize) -> at::Storage {
+    if (stor.device_type() != DeviceType::XPU) {
+      TORCH_CHECK(false,
+              "UntypedStorage.resize_: dipu storage resize not support other device type ",
+              stor.device_type());
+    } else {
+      dipu::native::DIPUATenFunctions.resize_bytes_dipu(stor.unsafeGetStorageImpl(), newsize);
+    }
+  });
+}
+
+static void patchTensor() {
+
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -203,5 +220,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportStream(m);
   exportEvent(m);
   exportCommunicator(m);
+  patchStorage(m);
+  patchTensor(m);
 }
 }  // end ns dipu

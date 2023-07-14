@@ -81,6 +81,8 @@ static PyObject* THPVariable_is_dipu(PyObject* self, PyObject* args, PyObject* k
   END_HANDLE_TH_ERRORS
 }
 
+// we prefer to use pybind11 to patch torch func, use cpython only when patching tensor-related-func
+// which has complex dynamic parameters not easy to parsed using pybind.
 static PyMethodDef TorchTensorMethods[] = {
   {"is_dipu", castPyCFunctionWithKeywords(THPVariable_is_dipu), METH_VARARGS | METH_KEYWORDS, NULL},
   // {"type", castPyCFunctionWithKeywords(THPVariable_type), METH_VARARGS | METH_KEYWORDS, NULL},

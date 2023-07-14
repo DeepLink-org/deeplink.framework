@@ -28,6 +28,8 @@ struct DIPUATenFunctions {
                                          at::IntArrayRef size, at::IntArrayRef stride);
     static at::Tensor& set_dipu_(at::Tensor& self);
 
+    static void resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes);
+
 
     // diopi func
     static at::Tensor& add_out(const at::Tensor & self, const at::Tensor & other, const at::Scalar & alpha, at::Tensor & out);
