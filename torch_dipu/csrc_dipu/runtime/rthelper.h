@@ -8,4 +8,3 @@
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/core/DIPUEvent.h>
 #include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
-#include <csrc_dipu/runtime/core/DIPUOps.h>
