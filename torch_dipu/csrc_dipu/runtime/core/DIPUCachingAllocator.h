@@ -84,24 +84,25 @@ struct RawAllocator<at::DeviceType::CPU> {
   using type = DIPUHostAllocator;
 };
 
-template<typename AllocatorImpl, int device_id>
-c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator, AsyncMemPool* asyncMemPool) {
+template<typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>
+c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
     // Construct when really needed
     static AllocatorImpl cache_allocator;
+    static AsyncMemPoolImpl async_mem_pool;
     static int n = [&](){
       cache_allocator.set_raw_allocator(raw_allocator);
-      cache_allocator.set_async_mem_pool(asyncMemPool);
+      cache_allocator.set_async_mem_pool(&async_mem_pool);
       return 0;
     }();
     return &cache_allocator;
 }
 
-template<class AllocatorImpl>
-c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator, AsyncMemPool* asyncMemPool) {
-  #define allocator_dispatch_device_id(id)                                        \
-    if (device_id == id){                                                         \
-      return get_allocator_impl<AllocatorImpl, id>(raw_allocator, asyncMemPool);  \
-    }                                                                             \
+template<class AllocatorImpl, class AsyncMemPoolImpl>
+c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
+  #define allocator_dispatch_device_id(id)                                            \
+    if (device_id == id){                                                             \
+      return get_allocator_impl<AllocatorImpl, AsyncMemPoolImpl, id>(raw_allocator);  \
+    }                                                                                 \
 
   allocator_dispatch_device_id(0);
   allocator_dispatch_device_id(1);
@@ -125,19 +126,10 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator, Asyn
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                                                                                      \
   namespace name##device_type{                                                                                                                                      \
   static RawAllocator<device_type>::type raw_allocator;                                                                                                             \
-  static AsyncResoursePoolImpl<std::tuple<void*, size_t>, device_type, priority>  asyncMemPool;                                                                     \
-  static std::function<c10::Allocator*(int)> allocator_get_fn = std::bind(get_allocator<CachingAllocator>, std::placeholders::_1, &raw_allocator, &asyncMemPool);   \
+  using  AsyncMemPool = AsyncResoursePoolImpl<std::tuple<void*, size_t>, device_type, priority>;                                                                    \
+  static std::function<c10::Allocator*(int)> allocator_get_fn = std::bind(get_allocator<CachingAllocator, AsyncMemPool>, std::placeholders::_1, &raw_allocator);    \
   static AllocatorRegisterer g_allocator(#name, device_type, allocator_get_fn,  priority);                                                                          \
   }
-
-
-
-
-    //static AllocatorRegisterer g_allocator(#name, device_type, allocator_getter,  priority);                                                    \
-  //static std::function<c10::Allocator*(int)> allocator_getter = get_allocator<CachingAllocator, (c10::Allocator*)&raw_allocator, (AsyncMemPool*)&asyncMemPool>;                 \
-  //static AllocatorRegisterer g_allocator(#name, device_type, allocator_getter,  priority); \
-  //  std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this, std::placeholders::_1);
-
 
 }  // namespace dipu
 
