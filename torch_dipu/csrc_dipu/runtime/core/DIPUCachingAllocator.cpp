@@ -3,6 +3,7 @@
 #include "DIPUCachingAllocator.h"
 #include <map>
 #include <tuple>
+#include <set>
 
 namespace dipu {
 
@@ -24,6 +25,8 @@ static int n = [&]() {
   c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &lowest_priority_device_allocator, 0);
   return 0;
 }();
+
+static std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
 
@@ -64,31 +67,40 @@ c10::Allocator*  getAllocator(c10::DeviceType device_type) {
   if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter = std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
     int device_index =  (device_type == dipu::DIPU_DEVICE_TYPE) ? devapis::current_device() : 0;
-    return allocator_geter(device_index);
+    auto allocator = allocator_geter(device_index);
+    if(device_type == dipu::DIPU_DEVICE_TYPE) {
+      used_allocator.insert(allocator);
+    }
+    return allocator;
   }
   TORCH_CHECK(false, "No allocator found for the device using the given algorithm:", device_type, dipu_device_memcaching_algorithm);
   return nullptr;
 }
 
 void emptyCachedMem() {
-  auto allocator = getAllocator(dipu::DIPU_DEVICE_TYPE);
-  auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
-  DIPU_DEBUG_ALLOCATOR(10, __FUNCTION__ << " allocator:" << allocator << ", cached_allocator:" << cached_allocator);
-  if (cached_allocator != nullptr) {
-    cached_allocator->empty_cache();
+  auto empty_allocator_cache = [](auto allocator) {
+    auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
+    DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator << ", cached_allocator:" << cached_allocator);
+    if (cached_allocator != nullptr) {
+      cached_allocator->empty_cache();
+    }
+  };
+  for (auto& allocator : used_allocator) {
+    empty_allocator_cache(allocator);
   }
 }
 
 void releaseAllDeviceMem() {
   auto release_allocator_memory = [](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
-    DIPU_DEBUG_ALLOCATOR(10, "release_allocator_memory: allocator:" << allocator << ", cached_allocator:" << cached_allocator);
+    DIPU_DEBUG_ALLOCATOR(8, "release_allocator_memory: allocator:" << allocator << ", cached_allocator:" << cached_allocator);
     if (cached_allocator != nullptr) {
       cached_allocator->release_all_memory();
     }
   };
-  release_allocator_memory(getAllocator(dipu::DIPU_DEVICE_TYPE));
-  release_allocator_memory(getAllocator(at::DeviceType::CPU));
+  for (auto& allocator : used_allocator) {
+    release_allocator_memory(allocator);
+  }
 }
 
 
