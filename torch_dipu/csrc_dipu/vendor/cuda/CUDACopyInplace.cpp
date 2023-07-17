@@ -8,7 +8,6 @@
 
 namespace dipu {
 
-// TODO(caikun): move to diopi autogen
 at::Tensor& copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   if (self.numel() == 0) {
     return self;
@@ -36,28 +35,26 @@ public:
   ~CUDACopyInplace() = default;
 
   at::Tensor& run(at::Tensor& self, const at::Tensor& src, bool non_blocking) override {
-    std::cout << "enter into CUDACopyInplace" << std::endl;
     return copy_(self, src, non_blocking);
   }
 
-  void copy_between_devices(at::Tensor& self, const at::Tensor& src, at::TensorIterator& iter, bool non_blocking) override {
-    // copy_(iter.tensor(0), iter.tensor(1), non_blocking);
+  at::Tensor& copy_between_devices(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) override {
+    return copy_(self, src, non_blocking);
   }
 
-  void copy_same_dtype(at::Tensor& self, const at::Tensor& src, at::TensorIterator& iter, bool non_blocking) override {
-    // copy_(iter.tensor(0), iter.tensor(1), non_blocking);
+  at::Tensor& copy_contiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) override {
+    return copy_(self, src, non_blocking);
   }
 
-  void copy_between_host_device(at::Tensor& self, const at::Tensor& src, at::TensorIterator& iter, bool non_blocking) override {
-    // copy_(iter.tensor(0), iter.tensor(1), non_blocking);
+  at::Tensor& copy_uncontiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) override {
+    return copy_(self, src, non_blocking);
   }
 };
 
 static CUDACopyInplace cuda_copy_inplace;
-// TODO(caikun): recover it when DIPUCopyInplace & CAMBCopyInplace is ready
-// static int32_t cuda_init = [&]() {
-//     setDipuCopyInplace(&cuda_copy_inplace);
-//     return 1;
-// }();
+static int32_t cuda_init = [&]() {
+  setDipuCopyInplace(&cuda_copy_inplace);
+  return 1;
+}();
 
 }  // namespace dipu
