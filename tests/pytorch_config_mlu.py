@@ -217,8 +217,7 @@ DISABLED_TESTS_MLU = {
         'test_std_correction_vs_numpy',
         'test_std_mean_correction',
         'test_std_vs_numpy',
-        'test_ref_large_input_1D', # skip for the sum op
-        'test_ref_large_input_2D', 
+        'test_amax',
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
@@ -346,7 +345,6 @@ DISABLED_TESTS_MLU = {
         'test_take_along_dim_invalid',
         'test_variable_slicing',
         'test_zero_dim_index',
-        'test_byte_mask2d', # skip for the sum op
         # FAIL
         'test_index',
         'test_int_indices',

@@ -1713,3 +1713,11 @@
 
 - schema: "sign.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSign(ctx, out, self)
+
+- schema: linalg_qr.out(Tensor A, str mode='reduced', *, Tensor(a!) Q, Tensor(b!) R) -> (Tensor(a!) Q, Tensor(b!) R)
+  interface: diopiLinalgQR(ctx, A, mode.data(), Q, R)
+
+- schema: amax.out(Tensor self, int[1] dim=[], bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiAmax(ctx, out, self, dimDiopiSize, keepdim)
