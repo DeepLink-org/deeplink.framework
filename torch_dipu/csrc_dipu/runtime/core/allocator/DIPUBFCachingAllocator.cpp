@@ -57,8 +57,8 @@ private:
     // Allocation parameters
     static constexpr size_t kMinAllocationSize = 512;
     static constexpr size_t kMaxInternalFragmentation = 8u << 20u;       // 8MB
-    static constexpr size_t kMinExtendSize = kMinAllocationSize << 14u;  // 8MB
-    static constexpr size_t kMaxExtendSize = kMinAllocationSize << 21u;  // 1GB
+    static constexpr size_t kMinExtendSize = 8u << 20u;  // 8MB
+    static constexpr size_t kMaxExtendSize = 1u << 30u;  // 1GB
 
     void* allocateOnDevice(size_t nbytes) {
         void* ptr = nullptr;
