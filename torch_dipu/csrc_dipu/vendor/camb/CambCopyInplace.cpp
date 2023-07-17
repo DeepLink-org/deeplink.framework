@@ -37,7 +37,8 @@ public:
 
   void copy_between_devices(at::Tensor& self, const at::Tensor& src, at::TensorIterator& iter, bool non_blocking) override {
     std::cout << "enter into CambCopyInplace::copy_between_devices" << std::endl;
-    copy_(self, src, non_blocking);
+    at::Tensor src_expand = src.expand_as(self);
+    copy_(self, src_expand, non_blocking);
   }
 };
 
