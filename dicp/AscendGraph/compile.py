@@ -26,7 +26,7 @@ class AscendCodeCache:
                     '-fPIC',
                     '-shared',
                     '-std=c++11',
-                    '-O0',
+                    '-O3',
                     '-Wall',
                     '-I/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_proto/inc',
                     '-I/usr/local/Ascend/ascend-toolkit/latest/include/graph',

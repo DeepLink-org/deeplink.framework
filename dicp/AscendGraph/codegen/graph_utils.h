@@ -31,7 +31,7 @@ using json = nlohmann::json;
 using namespace ge;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
-  "ConcatD", "IdentityN", "Pack"
+  "ConcatD", "IdentityN", "Pack", "SplitD"
 };
 
 void check_op(std::unordered_map<std::string, ge::Operator>& op_map, const std::string& op_name) {
@@ -150,19 +150,6 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
   throw std::runtime_error("invalid ascend data type!");
 }
 
-ge::Operator genOperator(const std::string op_name, const std::string op_type) {
-  if (op_with_dynamic_inputs_outputs.count(op_type) > 0) {
-    if (op_type == "IdentityN") {
-      return op::IdentityN(op_name.c_str());
-    } else if (op_type == "ConcatD") {
-      return op::ConcatD(op_name.c_str());
-    } else if (op_type == "Pack") {
-      return op::Pack(op_name.c_str());
-    }
-  }
-  return ge::OperatorFactory::CreateOperator(op_name.c_str(), op_type.c_str());
-}
-
 template <typename T>
 T genDynamicOp(const std::string& op_name) {
   return T(op_name.c_str());
@@ -223,10 +210,13 @@ ge::Operator genDynamicOperator(std::unordered_map<std::string, ge::Operator>& o
     auto op = genDynamicOp<op::Pack>(op_name);
     parseDynamicInput<op::Pack>(op_map, op, node);
     return op;
+  } else if (op_type == "SplitD") {
+    auto op = genDynamicOp<op::SplitD>(op_name);
+    parseDynamicOutput(op, node);
+    return op;
   }
   throw std::runtime_error("invalid dynamic opeartor!");
 }
-
 
 void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map, ge::Operator& op, const json& node) {
   if (node.contains("inputs")) {
@@ -234,7 +224,7 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map, ge::
       auto name = i["name"].get<std::string>().c_str();
       auto value = op_map[i["value"].get<std::string>()];
       if (i.contains("index")) {
-        op.SetInput(name, value, i["index"].get<uint32_t>());
+        op.SetInput(name, value, i["index"].get<int>());
       } else {
         op.SetInput(name, value);
       }
@@ -258,8 +248,13 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map, ge::
       } else if (value_type == "int") {
         auto value = attr["value"].get<int>();
         op.SetAttr(attr_name.c_str(), value);
-      }
-      else if (value_type == "tensor") {
+      } else if (value_type == "bool") {
+        auto value = attr["value"].get<bool>();
+        op.SetAttr(attr_name.c_str(), value);        
+      } else if (value_type == "int64") {
+        auto value = attr["value"].get<int64_t>();
+        op.SetAttr(attr_name.c_str(), value);        
+      } else if (value_type == "tensor") {
         auto cpp_data_type = attr["tensor_cpp_data_type"].get<std::string>();
         auto data_type = get_ascend_datatype(attr["tensor_data_type"].get<std::string>());
         auto format = get_ascend_format(attr["tensor_format"].get<std::string>());
@@ -308,9 +303,9 @@ void buildGraph(Graph& graph, const std::string& graph_json_file) {
     op_map[node_name] = genInput(node_name, dims, format, data_type, index);
     graph.AddOp(op_map[node_name]);
   }
-  std::cout << graph_json.flatten() << std::endl;
   std::cout << "parse common nodes:" << graph_json["common_nodes"].size() << std::endl;
   for (const auto& node : graph_json["common_nodes"]) {
+    std::cout << "op_name:" << node << std::endl; 
     auto node_name = node["op_name"].get<std::string>();
     auto op_type = node["op_type"].get<std::string>();
 
