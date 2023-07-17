@@ -62,7 +62,7 @@ public:
     MemChecker::instance().insert(data, size);
     {
       std::lock_guard<std::mutex> lck(mtx_);
-      blocks_.insert(data);
+      blocks_[data] = size;
     }
     return {data, data};
   }
@@ -86,14 +86,22 @@ public:
     bool is_pinned = false;
     {
       std::lock_guard<std::mutex> lck(mtx_);
-      is_pinned = (blocks_.find(p) != blocks_.end());
+      for (auto iter = blocks_.begin(); iter != blocks_.end(); iter++) {
+        const void* ptr = iter->first;
+        const size_t size = iter->second;
+        const char* cptr = static_cast<const char*>(ptr);
+        const char* cp = static_cast<const char*>(p);
+        if (cp >= cptr && cp < (cptr + size)) {
+          return true;
+        }
+      }
     }
     return is_pinned;
   }
 
 private:
   std::mutex mtx_;
-  std::unordered_set<const void*> blocks_;
+  std::unordered_map<void*, size_t> blocks_;
 };
 
 namespace {
