@@ -338,7 +338,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   work->record();
 
   work->outputs_ = std::make_shared<std::vector<at::Tensor>>(outputs);
-  // todo:: dipu need support multistream guard & remove work->workEvents_(future alreay has events ).
+  // todo:: dipu need support multistream guard & remove work->workEvents_(future already has events ).
   {
     DIPUStreamGuard streamGuard(diclComms[0]->diclStream_);
 
@@ -452,6 +452,44 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     // std::cout << outputFlattened[0] << std::endl;
     // std::cout << output_tensors[0][0] << std::endl;
     return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
+    at::Tensor& output_tensor, at::Tensor& input_tensor, const AllgatherOptions& opts) {
+  
+  if (input_tensor.dtype() != output_tensor.dtype()) {
+    TORCH_CHECK(false, "output tensor must have the same type as input tensor");
+  }
+
+  if (input_tensor.numel() * this->size_ != output_tensor.numel()) {
+    TORCH_CHECK(false,
+        "output tensor size must be equal to world_size times input tensor size");
+  }
+
+  // just a wrapper to fit the collective interface
+  auto inputs = std::vector<at::Tensor>{input_tensor};
+  auto outputs = std::vector<at::Tensor>{output_tensor};
+  checkDeviceTensors(inputs);
+  checkDeviceTensors(outputs);
+
+  return collective(
+      inputs,
+      outputs,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          diclComm_t comm,
+          DIPUStream& stream) {
+        // todo:: add recordStream after cacheAllocator ready
+        // DIPUCachingAllocator::recordStream(output.storage().data_ptr(), stream);
+        return devproxy::diclAllGather(
+          input.data_ptr(),
+          output.data_ptr(),
+          (size_t)input.numel(),
+          input.scalar_type(),
+          comm,
+          stream.rawstream());
+      },
+      OpType::_ALLGATHER_BASE);
 }
 
 
