@@ -3,8 +3,7 @@
 
 #include "DIPUStream.h"
 #include "DIPUGuard.h"
-#include "DIPUEventPool.h"
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <cstdint>
 #include <utility>
 
@@ -29,7 +28,7 @@ public:
     try {
       if (is_created_) {
         DIPUGuard guard(device_index_);
-        restoreEventToPool(event_);
+        devproxy::destroyEvent(event_);
       }
     } catch (...) { /* No throw */ }
   }
@@ -120,7 +119,7 @@ private:
   void createEvent(c10::DeviceIndex device_index) {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
-    getEventFromPool(event_);
+    devproxy::createEvent(&event_);
     is_created_ = true;
   }
 

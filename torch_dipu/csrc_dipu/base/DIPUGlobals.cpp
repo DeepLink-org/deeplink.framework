@@ -1,6 +1,6 @@
 #include "DIPUGlobals.h"
-#include "DIPUCachingAllocator.h"
-#include "DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
+#include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include <iostream>
 namespace dipu {
 

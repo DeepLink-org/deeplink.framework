@@ -4,12 +4,12 @@
 #include <mutex>
 #include <list>
 #include <tuple>
-#include "DIPUEvent.h"
+#include "../DIPUEvent.h"
 
 namespace dipu {
 
 template<class T>
-class AsyncResoursePool {
+class AsyncResourcePool {
 public:
     virtual void add(const T& t) = 0;
     virtual T get() = 0;
@@ -19,11 +19,11 @@ public:
 
 
 template<class T, at::DeviceType device_type, int algorithm>
-class AsyncResoursePoolImpl: public AsyncResoursePool<T>{
+class AsyncResourcePoolImpl: public AsyncResourcePool<T>{
 };
 
 template<class T, int algorithm>
-class AsyncResoursePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncResoursePool<T>{
+class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncResourcePool<T>{
   std::list<T> list_;
   using mutex_t = std::recursive_mutex;
   mutex_t mutex_;
@@ -52,7 +52,7 @@ class AsyncResoursePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncReso
 };
 
 template<class T, int algorithm>
-class AsyncResoursePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResoursePool<T>{
+class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResourcePool<T>{
     using Res = std::tuple<T, DIPUEvent>;
     std::list<Res> list_;
     using mutex_t = std::recursive_mutex;

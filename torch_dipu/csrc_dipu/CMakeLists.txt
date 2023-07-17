@@ -12,7 +12,9 @@ set(DIST_DIR ${DIPU_PATH}/dist/include)
 include_directories(${DIST_DIR})
 
 # src
-file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
+file(GLOB RT_SRC_FILES
+    runtime/core/guardimpl/*.cpp
+    runtime/core/allocator/*.cpp
     runtime/core/DIPU*.cpp
     runtime/core/device.cpp
     runtime/core/MemChecker.cpp

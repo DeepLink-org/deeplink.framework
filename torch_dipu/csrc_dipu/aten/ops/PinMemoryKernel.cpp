@@ -6,7 +6,7 @@
 #include <c10/core/TensorImpl.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/runtime/core/DIPUAllocator.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUAllocator.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 namespace dipu::native {

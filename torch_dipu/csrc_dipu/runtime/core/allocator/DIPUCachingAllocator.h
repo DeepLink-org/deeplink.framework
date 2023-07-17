@@ -4,16 +4,15 @@
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
 #include "DIPUAllocator.h"
-#include "DIPUAsyncResoursePool.h"
-#include "DIPUEvent.h"
+#include "DIPUAsyncResourcePool.h"
+#include "../DIPUEvent.h"
 
-#include "DIPUStream.h"
 #include <map>
 #include <list>
 
 namespace dipu {
 
-using AsyncMemPool = AsyncResoursePool<std::tuple<void*, size_t>>;
+using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
 class DIPU_API CacheAllocator: public c10::Allocator {
   c10::Allocator* raw_allocator_ = nullptr;
@@ -126,7 +125,7 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority)                                                                                      \
   namespace name##device_type{                                                                                                                                      \
   static RawAllocator<device_type>::type raw_allocator;                                                                                                             \
-  using  AsyncMemPool = AsyncResoursePoolImpl<std::tuple<void*, size_t>, device_type, priority>;                                                                    \
+  using  AsyncMemPool = AsyncResourcePoolImpl<std::tuple<void*, size_t>, device_type, priority>;                                                                    \
   static std::function<c10::Allocator*(int)> allocator_get_fn = std::bind(get_allocator<CachingAllocator, AsyncMemPool>, std::placeholders::_1, &raw_allocator);    \
   static AllocatorRegisterer g_allocator(#name, device_type, allocator_get_fn,  priority);                                                                          \
   }
