@@ -100,9 +100,12 @@ public:
   }
 
 private:
-  std::mutex mtx_;
-  std::unordered_map<void*, size_t> blocks_;
+  static std::mutex mtx_;
+  static std::unordered_map<void*, size_t> blocks_;
 };
+
+std::unordered_map<void*, size_t> DIPUHostAllocatorImpl::blocks_;
+std::mutex DIPUHostAllocatorImpl::mtx_;
 
 namespace {
 
