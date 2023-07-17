@@ -325,7 +325,7 @@ private:
             increased = true;
         }
 
-        size_t currBytes = std::max(nbytes, extSize);
+        size_t currBytes = std::max((nbytes + kMinAllocationSize - 1) / kMinAllocationSize * kMinAllocationSize, extSize);
         void* ptr = allocateOnDevice(currBytes);
         if (ptr) {
             if (!increased && extSize < kMaxExtendSize) {
