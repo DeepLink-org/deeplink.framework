@@ -17,7 +17,6 @@ env:
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd -x SH-IDC1-10-198-8-60' }}
-#  CUDA_PARTATION: 'pat_rd -x SH-IDC1-10-198-8-60'
   CUDA_CLUSTER: SH1988
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
@@ -52,11 +51,6 @@ jobs:
           bash ../scripts/ci/ci_one_iter.sh clone
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/DIPU_DIOPI/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-      - name: ci interruptible and support pr ci
-        run: |
-          cd ${GITHUB_WORKSPACE}/dipu && bash scripts/ci/ci_interruptible.sh
-        env:
-          GITHUB_TOKEN: "${{ secrets.CI_TOKEN }}"
       - name: Rsync to Server
         run: |
           ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
