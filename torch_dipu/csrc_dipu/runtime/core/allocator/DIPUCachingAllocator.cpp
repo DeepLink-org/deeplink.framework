@@ -60,7 +60,6 @@ void setAllocator(const std::string name, c10::DeviceType device_type, std::func
 }
 
 c10::Allocator*  getAllocator(c10::DeviceType device_type) {
-  std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
   c10::Allocator* result = nullptr;
   auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
   const std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm : dipu_host_memcaching_algorithm);
