@@ -4,7 +4,7 @@
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
 
-#include <csrc_dipu/common.h>
+#include <csrc_dipu/base/basedef.h>
 
 namespace dipu {
 
