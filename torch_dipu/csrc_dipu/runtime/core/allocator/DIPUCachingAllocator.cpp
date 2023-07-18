@@ -102,5 +102,16 @@ void releaseAllDeviceMem() {
   }
 }
 
+void recordStream(c10::DataPtr& ptr, DIPUStream stream) {
+  void* ctx = ptr.get_context();
+  if(ctx == nullptr) {
+    return;
+  }
+  auto base_cxt = static_cast<CacheAllocator::DataPtrContextBase*>(ctx);
+  if (base_cxt) {
+    base_cxt->streams().insert(stream);
+  }
+}
+
 
 }  // namespace dipu

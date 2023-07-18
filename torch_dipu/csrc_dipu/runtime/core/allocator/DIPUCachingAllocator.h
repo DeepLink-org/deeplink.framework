@@ -9,6 +9,7 @@
 
 #include <map>
 #include <list>
+#include <set>
 
 namespace dipu {
 
@@ -52,8 +53,18 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 
     };
 
-    virtual void empty_cache() const = 0 ;
-    virtual void release_all_memory() const = 0 ;
+    virtual void empty_cache() const = 0;
+
+    virtual void release_all_memory() const = 0;
+
+  class DataPtrContextBase {
+  private:
+    std::set<DIPUStream> streams_;
+  public:
+    std::set<DIPUStream>& streams() {
+      return streams_;
+    }
+  };
 };
 
 void setAllocator(const std::string name, c10::DeviceType device_type, std::function<c10::Allocator*(int)> allocator_get_fn, uint8_t priority = 0);
@@ -63,6 +74,11 @@ c10::Allocator* getAllocator(c10::DeviceType device_type);
 void emptyCachedMem();
 
 void releaseAllDeviceMem();
+
+void recordStream(c10::DataPtr& ptr, DIPUStream stream);
+
+
+namespace {  // For internal implementation only
 
 struct AllocatorRegisterer {
   explicit AllocatorRegisterer(const std::string name, c10::DeviceType device_type, std::function<c10::Allocator*(int)> allocator_get_fn, uint8_t priority = 0) {
@@ -129,6 +145,7 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
   static std::function<c10::Allocator*(int)> allocator_get_fn = std::bind(get_allocator<CachingAllocator, AsyncMemPool>, std::placeholders::_1, &raw_allocator);    \
   static AllocatorRegisterer g_allocator(#name, device_type, allocator_get_fn,  priority);                                                                          \
   }
+}  // namespace
 
 }  // namespace dipu
 

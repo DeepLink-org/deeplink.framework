@@ -130,7 +130,7 @@ public:
     }
   }
 
-  struct Context {
+  struct Context: public DataPtrContextBase {
     void* ptr_;
     size_t size_;
     const BSCachingAllocator* allocator_;
@@ -144,6 +144,11 @@ public:
         std::deque<DIPUEvent> events;
         events.emplace_back();
         events.back().record();
+        for (auto iter = streams().begin(); iter != streams().end(); iter++) {
+          events.emplace_back();
+          events.back().record(*iter);
+        }
+
         allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_), events);
         allocator_->flush_mem_pool();
       }

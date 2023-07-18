@@ -468,7 +468,7 @@ private:
   }
 
 public:
-  struct Context {
+  struct Context: public DataPtrContextBase {
     void* ptr_;
     size_t size_;
     int id_;
