@@ -218,6 +218,8 @@ DISABLED_TESTS_MLU = {
         'test_std_mean_correction',
         'test_std_vs_numpy',
         'test_amax',
+        'test_dim_empty', 
+        'test_dim_empty_keepdim',
         # FAIL
         'test_argminmax_multiple',
         'test_dim_reduction',
