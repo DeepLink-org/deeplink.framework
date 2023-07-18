@@ -148,11 +148,9 @@ if __name__=='__main__':
         print('All subprocesses done.', flush = True)
     except:
         if p is not None:
-        print("my cancel Exit 1", flush = True)
-        for child in p._pool:
-            os.killpg(os.getpgid(child.pid), signal.SIGINT)
-        p.terminate()
-        p.close()
-        p.join()
+            print("my cancel Exit 1", flush = True)
+            for child in p._pool:
+                os.killpg(os.getpgid(child.pid), signal.SIGINT)
+            p.terminate()
         exit(1)
 
