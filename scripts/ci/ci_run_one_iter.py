@@ -132,18 +132,16 @@ if __name__=='__main__':
     os.mkdir("one_iter_data")
 
 
-    try:
-        p = Pool(max_parall)
-        # if device_type == 'cuda':
-        #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
-        for i in range(random_model_num):
-            p.apply_async(process_one_iter, args = (selected_list[i],), error_callback = handle_error)
-        print('Waiting for all subprocesses done...', flush = True)
-        p.close()
-        p.join()
-        if(error_flag.value != 0):
-            exit(1)
-        print('All subprocesses done.', flush = True)
-    except Exception as e:
-        print("Error:{}".format(e), flush = True)
+    
+    p = Pool(max_parall)
+    # if device_type == 'cuda':
+    #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
+    for i in range(random_model_num):
+        p.apply_async(process_one_iter, args = (selected_list[i],), error_callback = handle_error)
+    print('Waiting for all subprocesses done...', flush = True)
+    p.close()
+    p.join()
+    if(error_flag.value != 0):
         exit(1)
+    print('All subprocesses done.', flush = True)
+
