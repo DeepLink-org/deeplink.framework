@@ -76,12 +76,12 @@ public:
 
 static DIPUHostAllocatorWrapper dipu_host_allocator_wrapper;
 
-at::Allocator* getHostAllocator() {
+c10::Allocator* getHostAllocator() {
   return &dipu_host_allocator_wrapper;
 }
 
 bool isPinnedPtr(const void* ptr) {
-  dipu_host_allocator.isPinnedPtr(ptr);
+  return dipu_host_allocator.isPinnedPtr(ptr);
 }
 
 }  // namespace dipu

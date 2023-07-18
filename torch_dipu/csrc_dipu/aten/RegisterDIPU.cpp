@@ -2,11 +2,14 @@
 #include "RegisterDIPU.hpp"
 #include <regex>
 #include <iostream>
+#include <c10/core/CPUAllocator.h>
 #include <c10/util/Exception.h>
 #include <ATen/core/op_registration/adaption.h>
+#include <ATen/EmptyTensor.h>
 
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
+#include <csrc_dipu/runtime/core/DIPUHostAllocator.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -51,6 +54,13 @@ namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }
 
+c10::Allocator* GetCPUAllocatorMaybePinned(bool pin_memory) {
+  if (pin_memory) {
+    return dipu::getHostAllocator();
+  }
+  return c10::GetCPUAllocator();
+}
+
 }
 
 namespace at {
@@ -80,7 +90,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 
 namespace {
   // dipu native ops
-  at::Tensor wrapper_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
+  at::Tensor wrapper_DIPU_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt,
         c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt,
         c10::optional<at::MemoryFormat> memory_format_opt) {
@@ -89,11 +99,38 @@ namespace {
     return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt, memory_format_opt);
   }
 
-  at::Tensor wrapper_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
+  at::Tensor wrapper_CPU_empty_memory_format(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
+        c10::optional<at::Layout> layout_opt,
+        c10::optional<at::Device> device_opt,
+        c10::optional<bool> pin_memory_opt,
+        c10::optional<at::MemoryFormat> memory_format_opt) {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() == DeviceType::CPU);
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) == Layout::Strided);
+
+    auto pin_memory = c10::pinned_memory_or_default(pin_memory_opt);
+    auto dtype = c10::dtype_or_default(dtype_opt);
+    auto allocator = dipu::GetCPUAllocatorMaybePinned(pin_memory);
+    constexpr c10::DispatchKeySet cpu_ks(c10::DispatchKey::CPU);
+    return at::detail::empty_generic(size, allocator, cpu_ks, dtype, memory_format_opt);
+  }
+
+  at::Tensor wrapper_DIPU_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const DeviceGuard device_guard(device_or_default(device_opt));
     return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
+  }
+
+  at::Tensor wrapper_CPU_empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
+      c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt, c10::optional<bool> pin_memory_opt) {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() == DeviceType::CPU);
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) == Layout::Strided);
+
+    auto pin_memory = c10::pinned_memory_or_default(pin_memory_opt);
+    auto dtype = c10::dtype_or_default(dtype_opt);
+    auto allocator = dipu::GetCPUAllocatorMaybePinned(pin_memory);
+    constexpr c10::DispatchKeySet cpu_ks(c10::DispatchKey::CPU);
+    return at::detail::empty_strided_generic(size, stride, allocator, cpu_ks, dtype);
   }
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
@@ -246,8 +283,8 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
 
 TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
-  m.impl("empty.memory_format", TORCH_FN(wrapper_empty_memory_format));
-  m.impl("empty_strided", TORCH_FN(wrapper_empty_strided));
+  m.impl("empty.memory_format", TORCH_FN(wrapper_DIPU_empty_memory_format));
+  m.impl("empty_strided", TORCH_FN(wrapper_DIPU_empty_strided));
   m.impl("copy_",  TORCH_FN(wrapper_copy_));
   m.impl("_reshape_alias", TORCH_FN(wrapper_DIPU___reshape_alias));
   m.impl("_copy_from_and_resize", TORCH_FN(wrapper_DIPU___copy_from_and_resize));
@@ -287,6 +324,14 @@ TORCH_LIBRARY_IMPL(aten, BackendSelect, m) {
   c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
   m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"), TORCH_FN(wrapper_BackendSelect_is_pinned));
   m.impl(TORCH_SELECTIVE_NAME("aten::_pin_memory"), TORCH_FN(wrapper_BackendSelect__pin_memory));
+}
+
+// override CPU operator
+TORCH_LIBRARY_IMPL(aten, CPU, m) {
+  // disable override warning log
+  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
+  m.impl("empty.memory_format", TORCH_FN(wrapper_CPU_empty_memory_format));
+  m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }
 
 }  //end ns at
