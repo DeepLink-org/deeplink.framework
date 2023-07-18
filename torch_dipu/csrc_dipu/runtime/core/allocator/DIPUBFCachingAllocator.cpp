@@ -60,11 +60,16 @@ private:
     static constexpr size_t kMinExtendSize = 8u << 20u;  // 8MB
     static constexpr size_t kMaxExtendSize = 1u << 30u;  // 1GB
 
+
+    size_t cachedBytes = 0;
+    size_t allocatedBytes = 0;
+
     void* allocateOnDevice(size_t nbytes) {
         void* ptr = nullptr;
         for (size_t i = 0; i < 2; i++) {
             try {
                 ptr = allocate_fn(nbytes);
+                cachedBytes += nbytes;
                 break;
             }
             catch(...) {
@@ -82,6 +87,7 @@ private:
     void releaseOnDevice (void* ptr, size_t nbytes) {
         DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocatorImpl: releaseOnDevice " << nbytes << " nbytes, ptr:" << ptr);
         deallocate_fn(ptr);
+        cachedBytes -= nbytes;
     }
 
     // Chunks and bins obtained by a single stream
@@ -94,8 +100,6 @@ private:
         int binHeads_[kNumBigBins * kNumSubBins] {0};
         // The extending size next time
         size_t currExtendSize_ = kMinExtendSize;
-        // The chunks going to be released
-        std::queue<int> waiting;
 
         explicit StreamSet(size_t id): id(id) {}
 
@@ -384,6 +388,8 @@ public:
 
         nbytes = roundBytes(nbytes);
 
+        allocatedBytes += nbytes;
+
         std::lock_guard<mutex_t> lk(mut_);
         auto &set = checkStream(0);
         int id = findChunk(nbytes, set);
@@ -409,9 +415,9 @@ public:
 
         std::lock_guard<mutex_t> lk(mut_);
         chunks_[id].allocated = false;
+        allocatedBytes -= chunks_[id].size;
         id = coalesce(id);
         insertChunkIntoBin(id);
-        streamSets_[chunks_[id].stream]->waiting.push(id);
     }
 
     void set_mem_allocate_fn(allocate_fn_t allocate_fn, deallocate_fn_t deallocate_fn) {
@@ -427,15 +433,7 @@ class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
     mutable at::Device device_ = at::DeviceType::CPU;
 
-public:
-  BFCachingAllocator() {
-
-  }
-
-  ~BFCachingAllocator() {
-
-  }
-
+private:
   void restore() const{
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:" << __FUNCTION__ << ",allocator:" << this);
     while (async_mem_pool()->ready()) {
@@ -464,38 +462,12 @@ public:
     device_ = ptr.device();
   }
 
-  c10::DataPtr allocate(size_t size) const override {
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size);
-    check_impl();
-    std::pair<void*, int> block = impl->allocateRaw(size);
-    void* ptr = std::get<0>(block);
-    int id = std::get<1>(block);
-
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device_);
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr);
-    return data_ptr;
+  void* makeContext(void* ptr, size_t size, int id) const{
+        auto* ctx = new Context(ptr, size, id, this);
+        return ctx;
   }
 
-  void empty_cache() const override {
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this);
-    impl->emptyCache();
-  }
-
-  void release_all_memory() const override {
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this);
-    while (async_mem_pool()->size() > 0) {
-        if (!async_mem_pool()->ready()) {
-            std::this_thread::yield();
-            continue;
-        }
-        const auto block = async_mem_pool()->get();
-        void* ptr = std::get<0>(block);
-        int id = std::get<1>(block);
-        impl->releaseRaw(ptr, id);
-    }
-    impl.reset(nullptr);
-  }
-
+public:
   struct Context {
     void* ptr_;
     size_t size_;
@@ -517,9 +489,47 @@ public:
   };
 
 
-  void* makeContext(void* ptr, size_t size, int id) const{
-    auto* ctx = new Context(ptr, size, id, this);
-    return ctx;
+  c10::DataPtr allocate(size_t size) const override {
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size);
+    check_impl();
+    std::pair<void*, int> block = impl->allocateRaw(size);
+    void* ptr = std::get<0>(block);
+    int id = std::get<1>(block);
+
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device_);
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr);
+    return data_ptr;
+  }
+
+  void empty_cache() const override {
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this);
+    impl->emptyCache();
+  }
+
+  void release_all_memory() const override {
+    if (!impl) {
+        return;
+    }
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this);
+    while (async_mem_pool()->size() > 0) {
+        if (!async_mem_pool()->ready()) {
+            std::this_thread::yield();
+            continue;
+        }
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
+        impl->releaseRaw(ptr, id);
+    }
+    impl.reset(nullptr);
+  }
+
+  BFCachingAllocator() {
+
+  }
+
+  ~BFCachingAllocator() {
+    release_all_memory();
   }
 
 };
