@@ -62,25 +62,26 @@ def process_one_iter(model_info):
 
     if device_type == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
-        src = f'{base_data_src}/{p3}/baseline'
-        if not os.path.exists(src):            
-            os.makedirs(src) 
-        dst = f'{storage_path}/baseline'
-        os.symlink(src, dst)
-    if device_type == 'cuda':
+    elif device_type == 'cuda':
         base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
-        src = f'{base_data_src}/{p3}/baseline'
-        if not os.path.exists(src):            
-            os.makedirs(src) 
-        dst = f'{storage_path}/baseline'
+    src = f'{base_data_src}/{p3}/baseline'
+    if not os.path.exists(src):            
+        os.makedirs(src) 
+    dst = f'{storage_path}/baseline'
+    if not os.path.exists(dst):
         os.symlink(src, dst)
 
     print("model:{}".format(p2), flush = True)
 
     github_job_name = github_job+"_"+p2
 
-    cmd_run_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-    cmd_cp_one_iter = "srun --job-name=={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    if device_type == 'cuda':
+        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    else:
+        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)
 
@@ -97,6 +98,8 @@ def handle_error(error):
     print("Error: {}".format(error), flush = True)
     if p is not None:
         print("Kill all!", flush = True)
+        for child in p._pool:
+            os.killpg(os.getpgid(child.pid), signal.SIGINT)
         p.terminate()
     error_flag.value = 1
 
@@ -131,8 +134,10 @@ if __name__=='__main__':
     os.mkdir("one_iter_data")
 
 
-    try:
-        p = Pool(max_parall)
+    p = Pool(max_parall)
+    try:    
+        # if device_type == 'cuda':
+        #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
         for i in range(random_model_num):
             p.apply_async(process_one_iter, args = (selected_list[i],), error_callback = handle_error)
         print('Waiting for all subprocesses done...', flush = True)
@@ -141,6 +146,11 @@ if __name__=='__main__':
         if(error_flag.value != 0):
             exit(1)
         print('All subprocesses done.', flush = True)
-    except Exception as e:
-        print("Error:{}".format(e), flush = True)
+    except:
+        if p is not None:
+            print("my cancel Exit 1", flush = True)
+            for child in p._pool:
+                os.killpg(os.getpgid(child.pid), signal.SIGINT)
+            p.terminate()
         exit(1)
+

@@ -14,7 +14,7 @@ function clone_needed_repo() {
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
-    SMART_VERSION=dev_for_mmcv2.0
+    SMART_VERSION=slc/test_pytorch2.0
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
@@ -34,11 +34,11 @@ function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
-    cd mmagic
-    pip install -e . -v --no-deps
-    cd ../mmpretrain
-    pip install -e .
-    cd ..
+    # cd mmagic
+    # pip install -e . -v --no-deps
+    # cd ../mmpretrain
+    # pip install -e .
+    # cd ..
 }
 
 function build_needed_repo_camb() {
@@ -90,6 +90,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
+        ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
