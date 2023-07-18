@@ -8,7 +8,6 @@
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
 
 namespace dipu {
 
