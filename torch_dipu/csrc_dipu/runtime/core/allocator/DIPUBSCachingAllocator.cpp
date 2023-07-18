@@ -141,7 +141,10 @@ public:
     ~Context() {
       DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr_ << ", size_:" << size_);
       if (allocator_->impl) {
-        allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_));
+        std::deque<DIPUEvent> events;
+        events.emplace_back();
+        events.back().record();
+        allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_), events);
         allocator_->flush_mem_pool();
       }
     }

@@ -481,7 +481,10 @@ public:
       DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: free " << ptr_ << ", " << size_ << " nbytes, allocator:" << allocator_);
       if (allocator_->impl) {
         if (ptr_) {
-            allocator_->async_mem_pool()->add(std::make_tuple(ptr_, id_));
+            std::deque<DIPUEvent> events;
+            events.emplace_back();
+            events.back().record();
+            allocator_->async_mem_pool()->add(std::make_tuple(ptr_, id_), events);
         }
         allocator_->restore();
       }

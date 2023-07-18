@@ -4,6 +4,7 @@
 #include <mutex>
 #include <list>
 #include <tuple>
+#include <deque>
 #include "../DIPUEvent.h"
 
 namespace dipu {
@@ -11,7 +12,7 @@ namespace dipu {
 template<class T>
 class AsyncResourcePool {
 public:
-    virtual void add(const T& t) = 0;
+    virtual void add(const T& t, std::deque<DIPUEvent>& events) = 0;
     virtual T get() = 0;
     virtual bool ready() = 0;
     virtual size_t size() = 0;
@@ -28,7 +29,7 @@ class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncReso
   using mutex_t = std::recursive_mutex;
   mutex_t mutex_;
   public:
-    void add(const T& t) override {
+    void add(const T& t, std::deque<DIPUEvent>& events) override {
       std::lock_guard<mutex_t> lk(mutex_);
       list_.push_back(t);
     }
@@ -53,15 +54,14 @@ class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncReso
 
 template<class T, int algorithm>
 class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResourcePool<T>{
-    using Res = std::tuple<T, DIPUEvent>;
+    using Res = std::tuple<T, std::deque<DIPUEvent>>;
     std::list<Res> list_;
     using mutex_t = std::recursive_mutex;
     mutex_t mutex_;
   public:
-    void add(const T& t) override {
+    void add(const T& t, std::deque<DIPUEvent>& events) override {
       std::lock_guard<mutex_t> lk(mutex_);
-      list_.emplace_back(t, DIPUEvent());
-      std::get<1>(list_.back()).record();
+      list_.emplace_back(t, std::move(events));
     }
 
     T get() override {
@@ -73,7 +73,16 @@ class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public Async
 
     bool ready() override {
       std::lock_guard<mutex_t> lk(mutex_);
-      return (!list_.empty()) && (std::get<1>(list_.front())).query();
+      if (list_.empty()) {
+        return false;
+      }
+
+      for (auto iter = std::get<1>(list_.front()).begin(); iter != std::get<1>(list_.front()).end(); iter++) {
+        if (iter->query() == false) {
+          return false;
+        }
+      }
+      return true;
     }
 
     size_t size() override {
