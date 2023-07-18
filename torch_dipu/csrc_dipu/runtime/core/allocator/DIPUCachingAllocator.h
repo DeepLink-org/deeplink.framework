@@ -3,7 +3,7 @@
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
-#include "DIPUAllocator.h"
+#include "DIPURawAllocator.h"
 #include "DIPUAsyncResourcePool.h"
 #include "../DIPUEvent.h"
 
@@ -75,12 +75,12 @@ struct RawAllocator;
 
 template<>
 struct RawAllocator<dipu::DIPU_DEVICE_TYPE> {
-  using type = DIPUDeviceAllocator;
+  using type = DIPURawDeviceAllocator;
 };
 
 template<>
 struct RawAllocator<at::DeviceType::CPU> {
-  using type = DIPUHostAllocator;
+  using type = DIPURawHostAllocator;
 };
 
 template<typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>

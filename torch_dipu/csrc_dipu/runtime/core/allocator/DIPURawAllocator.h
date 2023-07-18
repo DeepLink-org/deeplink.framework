@@ -21,9 +21,9 @@ namespace dipu {
     }                                                                                                                   \
   }
 
-class DIPU_API DIPUDeviceAllocator : public c10::Allocator {
+class DIPU_API DIPURawDeviceAllocator : public c10::Allocator {
 public:
-    DIPUDeviceAllocator();
+    DIPURawDeviceAllocator();
 
     virtual c10::DataPtr allocate(size_t size) const;
 
@@ -35,7 +35,7 @@ public:
   };
 
 
-class DIPUHostAllocator : public c10::Allocator {
+class DIPURawHostAllocator : public c10::Allocator {
 public:
   c10::DataPtr allocate(size_t size) const;
 

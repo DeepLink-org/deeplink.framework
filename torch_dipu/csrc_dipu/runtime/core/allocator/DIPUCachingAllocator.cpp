@@ -7,7 +7,7 @@
 
 namespace dipu {
 
-std::mutex DIPUDeviceAllocator::mutex_;
+std::mutex DIPURawDeviceAllocator::mutex_;
 
 namespace {
 
@@ -20,7 +20,7 @@ static std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
 
 static std::mutex dipu_register_allocator_mutex;
 
-static DIPUDeviceAllocator lowest_priority_device_allocator;
+static DIPURawDeviceAllocator lowest_priority_device_allocator;
 static int n = [&]() {
   c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &lowest_priority_device_allocator, 0);
   return 0;
