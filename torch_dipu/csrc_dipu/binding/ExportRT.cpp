@@ -8,6 +8,7 @@
 
 #include "exportapi.h"
 #include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/base/DIPUGlobals.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
