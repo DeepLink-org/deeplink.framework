@@ -19,6 +19,8 @@ slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
 
+print("now pid!!!!:",os.getpid(),os.getppid())
+
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
 
