@@ -184,6 +184,12 @@ void freeDevice(void* p) {
     DIPU_CALLTOPSRT(::topsFree(p))
 }
 
+bool isPinnedPtr(const void* p) {
+    ::topsPointerAttribute_t attr;
+    DIPU_CALLTOPSRT(::topsPointerGetAttributes(&attr, p))
+    return attr.memoryType == topsMemoryTypeHost;
+}
+
 void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
     DIPU_CALLTOPSRT(::topsMemsetAsync(ptr, val, size, stream))
 }
