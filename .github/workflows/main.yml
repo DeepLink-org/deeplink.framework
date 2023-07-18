@@ -315,5 +315,5 @@ jobs:
           cd mmlab_pack
           rm -rf one_iter_data
           pip install nuscenes-devkit
-          python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${SH1988_SLURM_PAR}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          sh ../scripts/ci/test_one_iter.sh cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${SH1988_SLURM_PAR}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
