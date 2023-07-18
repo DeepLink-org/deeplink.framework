@@ -134,8 +134,8 @@ if __name__=='__main__':
     os.mkdir("one_iter_data")
 
 
+    p = Pool(max_parall)
     try:    
-        p = Pool(max_parall)
         # if device_type == 'cuda':
         #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
         for i in range(random_model_num):
@@ -147,5 +147,12 @@ if __name__=='__main__':
             exit(1)
         print('All subprocesses done.', flush = True)
     except:
+        if p is not None:
+        print("my cancel Exit 1", flush = True)
+        for child in p._pool:
+            os.killpg(os.getpgid(child.pid), signal.SIGINT)
+        p.terminate()
+        p.close()
+        p.join()
         exit(1)
 
