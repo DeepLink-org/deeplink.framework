@@ -98,6 +98,8 @@ def handle_error(error):
     print("Error: {}".format(error), flush = True)
     if p is not None:
         print("Kill all!", flush = True)
+        for child in p._pool:
+            os.killpg(os.getpgid(child.pid), signal.SIGINT)
         p.terminate()
     error_flag.value = 1
 
