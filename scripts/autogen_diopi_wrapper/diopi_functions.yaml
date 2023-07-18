@@ -396,6 +396,25 @@
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
+    if (dim.has_value() && out.sizes().size() == 1 && out.sizes()[0] == 0){
+      at::IntArrayRef inputShape = self.sizes();
+      std::vector<int64_t> outputShape = inputShape.vec();
+      std::vector<int64_t> dim_value(dim->begin(), dim->end());
+      for (int i = 0; i < dim.value().size(); i++){
+        int64_t d = dim_value[i] < 0 ?  dim_value[i] + self.sizes().size() : dim_value[i];
+        dim_value[i] = d;
+      }
+      if (dim.has_value()) {
+        for (auto d : dim_value) {
+          if(keepdim)
+            outputShape[d] = 1;
+          else
+            outputShape.erase(outputShape.begin() + d);
+        }
+      }
+      const std::vector<int64_t>& const_outputShape = outputShape;
+      out.resize_(const_outputShape);
+    }
   interface: diopiSum(ctx, out, self, diopi_size)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
@@ -853,6 +872,9 @@
 
 - schema: "bitwise_not_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiBitwiseNotInp(ctx, self)
+
+- schema: "bitwise_or.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  interface: diopiBitwiseOr(ctx, out, self, other)
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1525,6 +1547,11 @@
 - schema: "scatter.reduce_out(Tensor self, int dim, Tensor index, Tensor src, *, str reduce, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
 
+- schema: "scatter_add.out(Tensor self, int dim, Tensor index, Tensor src, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    std::string reduce = "add"; 
+  interface: diopiScatter(ctx, out, self, dim, src, index, reduce.data())
+
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiRemainderTensor(ctx,out, self, other)
 
@@ -1682,3 +1709,14 @@
   custom_code_at_the_beginning: |
     auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
   interface: diopiEmbeddingBackward(ctx, grad_weight, grad, indices, num_weights, padding_idx, scale_grad_by_freq, sparse)
+
+- schema: linalg_qr.out(Tensor A, str mode='reduced', *, Tensor(a!) Q, Tensor(b!) R) -> (Tensor(a!) Q, Tensor(b!) R)
+  interface: diopiLinalgQR(ctx, A, mode.data(), Q, R)
+
+- schema: sign.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiSign(ctx, out, self)
+
+- schema: amax.out(Tensor self, int[1] dim=[], bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiAmax(ctx, out, self, dimDiopiSize, keepdim)
