@@ -6,6 +6,7 @@ import subprocess as sp
 import time
 import yaml
 import multiprocessing
+import signal
 
 
 #set some params
@@ -149,6 +150,7 @@ if __name__=='__main__':
             exit(1)
         print('All subprocesses done.', flush = True)
     except:
+        print("now we meet cancel!", flush=True)
         if p is not None:
             print("my cancel Exit 1", flush = True)
             for child in p._pool:
