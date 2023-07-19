@@ -5,8 +5,8 @@
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
 
-#include <csrc_dipu/common.h>
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 
 namespace dipu {
@@ -31,18 +31,18 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::Device getDevice() const override {
-    return c10::Device(dipu::DIPU_DEVICE_TYPE, devapis::current_device());
+    return c10::Device(dipu::DIPU_DEVICE_TYPE, devproxy::current_device());
   }
 
   void setDevice(c10::Device device) const override {
-    if  (devapis::current_device() < 0) return;
+    if  (devproxy::current_device() < 0) return;
     AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
-    devapis::setDevice(device.index());
+    devproxy::setDevice(device.index());
   }
 
   void uncheckedSetDevice(c10::Device device) const noexcept override {
-    if (devapis::current_device() < 0 ) return;
-    devapis::setDevice(device.index());
+    if (devproxy::current_device() < 0 ) return;
+    devproxy::setDevice(device.index());
   }
 
   c10::Stream getStream(c10::Device device) const noexcept override {
@@ -59,7 +59,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::DeviceIndex deviceCount() const noexcept override {
-    return devapis::getDeviceCount();
+    return devproxy::getDeviceCount();
   }
 
   c10::Stream getDefaultStream(c10::Device device) const override {
@@ -87,13 +87,13 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
     // Moves to queue's device to record
     const c10::Device orig_device = this->getDevice();
-    devapis::setDevice(stream.device_index());
+    devproxy::setDevice(stream.device_index());
 
     // Create the Notifier
     if (!dipu_event) {
-      devapis::createEvent(&dipu_event);
+      devproxy::createEvent(&dipu_event);
     }
-    devapis::recordEvent(dipu_event, raw_stream);
+    devproxy::recordEvent(dipu_event, raw_stream);
     *event = dipu_event;
 
     // Resets device
@@ -108,7 +108,19 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     const auto orig_device = this->getDevice();
     setDevice(s.device());
     DIPUStream stream(s);
-    devapis::streamWaitEvent(stream.rawstream(), dipu_event);
+    devproxy::streamWaitEvent(stream.rawstream(), dipu_event);
+    setDevice(orig_device);
+  }
+
+  void destroyEvent(void* event, const c10::DeviceIndex device_index)
+      const noexcept override {
+    if (!event)
+      return;
+    auto dipu_event = static_cast<deviceEvent_t>(event);
+    const c10::Device orig_device = this->getDevice();
+    devproxy::setDevice(device_index);
+
+    devproxy::destroyEvent(dipu_event);
     setDevice(orig_device);
   }
 };

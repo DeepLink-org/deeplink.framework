@@ -3,7 +3,7 @@
 
 #include "DIPUStream.h"
 #include "DIPUGuard.h"
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <cstdint>
 #include <utility>
 
@@ -28,7 +28,7 @@ public:
     try {
       if (is_created_) {
         DIPUGuard guard(device_index_);
-        devapis::destroyEvent(event_);
+        devproxy::destroyEvent(event_);
       }
     } catch (...) { /* No throw */ }
   }
@@ -62,7 +62,7 @@ public:
     if (!is_created_) {
       return true;
     }
-    auto currStatus  = devapis::getEventStatus(event_);
+    auto currStatus  = devproxy::getEventStatus(event_);
     if (currStatus == devapis::EventStatus::READY) {
       return true;
     }
@@ -82,14 +82,14 @@ public:
     TORCH_CHECK(device_index_ == stream.device_index(), "Event device ", device_index_,
         " does not match recording stream's device ", stream.device_index(), ".");
     DIPUGuard guard(device_index_);
-    devapis::recordEvent(event_, stream);
+    devproxy::recordEvent(event_, stream);
     was_recorded_ = true;
   }
 
   void wait(const DIPUStream& stream) {
     if (is_created_) {
       DIPUGuard guard(stream.device_index());
-      devapis::streamWaitEvent(stream, event_);
+      devproxy::streamWaitEvent(stream, event_);
     }
   }
 
@@ -97,13 +97,13 @@ public:
     TORCH_CHECK(is_created_ && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
     float time_ms = 0;
-    devapis::eventElapsedTime(&time_ms, event_, other.event_);
+    devproxy::eventElapsedTime(&time_ms, event_, other.event_);
     return time_ms;
   }
 
   void synchronize() const {
     if (is_created_) {
-      devapis::waitEvent(event_);
+      devproxy::waitEvent(event_);
     }
   }
 
@@ -119,7 +119,7 @@ private:
   void createEvent(c10::DeviceIndex device_index) {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
-    devapis::createEvent(&event_);
+    devproxy::createEvent(&event_);
     is_created_ = true;
   }
 

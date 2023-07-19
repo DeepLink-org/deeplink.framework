@@ -18,6 +18,7 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
     runtime/core/device.cpp
     runtime/core/MemChecker.cpp
     runtime/distributed/*.cpp
+    runtime/devproxy/*.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
@@ -26,6 +27,8 @@ file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
     aten/ops/*Kernel*.cpp
 )
 
+file(GLOB BASE_FILES base/*.cpp)
+file(GLOB UTILS_FILES utils/*.cpp)
 file(GLOB DIOPI_RT_FILES diopirt/*.cpp)
 file(GLOB PROFILER_FILES profiler/*.cpp)
 
@@ -40,10 +43,11 @@ link_directories(${VENDOR_LIB_DIRS})
 # endif()
 
 set(SOURCE_FILES
-    common.cpp
     ${RT_SRC_FILES}
     ${OP_SRC_FILES}
     ${DIOPI_RT_FILES}
+    ${BASE_FILES}
+    ${UTILS_FILES}
     ${VENDOR_FILES}
     ${PROFILER_FILES}
 )
@@ -68,7 +72,6 @@ add_dependencies(${DIPU_LIB} copy_include)
 
 # --------build bind in python --------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp
-   # binding/Patch*.cpp
 )
 set(BIND_FILES
     ${BIND_SRC_FILES}
