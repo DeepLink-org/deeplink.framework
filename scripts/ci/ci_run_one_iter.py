@@ -11,7 +11,6 @@ import signal
 
 #set some params
 max_parall = 8
-random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
 gpu_requests = sys.argv[3]
@@ -19,6 +18,13 @@ slurm_par_arg = sys.argv[4:]
 slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
+
+if device_type == 'cuda':
+    random_model_num = 8
+    print("we use cuda!")
+else:
+    random_model_num = 100
+    print("we use camb")
 
 print("now pid!!!!:",os.getpid(),os.getppid())
 
@@ -150,12 +156,5 @@ if __name__=='__main__':
             exit(1)
         print('All subprocesses done.', flush = True)
     except:
-        print("now we meet cancel!", flush=True)
-        if p is not None:
-            print("my cancel Exit 1", flush = True)
-            for child in p._pool:
-                os.killpg(os.getpgid(child.pid), signal.SIGINT)
-            p.terminate()
-        os.mkdir("im_killed")
         exit(1)
 
