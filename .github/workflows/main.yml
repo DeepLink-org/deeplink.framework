@@ -257,7 +257,6 @@ jobs:
           }
           trap on_termination INT
           ssh ${CUDA_CLUSTER} """
-            set -e
             cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
             source scripts/ci/nv/ci_nv_env.sh
             basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
