@@ -149,6 +149,14 @@ jobs:
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" ${CAMB_PARTATION} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
+
+      - name: Perform cleanup one iter data
+        if: always()
+          ssh ${CAMB_CLUSTER} """
+              set -e
+              cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/mmlab_pack
+              rm -rf one_iter_data
+          """
   
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
@@ -255,19 +263,13 @@ jobs:
             python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
         
-      - name: Perform cleanup
+      - name: Perform cleanup one iter data
         if: always()
-        run: |
-          # 在此处执行需要清理的操作，例如删除文件、释放资源等
-          # 请确保这个步骤不会花费过多时间，因为它可能在任务被取消时执行
-          # 如果你有资源需要释放，确保在这个步骤中释放资源
-          # 例如：rm -rf your_files_to_cleanup
           ssh ${CUDA_CLUSTER} """
               set -e
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
               mkdir run_other_branch
               rm -rf one_iter_data
-              exit 1
           """
 
   Build-Cuda-Latest-Target:
