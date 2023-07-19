@@ -6,6 +6,7 @@ import subprocess as sp
 import time
 import yaml
 import multiprocessing
+import signal
 
 
 #set some params
@@ -18,6 +19,8 @@ slurm_par_arg = sys.argv[4:]
 slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
+
+print("now pid!!!!:",os.getpid(),os.getppid())
 
 
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
@@ -98,6 +101,8 @@ def handle_error(error):
     print("Error: {}".format(error), flush = True)
     if p is not None:
         print("Kill all!", flush = True)
+        for child in p._pool:
+            os.killpg(os.getpgid(child.pid), signal.SIGINT)
         p.terminate()
     error_flag.value = 1
 
@@ -132,8 +137,8 @@ if __name__=='__main__':
     os.mkdir("one_iter_data")
 
 
-    try:
-        p = Pool(max_parall)
+    p = Pool(max_parall)
+    try:    
         # if device_type == 'cuda':
         #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
         for i in range(random_model_num):
@@ -144,6 +149,13 @@ if __name__=='__main__':
         if(error_flag.value != 0):
             exit(1)
         print('All subprocesses done.', flush = True)
-    except Exception as e:
-        print("Error:{}".format(e), flush = True)
+    except:
+        print("now we meet cancel!", flush=True)
+        if p is not None:
+            print("my cancel Exit 1", flush = True)
+            for child in p._pool:
+                os.killpg(os.getpgid(child.pid), signal.SIGINT)
+            p.terminate()
+        os.mkdir("im_killed")
         exit(1)
+

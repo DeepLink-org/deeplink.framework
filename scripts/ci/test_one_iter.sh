@@ -1,0 +1,6 @@
+GITHUB_RUN_NUMBER=$1
+GPU_REQUESTS=$2
+SH1988_SLURM_PAR='pat_rd -x SH-IDC1-10-198-8-60'
+
+
+python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER} ${GPU_REQUESTS} ${SH1988_SLURM_PAR}
