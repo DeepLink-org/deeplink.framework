@@ -156,5 +156,6 @@ if __name__=='__main__':
             for child in p._pool:
                 os.killpg(os.getpgid(child.pid), signal.SIGINT)
             p.terminate()
+        os.mkdir("im_killed")
         exit(1)
 
