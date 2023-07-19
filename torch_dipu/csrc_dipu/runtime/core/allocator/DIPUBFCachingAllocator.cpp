@@ -461,24 +461,22 @@ private:
 
 public:
   struct Context: public DataPtrContextBase {
-    void* ptr_;
-    size_t size_;
     int id_;
-    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):DataPtrContextBase(allocator), ptr_(ptr), size_(size), id_(id) {
+    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size), id_(id) {
 
     }
 
     ~Context() {
       auto allocator_ = static_cast<const BFCachingAllocator*>(allocator());
-      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: add to async_mem_pool:" << ptr_ << ", " << size_ << " nbytes, id:"<< id_ <<", allocator:" << allocator_ << ", device:" << allocator_->device());
+      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: add to async_mem_pool:" << ptr() << ", " << size() << " nbytes, id:"<< id_ <<", allocator:" << allocator_ << ", device:" << allocator_->device());
       if (allocator_->impl) {
-        if (ptr_) {
+        if (ptr()) {
             std::deque<DIPUEvent> events;
             for (auto iter = streams().begin(); iter != streams().end(); iter++) {
                 events.emplace_back();
                 events.back().record(*iter);
             }
-            allocator_->async_mem_pool()->add(std::make_tuple(ptr_, id_), events);
+            allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_), events);
         }
         allocator_->restore();
       }

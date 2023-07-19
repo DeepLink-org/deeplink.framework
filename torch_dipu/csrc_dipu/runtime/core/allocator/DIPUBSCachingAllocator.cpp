@@ -130,15 +130,13 @@ public:
   }
 
   struct Context: public DataPtrContextBase {
-    void* ptr_;
-    size_t size_;
-    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator), ptr_(ptr), size_(size){
+    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size) {
 
     }
 
     ~Context() {
       auto allocator_ = static_cast<const BSCachingAllocator*>(allocator());
-      DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr_ << ", size_:" << size_);
+      DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr() << ", size_:" << size());
       if (allocator_->impl) {
         std::deque<DIPUEvent> events;
         for (auto iter = streams().begin(); iter != streams().end(); iter++) {
@@ -146,7 +144,7 @@ public:
           events.back().record(*iter);
         }
 
-        allocator_->async_mem_pool()->add(std::make_tuple(ptr_, size_), events);
+        allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
         allocator_->flush_mem_pool();
       }
     }

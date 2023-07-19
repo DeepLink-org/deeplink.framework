@@ -4,7 +4,8 @@ from multiprocessing import Process
 def test_allocator(max_allocate, algorithm, log_mask):
     os.environ['DIPU_DEVICE_MEMCACHING_ALGORITHM'] = algorithm
     os.environ['DIPU_DEBUG_ALLOCATOR'] = str(log_mask)
-    #os.environ['DIPU_MEM_CHECK'] = '1' # TODO(zhaoguochun): support memcheck
+    os.environ['DIPU_MEM_CHECK'] = '1'
+    os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '10000'
     import torch
     import torch_dipu
     import time

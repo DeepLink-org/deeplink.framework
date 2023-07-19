@@ -8,13 +8,11 @@
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/core/MemChecker.h>
 
 namespace dipu {
 
 static void DIPURawDeviceAllocatorDeleter(void *ptr) {
     if (ptr) {
-      MemChecker::instance().erase(ptr);
       auto device = devapis::current_device();
       devapis::setDevice(device);
       DIPU_DEBUG_ALLOCATOR(2, "devapis::freeDevice: free " << ptr);
@@ -45,7 +43,6 @@ c10::DataPtr DIPURawDeviceAllocator::allocate(size_t nbytes, c10::DeviceIndex de
         devapis::mallocDevice(&data, nbytes);
         DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
       }
-      MemChecker::instance().insert(data, nbytes);
       return {data, data, &DIPURawDeviceAllocatorDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
 }
 
@@ -59,7 +56,6 @@ public:
     void* data = nullptr;
     devapis::mallocHost(&data, size);
     DIPU_DEBUG_ALLOCATOR(1, "devapis::mallocHost: malloc " << size << " nbytes, ptr:" << data);
-    MemChecker::instance().insert(data, size);
     {
       std::lock_guard<std::mutex> lck(mtx_);
       blocks_[data] = size;
@@ -76,7 +72,6 @@ public:
       std::lock_guard<std::mutex> lck(mtx_);
       blocks_.erase(ctx);
     }
-    MemChecker::instance().erase(ctx);
     devapis::freeHost(ctx);
     DIPU_DEBUG_ALLOCATOR(2, "devapis::freeHost: free " << ctx);
     ctx = nullptr;

@@ -67,15 +67,18 @@ class DIPU_API CacheAllocator: public c10::Allocator {
   private:
     std::set<DIPUStream> streams_;
     mutable const CacheAllocator* allocator_ = nullptr;
+    void* ptr_ = nullptr;
+    size_t size_ = 0;
   public:
-    DataPtrContextBase(const CacheAllocator* allocator): allocator_(allocator) {
+    DataPtrContextBase(const CacheAllocator* allocator, void* ptr, size_t size): allocator_(allocator), ptr_(ptr), size_(size) {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
         streams_.insert(getCurrentDIPUStream());
       }
+      MemChecker::instance().insert(ptr, size);
     }
 
     ~DataPtrContextBase() {
-
+      MemChecker::instance().erase(ptr_);
     }
 
     std::set<DIPUStream>& streams() {
@@ -85,6 +88,10 @@ class DIPU_API CacheAllocator: public c10::Allocator {
     const CacheAllocator* allocator() {
       return allocator_;
     }
+
+    void* ptr() {return ptr_;}
+
+    size_t size() {return size_;}
   };
 };
 
