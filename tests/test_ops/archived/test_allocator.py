@@ -5,7 +5,7 @@ def test_allocator(max_allocate, algorithm, log_mask):
     os.environ['DIPU_DEVICE_MEMCACHING_ALGORITHM'] = algorithm
     os.environ['DIPU_DEBUG_ALLOCATOR'] = str(log_mask)
     os.environ['DIPU_MEM_CHECK'] = '1'
-    os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '10000'
+    os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '100000'
     import torch
     import torch_dipu
     import time
@@ -14,11 +14,10 @@ def test_allocator(max_allocate, algorithm, log_mask):
     for nbytes in range(0, max_allocate):
         if nbytes % 1024 == 0:
             print(f"allocate {nbytes} nbytes use {algorithm}")
-        raw = torch.empty(size = (nbytes,), dtype = torch.uint8)
+        raw = torch.empty(size = (nbytes,), dtype = torch.uint8, device = 'dipu')
         assert raw.numel() == nbytes
 
         index = 0
-        torch.cuda.set_device(index)
         x1 = raw.to("dipu")
         assert x1.device.index == index
         assert x1.numel() == nbytes
@@ -45,12 +44,14 @@ def test_allocator(max_allocate, algorithm, log_mask):
 if __name__=='__main__':
     max_allocate = 1 << 15
     p1 = Process(target = test_allocator, args = (max_allocate, "BF", 0),)
-    p2 = Process(target = test_allocator, args = (max_allocate, "BS", 0),)
-    p3 = Process(target = test_allocator, args = (max_allocate, "RAW", 0))
     p1.start()
     p1.join()
+
+    p2 = Process(target = test_allocator, args = (max_allocate, "BS", 0),)
     p2.start()
     p2.join()
+
+    p3 = Process(target = test_allocator, args = (max_allocate, "RAW", 0))
     p3.start()
     p3.join()
 
