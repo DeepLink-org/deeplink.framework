@@ -434,11 +434,11 @@ class BFCachingAllocator: public CacheAllocator {
 
 private:
   void restore() const{
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:" << __FUNCTION__ << ",allocator:" << this);
     while (async_mem_pool()->ready()) {
         const auto block = async_mem_pool()->get();
         void* ptr = std::get<0>(block);
         int id = std::get<1>(block);
+        DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr << " ,id:" << id << " ,allocator:" << this << ", device:" << device());
         impl->releaseRaw(ptr, id);
     }
   }
@@ -470,7 +470,7 @@ public:
 
     ~Context() {
       auto allocator_ = static_cast<const BFCachingAllocator*>(allocator());
-      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: free " << ptr_ << ", " << size_ << " nbytes, id:"<< id_ <<", allocator:" << allocator_);
+      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: add to async_mem_pool:" << ptr_ << ", " << size_ << " nbytes, id:"<< id_ <<", allocator:" << allocator_ << ", device:" << allocator_->device());
       if (allocator_->impl) {
         if (ptr_) {
             std::deque<DIPUEvent> events;
@@ -487,19 +487,18 @@ public:
 
 
   c10::DataPtr allocate(size_t size) const override {
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size);
     check_impl();
     std::pair<void*, int> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device());
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr);
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr << ",device:" << device());
     return data_ptr;
   }
 
   void empty_cache() const override {
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this);
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this << ", device:" << device());
     impl->emptyCache();
   }
 
@@ -507,7 +506,7 @@ public:
     if (!impl) {
         return;
     }
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this);
+    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this << ", device:" << device());
     while (async_mem_pool()->size() > 0) {
         if (!async_mem_pool()->ready()) {
             std::this_thread::yield();
