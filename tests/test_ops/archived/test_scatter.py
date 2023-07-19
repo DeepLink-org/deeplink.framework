@@ -19,3 +19,8 @@ assert torch.allclose(y1, y2.cpu())
 y1 = torch.full((2, 4), 2.).scatter_(1, torch.tensor([[2], [3]]), 1.23, reduce='add')
 y2 = torch.full((2, 4), 2.).cuda().scatter_(1, torch.tensor([[2], [3]]).cuda(), 1.23, reduce='add')
 assert torch.allclose(y1, y2.cpu())
+
+# for testing aten::scatter_add.out
+y1 = torch.full((3, 5), 2).scatter_add(0, index, src)
+y2 = torch.full((3, 5), 2).cuda().scatter_add(0, index.cuda(), src.cuda())
+assert torch.allclose(y1, y2.cpu())
