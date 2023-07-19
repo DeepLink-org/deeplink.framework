@@ -449,7 +449,6 @@
     grad_input = at::empty(input.sizes(), input.options());
     grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
-        // c10::IntArrayRef bias_size = { grad_output.size(1) };
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
     ::diopiSize_t output_paddingDiopiSize;
@@ -481,7 +480,6 @@
       grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     }
     if (output_mask[2]) {
-        // c10::IntArrayRef bias_size = { grad_output.size(1) };
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
     ::diopiSize_t output_paddingDiopiSize;
@@ -542,8 +540,7 @@
     grad_input = at::empty(input.sizes(), input.options());
     grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
-        c10::IntArrayRef bias_size = { grad_output.size(1) };
-        grad_bias = at::empty(bias_size, grad_output.options());
+        grad_bias = at::empty({grad_output.size(1)}, grad_output.options());
     }
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
@@ -1210,10 +1207,10 @@
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiGelu(ctx, out, self, std::string(approximate).data())
+  interface: diopiGelu(ctx, out, self, approximate.data())
 
 - schema: "gelu_backward.grad_input(Tensor grad_output, Tensor self, *, str approximate='none', Tensor(a!) grad_input) -> Tensor(a!)"
-  interface: diopiGeluBackward(ctx, grad_input, grad_output, self, std::string(approximate).data())
+  interface: diopiGeluBackward(ctx, grad_input, grad_output, self, approximate.data())
 
 - schema: "hardtanh(Tensor self, Scalar min_val=-1, Scalar max_val=1) -> Tensor"
   custom_code_at_the_beginning: auto out = at::empty_like(self);
