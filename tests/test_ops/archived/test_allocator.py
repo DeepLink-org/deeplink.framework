@@ -2,8 +2,9 @@ import os
 from multiprocessing import Process
 
 def test_allocator(max_allocate, algorithm, log_mask):
-    os.environ['DIPU_DEVICE_MEMCACHING_ALGORITHM']= algorithm
-    os.environ['DIPU_DEBUG_ALLOCATOR']= str(log_mask)
+    os.environ['DIPU_DEVICE_MEMCACHING_ALGORITHM'] = algorithm
+    os.environ['DIPU_DEBUG_ALLOCATOR'] = str(log_mask)
+    #os.environ['DIPU_MEM_CHECK'] = '1' # TODO(zhaoguochun): support memcheck
     import torch
     import torch_dipu
     for nbytes in range(0, max_allocate):
