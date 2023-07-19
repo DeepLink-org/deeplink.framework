@@ -241,6 +241,8 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
 
+
+
       - name: run-one-iter-tools
         run: |
           ssh ${CUDA_CLUSTER} """
@@ -252,7 +254,7 @@ jobs:
           cd mmlab_pack
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """
+          """||(ssh ${CUDA_CLUSTER} """ set -e && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack && mkdir run_other_branch &&  rm -rf one_iter_data && exit 1 """)
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
