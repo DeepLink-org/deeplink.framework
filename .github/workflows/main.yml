@@ -43,14 +43,14 @@ jobs:
           cd ${GITHUB_WORKSPACE} && cp -R DIPU DIPU_DIOPI
 
           cd ${GITHUB_WORKSPACE}/DIPU && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            cd ./third_party/DIOPI && git checkout xt/change_to_pt2.0
-          fi
-          cd ${GITHUB_WORKSPACE}/DIPU
+
           rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/DIPU_DIOPI/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+            cd ./DIOPI && git checkout ${{ github.base_ref }}
+          fi
       - name: Rsync to Server
         run: |
           ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
@@ -245,16 +245,27 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
+          on_termination() {
+          # 在此处写入备用命令，这里是第二个SSH连接
           ssh ${CUDA_CLUSTER} """
-          set -e
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
-          source scripts/ci/nv/ci_nv_env.sh
-          basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
-          source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-          cd mmlab_pack
-          rm -rf one_iter_data
-          python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """||(ssh ${CUDA_CLUSTER} """ set -e && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack && mkdir run_other_branch &&  rm -rf one_iter_data && exit 1 """)
+              set -e
+              cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
+              mkdir run_other_branch
+              rm -rf one_iter_data
+              exit 1
+          """
+          }
+          trap on_termination INT
+          ssh ${CUDA_CLUSTER} """
+            set -e
+            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
+            source scripts/ci/nv/ci_nv_env.sh
+            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
+            source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
+            cd mmlab_pack
+            rm -rf one_iter_data
+            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
