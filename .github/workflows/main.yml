@@ -245,17 +245,6 @@ jobs:
 
       - name: run-one-iter-tools
         run: |
-          on_termination() {
-          # 在此处写入备用命令，这里是第二个SSH连接
-          ssh ${CUDA_CLUSTER} """
-              set -e
-              cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
-              mkdir run_other_branch
-              rm -rf one_iter_data
-              exit 1
-          """
-          }
-          trap on_termination INT
           ssh ${CUDA_CLUSTER} """
             cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
             source scripts/ci/nv/ci_nv_env.sh
@@ -264,6 +253,21 @@ jobs:
             cd mmlab_pack
             rm -rf one_iter_data
             python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
+        
+      - name: Perform cleanup
+        if: always()
+        run: |
+          # 在此处执行需要清理的操作，例如删除文件、释放资源等
+          # 请确保这个步骤不会花费过多时间，因为它可能在任务被取消时执行
+          # 如果你有资源需要释放，确保在这个步骤中释放资源
+          # 例如：rm -rf your_files_to_cleanup
+          ssh ${CUDA_CLUSTER} """
+              set -e
+              cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
+              mkdir run_other_branch
+              rm -rf one_iter_data
+              exit 1
           """
 
   Build-Cuda-Latest-Target:
