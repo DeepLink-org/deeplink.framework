@@ -431,7 +431,6 @@ static void deleteBFContext(void* ptr);
 
 class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
-    mutable at::Device device_ = at::DeviceType::CPU;
 
 private:
   void restore() const{
@@ -442,7 +441,6 @@ private:
         int id = std::get<1>(block);
         impl->releaseRaw(ptr, id);
     }
-    DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:" << __FUNCTION__ << ",allocator:" << this << " over");
   }
 
   void check_impl() const{
@@ -450,20 +448,14 @@ private:
         return;
     }
     impl.reset(new BFCachingAllocatorImpl());
-    std::function<void*(size_t)> alloc_fn = [&](size_t nbytes) {
-        auto ptr = raw_allocator()->allocate(nbytes);
-        device_ = ptr.device();
-        ptr.release_context();
-        return ptr.get();
-    };
+
+    std::function<void*(size_t)> alloc_fn = std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this, std::placeholders::_1);
     std::function<void(void*)> dealloc_fn = std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this, std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
-    auto ptr = raw_allocator()->allocate(0);
-    device_ = ptr.device();
   }
 
   void* makeContext(void* ptr, size_t size, int id) const{
-        auto* ctx = new Context(ptr, size, id, this);
+        auto ctx = new Context(ptr, size, id, this);
         return ctx;
   }
 
@@ -472,18 +464,16 @@ public:
     void* ptr_;
     size_t size_;
     int id_;
-    const BFCachingAllocator* allocator_;
-    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):ptr_(ptr), size_(size), id_(id),allocator_(allocator) {
+    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):DataPtrContextBase(allocator), ptr_(ptr), size_(size), id_(id) {
 
     }
 
     ~Context() {
-      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: free " << ptr_ << ", " << size_ << " nbytes, allocator:" << allocator_);
+      auto allocator_ = static_cast<const BFCachingAllocator*>(allocator());
+      DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: free " << ptr_ << ", " << size_ << " nbytes, id:"<< id_ <<", allocator:" << allocator_);
       if (allocator_->impl) {
         if (ptr_) {
             std::deque<DIPUEvent> events;
-            events.emplace_back();
-            events.back().record();
             for (auto iter = streams().begin(); iter != streams().end(); iter++) {
                 events.emplace_back();
                 events.back().record(*iter);
@@ -503,7 +493,7 @@ public:
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
 
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device_);
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr);
     return data_ptr;
   }

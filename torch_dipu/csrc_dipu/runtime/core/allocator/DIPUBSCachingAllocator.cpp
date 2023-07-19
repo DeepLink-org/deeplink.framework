@@ -19,7 +19,6 @@ class BSCachingAllocator: public CacheAllocator {
     std::set<void*> allocated_;
     size_t total_alocated_bytes_ = 0;
     size_t total_idel_bytes_ = 0;
-    c10::Device device_ = c10::DeviceType::CPU;
   };
   mutable std::unique_ptr<Impl> impl;
   using mutex_t = std::recursive_mutex;
@@ -55,7 +54,7 @@ public:
         try {
           auto data_ptr = raw_allocator()->allocate(nbytes);
           ptr = data_ptr.get();
-          impl->device_ = data_ptr.device();
+          device() = data_ptr.device();
           data_ptr.release_context();
           break;
         }
@@ -72,7 +71,7 @@ public:
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, impl->device_);
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, device());
     return data_ptr;
   }
 
@@ -133,17 +132,15 @@ public:
   struct Context: public DataPtrContextBase {
     void* ptr_;
     size_t size_;
-    const BSCachingAllocator* allocator_;
-    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):ptr_(ptr), size_(size), allocator_(allocator) {
+    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator), ptr_(ptr), size_(size){
 
     }
 
     ~Context() {
+      auto allocator_ = static_cast<const BSCachingAllocator*>(allocator());
       DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_ << ", ptr:" << ptr_ << ", size_:" << size_);
       if (allocator_->impl) {
         std::deque<DIPUEvent> events;
-        events.emplace_back();
-        events.back().record();
         for (auto iter = streams().begin(); iter != streams().end(); iter++) {
           events.emplace_back();
           events.back().record(*iter);
@@ -157,7 +154,7 @@ public:
 
 
   void* makeContext(void* ptr, size_t size) const{
-    auto* ctx = new Context(ptr, size, this);
+    auto ctx = new Context(ptr, size, this);
     return ctx;
   }
 

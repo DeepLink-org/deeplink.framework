@@ -18,6 +18,7 @@ using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 class DIPU_API CacheAllocator: public c10::Allocator {
   c10::Allocator* raw_allocator_ = nullptr;
   AsyncMemPool* async_mem_pool_ = nullptr;
+  mutable c10::Device device_ = c10::DeviceType::CPU;
 
   protected:
     c10::Allocator* raw_allocator() const {
@@ -43,6 +44,7 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 
     void set_raw_allocator(c10::Allocator* raw_allocator) {
       raw_allocator_ = raw_allocator;
+      device_ = raw_allocator_->allocate(0).device();
     }
 
     void set_async_mem_pool(AsyncMemPool* async_mem_pool) {
@@ -57,12 +59,31 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 
     virtual void release_all_memory() const = 0;
 
+    c10::Device& device() const {
+      return device_;
+    }
+
   class DataPtrContextBase {
   private:
     std::set<DIPUStream> streams_;
+    mutable const CacheAllocator* allocator_ = nullptr;
   public:
+    DataPtrContextBase(const CacheAllocator* allocator): allocator_(allocator) {
+      if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
+        streams_.insert(getCurrentDIPUStream());
+      }
+    }
+
+    ~DataPtrContextBase() {
+
+    }
+
     std::set<DIPUStream>& streams() {
       return streams_;
+    }
+
+    const CacheAllocator* allocator() {
+      return allocator_;
     }
   };
 };
