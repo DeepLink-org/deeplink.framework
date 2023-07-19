@@ -157,6 +157,7 @@ jobs:
               set -e
               cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/mmlab_pack
               rm -rf one_iter_data
+              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
           """
         
       - name: Check for failure
@@ -272,8 +273,8 @@ jobs:
           ssh ${CUDA_CLUSTER} """
               set -e
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/mmlab_pack
-              mkdir run_other_branch
               rm -rf one_iter_data
+              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
           """
 
       - name: Check for failure
