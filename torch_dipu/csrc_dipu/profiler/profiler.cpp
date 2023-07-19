@@ -23,11 +23,11 @@ private:
 
 public:
     DeviceEvent() {
-        dipu::devapis::createEvent(&evt_);
+        dipu::devproxy::createEvent(&evt_);
     }
 
     ~DeviceEvent() {
-        dipu::devapis::destroyEvent(evt_);
+        dipu::devproxy::destroyEvent(evt_);
     }
 
     deviceEvent_t get() const {
@@ -63,8 +63,8 @@ class StreamTimeOffsetTracker final {
 public:
     explicit StreamTimeOffsetTracker(deviceStream_t stream) {
         stream_ = stream;
-        devapis::recordEvent(begin_.get(), stream_);
-        devapis::waitEvent(begin_.get());
+        devproxy::recordEvent(begin_.get(), stream_);
+        devproxy::waitEvent(begin_.get());
         beginOffset_ = timestamp(clock_t::now());
     }
 
@@ -73,9 +73,9 @@ public:
     void sync() {
         DeviceEvent end;
         float time;
-        dipu::devapis::recordEvent(end.get(), stream_);
-        dipu::devapis::waitEvent(end.get());
-        dipu::devapis::eventElapsedTime(&time, begin_.get(), end.get());
+        dipu::devproxy::recordEvent(end.get(), stream_);
+        dipu::devproxy::waitEvent(end.get());
+        dipu::devproxy::eventElapsedTime(&time, begin_.get(), end.get());
         size_t endOffset = timestamp(clock_t::now());
         ratio_ = 1.0f * (endOffset - beginOffset_) / time;
     }
@@ -247,8 +247,8 @@ private:
     size_t getTime(const DeviceEvent& evt,
                    float scale = 1., size_t shift = 0) {
         float time;
-        dipu::devapis::waitEvent(evt.get());
-        dipu::devapis::eventElapsedTime(&time, beginEvent(), evt.get());
+        dipu::devproxy::waitEvent(evt.get());
+        dipu::devproxy::eventElapsedTime(&time, beginEvent(), evt.get());
         return static_cast<size_t>(time * scale) + shift;
     }
 
@@ -423,7 +423,7 @@ DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream, s
         stream_ = stream;
         pStart_.reset(new DeviceEvent());
         pStop_.reset(new DeviceEvent());
-        dipu::devapis::recordEvent(pStart_->get(), stream_);
+        dipu::devproxy::recordEvent(pStart_->get(), stream_);
         end_ = false;
     }
 }
@@ -436,7 +436,7 @@ void DeviceRecordCreator::end() {
     if (!end_) {
         TORCH_CHECK(pStart_, "dipu profiler error with pStart_ is not inited");
         TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
-        dipu::devapis::recordEvent(pStop_->get(), stream_);
+        dipu::devproxy::recordEvent(pStop_->get(), stream_);
         DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
                 pStart_, pStop_, (size_t)stream_,
                 name_, opId_, extraInfo_});

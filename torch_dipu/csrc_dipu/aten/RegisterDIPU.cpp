@@ -5,7 +5,7 @@
 #include <c10/util/Exception.h>
 #include <ATen/core/op_registration/adaption.h>
 
-#include <csrc_dipu/common.h>
+#include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
