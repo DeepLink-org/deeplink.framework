@@ -82,7 +82,8 @@ def process_one_iter(model_info):
 
     print("model:{}".format(p2), flush = True)
 
-    github_job_name = github_job+"_"+p2
+    # github_job_name = github_job+"_"+p2
+    github_job_name = github_job #为了方便统一scancel，因此使用同样的jobname
 
     if device_type == 'cuda':
         cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
