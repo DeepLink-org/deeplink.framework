@@ -449,8 +449,8 @@
     grad_input = at::empty(input.sizes(), input.options());
     grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
-        c10::IntArrayRef bias_size = { grad_output.size(1) };
-        grad_bias = at::empty(bias_size, grad_output.options());
+        // c10::IntArrayRef bias_size = { grad_output.size(1) };
+        grad_bias = at::empty(bias_sizes, grad_output.options());
     }
     ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
@@ -481,8 +481,8 @@
       grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     }
     if (output_mask[2]) {
-        c10::IntArrayRef bias_size = { grad_output.size(1) };
-        grad_bias = at::empty(bias_size, grad_output.options());
+        // c10::IntArrayRef bias_size = { grad_output.size(1) };
+        grad_bias = at::empty(bias_sizes, grad_output.options());
     }
     ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
