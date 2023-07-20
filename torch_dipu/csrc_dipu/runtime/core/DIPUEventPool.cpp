@@ -60,7 +60,7 @@ public:
 
 EventPool<deviceEvent_t>* getEventPool() {
     const int index = devproxy::current_device();
-    // GlobalEventPool for device_id , construct when really needed
+    // GlobalEventPool for different cards , construct when really needed
     #define dispatch_event_pool(device_id)                  \
         if (index == device_id) {                           \
             static EventPool<deviceEvent_t> gDIPUEventPool( \
@@ -97,9 +97,6 @@ void getEventFromPool(deviceEvent_t& event) {
 
 void restoreEventToPool(deviceEvent_t& event) {
     getEventPool()->restore(event);
-}
-void releaseGlobalEventPool() {
-    //gDIPUEventPool.release();
 }
 
 }  // namespace dipu
