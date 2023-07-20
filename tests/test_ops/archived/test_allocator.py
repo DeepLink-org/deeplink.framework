@@ -11,18 +11,33 @@ def test_allocator(max_allocate, step, algorithm, log_mask, test_pin_memory = Tr
     import time
 
     start = time.time()
+    index = 0
     for nbytes in range(0, max_allocate, step):
         if nbytes % 1024 == 0:
             print(f"allocate {nbytes} nbytes use {algorithm}")
         raw = torch.empty(size = (nbytes,), dtype = torch.uint8, device = 'dipu')
         assert raw.numel() == nbytes
 
-        index = 0
         x1 = raw.to("dipu")
         assert x1.device.index == index
         assert x1.numel() == nbytes
     end = time.time()
-    print(f"allocate [0, {max_allocate}) bytes device memory use {algorithm} success, elasped: {end - start} seconds")
+    print(f"allocate [0, {max_allocate}) bytes on device {index} use {algorithm} success, elasped: {end - start} seconds")
+
+    index = torch.cuda.device_count() - 1
+    torch.cuda.set_device(index)
+    start = time.time()
+    for nbytes in range(0, max_allocate, step):
+        if nbytes % 1024 == 0:
+            print(f"allocate {nbytes} nbytes use {algorithm}")
+        raw = torch.empty(size = (nbytes,), dtype = torch.uint8, device = 'dipu')
+        assert raw.numel() == nbytes
+
+        x1 = raw.to("dipu")
+        assert x1.device.index == index
+        assert x1.numel() == nbytes
+    end = time.time()
+    print(f"allocate [0, {max_allocate}) bytes on device {index} use {algorithm} success, elasped: {end - start} seconds")
 
     if test_pin_memory == False:
         return

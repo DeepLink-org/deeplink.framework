@@ -56,25 +56,47 @@ public:
     }
 };
 
-// GlobalEventPool
-static EventPool<deviceEvent_t> gDIPUEventPool(
-    [](deviceEvent_t& event) {
-        devapis::createEvent(&event);
-    }, [](deviceEvent_t& event) {
-        devapis::destroyEvent(event);
-    }
-);
 
+
+EventPool<deviceEvent_t>* getEventPool() {
+    const int index = devproxy::current_device();
+    // GlobalEventPool for different cards , construct when really needed
+    #define dispatch_event_pool(device_id)                  \
+        if (index == device_id) {                           \
+            static EventPool<deviceEvent_t> gDIPUEventPool( \
+                [](deviceEvent_t& event) {                  \
+                    devapis::createEvent(&event);           \
+                }, [](deviceEvent_t& event) {               \
+                    devapis::destroyEvent(event);           \
+                });                                         \
+            return &gDIPUEventPool;                         \
+        }
+
+    dispatch_event_pool(0);
+    dispatch_event_pool(1);
+    dispatch_event_pool(2);
+    dispatch_event_pool(3);
+    dispatch_event_pool(4);
+    dispatch_event_pool(5);
+    dispatch_event_pool(6);
+    dispatch_event_pool(7);
+    dispatch_event_pool(8);
+    dispatch_event_pool(9);
+    dispatch_event_pool(10);
+    dispatch_event_pool(11);
+    dispatch_event_pool(12);
+    dispatch_event_pool(13);
+    dispatch_event_pool(14);
+    dispatch_event_pool(15);
+    TORCH_CHECK(false, "support up to 16 cards");
+}
 
 void getEventFromPool(deviceEvent_t& event) {
-    gDIPUEventPool.get(event);
+    getEventPool()->get(event);
 }
 
 void restoreEventToPool(deviceEvent_t& event) {
-    gDIPUEventPool.restore(event);
-}
-void releaseGlobalEventPool() {
-    gDIPUEventPool.release();
+    getEventPool()->restore(event);
 }
 
 }  // namespace dipu

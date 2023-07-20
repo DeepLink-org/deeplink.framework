@@ -65,7 +65,7 @@ c10::Allocator*  getAllocator(c10::DeviceType device_type) {
   const std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm : dipu_host_memcaching_algorithm);
   if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter = std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
-    int device_index =  (device_type == dipu::DIPU_DEVICE_TYPE) ? devapis::current_device() : 0;
+    int device_index =  (device_type == dipu::DIPU_DEVICE_TYPE) ? devproxy::current_device() : 0;
     auto allocator = allocator_geter(device_index);
     if(device_type == dipu::DIPU_DEVICE_TYPE) {
       used_allocator.insert(allocator);
@@ -102,7 +102,7 @@ void releaseAllDeviceMem() {
   }
 }
 
-void recordStream(c10::DataPtr& ptr, DIPUStream stream) {
+void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
   void* ctx = ptr.get_context();
   if(ctx == nullptr) {
     return;
