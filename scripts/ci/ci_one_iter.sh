@@ -37,6 +37,12 @@ function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
+    cd mmyolo
+    # Install albumentations
+    pip install -r requirements/albu.txt --no-deps
+    # Install MMYOLO
+    # mim install -v -e .
+    cd ..
     # cd mmagic
     # pip install -e . -v --no-deps
     # cd ../mmpretrain
