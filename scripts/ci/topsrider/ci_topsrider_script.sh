@@ -41,9 +41,31 @@ function build_dipu_lib() {
     cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
+function build_diopi_lib() {
+    cd third_party/DIOPI/impl
+    sh scripts/build_impl.sh tops || exit -1
+    cd -
+}
+
+function build_diopi_clean() {
+    cd third_party/DIOPI/impl
+    sh scripts/build_impl.sh clean || exit -1
+    cd -
+}
 
 if [[ "$1" == "builddl" ]]; then
     build_dipu_lib
 elif [[ "$1" == "builddp" ]]; then
     build_dipu_py
+elif [[ "$1" == "build_dipu" ]]; then
+    build_dipu_lib
+    build_dipu_py
+elif [[ "$1" == "build_diopi" ]]; then
+    build_diopi_lib
+elif [[ "$1" == "build" ]]; then
+    build_diopi_lib
+    build_dipu_lib
+    build_dipu_py
+elif [[ "$1" == "clean" ]]; then
+    build_diopi_clean
 fi
