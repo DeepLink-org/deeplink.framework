@@ -102,7 +102,7 @@ void releaseAllDeviceMem() {
   }
 }
 
-void recordStream(c10::DataPtr& ptr, DIPUStream stream) {
+void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
   void* ctx = ptr.get_context();
   if(ctx == nullptr) {
     return;

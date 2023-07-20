@@ -3,6 +3,7 @@
 #include <regex>
 #include <iostream>
 #include <c10/util/Exception.h>
+#include <c10/core/Storage.h>
 #include <ATen/core/op_registration/adaption.h>
 
 #include <csrc_dipu/base/basedef.h>
@@ -232,6 +233,12 @@ namespace {
     return dnative::_pin_memory(self, device);
   }
 
+  void wrapper_DIPU__record_stream(at::Tensor & self, at::Stream s) {
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+    const OptionalDeviceGuard device_guard(device_of(self));
+    dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
+  }
+
 }  // inner anonymous namespace
 
 
@@ -266,6 +273,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("is_set_to", TORCH_FN(wrapper_DIPU__is_set_to));
   m.impl("is_pinned", TORCH_FN(wrapper_DIPU_is_pinned));
   m.impl("_pin_memory", TORCH_FN(wrapper_DIPU__pin_memory));
+  m.impl("record_stream", TORCH_FN(wrapper_DIPU__record_stream));
 }
 
 class IgnoreWarningHandler : public c10::WarningHandler {
