@@ -147,6 +147,7 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
+          rm -rf /mnt/cache/share/parrotsci/github/model_baseline_data/workdirs_convnext-small_32xb128_in1k
           python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" ${CAMB_PARTATION} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
 
