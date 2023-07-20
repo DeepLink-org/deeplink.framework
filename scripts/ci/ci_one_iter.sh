@@ -15,6 +15,8 @@ function clone_needed_repo() {
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
     SMART_VERSION=slc/test_pytorch2.0
+    MMYOLO=dipu_v0.5.0_one_iter_tool
+
 
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
@@ -25,6 +27,7 @@ function clone_needed_repo() {
     rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
     rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
+    rm -rf mmyolo && git clone -b ${MMYOLO} https://github.com/DeepLink-org/mmyolo.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
     rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
     cd mmcv && git checkout ${MMCV_VERSION} && cd ..
@@ -71,6 +74,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmdetection3d:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     # export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
     echo "python path: $PYTHONPATH"
