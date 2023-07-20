@@ -1,8 +1,5 @@
 # Copyright (c) 2023, DeepLink.
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-os.environ['MLU_INVOKE_BLOCKING'] = '1'
-os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 # os.environ['DIPU_MEM_CHECK'] = '1'
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
@@ -16,13 +13,13 @@ from torch import Tensor
 
 # use env to control?
 from torch_dipu import _C
-from torch_dipu import dipu 
+from torch_dipu import dipu
 from torch_dipu.dipu import *
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
 from .profiler.profiler import dipu_profiler, dipu_kineto_available
 
-# mock device functions in generated/python_variable_methods.cpp 
+# mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
     torch.Tensor.to = GetDeviceProxy(torch.Tensor.to)
     torch.Tensor.is_pinned = GetDeviceProxy(torch.Tensor.is_pinned)

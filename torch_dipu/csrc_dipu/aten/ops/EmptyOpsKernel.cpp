@@ -22,7 +22,7 @@ namespace dipu::native {
     AT_ASSERT(c10::device_or_default(device_opt).type() == dipu::DIPU_DEVICE_TYPE);
     TORCH_CHECK(!pinned_memory_or_default(pin_memory_opt), "Only dense tensors can be pinned");
 
-    c10::Allocator *allocator = dipu::getDIPUAllocator();
+    c10::Allocator *allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
     // ?? do gurad in allocator or wrapper?
     const int64_t nelements = c10::multiply_integers(size);
 
@@ -61,7 +61,7 @@ namespace dipu::native {
     AT_ASSERT(layout_or_default(layout_opt) == Layout::Strided);
     auto dtype = dtype_or_default(dtype_opt);
 
-    c10::Allocator *allocator = dipu::getDIPUAllocator();
+    c10::Allocator *allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
     constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
     return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks, dtype);
   }

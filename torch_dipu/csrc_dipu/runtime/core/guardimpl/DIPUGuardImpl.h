@@ -99,7 +99,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     // Resets device
     setDevice(orig_device);
   }
- 
+
   void block(
     void* event,
     const c10::Stream& s) const override {
