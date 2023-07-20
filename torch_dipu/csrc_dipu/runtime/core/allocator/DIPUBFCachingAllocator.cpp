@@ -474,6 +474,7 @@ public:
             std::deque<DIPUEvent> events;
             for (auto iter = streams().begin(); iter != streams().end(); iter++) {
                 events.emplace_back();
+                DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: record to stream:" << iter->rawstream() );
                 events.back().record(*iter);
             }
             allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_), events);
