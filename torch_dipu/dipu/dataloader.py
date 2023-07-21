@@ -8,6 +8,15 @@ T = TypeVar('T')
 _worker_init_fn_t = Callable[[int], None]
 _collate_fn_t = Callable[[List[T]], Any]
 
+# When we create a DataLoader and set pin_memory=True,
+# this will create a thread to perform the pin_memory operation on the tensor.
+# The newly created thread will have device 0 as its default device,
+# which will result in initializing the context of device 0 and occupying its memory.
+# This will cause a shortage of memory on device 0 in a multi-GPU scenario.
+# To address this issue, we introduce the DIPUDataLoader and monkey patch torch.utils.data.DataLoader.
+# When the pin_memory parameter is set to True, we set pin_memory_device to 'cuda'.
+# The pin_memory thread generated will set current device to main thread's device index
+# instead of using the default 0th device thus avoid occupying device 0 memory.
 class DIPUDataLoader(DataLoader):
     def __init__(self, dataset: Dataset[T_co], batch_size: Optional[int] = 1,
                 shuffle: Optional[bool] = None, sampler: Union[Sampler, Iterable, None] = None,

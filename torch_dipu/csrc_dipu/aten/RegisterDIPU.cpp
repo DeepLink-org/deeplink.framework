@@ -240,7 +240,6 @@ namespace {
   }
 
   bool wrapper_BackendSelect_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
       // Only CPU tensors can be pinned
     if (!self.is_cpu()) {
       return false;
@@ -251,7 +250,6 @@ namespace {
   }
 
   at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     TORCH_CHECK(self.device().is_cpu(), "cannot pin '", self.toString(), "' only dense CPU tensors can be pinned");
     c10::DispatchKeySet dk = c10::DispatchKeySet(c10::computeDispatchKey(c10::nullopt, self.layout(), device.value_or(dipu::DIPU_DEVICE_TYPE)));
     return at::_ops::_pin_memory::redispatch(dk, self, device);
