@@ -8,6 +8,7 @@
 
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
+#include <csrc_dipu/runtime/ops/DIPUCopyInplace.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -28,7 +29,6 @@ static std::string force_fallback_operators_list = []()-> std::string {
 
 
 namespace dipu {
-
 bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
@@ -99,7 +99,12 @@ namespace {
 
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    return dnative::copy_(self, src, non_blocking);
+    static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
+    if (use_slow_copy) {
+      return dnative::copy_(self, src, non_blocking);
+    } else {
+      return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
+    }
   }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
