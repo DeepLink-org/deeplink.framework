@@ -26,7 +26,7 @@ function clone_needed_repo() {
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
     rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-    rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
+    rm -rf mmcv && git clone https://github.com/Gong-air/mmcv.git
 }
 
 function build_needed_repo_cuda() {
