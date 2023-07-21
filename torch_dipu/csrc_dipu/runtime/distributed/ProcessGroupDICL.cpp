@@ -322,12 +322,11 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   for (size_t i = 0; i < inputs.size(); ++i) {
     dipuGuard.reset_device(devices[i]);
 
-    // todo:: add recordStream after cacheAllocator ready
-    // DIPUCachingAllocator::recordStream(
-    //     inputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
-
     // need add adapter to handle int64/double! camb not support double
     fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
+
+    // todo:: add recordStream after cacheAllocator ready
+    // DIPUCachingAllocator::recordStream(outputs[i].storage().data_ptr(), stream);
 
     // mock comm with just copy, used in standalone test.
     // DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
@@ -423,9 +422,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
         DIPUStream& stream) {
       RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
 
-      // todo:: add recordStream after cacheAllocator ready
-      // DIPUCachingAllocator::recordStream(
-      //     output.storage().data_ptr(), stream);
       return devproxy::diclAllGather(
           input.data_ptr(),
           output.data_ptr(),
@@ -440,11 +436,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       for (size_t i = 0; i < output_tensors.size(); ++i) {
         DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
         for (size_t j = 0; j < output_tensors[0].size(); ++j) {
-
-          //todo::  add recordStream after cacheAllocator ready
+          output_tensors[i][j].copy_(outputFlattened[i][j], false);
+          //todo:: add recordStream after cacheAllocator ready
           // DIPUCachingAllocator::recordStream(
           //     output_tensors[i][j].storage().data_ptr(), diclComms[i]->diclStream_);
-          output_tensors[i][j].copy_(outputFlattened[i][j], false);
         }
       }
     }, 
@@ -479,8 +474,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
           at::Tensor& output,
           diclComm_t comm,
           DIPUStream& stream) {
-        // todo:: add recordStream after cacheAllocator ready
-        // DIPUCachingAllocator::recordStream(output.storage().data_ptr(), stream);
         return devproxy::diclAllGather(
           input.data_ptr(),
           output.data_ptr(),

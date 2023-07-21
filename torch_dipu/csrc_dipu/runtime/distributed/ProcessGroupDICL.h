@@ -256,7 +256,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   // Whether or not wait() and synchronize() are blocking operations that wait
   // for the operation to complete.
-  bool blockingWait_ = true;
+  bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 };
