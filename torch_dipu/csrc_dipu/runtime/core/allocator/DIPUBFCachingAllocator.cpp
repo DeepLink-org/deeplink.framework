@@ -74,7 +74,7 @@ private:
             }
             catch(...) {
                 if (i == 0) {
-                    emptyCache();
+                    emptyCacheWithoutLock();
                 } else {
                     throw std::runtime_error("no device memory available");
                 }
@@ -362,6 +362,14 @@ private:
         return streamSets_[stream];
     }
 
+    void emptyCacheWithoutLock() {
+        for (auto &set : streamSets_) {
+            if (set != nullptr) {
+                shrink(set);
+            }
+        }
+    }
+
 public:
     BFCachingAllocatorImpl() {
         // Avoid zero index later
@@ -374,11 +382,7 @@ public:
 
     void emptyCache() {
         std::lock_guard<mutex_t> lk(mut_);
-        for (auto &set : streamSets_) {
-            if (set != nullptr) {
-                shrink(set);
-            }
-        }
+        emptyCacheWithoutLock();
     }
 
     std::pair<void*, int> allocateRaw(size_t nbytes) {
