@@ -28,6 +28,8 @@ struct DIPUATenFunctions {
                                          at::IntArrayRef size, at::IntArrayRef stride);
     static at::Tensor& set_dipu_(at::Tensor& self);
 
+    static void resize_bytes_dipu(c10::StorageImpl* storage, size_t newsize_bytes);
+
     static bool is_pinned(const at::Tensor& self, c10::optional<at::Device> device);
     static at::Tensor _pin_memory(const at::Tensor& self, c10::optional<at::Device> device);
     

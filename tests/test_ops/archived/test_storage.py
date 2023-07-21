@@ -21,5 +21,9 @@ def test_stor1():
   print(target)
   assert(torch.equal(x1, target))
 
+  snew = s1.resize_(0)
+  assert(snew.size() == 0)
+  assert(x1.is_dipu() == True)
+
 if __name__ == '__main__':
     test_stor1()
