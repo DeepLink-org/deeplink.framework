@@ -4,7 +4,7 @@ function clone_needed_repo() {
     # clone some repositories
 
     #define some version
-    MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
+    MMCV_VERSION=gqw/change_name
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
@@ -26,8 +26,7 @@ function clone_needed_repo() {
     rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
     rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
     rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-    rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
-    cd mmcv && git checkout ${MMCV_VERSION} && cd ..
+    rm -rf mmcv && git clone -b ${MMCV_VERSION} https://github.com/open-mmlab/mmcv.git
 }
 
 function build_needed_repo_cuda() {
