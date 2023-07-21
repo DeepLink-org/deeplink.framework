@@ -19,9 +19,6 @@ def create_tensor(cfg):
         src_cpu = src_cpu.expand_as(dst_cpu)
         src_dipu = src_dipu.expand_as(dst_dipu)
    
-    if src_need_expand:
-        src_dipu = src_dipu.expand_as(dst_dipu)
-    
     return src_cpu, dst_cpu, src_dipu, dst_dipu
 
 
