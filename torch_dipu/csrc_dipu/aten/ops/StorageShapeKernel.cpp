@@ -22,7 +22,7 @@ using at::IntArrayRef;
 using dipu::devproxy::current_device;
 
 namespace dipu::native {
-  static inline void _resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes) {
+  void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes) {
     TORCH_CHECK(storage->resizable(), "Trying to resize storage that is not resizable");
     auto allocator = storage->allocator();
     TORCH_CHECK(allocator != nullptr, "Trying to resize storage without an allocator");
@@ -68,7 +68,7 @@ namespace dipu::native {
     const c10::Storage& storage = self->unsafe_storage();
     TORCH_CHECK(storage, "Tensor: invalid null storage");
     if (self->numel() > 0 && new_storage_size > storage.nbytes()) {
-      _resize_bytes_dipu(storage.unsafeGetStorageImpl(), new_storage_size);
+      DIPUATenFunctions::resize_bytes_dipu(storage.unsafeGetStorageImpl(), new_storage_size);
     }
     return self;
   }

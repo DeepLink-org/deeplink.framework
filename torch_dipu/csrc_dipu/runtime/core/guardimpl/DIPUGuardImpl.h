@@ -123,6 +123,10 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     devproxy::destroyEvent(dipu_event);
     setDevice(orig_device);
   }
+
+  void recordDataPtrOnStream(const c10::DataPtr& dataptr, const c10::Stream& stream) const override {
+    // todo: DIPUCachingAllocator::recordStream(dataptr, stream);
+  }
 };
 
 }  // namespace dipu
