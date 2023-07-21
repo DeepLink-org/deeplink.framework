@@ -100,6 +100,8 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdetection/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
