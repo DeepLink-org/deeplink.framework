@@ -13,11 +13,12 @@ def create_tensor(cfg):
     
     src_cpu = torch.randn(src_shape, dtype=src_dtype)
     dst_cpu = torch.randn(dst_shape, dtype=dst_dtype)
-    if src_need_expand:
-        src_cpu = src_cpu.expand_as(dst_cpu)
-   
     src_dipu = src_cpu.to(src_device)
     dst_dipu = dst_cpu.to(dst_device)
+    if src_need_expand:
+        src_cpu = src_cpu.expand_as(dst_cpu)
+        src_dipu = src_dipu.expand_as(dst_dipu)
+   
     if src_need_expand:
         src_dipu = src_dipu.expand_as(dst_dipu)
     
@@ -28,7 +29,6 @@ def test_copy_():
     src_shapes = [(3, 2), (4, 3, 2)]
     dst_shapes = [(4, 3, 2)]
     src_need_expands = [True, False]
-    # devices = [torch.device("cpu"), torch.device("cuda:0"), torch.device("cuda:1")]
     devices = [torch.device("cpu"), torch.device("cuda:0")]
     dtypes = [torch.float32, torch.float16]
     
@@ -48,8 +48,6 @@ def test_copy_():
         src_cpu, dst_cpu, src_dipu, dst_dipu = create_tensor(cfg)
         dst_cpu.copy_(src_cpu)
         dst_dipu.copy_(src_dipu)
-        # print(f"dst_cpu.dtype = {dst_cpu.dtype}")
-        # print(f"dst_dipu.dtype = {dst_dipu.dtype}")
         if torch.allclose(dst_cpu, dst_dipu.cpu()):
             print(f"cfg = {cfg} passed")
         else:
