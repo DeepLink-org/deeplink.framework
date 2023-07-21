@@ -11,7 +11,6 @@ import signal
 
 #set some params
 max_parall = 8
-random_model_num = 100
 device_type = sys.argv[1]
 github_job = sys.argv[2]
 gpu_requests = sys.argv[3]
@@ -19,6 +18,13 @@ slurm_par_arg = sys.argv[4:]
 slurm_par = ' '.join(slurm_par_arg)
 print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
 error_flag = multiprocessing.Value('i',0) #if encount error
+
+if device_type == 'cuda':
+    random_model_num = 100
+    print("we use cuda!")
+else:
+    random_model_num = 100
+    print("we use camb")
 
 print("now pid!!!!:",os.getpid(),os.getppid())
 
@@ -76,14 +82,15 @@ def process_one_iter(model_info):
 
     print("model:{}".format(p2), flush = True)
 
-    github_job_name = github_job+"_"+p2
+    # github_job_name = github_job+"_"+p2
+    github_job_name = github_job #为了方便统一scancel，因此使用同样的jobname
 
     if device_type == 'cuda':
-        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
     else:
-        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
 
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)
@@ -101,8 +108,6 @@ def handle_error(error):
     print("Error: {}".format(error), flush = True)
     if p is not None:
         print("Kill all!", flush = True)
-        for child in p._pool:
-            os.killpg(os.getpgid(child.pid), signal.SIGINT)
         p.terminate()
     error_flag.value = 1
 
@@ -150,12 +155,5 @@ if __name__=='__main__':
             exit(1)
         print('All subprocesses done.', flush = True)
     except:
-        print("now we meet cancel!", flush=True)
-        if p is not None:
-            print("my cancel Exit 1", flush = True)
-            for child in p._pool:
-                os.killpg(os.getpgid(child.pid), signal.SIGINT)
-            p.terminate()
-        os.mkdir("im_killed")
         exit(1)
 
