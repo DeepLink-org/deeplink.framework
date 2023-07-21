@@ -25,6 +25,7 @@ from .profiler.profiler import dipu_profiler, dipu_kineto_available
 # mock device functions in generated/python_variable_methods.cpp 
 def apply_tensor_method_patch():
     torch.Tensor.to = GetDeviceProxy(torch.Tensor.to)
+    torch.nn.Module.to = GetDeviceProxy(torch.nn.Module.to)
     torch.Tensor.is_pinned = GetDeviceProxy(torch.Tensor.is_pinned)
     torch.Tensor.pin_memory = GetDeviceProxy(torch.Tensor.pin_memory)
 
