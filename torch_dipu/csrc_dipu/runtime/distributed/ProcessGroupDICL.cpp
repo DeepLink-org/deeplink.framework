@@ -452,14 +452,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
     at::Tensor& output_tensor, at::Tensor& input_tensor, const AllgatherOptions& opts) {
   
-  if (input_tensor.dtype() != output_tensor.dtype()) {
-    TORCH_CHECK(false, "output tensor must have the same type as input tensor");
-  }
+  TORCH_CHECK(input_tensor.dtype() == output_tensor.dtype(), "output tensor must have the same type as input tensor");
 
-  if (input_tensor.numel() * this->size_ != output_tensor.numel()) {
-    TORCH_CHECK(false,
-        "output tensor size must be equal to world_size times input tensor size");
-  }
+  TORCH_CHECK(input_tensor.numel() * this->size_ == output_tensor.numel(),
+      "output tensor size must be equal to world_size times input tensor size");
 
   // just a wrapper to fit the collective interface
   auto inputs = std::vector<at::Tensor>{input_tensor};
