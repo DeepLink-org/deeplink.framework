@@ -6,7 +6,7 @@ def test_linalg_qr(A_list):
     for A in A_list:
         Q1, R1 = torch.linalg.qr(A)
         Q2, R2 = torch.linalg.qr(A.cuda())
-        assert torch.allclose(Q1, Q2.cpu(), atol=1e-3)
+        assert torch.allclose(Q1, Q2.cpu(), atol=1e-4)
         assert torch.allclose(R1, R2.cpu(), atol=1e-3)
 
         Q1, R1 = torch.linalg.qr(A, mode='r')
