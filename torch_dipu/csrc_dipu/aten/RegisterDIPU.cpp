@@ -7,7 +7,7 @@
 
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
-#include <csrc_dipu/runtime/ops/DIPUCopyInplace.h>
+#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);

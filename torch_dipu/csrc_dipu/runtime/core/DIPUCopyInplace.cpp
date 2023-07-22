@@ -98,7 +98,7 @@ at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tenso
   c10::Device src_device = iter.device(1);
   dipu::OptionalDIPUGuard device_guard(dst_device.is_cuda() ? dst_device : src_device);
 
-  int64_t nbytes = iter.numel() * iter.element_size(0); 
+  int64_t nbytes = iter.numel() * iter.element_size(0);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
   if (dst_device.type() == DIPU_DEVICE_TYPE && src_device.is_cpu()) {
     dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, iter.data_ptr(0), iter.data_ptr(1));

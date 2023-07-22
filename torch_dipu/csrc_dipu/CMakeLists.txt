@@ -19,7 +19,6 @@ file(GLOB RT_SRC_FILES runtime/core/guardimpl/*.cpp
     runtime/core/MemChecker.cpp
     runtime/distributed/*.cpp
     runtime/devproxy/*.cpp
-    runtime/ops/*.cpp
 )
 
 file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp

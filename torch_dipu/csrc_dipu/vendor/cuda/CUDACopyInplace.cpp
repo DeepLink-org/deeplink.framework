@@ -4,7 +4,7 @@
 #include <csrc_dipu/diopirt/diopirt_impl.h>
 #include <csrc_dipu/common.h>
 #include <c10/util/Exception.h>
-#include <csrc_dipu/runtime/ops/DIPUCopyInplace.h>
+#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
 namespace dipu {
 
