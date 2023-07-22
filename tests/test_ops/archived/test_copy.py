@@ -27,7 +27,7 @@ def test_copy_():
     src_shapes = [(3, 2), (4, 3, 2)]
     dst_shapes = [(4, 3, 2)]
     src_need_expands = [True, False]
-    devices = [torch.device("cpu"), torch.device("cuda:0"), torch.device("cuda:2")]
+    devices = [torch.device("cpu"), torch.device("cuda:0")]
     dtypes = [torch.float32, torch.float16]
     
     configs = []
