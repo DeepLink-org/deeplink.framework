@@ -1,10 +1,11 @@
 # Copyright (c) 2023, DeepLink.
 import torch
 from torch.serialization import register_package
-from torch.storage import _StorageBase
+from torch.storage import UntypedStorage
 from torch_dipu import mockcuda
 from .device import __diputype__, __dipu__, _get_device_index
 from .device import *
+from torch_dipu import _C
 
 def __validate_dipu_device(location):
   device_idx = _get_device_index(location, True)
@@ -61,11 +62,21 @@ def _dipu_storage(self, device=None, non_blocking=False, **kwargs):
     return untyped_storage
 
 @property
-def is_dipu_storage(self):
+def _is_dipu_storage(self):
     return self.device.type == __diputype__
 
-setattr(_StorageBase, 'is_dipu', is_dipu_storage)
-_StorageBase.dipu = _dipu_storage
+setattr(UntypedStorage, 'is_dipu', _is_dipu_storage)
+
+UntypedStorage.dipu = _dipu_storage
+
+_raw_storage_resize = UntypedStorage.resize_
+def _resize(self, size: int):
+   if self.device.type != __diputype__:
+      return _raw_storage_resize(self, size)
+   else:
+      return _C.storage_resize_(self, size)
+  
+UntypedStorage.resize_ = _resize
 
 
 # should we mock cuda/dipu in storage api which is a low level api or should we ensure all 
