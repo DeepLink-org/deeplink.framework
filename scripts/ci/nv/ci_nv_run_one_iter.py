@@ -1,3 +1,4 @@
+#it works on single machine and will be deprecated. please use ci_run_one_iter.py when ci runs on slurm. 
 import os
 import sys
 import random

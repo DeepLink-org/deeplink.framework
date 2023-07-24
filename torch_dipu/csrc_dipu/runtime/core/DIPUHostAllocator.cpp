@@ -81,7 +81,7 @@ at::Allocator* getHostAllocator() {
 }
 
 bool isPinnedPtr(const void* ptr) {
-  dipu_host_allocator.isPinnedPtr(ptr);
+  return dipu_host_allocator.isPinnedPtr(ptr);
 }
 
 }  // namespace dipu

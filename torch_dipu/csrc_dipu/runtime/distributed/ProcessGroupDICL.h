@@ -181,6 +181,9 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Work> allgather(std::vector<std::vector<at::Tensor>>& output_tensors,
       std::vector<at::Tensor>& input_tensors, const AllgatherOptions& opts = AllgatherOptions()) override;
 
+  c10::intrusive_ptr<Work> _allgather_base(at::Tensor& output_tensor,
+      at::Tensor& input_tensor, const AllgatherOptions& opts = AllgatherOptions()) override;
+
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors,
       int dstRank, int tag) override;
 
@@ -253,7 +256,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   // Whether or not wait() and synchronize() are blocking operations that wait
   // for the operation to complete.
-  bool blockingWait_ = true;
+  bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 };

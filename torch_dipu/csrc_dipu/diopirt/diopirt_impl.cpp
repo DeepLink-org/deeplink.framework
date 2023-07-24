@@ -87,10 +87,12 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     caffe2::TypeMeta at_type = diopihelper::toATenType(dtype);
     c10::DeviceType at_device = diopihelper::toATenDevice(device);
     auto options = at::TensorOptions(at_device).dtype(at_type);
-    at::Tensor t = at::empty(at_dims, options);
+    at::Tensor t;
     if (stride) {
         at::IntArrayRef at_stride(stride->data, stride->len);
-        t = t.as_strided(at_dims, at_stride);
+        t = at::empty_strided(at_dims, at_stride, options);
+    } else {
+        t = at::empty(at_dims, options);
     }
 
     ctx->arrays.emplace_back(std::move(t));
