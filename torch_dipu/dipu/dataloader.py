@@ -17,6 +17,13 @@ _collate_fn_t = Callable[[List[T]], Any]
 # When the pin_memory parameter is set to True, we set pin_memory_device to 'cuda'.
 # The pin_memory thread generated will set current device to main thread's device index
 # instead of using the default 0th device thus avoid occupying device 0 memory.
+
+# As for why native Pytorch does not have this issue on Cuda,
+# The CUDAHostAllocator performs an operation before allocating memory and obtains a primary ctx.
+# Depending on whether the primary ctx flag is set, the device set by the main thread can be obtained.
+# So even if the current of the child thread's device is 0,
+# the CUDAHostAllocator can also obtain the device of the main thread and set as allocator's own device.
+# DIPU currently does not have such logic and supports this feature requires API similar to cuda's cuDevicePrimaryCtxGetState.
 class DIPUDataLoader(DataLoader):
     def __init__(self, dataset: Dataset[T_co], batch_size: Optional[int] = 1,
                 shuffle: Optional[bool] = None, sampler: Union[Sampler, Iterable, None] = None,
