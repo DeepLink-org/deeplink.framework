@@ -13,8 +13,14 @@ struct DIPUATenFunctions {
     static at::Tensor empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
         c10::optional<bool> pin_memory_opt, c10::optional<at::MemoryFormat> memory_format_opt);
+    static at::Tensor empty_cpu(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
+        c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
+        c10::optional<bool> pin_memory_opt, c10::optional<at::MemoryFormat> memory_format_opt);
 
     static at::Tensor empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
+        c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
+        c10::optional<bool> pin_memory_opt);
+    static at::Tensor empty_strided_cpu(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
         c10::optional<bool> pin_memory_opt);
 
