@@ -322,6 +322,7 @@ private:
     }
 
     int extend(size_t nbytes, StreamSetHandle &set) {
+        emptyCacheWithoutLock();
         auto& extSize = set->currExtendSize_;
         bool increased = false;
         while (extSize < nbytes && extSize < kMaxExtendSize) {
@@ -329,7 +330,7 @@ private:
             increased = true;
         }
 
-        size_t currBytes = std::max((nbytes + kMinAllocationSize - 1) / kMinAllocationSize * kMinAllocationSize, extSize);
+        size_t currBytes = std::max(nbytes, extSize);
         void* ptr = allocateOnDevice(currBytes);
         if (ptr) {
             if (!increased && extSize < kMaxExtendSize) {
