@@ -128,26 +128,27 @@ struct Chunk {
         void* ptr)
       : device_id(device_id),
         stream(stream),
+        streams_inuse(),
         size(size),
         pool(pool),
         ptr(ptr),
         allocated(0),
         prev(nullptr),
         next(nullptr),
-        streams_inuse(),
         event_count(0) {}
 
   // constructor for search key
   Chunk(int device_id, deviceStream_t stream, size_t size)
       : device_id(device_id),
         stream(stream),
+        streams_inuse(),
         size(size),
         pool(nullptr),
         ptr(nullptr),
         allocated(0),
         prev(nullptr),
         next(nullptr),
-        streams_inuse(),
+
         event_count(0) {}
 };
 

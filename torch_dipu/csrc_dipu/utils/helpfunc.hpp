@@ -15,6 +15,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
     case VendorDeviceType::SUPA: return "SUPA";
     case VendorDeviceType::STPU: return "STPU";
   }
+  return "null";
 }
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);

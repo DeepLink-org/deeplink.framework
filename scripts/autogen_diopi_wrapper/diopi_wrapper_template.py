@@ -79,7 +79,7 @@ std::string dumpArg(const at::Tensor& tensor) {
     std::stringstream stream;
     if (tensor.defined()) {
         stream << "numel: " << tensor.numel() << ",sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
-        << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false") 
+        << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
         << ", memory_format: "  << tensor.suggest_memory_format() << ",  data_ptr: " << tensor.data_ptr();
         if (dumpOpArgLevel() > 2) {
             stream << std::endl << tensor;
@@ -229,7 +229,7 @@ $cppsignautre {
 
     $custom_code_before_call_diopi
 
-    dipu::profile::RecordBlockCreator dipuRecorder("$diopi_fun_call_code");
+    dipu::profile::RecordBlockCreator dipuRecorder(R"($diopi_fun_call_code)");
     ::diopiError_t ret = $diopi_fun_call_code
     dipuRecorder.end();
     if (checkDiopiReturnValue()) {

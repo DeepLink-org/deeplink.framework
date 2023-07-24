@@ -163,7 +163,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
     if (r != ::cudaSuccess) {
         if(throwExcepion) {
             ::cudaGetLastError(); /* reset internal error state*/
-            TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r);
+            TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r, " size= ", nbytes);
         }
         else if(r == ::cudaErrorMemoryAllocation) {
             return OpStatus::ERR_NOMEM;
