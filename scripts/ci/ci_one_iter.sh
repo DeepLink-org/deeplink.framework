@@ -14,7 +14,7 @@ function clone_needed_repo() {
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
-    SMART_VERSION=dev_for_mmcv2.0
+    SMART_VERSION=slc/test_pytorch2.0
     MMYOLO=dipu_v0.5.0_one_iter_tool
 
 
