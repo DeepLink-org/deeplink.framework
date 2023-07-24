@@ -7,7 +7,7 @@ function build_dipu_py() {
     # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    cp build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
 }
 
 function config_dipu_cmake() {
