@@ -40,7 +40,7 @@ void getDriverVersion(int* version) {
 }
 
 void getRuntimeVersion(int* version) {
- return devapis::getRuntimeVersion(version);
+  return devapis::getRuntimeVersion(version);
 }
 
 void createStream(deviceStream_t* stream, bool prior) {
