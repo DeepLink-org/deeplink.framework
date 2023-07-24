@@ -225,6 +225,14 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map, ge::
       auto value = op_map[i["value"].get<std::string>()];
       if (i.contains("index")) {
         op.SetInput(name, value, i["index"].get<int>());
+      } else if (i.contains{"update_desc"}) {
+        auto desc = i["update_desc"];
+        auto format = desc["format"].get<std::string>();
+        auto data_type = desc["data_type"].get<std::string>();
+        auto shape = desc["shape"].get<std::vector<int64_t>>();
+        TensorDesc tensor_desc(shape, get_ascend_format(format), get_ascend_datatype(data_type));
+        // TODO(tangzhiyi): now assume output name is y.
+        op_map[value].UpdateInputDesc("y", tensor_desc);
       } else {
         op.SetInput(name, value);
       }
@@ -253,7 +261,7 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map, ge::
         op.SetAttr(attr_name.c_str(), value);        
       } else if (value_type == "int64") {
         auto value = attr["value"].get<int64_t>();
-        op.SetAttr(attr_name.c_str(), value);        
+        op.SetAttr(attr_name.c_str(), value);
       } else if (value_type == "tensor") {
         auto cpp_data_type = attr["tensor_cpp_data_type"].get<std::string>();
         auto data_type = get_ascend_datatype(attr["tensor_data_type"].get<std::string>());
@@ -286,13 +294,7 @@ void buildGraph(Graph& graph, const std::string& graph_json_file) {
   std::ifstream f(graph_json_file);
   json graph_json = json::parse(f);
   std::unordered_map<std::string, ge::Operator> op_map;
-
   json data_nodes = graph_json["data_nodes"];
-
-  std::cout << "data_nodes:" << data_nodes << std::endl;
-  std::cout << "common nodes:" << graph_json["common_nodes"] << std::endl;
-
-  std::cout << "parse inputs:" << graph_json["input_names"] << std::endl;
   for (const auto& node : graph_json["data_nodes"]) {
     auto node_name = node["op_name"].get<std::string>();
     auto format = get_ascend_format(node["format"].get<std::string>());
@@ -303,7 +305,6 @@ void buildGraph(Graph& graph, const std::string& graph_json_file) {
     op_map[node_name] = genInput(node_name, dims, format, data_type, index);
     graph.AddOp(op_map[node_name]);
   }
-  std::cout << "parse common nodes:" << graph_json["common_nodes"].size() << std::endl;
   for (const auto& node : graph_json["common_nodes"]) {
     std::cout << "op_name:" << node << std::endl; 
     auto node_name = node["op_name"].get<std::string>();
@@ -325,7 +326,6 @@ void buildGraph(Graph& graph, const std::string& graph_json_file) {
     graph_inputs.push_back(op_map[i.get<std::string>()]);
   }
   for (const auto& i : graph_json["output_names"]) {
-    std::cout << "output names: " << i << std::endl;
     graph_outputs.push_back(op_map[i.get<std::string>()]);
   }
   graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);

@@ -2,6 +2,7 @@ import acl
 import os
 import numpy as np
 import torch
+import time
 
 
 # the range for dynamic shape
@@ -274,9 +275,11 @@ class AscendExecutor(object):
         return output
 
     def forward(self):
+        #start = time.time()
         ret = acl.mdl.execute(self.model_id,
                               self.load_input_dataset,
                               self.load_output_dataset)
+        #print('forward2 time:', time.time() - start)
         check_ret("acl.mdl.execute", ret)
 
     def _destroy_databuffer(self):
@@ -293,16 +296,25 @@ class AscendExecutor(object):
             check_ret("acl.mdl.destroy_dataset", ret)
 
 
+# class AscendModel():
+#     def __init__(self, device_id, model_path) -> None:
+#         self.device_id = device_id          # int
+#         self.model_path = model_path        # str
+
+#     def run(self, images, dims=None):
+#         exe = AscendExecutor(self.device_id, dims, self.model_path)
+#         result = exe.run(images)
+#         exe.release_resource()
+#         return result
+    
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
+        self.exe = AscendExecutor(self.device_id, None, self.model_path)
 
     def run(self, images, dims=None):
-        exe = AscendExecutor(self.device_id, dims, self.model_path)
-        result = exe.run(images)
-        exe.release_resource()
-        return result
+        return self.exe.run(images)
 
 
 if __name__ == '__main__':

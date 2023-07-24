@@ -74,6 +74,7 @@ def simple_operation(expr, name, token):
 
 
 def process_shape_str(shape_str, name, suffix=""):
+    import pdb;pdb.set_trace()
     shape = shape_str.strip('{}').split(',')
     src_code = f""""""
     pattern = []
@@ -234,36 +235,36 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
-
+        
+        format = "NCHW"
+        index = -1
+            
         if isinstance(fake_tensor, torch.SymInt):
-            sym_to_inputs.update({fake_tensor.node.str(): self.args_dict[name]})
-            tensor_shape = f"{{1}}"
-            tensor_format = "FORMAT_ND"
-            ascend_dtype = "ge::DataType::DT_INT32"
+            dims = [1]
+            data_type = "INT32"
+            format = "ND"
         elif symint_in_shape(fake_tensor.shape):
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-            actual_shape = fake_tensor.shape # [elem.node._hint if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-            tensor_shape = '{' + ','.join(map(str, shape)) + '}'
-            tensor_format = "FORMAT_NCHW"
-            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+            actual_shape = fake_tensor.shape
             self.dynamic_inputs.append(self.args_dict[name])
             self.dynamic_shape.append(shape)
             self.actual_shape.append(actual_shape)
-            self.dynamic_index.append(len(self.input_args_names))
+            self.dynamic_index.append(len(self.graph_input_names))
+            dims = shape
+            data_type = get_ascend_dtype(fake_tensor.dtype).upper()
         else:
-            tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-            tensor_format = "FORMAT_NCHW"
-            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+            dims = fake_tensor.shape
+            data_type = get_ascend_dtype(fake_tensor.dtype).upper()
             
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
             "op_type": "Data",
-            "dims": fake_tensor.shape,
-            "format": "NCHW",
-            "data_type": get_ascend_dtype(fake_tensor.dtype).upper(),
-            "index": -1
+            "dims": dims,
+            "format": format,
+            "data_type": data_type,
+            "index": index
         })
         self.graph_input_names.append(self.args_dict[name])
 
@@ -511,6 +512,52 @@ class AscendOperator:
                 "index": i,
                 "value": value[i],
             })
+        self.dynamic_inputs.append(dy_inputs)
+    
+    def set_dynamic_output(self, name, num):
+        self.dynamic_outputs.append({
+            "name": name,
+            "num": num
+        }) 
+        
+    def set_and_update_input(self, name, value, shape, format, data_type):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+            "update_desc": {
+                "format": format,
+                "shape": shape,
+                "data_type": data_type,
+            }
+        })
+
+    def set_input_with_index(self, name, value, index):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+            "index": index,
+        })
+    
+    def set_dynamic_input(self, name, num, value, set_input_with_name = False):
+        assert len(value) == num
+        dy_inputs = {
+            "name": name,
+            "num": num,
+            "value": [],
+        }
+        if set_input_with_name == False:
+            for i in range(num):
+                dy_inputs["value"].append({
+                    "index": i,
+                    "value": value[i],
+                })
+        else:
+            for i in range(num):
+                dy_inputs["value"].append({
+                    "index": i,
+                    "value": value[i]["input_name"],
+                    "edge": value[i]["edge_name"]
+                })            
         self.dynamic_inputs.append(dy_inputs)
     
     def set_dynamic_output(self, name, num):
@@ -1250,174 +1297,123 @@ class AscendOverrides:
         op.set_input("x1", x)
         op.set_input("x2", y )
         return op.to_node()
-
+    
     @staticmethod
     def convolution_backward(name, grad_output, input, weight, bias_size,
         
                              stride, padding, dilation, transposed, output_padding,
                              groups, grad_input_mask):
-        # TODO(tangzhiyi): refactor this
-        assert transposed == 'false'
-        assert output_padding == '{0, 0}'
+        assert transposed == False
+        assert output_padding == [0, 0]
 
-        src_code = ''
-        stride = stride.strip('{}').split(', ')
-        padding = padding.strip('{}').split(', ')
-        dilation = dilation.strip('{}').split(', ')
-        grad_input_mask = grad_input_mask.strip('{}').split(', ')
-        new_stride = ['1', '1', stride[0], stride[1]]
-        new_padding = [padding[0], padding[0], padding[1], padding[1]]
-        new_dilation = ['1', '1', dilation[0], dilation[1]]
+        stride = [1, 1, stride[0], stride[1]]
+        padding = [padding[0], padding[0], padding[1], padding[1]]
+        dilation = [1, 1, dilation[0], dilation[1]]
+        data_format = "NCHW"
 
-        stride_str = '{' + ','.join(new_stride) + '}'
-        padding_str = '{' + ','.join(new_padding) + '}'
-        dilation_str = '{' + ','.join(new_dilation) + '}'
+        ops = []
+        if grad_input_mask[0] == True:
+            shape_op = OP(f"{name}_input_shape", "Shape")
+            shape_op.set_input("x", input)
+            bp_op = OP(f"{name}_input", "Conv2DBackpropInput")
+            bp_op.set_input("input_size", f"{name}_input_shape")
+            bp_op.set_input("filter", weight)
+            bp_op.set_input("out_backprop", grad_output)
+            bp_op.set_attr_list_int("strides", stride)
+            bp_op.set_attr_list_int("pads", padding)
+            bp_op.set_attr_list_int("dilations", dilation)
+            bp_op.set_attr_int("groups", groups)
+            bp_op.set_attr_str("data_format", data_format)
+            ops.append(shape_op.to_node())
+            ops.append(bp_op.to_node())
 
-        # XXX(tangzhiyi): assume data format is NCHW
-        data_format = 'NCHW'
-
-        # input
-        if grad_input_mask[0] == 'True':
-            src_code += f"""
-                            auto {name}_input_shape = op::Shape("{name}_input_shape")
-                              .set_input_x({input});
-                            auto {name}_input = op::Conv2DBackpropInput("{name}_input")
-                              .set_input_input_size({name}_input_shape)
-                              .set_input_filter({weight})
-                              .set_input_out_backprop({grad_output})
-                              .set_attr_strides({stride_str})
-                              .set_attr_pads({padding_str})
-                              .set_attr_dilations({dilation_str})
-                              .set_attr_groups({groups})
-                              .set_attr_data_format("{data_format}");
-                        """
-
-        # weight
-        if grad_input_mask[1] == 'True':
-            src_code += f"""
-                            auto {name}_filter_shape = op::Shape("{name}_filter_shape")
-                              .set_input_x({weight});
-                            auto {name}_filter = op::Conv2DBackpropFilter("{name}_filter")
-                              .set_input_x({input})
-                              .set_input_filter_size({name}_filter_shape)
-                              .set_input_out_backprop({grad_output})
-                              .set_attr_strides({stride_str})
-                              .set_attr_pads({padding_str})
-                              .set_attr_dilations({dilation_str})
-                              .set_attr_groups({groups})
-                              .set_attr_data_format("NCHW");
-                        """
+        if grad_input_mask[1] == True:
+            shape_op = OP(f"{name}_filter_shape")
+            shape_op.set_input("x", weight)
+            bp_op = OP(f"{name}_filter", "Conv2DBackpropFilter")
+            bp_op.set_input("x", input)
+            bp_op.set_input("filter_size", f"{name}_filter_shape")
+            bp_op.set_input("out_backprop", grad_output)
+            bp_op.set_attr_list_int("strides", stride)
+            bp_op.set_attr_list_int("pads", padding)
+            bp_op.set_attr_list_int("dilations", dilation)
+            bp_op.set_attr_str("data_format", data_format)
+            ops.append(shape_op.to_node())
+            ops.append(bp_op.to_node())
 
         # TODO(tangzhiyi): bias is not supported yet
-        assert grad_input_mask[2] == 'False'
-
-        only_input = grad_input_mask[0] == 'True' and grad_input_mask[1] == 'False'
-        only_weight = grad_input_mask[0] == 'False' and grad_input_mask[1] == 'True'
-        both_input_weight = grad_input_mask[0] == 'True' and grad_input_mask[1] == 'True'
-
-        if only_input:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_input)
-                              .set_dynamic_input_x(1, {name}_input)
-                              .create_dynamic_output_y(2);
-                        """
-        elif only_weight:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_filter)
-                              .set_dynamic_input_x(1, {name}_filter)
-                              .create_dynamic_output_y(2);
-                        """
-        elif both_input_weight:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_input)
-                              .set_dynamic_input_x(1, {name}_filter)
-                              .create_dynamic_output_y(2);
-                        """
-        else:
-            raise RuntimeError('not supported!')
-
-        return src_code
-
+        assert grad_input_mask[2] == False
+        outputs = []
+        outputs.append(f"{name}_input" if grad_input_mask[0] else f"{name}_filter")
+        outputs.append(f"{name}_filter" if grad_input_mask[1] else f"{name}_input")
+        op = OP(name, "IdentityN")
+        op.set_dynamic_output("y", 2)
+        op.set_dynamic_input("x", 2, outputs)
+        ops.append(op.to_node())
+        return ops
+    
     @staticmethod
     def max_pool2d_with_indices_backward(name, grad_output, x, kernel_size,
                                          stride, padding, dilation, ceil_mode,
                                          indices):
-        # TODO(tangzhiyi): refactor this
-        assert len(kernel_size.split(',')) == 2 or len(kernel_size.split(',')) == 1
-        assert len(stride.split(',')) == 2 or len(stride.split(',')) == 1
-        assert len(padding.split(',')) == 2 or len(padding.split(',')) == 1
-        assert len(dilation.split(',')) == 2 or len(dilation.split(',')) == 1
+        assert len(kernel_size) == 2 or len(kernel_size) == 1
+        assert len(stride) == 2 or len(stride) == 1
+        assert len(padding) == 2 or len(padding) == 1
+        assert len(dilation) == 2 or len(dilation) == 1
+        assert dilation == [1, 1]
 
-        kernel_size = kernel_size.strip('{}').split(', ')
-        stride = stride.strip('{}').split(', ')
-        padding = padding.strip('{}').split(', ')
-        dilation = dilation.strip('{}').split(', ')
+        kernel_size = [1, 1, kernel_size[0], kernel_size[1] if len(kernel_size) == 2 else kernel_size[0]]
+        stride = [1, 1, stride[0], stride[1] if len(stride) == 2 else stride[0]]
+        padding = [1, padding[0], padding[1] if len(padding) == 2 else padding[0], 1]
 
-        new_kernel_size = ['1', '1', kernel_size[0], kernel_size[1]]
-        new_stride = ['1', '1', stride[0], stride[1]]
-        new_padding = ['1', padding[0], padding[1], '1']
-
-        kernel_size_str = '{' + ','.join(new_kernel_size) + '}'
-        stride_str = '{' + ','.join(new_stride) + '}'
-        padding_str = '{' + ','.join(new_padding) + '}'
-
-        assert dilation == ['1', '1']
-
-        if padding != ['0', '0']:
-            padding0 = padding[0]
-            padding1 = padding[1]
-            padding_str = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f"""
-                           auto {name}_pad_tensor = genTensorWithData<int>({{}}, FORMAT_NCHW, DT_INT32, {{ {padding_str} }});
-                           auto {name}_paddings = op::Const("{name}_paddings")
-                             .set_attr_value({name}_pad_tensor);
-                           auto {name}_pad = op::PadV3("{name}_pad")
-                             .set_input_x({x})
-                             .set_input_paddings({name}_paddings);
-                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({name}_pad)
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                   
-                           auto {name}_bwd = op::MaxPoolGrad("{name}_bwd")
-                             .set_input_x1({name}_pad)
-                             .set_input_x2({name}_fwd_out)
-                             .set_input_grad({grad_output})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           auto {name} = op::PadV3Grad("{name}")
-                             .set_input_x({name}_bwd)
-                             .set_input_paddings({name}_paddings);
-                        """
+        ops = []
+        if padding != [0, 0]:
+            padding = [0, 0, 0, 0, padding[0], padding[0], padding[1], padding[1]]
+            op1 = OP(f"{name}_paddings", "Const")
+            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [8], padding)
+            op2 = OP(f"{name}_pad", "PadV3")
+            op2.set_input("x", x)
+            op2.set_input("paddings", f"{name}_paddings")
+            fwd_out = OP(f"{name}_fwd_out", "MaxPool")
+            fwd_out.set_input("x", f"{name}_pad")
+            fwd_out.set_attr_list_int("ksize", kernel_size)
+            fwd_out.set_attr_list_int("strides", stride)
+            fwd_out.set_attr_list_int("padding", "VALID")
+            fwd_out.set_attr_list_int("data_format", "NCHW")
+            bwd = OP(f"{name}_bwd", "MaxPoolGrad")
+            bwd.set_input("x1", f"{name}_pad")
+            bwd.set_input("x2", f"{name}_fwd_out")
+            bwd.set_input("grad", grad_output)
+            bwd.set_attr_list_int("ksize", kernel_size)
+            bwd.set_attr_list_int("strides", stride)
+            bwd.set_attr_str("padding", "VALID")
+            bwd.set_attr_str("data_format", "NCHW")
+            pad_grad = OP(name, "PadV3Grad")
+            pad_grad.set_input("x", f"{name}_bwd")
+            pad_grad.set_input("paddings", f"{name}_paddings")
+            ops.append(op1.to_node())
+            ops.append(op2.to_node())
+            ops.append(fwd_out.to_node())
+            ops.append(bwd.to_node())
+            ops.append(pad_grad.to_node())
         else:
-            src_code = f"""
-                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({x})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           auto {name} = op::MaxPoolGrad("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_fwd_out)
-                             .set_input_grad({grad_output})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                        """
-
-        return src_code
+            fwd_out = OP(f"{name}_fwd_out", "MaxPool")
+            fwd_out.set_input("x", x)
+            fwd_out.set_attr_list_int("ksize", kernel_size)
+            fwd_out.set_attr_list_int("strides", stride)
+            fwd_out.set_attr_str("padding", "VALID")
+            fwd_out.set_attr_str("data_format", "NCHW")
+            grad = OP(name, "MaxPoolGrad")
+            grad.set_input("x1", x)
+            grad.set_input("x2", f"{name}_fwd_out")
+            grad.set_input("grad", grad_output)
+            grad.set_attr_list_int("ksize", kernel_size)
+            grad.set_attr_list_int("strides", stride)
+            grad.set_attr_str("padding", "VALID")
+            grad.set_attr_str("data_format", "NCHW")
+            ops.append(fwd_out.to_node())
+            ops.append(grad.to_node())
+        return ops
 
     @staticmethod
     def where(name, node, cond, x1, x2):
@@ -1545,91 +1541,78 @@ class AscendOverrides:
     @staticmethod
     def native_batch_norm_legit_functional(name, x, weight, bias, running_mean,
                                            running_var, train, momentum, eps, node):
-        # TODO(tangzhiyi): refactor this
-        if train != 'true':
-            raise RuntimeError('not supported yet!')
+        if train == True:
+            raise RuntimeError("not supported yet!")
         x_shape = list(node.target.x.node.meta['val'].shape)
-        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
-        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
-        src_code = f"""// 0. change x format to NCHW
-                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
-                       // TODO(tangzhiyi): now assume output name is y.
-                       {x}.update_output_desc_y({name}_x_desc);
+        x_dtype = get_ascend_dtype(node.taget.x.node.meta['val'].dtype)
 
-                       // 1. get sum and square_sum
-                       auto {name}_bn_training_reduce = op::BNTrainingReduce("{name}_bn_training_reduce")
-                         .set_input_x({x});
-                       
-                       // 2. call BNTrainingUpdate
-                       auto {name}_bn_training_update = op::BNTrainingUpdate("{name}_bn_training_update")
-                         .set_input_x({x}, FORMAT_NCHW)
-                         .set_input_sum({name}_bn_training_reduce, 0)
-                         .set_input_square_sum({name}_bn_training_reduce, 1)
-                         .set_input_scale({weight}, FORMAT_NCHW)
-                         .set_input_offset({bias}, FORMAT_NCHW)
-                         .set_input_mean({running_mean})
-                         .set_input_variance({running_var})
-                         .set_attr_epsilon({eps})
-                         .set_attr_factor({momentum});
-                           
-                       // 3. tie all results: result, saved_mean, saved_invstd
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(5)
-                         .set_dynamic_input_x(0, {name}_bn_training_update, "y") 
-                         .set_dynamic_input_x(1, {name}_bn_training_update, "batch_mean")
-                         .set_dynamic_input_x(2, {name}_bn_training_update, "batch_variance")
-                         .set_dynamic_input_x(3, {name}_bn_training_update, "mean")
-                         .set_dynamic_input_x(4, {name}_bn_training_update, "variance")
-                         .create_dynamic_output_y(5);
-                       """
-        return src_code
+        # 1. get sum and square_sum
+        op1 = OP(f"{name}_bn_training_reduce", "BNTrainingReduce")
+        # TODO(tangzhiyi): now assume output name is y.
+        op1.set_and_update_input("x", x, x_shape, "NCHW", x_dtype)
 
+        # 2. call BNTrainingUpdate
+        op2 = OP(f"{name}_bn_training_update", "BNTrainingUpdate")
+        op2.set_input("x", x)
+        op2.set_input_with_index("sum", f"{name}_bn_training_reduce", 0)
+        op2.set_input_with_index("square_sum", f"{name}_bn_training_reduce", 1)
+        op2.set_input("scale", weight)
+        op2.set_input("offset", bias)
+        op2.set_input("mean", running_mean)
+        op2.set_input("variance", running_var)
+        op2.set_attr_float("epsilon", eps)
+        op2.set_attr_float("factor", momentum)
+        
+        # 3. tie all results: result, saved_mean, saved_invstd
+        op3 = OP(name, "IdentityN")
+        dynamic_input_names = [
+            {f"{name}_bn_training_update", "y"},
+            {f"{name}_bn_training_update", "batch_mean"},
+            {f"{name}_bn_training_update", "batch_variance"},
+            {f"{name}_bn_training_update", "mean"},
+            {f"{name}_bn_training_update", "variance"},
+        ]
+        op3.set_dynamic_input("x", 5, dynamic_input_names, True)
+        op3.set_dynamic_output("y", 5)
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
+    
     @staticmethod
     def native_batch_norm_backward(name, node, grad_out, x, weight, running_mean, running_var,
             save_mean, save_invstd, train, eps, grad_input_mask):
-        # TODO(tangzhiyi): refactor this
-        x_shape = list(node.target.x.node.meta['val'].shape)
-        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
-        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
-        src_code = f"""// 0. change x format to NCHW
-                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
-                       // TODO(tangzhiyi): now assume output name is y.
-                       {x}.update_output_desc_y({name}_x_desc);
-                       //{grad_out}.update_output_desc_y({name}_x_desc);
-                       
-                       // get grad_weight and grad_bias
-                       auto {name}_update_grad = op::BNTrainingUpdateGrad("{name}_update_grad")
-                         .set_input_grads({grad_out}) 
-                         .set_input_x({x})
-                         .set_input_batch_mean({save_mean})
-                         .set_input_batch_variance({save_invstd})
-                         .set_attr_epsilon({eps});
+        x_shape = list(node.target.x.node.meta["val"].shape)
+        x_dtype = get_ascend_dtype(node.target.x.node.meta["val"].dtype)
 
-                       // get grad_input
-                       auto {name}_reduce_grad = op::BNTrainingReduceGrad("{name}_reduce_grad")
-                         .set_input_grads({grad_out})
-                         .set_input_x({x})
-                         .set_input_diff_scale({name}_update_grad, 0)
-                         .set_input_diff_offset({name}_update_grad, 1)
-                         .set_input_scale({weight})
-                         .set_input_batch_mean({save_mean})
-                         .set_input_batch_variance({save_invstd})
-                         .set_attr_epsilon({eps});
-                       """
-                       
-        mask = list(map(bool, grad_input_mask.strip('{}').split(',')))
-        if mask[0] == True and mask[1] == True and mask[2] == True:
-            src_code += f"""
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(3)
-                         .set_dynamic_input_x(0, {name}_reduce_grad, "y")
-                         .set_dynamic_input_x(1, {name}_update_grad, "diff_scale")
-                         .set_dynamic_input_x(2, {name}_update_grad, "diff_offset")
-                         .create_dynamic_output_y(3);
-                       """
-        else:
-            raise RuntimeError("not supported yet!")
-        return src_code
+        # get grad_weight and grad_bias
+        op1 = OP(f"{name}_update_grad", "BNTrainingUpdateGrad")
+        op1.set_and_update_input("grads", grad_out, x_shape, "NCHW", x_dtype) 
+        op1.set_input("x", x)
+        op1.set_input("batch_mean", save_mean)
+        op1.set_input("batch_variance", save_invstd)
+        op1.set_attr_float("epsilon", eps)
+
+        # get grad_input
+        op2 = OP(f"{name}_reduce_grad", "BNTrainingReduceGrad")
+        op2.set_input("grad_out", grad_out)
+        op2.set_input("x", x)
+        op2.set_input_with_index("diff_scale", f"{name}_update_grad", 0)
+        op2.set_input_with_index("diff_offset", f"{name}_update_grad", 1)
+        op2.set_input("scale", weight)
+        op2.set_input("batch_mean", save_mean)
+        op2.set_input("batch_variance", save_invstd)
+        op2.set_attr_float("epsilon", eps)
+
+        for mask in grad_input_mask:
+            assert mask == True
+        op3 = OP(name, "IdentityN")
+        dynamic_input_names = [
+            {f"{name}_reduce_grad", "y"},
+            {f"{name}_update_grad", "diff_scale"},
+            {f"{name}_update_grad", "diff_offset"},
+        ]
+        op3.set_dynamic_input("x", 3, dynamic_input_names, True)
+        op3.set_dynamic_output("y", 3)
+
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
     def nll_loss_backward(name, node, grad_output, x, target, weight, reduction, ignore_index,
@@ -1770,8 +1753,7 @@ class AscendOverrides:
 
     @staticmethod
     def cat(name, node, x, dim=0):
-        #x_list = x.strip('{}').split(', ')
-        x_list = [a.name for a in x]
+        x_list = [a.name if isinstance(a, torch.fx.node.Node) else a for a in x]
         x_size = len(x_list)
         y_dtype = node.meta['val'].dtype
         
