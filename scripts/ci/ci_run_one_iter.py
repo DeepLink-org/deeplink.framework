@@ -20,7 +20,7 @@ print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par,
 error_flag = multiprocessing.Value('i',0) #if encount error
 
 if device_type == 'cuda':
-    random_model_num = 100
+    random_model_num = 8
     print("we use cuda!")
 else:
     random_model_num = 100
