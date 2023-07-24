@@ -20,12 +20,6 @@ static std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
 
 static std::mutex dipu_register_allocator_mutex;
 
-static DIPURawDeviceAllocator lowest_priority_device_allocator;
-static int n = [&]() {
-  c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &lowest_priority_device_allocator, 0);
-  return 0;
-}();
-
 static std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
@@ -112,6 +106,35 @@ void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
     base_cxt->streams().insert(stream);
   }
 }
+
+namespace {
+  class DIPUDeviceCachingProxy: public c10::Allocator {
+  public:
+    DIPUDeviceCachingProxy() {
+
+    }
+
+    ~DIPUDeviceCachingProxy() {
+
+    }
+
+    c10::DataPtr allocate(size_t size) const {
+      return getAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(size);
+    }
+
+    c10::DeleterFnPtr raw_deleter() const override {
+      return getAllocator(dipu::DIPU_DEVICE_TYPE)->raw_deleter();
+    }
+  };
+
+  // Make the c10::GetAllocator interface available
+  static DIPURawDeviceAllocator dipu_default_device_allocator;
+  static int m = [&]() {
+    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 0);
+    return 0;
+  }();
+
+};
 
 
 }  // namespace dipu
