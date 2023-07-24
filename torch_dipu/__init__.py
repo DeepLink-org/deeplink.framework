@@ -18,6 +18,7 @@ from torch_dipu.dipu import *
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
 from .profiler.profiler import dipu_profiler, dipu_kineto_available
+from .dipu.dataloader import DIPUDataLoader, apply_dataloader_patch
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -98,6 +99,7 @@ def apply_patches():
     apply_tensor_type_patch()
     apply_profiler_patch()
     apply_temp_patch()
+    apply_dataloader_patch()
 
 
 apply_patches()

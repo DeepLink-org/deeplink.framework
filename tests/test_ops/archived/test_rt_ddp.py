@@ -1,6 +1,4 @@
 import os
-os.environ['DIPU_DEVICE_MEMCACHING_ALGORITHM']='RAW' #TODO(zhaoguochun): Wait for ddp to support record_stream before optimizing
-import torch_dipu
 import torch
 import random
 from torch import nn
@@ -38,13 +36,11 @@ class ToyModel(nn.Module):
         return self.net2(x)
 
 def demo_basic_ddp(rank, world_size, port):
+    import torch_dipu
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
     dev1 = rank
-
-    # backend = "gloo"
-    # dev1 = "cpu"
 
     # debugat(rank)
     setup(backend, rank, world_size, port)
@@ -74,6 +70,7 @@ def demo_basic_ddp(rank, world_size, port):
     cleanup()
 
 def demo_allreduce(rank, world_size, port):
+    import torch_dipu
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
