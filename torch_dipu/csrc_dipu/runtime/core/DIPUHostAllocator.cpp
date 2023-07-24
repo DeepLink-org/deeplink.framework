@@ -76,7 +76,7 @@ public:
 
 static DIPUHostAllocatorWrapper dipu_host_allocator_wrapper;
 
-at::Allocator* getHostAllocator() {
+c10::Allocator* getHostAllocator() {
   return &dipu_host_allocator_wrapper;
 }
 
