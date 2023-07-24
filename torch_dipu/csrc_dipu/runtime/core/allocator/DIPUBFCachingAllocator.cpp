@@ -484,6 +484,8 @@ public:
             allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_), events);
         }
         allocator_->restore();
+      } else {
+        DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator:~Context: destory tensor when allocator has been destoryed");
       }
     }
   };
