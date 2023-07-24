@@ -9,6 +9,7 @@
 #include "exportapi.h"
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -192,6 +193,26 @@ static void exportCommunicator(py::module& m) {
   // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
+static void patchStorage(py::module& m) {
+  // incremental patch StorageMethods.cpp THPStorage_resize_()
+  m.def("storage_resize_", [](at::Storage stor, int64_t newsize) -> at::Storage {
+    if (stor.device_type() != DIPU_DEVICE_TYPE) {
+      TORCH_CHECK(false,
+              "UntypedStorage.resize_: dipu storage resize not support other device type ",
+              stor.device_type());
+    } else {
+      dipu::native::DIPUATenFunctions::resize_bytes_dipu(stor.unsafeGetStorageImpl(), newsize);
+      return stor;
+    }
+  });
+}
+
+static void patchTensor(py::module& m) {
+   m.def("is_dipu", [](at::Tensor self) -> bool {
+      return dipu::isDeviceTensor(self);
+  });
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -199,5 +220,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportStream(m);
   exportEvent(m);
   exportCommunicator(m);
+  patchStorage(m);
+  patchTensor(m);
 }
 }  // end ns dipu
