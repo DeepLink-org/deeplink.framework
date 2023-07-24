@@ -99,4 +99,8 @@ void restoreEventToPool(deviceEvent_t& event) {
     getEventPool()->restore(event);
 }
 
+void releaseAllEvent() {
+    getEventPool()->release();
+}
+
 }  // namespace dipu
