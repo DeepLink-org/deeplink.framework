@@ -126,6 +126,10 @@ caffe2::TypeMeta toATenType(::diopiDtype_t dt) {
         return caffe2::TypeMeta::Make<at::Half>();
     case diopi_dtype_bfloat16:
         return caffe2::TypeMeta::Make<at::BFloat16>();
+    case diopi_dtype_complex64:
+        return caffe2::TypeMeta::Make<c10::complex<float>>();
+    case diopi_dtype_complex128:
+        return caffe2::TypeMeta::Make<c10::complex<double>>();
     default:
         TORCH_CHECK(false, "invalid diopi type, diopi type is ", dt);
     }
@@ -141,6 +145,7 @@ int64_t getElemSize(::diopiDtype_t dt) {
     case diopi_dtype_int64:
     case diopi_dtype_uint64:
     case diopi_dtype_float64:
+    case diopi_dtype_complex64:
         return 8;
     case diopi_dtype_int16:
     case diopi_dtype_uint16:
@@ -151,6 +156,8 @@ int64_t getElemSize(::diopiDtype_t dt) {
     case diopi_dtype_uint8:
     case diopi_dtype_bool:
         return 1;
+    case diopi_dtype_complex128:
+        return 16;
     default:
         TORCH_CHECK(false, "invalid diopi type, diopi type is ", dt);
     }
