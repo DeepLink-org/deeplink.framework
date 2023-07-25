@@ -531,6 +531,7 @@ public:
   }
 
   ~BFCachingAllocator() {
+    DIPU_DEBUG_ALLOCATOR(8, "~BFCachingAllocator allocator:" << this);
     release_all_memory();
   }
 

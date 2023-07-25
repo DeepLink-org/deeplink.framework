@@ -5,6 +5,7 @@
 namespace dipu {
 
 void releaseAllResources() {
+    DIPU_DEBUG_ALLOCATOR(2, "releaseAllResources");
     releaseAllDeviceMem();
     releaseAllEvent();
 }
