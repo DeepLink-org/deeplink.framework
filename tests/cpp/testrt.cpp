@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include <torch/torch.h>
 #include <iostream>
-#include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 
 using namespace dipu;
@@ -24,14 +24,14 @@ void testcopy() {
 }
 
 void testDeviceSwitch() {
-  devapis::setDevice(2);
+  devproxy::setDevice(2);
   torch::Device device(DIPU_DEVICE_TYPE);
   auto option1 = torch::dtype(c10::ScalarType::Float);
   torch::Tensor t1 = torch::ones({3, 6}, option1);
   t1 = t1.to(device);
   std::cout << t1 << std::endl;
 
-  devapis::setDevice(0);
+  devproxy::setDevice(0);
   auto stream2 = getDIPUStreamFromPool();
   stream2 = getDIPUStreamFromPool();
   stream2 = getDIPUStreamFromPool();

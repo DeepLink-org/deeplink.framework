@@ -1,12 +1,12 @@
-
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <algorithm>
 
 #include <c10/core/Device.h>
 
-#include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/device/diclapis.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+#include <csrc_dipu/runtime/devproxy/diclproxy.h>
 
 namespace dipu {
 
@@ -14,7 +14,7 @@ namespace dipu {
 class DICLComm {
 private:
   void initRawComm(int numRanks, int rank, commUniqueId uniqueid) {
-      devapis::diclCommInitRank(&rawComm_, numRanks, uniqueid, rank, static_cast<int>(device_.index()));
+      devproxy::diclCommInitRank(&rawComm_, numRanks, uniqueid, rank, static_cast<int>(device_.index()));
   }
 
 public:
@@ -27,7 +27,7 @@ public:
     // barrier here.
     std::unique_lock<std::mutex> lock(mutex_);
     if (rawComm_ && !aborted_) {
-      devapis::diclCommDestroy(rawComm_);
+      devproxy::diclCommDestroy(rawComm_);
       rawComm_ = nullptr;
     }
   }

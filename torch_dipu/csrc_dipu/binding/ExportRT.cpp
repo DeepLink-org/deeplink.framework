@@ -6,13 +6,10 @@
 #include <torch/csrc/utils/pybind.h>
 #include <pybind11/chrono.h>
 
-
 #include "exportapi.h"
-#include <csrc_dipu/runtime/device/deviceapis.h>
-#include <csrc_dipu/runtime/core/device.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/runtime/core/DIPUEvent.h>
-#include <csrc_dipu/runtime/distributed/ProcessGroupDICL.h>
+#include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -43,20 +40,20 @@ static void registerDIPUDeviceProperties(py::module& m) {
 
 static void exportDevices(py::module& m) {
    // Device Management.
-  m.attr("dipu_vendor") = devapis::VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void { 
-    devapis::setDevice(static_cast<devapis::deviceId_t>(idx)); 
+    devproxy::setDevice(static_cast<devapis::deviceId_t>(idx)); 
   });
   m.def("_dipu_get_device_count", []() -> int { 
-    return devapis::getDeviceCount();
+    return devproxy::getDeviceCount();
   });
   m.def("_dipu_current_device", []() -> int {
-    return static_cast<int>(devapis::current_device()); 
+    return static_cast<int>(devproxy::current_device()); 
   });
   m.def("_dipu_synchronize", []() -> void { 
-    devapis::syncDevice(); 
+    devproxy::syncDevice(); 
     return;
   });
   m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
@@ -76,7 +73,7 @@ static void exportStream(py::module& m) {
             return DIPUStream(device_index, stream_id);
           } else if (stream_ptr) {
             return dipu::getStreamFromExternal(reinterpret_cast<deviceStream_t>(stream_ptr),
-                                               devapis::current_device());
+                                               devproxy::current_device());
           } else {
             return getDIPUStreamFromPool();
           }
@@ -196,6 +193,26 @@ static void exportCommunicator(py::module& m) {
   // register_backend(dipu::DICL_BACKEND_NAME, py::cpp_function(createProcessGroupDICL));
 }
 
+static void patchStorage(py::module& m) {
+  // incremental patch StorageMethods.cpp THPStorage_resize_()
+  m.def("storage_resize_", [](at::Storage stor, int64_t newsize) -> at::Storage {
+    if (stor.device_type() != DIPU_DEVICE_TYPE) {
+      TORCH_CHECK(false,
+              "UntypedStorage.resize_: dipu storage resize not support other device type ",
+              stor.device_type());
+    } else {
+      dipu::native::DIPUATenFunctions::resize_bytes_dipu(stor.unsafeGetStorageImpl(), newsize);
+      return stor;
+    }
+  });
+}
+
+static void patchTensor(py::module& m) {
+   m.def("is_dipu", [](at::Tensor self) -> bool {
+      return dipu::isDeviceTensor(self);
+  });
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -203,5 +220,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportStream(m);
   exportEvent(m);
   exportCommunicator(m);
+  patchStorage(m);
+  patchTensor(m);
 }
 }  // end ns dipu

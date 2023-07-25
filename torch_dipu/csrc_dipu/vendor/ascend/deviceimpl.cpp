@@ -193,6 +193,11 @@ void destroyStream(deviceStream_t stream) {
   DIPU_CALLACLRT(::aclrtDestroyStream(stream));
 }
 
+void destroyStream(deviceStream_t stream, deviceId_t devId) {
+    setDevice(devId);
+    destroyStream(stream);
+}
+
 void syncStream(deviceStream_t stream) {
   DIPU_CALLACLRT(::aclrtSynchronizeStream(stream));
 }

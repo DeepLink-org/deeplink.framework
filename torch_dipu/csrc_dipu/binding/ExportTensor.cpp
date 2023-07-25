@@ -5,8 +5,9 @@
 #include <torch/csrc/Exceptions.h>
 #include <torch/csrc/utils/python_strings.h>
 #include <torch/csrc/utils/python_arg_parser.h>
+
+#include <csrc_dipu/base/basedef.h>
 #include "exportapi.h"
-#include <csrc_dipu/common.h>
 
 namespace dipu {
 static at::Tensor dispatch_to(const at::Tensor& self, at::Device device, bool non_blocking, bool copy, c10::optional<c10::MemoryFormat> optional_memory_format) {
@@ -68,22 +69,9 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args, PyObject* kw
   END_HANDLE_TH_ERRORS
 }
 
-static PyObject* THPVariable_is_dipu(PyObject* self, PyObject* args, PyObject* kwargs)
-{
-  HANDLE_TH_ERRORS
-  static torch::PythonArgParser parser({
-    "is_dipu(Tensor temp)"
-  });
-  torch::ParsedArgs<1> parsed_args;
-  auto r = parser.parse(args, kwargs, parsed_args);
-  auto self_ = r.tensor(0);
-  return torch::autograd::utils::wrap(dipu::isDeviceTensor(self_));
-  END_HANDLE_TH_ERRORS
-}
-
+// we prefer to use pybind11 to export patch func, cpython is used only patching tensor-func
+// which has complex dynamic parameters not easy to parsed by pybind.
 static PyMethodDef TorchTensorMethods[] = {
-  {"is_dipu", castPyCFunctionWithKeywords(THPVariable_is_dipu), METH_VARARGS | METH_KEYWORDS, NULL},
-  // {"type", castPyCFunctionWithKeywords(THPVariable_type), METH_VARARGS | METH_KEYWORDS, NULL},
   {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu), METH_VARARGS | METH_KEYWORDS, NULL},
   {nullptr, nullptr, 0, nullptr}
 };

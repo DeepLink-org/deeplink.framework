@@ -1,30 +1,17 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <c10/core/Device.h>
 #include <cstring>
 
-#include <csrc_dipu/common.h>
 #include <csrc_dipu/vendor/vendorapi.h>
-
+#include "./basedef.h"
 
 namespace dipu {
 
 extern devapis::VendorDeviceType VENDOR_TYPE;
-
 namespace devapis {
 
-using deviceId_t = c10::DeviceIndex;
-
 DIPU_API deviceId_t current_device();
-
-struct DIPUDeviceProperties {
-  std::string name;
-  size_t totalGlobalMem = 0;
-  int32_t major = 0;
-  int32_t minor = 0;
-  int32_t multiProcessorCount = 0;
-};
 
 DIPU_API DIPUDeviceProperties getDeviceProperties(int32_t device_index);
 
@@ -54,8 +41,6 @@ DIPU_API void releaseStream();
 DIPU_API void syncStream(deviceStream_t stream);
 
 DIPU_API bool streamNotNull(deviceStream_t stream);
-
-DIPU_API void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
 
 DIPU_API void streamWaitEvent(deviceStream_t stream, deviceEvent_t event);
 

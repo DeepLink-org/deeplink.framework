@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # demo_basic_ddp(0, world_size)
     port = random.randint(10000, 60000)
 
-    world_size = 2
+    world_size = 1
     run_demo(demo_basic_ddp, world_size, port)
     run_demo(demo_allreduce, world_size, port)
 

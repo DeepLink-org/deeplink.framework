@@ -709,7 +709,13 @@ def main():
         if 'device' in mergeed_fun_config:
             current_device = mergeed_fun_config.get('current_device', '')
             if current_device not in (mergeed_fun_config['device'] + ['all',]):
-                continue
+                create_for_this_device = 'all' in mergeed_fun_config['device']
+                for device in mergeed_fun_config['device']:
+                    if ('-' + device) == current_device:
+                        create_for_this_device = False
+                        break
+                if create_for_this_device == False:
+                    continue
             if ('-' + current_device) in (mergeed_fun_config['device']):
                 continue
 

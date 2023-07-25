@@ -1,10 +1,11 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/core/dispatch/Dispatcher.h>
 #include <c10/util/intrusive_ptr.h>
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/library.h>
 
-#include "csrc_dipu/common.h"
+#include <csrc_dipu/base/basedef.h>
 
 namespace c10d {
 namespace ops {
@@ -89,15 +90,13 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
       std::move(tensor_vec), work);
 }
 
-std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>
-allgather_dipu_(
+std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>> allgather_dipu_(
     const std::vector<std::vector<at::Tensor>>& output_tensors,
     at::TensorList input_tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     int64_t timeout) {
   auto input_tensors_vec = input_tensors.vec();
-  auto work =
-      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+  auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->allgather(
               const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
               input_tensors_vec,
@@ -105,13 +104,22 @@ allgather_dipu_(
 
   // Copy output tensors (not storage) so that this can be used in a functional
   // manner
-  return std::
-      tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>(
+  return std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>(
           output_tensors, work);
 }
 
-std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
-reduce_scatter_dipu_(
+// refer to distributed/c10d/Ops.cpp 
+std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
+    at::Tensor& output_tensor,
+    at::Tensor& input_tensor,
+    const c10::intrusive_ptr<ProcessGroup>& process_group) {
+  auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+                  ->_allgather_base(output_tensor, input_tensor);
+
+  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+}
+
+std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> reduce_scatter_dipu_(
     const at::TensorList& output_tensors,
     const std::vector<std::vector<at::Tensor>>& input_tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
@@ -178,14 +186,15 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("broadcast_", broadcast_dipu_);
   m.impl("allreduce_", allreduce_dipu_);
   m.impl("allgather_", allgather_dipu_);
+  m.impl("_allgather_base_", _allgather_base_dipu_);
   m.impl("barrier", barrier_dipu);
 
-  // unregistered op, we expect it can fallback to cpu, but it not work now (it's hard to sync).
-  // m.impl("reduce_", reduce_dipu_);
-  // m.impl("reduce_scatter_", reduce_scatter_dipu_);
-  // m.impl("gather_", gather_dipu_);
-  // m.impl("scatter_", scatter_dipu_);
+  m.impl("reduce_", reduce_dipu_);
+  m.impl("scatter_", scatter_dipu_);
+  m.impl("reduce_scatter_", reduce_scatter_dipu_);
+  m.impl("gather_", gather_dipu_);
 
+  // unregistered op, we expect it can fallback to cpu, but it not work now (hard to sync).
 }
 
 

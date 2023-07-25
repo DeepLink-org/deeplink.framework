@@ -3,21 +3,19 @@
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <c10/core/ScalarType.h>
 
-#include <csrc_dipu/common.h>
 #include <csrc_dipu/vendor/vendorapi.h>
-// #include <csrc_dipu/runtime/distributed/ProcessGroupDICL.hpp>
+#include "./deviceapis.h"
 
 namespace dipu {
 
-// need enhance return status.
-// refer nccl & ascend & camb
+// need add return status.
 namespace devapis {
+  // todo: define new diopi reduceop.
   using ReduceOp = c10d::ReduceOp;
 
-  // DIPU_API c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(const c10::intrusive_ptr<::c10d::Store> &store,
-  //     int rank, int size, const std::chrono::duration<float> &timeout);
   extern const int DICL_UNIQUE_ID_BYTES_SIZE;
 
+  // todo:: dipu only export devproxy but not devapis (which move o diopi)
   DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm);
 
   DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId);

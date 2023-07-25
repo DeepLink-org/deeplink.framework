@@ -15,7 +15,6 @@
 
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/runtime/device/deviceapis.h>
 #include "DIPUCachingAllocator.h"
 #include "DIPUGuard.h"
 #include "DIPUEvent.h"
@@ -129,26 +128,27 @@ struct Chunk {
         void* ptr)
       : device_id(device_id),
         stream(stream),
+        streams_inuse(),
         size(size),
         pool(pool),
         ptr(ptr),
         allocated(0),
         prev(nullptr),
         next(nullptr),
-        streams_inuse(),
         event_count(0) {}
 
   // constructor for search key
   Chunk(int device_id, deviceStream_t stream, size_t size)
       : device_id(device_id),
         stream(stream),
+        streams_inuse(),
         size(size),
         pool(nullptr),
         ptr(nullptr),
         allocated(0),
         prev(nullptr),
         next(nullptr),
-        streams_inuse(),
+
         event_count(0) {}
 };
 
@@ -353,8 +353,8 @@ public:
   }
 
   virtual MemoryStats& get_memory_stats_for_device(int device) {
-    auto dev_count = devapis::getDeviceCount();
-    auto cur_device = devapis::current_device();
+    auto dev_count = devproxy::getDeviceCount();
+    auto cur_device = devproxy::current_device();
     device = device == -1 ? cur_device : device;
     if (device >=0 && device < dev_count) {
       if ((size_t) device >= memory_stats.size()) {
@@ -427,10 +427,10 @@ protected:
 
   virtual void dipuMalloc(int device, void** data_ptr, size_t size, deviceStream_t& stream) {
     // first using malloc, if fails then free all cached chunks and remalloc
-    auto status = devapis::mallocDevice(data_ptr, size, false);
+    auto status = devproxy::mallocDevice(data_ptr, size, false);
     if (status != devapis::OpStatus::SUCCESS) {
       free_cached_chunk(device);
-      devapis::mallocDevice(data_ptr, size);
+      devproxy::mallocDevice(data_ptr, size);
       // *********** wait devapi to add device status  ******//
     }
   }
@@ -532,7 +532,7 @@ protected:
     while (it != end) {
       Chunk* chunk = *it;
       if (!chunk->prev && !chunk->next) {
-        devapis::freeDevice((void*)chunk->ptr);
+        devproxy::freeDevice((void*)chunk->ptr);
         get_memory_stats_for_device(chunk->device_id).decached(chunk->size);
         auto cur = it;
         ++it;
@@ -577,8 +577,8 @@ static void DIPUCachingDeleter(void* ptr) {
 
 c10::DataPtr DIPUCachingAllocator::allocate(size_t size) const {
   // fake allocation, only for setting device
-  auto device_id = devapis::current_device();
-  return allocate(size, devapis::current_device());
+  auto device_id = devproxy::current_device();
+  return allocate(size, devproxy::current_device());
 }
 
 c10::DataPtr DIPUCachingAllocator::allocate(size_t size,
