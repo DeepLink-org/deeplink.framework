@@ -113,6 +113,8 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdetection/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/torchvision/resnet50-0676ba61.pth data/resnet50-0676ba61.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/vgg16_caffe-292e1171.pth data/vgg16_caffe-292e1171.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
