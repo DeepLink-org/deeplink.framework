@@ -109,8 +109,9 @@ void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
 
 namespace {
   class DIPUDeviceCachingProxy: public c10::Allocator {
+    c10::DeviceType device_type_;
   public:
-    DIPUDeviceCachingProxy() {
+    DIPUDeviceCachingProxy(c10::DeviceType device_type):device_type_(device_type_) {
 
     }
 
@@ -119,18 +120,18 @@ namespace {
     }
 
     c10::DataPtr allocate(size_t size) const {
-      return getAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(size);
+      return getAllocator(device_type_)->allocate(size);
     }
 
     c10::DeleterFnPtr raw_deleter() const override {
-      return getAllocator(dipu::DIPU_DEVICE_TYPE)->raw_deleter();
+      return getAllocator(device_type_)->raw_deleter();
     }
   };
 
   // Make the c10::GetAllocator interface available
-  static DIPURawDeviceAllocator dipu_default_device_allocator;
+  static DIPUDeviceCachingProxy dipu_default_device_allocator(dipu::DIPU_DEVICE_TYPE);
   static int m = [&]() {
-    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 0);
+    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 0xFF);
     return 0;
   }();
 
