@@ -111,7 +111,7 @@ namespace {
   class DIPUDeviceCachingProxy: public c10::Allocator {
     c10::DeviceType device_type_;
   public:
-    DIPUDeviceCachingProxy(c10::DeviceType device_type):device_type_(device_type_) {
+    DIPUDeviceCachingProxy(c10::DeviceType device_type):device_type_(device_type) {
 
     }
 
