@@ -1716,3 +1716,10 @@
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiAmax(ctx, out, self, dimDiopiSize, keepdim)
+
+- schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
+  custom_code_at_the_beginning: |
+    auto shape = input.sizes().vec()[1];
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+  interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
