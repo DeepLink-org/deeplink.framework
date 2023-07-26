@@ -72,7 +72,11 @@ class DIPU_API CacheAllocator: public c10::Allocator {
   public:
     DataPtrContextBase(const CacheAllocator* allocator, void* ptr, size_t size): allocator_(allocator), ptr_(ptr), size_(size) {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
-        streams_.insert(getCurrentDIPUStream());
+        static auto default_stream = getCurrentDIPUStream();
+        // If it is the default stream, we don't need to synchronize
+        if (default_stream != getCurrentDIPUStream()) {
+          streams_.insert(getCurrentDIPUStream());
+        }
       }
       MemChecker::instance().insert(ptr, size);
     }
