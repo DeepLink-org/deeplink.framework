@@ -48,7 +48,7 @@ def process_one_iter(model_info):
 
     begin_time = time.time()
 
-    model_info_list = model_info.split()
+    model_info_list = model_info['model_cfg'].split()
     if(len(model_info_list) < 3 or len(model_info_list) > 4):
         print("Wrong model info in  {}".format(model_info), flush = True)
         exit(1)
@@ -64,6 +64,12 @@ def process_one_iter(model_info):
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
+    
+    if 'fallback_op_list' in model_info:
+        os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = model_info['fallback_op_list']
+    else:
+        os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = ""
+
 
     print("train_path = {}, config_path = {}, work_dir = {}, opt_arg = {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
 
