@@ -32,6 +32,7 @@ public:
   };
 
   c10::DataPtr allocate(size_t size) const override {
+    empty_cache();
     DIPU_DEBUG_ALLOCATOR(4, "RawCachingAllocator: malloc " << size << " nbytes");
     auto ptr = raw_allocator()->raw_allocate(size);
     return c10::DataPtr(ptr, new DataPtrContextBase(this, ptr, size), deleteRawCachingAllocatorContext, device());

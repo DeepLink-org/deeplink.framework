@@ -493,7 +493,7 @@ public:
 
 
   c10::DataPtr allocate(size_t size) const override {
-    check_impl();
+    restore();
     std::pair<void*, int> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
@@ -527,7 +527,7 @@ public:
   }
 
   BFCachingAllocator() {
-
+    check_impl();
   }
 
   ~BFCachingAllocator() {
