@@ -1,6 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include "./deviceproxy.h"
-
+#include "../core/DIPUEventPool.h"
 namespace dipu {
 
 namespace devproxy {
@@ -81,11 +81,11 @@ bool isStreamEmpty(deviceStream_t stream) {
 // =====================
 
 void createEvent(deviceEvent_t* event) {
-  return devapis::createEvent(event);
+  return getEventFromPool(*event);
 }
 
 void destroyEvent(deviceEvent_t event) {
-  return devapis::destroyEvent(event);
+  return restoreEventToPool(event);
 }
 
 void waitEvent(deviceEvent_t event) {

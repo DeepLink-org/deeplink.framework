@@ -1,5 +1,4 @@
-
-import torch_dipu
+import os
 import torch
 import random
 from torch import nn
@@ -37,13 +36,11 @@ class ToyModel(nn.Module):
         return self.net2(x)
 
 def demo_basic_ddp(rank, world_size, port):
+    import torch_dipu
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
     dev1 = rank
-
-    # backend = "gloo"
-    # dev1 = "cpu"
 
     # debugat(rank)
     setup(backend, rank, world_size, port)
@@ -57,7 +54,7 @@ def demo_basic_ddp(rank, world_size, port):
         loss_fn = nn.MSELoss()
         optimizer = optim.SGD(ddp_model.parameters(), lr=0.001, foreach=False)
         optimizer.zero_grad()
-  
+
         in1 = torch.randn(20, 10).to(dev1)
         in1.requires_grad = True
         outputs = ddp_model(in1)
@@ -69,10 +66,11 @@ def demo_basic_ddp(rank, world_size, port):
         optimizer.step()
         torch.cuda.synchronize()
         print("--------after bwd sync")
-        print(model.net2.weight.grad)
+        assert model.net2.weight.grad is not None
     cleanup()
 
 def demo_allreduce(rank, world_size, port):
+    import torch_dipu
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
     backend  ="nccl"
@@ -86,9 +84,8 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
-        print(te_result)
     cleanup()
-    
+
 def demo_model_parallel(rank, world_size, port):
     print(f"Running DDP with model parallel example on rank {rank}.")
     backend  ="nccl"

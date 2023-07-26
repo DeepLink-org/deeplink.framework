@@ -32,6 +32,7 @@ print("now pid!!!!:",os.getpid(),os.getppid())
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
 
 os.environ['DIPU_DUMP_OP_ARGS'] = "0"
+os.environ['DIPU_DEBUG_ALLOCATOR'] = "3"
 
 # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  #we set 0.2 by default
 
@@ -47,7 +48,7 @@ def process_one_iter(model_info):
 
     begin_time = time.time()
 
-    model_info_list = model_info.split()
+    model_info_list = model_info['model_cfg'].split()
     if(len(model_info_list) < 3 or len(model_info_list) > 4):
         print("Wrong model info in  {}".format(model_info), flush = True)
         exit(1)
@@ -63,19 +64,25 @@ def process_one_iter(model_info):
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
+    
+    if 'fallback_op_list' in model_info:
+        os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = model_info['fallback_op_list']
+    else:
+        os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = ""
+
 
     print("train_path = {}, config_path = {}, work_dir = {}, opt_arg = {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
 
-    if not os.path.exists(storage_path):            
-        os.makedirs(storage_path) 
+    if not os.path.exists(storage_path):
+        os.makedirs(storage_path)
 
     if device_type == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
     elif device_type == 'cuda':
         base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
     src = f'{base_data_src}/{p3}/baseline'
-    if not os.path.exists(src):            
-        os.makedirs(src) 
+    if not os.path.exists(src):
+        os.makedirs(src)
     dst = f'{storage_path}/baseline'
     if not os.path.exists(dst):
         os.symlink(src, dst)
@@ -102,7 +109,7 @@ def process_one_iter(model_info):
     second = run_time - 3600 * hour - 60 * minute
     print ("The running time of {} :{} hours {} mins {} secs".format(p2, hour, minute, second), flush = True)
 
-    
+
 
 def handle_error(error):
     print("Error: {}".format(error), flush = True)
@@ -128,7 +135,7 @@ if __name__=='__main__':
     length = len(original_list)
 
     if(random_model_num > length):
-        random_model_num = length  
+        random_model_num = length
 
     print("model num:{}, chosen model num:{}".format(length, random_model_num), flush = True)
 
@@ -143,7 +150,7 @@ if __name__=='__main__':
 
 
     p = Pool(max_parall)
-    try:    
+    try:
         # if device_type == 'cuda':
         #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
         for i in range(random_model_num):

@@ -27,6 +27,8 @@ public:
   ~DIPUEvent() {
     try {
       if (is_created_) {
+        // not thread safe but seems enough? 
+        is_created_ = false;
         DIPUGuard guard(device_index_);
         devproxy::destroyEvent(event_);
       }
