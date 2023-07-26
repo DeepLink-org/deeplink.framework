@@ -21,9 +21,13 @@ public:
   }
 
   ~CambDeviceInit() {
-    ::cndevRelease();
+    // ::cndevRelease();
   }
 };
+
+__attribute__((destructor(101))) void deInitCamb() {
+  ::cndevRelease();
+}
 
 static CambDeviceInit g_camb_init;
 
