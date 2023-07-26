@@ -131,7 +131,7 @@ namespace {
   // Make the c10::GetAllocator interface available
   static DIPUDeviceCachingProxy dipu_default_device_allocator(dipu::DIPU_DEVICE_TYPE);
   static int m = [&]() {
-    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 0xFF);
+    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 0);
     return 0;
   }();
 
