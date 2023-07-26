@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 #include "./ProcessGroupDICL.h"
 namespace dipu {
@@ -225,10 +226,8 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std
     int rank = getRank() * devSize + i;
     dipuGuard.reset_device(devices[i]);
 
-    // need use pool stream, not current stream. fix stream guard err.
+    // use pool stream, not current stream
     auto commStream = getDIPUStreamFromPool(devices[i].index());
-    // auto commStream = getCurrentDIPUStream(devices[i].index());
-
     diclComms[i] = DICLComm::create(numRanks, rank, diclID, commStream);
   }
 
@@ -325,8 +324,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     // need add adapter to handle int64/double! camb not support double
     fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
 
-    // todo:: add recordStream after cacheAllocator ready
-    // DIPUCachingAllocator::recordStream(outputs[i].storage().data_ptr(), stream);
+    dipu::recordStream(inputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
+
+    dipu::recordStream(outputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
+
 
     // mock comm with just copy, used in standalone test.
     // DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
@@ -444,8 +445,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       }
     }, 
     OpType::ALLGATHER);
-    // std::cout << outputFlattened[0] << std::endl;
-    // std::cout << output_tensors[0][0] << std::endl;
     return work;
 }
 

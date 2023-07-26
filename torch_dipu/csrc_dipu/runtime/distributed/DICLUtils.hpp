@@ -54,7 +54,6 @@ public:
     auto currStream = dipu::getCurrentDIPUStream(device_.index());
     preEvent_.record(currStream);
     preEvent_.wait(diclStream_);
-    // currStream.synchronize();
   }
 
   // The DIPU queues used by DICL kernels
