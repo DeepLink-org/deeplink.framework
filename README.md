@@ -6,6 +6,7 @@
 2. DICP
   - clone DICP (main branch)
   - cd DICP
+  - git submodule update --init --recursive
   - for users
     - pip install .
   - for dev

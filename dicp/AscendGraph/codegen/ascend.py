@@ -22,17 +22,6 @@ def get_graph_id():
     return graph_id
 
 
-def process_name(name, target):
-    if hasattr(target, "name"):
-        real_op = target.name().split('::')[-1]
-        if real_op.find('.') != -1:
-            real_op = real_op.split('.')[0]
-    else:
-        real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
-
-    return real_op
-
-
 def get_reduction_str(r):
     if r == '0':
         return "none"
@@ -42,118 +31,65 @@ def get_reduction_str(r):
         return "sum"
     else:
         raise RuntimeError("not supported yet!")
+      
 
-
-def simple_operation(expr, name, token):
-    if token == '-':
-        opr = 'Sub'
-    elif token == '+':
-        opr = 'Add'
+def process_name(name, target):
+    if hasattr(target, "name"):
+        real_op = target.name().split('::')[-1]
+        if real_op.find('.') != -1:
+            real_op = real_op.split('.')[0]
     else:
-        raise RuntimeError("not supported yet!")
-
-    exprs = expr.split(token)
-    exprs = [expr.strip() for expr in exprs]
-    #!TODO only support tensor minus constant
-    assert(len(exprs) == 2)
-    try:
-        int(exprs[1])
-    except ValueError:
-        raise RuntimeError("not supported yet!")
-
-    src_code = f"""
-                    auto {name}_y_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {exprs[1]} }});
-                    auto {name}_y = op::Const("{name}_y")
-                      .set_attr_value({name}_y_tensor);
-                    auto {name} = op::{opr}("{name}")
-                      .set_input_x1({exprs[0]})
-                      .set_input_x2({name}_y);
-                    graph.AddOp({name});
-                """
-    return src_code
+        real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
+    return real_op
 
 
-def process_shape_str(shape_str, name, suffix=""):
-    import pdb;pdb.set_trace()
-    shape = shape_str.strip('{}').split(',')
-    src_code = f""""""
-    pattern = []
-    count = 0
+def process_dynamic_shape(shape, name, suffix = "preprocess"):
+    ops = []
+    x_names = []
+
+    def generate_digits_op(shapes):
+        count = len(x_names)
+        op = OP(f"{name}_dim_{count}", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "NCHW", shapes, [len(shapes)])
+        ops.append(op.to_node())
+        x_names.append(f"{name}_dim_{count}")
+    
+    def generate_sym_int(elem):
+        count = len(x_names)
+        elem = str(elem)
+        elems = elem.strip().split(' ')
+        
+        assert len(elems) == 3
+        assert elems[2].isdigit()
+        assert elems[1] == '+' or elems[1] == '-'
+        op_type = "Add" if elems[1] == '+' else "Sub"
+        op1 = OP(f"{name}_dim_{count}_const", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [1])
+        op2 = OP(f"{name}_dim_{count}", op_type)
+        op2.set_input("x1", sym_to_inputs[elems[0]])
+        op2.set_input("x2", f"{name}_dim_{count}_const")
+        ops.extend([op1.to_node(), op2.to_node()])
+        x_names.append(f"{name}_dim_{count}")
+
+    dims = []
     for elem in shape:
-        elem = elem.strip()
-        flag = True
-        try:
-            int(elem)
-        except ValueError:
-            flag = False
-        if not flag:
-            if len(pattern) > 0:
-                shape_str = '{' + ','.join(map(str, pattern)) + '}'
-                src_code += f"""
-                                auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                                auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                                  .set_attr_value({name}_dim_tensor_{count});
-                            """
-                pattern = []
-                count += 1
+        if not isinstance(elem, torch.SymInt):
+            dims.append(elem)
+            continue
+        if len(dims) > 0:
+            generate_digits_op(dims)
+            dims = []
+        generate_sym_int(elem) 
+    if len(dims) > 0:
+        generate_digits_op(dims)
 
-            for key in sym_to_inputs:
-                if key in elem:
-                    elem = elem.replace(key, sym_to_inputs[key])
-
-            #!TODO deal with more complicated expressions
-            if '-' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '-')
-            elif '+' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '+')
-            else:
-                src_code += f"""
-                                auto& {name}_dim_{count} = {elem};
-                             """
-            count += 1
-        else:
-            pattern.append(elem)
-
-    if len(pattern) > 0:
-        shape_str = '{' + ','.join(map(str, pattern)) + '}'
-        src_code += f"""
-                        auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                        auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                          .set_attr_value({name}_dim_tensor_{count});
-                    """
-    else:
-        count -= 1
-    count += 1
-
-    src_code += f"""
-                    auto {name}_preprocess{suffix} = op::ConcatD("{name}_preprocess{suffix}")
-                        .create_dynamic_input_x({count})
-                """
-    for i in range(count):
-        src_code += f"""
-                        .set_dynamic_input_x({i}, {name}_dim_{i})
-                    """
-    src_code += f"""
-                        .set_attr_concat_dim(0)
-                        .set_attr_N({count});
-                    graph.AddOp({name}_preprocess{suffix});
-                """
-
-    return src_code
-
-
-def dynamic_shape_str(shape_str):
-    shape = shape_str.strip('{}[]').split(',')
-    for elem in shape:
-        elem = elem.strip()
-        flag = True
-        try:
-            int(elem)
-        except ValueError:
-            flag = False
-        if not flag:
-            return True
-    return False
+    # concat all ops
+    op = OP(f"{name}_{suffix}", "ConcatD")    
+    op.set_dynamic_input("x", len(x_names), x_names)
+    op.set_attr_int("concat_dim", 0)
+    op.set_attr_int("N", len(x_names))
+    ops.append(op.to_node())
+    return ops
 
 
 def symint_in_shape(shape):
@@ -177,7 +113,8 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
     else:
         import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
-    
+
+
 def get_ascend_dtype_num(dtype: str):
     if dtype == "FLOAT":
         return 0
@@ -192,6 +129,7 @@ def get_ascend_dtype_num(dtype: str):
     else:
         import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+
 
 def get_cpp_dtype(dtype: torch.dtype) -> str:
     if dtype == torch.int64:
@@ -228,6 +166,10 @@ class AscendCodegen(torch.fx.Interpreter):
         self.graph_input_names = []
         self.py_output_names = []
         self.graph_output_names = []
+        self.build_options = []
+        
+        global sym_to_inputs
+        sym_to_inputs = {}
 
         super().__init__(graph)
 
@@ -235,14 +177,15 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
-        
+
         format = "NCHW"
         index = -1
-            
+
         if isinstance(fake_tensor, torch.SymInt):
             dims = [1]
             data_type = "INT32"
             format = "ND"
+            sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
@@ -306,6 +249,7 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.generate_code()
 
     def parse_outputs(self):
+        symint_inputs = sym_to_inputs.values()
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
@@ -314,8 +258,8 @@ class AscendCodegen(torch.fx.Interpreter):
                     continue
                 else:
                     self.graph_output_names.append(name)
-                # if node in self.input_args:
-                #     self.symint_outputs.append(name)
+                if name in symint_inputs:
+                    self.symint_outputs.append(name)
             else:
                 self.py_output_names.append(str(node))
 
@@ -430,14 +374,37 @@ class AscendCodegen(torch.fx.Interpreter):
         with main_func.indent():
             main_func.splice(main_body)
         return main_func.getvalue()
-    
+
+    def gen_build_options(self):
+        if len(self.dynamic_inputs) > 0:
+            self.build_options.append(
+              {
+                "name": "input_format",
+                "value": "NCHW"
+              }
+            )
+            value_str = ""
+            for idx, name in enumerate(self.dynamic_inputs):
+                value_str += f"{name}:"
+                value_str += ','.join(map(str, self.dynamic_shape[idx])) + ';'
+            value_str = value_str[:-1]
+            self.build_options.append(
+              {
+                "name": "input_shape",
+                "value": value_str
+              }
+            )
+
     def gen_graph_json(self):
         self.parse_outputs()
+        self.gen_build_options()
+        has_dynamic_shape = False if len(sym_to_inputs) == 0 else True
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
             "output_names": self.graph_output_names,
-            "has_dynamic_shape": False,
+            "has_dynamic_shape": has_dynamic_shape,
+            "build_options": self.build_options,
             "data_nodes": self.data_nodes,
             "common_nodes": self.common_nodes,
         }
@@ -770,11 +737,9 @@ class AscendOverrides:
         perm = [num for num in range(rank)]
         perm[dim0] = dim1
         perm[dim1] = dim0
-        perm_str = '{' + ','.join(map(str, perm)) + '}'
         ops = []
-        if dynamic_shape_str(perm_str):
-            # TODO(tangzhiyi): dynamic shape process
-            src_code = process_shape_str(perm_str, name)
+        if symint_in_shape(input_shape):
+            ops.extend(process_dynamic_shape(perm, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const")
             const_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", perm, [rank])
@@ -850,22 +815,13 @@ class AscendOverrides:
 
     @staticmethod
     def symsize(name, x, dim):
-        # TODO(tangzhiyi): dynamic shape process
-        src_code = f"""
-                       auto {name}_shape = op::Shape("{name}_shape")
-                         .set_input_x({x});
-                       auto {name}_dim_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {dim} }});
-                       auto {name}_dim = op::Const("{name}_dim")
-                         .set_attr_value({name}_dim_tensor);
-                       auto {name} = op::Gather("{name}")
-                         .set_input_x({x})
-                         .set_input_indices({name}_dim);
-                       graph.AddOp({name}_shape);
-                       graph.AddOp({name}_dim);
-                       graph.AddOp({name});
-                    """
-
-        return src_code
+        dim = [dim] if not isinstance(dim, list) else dim
+        op1 = OP(f"{name}_dim", "Const") 
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
+        op2 = OP(name, "Gather")
+        op2.set_input("x", x)
+        op2.set_input("indices", f"{name}_dim")
+        return [op1.to_node(), op2.to_node()]
 
     @staticmethod
     def inmul(name, node, x, y):
@@ -900,10 +856,8 @@ class AscendOverrides:
             shape = real_shape
 
         ops = []
-        if dynamic_shape_str(str(shape)):
-            # TODO(tangzhiyi): dynamic shape process
-            #src_code = process_shape_str(shape_str, name)
-            pass
+        if symint_in_shape(shape):
+            ops.extend(process_dynamic_shape(shape, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const")    
             const_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [shape_size])
@@ -1680,9 +1634,8 @@ class AscendOverrides:
         ops.append(split_op.to_node())
         ops.append(complex_op.to_node())
 
-        if dynamic_shape_str(str(y_shape)):
-            # TODO(tangzhiyi): dynamic shape process
-            src_code += process_shape_str(shape_str, name)
+        if symint_in_shape(y_shape):
+            ops.extend(process_dynamic_shape(y_shape, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const") 
             const_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
@@ -1728,17 +1681,15 @@ class AscendOverrides:
         offset[dim] = start
         
         ops = []
-        if dynamic_shape_str(str(offset)):
-            # TODO(tangzhiyi): dynamic shape process
-            pass
+        if symint_in_shape(offset):
+            ops.extend(offset, name, "preprocess_offset")
         else:
             op1 = OP(f"{name}_preprocess_offset", "Const")
             op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
             ops.append(op1.to_node())
 
-        if dynamic_shape_str(str(y_shape)):
-            # TODO(tangzhiyi): dynamic shape process
-            pass
+        if symint_in_shape(y_shape):
+            ops.extend(offset, name, "preprocess_size")
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
             op2.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(x_shape)])
@@ -1801,17 +1752,15 @@ class AscendOverrides:
                 size.append(end - offset[i])
 
         ops = []    
-        if dynamic_shape_str(str(offset)):
-            # TODO(tangzhiyi): dynamic shape process
-            pass
+        if symint_in_shape(offset):
+            ops.extend(process_dynamic_shape(offset, name, "preprocess_offset"))
         else:
             op1 = OP(f"{name}_preprocess_offset", "Const")                        
             op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
             ops.append(op1.to_node())
 
-        if dynamic_shape_str(str(size)):
-            # TODO(tangzhiyi): dynamic shape process
-            pass
+        if symint_in_shape(size):
+            ops.extend(process_dynamic_shape(offset, name, "preprocess_size"))
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
             op2.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(x_shape)])
