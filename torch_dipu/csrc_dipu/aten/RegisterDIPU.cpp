@@ -49,6 +49,18 @@ bool get_force_fallback(const char* opname) {
   return false;
 }
 
+static bool enable_fallback_log() {
+  static bool enable = (std::getenv("DIPU_ENABLE_FALLBACK_LOG") != nullptr);
+  return enable;
+}
+
+#define DIPU_FALLBACK_LOG(x)            \
+  do {                                  \
+    if (dipu::enable_fallback_log()) {  \
+      std::cout << x;                   \
+    }                                   \
+  } while (0);
+
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }
@@ -64,7 +76,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   TORCH_CHECK(name.find("foreach") == std::string::npos,
     "Currently the foreach operator does not support fallback");
 
-  std::cout << "fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl;
+  DIPU_FALLBACK_LOG("fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",

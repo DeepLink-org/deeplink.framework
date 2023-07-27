@@ -32,6 +32,7 @@ export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.T
 export DIPU_DEVICE_MEMCACHING_ALGORITHM=BS
 export DIPU_HOST_MEMCACHING_ALGORITHM=BS
 
+export DIPU_ENABLE_FALLBACK_LOG=1
 
 source activate $ENV_NAME
 
