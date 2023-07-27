@@ -2,7 +2,6 @@ import acl
 import os
 import numpy as np
 import torch
-import time
 
 
 # the range for dynamic shape
@@ -96,12 +95,31 @@ buffer_method = {
 
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
+        import pdb;pdb.set_trace()
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
 
+class MemoryPool:
+    def __init__(self):
+        self.init_work_weight_ptr()
+
+    def init_work_weight_ptr(self):
+        self.work_size = 13 * 1024 * 1024 * 1024
+        self.work_ptr, ret = acl.rt.malloc(self.work_size,
+                                            ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
+
+        self.weight_size = 9600
+        self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
+                                            ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
+
+memory_pool = MemoryPool()
+
+
 class AscendExecutor(object):
-    def __init__(self, device_id, dims, model_path) -> None:
+    def __init__(self, device_id, model_path) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
         self.model_id = None                # pointer
@@ -116,7 +134,6 @@ class AscendExecutor(object):
         self.output_dims = []
         self.output_dtypes = []
         self.output_data = []
-        self.input_dims = dims
 
         self.init_resource()
 
@@ -135,10 +152,22 @@ class AscendExecutor(object):
             
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 1)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
         check_ret("set_config_opt", ret) 
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
+        check_ret("set_config_opt", ret)
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, memory_pool.weight_ptr)
+        check_ret("set_config_opt", ret)
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, memory_pool.weight_size)
+        check_ret("set_config_opt", ret)
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
+        check_ret("set_config_opt", ret)
+
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
@@ -160,13 +189,6 @@ class AscendExecutor(object):
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
         for i in range(self.num_inputs):
             temp_buffer_size = acl.mdl.get_input_size_by_index(self.model_desc, i)
-            if self.input_dims is not None and i in self.input_dims.keys():
-                tot_size = 1
-                for elem in self.input_dims[i]:
-                    tot_size *= elem
-                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
-                np_dtype = get_np_dtype(dtype)
-                temp_buffer_size = tot_size * np.dtype(np_dtype).itemsize
             self.input_size.append(temp_buffer_size)
         for i in range(self.num_outputs):
             temp_buffer_size = acl.mdl.get_output_size_by_index(self.model_desc, i)
@@ -175,14 +197,6 @@ class AscendExecutor(object):
             check_ret("acl.mdl.get_output_dims", ret)
             dims = dims["dims"]    
             if temp_buffer_size == 0:
-                if self.input_dims is not None:
-                    dims = [max_range if dim == -1 else dim for dim in dims]   
-                    temp_buffer_size = 1
-                    for d in dims:
-                        temp_buffer_size *= d
-                    np_dtype = get_np_dtype(dtype)
-                    temp_buffer_size *= np.dtype(np_dtype).itemsize
-                else:
                     temp_buffer_size = 1
             self.output_dtypes.append(get_tensor_dtype(dtype))
             self.output_dims.append(dims)
@@ -190,30 +204,38 @@ class AscendExecutor(object):
 
         print("init resource success")
 
-    def _prepare_input(self, images):
+    def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
         self.load_input_dataset = acl.mdl.create_dataset()
         zero_tensor = torch.randn(1).to('dipu')
         for i in range(self.num_inputs):
-            if self.input_size[i] == 0:
+            buffer_size = self.input_size[i]
+            if dims is not None and i in dims.keys():
+                tot_size = 1
+                for elem in dims[i]:
+                    tot_size *= elem
+                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
+                np_dtype = get_np_dtype(dtype)
+                buffer_size = tot_size * np.dtype(np_dtype).itemsize
+          
+            if buffer_size == 0:
                 ptr = zero_tensor.data_ptr()
             else:
                 ptr = images[i].data_ptr()
-            data = acl.create_data_buffer(ptr, self.input_size[i])
+            data = acl.create_data_buffer(ptr, buffer_size)
             _, ret = acl.mdl.add_dataset_buffer(self.load_input_dataset, data)
             if ret != ACL_SUCCESS:
                 ret = acl.destroy_data_buffer(data)
                 check_ret("acl.destroy_data_buffer", ret)
-
-        if self.input_dims is not None:
-            for key, value in self.input_dims.items():
-                dtype = acl.mdl.get_input_data_type(self.model_desc, key)
-                format = acl.mdl.get_input_format(self.model_desc, key)
-                tensorDesc = acl.create_tensor_desc(dtype, value, format)
+            
+            if dims is not None and i in dims.keys():
+                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
+                format = acl.mdl.get_input_format(self.model_desc, i)
+                tensorDesc = acl.create_tensor_desc(dtype, dims[i], format)
                 dataset, ret = acl.mdl.set_dataset_tensor_desc(self.load_input_dataset,
-                                                tensorDesc, key)
+                                                tensorDesc, i)
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
-                assert(dataset == self.load_input_dataset)
+                assert(dataset == self.load_input_dataset)            
 
     def _prepare_output(self, output_tensor):
         self.load_output_dataset = acl.mdl.create_dataset()
@@ -259,12 +281,12 @@ class AscendExecutor(object):
                                 ACL_MEMCPY_DEVICE_TO_DEVICE)
             check_ret("acl.rt.memcpy", ret)            
 
-    def run(self, images):
+    def run(self, images, dims=None):
         assert len(images) > 0
         input = list(map(lambda x: x.to('dipu'), images))
-        self._prepare_input(input)
+        self._prepare_input(input, dims)
         output = []
-        if self.input_dims is not None:
+        if dims is not None:
             self._prepare_tmp_output()
             self.forward()
             self._prepare_real_output(output)
@@ -275,11 +297,9 @@ class AscendExecutor(object):
         return output
 
     def forward(self):
-        #start = time.time()
         ret = acl.mdl.execute(self.model_id,
                               self.load_input_dataset,
                               self.load_output_dataset)
-        #print('forward2 time:', time.time() - start)
         check_ret("acl.mdl.execute", ret)
 
     def _destroy_databuffer(self):
@@ -296,25 +316,12 @@ class AscendExecutor(object):
             check_ret("acl.mdl.destroy_dataset", ret)
 
 
-# class AscendModel():
-#     def __init__(self, device_id, model_path) -> None:
-#         self.device_id = device_id          # int
-#         self.model_path = model_path        # str
-
-#     def run(self, images, dims=None):
-#         exe = AscendExecutor(self.device_id, dims, self.model_path)
-#         result = exe.run(images)
-#         exe.release_resource()
-#         return result
-    
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
-        self.device_id = device_id          # int
-        self.model_path = model_path        # str
-        self.exe = AscendExecutor(self.device_id, None, self.model_path)
+        self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None):
-        return self.exe.run(images)
+        return self.exe.run(images, dims)
 
 
 if __name__ == '__main__':
