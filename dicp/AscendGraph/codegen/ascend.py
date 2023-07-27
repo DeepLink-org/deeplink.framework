@@ -23,11 +23,11 @@ def get_graph_id():
 
 
 def get_reduction_str(r):
-    if r == '0':
+    if r == 0:
         return "none"
-    elif r == '1':
+    elif r == 1:
         return "mean"
-    elif r == '2':
+    elif r == 2:
         return "sum"
     else:
         raise RuntimeError("not supported yet!")
@@ -1470,8 +1470,8 @@ class AscendOverrides:
 
     @staticmethod
     def nll_loss_forward(name, node, x, target, weight, reduction, ignore_index):
-        assert weight == 'None'
-        assert ignore_index == '-100'
+        assert weight == None
+        assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(node.target.x.node.meta['val'].shape)[1]]
 
@@ -1493,12 +1493,12 @@ class AscendOverrides:
         return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
-    def native_batch_norm_legit_functional(name, x, weight, bias, running_mean,
-                                           running_var, train, momentum, eps, node):
-        if train == True:
+    def native_batch_norm_legit_functional(name, node, x, weight, bias, running_mean,
+                                           running_var, train, momentum, eps):
+        if train != True:
             raise RuntimeError("not supported yet!")
         x_shape = list(node.target.x.node.meta['val'].shape)
-        x_dtype = get_ascend_dtype(node.taget.x.node.meta['val'].dtype)
+        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
 
         # 1. get sum and square_sum
         op1 = OP(f"{name}_bn_training_reduce", "BNTrainingReduce")
@@ -1520,11 +1520,11 @@ class AscendOverrides:
         # 3. tie all results: result, saved_mean, saved_invstd
         op3 = OP(name, "IdentityN")
         dynamic_input_names = [
-            {f"{name}_bn_training_update", "y"},
-            {f"{name}_bn_training_update", "batch_mean"},
-            {f"{name}_bn_training_update", "batch_variance"},
-            {f"{name}_bn_training_update", "mean"},
-            {f"{name}_bn_training_update", "variance"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "y"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "batch_mean"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "batch_variance"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "mean"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "variance"},
         ]
         op3.set_dynamic_input("x", 5, dynamic_input_names, True)
         op3.set_dynamic_output("y", 5)
