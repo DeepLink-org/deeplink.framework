@@ -35,7 +35,7 @@ namespace dipu::native {
       return;
     }
     size_t nbytes = std::min(storage->nbytes(), newsize_bytes);
-    at::DataPtr data = allocator->allocate(newsize_bytes);  // alloc new 
+    at::DataPtr data = allocator->allocate(newsize_bytes);  // alloc new
     if (storage->data_ptr()) {   // copy old to new
       MemChecker::instance().check(data.get());
       MemChecker::instance().check(storage->data());
@@ -52,7 +52,7 @@ namespace dipu::native {
     if (self->sizes() == size && (!stride || self->strides() == stride)) {
       return self;
     }
-    // need add guard to support device change. 
+    // need add guard to support device change.
     const auto itemsize = self->dtype().itemsize();
     const auto storage_offset = self->storage_offset();
     size_t new_storage_size = 1;
@@ -106,7 +106,7 @@ namespace dipu::native {
 
   at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& result) {
     caffe2::TypeMeta dtype = result.dtype();
-    c10::Storage storage(c10::Storage::use_byte_size_t(), 0, dipu::getDIPUAllocator(), true);
+    c10::Storage storage(c10::Storage::use_byte_size_t(), 0, dipu::getAllocator(dipu::DIPU_DEVICE_TYPE), true);
     DIPUATenFunctions::set_storage_dipu_(result, storage, 0, {0}, {});
     TORCH_INTERNAL_ASSERT(dtype == result.dtype());
     return result;

@@ -1,6 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include "./deviceproxy.h"
-
+#include "../core/DIPUEventPool.h"
 namespace dipu {
 
 namespace devproxy {
@@ -40,7 +40,7 @@ void getDriverVersion(int* version) {
 }
 
 void getRuntimeVersion(int* version) {
- return devapis::getRuntimeVersion(version);
+  return devapis::getRuntimeVersion(version);
 }
 
 void createStream(deviceStream_t* stream, bool prior) {
@@ -81,11 +81,11 @@ bool isStreamEmpty(deviceStream_t stream) {
 // =====================
 
 void createEvent(deviceEvent_t* event) {
-  return devapis::createEvent(event);
+  return getEventFromPool(*event);
 }
 
 void destroyEvent(deviceEvent_t event) {
-  return devapis::destroyEvent(event);
+  return restoreEventToPool(event);
 }
 
 void waitEvent(deviceEvent_t event) {

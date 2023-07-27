@@ -20,7 +20,7 @@ __all__ = [
     'FloatTensor', 'DoubleTensor', 'HalfTensor',
     'LongTensor', 'IntTensor', 'ShortTensor', 'ByteTensor', 'CharTensor', 'BoolTensor',
 
-    # device 
+    # device
     "can_device_access_peer",  "current_device",  "device", "device_count", "device_of", "synchronize",
     "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
     "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
@@ -33,8 +33,11 @@ __all__ = [
     # "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
 
     # # mem manage
-    "reset_peak_memory_stats",
-    # "caching_allocator_alloc", "caching_allocator_delete", "empty_cache", "memory_summary", "memory_stats"
+    "reset_peak_memory_stats", "empty_cache",
+    # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
-    # not support mock cuda_graph now 
+    # not support mock cuda_graph now
 ]
+
+import atexit
+atexit.register(release_all_resources)
