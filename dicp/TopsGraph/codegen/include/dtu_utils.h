@@ -37,8 +37,8 @@ int load(
     const wchar_t *compile_bin_path
 );
 
-int run(
-    topsExecutable_t exe_ptr,
+int run(topsExecutable_t exe_ptr,
+    void *dipu_stream,
     std::vector<void*>& input_ptrs,
     std::vector<void*>& output_ptrs,
     int device_id,

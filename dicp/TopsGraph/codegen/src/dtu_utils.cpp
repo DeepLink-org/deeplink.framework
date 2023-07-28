@@ -79,8 +79,9 @@ int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
   return 0;
 }
 
-int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
-        std::vector<void *> &output_ptrs, int device_id, bool dipu_flag) {
+int run(topsExecutable_t exe_ptr, void *dipu_stream,
+        std::vector<void *> &input_ptrs, std::vector<void *> &output_ptrs,
+        int device_id, bool dipu_flag) {
   void *inputs[MAX_NUM] = {0};
   void *outputs[MAX_NUM] = {0};
   void *dev_input = nullptr;
@@ -89,8 +90,11 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   topsError_t ret;
   topsStream_t stream;
 
+  if (!dipu_flag) {
+    topsStreamCreate(&stream);
+  }
+
   topsSetDevice(device_id);
-  topsStreamCreate(&stream);
 
   // 2.1 query InputCount,output_count
   uint64_t input_count = 0, output_count = 0;
@@ -145,8 +149,7 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
         nullptr,
         static_cast<void **>(output_ptrs.data()),
         output_count,
-        stream);
-    topsStreamSynchronize(stream);
+        static_cast<topsStream_t>(dipu_stream));
   }
   else {
     ret = topsLaunchExecutableV2(
@@ -191,10 +194,9 @@ int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
     for (size_t i = 0; i < output_count; i++) {
       topsFree(outputs[i]);
     }
+    topsStreamDestroy(stream);
   }
-
-  topsStreamDestroy(stream);
-
+  
   return 0;
 }
 
