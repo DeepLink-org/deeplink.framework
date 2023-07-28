@@ -83,6 +83,13 @@ class AddDefalut(Operator):
         self.b = b
         self.torch_op = aten.add.default
 
+class AddScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Add")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.add.Scalar
+
 class Gemm(Operator):
     def __init__(self, a, b):
         super().__init__("Gemm")
@@ -97,6 +104,13 @@ class Abs(Operator):
         self.a = a
         self.torch_op = aten.abs
 
+class LtTensor(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Less")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.lt.Tensor
+
 
 class LessEqual(Operator):
     def __init__(self, *args):
@@ -104,6 +118,12 @@ class LessEqual(Operator):
         self.args = args
         self.torch_op = aten.le.Scalar
 
+class NeScalar(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NotEqual")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.ne.Scalar
 
 class Mul(Operator):
     def __init__(self, a, b):
@@ -120,6 +140,12 @@ class ComplexMul(Operator):
         self.b = b
         self.torch_op = aten.mul
 
+class MulScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Mul")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.mul.Scalar
 
 class Div(Operator):
     def __init__(self, a, b):
@@ -128,6 +154,12 @@ class Div(Operator):
         self.b = b
         self.torch_op = aten.div
 
+class DivScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Div")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.div.Scalar
 
 class Sub(Operator):
     def __init__(self, a, b):
@@ -584,6 +616,14 @@ class GeluBackward(Operator):
         self.args = args
         self.kwarg = kwargs
         self.torch_op = aten.gelu_backward.default
+
+
+class Iota(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Iota")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.prims.iota.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap

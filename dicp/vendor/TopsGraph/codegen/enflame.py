@@ -37,11 +37,15 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex',
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
+need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota']
 
-need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
+
+not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter', 
+                 'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
+                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -416,13 +420,10 @@ class EnflameOverrides(OpOverrides):
             args_str.append(f"{args_dict[args[0].name]}_1")
             args_str.append(str(args[1]).replace('[', '{').replace(']', '}'))
             return src_code, args_str
-        elif name in need_dict:
-            args_str.append(node)
-            args_str.append(args_dict)
-            return src_code, args_str
-        elif name in need_node:
-            gen_const_flag = False
-            args_str.append(node)
+        else:
+            args_str.append(node) if name in need_node else args_str
+            args_str.append(args_dict) if name in need_dict else args_str
+            gen_const_flag = False if name in not_gen_const else True
 
         for i in range(len(args)):
             if isinstance(args[i], type(None)):
@@ -593,8 +594,16 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
     
     @staticmethod
+    def Less(op_var, x, y):
+        return f'builder::Op {op_var} = builder::Less({x}, {y});'
+        
+    @staticmethod
     def LessEqual(op_var, x, y):
         return f'builder::Op {op_var} = builder::LessEqual({x}, {y});'
+    
+    @staticmethod
+    def NotEqual(op_var, x, y):
+        return f'builder::Op {op_var} = builder::NotEqual({x}, {y});'
     
     @staticmethod
     def Log(op_var, x):
@@ -1152,3 +1161,15 @@ class EnflameOverrides(OpOverrides):
         if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
             z = "false"
         return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"
+
+    @staticmethod
+    def Iota(op_var, node):
+        src_code = f"builder::Type {op_var}_iota_type = builder::Type({'{' + str(node.args[0]) + '}'}, {type_set[str(node.kwargs['dtype'])]});\n"
+        src_code += f"builder::Op {op_var}_iota = builder::Iota(hlir_builder, 0, {op_var}_iota_type);\n"
+        gap = [node.kwargs['start'] + (node.kwargs['step'] - 1) * i for i in range(node.args[0])]
+        src_code += f"std::vector<{str(node.kwargs['dtype']).split('.')[-1]}_t> {op_var}_gap_data = {'{' + ', '.join(map(str, gap)) + '}'};\n"
+        src_code += f"std::vector<int64_t> {op_var}_gap_shape{'{' + str(node.args[0]) + '}'};\n"
+        src_code += f"builder::Type {op_var}_gap_type = builder::Type({op_var}_gap_shape, {type_set[str(node.kwargs['dtype'])]});\n"
+        src_code += f"builder::Op {op_var}_gap = builder::Const(hlir_builder, ({op_var}_gap_data.data()), {op_var}_gap_type);\n"
+        src_code += f"builder::Op {op_var} = builder::Add({op_var}_iota, {op_var}_gap);\n"
+        return src_code
