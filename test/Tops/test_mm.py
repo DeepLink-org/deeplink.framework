@@ -1,6 +1,7 @@
-import torch
-import torch.fx
 import random
+
+import torch
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -14,7 +15,7 @@ class MyModule(torch.nn.Module):
         layer2 = torch.ops.aten.mm(layer1, y)
         layer3 = torch.ops.aten.abs(layer2)
         return layer3
-
+    
 a = random.randint(1, 10)
 b = random.randint(1, 10)
 c = random.randint(1, 10)
@@ -23,11 +24,11 @@ y = torch.randn(b, c)
 
 enflame_model = MyModule()
 compiled_model = torch.compile(enflame_model, backend="topsgraph")
-resenflame = compiled_model(x, y)
+r1 = compiled_model(x, y)
+ 
+torch._dynamo.reset()
 
 torch_model = MyModule()
-restorch = torch_model(x, y)
+r2 = torch_model(x, y)
 
-compare = torch.allclose(resenflame, restorch, equal_nan=True)
-
-print(f'Tests mm reslut\n{compare}')
+print(f"Test mm op result:{torch.allclose(r1, r2, equal_nan=True)}")

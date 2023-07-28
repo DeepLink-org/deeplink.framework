@@ -1,6 +1,5 @@
 import torch
-import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -9,28 +8,18 @@ class MyModule(torch.nn.Module):
         self.linear = torch.nn.Linear(4, 5)
 
     def forward(self, a, b):
-        #t0 = torch.ops.aten.sub(b, c)
-        #t1 = torch.ops.aten.add(b, c)
-        #t2 = torch.ops.aten.mul(b, c)
-        #r1 = torch.ops.aten.addmm(t0, t1, t2)
         r1 = torch.ops.aten.le.Scalar(a, b)
         return r1
 
-a1 = torch.randn(10, 10)
-b1 = torch.randn(10, 10)
-c1 = torch.randn(10, 10)
+a = torch.randn(10, 10)
 
-menflame = MyModule()
-print("##########################")
-compiled_model = torch.compile(menflame, backend="topsgraph")
-resenflame = compiled_model(a1, .10)
-print(f'\n**************\n test \n {resenflame}\n**************\n')
-
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(a, 10)
+ 
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-rt = torchm(a1, 0.10)
-print(f'\n**************\n ref \n {rt}\n**************\n')
 
-print(f'final\n{torch.allclose(rt, resenflame, equal_nan=True)}')
-print(f'final\n{torch.eq(rt, resenflame)}')
+torch_model = MyModule()
+r2 = torch_model(a, 10)
+
+print(f"Test hardswish op result:{torch.allclose(r1, r2, equal_nan=True)}")

@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -15,13 +15,13 @@ class MyModule(torch.nn.Module):
 
 x = torch.randn(10, 10)
 
-menflame = MyModule()
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1 = compiled_model(x)
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(x)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1 = torchm(x)
 
-print(f'Tests Hardswish Result\n{torch.allclose(t1, r1, equal_nan=True)}')
+torch_model = MyModule()
+r2 = torch_model(x)
+
+print(f"Test hardswish op result:{torch.allclose(r1, r2, equal_nan=True)}")

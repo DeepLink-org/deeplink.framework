@@ -1,7 +1,5 @@
 import torch
-import torch.fx
-from torch._inductor.decomposition import decompositions
-del decompositions[torch.ops.aten._native_batch_norm_legit_functional.default]
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -19,15 +17,15 @@ class MyModule(torch.nn.Module):
 x = torch.randn(1, 12, 32, 64, 2)
 y = torch.randn(1, 12, 32, 64, 2)
 
-menflame = MyModule()
-compiled_model = torch.compile(menflame, backend="topsgraph")
-
-testreal = compiled_model(x, y)
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(x, y)
 
 torch._dynamo.reset()
+
 rc1 = torch.ops.aten.view_as_complex.default(x)
 rc2 = torch.ops.aten.view_as_complex.default(y)
-rm1 = torch.ops.aten.mul.Tensor(rc1, rc2)
-refres = torch.ops.aten.view_as_real.default(rm1)
+rm = torch.ops.aten.mul.Tensor(rc1, rc2)
+r2 = torch.ops.aten.view_as_real.default(rm)
 
-print(f'Tets Complex Mul Result: {torch.allclose(testreal, refres, equal_nan=True)}')
+print(f"Test complex_mul_real op result:{torch.allclose(r1, r2, equal_nan=True)}")

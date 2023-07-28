@@ -1,10 +1,8 @@
 import torch
 
-
 class EmbeddingTest(torch.nn.Module):
     def forward(self, weight, indices):
         return torch.ops.aten.embedding.default(weight, indices)
-
 
 if __name__ == "__main__":
     weight = torch.randn(10000, 4096)

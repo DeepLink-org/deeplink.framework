@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 import random
 
 class MyModule(torch.nn.Module):
@@ -17,13 +17,13 @@ class MyModule(torch.nn.Module):
 a = torch.randn(10, 10)
 b = random.randint(1, 10)
 
-menflame = MyModule()
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1 = compiled_model(a, b)
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(a, b)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1 = torchm(a, b)
 
-print(f'Tests full_like result\n{torch.allclose(t1, r1, equal_nan=True)}')
+torch_model = MyModule()
+r2 = torch_model(a, b)
+
+print(f"Test full_like op result:{torch.allclose(r1, r2, equal_nan=True)}")
