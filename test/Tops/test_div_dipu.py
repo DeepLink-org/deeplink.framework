@@ -1,6 +1,7 @@
 import os
 import torch
 import torch.fx
+os.environ["DIPU_MOCK_CUDA"] = "false"
 import torch_dipu
 
 
