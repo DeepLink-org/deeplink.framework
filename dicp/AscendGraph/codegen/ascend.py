@@ -1,9 +1,9 @@
 import torch
+import json
 
-from typing import Any
+from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
-
 
 graph_id = 0
 
@@ -22,6 +22,17 @@ def get_graph_id():
     return graph_id
 
 
+def get_reduction_str(r):
+    if r == 0:
+        return "none"
+    elif r == 1:
+        return "mean"
+    elif r == 2:
+        return "sum"
+    else:
+        raise RuntimeError("not supported yet!")
+      
+
 def process_name(name, target):
     if hasattr(target, "name"):
         real_op = target.name().split('::')[-1]
@@ -29,130 +40,56 @@ def process_name(name, target):
             real_op = real_op.split('.')[0]
     else:
         real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
-
     return real_op
 
 
-def get_reduction_str(r):
-    if r == '0':
-        return "none"
-    elif r == '1':
-        return "mean"
-    elif r == '2':
-        return "sum"
-    else:
-        raise RuntimeError("not supported yet!")
+def process_dynamic_shape(shape, name, suffix = "preprocess"):
+    ops = []
+    x_names = []
 
+    def generate_digits_op(shapes):
+        count = len(x_names)
+        op = OP(f"{name}_dim_{count}", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "NCHW", shapes, [len(shapes)])
+        ops.append(op.to_node())
+        x_names.append(f"{name}_dim_{count}")
+    
+    def generate_sym_int(elem):
+        count = len(x_names)
+        elem = str(elem)
+        elems = elem.strip().split(' ')
+        
+        assert len(elems) == 3
+        assert elems[2].isdigit()
+        assert elems[1] == '+' or elems[1] == '-'
+        op_type = "Add" if elems[1] == '+' else "Sub"
+        op1 = OP(f"{name}_dim_{count}_const", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [1])
+        op2 = OP(f"{name}_dim_{count}", op_type)
+        op2.set_input("x1", sym_to_inputs[elems[0]])
+        op2.set_input("x2", f"{name}_dim_{count}_const")
+        ops.extend([op1.to_node(), op2.to_node()])
+        x_names.append(f"{name}_dim_{count}")
 
-def simple_operation(expr, name, token):
-    if token == '-':
-        opr = 'Sub'
-    elif token == '+':
-        opr = 'Add'
-    else:
-        raise RuntimeError("not supported yet!")
-
-    exprs = expr.split(token)
-    exprs = [expr.strip() for expr in exprs]
-    #!TODO only support tensor minus constant
-    assert(len(exprs) == 2)
-    try:
-        int(exprs[1])
-    except ValueError:
-        raise RuntimeError("not supported yet!")
-
-    src_code = f"""
-                    auto {name}_y_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {exprs[1]} }});
-                    auto {name}_y = op::Const("{name}_y")
-                      .set_attr_value({name}_y_tensor);
-                    auto {name} = op::{opr}("{name}")
-                      .set_input_x1({exprs[0]})
-                      .set_input_x2({name}_y);
-                    graph.AddOp({name});
-                """
-    return src_code
-
-
-def process_shape_str(shape_str, name, suffix=""):
-    shape = shape_str.strip('{}').split(',')
-    src_code = f""""""
-    pattern = []
-    count = 0
+    dims = []
     for elem in shape:
-        elem = elem.strip()
-        flag = True
-        try:
-            int(elem)
-        except ValueError:
-            flag = False
-        if not flag:
-            if len(pattern) > 0:
-                shape_str = '{' + ','.join(map(str, pattern)) + '}'
-                src_code += f"""
-                                auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                                auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                                  .set_attr_value({name}_dim_tensor_{count});
-                            """
-                pattern = []
-                count += 1
+        if not isinstance(elem, torch.SymInt):
+            dims.append(elem)
+            continue
+        if len(dims) > 0:
+            generate_digits_op(dims)
+            dims = []
+        generate_sym_int(elem) 
+    if len(dims) > 0:
+        generate_digits_op(dims)
 
-            for key in sym_to_inputs:
-                if key in elem:
-                    elem = elem.replace(key, sym_to_inputs[key])
-
-            #!TODO deal with more complicated expressions
-            if '-' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '-')
-            elif '+' in elem:
-                src_code += simple_operation(elem, name+'_dim_'+str(count), '+')
-            else:
-                src_code += f"""
-                                auto& {name}_dim_{count} = {elem};
-                             """
-            count += 1
-        else:
-            pattern.append(elem)
-
-    if len(pattern) > 0:
-        shape_str = '{' + ','.join(map(str, pattern)) + '}'
-        src_code += f"""
-                        auto {name}_dim_tensor_{count} = genTensorWithData<int>({{ {len(pattern)} }}, FORMAT_NCHW, DT_INT32, {shape_str});
-                        auto {name}_dim_{count} = op::Const("{name}_dim_{count}")
-                          .set_attr_value({name}_dim_tensor_{count});
-                    """
-    else:
-        count -= 1
-    count += 1
-
-    src_code += f"""
-                    auto {name}_preprocess{suffix} = op::ConcatD("{name}_preprocess{suffix}")
-                        .create_dynamic_input_x({count})
-                """
-    for i in range(count):
-        src_code += f"""
-                        .set_dynamic_input_x({i}, {name}_dim_{i})
-                    """
-    src_code += f"""
-                        .set_attr_concat_dim(0)
-                        .set_attr_N({count});
-                    graph.AddOp({name}_preprocess{suffix});
-                """
-
-    return src_code
-
-
-def dynamic_shape_str(shape_str):
-    shape = shape_str.strip('{}').split(',')
-    for elem in shape:
-        elem = elem.strip()
-        flag = True
-        try:
-            int(elem)
-        except ValueError:
-            flag = False
-        if not flag:
-            return True
-    return False
+    # concat all ops
+    op = OP(f"{name}_{suffix}", "ConcatD")    
+    op.set_dynamic_input("x", len(x_names), x_names)
+    op.set_attr_int("concat_dim", 0)
+    op.set_attr_int("N", len(x_names))
+    ops.append(op.to_node())
+    return ops
 
 
 def symint_in_shape(shape):
@@ -161,6 +98,49 @@ def symint_in_shape(shape):
             return True
     return False
 
+
+def get_ascend_dtype(dtype: torch.dtype) -> str:
+    if dtype == torch.int64:
+        return "INT64"
+    elif dtype == torch.float32:
+        return "FLOAT"
+    elif dtype == torch.float16:
+        return "FLOAT16"
+    elif dtype == torch.int32:
+        return "INT32"
+    elif dtype == torch.complex64:
+        return "COMPLEX64"
+    else:
+        import pdb;pdb.set_trace()
+        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+
+
+def get_ascend_dtype_num(dtype: str):
+    if dtype == "FLOAT":
+        return 0
+    elif dtype == "FLOAT16":
+        return 1
+    elif dtype == "INT32":
+        return 3
+    elif dtype == "INT64":
+        return 9
+    elif dtype == "COMPLEX64":
+        return 16
+    else:
+        import pdb;pdb.set_trace()
+        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+
+
+def get_cpp_dtype(dtype: torch.dtype) -> str:
+    if dtype == torch.int64:
+        return "INT64"
+    elif dtype == torch.float32:
+        return "FLOAT"
+    elif dtype == torch.int32:
+        return "INT32"
+    else:
+        import pdb;pdb.set_trace()
+        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
 
 class AscendCodegen(torch.fx.Interpreter):
     def __init__(self, graph):
@@ -173,16 +153,22 @@ class AscendCodegen(torch.fx.Interpreter):
         self.graph_id = str(get_graph_id())
         self.args_dict = {}
         self.input_args = []
-        self.input_args_names = []
         self.output_args = []
 
         self.dynamic_inputs = []
         self.dynamic_shape = []
         self.actual_shape = []
         self.dynamic_index = []
-
         self.symint_outputs = []
 
+        self.data_nodes = []
+        self.common_nodes = []
+        self.graph_input_names = []
+        self.py_output_names = []
+        self.graph_output_names = []
+        self.build_options = []
+        
+        global sym_to_inputs
         sym_to_inputs = {}
 
         super().__init__(graph)
@@ -192,40 +178,51 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
         fake_tensor = self.cur_node.meta['val']
 
+        format = "NCHW"
+        index = -1
+
         if isinstance(fake_tensor, torch.SymInt):
-            sym_to_inputs.update({fake_tensor.node.str(): self.args_dict[name]})
-            tensor_shape = f"{{1}}"
-            tensor_format = "FORMAT_ND"
-            ascend_dtype = "ge::DataType::DT_INT32"
+            dims = [1]
+            data_type = "INT32"
+            format = "ND"
+            sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-            actual_shape = fake_tensor.shape # [elem.node._hint if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-            tensor_shape = '{' + ','.join(map(str, shape)) + '}'
-            tensor_format = "FORMAT_NCHW"
-            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
+            actual_shape = fake_tensor.shape
             self.dynamic_inputs.append(self.args_dict[name])
             self.dynamic_shape.append(shape)
             self.actual_shape.append(actual_shape)
-            self.dynamic_index.append(len(self.input_args_names))
+            self.dynamic_index.append(len(self.graph_input_names))
+            dims = shape
+            data_type = get_ascend_dtype(fake_tensor.dtype).upper()
         else:
-            tensor_shape = '{' + ','.join(map(str, fake_tensor.shape)) + '}'
-            tensor_format = "FORMAT_NCHW"
-            ascend_dtype = get_ascend_dtype(fake_tensor.dtype)
-
-        self.build_graph_code.writeline(f'''auto {self.args_dict[name]} = genInput("{self.args_dict[name]}", {tensor_shape}, {tensor_format}, {ascend_dtype}, {len(self.input_args_names)});''')
-        self.input_args_names.append(self.args_dict[name])
+            dims = fake_tensor.shape
+            data_type = get_ascend_dtype(fake_tensor.dtype).upper()
+            
+        # gen data_nodes
+        self.data_nodes.append({
+            "op_name": self.args_dict[name],
+            "op_type": "Data",
+            "dims": dims,
+            "format": format,
+            "data_type": data_type,
+            "index": index
+        })
+        self.graph_input_names.append(self.args_dict[name])
 
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = name
 
-        arg_code, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
-
+        _, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
-        op_code = getattr(self.override, real_op)(*args_list, **kwargs)
-        self.build_graph_code.splice(arg_code)
-        self.build_graph_code.splice(op_code, strip=True)
+        
+        op = getattr(self.override, real_op)(*args_list, **kwargs)
+        if isinstance(op, list):
+            self.common_nodes.extend(op)
+        else:
+            self.common_nodes.append(op)
 
     def call_method(self, name, target, args, kwargs):
         pass
@@ -251,48 +248,20 @@ class AscendCodegen(torch.fx.Interpreter):
         self.run()
         return self.generate_code()
 
-    def gen_build_graph_code(self):
-        graph_code = IndentedBuffer()
-        graph_code.splice(self.build_graph_code, strip=True)
-        output_str = []
-        self.output_names = []
-        self.graph_output_names = []
-        unique_output_names = []
+    def parse_outputs(self):
+        symint_inputs = sym_to_inputs.values()
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
-                self.output_names.append(name)
-                if name in unique_output_names:
+                self.py_output_names.append(name)
+                if name in self.graph_output_names:
                     continue
                 else:
-                    unique_output_names.append(name)
                     self.graph_output_names.append(name)
-
-                #!TODO any more accurate method 
-                if node in self.input_args:
+                if name in symint_inputs:
                     self.symint_outputs.append(name)
             else:
-                self.output_names.append(str(node))
-        input_str = 'std::vector<Operator> graph_inputs {' + ','.join(self.input_args_names) + '};'
-        output_str = 'std::vector<Operator> graph_outputs {' + ','.join(unique_output_names) + '};'
-        graph_code.writeline(input_str)
-        graph_code.writeline(output_str)
-        graph_code.writeline(f'graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);');
-        graph_code.writeline(f'return 0;')
-
-        return graph_code
-
-    def get_kernel_header(self):
-        return f"""
-                #include "graph_utils.h"
-                #include <iostream>
-                #include <fstream>
-                #include <string.h>
-                #include <stdint.h>
-                #include <memory>
-                #include <numeric>
-                #include <functional>
-               """
+                self.py_output_names.append(str(node))
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -353,9 +322,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device='cpu', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_body.writeline(f"inputs_data = list(map(lambda x: x.data_ptr(), args))")
-
-        call_str = [f'output_tensor = kernel_cpp_0(args)']
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
@@ -363,10 +330,10 @@ class AscendCodegen(torch.fx.Interpreter):
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
         call_body.writelines(call_str)
-        del_args = [f'del ' + x for x in self.args if x not in self.output_names]
+        del_args = [f'del ' + x for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
         call_body.writeline(f"args.clear()")
-        call_body.writeline(f"return ({', '.join(self.output_names)})")
+        call_body.writeline(f"return ({', '.join(self.py_output_names)})")
 
         call_func = IndentedBuffer()
         call_func.writeline(f"def call(args):")
@@ -393,9 +360,6 @@ class AscendCodegen(torch.fx.Interpreter):
             if isinstance(val, torch.SymInt):
                 code_str = f'''{name} = random.randint(0, 4)'''
             else:
-                # shape = tuple(val.size())
-                #if name in self.batch_input_convert.keys():
-                #    shape.insert(0, 1)
                 shape = str(tuple(val.size()))
                 stride = str(tuple(val.stride()))
                 device = val.device.type
@@ -411,112 +375,230 @@ class AscendCodegen(torch.fx.Interpreter):
             main_func.splice(main_body)
         return main_func.getvalue()
 
-    def gen_compile_func_code(self):
-        compile_func_body = IndentedBuffer()
-        with compile_func_body.indent():
-            compile_func_body.splice(
-                f"""
-                    std::string graph_name = "BuildGraph";
-                    Graph graph(graph_name.c_str());
-                    Status ret = genGraph(graph);
-                    if (ret != SUCCESS) {{
-                        std::cout << "Generate simple graph failed."<<std::endl;
-                        return FAILED;
-                    }}
-                    std::cout<<"Generate simple graph success."<<std::endl;
-                """
-                , strip=True
+    def gen_build_options(self):
+        if len(self.dynamic_inputs) > 0:
+            self.build_options.append(
+              {
+                "name": "input_format",
+                "value": "NCHW"
+              }
+            )
+            value_str = ""
+            for idx, name in enumerate(self.dynamic_inputs):
+                value_str += f"{name}:"
+                value_str += ','.join(map(str, self.dynamic_shape[idx])) + ';'
+            value_str = value_str[:-1]
+            self.build_options.append(
+              {
+                "name": "input_shape",
+                "value": value_str
+              }
             )
 
-            compile_func_body.writeline(f'''std::map<AscendString, AscendString> options;''')
-            if len(self.dynamic_inputs) > 0:
-              compile_func_body.writeline(f'''options.insert({{''')
-              compile_func_body.writeline(f'''{{ge::ir_option::INPUT_FORMAT, "NCHW"}},''')
-              code_str = f'''{{ge::ir_option::INPUT_SHAPE, "'''
-
-              for idx, name in enumerate(self.dynamic_inputs):
-                  code_str += name + ':'
-                  code_str += ','.join(map(str, self.dynamic_shape[idx])) + ';'
-              code_str = code_str[:-1] + f'''"}},\n'''
-              code_str += f'''}});\n'''
-              compile_func_body.writeline(code_str)
-
-            compile_func_body.splice(
-                f"""
-                    AclgraphBuilder builder;
-                    builder.saveGraph(graph_path, graph, options);
-                    std::cout << "graph path: " << graph_path << std::endl;
-                    return SUCCESS;
-                """
-                , strip=True
-            )
-
-        compile_func = IndentedBuffer()
-        compile_func.writeline(f'extern "C" int compile(char* graph_path) {{')
-        with compile_func.indent():
-           compile_func.splice(compile_func_body)
-
-        compile_func.splice(f"""
-                             }}
-                             ''')
-                             """, strip=True)
-
-        return compile_func
+    def gen_graph_json(self):
+        self.parse_outputs()
+        self.gen_build_options()
+        has_dynamic_shape = False if len(sym_to_inputs) == 0 else True
+        graph = {
+            "name": "graph",
+            "input_names": self.graph_input_names,
+            "output_names": self.graph_output_names,
+            "has_dynamic_shape": has_dynamic_shape,
+            "build_options": self.build_options,
+            "data_nodes": self.data_nodes,
+            "common_nodes": self.common_nodes,
+        }
+        return json.dumps(graph)
 
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
+        graph_json = self.gen_graph_json()
         compile_graph_code.splice(
             f"""
                 async_compile = AsyncCompileAscend()
                 kernel_cpp_0 = async_compile.ascend('''
+                {graph_json}
+                ''')
             """
             , strip=True
         )
-
-        compile_graph_code.splice(self.get_kernel_header(), strip=True)
-        src_code = f'uint32_t graph_id = {self.graph_id};\n'
-        src_code += f'int32_t genGraph(Graph& graph) {{\n'
-        compile_graph_code.splice(src_code)
-        
-        with compile_graph_code.indent():
-            compile_graph_code.splice(self.gen_build_graph_code())
-
-        compile_graph_code.writeline(f'}}')
-        compile_graph_code.splice(self.gen_compile_func_code())
-
         compile_graph_code.writeline('async_compile.wait(globals())')
         compile_graph_code.writeline('del async_compile')
-
         return compile_graph_code.getvalue()
 
     def generate_code(self):
         return (self.gen_import_code() + self.gen_compile_graph_code()+ self.gen_call_func() + self.gen_main_func())
 
 
-def get_ascend_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
-        return "ge::DataType::DT_INT64"
-    elif dtype == torch.float32:
-        return "ge::DataType::DT_FLOAT"
-    elif dtype == torch.float16:
-        return "ge::DataType::DT_FLOAT16"
-    elif dtype == torch.int32:
-        return "ge::DataType::DT_INT32"
-    elif dtype == torch.complex64:
-        return "ge::DataType::DT_COMPLEX64"
-    else:
-        import pdb;pdb.set_trace()
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+class AscendOperator:
+    def __init__(self, op_name: str, op_type: str):
+        self.op_name = op_name
+        self.op_type = op_type
+        self.inputs = []
+        self.attrs = []
+        self.dynamic_inputs = []
+        self.dynamic_outputs = []
+        
+    def to_node(self):
+        node = {
+            "op_name": self.op_name,
+            "op_type": self.op_type,            
+        }
+        if len(self.inputs) > 0:
+            node["inputs"] = self.inputs
+        if len(self.attrs) > 0:
+            node["attrs"] = self.attrs
+        if len(self.dynamic_inputs) > 0:
+            node["dynamic_inputs"] = self.dynamic_inputs
+        if len(self.dynamic_outputs) > 0:
+            node["dynamic_outputs"] = self.dynamic_outputs
+        return node
+        
+    def set_input(self, name, value):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+        })
+
+    def set_input_with_index(self, name, value, index):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+            "index": index,
+        })
+    
+    def set_dynamic_input(self, name, num, value):
+        assert len(value) == num
+        dy_inputs = {
+            "name": name,
+            "num": num,
+            "value": [],
+        }
+        for i in range(num):
+            dy_inputs["value"].append({
+                "index": i,
+                "value": value[i],
+            })
+        self.dynamic_inputs.append(dy_inputs)
+    
+    def set_dynamic_output(self, name, num):
+        self.dynamic_outputs.append({
+            "name": name,
+            "num": num
+        }) 
+        
+    def set_and_update_input(self, name, value, shape, format, data_type):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+            "update_desc": {
+                "format": format,
+                "shape": shape,
+                "data_type": data_type,
+            }
+        })
+
+    def set_input_with_index(self, name, value, index):
+        self.inputs.append({
+            "name": name,
+            "value": value,
+            "index": index,
+        })
+    
+    def set_dynamic_input(self, name, num, value, set_input_with_name = False):
+        assert len(value) == num
+        dy_inputs = {
+            "name": name,
+            "num": num,
+            "value": [],
+        }
+        if set_input_with_name == False:
+            for i in range(num):
+                dy_inputs["value"].append({
+                    "index": i,
+                    "value": value[i],
+                })
+        else:
+            for i in range(num):
+                dy_inputs["value"].append({
+                    "index": i,
+                    "value": value[i]["input_name"],
+                    "edge": value[i]["edge_name"]
+                })            
+        self.dynamic_inputs.append(dy_inputs)
+    
+    def set_dynamic_output(self, name, num):
+        self.dynamic_outputs.append({
+            "name": name,
+            "num": num
+        }) 
+        
+    def set_attr_list_int(self, name: str, value: List[int]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "list_int",
+            "value": value,
+        })
+        
+    def set_attr_list_float(self, name: str, value: List[float]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "list_float",
+            "value": value,
+        })
+
+    def set_attr_bool(self, name: str, value: bool):
+        self.attrs.append({
+            "name": name,
+            "value_type": "bool",
+            "value": value,
+        }) 
+        
+    def set_attr_str(self, name: str, value: str):
+        self.attrs.append({
+            "name": name,
+            "value_type": "str",
+            "value": value,
+        })
+    
+    def set_attr_int(self, name: str, value: int):
+        self.attrs.append({
+            "name": name,
+            "value_type": "int",
+            "value": value
+        })
+
+    def set_attr_int64(self, name: str, value: int):
+        self.attrs.append({
+            "name": name,
+            "value_type": "int64",
+            "value": value
+        })
+
+    def set_attr_float(self, name: str, value: float):
+        self.attrs.append({
+            "name": name,
+            "value_type": "float",
+            "value": float(value)
+        })
+    
+    def set_attr_tensor(self, name: str, data_type: str, 
+                        cpp_data_type: str,
+                        format: str,
+                        value: List,
+                        dims: List[int]):
+        self.attrs.append({
+            "name": name,
+            "value_type": "tensor",
+            "tensor_data_type": data_type,
+            "tensor_cpp_data_type": cpp_data_type,
+            "tensor_format": format,
+            "tensor_value": value,
+            "tensor_dims": dims,
+        })
 
 
-def get_cpp_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
-        return "int64_t"
-    elif dtype == torch.float32:
-        return "float"
-    else:
-        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
-
+OP = AscendOperator
 
 class AscendOverrides:
     @staticmethod
@@ -530,74 +612,69 @@ class AscendOverrides:
         for i in range(len(args)):
             if isinstance(args[i], Node):
                 args_str.append(args_dict[args[i].name])
-            elif isinstance(args[i], bool):
-                args_str.append(str(args[i]).lower())
-            elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-                args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
-            elif isinstance(args[i], torch.dtype):
-                in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
-                args_str.append(f'{op_var}_type{count}')
-                count += 1
+            # elif isinstance(args[i], bool):
+            #     args_str.append(str(args[i]).lower())
+            # elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
+            #     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
+            # elif isinstance(args[i], torch.dtype):
+            #     in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+            #     src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
+            #     args_str.append(f'{op_var}_type{count}')
+            #     count += 1
             else:
-                args_str.append(str(args[i]))
+                args_str.append(args[i])
         return src_code, args_str
 
     @staticmethod
     def mul(name, node, x, y):
-        (x_node, y_node) = node.args
+        (_, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             src_code = f"""
                            auto {name} = op::Mul("{name}")
                              .set_input_x1({x})
                              .set_input_x2({y});
                         """
-        else:
-            # y is scalar
-            dtype = node.meta['val'].dtype
-            not_support_type = False
-            try:
-                cpp_dtype = get_cpp_dtype(dtype)
-                ascend_dtype = get_ascend_dtype(dtype)
-            except:
-                cpp_dtype = "float"
-                ascend_dtype = "ge::DataType::DT_FLOAT"
-                not_support_type = True
-            src_code = f"""
-                           auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({y}) }});
-                           auto {name}_scalar = op::Const("{name}_scalar")
-                             .set_attr_value({name}_scalar_tensor);"""
-            if not_support_type:
-                ascend_dtype = get_ascend_dtype(dtype)
-                src_code += f"""
-                           auto {name}_scalar_cast = op::Cast("{name}_scalar_cast")
-                             .set_input_x({name}_scalar)
-                             .set_attr_dst_type({ascend_dtype});
-                           auto {name} = op::Mul("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar_cast);
-                            """
-            else:
-                src_code += f"""
-                           auto {name} = op::Mul("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar);
-                            """
+            op = OP(name, "Mul")
+            op.set_input("x1", x)
+            op.set_input("x2", y)
+            return op.to_node()
 
-        return src_code
+        # y is scalar
+        dtype = node.meta['val'].dtype
+        not_support_type = False
+        try:
+            cpp_dtype = get_cpp_dtype(dtype)
+            ascend_dtype = get_ascend_dtype(dtype)
+        except:
+            cpp_dtype = "FLOAT"
+            ascend_dtype = "FLOAT"
+            not_support_type = True
+        
+        mul_op = OP(name, "Mul")
+        mul_op.set_input("x1", x)
+        scalar_op = OP(f"{name}_scalar", "Const")
+        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+        if not_support_type:
+            ascend_dtype = get_ascend_dtype(dtype)
+            cast_op = OP(f"{name}_scalar_cast", "Cast")
+            cast_op.set_input("x", f"{name}_scalar")
+            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+            mul_op.set_input("x2", f"{name}_scalar_cast")
+            return [scalar_op.to_node(), cast_op.to_node(), mul_op.to_node()]
+        else:
+            mul_op.set_input("x2", f"{name}_scalar")
+            return [scalar_op.to_node(), mul_op.to_node()]
 
     @staticmethod
     def add(name, node, x, y):
         (x_node, y_node) = node.args
         out_dtype = node.meta['val'].dtype
-        ascend_dtype = get_ascend_dtype(out_dtype)
+        ops = []
+        x_name = x
+        y_name = y
         if isinstance(y_node, torch.fx.node.Node):
             x_dtype = x_node.meta['val'].dtype
             y_dtype = y_node.meta['val'].dtype
-            x_name = x
-            y_name = y
-            src_code = ''
-            
             if x_dtype != out_dtype:
                 ascend_dtype = get_ascend_dtype(out_dtype)
                 x_name = f'{name}_x_cast'
@@ -606,61 +683,50 @@ class AscendOverrides:
                               .set_input_x({x})
                               .set_attr_dst_type({ascend_dtype});
                           """
+                cast_op = OP(f'{name}_x_cast', "Cast")
+                cast_op.set_input("x", x)
+                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+                ops.append(cast_op.to_node())
             if y_dtype != out_dtype:
                 ascend_dtype = get_ascend_dtype(out_dtype)
                 y_name = f'{name}_y_cast'
-                src_code += f"""
-                            auto {name}_y_cast = op::Cast("{name}_y_cast")
-                              .set_input_x({y})
-                              .set_attr_dst_type({ascend_dtype});
-                          """
-            src_code += f"""
-                           auto {name} = op::AddV2("{name}")
-                             .set_input_x1({x_name})
-                             .set_input_x2({y_name});
-                        """
+                cast_op = OP(f'{name}_y_cast', "Cast")
+                cast_op.set_input("x", x)
+                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+                ops.append(cast_op.to_node())
         else:
             # y is scalar
+            ascend_dtype = get_ascend_dtype(out_dtype)
             cpp_dtype = get_cpp_dtype(out_dtype)
-            src_code = f"""
-                           auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({y}) }});
-                           auto {name}_scalar = op::Const("{name}_scalar")
-                             .set_attr_value({name}_scalar_tensor);
-                           auto {name} = op::AddV2("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar);
-                        """
-
-        return src_code
+            scalar_op = OP(f'{name}_scalar', "Const")
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+            y_name = f"{name}_scalar"
+            ops.append(scalar_op.to_node())
+        add_op = OP(name, "AddV2")
+        add_op.set_input("x1", x_name)
+        add_op.set_input("x2", y_name)
+        ops.append(add_op.to_node())
+        return ops
 
     @staticmethod
     def sub(name, x, y):
-        src_code = f"""
-                       auto {name} = op::Sub("{name}")
-                         .set_input_x1({x})
-                         .set_input_x2({y});
-                    """
-
-        return src_code
+        sub_op = OP(name, "Sub")
+        sub_op.set_input("x1", x)
+        sub_op.set_input("x2", y)
+        return sub_op.to_node()
 
     @staticmethod
     def relu(name, x):
-        src_code = f"""
-                       auto {name} = op::Relu("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Relu")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def silu(name, x):
-        src_code = f"""
-                       auto {name} = op::Swish("{name}")
-                         .set_input_x({x})
-                         .set_attr_scale(1.0);
-                    """
-
-        return src_code
+        silu_op = OP(name, "Swish")
+        silu_op.set_input("x", x)
+        silu_op.set_attr_float("scale", 1.0)
+        return silu_op.to_node()
 
     @staticmethod
     def transpose(name, node, input, dim0, dim1):
@@ -671,159 +737,104 @@ class AscendOverrides:
         perm = [num for num in range(rank)]
         perm[dim0] = dim1
         perm[dim1] = dim0
-        perm_str = '{' + ','.join(map(str, perm)) + '}'
-        if dynamic_shape_str(perm_str):
-            src_code = process_shape_str(perm_str, name)
+        ops = []
+        if symint_in_shape(input_shape):
+            ops.extend(process_dynamic_shape(perm, name))
         else:
-            src_code = f"""
-                           auto {name}_perm_tensor = genTensorWithData<int>({{ {rank} }}, FORMAT_NCHW, DT_INT32, {perm_str});
-                           auto {name}_preprocess = op::Const("{name}_preprocess")
-                             .set_attr_value({name}_perm_tensor);
-                        """
-        src_code += f"""
-                       auto {name} = op::Transpose("{name}")
-                         .set_input_x({input})
-                         .set_input_perm({name}_preprocess);
-                    """                    
-        return src_code
+            const_op = OP(f"{name}_preprocess", "Const")
+            const_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", perm, [rank])
+            ops.append(const_op.to_node())
+        transpose_op = OP(name, "Transpose")
+        transpose_op.set_input("x", input)
+        transpose_op.set_input("perm", f"{name}_preprocess")
+        ops.append(transpose_op.to_node())
+        return ops
 
     @staticmethod
     def reciprocal(name, x):
-        src_code = f"""
-                       auto {name} = op::Reciprocal("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Reciprocal")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def sqrt(name, x):
-        src_code = f"""
-                       auto {name} = op::Sqrt("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Sqrt")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def rsqrt(name, x):
-        src_code = f"""
-                       auto {name} = op::Rsqrt("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Rsqrt")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def convolution(name, node, input, weight, bias, stride, padding,
                     dilation, transposed, output_padding, groups):
-        assert transposed == 'false'
-        assert output_padding == '{0, 0}'
-        stride = stride.strip('{}').split(', ')
-        padding = padding.strip('{}').split(', ')
-        dilation = dilation.strip('{}').split(', ')
+        assert transposed == False
+        assert output_padding == [0, 0]
         
         if len(stride) == 2:
-            real_stride = [1, 1, stride[0], stride[1]]
-            stride_str = '{' + ', '.join(map(str, real_stride)) + '}'
-        else:
-            stride_str = '{' + ', '.join(map(str, stride)) + '}'
-
+            stride = [1, 1, stride[0], stride[1]]
         if len(padding) == 2:
-            real_padding = [padding[0], padding[0], padding[1], padding[1]]
-            padding_str = '{' + ', '.join(map(str, real_padding)) + '}'
-        else:
-            padding_str = '{' + ', '.join(map(str, padding)) + '}'
-
+            padding = [padding[0], padding[0], padding[1], padding[1]]
         if len(dilation) == 2:
-            real_dialtion = [dilation[0], dilation[0], dilation[1], dilation[1]]
-            dilation_str = '{' + ', '.join(map(str, real_dialtion)) + '}'
-        else:
-            dilation_str = '{' + ', '.join(map(str, dilation)) + '}'
-
-        
+            dilation = [dilation[0], dilation[0], dilation[1], dilation[1]]
         format = "NCHW" if node.meta['val'].stride()[-1] == 1 else "NHWC"
-        src_code = f"""
-                       auto {name} = op::Conv2D("{name}")
-                         .set_input_x({input})
-                         .set_input_filter({weight})
-                         .set_attr_strides({stride_str})
-                         .set_attr_pads({padding_str})
-                         .set_attr_dilations({dilation_str})
-                         .set_attr_groups({groups})
-                         .set_attr_data_format("{format}");
-                    """
 
-        if bias != 'None':
-            src_code += f'{name}.set_input_bias({bias});\n'
-        return src_code
+        op = OP(name, "Conv2D")
+        op.set_input("x", input)
+        op.set_input("filter", weight)
+        op.set_attr_list_int("strides", stride)
+        op.set_attr_list_int("pads", padding)
+        op.set_attr_list_int("dilations", dilation)
+        op.set_attr_int("groups", groups)
+        op.set_attr_str("data_format", format)
+
+        if bias != None:
+            op.set_input("bias", bias)    
+        return op.to_node()
 
     @staticmethod
     def convert_element_type(name, x, torch_dtype, layout=torch.strided, device='cpu'):
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        src_code = f"""
-                       auto {name} = op::Cast("{name}")
-                         .set_input_x({x})
-                         .set_attr_dst_type({ascend_dtype});
-                    """
-
-        return src_code
+        op = OP(name, "Cast")
+        op.set_input("x", x)
+        op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+        return op.to_node()
 
     @staticmethod
-    def mean(name, x, dims='{}', keepdim='false'):
-        src_code = f"""
-                       std::vector<int> {name}_axes_value {dims};
-                       std::vector<int64_t> {name}_axes_tensor_shape;
-                       if ({name}_axes_value.size() != 0) {{
-                         {name}_axes_tensor_shape.push_back({name}_axes_value.size());
-                       }}
-                       auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
-                       setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
-                       auto {name}_axes = op::Const("{name}_axes")
-                         .set_attr_value({name}_axes_tensor);
-                       auto {name} = op::ReduceMean("{name}")
-                         .set_input_x({x})
-                         .set_input_axes({name}_axes)
-                         .set_attr_keep_dims({keepdim});
-                    """
-
-        return src_code
+    def mean(name, x, dims=[], keepdim=False):
+        const_op = OP(f"{name}_axes", "Const")
+        const_op.set_attr_tensor("value", "INT32", "INT32", "ND", dims, [] if len(dims) == 0 else [len(dims)])
+        mean_op = OP(name, "ReduceMean")
+        mean_op.set_input("x", x)
+        mean_op.set_input("axes", f"{name}_axes")
+        mean_op.set_attr_bool("keep_dims", keepdim)
+        return [const_op.to_node(), mean_op.to_node()]
 
     @staticmethod
     def symsize(name, x, dim):
-        src_code = f"""
-                       auto {name}_shape = op::Shape("{name}_shape")
-                         .set_input_x({x});
-                       auto {name}_dim_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {dim} }});
-                       auto {name}_dim = op::Const("{name}_dim")
-                         .set_attr_value({name}_dim_tensor);
-                       auto {name} = op::Gather("{name}")
-                         .set_input_x({x})
-                         .set_input_indices({name}_dim);
-                       graph.AddOp({name}_shape);
-                       graph.AddOp({name}_dim);
-                       graph.AddOp({name});
-                    """
-
-        return src_code
+        dim = [dim] if not isinstance(dim, list) else dim
+        op1 = OP(f"{name}_dim", "Const") 
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
+        op2 = OP(name, "Gather")
+        op2.set_input("x", x)
+        op2.set_input("indices", f"{name}_dim")
+        return [op1.to_node(), op2.to_node()]
 
     @staticmethod
     def inmul(name, node, x, y):
         (x_node, y_node) = node.args
         assert(not isinstance(y_node, torch.fx.node.Node))
-        # y is scalar
-        cpp_dtype = "float"
-        ascend_dtype = "ge::DataType::DT_FLOAT"
-        src_code = f"""
-                        auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({y}) }});
-                        auto {name}_scalar = op::Const("{name}_scalar")
-                          .set_attr_value({name}_scalar_tensor);
-                        auto {name} = op::Mul("{name}")
-                          .set_input_x1({x})
-                          .set_input_x2({name}_scalar);
-                    """
-
-        return src_code
+        cpp_dtype = "FLOAT"
+        ascend_dtype = "FLOAT"
+        const_op = OP(f"{name}_scalar", "Const")
+        const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+        mul_op = OP(name, "Mul")
+        mul_op.set_input("x1", x)
+        mul_op.set_input("x2", f"{name}_scalar")
+        return [const_op.to_node(), mul_op.to_node()]
 
     @staticmethod
     def view(name, node, x, size):
@@ -842,663 +853,521 @@ class AscendOverrides:
                     real_shape.append(str(i))
                 else:
                     real_shape.append(str(numel / prod))
-            shape_str = '{' + ', '.join(real_shape) + '}'
-        else:
-            shape = list(map(str, shape))
-            shape_str = '{' + ','.join(shape) + '}'
+            shape = real_shape
 
-        if dynamic_shape_str(shape_str):
-            src_code = process_shape_str(shape_str, name)
+        ops = []
+        if symint_in_shape(shape):
+            ops.extend(process_dynamic_shape(shape, name))
         else:
-            src_code = f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                           auto {name}_preprocess = op::Const("{name}_preprocess") 
-                           .set_attr_value({name}_reshape_tensor);
-                        """
-        src_code += f"""
-                       auto {name} = op::Reshape("{name}")
-                         .set_input_x({x})
-                         .set_input_shape({name}_preprocess);
-                    """
-
-        return src_code
+            const_op = OP(f"{name}_preprocess", "Const")    
+            const_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [shape_size])
+            ops.append(const_op.to_node())
+        op = OP(name, "Reshape")
+        op.set_input("x", x)
+        op.set_input("shape", f"{name}_preprocess")
+        ops.append(op.to_node())
+        return ops
 
     @staticmethod
     def clone(name, x, memory_format=None):
-        src_code = f"""
-                       auto {name} = op::Identity("{name}")
-                         .set_input_x({x});
-                    """
-        return src_code
+        op = OP(name, "Identity")
+        op.set_input("x", x)
+        return op.to_node()
       
     @staticmethod
     def _to_copy(name, x, dtype=None, layout=None, device=None):
         if dtype:
             ascend_dtype = get_ascend_dtype(dtype)
-            src_code = f"""
-                          auto {name} = op::Cast("{name}")
-                            .set_input_x({x})
-                            .set_attr_dst_type({ascend_dtype});
-                        """
+            op = OP(name, "Cast")
+            op.set_input("x", x)
+            op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+            return op.to_node()
         else:
-            src_code = f"""
-                          auto {name} = op::Identity("{name}")
-                            .set_input_x({x});
-                        """
-        return src_code
+            op = OP(name, "Identity")
+            op.set_input("x", x)
+            return op.to_node()
 
     @staticmethod
     def unsqueeze(name, x, dim):
-        real_dim_str = dim.replace('[','')
-        real_dim_str = real_dim_str.replace(']','')
-        real_dim_str = real_dim_str.replace('{','')
-        real_dim_str = real_dim_str.replace('}','')
-        real_dim_str = '{' + real_dim_str + '}'
-        src_code = f"""
-                       std::vector<int64_t> {name}_dims{real_dim_str};
-                       auto {name} = op::Unsqueeze("{name}")
-                         .set_input_x({x})
-                         .set_attr_axes({name}_dims);
-                    """
-
-        return src_code
+        if not isinstance(dim, list):
+            dim = [dim]
+        op = OP(name, "Unsqueeze")
+        op.set_input("x", x)
+        op.set_attr_list_int("axes", dim)
+        return op.to_node()
 
     @staticmethod
     def squeeze(name, x, dim):
-        if dim == '0':
-            real_dim_str = dim
-        else:
-            real_dim_str = dim.replace('[','')
-            real_dim_str = real_dim_str.replace(']','')
-            real_dim_str = real_dim_str.replace('{','')
-            real_dim_str = real_dim_str.replace('}','')
-            real_dim_str = '{' + real_dim_str + '}'
-        src_code = f"""
-                       auto {name} = op::Squeeze("{name}")
-                         .set_input_x({x})
-                         .set_attr_axis({real_dim_str});
-                    """
-
-        return src_code
+        if not isinstance(dim, list):
+            dim = [dim]
+        op = OP(name, "Squeeze")
+        op.set_input("x", x)
+        op.set_attr_list_int("axis", dim)
+        
+        return op.to_node()
 
     @staticmethod
     def getitem(name, input, index):
-        src_code = f"""
-                       auto {name} = op::Identity("{name}")
-                         .set_input_x({input}, {index});
-                    """
-
-        return src_code
+        op = OP(name, "Identity")
+        op.set_input_with_index("x", input, index)
+        return op.to_node()
 
     @staticmethod
     def exp(name, x):
-        src_code = f"""
-                       auto {name} = op::Exp("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Exp")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def embedding(name, weight, indices):
-        src_code = f"""
-                       auto {name}_axis_tensor = genTensorWithData<int>({{ 1 }}, FORMAT_NCHW, DT_INT32, {{0}});
-                       auto {name}_axis = op::Const("{name}_axis")
-                         .set_attr_value({name}_axis_tensor);
-                       auto {name} = op::GatherV2("{name}")
-                         .set_input_x({weight})
-                         .set_input_indices({indices})
-                         .set_input_axis({name}_axis);
-                    """
-        return src_code
+        op1 = OP(f"{name}_axis", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [0], [1])
+        op2 = OP(name, "GatherV2")
+        op2.set_input("x", weight)
+        op2.set_input("indices", indices)
+        op2.set_input("axis", f"{name}_axis")
+        return [op1.to_node(), op2.to_node()]
 
     @staticmethod
     def sigmoid(name, x):
-        src_code = f"""
-                       auto {name} = op::Sigmoid("{name}")
-                          .set_input_x({x})
-                    """
-        return src_code
+        op = OP(name, "Sigmoid")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def pow(name, node, x, exp):
         (x_node, exp_node) = node.args
         if isinstance(exp_node, torch.fx.node.Node):
-            src_code = f"""
-                          auto {name} = op::Pow("{name}")
-                              .set_input_x1({x})
-                              .set_input_x2({exp});
-                        """
+            op = OP(name, "Pow")
+            op.set_input("x1", x)
+            op.set_input("x2", exp)
+            return op.to_node()
+        
+        # exp is scalar
+        dtype = node.meta['val'].dtype
+        not_support_type = False
+        try:
+            cpp_dtype = get_cpp_dtype(dtype)
+            ascend_dtype = get_ascend_dtype(dtype)
+        except:
+            cpp_dtype = "FLOAT"
+            ascend_dtype = "FLOAT"
+            not_support_type = True
+        
+        pow_op = OP(name, "Pow")
+        pow_op.set_input("x1", x)
+        scalar_op = OP(f"{name}_scalar", "Const")
+        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [exp], [1])
+        if not_support_type:
+            ascend_dtype = get_ascend_dtype(dtype)
+            cast_op = OP(f"{name}_scalar_cast", "Cast")
+            cast_op.set_input("x", f"{name}_scalar")
+            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+            pow_op.set_input("x2", f"{name}_scalar_cast")
+            return [scalar_op.to_node(), cast_op.to_node(), pow_op.to_node()]
         else:
-            # exp is scalar
-            dtype = node.meta['val'].dtype
-            not_support_type = False
-            try:
-                cpp_dtype = get_cpp_dtype(dtype)
-                ascend_dtype = get_ascend_dtype(dtype)
-            except:
-                cpp_dtype = "float"
-                ascend_dtype = "ge::DataType::DT_FLOAT"
-                not_support_type = True
-            src_code = f"""
-                           auto {name}_scalar_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ static_cast<{cpp_dtype}>({exp}) }});
-                           auto {name}_scalar = op::Const("{name}_scalar")
-                             .set_attr_value({name}_scalar_tensor);
-                           """
-            if not_support_type:
-                ascend_dtype = get_ascend_dtype(dtype)
-                src_code += f"""
-                           auto {name}_scalar_cast = op::Cast("{name}_scalar_cast")
-                             .set_input_x({name}_scalar)
-                             .set_attr_dst_type({ascend_dtype});
-                           auto {name} = op::Pow("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar_cast);
-                           """
-            else:
-                src_code += f"""
-                           auto {name} = op::Pow("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_scalar);
-                           """
-        return src_code
+            pow_op.set_input("x2", f"{name}_scalar")
+            return [scalar_op.to_node(), pow_op.to_node()]
 
     @staticmethod
     def div(name, node, x, y):
-        (x_node, y_node) = node.args
+        (_, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            src_code = f"""
-                           auto {name} = op::DivNoNan("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({y});
-                        """
+            op = OP(name, "DivNoNan")
+            op.set_input("x1", x)
+            op.set_input("x2", y)
+            return op.to_node()
         else:
             div_value = str(1.0 / y_node)
-            src_code = f"""
-                           auto {name} = op::Muls("{name}")
-                             .set_input_x({x})
-                             .set_attr_value({div_value});
-                        """
-        return src_code
+            op = OP(name, "Muls")
+            op.set_input("x", x)
+            op.set_attr_float("value", div_value)
+            return op.to_node()
 
     @staticmethod
-    def _softmax(name, x, dim='', half_to_float='false'):
-        assert(half_to_float == 'false')
-        src_code = f"""
-                       std::vector<int64_t> {name}_dim{{ {dim} }};
-                       auto {name} = op::SoftmaxV2("{name}")
-                         .set_input_x({x})
-                         .set_attr_axes({name}_dim);
-                    """
-        return src_code
+    def _softmax(name, x, dim=-1, half_to_float=False):
+        assert(half_to_float == False)
+        op = OP(name, "SoftmaxV2")
+        op.set_input("x", x)
+        if isinstance(dim, int):
+            dim = [dim]
+        op.set_attr_list_int("axes", dim)
+        return op.to_node()
 
     @staticmethod
-    def sum(name, x, axes='{}', keep_dims='false'):
-        src_code = f"""
-                       std::vector<int64_t> {name}_axes{axes};
-                       auto {name} = op::ReduceSumD("{name}")
-                         .set_input_x({x})
-                         .set_attr_axes({name}_axes)
-                         .set_attr_keep_dims({keep_dims});
-                    """
-
-        return src_code
+    def sum(name, x, axes=[], keep_dims=False):
+        if not isinstance(axes, list):
+            axes = [axes]
+        op = OP(name, "ReduceSumD")
+        op.set_input("x", x)
+        op.set_attr_list_int("axes", axes)
+        op.set_attr_bool("keep_dims", keep_dims)
+        return op.to_node()
 
     @staticmethod
     def amax(name, x, axes, keep_dims):
-        src_code = f"""
-                       auto {name} = op::ReduceMaxD("{name}")
-                         .set_input_x({x})
-                         .set_attr_axes({axes})
-                         .set_attr_keep_dims({keep_dims});
-                    """
-        return src_code
+        if not isinstance(axes, list):
+            axes = [axes]
+        op = OP(name, "ReduceMaxD")
+        op.set_input("x", x)
+        op.set_attr_list_int("axes", axes)
+        op.set_attr_bool("keep_dims", keep_dims)
+        return op.to_node()
 
     @staticmethod
-    def permute(name, x, order):
-        src_code = f"""
-                       auto {name} = op::Permute("{name}")
-                         .set_input_x({x})
-                         .set_attr_order({order});
-                    """
-        return src_code
+    def permute(name, x, order=[0]):
+        if order is not None and not isinstance(order, list):
+            order = [order]
+        op = OP(name, "Permute")
+        op.set_input("x", x)
+        op.set_attr_list_int("order", order)
+        return op.to_node()
 
     @staticmethod
-    def max_pool2d_with_indices(name, x, ksize, strides, padding='{0, 0}'):
-        assert len(ksize.split(',')) == 2
-        assert len(strides.split(',')) == 2
+    def max_pool2d_with_indices(name, x, ksize, strides, padding=[0, 0]):
+        assert len(ksize) == 2
+        assert len(strides) == 2
 
-        ksize_str = '{1, 1, ' + ksize.strip('{}') + '}' 
-        strides_str = '{1, 1,' + strides.strip('{}') + '}'
-        paddings = list(map(int, padding.strip('{}').split(',')))
+        ksize = [1, 1, ksize[0], ksize[1]]
+        strides = [1, 1, strides[0], strides[1]]
 
-        if paddings != [0, 0]:
-            padding0 = str(paddings[0])
-            padding1 = str(paddings[1])
-            padding_str = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f'''
-                           auto {name}_pad_tensor = genTensorWithData<{int}>({{4, 2}}, FORMAT_NCHW, DT_INT32, {{ {padding_str} }});
-
-                           auto {name}_paddings = op::Const("{name}_paddings")
-                             .set_attr_value({name}_pad_tensor);
-                           auto {name}_pad = op::PadV3("{name}_pad")
-                             .set_input_x({x})
-                             .set_input_paddings({name}_paddings);
-                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({name}_pad)
-                             .set_attr_ksize({ksize_str})
-                             .set_attr_strides({strides_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           '''
+        ops = []
+        fwd_out_op = OP(f"{name}_fwd_out", "MaxPool") 
+        if padding != [0, 0]:
+            padding = [0, 0, 0, 0, padding[0], padding[0], padding[1], padding[1]]
+            pad_const_op = OP(f"{name}_paddings", "Const")
+            pad_const_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", padding, [4, 2])
+            pad_op = OP(f"{name}_pad", "PadV3")
+            pad_op.set_input("x", x)
+            pad_op.set_input("paddings", f"{name}_paddings")
+            ops.append(pad_const_op.to_node())
+            ops.append(pad_op.to_node())
+            fwd_out_op.set_input("x", f"{name}_pad")
         else:
-            src_code = f'''auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({x})
-                             .set_attr_ksize({ksize_str})
-                             .set_attr_strides({strides_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           '''
-        src_code += f'''   auto {name}_shape = op::Shape("{name}_shape")        
-                             .set_input_x({name}_fwd_out);
+            fwd_out_op.set_input("x", x)
+        fwd_out_op.set_attr_list_int("ksize", ksize)
+        fwd_out_op.set_attr_list_int("strides", strides)
+        fwd_out_op.set_attr_str("padding", "VALID")
+        fwd_out_op.set_attr_str("data_format", "NCHW")
+        ops.append(fwd_out_op.to_node())
 
-                           auto {name}_indice = op::Empty("{name}_indice")
-                             .set_input_shape({name}_shape)
-                             .set_attr_dtype(DT_INT64);
+        shape_op = OP(f"{name}_shape", "Shape")
+        shape_op.set_input("x", f"{name}_fwd_out")
+        index_op = OP(f"{name}_indice", "Empty")
+        index_op.set_input("Shape", f"{name}_shape")
+        index_op.set_attr_int("dtype", get_ascend_dtype_num("INT64"))
 
-                           auto {name} = op::IdentityN("{name}")
-                             .create_dynamic_input_x(2)
-                             .set_dynamic_input_x(0, {name}_fwd_out)
-                             .set_dynamic_input_x(1, {name}_indice)
-                             .create_dynamic_output_y(2);
-                           '''
-        return src_code
-
-    @staticmethod
-    def addmm(name, c, a, b, beta='1', alpha='1'):
-        src_code = f"""
-                       auto {name}_beta_tensor = genTensorWithData<float>({{}}, FORMAT_ND, DT_FLOAT, {{ {beta} }});
-                       auto {name}_alpha_tensor = genTensorWithData<float>({{}}, FORMAT_ND, DT_FLOAT, {{ {alpha} }});
-
-                       auto {name}_beta = op::Const("{name}_beta")
-                         .set_attr_value({name}_beta_tensor);
-                       auto {name}_alpha = op::Const("{name}_alpha")
-                         .set_attr_value({name}_alpha_tensor);
-
-                       auto {name}_c_beta = op::Mul("{name}_c_beta")
-                         .set_input_x1({c})
-                         .set_input_x2({name}_beta);
-
-                       auto {name}_a_alpha = op::Mul("{name}_a_alpha")
-                         .set_input_x1({a})
-                         .set_input_x2({name}_alpha);
-
-                       auto {name}_matmul = op::MatMul("{name}_matmul")
-                         .set_input_x1({name}_a_alpha)
-                         .set_input_x2({b});
-
-                       auto {name} = op::AddV2("{name}")
-                         .set_input_x1({name}_c_beta)
-                         .set_input_x2({name}_matmul);
-                    """
-
-        return src_code
+        id_op = OP(name, "IdentityN")
+        id_op.set_dynamic_input("x", 2, [f"{name}_fwd_out", f"{name}_indice"])
+        id_op.set_dynamic_output("y", 2)
+        
+        ops.append(shape_op.to_node())
+        ops.append(index_op.to_node())
+        ops.append(id_op.to_node())
+        return ops
 
     @staticmethod
-    def var(name, x, axes, correction='1', keepdim='true'):
-        if correction == '1':
-            unbiased = 'true'
+    def addmm(name, c, a, b, beta=1.0, alpha=1.0):
+        ops = []
+        beta_op = OP(f"{name}_beta", "Const")
+        beta_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [beta], [1])
+        alpha_op = OP(f"{name}_alpha", "Const")
+        alpha_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [alpha], [1])
+        ops.append(beta_op.to_node())
+        ops.append(alpha_op.to_node())
+
+        c_beta_op = OP(f"{name}_c_beta", "Mul")
+        c_beta_op.set_input("x1", c)
+        c_beta_op.set_input("x2", f"{name}_beta")
+        ops.append(c_beta_op.to_node())
+
+        a_alpha_op = OP(f"{name}_a_alpha", "Mul")
+        a_alpha_op.set_input("x1", a)
+        a_alpha_op.set_input("x2", f"{name}_alpha")
+        ops.append(a_alpha_op.to_node())
+
+        matmul_op = OP(f"{name}_matmul", "MatMul")
+        matmul_op.set_input("x1", f"{name}_a_alpha")
+        matmul_op.set_input("x2", b)
+        ops.append(matmul_op.to_node())
+
+        add_op = OP(name, "AddV2")
+        add_op.set_input("x1", f"{name}_c_beta")
+        add_op.set_input("x2", f"{name}_matmul")
+        ops.append(add_op.to_node())
+        return ops
+
+    @staticmethod
+    def var(name, x, axes=[], correction=1, keepdim=True):
+        if correction == 1:
+            unbiased = True
         elif correction == 0:
-            unbiased = 'false'
+            unbiased = False
         else:
             raise RuntimeError("not supported yet!")
-        
-        src_code = f"""
-                       // 1. mean
-                       std::vector<int> {name}_axes_value {axes};
-                       std::vector<int64_t> {name}_axes_tensor_shape;
-                       if ({name}_axes_value.size() != 0) {{
-                         {name}_axes_tensor_shape.push_back({name}_axes_value.size());
-                       }}
-                       auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
-                       setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
-                       auto {name}_axes = op::Const("{name}_axes")
-                         .set_attr_value({name}_axes_tensor);
-                       auto {name}_mean = op::ReduceMean("{name}_mean")
-                         .set_input_x({x})
-                         .set_input_axes({name}_axes)
-                         .set_attr_keep_dims({keepdim});
-    
-                       // 2. broadcast to self
-                       auto {name}_input_shape = op::Shape("{name}_input_shape")
-                         .set_input_x({x});
-                       auto {name}_broadcast_to = op::BroadcastTo("{name}_broadcast_to")
-                         .set_input_x({name}_mean)
-                         .set_input_shape({name}_input_shape);
-        
-                       // 3. ReduceStdV2Update
-                       auto {name} = op::ReduceStdV2Update("{name}")
-                         .set_input_x({x})
-                         .set_input_mean({name}_broadcast_to)
-                         .set_attr_dim({axes})
-                         .set_attr_unbiased({unbiased})
-                         .set_attr_keepdim({keepdim});
-                    """
 
-        return src_code
+        ops = []
+        if not isinstance(axes, list):
+            axes = [axes]
+        axes_op = OP(f"{name}_axes", "Const") 
+        axes_op.set_attr_tensor("value", "INT32", "INT32", "ND", axes, [len(axes)] if len(axes) > 0 else [])
+        mean_op = OP(f"{name}_mean", "ReduceMean")
+        mean_op.set_input("x", x)
+        mean_op.set_input("axes", f"{name}_axes")
+
+        input_shape_op = OP(f"{name}_input_shape", "Shape") 
+        input_shape_op.set_input("x", x)
+        broadcast_op = OP(f"{name}_broadcast_to", "BroadcastTo")
+        broadcast_op.set_input("x", f"{name}_mean")
+        broadcast_op.set_input("shape", f"{name}_input_shape")
+
+        op = OP(name, "ReduceStdV2Update")
+        op.set_input("x", x)
+        op.set_input("mean", f"{name}_broadcast_to")
+        op.set_attr_list_int("dim", axes)
+        op.set_attr_bool("unbiased", unbiased)
+        op.set_attr_bool("keepdim", keepdim)
+
+        ops.append(axes_op.to_node())
+        ops.append(mean_op.to_node())
+        ops.append(input_shape_op.to_node())
+        ops.append(broadcast_op.to_node())
+        ops.append(op.to_node())
+        return ops
 
     @staticmethod
     def log(name, x):
-        src_code = f"""
-                       auto {name} = op::Log("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Log")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def gather(name, x, dim, index):
-        src_code = f"""
-                       auto {name}_dim_tensor = genTensorWithData<int>({{1}}, FORMAT_NCHW, DT_INT32, {{ {dim} }});
-                       auto {name}_dim = op::Const("{name}_dim")
-                         .set_attr_value({name}_dim_tensor);
-                       auto {name} = op::GatherD("{name}")
-                         .set_input_x({x})
-                         .set_input_dim({name}_dim)
-                         .set_input_index({index})
-                         .set_attr_dim({dim});
-                    """
-
-        return src_code
+        dim = [dim] if not isinstance(dim, list) else dim
+        op1 = OP(f"{name}_dim", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [1])
+        op2 = OP(name, "GatherD")
+        op2.set_input("x", x)
+        op2.set_input("dim", f"{name}_dim")
+        op2.set_input("index", index)
+        op2.set_attr_list_int(dim)
+        return [op1.to_node(), op2.to_node()]
 
     @staticmethod
     def neg(name, x):
-        src_code = f"""
-                       auto {name} = op::Neg("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
+        op = OP(name, "Neg")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def expand(name, node, x, shape):
         x_shape = list(node.target.x.node.meta['val'].shape)
         y_shape = list(node.meta['val'].shape)
         if x_shape == y_shape:
-            src_code = f"""
-                           auto {name} = op::Identity("{name}")
-                             .set_input_x({x});
-                        """
-            return src_code
-
-        src_code = f"""
-                       std::vector<int64_t> {name}_shape{shape};
-                       auto {name} = op::ExpandD("{name}")
-                         .set_input_x({x})
-                         .set_attr_shape({name}_shape);
-                    """
-        return src_code
+            op = OP(name, "Identity")
+            op.set_input("x", x)
+            return op.to_node()
+        
+        op = OP(name, "ExpandD")
+        op.set_input("x", x)
+        op.set_attr_list_int(shape)
+        return op.to_node()
 
     @staticmethod
-    def zeros_like(name, x, value):
+    def zeros_like(name, x, *args):
         # TODO(tangzhiyi): ignore kwargs, need to check this
-        src_code = f"""
-                       auto {name} = op::ZerosLike("{name}")
-                         .set_input_x({x});
-                    """
-
-        return src_code
-
+        op = OP(name, "ZerosLike")
+        op.set_input("x", x)
+        return op.to_node()
 
     @staticmethod
     def full(name, node, dims, fill_value):
-        dims = dims.strip('{}').split(', ')
         if len(dims) == 0:
             dims = [1]
         torch_dtype = node.kwargs['dtype']
-        dims_str = '{' + ','.join(map(str, dims)) + '}'
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        src_code = f"""
-                    std::vector<int> {name}_axes_value {dims_str};
-                    std::vector<int64_t> {name}_axes_tensor_shape;
-                    if ({name}_axes_value.size() != 0) {{
-                      {name}_axes_tensor_shape.push_back({name}_axes_value.size());
-                    }}
-                    auto {name}_axes_tensor = genTensor({name}_axes_tensor_shape, FORMAT_ND, DT_INT32);
-                    setTensorData({name}_axes_tensor, reinterpret_cast<uint8_t*>({name}_axes_value.data()), {name}_axes_value.size() * sizeof(int), "{name}_axes");
-                    auto {name}_axes = op::Const("{name}_axes")
-                      .set_attr_value({name}_axes_tensor);
+        
+        axes_op = OP(f"{name}_axes", "Const")
+        axes_op.set_attr_tensor("value", "INT32", "INT32", "ND", dims, [len(dims)])
 
-                    auto {name}_val_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ {fill_value} }});
-                    auto {name}_val = op::Const("{name}_val")
-                      .set_attr_value({name}_val_tensor);
+        val_op = OP(f"{name}_val", "Const")
+        val_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [fill_value], [1])
 
-                    auto {name} = op::Fill("{name}")
-                      .set_input_dims({name}_axes)
-                      .set_input_value({name}_val);
-                    """
+        op = OP(name, "Fill")
+        op.set_input("dims", f"{name}_axes")
+        op.set_input("value", f"{name}_val")
 
-        return src_code
-
+        return [axes_op.to_node(), val_op.to_node(), op.to_node()]
 
     @staticmethod
     def scatter(name, node, var, dim, index, value):
         assert(len(node.args) > 3)
         value_node = node.args[3]
+        dim = [dim] if not isinstance(dim, list) else dim
+        
         if isinstance(value_node, torch.fx.node.Node):
-            src_code = f"""
-                           auto {name} = op::ScatterElements("{name}")
-                             .set_input_data({var})
-                             .set_input_indices({index})
-                             .set_input_updates({value})
-                             .set_attr_axis({dim});
-                        """
-        else:
-            dtype = node.meta['val'].dtype
-            ascend_dtype = get_ascend_dtype(dtype)
-            cpp_dtype = get_cpp_dtype(dtype)
-            src_code = f"""
-                           auto {name}_value_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ {value} }});
-                           auto {name}_value = op::Const("{name}_value")
-                             .set_attr_value({name}_value_tensor);
-                           auto {name}_index_shape = op::Shape("{name}_index_shape")
-                             .set_input_x({index});
-                           auto {name}_value_bcast = op::BroadcastTo("{name}_value_bcast")
-                             .set_input_x({name}_value)
-                             .set_input_shape({name}_index_shape);
-                           auto {name} = op::ScatterElements("{name}")
-                             .set_input_data({var})
-                             .set_input_indices({index})
-                             .set_input_updates({name}_value_bcast)
-                             .set_attr_axis({dim});
-                        """
+            op = OP(name, "ScatterElements")
+            op.set_input("data", var)
+            op.set_input("updates", value)
+            op.set_attr_list_int("axis", dim)
+            return op.to_node() 
+        
+        ops = []
+        dtype = node.meta['val'].dtype
+        ascend_dtype = get_ascend_dtype(dtype)
+        cpp_dtype = get_cpp_dtype(dtype)        
 
-        return src_code
+        value_op = OP(f"{name}_value")
+        value_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [value], [1])
+        shape_op = OP(f"{name}_index_shape", "Shape")
+        shape_op.set_input("x", index)
+        bcast_op = OP(f"{name}_value_bcast", "BroadcastTo")
+        bcast_op.set_input("x", f"{name}_value")
+        bcast_op.set_input("shape", f"{name}_index_shape")
+
+        op = OP(name, "ScatterElements")
+        op.set_input("data", var)
+        op.set_input("indices", index)
+        op.set_input("updates", f"{name}_value_bcast")
+        op.set_attr_list_int("axis, dim")
+
+        ops.append(value_op.to_node())
+        ops.append(shape_op.to_node())
+        ops.append(bcast_op.to_node())
+        ops.append(op.to_node())
+        return ops
 
     @staticmethod
     def mm(name, x, y):
-        src_code = f"""
-                       auto {name} = op::MatMul("{name}")
-                         .set_input_x1({x})
-                         .set_input_x2({y});
-                    """
-
-        return src_code
+        op = OP(name, "MatMul")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
+        return op.to_node()
 
     @staticmethod
     def bmm(name, x, y):
-        src_code = f"""
-                       auto {name} = op::BatchMatMul("{name}")
-                         .set_input_x1({x})
-                         .set_input_x2({y});
-                    """
-
-        return src_code
-
+        op = OP(name, "BatchMatMul")
+        op.set_input("x1", x)
+        op.set_input("x2", y )
+        return op.to_node()
+    
     @staticmethod
     def convolution_backward(name, grad_output, input, weight, bias_size,
+        
                              stride, padding, dilation, transposed, output_padding,
                              groups, grad_input_mask):
-        assert transposed == 'false'
-        assert output_padding == '{0, 0}'
+        assert transposed == False
+        assert output_padding == [0, 0]
 
-        src_code = ''
-        stride = stride.strip('{}').split(', ')
-        padding = padding.strip('{}').split(', ')
-        dilation = dilation.strip('{}').split(', ')
-        grad_input_mask = grad_input_mask.strip('{}').split(', ')
-        new_stride = ['1', '1', stride[0], stride[1]]
-        new_padding = [padding[0], padding[0], padding[1], padding[1]]
-        new_dilation = ['1', '1', dilation[0], dilation[1]]
+        stride = [1, 1, stride[0], stride[1]]
+        padding = [padding[0], padding[0], padding[1], padding[1]]
+        dilation = [1, 1, dilation[0], dilation[1]]
+        data_format = "NCHW"
 
-        stride_str = '{' + ','.join(new_stride) + '}'
-        padding_str = '{' + ','.join(new_padding) + '}'
-        dilation_str = '{' + ','.join(new_dilation) + '}'
+        ops = []
+        if grad_input_mask[0] == True:
+            shape_op = OP(f"{name}_input_shape", "Shape")
+            shape_op.set_input("x", input)
+            bp_op = OP(f"{name}_input", "Conv2DBackpropInput")
+            bp_op.set_input("input_size", f"{name}_input_shape")
+            bp_op.set_input("filter", weight)
+            bp_op.set_input("out_backprop", grad_output)
+            bp_op.set_attr_list_int("strides", stride)
+            bp_op.set_attr_list_int("pads", padding)
+            bp_op.set_attr_list_int("dilations", dilation)
+            bp_op.set_attr_int("groups", groups)
+            bp_op.set_attr_str("data_format", data_format)
+            ops.append(shape_op.to_node())
+            ops.append(bp_op.to_node())
 
-        # XXX(tangzhiyi): assume data format is NCHW
-        data_format = 'NCHW'
-
-        # input
-        if grad_input_mask[0] == 'True':
-            src_code += f"""
-                            auto {name}_input_shape = op::Shape("{name}_input_shape")
-                              .set_input_x({input});
-                            auto {name}_input = op::Conv2DBackpropInput("{name}_input")
-                              .set_input_input_size({name}_input_shape)
-                              .set_input_filter({weight})
-                              .set_input_out_backprop({grad_output})
-                              .set_attr_strides({stride_str})
-                              .set_attr_pads({padding_str})
-                              .set_attr_dilations({dilation_str})
-                              .set_attr_groups({groups})
-                              .set_attr_data_format("{data_format}");
-                        """
-
-        # weight
-        if grad_input_mask[1] == 'True':
-            src_code += f"""
-                            auto {name}_filter_shape = op::Shape("{name}_filter_shape")
-                              .set_input_x({weight});
-                            auto {name}_filter = op::Conv2DBackpropFilter("{name}_filter")
-                              .set_input_x({input})
-                              .set_input_filter_size({name}_filter_shape)
-                              .set_input_out_backprop({grad_output})
-                              .set_attr_strides({stride_str})
-                              .set_attr_pads({padding_str})
-                              .set_attr_dilations({dilation_str})
-                              .set_attr_groups({groups})
-                              .set_attr_data_format("NCHW");
-                        """
+        if grad_input_mask[1] == True:
+            shape_op = OP(f"{name}_filter_shape")
+            shape_op.set_input("x", weight)
+            bp_op = OP(f"{name}_filter", "Conv2DBackpropFilter")
+            bp_op.set_input("x", input)
+            bp_op.set_input("filter_size", f"{name}_filter_shape")
+            bp_op.set_input("out_backprop", grad_output)
+            bp_op.set_attr_list_int("strides", stride)
+            bp_op.set_attr_list_int("pads", padding)
+            bp_op.set_attr_list_int("dilations", dilation)
+            bp_op.set_attr_str("data_format", data_format)
+            ops.append(shape_op.to_node())
+            ops.append(bp_op.to_node())
 
         # TODO(tangzhiyi): bias is not supported yet
-        assert grad_input_mask[2] == 'False'
-
-        only_input = grad_input_mask[0] == 'True' and grad_input_mask[1] == 'False'
-        only_weight = grad_input_mask[0] == 'False' and grad_input_mask[1] == 'True'
-        both_input_weight = grad_input_mask[0] == 'True' and grad_input_mask[1] == 'True'
-
-        if only_input:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_input)
-                              .set_dynamic_input_x(1, {name}_input)
-                              .create_dynamic_output_y(2);
-                        """
-        elif only_weight:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_filter)
-                              .set_dynamic_input_x(1, {name}_filter)
-                              .create_dynamic_output_y(2);
-                        """
-        elif both_input_weight:
-            src_code += f"""
-                            auto {name} = op::IdentityN("{name}")
-                              .create_dynamic_input_x(2)
-                              .set_dynamic_input_x(0, {name}_input)
-                              .set_dynamic_input_x(1, {name}_filter)
-                              .create_dynamic_output_y(2);
-                        """
-        else:
-            raise RuntimeError('not supported!')
-
-        return src_code
-
+        assert grad_input_mask[2] == False
+        outputs = []
+        outputs.append(f"{name}_input" if grad_input_mask[0] else f"{name}_filter")
+        outputs.append(f"{name}_filter" if grad_input_mask[1] else f"{name}_input")
+        op = OP(name, "IdentityN")
+        op.set_dynamic_output("y", 2)
+        op.set_dynamic_input("x", 2, outputs)
+        ops.append(op.to_node())
+        return ops
+    
     @staticmethod
     def max_pool2d_with_indices_backward(name, grad_output, x, kernel_size,
                                          stride, padding, dilation, ceil_mode,
                                          indices):
-        assert len(kernel_size.split(',')) == 2 or len(kernel_size.split(',')) == 1
-        assert len(stride.split(',')) == 2 or len(stride.split(',')) == 1
-        assert len(padding.split(',')) == 2 or len(padding.split(',')) == 1
-        assert len(dilation.split(',')) == 2 or len(dilation.split(',')) == 1
+        assert len(kernel_size) == 2 or len(kernel_size) == 1
+        assert len(stride) == 2 or len(stride) == 1
+        assert len(padding) == 2 or len(padding) == 1
+        assert len(dilation) == 2 or len(dilation) == 1
+        assert dilation == [1, 1]
 
-        kernel_size = kernel_size.strip('{}').split(', ')
-        stride = stride.strip('{}').split(', ')
-        padding = padding.strip('{}').split(', ')
-        dilation = dilation.strip('{}').split(', ')
+        kernel_size = [1, 1, kernel_size[0], kernel_size[1] if len(kernel_size) == 2 else kernel_size[0]]
+        stride = [1, 1, stride[0], stride[1] if len(stride) == 2 else stride[0]]
+        padding = [1, padding[0], padding[1] if len(padding) == 2 else padding[0], 1]
 
-        new_kernel_size = ['1', '1', kernel_size[0], kernel_size[1]]
-        new_stride = ['1', '1', stride[0], stride[1]]
-        new_padding = ['1', padding[0], padding[1], '1']
-
-        kernel_size_str = '{' + ','.join(new_kernel_size) + '}'
-        stride_str = '{' + ','.join(new_stride) + '}'
-        padding_str = '{' + ','.join(new_padding) + '}'
-
-        assert dilation == ['1', '1']
-
-        if padding != ['0', '0']:
-            padding0 = padding[0]
-            padding1 = padding[1]
-            padding_str = f'0, 0, 0, 0, {padding0}, {padding0}, {padding1}, {padding1}'
-            src_code = f"""
-                           auto {name}_pad_tensor = genTensorWithData<int>({{}}, FORMAT_NCHW, DT_INT32, {{ {padding_str} }});
-                           auto {name}_paddings = op::Const("{name}_paddings")
-                             .set_attr_value({name}_pad_tensor);
-                           auto {name}_pad = op::PadV3("{name}_pad")
-                             .set_input_x({x})
-                             .set_input_paddings({name}_paddings);
-                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({name}_pad)
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                   
-                           auto {name}_bwd = op::MaxPoolGrad("{name}_bwd")
-                             .set_input_x1({name}_pad)
-                             .set_input_x2({name}_fwd_out)
-                             .set_input_grad({grad_output})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           auto {name} = op::PadV3Grad("{name}")
-                             .set_input_x({name}_bwd)
-                             .set_input_paddings({name}_paddings);
-                        """
+        ops = []
+        if padding != [0, 0]:
+            padding = [0, 0, 0, 0, padding[0], padding[0], padding[1], padding[1]]
+            op1 = OP(f"{name}_paddings", "Const")
+            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [8], padding)
+            op2 = OP(f"{name}_pad", "PadV3")
+            op2.set_input("x", x)
+            op2.set_input("paddings", f"{name}_paddings")
+            fwd_out = OP(f"{name}_fwd_out", "MaxPool")
+            fwd_out.set_input("x", f"{name}_pad")
+            fwd_out.set_attr_list_int("ksize", kernel_size)
+            fwd_out.set_attr_list_int("strides", stride)
+            fwd_out.set_attr_list_int("padding", "VALID")
+            fwd_out.set_attr_list_int("data_format", "NCHW")
+            bwd = OP(f"{name}_bwd", "MaxPoolGrad")
+            bwd.set_input("x1", f"{name}_pad")
+            bwd.set_input("x2", f"{name}_fwd_out")
+            bwd.set_input("grad", grad_output)
+            bwd.set_attr_list_int("ksize", kernel_size)
+            bwd.set_attr_list_int("strides", stride)
+            bwd.set_attr_str("padding", "VALID")
+            bwd.set_attr_str("data_format", "NCHW")
+            pad_grad = OP(name, "PadV3Grad")
+            pad_grad.set_input("x", f"{name}_bwd")
+            pad_grad.set_input("paddings", f"{name}_paddings")
+            ops.append(op1.to_node())
+            ops.append(op2.to_node())
+            ops.append(fwd_out.to_node())
+            ops.append(bwd.to_node())
+            ops.append(pad_grad.to_node())
         else:
-            src_code = f"""
-                           auto {name}_fwd_out = op::MaxPool("{name}_fwd_out")
-                             .set_input_x({x})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                           auto {name} = op::MaxPoolGrad("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({name}_fwd_out)
-                             .set_input_grad({grad_output})
-                             .set_attr_ksize({kernel_size_str})
-                             .set_attr_strides({stride_str})
-                             .set_attr_padding("VALID")
-                             .set_attr_data_format("NCHW");
-                        """
-
-        return src_code
+            fwd_out = OP(f"{name}_fwd_out", "MaxPool")
+            fwd_out.set_input("x", x)
+            fwd_out.set_attr_list_int("ksize", kernel_size)
+            fwd_out.set_attr_list_int("strides", stride)
+            fwd_out.set_attr_str("padding", "VALID")
+            fwd_out.set_attr_str("data_format", "NCHW")
+            grad = OP(name, "MaxPoolGrad")
+            grad.set_input("x1", x)
+            grad.set_input("x2", f"{name}_fwd_out")
+            grad.set_input("grad", grad_output)
+            grad.set_attr_list_int("ksize", kernel_size)
+            grad.set_attr_list_int("strides", stride)
+            grad.set_attr_str("padding", "VALID")
+            grad.set_attr_str("data_format", "NCHW")
+            ops.append(fwd_out.to_node())
+            ops.append(grad.to_node())
+        return ops
 
     @staticmethod
     def where(name, node, cond, x1, x2):
@@ -1507,222 +1376,197 @@ class AscendOverrides:
         assert isinstance(x1_node, torch.fx.node.Node)
         assert isinstance(x2_node, torch.fx.node.Node)
 
-        src_code = f"""
-                       // 1. broadcast
-                       auto {name}_shape = op::Shape("{name}_cond_shape")
-                         .set_input_x({cond});
-                       auto {name}_x1_bcast = op::BroadcastTo("{name}_x1_bcast")
-                         .set_input_x({x1})
-                         .set_input_shape({name}_shape);
-                       auto {name}_x2_bcast = op::BroadcastTo("{name}_x2_bcast")
-                         .set_input_x({x2})
-                         .set_input_shape({name}_shape);
-                       auto {name} = op::Select("{name}")
-                         .set_input_condition({cond})
-                         .set_input_x1({name}_x1_bcast)
-                         .set_input_x2({name}_x2_bcast);
-                    """
+        ops = []
+        shape_op = OP(f"{name}_cond_shape", "Shape")
+        shape_op.set_input("x", cond)
 
-        return src_code
+        x1_bcast = OP(f"{name}_x1_bcast", "BroadcastTo")        
+        x1_bcast.set_input("x", x1)
+        x1_bcast.set_input("shape", f"{name}_cond_shape")
+
+        x2_bcast = OP(f"{name}_x2_bcast", "BroadcastTo")
+        x2_bcast.set_input("x", x2)
+        x2_bcast.set_input("shape", f"{name}_cond_shape")
+
+        op = OP(name, "Select")
+        op.set_input("condition", cond)
+        op.set_input("x1", f"{name}_x1_bcast")
+        op.set_input("x2", f"{name}_x2_bcast")
+
+        ops.append(shape_op.to_node())
+        ops.append(x1_bcast.to_node())
+        ops.append(x2_bcast.to_node())
+        ops.append(op.to_node())
+        return ops
 
     @staticmethod
     def le(name, node, x1, x2):
         (x1_node, x2_node) = node.args
+        
         if isinstance(x2_node, torch.fx.node.Node):
-            src_code = f"""
-                           auto {name} = op::LessEqual("{name}")
-                             .set_input_x1({x1})
-                             .set_input_x2({x2});
-                        """
-        else:
-            # TODO(tangzhiyi): get value type, now assume float
-            src_code = f"""
-                           auto {name}_x2_tensor = genTensorWithData<float>({{}}, FORMAT_NCHW, DT_FLOAT, {{ {x2} }});
-                           auto {name}_x2 = op::Const("{name}_x2")
-                             .set_attr_value({name}_x2_tensor);
-                           auto {name} = op::LessEqual("{name}")
-                             .set_input_x1({x1})
-                             .set_input_x2({name}_x2);
-                        """
-
-        return src_code
+            op = OP(name, "LessEqual")
+            op.set_input("x1", x1)
+            op.set_input("x2", x2)
+            return op.to_node()
+        
+        # TODO(tangzhiyi): get value type, now assume float
+        x2_op = OP(f"{name}_x2", "Const")
+        x2_op.set_attr_tensor("value", "FLOAT", "FLOAT", "NCHW", [x2], [1])
+        op = OP(name, "LessEqual")
+        op.set_input("x1", x1)
+        op.set_input("x2", f"{name}_x2")
+        return [x2_op.to_node(), op.to_node()]
 
     @staticmethod
     def scalar_tensor(name, node, val):
         torch_dtype = node.kwargs['dtype']
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        src_code = f"""
-                       auto {name}_val_tensor = genTensorWithData<{cpp_dtype}>({{}}, FORMAT_NCHW, {ascend_dtype}, {{ {val} }});
-                       auto {name} = op::Const("{name}")
-                         .set_attr_value({name}_val_tensor);
-                    """
-
-        return src_code
+        op = OP(name, "Const")
+        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [val], [1])
+        return op.to_node()
 
     @staticmethod
     def ret_tuple(name, in1, in2):
-        src_code = f"""
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(2)
-                         .set_dynamic_input_x(0, {in1})
-                         .set_dynamic_input_x(1, {in2})
-                         .create_dynamic_output_y(2);
-                    """
-
-        return src_code
+        op = OP(name, "IdentityN")
+        op.set_dynamic_input("x", 2, [in1, in2])
+        op.set_dynamic_output("y", 2)
+        return op.to_node()
 
     @staticmethod
     def ret_triple(name, in1, in2, in3):
-        src_code = f"""
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(3)
-                         .set_dynamic_input_x(0, {in1})
-                         .set_dynamic_input_x(1, {in2})
-                         .set_dynamic_input_x(2, {in3})
-                         .create_dynamic_output_y(3);
-                    """
-
-        return src_code
+        op = OP(name, "IdentityN")
+        op.set_dynamic_input("x", 3, [in1, in2, in3])
+        op.set_dynamic_output("y", 3)
+        return op.to_node()
 
     @staticmethod
     def t(name, node, input):
         shape = node.meta['val'].shape
         permute_shape = [i for i in range(len(shape))]
         permute_shape.reverse()
-        order_str = '{' + ','.join(map(str, permute_shape)) + '}'
-        src_code = f"""auto {name} = op::Permute("{name}")
-                         .set_input_x({input})
-                         .set_attr_order({order_str});
-                    """
-        return src_code
+        op = OP(name, "Permute") 
+        op.set_input("x", input)
+        op.set_attr_list_int("order", permute_shape)
+        return op.to_node()
 
     @staticmethod
     def log_softmax(name, x, dim, half_to_float):
-        assert half_to_float == 'false'
-        src_code = f"""auto {name} = op::LogSoftmaxV2("{name}")
-                         .set_input_logits({x})
-                         .set_attr_axes({{ {dim}  }});
-                    """
-        return src_code
+        assert half_to_float == False
+        dim = [dim] if not isinstance(dim, list) else dim
+        op = OP(name, "LogSoftmaxV2")
+        op.set_input("logits", x)
+        op.set_attr_list_int("axes", dim)
+        return op.to_node()
 
     @staticmethod
     def log_softmax_backward(name, grad_output, output, dim, input_dtype):
-        src_code = f"""auto {name} = op::LogSoftmaxGrad("{name}")
-                         .set_input_grad({grad_output})
-                         .set_input_x({output})
-                         .set_attr_axis({{ {dim}  }});
-                    """
-        return src_code
+        dim = [dim] if not isinstance(dim, list) else dim
+        op = OP(name, "LogSoftmaxGrad")
+        op.set_input("grad", grad_output)
+        op.set_input("x", output)
+        op.set_attr_list_int("axis", dim)
+        return op.to_node()
 
     @staticmethod
     def nll_loss_forward(name, node, x, target, weight, reduction, ignore_index):
-        assert weight == 'None'
-        assert ignore_index == '-100'
+        assert weight == None
+        assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
-        csize = str(list(node.target.x.node.meta['val'].shape)[1])
-        src_code = f"""std::vector<int64_t> {name}_weight_dims {{ {csize} }};
-                       auto {name}_target_cast = op::Cast("{name}_target_cast")
-                         .set_input_x({target})
-                         .set_attr_dst_type(DT_INT32);
-                       auto {name}_weight = op::FillV2D("{name}_weight")
-                         .set_attr_value(1.0)
-                         .set_attr_dims({name}_weight_dims);
-                       auto {name} = op::NLLLoss("{name}")
-                         .set_input_x({x})
-                         .set_input_target({name}_target_cast)
-                         .set_input_weight({name}_weight)
-                         .set_attr_reduction("{reduction_str}")
-			                   .set_attr_ignore_index({ignore_index});
-		                """
-        return src_code
+        csize = [list(node.target.x.node.meta['val'].shape)[1]]
+
+        op1 = OP(f"{name}_target_cast", "Cast")        
+        op1.set_input("x", target)
+        op1.set_attr_int("dst_type", get_ascend_dtype_num("INT32"))
+
+        op2 = OP(f"{name}_weight", "FillV2D")
+        op2.set_attr_float("value", 1.0)
+        op2.set_attr_list_int("dims", csize)
+
+        op3 = OP(name, "NLLLoss")
+        op3.set_input("x", x)
+        op3.set_input("target", f"{name}_target_cast")
+        op3.set_input("weight", f"{name}_weight")
+        op3.set_attr_str("reduction", reduction_str)
+        op3.set_attr_int("ignore_index", ignore_index)
+
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
-    def native_batch_norm_legit_functional(name, x, weight, bias, running_mean,
-                                           running_var, train, momentum, eps, node):
-        if train != 'true':
-            raise RuntimeError('not supported yet!')
+    def native_batch_norm_legit_functional(name, node, x, weight, bias, running_mean,
+                                           running_var, train, momentum, eps):
+        if train != True:
+            raise RuntimeError("not supported yet!")
         x_shape = list(node.target.x.node.meta['val'].shape)
-        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
         x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
-        src_code = f"""// 0. change x format to NCHW
-                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
-                       // TODO(tangzhiyi): now assume output name is y.
-                       {x}.update_output_desc_y({name}_x_desc);
 
-                       // 1. get sum and square_sum
-                       auto {name}_bn_training_reduce = op::BNTrainingReduce("{name}_bn_training_reduce")
-                         .set_input_x({x});
-                       
-                       // 2. call BNTrainingUpdate
-                       auto {name}_bn_training_update = op::BNTrainingUpdate("{name}_bn_training_update")
-                         .set_input_x({x}, FORMAT_NCHW)
-                         .set_input_sum({name}_bn_training_reduce, 0)
-                         .set_input_square_sum({name}_bn_training_reduce, 1)
-                         .set_input_scale({weight}, FORMAT_NCHW)
-                         .set_input_offset({bias}, FORMAT_NCHW)
-                         .set_input_mean({running_mean})
-                         .set_input_variance({running_var})
-                         .set_attr_epsilon({eps})
-                         .set_attr_factor({momentum});
-                           
-                       // 3. tie all results: result, saved_mean, saved_invstd
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(5)
-                         .set_dynamic_input_x(0, {name}_bn_training_update, "y") 
-                         .set_dynamic_input_x(1, {name}_bn_training_update, "batch_mean")
-                         .set_dynamic_input_x(2, {name}_bn_training_update, "batch_variance")
-                         .set_dynamic_input_x(3, {name}_bn_training_update, "mean")
-                         .set_dynamic_input_x(4, {name}_bn_training_update, "variance")
-                         .create_dynamic_output_y(5);
-                       """
-        return src_code
+        # 1. get sum and square_sum
+        op1 = OP(f"{name}_bn_training_reduce", "BNTrainingReduce")
+        # TODO(tangzhiyi): now assume output name is y.
+        op1.set_and_update_input("x", x, x_shape, "NCHW", x_dtype)
 
+        # 2. call BNTrainingUpdate
+        op2 = OP(f"{name}_bn_training_update", "BNTrainingUpdate")
+        op2.set_input("x", x)
+        op2.set_input_with_index("sum", f"{name}_bn_training_reduce", 0)
+        op2.set_input_with_index("square_sum", f"{name}_bn_training_reduce", 1)
+        op2.set_input("scale", weight)
+        op2.set_input("offset", bias)
+        op2.set_input("mean", running_mean)
+        op2.set_input("variance", running_var)
+        op2.set_attr_float("epsilon", eps)
+        op2.set_attr_float("factor", momentum)
+        
+        # 3. tie all results: result, saved_mean, saved_invstd
+        op3 = OP(name, "IdentityN")
+        dynamic_input_names = [
+            {"input_name": f"{name}_bn_training_update", "edge_name": "y"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "batch_mean"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "batch_variance"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "mean"},
+            {"input_name": f"{name}_bn_training_update", "edge_name": "variance"},
+        ]
+        op3.set_dynamic_input("x", 5, dynamic_input_names, True)
+        op3.set_dynamic_output("y", 5)
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
+    
     @staticmethod
     def native_batch_norm_backward(name, node, grad_out, x, weight, running_mean, running_var,
             save_mean, save_invstd, train, eps, grad_input_mask):
-        x_shape = list(node.target.x.node.meta['val'].shape)
-        x_shape_str = '{' + ','.join(map(str, x_shape)) + '}'
-        x_dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
-        src_code = f"""// 0. change x format to NCHW
-                       TensorDesc {name}_x_desc(ge::Shape({x_shape_str}), FORMAT_NCHW, {x_dtype});
-                       // TODO(tangzhiyi): now assume output name is y.
-                       {x}.update_output_desc_y({name}_x_desc);
-                       //{grad_out}.update_output_desc_y({name}_x_desc);
-                       
-                       // get grad_weight and grad_bias
-                       auto {name}_update_grad = op::BNTrainingUpdateGrad("{name}_update_grad")
-                         .set_input_grads({grad_out}) 
-                         .set_input_x({x})
-                         .set_input_batch_mean({save_mean})
-                         .set_input_batch_variance({save_invstd})
-                         .set_attr_epsilon({eps});
+        x_shape = list(node.target.x.node.meta["val"].shape)
+        x_dtype = get_ascend_dtype(node.target.x.node.meta["val"].dtype)
 
-                       // get grad_input
-                       auto {name}_reduce_grad = op::BNTrainingReduceGrad("{name}_reduce_grad")
-                         .set_input_grads({grad_out})
-                         .set_input_x({x})
-                         .set_input_diff_scale({name}_update_grad, 0)
-                         .set_input_diff_offset({name}_update_grad, 1)
-                         .set_input_scale({weight})
-                         .set_input_batch_mean({save_mean})
-                         .set_input_batch_variance({save_invstd})
-                         .set_attr_epsilon({eps});
-                       """
-                       
-        mask = list(map(bool, grad_input_mask.strip('{}').split(',')))
-        if mask[0] == True and mask[1] == True and mask[2] == True:
-            src_code += f"""
-                       auto {name} = op::IdentityN("{name}")
-                         .create_dynamic_input_x(3)
-                         .set_dynamic_input_x(0, {name}_reduce_grad, "y")
-                         .set_dynamic_input_x(1, {name}_update_grad, "diff_scale")
-                         .set_dynamic_input_x(2, {name}_update_grad, "diff_offset")
-                         .create_dynamic_output_y(3);
-                       """
-        else:
-            raise RuntimeError("not supported yet!")
-        return src_code
+        # get grad_weight and grad_bias
+        op1 = OP(f"{name}_update_grad", "BNTrainingUpdateGrad")
+        op1.set_and_update_input("grads", grad_out, x_shape, "NCHW", x_dtype) 
+        op1.set_input("x", x)
+        op1.set_input("batch_mean", save_mean)
+        op1.set_input("batch_variance", save_invstd)
+        op1.set_attr_float("epsilon", eps)
+
+        # get grad_input
+        op2 = OP(f"{name}_reduce_grad", "BNTrainingReduceGrad")
+        op2.set_input("grad_out", grad_out)
+        op2.set_input("x", x)
+        op2.set_input_with_index("diff_scale", f"{name}_update_grad", 0)
+        op2.set_input_with_index("diff_offset", f"{name}_update_grad", 1)
+        op2.set_input("scale", weight)
+        op2.set_input("batch_mean", save_mean)
+        op2.set_input("batch_variance", save_invstd)
+        op2.set_attr_float("epsilon", eps)
+
+        for mask in grad_input_mask:
+            assert mask == True
+        op3 = OP(name, "IdentityN")
+        dynamic_input_names = [
+            {f"{name}_reduce_grad", "y"},
+            {f"{name}_update_grad", "diff_scale"},
+            {f"{name}_update_grad", "diff_offset"},
+        ]
+        op3.set_dynamic_input("x", 3, dynamic_input_names, True)
+        op3.set_dynamic_output("y", 3)
+
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
     def nll_loss_backward(name, node, grad_output, x, target, weight, reduction, ignore_index,
@@ -1730,47 +1574,39 @@ class AscendOverrides:
         assert weight == 'None'
         assert ignore_index == '-100'
         reduction_str = get_reduction_str(reduction)
-        csize = str(list(node.target.x.node.meta['val'].shape)[1])
+        csize = [list(node.target.x.node.meta['val'].shape)[1]]
 
-        src_code = f"""std::vector<int64_t> {name}_weight_dims {{ {csize} }};
-                       auto {name}_target_cast = op::Cast("{name}_target_cast")
-                         .set_input_x({target})
-                         .set_attr_dst_type(DT_INT32);
-                       auto {name}_weight = op::FillV2D("{name}_weight")
-                         .set_attr_value(1.0)
-                         .set_attr_dims({name}_weight_dims);
-                       auto {name} = op::NLLLossGrad("{name}")
-                         .set_input_x({x})
-                         .set_input_y_grad({grad_output})
-                         .set_input_target({name}_target_cast)
-                         .set_input_weight({name}_weight)
-                         .set_input_total_weight({total_weight})
-                         .set_attr_reduction("{reduction_str}")
-                         .set_attr_ignore_index({ignore_index});
-                       """
-        return src_code
+        op1 = OP(f"{name}_target_cast", "Cast")
+        op1.set_attr_int("dst_type", get_ascend_dtype_num("INT32"))
+
+        op2 = OP(f"{name}_weight", "FillV2D")
+        op2.set_attr_float("value", 1.0)
+        op2.set_attr_list_int("dims", csize)
+
+        op3 = OP(name, "NLLLossGrad")
+        op3.set_input("x", x)
+        op3.set_input("y_grad", grad_output)
+        op3.set_input("target", f"{name}_target_cast")
+        op3.set_input("weight", f"{name}_weight")
+        op3.set_input("total_weight", total_weight)
+        op3.set_attr_str("reduction", reduction_str)
+        op3.set_attr_int("ignore_index", ignore_index)
+
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
     def threshold_backward(name, grad_output, x, threshold):
-        if threshold == '0':
-            src_code = f"""auto {name} = op::ReluGrad("{name}")
-                             .set_input_gradients({grad_output})
-                             .set_input_features({x});
-                           """
-        else:
-            src_code = f"""auto {name} = op::ThresholdGradV2D("{name}")
-                             .set_input_gradients({grad_output})
-                             .set_input_features({x})
-                             .set_attr_threshold({threshold});
-                           """
-        return src_code
-
-    @staticmethod
-    def zeros_like(name, x, *args):
-        src_code = f"""auto {name} = op::ZerosLike("{name}")
-                         .set_input_x({x});
-                    """
-        return src_code
+        if threshold == 0:
+            op = OP(name, "ReluGrad")
+            op.set_input("gradients", grad_output)
+            op.set_input("features", x)
+            return op.to_node()
+        
+        op = OP(name, "ThresholdGradV2D")
+        op.set_input("gradients", grad_output)
+        op.set_input("features", x)
+        op.set_attr_float("threshold", threshold)
+        return op.to_node()
 
     @staticmethod
     def view_as_complex(name, node, x):
@@ -1784,48 +1620,49 @@ class AscendOverrides:
         shape_str = '{' + ','.join(map(str, y_shape)) + '}'
         output_dtype = 'DT_COMPLEX64' if x_dtype == torch.float32 else 'DT_COMPLEX128'
 
-        src_code = f"""auto {name}_split = op::SplitD("{name}_split")
-                         .set_input_x({x})
-                         .set_attr_split_dim({dim})
-                         .set_attr_num_split(2)
-                         .create_dynamic_output_y(2);
-                       auto {name}_complex = op::Complex("{name}_complex")
-                           .set_input_real({name}_split, 0)
-                           .set_input_imag({name}_split, 1)
-                           .set_attr_Tout({output_dtype});
-                  """
-        if dynamic_shape_str(shape_str):
-            src_code += process_shape_str(shape_str, name)
+        ops = []
+        split_op = OP(f"{name}_split", "SplitD")
+        split_op.set_input("x", x)
+        split_op.set_attr_int("split_dim", dim)
+        split_op.set_attr_int("num_split", 2)
+        split_op.set_dynamic_output("y", 2)
+        
+        complex_op = OP(f"{name}_complex", "Complex")
+        complex_op.set_input_with_index("real", f"{name}_split", 0)
+        complex_op.set_input_with_index("imag", f"{name}_split", 1)
+        
+        ops.append(split_op.to_node())
+        ops.append(complex_op.to_node())
+
+        if symint_in_shape(y_shape):
+            ops.extend(process_dynamic_shape(y_shape, name))
         else:
-            src_code += f"""auto {name}_reshape_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {shape_str});
-                            auto {name}_preprocess = op::Const("{name}_preprocess") 
-                            .set_attr_value({name}_reshape_tensor);
-                         """
-        src_code += f"""
-                       auto {name} = op::Reshape("{name}")
-                         .set_input_x({name}_complex)
-                         .set_input_shape({name}_preprocess);
-                  """
-        return src_code
+            const_op = OP(f"{name}_preprocess", "Const") 
+            const_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+            ops.append(const_op.to_node())
+            
+        op = OP(name, "Reshape")
+        op.set_input("x", f"{name}_complex")
+        op.set_input("shape", f"{name}_preprocess")
+        ops.append(op.to_node())
+        return ops
       
     @staticmethod
     def view_as_real(name, node, x):
         assert node.meta['val'].dtype == torch.float32
         x_shape = list(node.target.x.node.meta['val'].shape)
         dim = len(x_shape) - 1
+        
+        op1 = OP(f"{name}_real", "Real")
+        op1.set_input("input", x)
+        op2 = OP(f"{name}_imag", "Imag")
+        op2.set_input("input", x)
+        op3 = OP(name, "Pack")
+        op3.set_dynamic_input("x", 2, [f"{name}_real", f"{name}_imag"])
+        op3.set_attr_int("axis", dim)
+        op3.set_attr_int("N", 2)
 
-        src_code = f"""auto {name}_real = op::Real("{name}_real")
-                           .set_input_input({x});
-                       auto {name}_imag = op::Imag("{name}_imag")
-                           .set_input_input({x});
-                       auto {name} = op::Pack("{name}_pack")
-                           .create_dynamic_input_x(2)
-                           .set_dynamic_input_x(0, {name}_real)
-                           .set_dynamic_input_x(1, {name}_imag)
-                           .set_attr_axis({dim})
-                           .set_attr_N(2);
-                    """
-        return src_code
+        return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
     def slice(name, node, x, dim, start, end):
@@ -1840,63 +1677,40 @@ class AscendOverrides:
         assert dim >= 0 and dim < len(x_shape)
         assert start >=0 and start < x_shape[dim]
         
-        offset = ['0'] * len(x_shape)
-        offset[dim] = str(start)
-
-        shape_size = '{' + str(len(x_shape)) + '}'
-        offset_str = '{' + ','.join(offset) + '}'
-        size_str = '{' + ','.join(map(str, y_shape)) + '}'
+        offset = [0] * len(x_shape)
+        offset[dim] = start
         
-        # NB: In some cases, this function may obtain an incorrect value.
-        # example:
-        # >>def fn(x):
-        # >>    x = x[:, 1:3]
-        # >>    return x
-        # >>opt_model = torch.compile(fn, backend='ascendgraph')
-        # >>x = torch.tensor([[1, 2, 3],
-        #                    [4, 5, 6],
-        #                    [7, 8, 9]], dtype=torch.float32)
-        #
-        # output is : tensor([[1., 2.],
-        #                     [3., 4.],
-        #                     [5., 6.]])
-        # right output is : tensor([[2., 3.],
-        #                     [5., 6.],
-        #                     [8., 9.]])
-        # Kernel output is right, but aot_autograd changed it when process alis in
-        # torch/_functorch/aot_autograd.py(530)gen_alias_from_base().
-        # TODO(tangzhiyi): fix this
-        if dynamic_shape_str(offset_str):
-            src_code = process_shape_str(offset_str, name, '_offset')
+        ops = []
+        if symint_in_shape(offset):
+            ops.extend(offset, name, "preprocess_offset")
         else:
-            src_code = f"""auto {name}_offset_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {offset_str});
-                           auto {name}_preprocess_offset = op::Const("{name}_preprocess_offset")
-                           .set_attr_value({name}_offset_tensor);
-                        """
-        if dynamic_shape_str(size_str):
-            src_code += process_shape_str(size_str, name, '_size')
+            op1 = OP(f"{name}_preprocess_offset", "Const")
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
+            ops.append(op1.to_node())
+
+        if symint_in_shape(y_shape):
+            ops.extend(offset, name, "preprocess_size")
         else:
-            src_code += f"""auto {name}_size_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {size_str});
-                            auto {name}_preprocess_size = op::Const("{name}_preprocess_size")
-                            .set_attr_value({name}_size_tensor);
-                        """
-        src_code += f"""
-                       auto {name} = op::Slice("{name}")
-                           .set_input_x({x})
-                           .set_input_offsets({name}_preprocess_offset)
-                           .set_input_size({name}_preprocess_size);
-                    """
-        return src_code
+            op2 = OP(f"{name}_preprocess_size", "Const")
+            op2.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(x_shape)])
+            ops.append(op2.to_node())
+            
+        op = OP(name, "Slice")
+        op.set_input("x", x)
+        op.set_input("offsets", f"{name}_preprocess_offset")
+        op.set_input("size", f"{name}_preprocess_size")
+        ops.append(op.to_node())
+        return ops
 
     @staticmethod
     def cat(name, node, x, dim=0):
-        x_list = x.strip('{}').split(', ')
+        x_list = [a.name if isinstance(a, torch.fx.node.Node) else a for a in x]
         x_size = len(x_list)
         y_dtype = node.meta['val'].dtype
         
         x_node = node.args[0]
         x_names = []
-        src_code = ''
+        ops = []
         for i, v in enumerate(x_node):
             dtype = v.meta['val'].dtype
             if dtype == y_dtype:
@@ -1905,22 +1719,18 @@ class AscendOverrides:
             
             # cast to y_dtype
             ascend_dtype = get_ascend_dtype(y_dtype)
-            src_code += f'''
-                           auto {name}_cast_{i} = op::Cast("{name}_cast_{i}")
-                             .set_input_x({x_list[i]})
-                             .set_attr_dst_type({ascend_dtype});
-            '''
-            x_names.append(f'{name}_cast_{i}')
-            import pdb;pdb.set_trace()
-        src_code = f"""auto {name} = op::ConcatD("{name}")
-                         .create_dynamic_input_x({x_size})"""
-        
-        for i, x in enumerate(x_names):
-            src_code += f""".set_dynamic_input_x({i}, {x})"""
-        src_code += f""".set_attr_concat_dim({dim})
-                        .set_attr_N({x_size});
-                    """
-        return src_code
+            cast_op = OP(f"{name}_cast_{i}", "Cast")
+            cast_op.set_input("x", x_list[i])
+            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+            ops.append(cast_op.to_node())
+            x_names.append(f"{name}_cast_{i}")
+
+        op = OP(name, "ConcatD")
+        op.set_dynamic_input("x", x_size, x_names)
+        op.set_attr_int("concat_dim", dim)
+        op.set_attr_int("N", x_size)
+        ops.append(op.to_node())
+        return ops
       
     @staticmethod
     def select(name, node, x, dim, index):
@@ -1941,38 +1751,34 @@ class AscendOverrides:
             else:
                 size.append(end - offset[i])
 
-        shape_size = '{' + str(len(x_shape)) + '}'
-        offset_str = '{' + ','.join(map(str, offset)) + '}'
-        size_str = '{' + ','.join(map(str, size)) + '}'
-        y_shape_size = '{' + str(len(y_shape)) + '}'
-        y_shape_str = '{' + ','.join(map(str, y_shape)) + '}'
-
-        if dynamic_shape_str(offset_str):
-            src_code = process_shape_str(offset_str, name, '_offset')
+        ops = []    
+        if symint_in_shape(offset):
+            ops.extend(process_dynamic_shape(offset, name, "preprocess_offset"))
         else:
-            src_code = f"""auto {name}_offset_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {offset_str});
-                           auto {name}_preprocess_offset = op::Const("{name}_preprocess_offset")
-                           .set_attr_value({name}_offset_tensor);
-                        """
-        if dynamic_shape_str(size_str):
-            src_code += process_shape_str(size_str, name, '_size')
-        else:
-            src_code += f"""auto {name}_size_tensor = genTensorWithData<int>({{ {shape_size} }}, FORMAT_ND, DT_INT32, {size_str});
-                            auto {name}_preprocess_size = op::Const("{name}_preprocess_size")
-                            .set_attr_value({name}_size_tensor);
-                        """
-        src_code += f"""
-                       auto {name}_slice = op::Slice("{name}_slice")
-                           .set_input_x({x})
-                           .set_input_offsets({name}_preprocess_offset)
-                           .set_input_size({name}_preprocess_size);
-                       
-                       auto {name}_reshape_tensor = genTensorWithData<int>({y_shape_size}, FORMAT_ND, DT_INT32, {y_shape_str});
-                       auto {name}_reshape = op::Const("{name}_reshape") 
-                         .set_attr_value({name}_reshape_tensor);
+            op1 = OP(f"{name}_preprocess_offset", "Const")                        
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
+            ops.append(op1.to_node())
 
-                       auto {name} = op::Reshape("{name}")
-                         .set_input_x({name}_slice)
-                         .set_input_shape({name}_reshape);
-                       """
-        return src_code
+        if symint_in_shape(size):
+            ops.extend(process_dynamic_shape(offset, name, "preprocess_size"))
+        else:
+            op2 = OP(f"{name}_preprocess_size", "Const")
+            op2.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(x_shape)])
+            ops.append(op2.to_node())
+
+        op3 = OP(f"{name}_slice", "Slice")
+        op3.set_input("x", x)
+        op3.set_input("offsets", f"{name}_preprocess_offset")
+        op3.set_input("size", f"{name}_preprocess_size")
+
+        op4 = OP(f"{name}_reshape", "Const")
+        op4.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+
+        op5 = OP(name, "Reshape")
+        op5.set_input("x", f"{name}_slice")
+        op5.set_input("shape", f"{name}_reshape")
+
+        ops.append(op3.to_node())
+        ops.append(op4.to_node())
+        ops.append(op5.to_node())
+        return ops
