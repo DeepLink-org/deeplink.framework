@@ -2,17 +2,34 @@
 
 #include <vector>
 #include <iostream>
+#include <fstream>
+#include <string.h>
 
 #include <unistd.h>
 #include <cstdint>
 #include <chrono>
 
+#include <Python.h>
+
 #define HIT std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 
 bool file_exists(const char *filename) { return (access(filename, 0) == 0); }
 
+std::string ws2s(const std::wstring& ws)
+{
+    const wchar_t* wcs = ws.c_str();
+    size_t dByteNum = sizeof(wchar_t)*ws.size()+1;
+
+    char* dest = new char[dByteNum];
+    wcstombs(dest, wcs, dByteNum);
+    std::string result = dest;
+    delete[] dest;
+
+    return result;
+}
+
 void compile(std::shared_ptr<builder::Builder> builder,
-             topsExecutable_t *exe_ptr) {
+             topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
   topsgraphProgram program;
 
   // get the built IR from builder
@@ -25,18 +42,41 @@ void compile(std::shared_ptr<builder::Builder> builder,
       "-hlir=hlir-training-pipeline{tensor-split=true dynamic-shape=false}"};
   
   topsgraphCompileProgram(program, 3, options);
-
+  
   // get binary size and binary data
   size_t binary_size = 0;
   topsgraphGetBinSize(program, &binary_size);
   char *binary = new char[binary_size];
   topsgraphGetBin(program, binary);
-  topsCreateExecutable(exe_ptr, binary, binary_size);
+
+  std::string save_file = ws2s(static_cast<std::wstring>(compile_bin_path));
+  std::ofstream fout(save_file, std::ios::binary);
+  fout.write((char*)(&binary_size), sizeof(int));
+  fout.write(binary, binary_size);
+  fout.close();
+
   delete [] binary;
   topsgraphDestroyProgram(&program);
 
   std::cout << "Compile done!" << std::endl;
   return;
+}
+
+int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
+  std::wstring file_name_tmp = compile_bin_path;
+  std::string file_name = ws2s(file_name_tmp);
+
+  std::ifstream fin(file_name, std::ios::binary);
+  int binary_size_t;
+  fin.read((char *)&binary_size_t, sizeof(int));
+  
+  char *binary = new char[binary_size_t + 1];
+  memset(binary, 0, binary_size_t+1);
+  fin.read(binary, binary_size_t);
+  fin.close();
+
+  topsCreateExecutable(exe_ptr, binary, binary_size_t);
+  return 0;
 }
 
 int run(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,

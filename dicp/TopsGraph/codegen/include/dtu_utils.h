@@ -29,9 +29,13 @@
   } while (0)
 
 bool file_exists(const char *filename);
-void compile(
-    std::shared_ptr<builder::Builder> builder,
-    topsExecutable_t* exe_ptr);
+void compile(std::shared_ptr<builder::Builder> builder,
+             topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path);
+
+int load(
+    topsExecutable_t *exe_ptr,
+    const wchar_t *compile_bin_path
+);
 
 int run(
     topsExecutable_t exe_ptr,

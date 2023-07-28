@@ -139,7 +139,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 f.write(test)
             print("*******************Generated code*******************")
             print(test, flush=True)
-
+            
         return test
 
     def get_shape(self):
@@ -194,7 +194,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             compile_func_body.splice(
                 f"""
                     auto hlir_builder = build_sample();
-                    compile(hlir_builder, &exe_ptr);
+                    compile(hlir_builder, &exe_ptr, compile_bin_path);
                 """
                 , strip=True
             )
@@ -202,7 +202,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_func.writelines(
             [
                 f'topsExecutable_t exe_ptr;\n',
-                f'extern "C" void compile(void){"{"}'
+                f'extern "C" void compile_out(const wchar_t *compile_bin_path){"{"}'
             ]
         )
         with compile_func.indent():
@@ -242,6 +242,19 @@ class EnflameCodegen(torch.fx.Interpreter):
             run_func_code.splice(func_body)
         run_func_code.splice('}')
         return run_func_code
+    
+    def gen_load_func_code(self):
+        func_body = IndentedBuffer()
+        func_body.writeline(f'load(&exe_ptr, compile_bin_path);')
+
+        run_func_code = IndentedBuffer()
+        run_func_code.writeline(f'extern "C" void load(const wchar_t *compile_bin_path){"{"}')
+        
+        with run_func_code.indent():
+            run_func_code.splice(func_body)
+        run_func_code.splice('}')
+        
+        return run_func_code
 
     def get_kernel_header(self):
             return f"""
@@ -279,6 +292,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_graph_code.writeline("")
 
         compile_graph_code.splice(self.gen_compile_func_code())
+        compile_graph_code.splice(self.gen_load_func_code())
         compile_graph_code.splice(self.gen_run_func_code())
         compile_graph_code.writeline(f"''')")
         compile_graph_code.writeline("")
