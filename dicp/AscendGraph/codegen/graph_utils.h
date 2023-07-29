@@ -188,9 +188,9 @@ void parseDynamicInput(
         for (const auto& item : i["value"]) {
           auto index = item["index"].get<uint32_t>();
           auto value = op_map[item["value"].get<std::string>()];
-          if (item.contains("output_name")) {
+          if (item.contains("edge")) {
             op.set_dynamic_input_x(
-                index, value, item["output_name"].get<std::string>().c_str());
+                index, value, item["edge"].get<std::string>().c_str());
           } else {
             op.set_dynamic_input_x(index, value);
           }
@@ -262,8 +262,10 @@ void parseCommonNode(
             ge::Shape(shape),
             get_ascend_format(format),
             get_ascend_datatype(data_type));
-        // TODO(tangzhiyi): now assume output name is y.
-        op_map[i["value"].get<std::string>()].UpdateInputDesc("y", tensor_desc);
+        auto output_name = desc["output_name"].get<std::string>();
+        op_map[i["value"].get<std::string>()].UpdateOutputDesc(
+                      output_name.c_str(), tensor_desc);
+        op.SetInput(name, value);
       } else {
         op.SetInput(name, value);
       }
