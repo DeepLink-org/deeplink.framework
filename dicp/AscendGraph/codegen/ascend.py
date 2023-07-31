@@ -49,27 +49,31 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
 
     def generate_digits_op(shapes):
         count = len(x_names)
-        op = OP(f"{name}_dim_{count}", "Const")
+        op = OP(f"{name}_dim_{suffix}{count}", "Const")
         op.set_attr_tensor("value", "INT32", "INT32", "NCHW", shapes, [len(shapes)])
         ops.append(op.to_node())
-        x_names.append(f"{name}_dim_{count}")
+        x_names.append(f"{name}_dim_{suffix}{count}")
     
     def generate_sym_int(elem):
         count = len(x_names)
-        elem = str(elem)
+        elem = elem.node.str()
         elems = elem.strip().split(' ')
         
-        assert len(elems) == 3
-        assert elems[2].isdigit()
-        assert elems[1] == '+' or elems[1] == '-'
-        op_type = "Add" if elems[1] == '+' else "Sub"
-        op1 = OP(f"{name}_dim_{count}_const", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [])
-        op2 = OP(f"{name}_dim_{count}", op_type)
-        op2.set_input("x1", sym_to_inputs[elems[0]])
-        op2.set_input("x2", f"{name}_dim_{count}_const")
-        ops.extend([op1.to_node(), op2.to_node()])
-        x_names.append(f"{name}_dim_{count}")
+        if len(elems) > 1:
+            assert len(elems) == 3
+            assert elems[2].isdigit()
+            assert elems[1] == '+' or elems[1] == '-'
+            op_type = "Add" if elems[1] == '+' else "Sub"
+            op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
+            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [])
+            op2 = OP(f"{name}_dim_{suffix}{count}", op_type)
+            op2.set_input("x1", sym_to_inputs[elems[0]])
+            op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
+            ops.extend([op1.to_node(), op2.to_node()])
+            x_names.append(f"{name}_dim_{suffix}{count}")
+        else:
+            x_names.append(sym_to_inputs[elems[0]])
+       
 
     dims = []
     for elem in shape:
@@ -189,7 +193,7 @@ class AscendCodegen(torch.fx.Interpreter):
         elif symint_in_shape(fake_tensor.shape):
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
-            actual_shape = fake_tensor.shape
+            actual_shape = [elem.node.str() if isinstance(elem, torch.SymInt) else str(elem) for elem in fake_tensor.shape]
             self.dynamic_inputs.append(self.args_dict[name])
             self.dynamic_shape.append(shape)
             self.actual_shape.append(actual_shape)
@@ -281,7 +285,9 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.import_code.getvalue()
 
     def process_sym_name(self, st):
-        if '+' in st:
+        if st.isdigit():
+            return st
+        elif '+' in st:
             sp = st.split('+')
             assert(len(sp) == 2)
             sp = [elem.strip() for elem in sp]
@@ -309,7 +315,7 @@ class AscendCodegen(torch.fx.Interpreter):
           for idx, elem in enumerate(self.actual_shape):
               if len(elem) == 0:
                   continue
-              elem = [self.process_sym_name(dim.node.str()) if isinstance(dim, torch.SymInt) else dim for dim in elem]
+              elem = [self.process_sym_name(dim) for dim in elem]
               dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
           dims = dims[:-1] + f'''}}'''
         else:
@@ -1657,6 +1663,17 @@ class AscendOverrides:
         return [op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
+    def stack(name, x, dim):
+        x = [str(elem) for elem in x]
+
+        op = OP(f"{name}", "Pack")
+        op.set_dynamic_input("x", len(x), x)
+        op.set_attr_int("axis", dim)
+        op.set_attr_int("N", len(x))
+
+        return op.to_node()
+
+    @staticmethod
     def slice(name, node, x, dim, start, end):
         # TODO(tangzhiyi): miss step parameter
         x_shape = list(node.target.x.node.meta['val'].shape)
@@ -1674,14 +1691,14 @@ class AscendOverrides:
         
         ops = []
         if symint_in_shape(offset):
-            ops.extend(offset, name, "preprocess_offset")
+            ops.extend(process_dynamic_shape(offset, name, "preprocess_offset"))
         else:
             op1 = OP(f"{name}_preprocess_offset", "Const")
             op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
             ops.append(op1.to_node())
 
         if symint_in_shape(y_shape):
-            ops.extend(offset, name, "preprocess_size")
+            ops.extend(process_dynamic_shape(y_shape, name, "preprocess_size"))
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
             op2.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(x_shape)])
@@ -1732,7 +1749,7 @@ class AscendOverrides:
         index = int(index)
         
         assert dim >= 0 and dim < len(x_shape)
-        start = index + x_shape[dim]
+        start = index if index >= 0 else index + x_shape[dim]
         end = start + 1
         offset = [0] * len(x_shape)
         offset[dim] = start
@@ -1752,7 +1769,7 @@ class AscendOverrides:
             ops.append(op1.to_node())
 
         if symint_in_shape(size):
-            ops.extend(process_dynamic_shape(offset, name, "preprocess_size"))
+            ops.extend(process_dynamic_shape(size, name, "preprocess_size"))
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
             op2.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(x_shape)])
@@ -1763,14 +1780,17 @@ class AscendOverrides:
         op3.set_input("offsets", f"{name}_preprocess_offset")
         op3.set_input("size", f"{name}_preprocess_size")
 
-        op4 = OP(f"{name}_reshape", "Const")
-        op4.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+        if symint_in_shape(y_shape):
+            ops.extend(process_dynamic_shape(y_shape, name, "preprocess"))
+        else:
+            op4 = OP(f"{name}_preprocess", "Const")
+            op4.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+            ops.append(op4.to_node())
 
         op5 = OP(name, "Reshape")
         op5.set_input("x", f"{name}_slice")
-        op5.set_input("shape", f"{name}_reshape")
+        op5.set_input("shape", f"{name}_preprocess")
 
-        ops.append(op3.to_node())
-        ops.append(op4.to_node())
+        ops.append(op3.to_node())        
         ops.append(op5.to_node())
         return ops
