@@ -1664,7 +1664,7 @@ class AscendOverrides:
 
     @staticmethod
     def stack(name, x, dim):
-        x = [str(elem) for elem in x]
+        x = [elem.name for elem in x]
 
         op = OP(f"{name}", "Pack")
         op.set_dynamic_input("x", len(x), x)

@@ -5,7 +5,7 @@ import torch
 
 
 # the range for dynamic shape
-max_range = 128
+MAX_RANGE = 128
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -198,8 +198,8 @@ class AscendExecutor(object):
                     if dim > -1:
                         temp_buffer_size *= dim
                     else:
-                        temp_buffer_size *= max_range
-                        dims[idx] = max_range
+                        temp_buffer_size *= MAX_RANGE
+                        dims[idx] = MAX_RANGE
 
             if temp_buffer_size == 0:
                 temp_buffer_size = 1
