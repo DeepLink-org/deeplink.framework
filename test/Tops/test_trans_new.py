@@ -1,6 +1,6 @@
 import torch
 import torch._dynamo
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
 
 class MyModule(torch.nn.Module):
     def __init__(self):

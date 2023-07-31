@@ -155,7 +155,8 @@ class EnflameCodegen(torch.fx.Interpreter):
                 
                 from ctypes import c_void_p, c_long
                 from torch import empty_strided, as_strided, device
-                from dicp.TopsGraph.compile import AsyncCompileTopsGraph
+                from dicp.dynamo_bridge.compile import AsyncCompileKernel
+                from dicp.vendor.TopsGraph.compile_job import TopsCompileJob
             """
             , strip=True
         )
@@ -276,13 +277,7 @@ class EnflameCodegen(torch.fx.Interpreter):
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
         compile_graph_code.writeline("")
-        compile_graph_code.splice(
-            f"""
-                async_compile = AsyncCompileTopsGraph()\n
-                kernel_cpp_0 = async_compile.topsgraph('''
-            """
-            , strip=True
-        )
+        compile_graph_code.writeline(f"source_code = '''")
         compile_graph_code.splice(self.get_kernel_header(), strip=True)
         compile_graph_code.writeline("")
         compile_graph_code.writeline(f'std::shared_ptr<builder::Builder> build_sample() {"{"}')
@@ -294,13 +289,17 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_graph_code.splice(self.gen_compile_func_code())
         compile_graph_code.splice(self.gen_load_func_code())
         compile_graph_code.splice(self.gen_run_func_code())
-        compile_graph_code.writeline(f"''')")
-        compile_graph_code.writeline("")
-        compile_graph_code.writeline("async_compile.wait(globals())")
-        compile_graph_code.writeline("")
-        compile_graph_code.writeline("del async_compile")
-        compile_graph_code.writeline("")
-
+        compile_graph_code.writeline(f"'''")
+        compile_graph_code.splice(
+            f"""
+                compile_job = TopsCompileJob(source_code)
+                async_compile = AsyncCompileKernel()
+                kernel_cpp_0 = async_compile.compile_kernel(compile_job)
+                async_compile.wait(globals())
+                del async_compile
+            """
+            , strip=True
+        )
         return compile_graph_code.getvalue()
 
     def gen_tensor(self, prefix, tensor):

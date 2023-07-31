@@ -3,8 +3,8 @@ import torch.fx
 import sys
 import os
 
-from dicp.common.op_transformer import OpSetTransformer
-from dicp.AscendGraph.conversion import patterns, conversions
+from dicp.dynamo_bridge.op_transformer import OpSetTransformer
+from dicp.vendor.AscendGraph.conversion import patterns, conversions
 
 
 def ascendgraph_opset_convert(

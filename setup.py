@@ -5,7 +5,7 @@ import os
 
 def build_deps():
     paths = [
-        ('third_party/nlohmann/json/single_include/nlohmann/json.hpp', 'dicp/AscendGraph/codegen/nlohmann/json.hpp')
+        ('third_party/nlohmann/json/single_include/nlohmann/json.hpp', 'dicp/vendor/AscendGraph/codegen/nlohmann/json.hpp')
     ]
     
     for orig_path, new_path in paths:
@@ -32,7 +32,7 @@ def main():
         version="0.0.1",
         url="https://github.com/DeepLink-org/DICP",
         packages=find_packages(),
-        package_data={"dicp": [
+        package_data={"dicp/vendor": [
             "TopsGraph/codegen/src/*.cpp",
             "TopsGraph/codegen/include/*.h",
             "AscendGraph/codegen/*.cpp",
@@ -47,8 +47,8 @@ def main():
         ],
         entry_points = {
             'torch_dynamo_backends': [
-                'topsgraph = dicp.TopsGraph:topsgraph',
-                'ascendgraph = dicp.AscendGraph:ascendgraph',
+                'topsgraph = dicp.vendor.TopsGraph:topsgraph',
+                'ascendgraph = dicp.vendor.AscendGraph:ascendgraph',
             ]
         },
         python_requires=">=3.8",
