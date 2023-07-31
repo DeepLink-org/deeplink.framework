@@ -1,30 +1,6 @@
 [{
     "graph_fusion": {
-        "AAMatMulNzToNdFusionPass": {
-            "effect_times": "0",
-            "match_times": "2"
-        },
-        "BatchMatMulFusionPass": {
-            "effect_times": "0",
-            "match_times": "1"
-        },
-        "CubeTransFixpipeFusionPass": {
-            "effect_times": "0",
-            "match_times": "1"
-        },
-        "FIXPIPEAPREQUANTFUSIONPASS": {
-            "effect_times": "0",
-            "match_times": "1"
-        },
-        "FIXPIPEFUSIONPASS": {
-            "effect_times": "0",
-            "match_times": "1"
-        },
-        "MatMul2MatMulV2FusionPass": {
-            "effect_times": "0",
-            "match_times": "1"
-        },
-        "MatMulUnsqueezeSqueezeFusionPass": {
+        "ASoftmaxFusionPass": {
             "effect_times": "0",
             "match_times": "1"
         },
@@ -32,13 +8,13 @@
             "effect_times": "1",
             "match_times": "1"
         },
-        "RemoveCastFusionPass": {
+        "SoftmaxFusionPass": {
             "effect_times": "0",
-            "match_times": "3"
+            "match_times": "1"
         },
-        "TransdataCastFusionPass": {
+        "softmaxTransFusionPass": {
             "effect_times": "0",
-            "match_times": "3"
+            "match_times": "1"
         }
     },
     "session_and_graph_id": "0_0"
