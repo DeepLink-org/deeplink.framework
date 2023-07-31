@@ -324,10 +324,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     // need add adapter to handle int64/double! camb not support double
     fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
 
-    dipu::recordStream(inputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
-
-    dipu::recordStream(outputs[i].storage().data_ptr(), diclComms[i]->diclStream_);
-
+    dipu::recordStream(inputs[i], diclComms[i]->diclStream_);
+    if (inputs[i].storage().data_ptr().get() != outputs[i].storage().data_ptr().get()) {
+      dipu::recordStream(outputs[i], diclComms[i]->diclStream_);
+    }
 
     // mock comm with just copy, used in standalone test.
     // DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
@@ -435,12 +435,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
       // Copy the flattened output tensors to the outputs.
       for (size_t i = 0; i < output_tensors.size(); ++i) {
+        // warnning & todo:: copy in comm stream, but diopi-cuda use aten copy_, 
+        // underlying stream is incorrect. change to use default stream and wait will cause pref hurt.
         DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
         for (size_t j = 0; j < output_tensors[0].size(); ++j) {
-          output_tensors[i][j].copy_(outputFlattened[i][j], false);
-          //todo:: add recordStream after cacheAllocator ready
-          // DIPUCachingAllocator::recordStream(
-          //     output_tensors[i][j].storage().data_ptr(), diclComms[i]->diclStream_);
+          output_tensors[i][j].copy_(outputFlattened[i][j], true);
+          dipu::recordStream(output_tensors[i][j], diclComms[i]->diclStream_);
         }
       }
     }, 

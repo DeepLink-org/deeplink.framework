@@ -23,9 +23,9 @@ using dipu::devproxy::current_device;
 
 namespace dipu::native {
   void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage, size_t newsize_bytes) {
-    TORCH_CHECK(storage->resizable(), "Trying to resize storage that is not resizable");
+    TORCH_CHECK(storage->resizable(), "Trying to resize dipu storage that is not resizable");
     auto allocator = storage->allocator();
-    TORCH_CHECK(allocator != nullptr, "Trying to resize storage without an allocator");
+    TORCH_CHECK(allocator != nullptr, "Trying to resize dipu storage without an allocator");
 
     auto device = current_device();
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
