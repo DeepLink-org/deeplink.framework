@@ -20,12 +20,10 @@ class AscendCodeCache:
             "cpp",
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) + 'local_rank' + str(local_rank),
         )
-        #output_path = input_path[:-3] + 'so'
-        #output_graph_path = input_path[:-4] + '/graph'
-        #print('output_path: ', output_graph_path)
-
         output_path = input_path[:-3] + 'so'
-        output_graph_path = os.path.split(output_path)[0] + '/graph'
+        output_graph_path = input_path[:-4] + '/graph'
+        print('output_path: ', output_graph_path)
+
         from dicp.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         start = time.time()
@@ -66,7 +64,7 @@ class AscendCodeCache:
 
             from dicp.AscendGraph.codegen.load_and_run import AscendExecutor, AscendModel
             # exe = AscendExecutor(0, dims, output_graph_path + '.om')
-            exe = AscendModel(0, output_graph_path + '.om')
+            exe = AscendModel(local_rank, output_graph_path + '.om')
             cls.cache[key] = exe
             cls.cache[key].key = key
 
