@@ -1,6 +1,5 @@
 import torch
-import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -19,15 +18,11 @@ b = 3
 
 enflame_model = MyModule()
 compiled_model = torch.compile(enflame_model, backend="topsgraph")
-resenflame = compiled_model(a, b)
+r1 = compiled_model(a, b)
+ 
+torch._dynamo.reset()
 
 torch_model = MyModule()
-restorch = torch_model(a, b)
+r2 = torch_model(a, b)
 
-print("##########################")
-print(f'\n*******result*******\n {resenflame} \n*******result*******\n')
-print(f'\n*******result*******\n {restorch}   \n*******result*******\n')
-
-compare = torch.allclose(resenflame, restorch)
-
-print(f'\n*******compare result*******\n  {compare} \n*******compare result*******\n')
+print(f"Test pow op result:{torch.allclose(r1, r2, equal_nan=True)}")

@@ -1,6 +1,5 @@
 import torch
-import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -20,16 +19,16 @@ class MyModule(torch.nn.Module):
 
         return r
 
-a = torch.randn(1, 3, 3, 2, dtype=torch.float16)
+a = torch.randn(1, 3, 3, 2, dtype=torch.float32)
 b = torch.randn(1, 3, 2, 3, dtype=torch.float32)
 
-m = MyModule()
-compiled_model = torch.compile(m, backend="topsgraph")
-r1 = compiled_model(a, b)
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1= compiled_model(a, b)
 
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-t1 = torchm(a, b)
 
-print(f'Tests bmm result\n{torch.allclose(t1, r1, equal_nan=True)}')
+torch_model = MyModule()
+r2 = torch_model(a, b)
+
+print(f"Test bmm op result:{torch.allclose(r1, r2, equal_nan=True)}")

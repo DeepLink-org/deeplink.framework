@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 
 from torch._inductor.decomposition import decompositions
 del decompositions[torch.ops.aten._native_batch_norm_legit_functional.default]
@@ -16,13 +16,15 @@ class MyModule(torch.nn.Module):
 
 x = torch.randn(2, 3)
 
-menflame = MyModule()
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1 = compiled_model(x)
+enflame_model = MyModule()
+
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(x)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1 = torchm(x)
 
-print(f'Tets LogSoftmax Result\n{torch.allclose(t1, r1, equal_nan=True)}')
+torch_model = MyModule()
+r2 = torch_model(x)
+
+print(f"Test log_softmax op result:{torch.allclose(r1, r2, equal_nan=True)}")

@@ -4,9 +4,9 @@ import torch.distributed
 
 from torch._inductor.decomposition import decompositions
 
-tops_debug = True if os.getenv('TOPS_DEBUG', default='False') == 'True' else False
+tops_debug = True if os.getenv('DICP_TOPS_DEBUG', default='False') == 'True' else False
 
-dipu_flag = True if os.getenv('DICP_TOPS_DIPU_FLAG', default='False') == 'True' else False
+dipu_flag = True if os.getenv('DICP_TOPS_DIPU', default='True') == 'True' else False
 
 if torch.distributed.is_initialized():
     device_id = torch.distributed.get_rank()

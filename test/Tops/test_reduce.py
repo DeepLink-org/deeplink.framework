@@ -1,6 +1,5 @@
 import torch
-import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -13,14 +12,16 @@ class MyModule(torch.nn.Module):
         r2 = torch.ops.aten.amax(a, b)
         return r1, r2
 
-a1 = torch.randn(10, 10, 10)
-b1 = torch.randn(10, 10)
-c1 = torch.randn(10, 10)
+a = torch.randn(10, 10, 10)
 
-menflame = MyModule()
-#compiled_model = torch.compile(menflame, backend="inductor")
-print("##########################")
-compiled_model = torch.compile(menflame, backend="topsgraph")
-r1, r2 = compiled_model(a1, [1, 2])
-print(f'\n**************\n reducesum \n {r1}\n\n reducemax \n {r2}\n**************\n')
-print("##########################")
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1, r2 = compiled_model(a, [1, 2])
+ 
+torch._dynamo.reset()
+
+torch_model = MyModule()
+r3, r4 = torch_model(a, [1, 2])
+
+print(f"Test reduce_sum op result:{torch.allclose(r1, r3, equal_nan=True)}")
+print(f"Test reduce_amax op result:{torch.allclose(r2, r4, equal_nan=True)}")

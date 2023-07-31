@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -18,12 +18,9 @@ b = torch.randn(10, 10, dtype=torch.float)
 
 enflame_model = MyModule()
 compiled_model = torch.compile(enflame_model, backend="topsgraph")
-resenflame = compiled_model(a, b)
+r1 = compiled_model(a, b)
 
 torch_model = MyModule()
-torch_model = torch.compile(torch_model)
-restorch = torch_model(a, b)
+r2 = torch_model(a, b)
 
-compare = torch.allclose(resenflame, restorch, equal_nan=True)
-
-print(f'Tests convert reslut\n{compare}')
+print(f"Test convert op result:{torch.allclose(r1, r2, equal_nan=True)}")

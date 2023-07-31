@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
 import operator
 class MyModule(torch.nn.Module):
@@ -12,28 +12,19 @@ class MyModule(torch.nn.Module):
         c1  = torch.ops.aten.add(a1, a2)
         c2  = torch.ops.aten.sub(a1, a2)
         b = tuple((c1, c2))
-        o1 = operator.getitem(b, 0)
-        o2 = operator.getitem(b, 1)
-        return o1, o2
+        res = operator.getitem(b, 0)
+        return res
 
-inputs = torch.rand(3,3,3,3)
-a1, a2 = torch.rand(2,2,2), torch.rand(2,2,2)
+a1, a2 = torch.rand(2, 2, 2), torch.rand(2, 2, 2)
 
- 
-menflame = MyModule()
-print("##########################")
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1, t2 = compiled_model(a1, a2)
-print(f'\n**************\n test \n {t1} {t2}\n**************\n')
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(a1, a2)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1, r2  = torchm(a1, a2)
-print(f'\n**************\n ref \n {r1} \n{r2}\n**************\n')
 
-print(f'final\n{torch.allclose(t1, r1, equal_nan=True)}')
-print(f'final\n{torch.eq(t1, r1)}')
-print(f'final\n{torch.allclose(t2, r2, equal_nan=True)}')
-print(f'final\n{torch.eq(t2, r2)}')
+torch_model = MyModule()
+r2 = torch_model(a1, a2)
+
+print(f"Test getitem op result:{torch.allclose(r1, r2, equal_nan=True)}")
  

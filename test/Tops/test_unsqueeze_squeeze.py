@@ -1,6 +1,5 @@
 import torch
-import torch.fx
-from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -13,23 +12,16 @@ class MyModule(torch.nn.Module):
         sq = torch.ops.aten.squeeze(a, c)
         return unsq, sq
 
-a1 = torch.randn(1, 3, 3)
+a = torch.randn(1, 3, 3)
 
-menflame = MyModule()
-print("##########################")
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1, t2 = compiled_model(a1, 1, 0)
-print(f'\n**************\n unsqueeze test \n {t1}\n**************\n')
-print(f'\n**************\n squeeze test   \n {t2}\n**************\n')
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1, r2 = compiled_model(a, 1, 0)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1, r2 = torchm(a1,1,  0)
-print(f'\n**************\n unsqueeze ref \n {t1}\n**************\n')
-print(f'\n**************\n squeeze ref   \n {t2}\n**************\n')
 
-print(f'final\n{torch.allclose(t1, r1, equal_nan=True)}')
-print(f'final\n{torch.allclose(t2, r2, equal_nan=True)}')
-print(f'final\n{torch.eq(t1, r1)}')
-print(f'final\n{torch.eq(t2, r2)}')
+torch_model = MyModule()
+r3, r4 = torch_model(a, 1, 0)
+
+print(f"Test unsqueeze op result:{torch.allclose(r1, r3, equal_nan=True)}")
+print(f"Test squeeze op result:{torch.allclose(r2, r4, equal_nan=True)}")

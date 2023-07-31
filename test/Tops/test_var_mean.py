@@ -1,5 +1,5 @@
 import torch
-
+import torch._dynamo
 
 def _validate_reduction_axis(x, axis):
     size = x.size()
@@ -30,15 +30,12 @@ def test_var_mean(inputs, dims, correction=0, keepdim=True):
     return x_var, mean1
 
 if 1:
-#def main():
     inputs = torch.rand(5, 8, 16, 16)
-    print(f"***shape***{inputs.size()}")
-    #dims = None
-    #dims=int(0)
     dims=[0, 2, 3]
+    
     var, mean = test_var_mean(inputs,dims,correction=0, keepdim=True)
     refvar, refmean = torch.ops.aten.var_mean(inputs, dims, correction=0,keepdim=True)
-    #print(f"*****test var: {var}\n*****ref var: {refvar}")
-    #print(f"*****test mean: {mean}\n*****ref mean: {refmean}")
-    print(f"*****test-ref var: \n{var -refvar}\n********")
-    #print(f"*****test-ref mean: {mean-refmean}")
+    
+    print(f"Test var op result:{torch.allclose(var, refvar, equal_nan=True)}")
+    print(f"Test mean op result:{torch.allclose(mean, refmean, equal_nan=True)}")
+    

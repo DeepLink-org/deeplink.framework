@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -14,22 +14,13 @@ class MyModule(torch.nn.Module):
 
 x = torch.randn(1, 12, 32, 64, 2)
 
-m = MyModule()
-compiled_model = torch.compile(m, backend="topsgraph")
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
 r1 = compiled_model(x)
-
+ 
 torch._dynamo.reset()
 
-t = torch.ops.aten.view_as_complex.default(x)
-r2 = torch.ops.aten.view_as_real.default(t)
+torch_model = MyModule()
+r2 = torch_model(x)
 
-print(f'\n****************************\n')
-
-print(f"r1: {r1}")
-print(f"r2: {r2}")
-
-print(f"r1 - r2:\n{r1 - r2}")
-
-print(f"nan test: r1-{torch.isnan(r1).any()}, r2-{torch.isnan(r2).any()}" )
-print(f'torch.allclose:{torch.allclose(r1, r2)}')
-print(f'torch.eq:{torch.eq(r1, r2).all()}')
+print(f"Test real_complex op result:{torch.allclose(r1, r2, equal_nan=True)}")

@@ -1,6 +1,7 @@
-import torch
-import torch.fx
 import random
+
+import torch
+import torch._dynamo
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -18,13 +19,13 @@ x = random.randint(1, 10)
 y = random.randint(1, 10)
 a = torch.randn(x, y)
 
-menflame = MyModule()
-compiled_model = torch.compile(menflame, backend="topsgraph")
-t1 = compiled_model(a)
+enflame_model = MyModule()
+compiled_model = torch.compile(enflame_model, backend="topsgraph")
+r1 = compiled_model(a)
  
 torch._dynamo.reset()
-tm = MyModule()
-torchm = torch.compile(tm)
-r1 = torchm(a)
 
-print(f'Tests sum result\n{torch.allclose(t1, r1, equal_nan=True)}')
+torch_model = MyModule()
+r2 = torch_model(a)
+
+print(f"Test sum op result:{torch.allclose(r1, r2, equal_nan=True)}")

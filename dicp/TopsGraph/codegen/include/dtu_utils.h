@@ -29,12 +29,16 @@
   } while (0)
 
 bool file_exists(const char *filename);
-void compile(
-    std::shared_ptr<builder::Builder> builder,
-    topsExecutable_t* exe_ptr);
+void compile(std::shared_ptr<builder::Builder> builder,
+             topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path);
 
-int run(
-    topsExecutable_t exe_ptr,
+int load(
+    topsExecutable_t *exe_ptr,
+    const wchar_t *compile_bin_path
+);
+
+int run(topsExecutable_t exe_ptr,
+    void *dipu_stream,
     std::vector<void*>& input_ptrs,
     std::vector<void*>& output_ptrs,
     int device_id,

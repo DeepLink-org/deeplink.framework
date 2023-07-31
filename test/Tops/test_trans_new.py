@@ -1,5 +1,5 @@
 import torch
-import torch.fx
+import torch._dynamo
 from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
 
 class MyModule(torch.nn.Module):
@@ -21,21 +21,12 @@ d = 1
 
 enflame_model = MyModule()
 compiled_model = torch.compile(enflame_model, backend="topsgraph")
-resenflame = compiled_model(a, b, c, d)
+r1, r2 = compiled_model(a, b, c, d)
+ 
+torch._dynamo.reset()
 
 torch_model = MyModule()
-restorch = torch_model(a, b, c, d)
+r3, r4 = torch_model(a, b, c, d)
 
-menflame = MyModule()
-print("##########################")
-print(f'\n*******result*******\n resenflame(permute) \n {resenflame[0]}\n\n resenflame(transpose) \n{resenflame[1]}\n*******result*******\n')
-print(f'\n*******result*******\n restorch(permute) \n {restorch[0]}\n\n restorch(transpose) \n{restorch[1]}\n*******result*******\n')
-
-compare_perm = torch.eq(resenflame[0], restorch[0])
-compare_trans = torch.eq(resenflame[1], restorch[1])
-
-compare_perm_1 = torch.allclose(resenflame[0], restorch[0])
-compare_trans_1 = torch.allclose(resenflame[1], restorch[1])
-
-print(f'\n*******compare result*******\n permute \n {compare_perm}\n {compare_perm_1}\n*******compare result*******\n')
-print(f'\n*******compare result*******\n transpose \n {compare_trans}\n {compare_trans_1}\n*******compare result*******\n')
+print(f"Test permute op result:{torch.allclose(r1, r3, equal_nan=True)}")
+print(f"Test transpose op result:{torch.allclose(r2, r4, equal_nan=True)}")
