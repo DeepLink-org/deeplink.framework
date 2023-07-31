@@ -64,7 +64,7 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
         assert elems[1] == '+' or elems[1] == '-'
         op_type = "Add" if elems[1] == '+' else "Sub"
         op1 = OP(f"{name}_dim_{count}_const", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [1])
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [])
         op2 = OP(f"{name}_dim_{count}", op_type)
         op2.set_input("x1", sym_to_inputs[elems[0]])
         op2.set_input("x2", f"{name}_dim_{count}_const")
@@ -487,7 +487,7 @@ class AscendOperator:
             "num": num
         }) 
         
-    def set_and_update_input(self, name, value, shape, format, data_type):
+    def set_and_update_input(self, name, value, shape, format, data_type, output_name="y"):
         self.inputs.append({
             "name": name,
             "value": value,
@@ -495,6 +495,7 @@ class AscendOperator:
                 "format": format,
                 "shape": shape,
                 "data_type": data_type,
+                "output_name": output_name,
             }
         })
 
@@ -629,11 +630,6 @@ class AscendOverrides:
     def mul(name, node, x, y):
         (_, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            src_code = f"""
-                           auto {name} = op::Mul("{name}")
-                             .set_input_x1({x})
-                             .set_input_x2({y});
-                        """
             op = OP(name, "Mul")
             op.set_input("x1", x)
             op.set_input("x2", y)
@@ -653,7 +649,7 @@ class AscendOverrides:
         mul_op = OP(name, "Mul")
         mul_op.set_input("x1", x)
         scalar_op = OP(f"{name}_scalar", "Const")
-        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
         if not_support_type:
             ascend_dtype = get_ascend_dtype(dtype)
             cast_op = OP(f"{name}_scalar_cast", "Cast")
@@ -678,11 +674,6 @@ class AscendOverrides:
             if x_dtype != out_dtype:
                 ascend_dtype = get_ascend_dtype(out_dtype)
                 x_name = f'{name}_x_cast'
-                src_code += f"""
-                            auto {name}_x_cast = op::Cast("{name}_x_cast")
-                              .set_input_x({x})
-                              .set_attr_dst_type({ascend_dtype});
-                          """
                 cast_op = OP(f'{name}_x_cast', "Cast")
                 cast_op.set_input("x", x)
                 cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
@@ -699,7 +690,7 @@ class AscendOverrides:
             ascend_dtype = get_ascend_dtype(out_dtype)
             cpp_dtype = get_cpp_dtype(out_dtype)
             scalar_op = OP(f'{name}_scalar', "Const")
-            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
             y_name = f"{name}_scalar"
             ops.append(scalar_op.to_node())
         add_op = OP(name, "AddV2")
@@ -830,7 +821,7 @@ class AscendOverrides:
         cpp_dtype = "FLOAT"
         ascend_dtype = "FLOAT"
         const_op = OP(f"{name}_scalar", "Const")
-        const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [y], [1])
+        const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
         mul_op = OP(name, "Mul")
         mul_op.set_input("x1", x)
         mul_op.set_input("x2", f"{name}_scalar")
@@ -921,7 +912,7 @@ class AscendOverrides:
     @staticmethod
     def embedding(name, weight, indices):
         op1 = OP(f"{name}_axis", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [0], [1])
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [0], [])
         op2 = OP(name, "GatherV2")
         op2.set_input("x", weight)
         op2.set_input("indices", indices)
@@ -957,7 +948,7 @@ class AscendOverrides:
         pow_op = OP(name, "Pow")
         pow_op.set_input("x1", x)
         scalar_op = OP(f"{name}_scalar", "Const")
-        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [exp], [1])
+        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [exp], [])
         if not_support_type:
             ascend_dtype = get_ascend_dtype(dtype)
             cast_op = OP(f"{name}_scalar_cast", "Cast")
@@ -1054,7 +1045,7 @@ class AscendOverrides:
         shape_op = OP(f"{name}_shape", "Shape")
         shape_op.set_input("x", f"{name}_fwd_out")
         index_op = OP(f"{name}_indice", "Empty")
-        index_op.set_input("Shape", f"{name}_shape")
+        index_op.set_input("shape", f"{name}_shape")
         index_op.set_attr_int("dtype", get_ascend_dtype_num("INT64"))
 
         id_op = OP(name, "IdentityN")
@@ -1070,9 +1061,9 @@ class AscendOverrides:
     def addmm(name, c, a, b, beta=1.0, alpha=1.0):
         ops = []
         beta_op = OP(f"{name}_beta", "Const")
-        beta_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [beta], [1])
+        beta_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [beta], [])
         alpha_op = OP(f"{name}_alpha", "Const")
-        alpha_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [alpha], [1])
+        alpha_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [alpha], [])
         ops.append(beta_op.to_node())
         ops.append(alpha_op.to_node())
 
@@ -1145,7 +1136,7 @@ class AscendOverrides:
     def gather(name, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
         op1 = OP(f"{name}_dim", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [1])
+        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
         op2 = OP(name, "GatherD")
         op2.set_input("x", x)
         op2.set_input("dim", f"{name}_dim")
@@ -1170,7 +1161,7 @@ class AscendOverrides:
         
         op = OP(name, "ExpandD")
         op.set_input("x", x)
-        op.set_attr_list_int(shape)
+        op.set_attr_list_int("shape", shape)
         return op.to_node()
 
     @staticmethod
@@ -1192,7 +1183,7 @@ class AscendOverrides:
         axes_op.set_attr_tensor("value", "INT32", "INT32", "ND", dims, [len(dims)])
 
         val_op = OP(f"{name}_val", "Const")
-        val_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [fill_value], [1])
+        val_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [fill_value], [])
 
         op = OP(name, "Fill")
         op.set_input("dims", f"{name}_axes")
@@ -1282,7 +1273,7 @@ class AscendOverrides:
             ops.append(bp_op.to_node())
 
         if grad_input_mask[1] == True:
-            shape_op = OP(f"{name}_filter_shape")
+            shape_op = OP(f"{name}_filter_shape", "Shape")
             shape_op.set_input("x", weight)
             bp_op = OP(f"{name}_filter", "Conv2DBackpropFilter")
             bp_op.set_input("x", input)
@@ -1324,7 +1315,7 @@ class AscendOverrides:
         if padding != [0, 0]:
             padding = [0, 0, 0, 0, padding[0], padding[0], padding[1], padding[1]]
             op1 = OP(f"{name}_paddings", "Const")
-            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [8], padding)
+            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", padding, [8])
             op2 = OP(f"{name}_pad", "PadV3")
             op2.set_input("x", x)
             op2.set_input("paddings", f"{name}_paddings")
@@ -1332,8 +1323,8 @@ class AscendOverrides:
             fwd_out.set_input("x", f"{name}_pad")
             fwd_out.set_attr_list_int("ksize", kernel_size)
             fwd_out.set_attr_list_int("strides", stride)
-            fwd_out.set_attr_list_int("padding", "VALID")
-            fwd_out.set_attr_list_int("data_format", "NCHW")
+            fwd_out.set_attr_str("padding", "VALID")
+            fwd_out.set_attr_str("data_format", "NCHW")
             bwd = OP(f"{name}_bwd", "MaxPoolGrad")
             bwd.set_input("x1", f"{name}_pad")
             bwd.set_input("x2", f"{name}_fwd_out")
@@ -1411,7 +1402,7 @@ class AscendOverrides:
         
         # TODO(tangzhiyi): get value type, now assume float
         x2_op = OP(f"{name}_x2", "Const")
-        x2_op.set_attr_tensor("value", "FLOAT", "FLOAT", "NCHW", [x2], [1])
+        x2_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [x2], [])
         op = OP(name, "LessEqual")
         op.set_input("x1", x1)
         op.set_input("x2", f"{name}_x2")
@@ -1423,7 +1414,7 @@ class AscendOverrides:
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
         op = OP(name, "Const")
-        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "NCHW", [val], [1])
+        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [val], [])
         return op.to_node()
 
     @staticmethod
@@ -1538,7 +1529,7 @@ class AscendOverrides:
 
         # get grad_weight and grad_bias
         op1 = OP(f"{name}_update_grad", "BNTrainingUpdateGrad")
-        op1.set_and_update_input("grads", grad_out, x_shape, "NCHW", x_dtype) 
+        op1.set_and_update_input("grads", grad_out, x_shape, "NCHW", x_dtype, "backprops") 
         op1.set_input("x", x)
         op1.set_input("batch_mean", save_mean)
         op1.set_input("batch_variance", save_invstd)
@@ -1546,7 +1537,7 @@ class AscendOverrides:
 
         # get grad_input
         op2 = OP(f"{name}_reduce_grad", "BNTrainingReduceGrad")
-        op2.set_input("grad_out", grad_out)
+        op2.set_input("grads", grad_out)
         op2.set_input("x", x)
         op2.set_input_with_index("diff_scale", f"{name}_update_grad", 0)
         op2.set_input_with_index("diff_offset", f"{name}_update_grad", 1)
@@ -1559,9 +1550,9 @@ class AscendOverrides:
             assert mask == True
         op3 = OP(name, "IdentityN")
         dynamic_input_names = [
-            {f"{name}_reduce_grad", "y"},
-            {f"{name}_update_grad", "diff_scale"},
-            {f"{name}_update_grad", "diff_offset"},
+            {"input_name": f"{name}_reduce_grad", "edge_name": "y"},
+            {"input_name": f"{name}_update_grad", "edge_name": "diff_scale"},
+            {"input_name": f"{name}_update_grad", "edge_name": "diff_offset"},
         ]
         op3.set_dynamic_input("x", 3, dynamic_input_names, True)
         op3.set_dynamic_output("y", 3)
@@ -1571,12 +1562,13 @@ class AscendOverrides:
     @staticmethod
     def nll_loss_backward(name, node, grad_output, x, target, weight, reduction, ignore_index,
                           total_weight):
-        assert weight == 'None'
-        assert ignore_index == '-100'
+        assert weight == None
+        assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(node.target.x.node.meta['val'].shape)[1]]
 
         op1 = OP(f"{name}_target_cast", "Cast")
+        op1.set_input("x", target)
         op1.set_attr_int("dst_type", get_ascend_dtype_num("INT32"))
 
         op2 = OP(f"{name}_weight", "FillV2D")
