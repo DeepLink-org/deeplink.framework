@@ -5,7 +5,7 @@ import torch
 
 
 # the range for dynamic shape
-max_range = 128
+MAX_RANGE = 128
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -144,12 +144,8 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
-        
-        while self.output_data:
-            item = self.output_data.pop()
-            ret = acl.rt.free(item)
-            check_ret("acl.rt.free", ret)
-            
+
+
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
@@ -195,9 +191,18 @@ class AscendExecutor(object):
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
             dims, ret = acl.mdl.get_output_dims(self.model_desc, i)
             check_ret("acl.mdl.get_output_dims", ret)
-            dims = dims["dims"]    
+            dims = dims["dims"]
             if temp_buffer_size == 0:
-                    temp_buffer_size = 1
+                temp_buffer_size = 1
+                for idx, dim in enumerate(dims):
+                    if dim > -1:
+                        temp_buffer_size *= dim
+                    else:
+                        temp_buffer_size *= MAX_RANGE
+                        dims[idx] = MAX_RANGE
+
+            if temp_buffer_size == 0:
+                temp_buffer_size = 1
             self.output_dtypes.append(get_tensor_dtype(dtype))
             self.output_dims.append(dims)
             self.output_size.append(temp_buffer_size)
@@ -315,6 +320,11 @@ class AscendExecutor(object):
             ret = acl.mdl.destroy_dataset(dataset)
             check_ret("acl.mdl.destroy_dataset", ret)
 
+        while self.output_data:
+            item = self.output_data.pop()
+            ret = acl.rt.free(item)
+            check_ret("acl.rt.free", ret)
+
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
@@ -322,6 +332,9 @@ class AscendModel():
 
     def run(self, images, dims=None):
         return self.exe.run(images, dims)
+
+    def __del__(self):
+        self.exe.release_resource()
 
 
 if __name__ == '__main__':

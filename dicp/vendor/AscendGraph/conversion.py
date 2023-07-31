@@ -306,6 +306,10 @@ def view_as_real(x):
 def slice(x, dim=0, start=None, end=None, step=1):
     return ascend_op.Slice(x, dim, start, end, step)
 
+@registe_conversion(torch.ops.aten.stack)
+def stack(x, dim):
+    return ascend_op.Stack(x, dim)
+
 @registe_conversion(torch.ops.aten.cat.default)
 def cat(x, dim=0):
     return ascend_op.Cat(x, dim)
