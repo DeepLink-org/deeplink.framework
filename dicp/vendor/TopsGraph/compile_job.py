@@ -7,7 +7,7 @@ from torch._inductor.codecache import write
 from torch._inductor.codecache import cpp_compile_command
 from torch._inductor import exc 
 
-class AscendCompileJob(DeviceCompileJob):
+class TopsCompileJob(DeviceCompileJob):
     def __init__(self, source_code) -> None:
         super().__init__()
         self._key, input_path = write(
