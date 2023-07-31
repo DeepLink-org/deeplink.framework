@@ -20,14 +20,14 @@ class GraphTransformer:
     ):
         self.gm = gm
         if backend == 'topsgraph':
-            from dicp.TopsGraph.opset_transform import topsgraph_opset_transform
+            from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
-            from dicp.TopsGraph.codegen.enflame import EnflameCodegen
+            from dicp.vendor.TopsGraph.codegen.enflame import EnflameCodegen
             self.backend_codegen = EnflameCodegen
         elif backend == 'ascendgraph':
-            from dicp.AscendGraph.opset_convert import ascendgraph_opset_convert
+            from dicp.vendor.AscendGraph.opset_convert import ascendgraph_opset_convert
             self.backend_opset_transform = ascendgraph_opset_convert
-            from dicp.AscendGraph.codegen.ascend import AscendCodegen
+            from dicp.vendor.AscendGraph.codegen.ascend import AscendCodegen
             self.backend_codegen = AscendCodegen
 
     def transform(self):

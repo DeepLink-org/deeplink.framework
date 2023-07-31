@@ -271,7 +271,8 @@ class AscendCodegen(torch.fx.Interpreter):
                 import torch_dipu
                 import random
                 from torch import empty_strided, as_strided, device
-                from dicp.AscendGraph.compile import AsyncCompileAscend
+                from dicp.dynamo_bridge.compile import AsyncCompileKernel
+                from dicp.vendor.AscendGraph.compile_job import AscendCompileJob
                 
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
@@ -415,10 +416,9 @@ class AscendCodegen(torch.fx.Interpreter):
         graph_json = self.gen_graph_json()
         compile_graph_code.splice(
             f"""
-                async_compile = AsyncCompileAscend()
-                kernel_cpp_0 = async_compile.ascend('''
-                {graph_json}
-                ''')
+                ascend_compile_job = AscendCompileJob('''{graph_json}''')
+                async_compile = AsyncCompileKernel()
+                kernel_cpp_0 = async_compile.compile_kernel(ascend_compile_job)
             """
             , strip=True
         )
