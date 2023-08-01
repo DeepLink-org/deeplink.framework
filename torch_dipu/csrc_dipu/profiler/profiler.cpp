@@ -243,20 +243,17 @@ private:
 private:
     DeviceRecordsImpl() {}
 
-    static bool enableFlushReady() {
-        static bool enable_flush_ready = (std::getenv("DIPU_FLUSH_READY") != nullptr);
+    static bool enableFlushReadyEvent() {
+        static bool enable_flush_ready = (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr);
         return enable_flush_ready;
     }
 
-    static int32_t flushReadyInterval() {
-        static int32_t flush_ready_interval = []() -> int32_t {
-            const char* str = std::getenv("DIPU_FLUSH_READY_INTERVAL");
-            if (str == nullptr) {
-                return DEFAULT_FLUSH_READY_INTERVAL;
-            }
-            return std::stoi(str);
+    static int32_t flushReadyEventInterval() {
+        static int32_t flush_ready_event_interval = []() -> int32_t {
+            const char* str = std::getenv("DIPU_FLUSH_READY_EVENT_INTERVAL");
+            return str == nullptr ? DEFAULT_FLUSH_READY_INTERVAL : std::stoi(str);
         }();
-        return flush_ready_interval;
+        return flush_ready_event_interval;
     }
 
     deviceEvent_t beginEvent() const {
@@ -302,7 +299,7 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
         records_.push_back(record);
-        if (enableFlushReady() && (records_.size() % flushReadyInterval() == 0)) {
+        if (enableFlushReadyEvent() && (records_.size() % flushReadyEventInterval() == 0)) {
             flushReady();
         }
     }
