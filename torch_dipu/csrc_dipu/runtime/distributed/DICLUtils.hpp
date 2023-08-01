@@ -54,13 +54,16 @@ public:
     auto currStream = dipu::getCurrentDIPUStream(device_.index());
     preEvent_.record(currStream);
     preEvent_.wait(diclStream_);
-    // currStream.synchronize();
   }
 
   // The DIPU queues used by DICL kernels
   DIPUStream diclStream_;
   // The DIPU events used to sync current stream
   DIPUEvent preEvent_;
+
+  // by default, copy should work in comm stream, if in other stream, use preCopyEvent_ 
+  // to guarantee comm finish.
+  DIPUEvent preCopyEvent_;
 
   // The cached list of DIPU devices to operate on
   at::Device device_;

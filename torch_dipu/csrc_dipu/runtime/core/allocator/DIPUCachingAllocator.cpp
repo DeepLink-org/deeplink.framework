@@ -107,6 +107,10 @@ void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
   }
 }
 
+void recordStream(const at::Tensor& tensor, DIPUStream stream) {
+   dipu::recordStream(tensor.storage().data_ptr(), stream);
+} 
+
 namespace {
   class DIPUDeviceCachingProxy: public c10::Allocator {
     c10::DeviceType device_type_;

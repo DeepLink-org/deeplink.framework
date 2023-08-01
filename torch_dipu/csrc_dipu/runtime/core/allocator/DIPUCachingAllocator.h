@@ -109,6 +109,7 @@ void releaseAllDeviceMem();
 
 void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
 
+void recordStream(const at::Tensor& tensor, DIPUStream stream);
 
 namespace {  // For internal implementation only
 
