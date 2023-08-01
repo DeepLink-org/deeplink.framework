@@ -5,6 +5,10 @@ project(TorchDIPU)
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS  "Whether to build dipu lib, default on" ON)
 
+# use gcover
+OPTION (ENABLE_COVERAGE "Use gcov" OFF)
+MESSAGE(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
+
 # device related
 set(DEVICE "camb" CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
@@ -42,6 +46,11 @@ else()
 endif()
 
 
+
+if (ENABLE_COVERAGE)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
 
 
 # findTorch encounter some error, need check。
