@@ -278,6 +278,27 @@ std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::T
   }
   return flattened;
 }
+void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest, 
+                      const at::Tensor& src) {
+  auto diclStream = diclComm->diclStream_;
+  DIPUStreamGuard guard(diclStream.unwrap());
+  for (size_t j = 0; j < dest.size(); ++j) {
+    dest[j].copy_(src[j], true);
+    dipu::recordStream(dest[j], diclStream);
+  }
+}
+
+void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest,
+                          const at::Tensor& src) {
+  auto diclStream = diclComm->diclStream_;
+  auto currStream = dipu::getCurrentDIPUStream(diclStream.device_index());
+  diclComm->preCopyEvent_.record(diclStream);
+  // copy after comm finish, loss concurrency,assume all dest finish in one comm op
+  diclComm->preCopyEvent_.wait(currStream);
+  for (size_t j = 0; j < dest.size(); ++j) {
+    dest[j].copy_(src[j], true);
+  }
+}
 }  // annoy namespace
 
 
@@ -437,11 +458,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       for (size_t i = 0; i < output_tensors.size(); ++i) {
         // warnning & todo:: copy in comm stream, but diopi-cuda use aten copy_, 
         // underlying stream is incorrect. change to use default stream and wait will cause pref hurt.
-        DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
-        for (size_t j = 0; j < output_tensors[0].size(); ++j) {
-          output_tensors[i][j].copy_(outputFlattened[i][j], true);
-          dipu::recordStream(output_tensors[i][j], diclComms[i]->diclStream_);
-        }
+        copyInCommStream(diclComms[i], output_tensors[i], outputFlattened[i]);
+        // copyInCurrentStream(diclComms[i], output_tensors[i], outputFlattened[i]);
       }
     }, 
     OpType::ALLGATHER);
