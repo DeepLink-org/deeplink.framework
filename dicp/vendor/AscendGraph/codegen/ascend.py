@@ -735,7 +735,7 @@ class AscendOverrides:
         perm[dim0] = dim1
         perm[dim1] = dim0
         ops = []
-        if symint_in_shape(input_shape):
+        if symint_in_shape(perm):
             ops.extend(process_dynamic_shape(perm, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const")
@@ -1694,14 +1694,14 @@ class AscendOverrides:
             ops.extend(process_dynamic_shape(offset, name, "preprocess_offset"))
         else:
             op1 = OP(f"{name}_preprocess_offset", "Const")
-            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(offset)])
             ops.append(op1.to_node())
 
         if symint_in_shape(y_shape):
             ops.extend(process_dynamic_shape(y_shape, name, "preprocess_size"))
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
-            op2.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(x_shape)])
+            op2.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
             ops.append(op2.to_node())
             
         op = OP(name, "Slice")
@@ -1765,14 +1765,14 @@ class AscendOverrides:
             ops.extend(process_dynamic_shape(offset, name, "preprocess_offset"))
         else:
             op1 = OP(f"{name}_preprocess_offset", "Const")                        
-            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(x_shape)])
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(offset)])
             ops.append(op1.to_node())
 
         if symint_in_shape(size):
             ops.extend(process_dynamic_shape(size, name, "preprocess_size"))
         else:
             op2 = OP(f"{name}_preprocess_size", "Const")
-            op2.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(x_shape)])
+            op2.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(size)])
             ops.append(op2.to_node())
 
         op3 = OP(f"{name}_slice", "Slice")
