@@ -39,13 +39,14 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota']
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
+             'ArangeDefault']
 
 need_dict = ['Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter', 
                  'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
-                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota']
+                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'ArangeDefault']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -509,12 +510,18 @@ class EnflameOverrides(OpOverrides):
                     
                     args_str.append(f'{op_var}_const{count}')
                     count += 1
+                elif isinstance(args[i], int) or isinstance(args[i], float):
+                    args_str.append(str(args[i]))
         return src_code, args_str
 
     @staticmethod
     def Clone(op_var, x):
         return f"builder::Op {op_var} = {x};"
 
+    @staticmethod
+    def Copy(op_var, *args):
+        return f"builder::Op {op_var} = {args[1]};"
+    
     @staticmethod
     def Abs(op_var, x):
         return f"builder::Op {op_var} = builder::Abs({x});"
@@ -659,6 +666,19 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
+    def NativeDropout(op_var, node, *args):
+        src_code = f"builder::Op {op_var}_dropout = builder::Dropout({', '.join(args)});\n"
+        data_type = node.meta['val'][0].dtype.__str__()            
+        shape = '{' + str(node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
+        src_code += f"std::vector<int64_t> {op_var}_const_shape{shape};\n"
+        src_code += f"builder::Type {op_var}_const_type({op_var}_const_shape, {type_set[data_type]});\n"
+        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, 0, {op_var}_const_type);\n"
+        src_code += f"builder::Op {op_var}_notequal = builder::NotEqual({op_var}_dropout, {op_var}_const);\n"
+        src_code += f"std::vector<builder::Op> {op_var}_outputs = {'{' + op_var + '_dropout, ' + op_var + '_notequal' + '}'};\n"
+        src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);\n"
+        return src_code
+
+    @staticmethod
     def Where(op_var, *args):
         return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
 
@@ -674,6 +694,10 @@ class EnflameOverrides(OpOverrides):
         data_type = node.meta['val'].dtype.__str__() 
         src_code = f"builder::Op {op_var} = builder::EmptyLike({args_str[0]}, {type_set[data_type]}, {{0}});"
         return src_code
+
+    @staticmethod
+    def NewEmptyStrided(op_var, *args_str):
+        return f"builder::Op {op_var} = builder::EmptyLike({args_str[0]});"
 
     @staticmethod
     def OnesLike(op_var, node, *args_str):
@@ -1163,7 +1187,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"
 
     @staticmethod
-    def Iota(op_var, node):
+    def Iota(op_var, node, *args):
         src_code = f"builder::Type {op_var}_iota_type = builder::Type({'{' + str(node.args[0]) + '}'}, {type_set[str(node.kwargs['dtype'])]});\n"
         src_code += f"builder::Op {op_var}_iota = builder::Iota(hlir_builder, 0, {op_var}_iota_type);\n"
         gap = [node.kwargs['start'] + (node.kwargs['step'] - 1) * i for i in range(node.args[0])]

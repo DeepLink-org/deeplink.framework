@@ -117,6 +117,14 @@ def Sumdim(*args):
 def Getitem(x, idx):
     return tops_op.Getitem(x, idx)
 
+@register_conversion(torch.ops.aten.index.Tensor)
+def Index(*args, **kwargs):
+    return tops_op.Index(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.native_dropout.default)
+def NativeDropout(*args, **kwargs):
+    return tops_op.NativeDropout(*args, **kwargs)
+
 # torch.ops.aten.squeeze.dim(,[])
 # torch.ops.aten.squeeze.dims(,)
 @register_conversion(torch.ops.aten.squeeze)
@@ -145,7 +153,11 @@ def hardswishbackward(a, b):
 
 @register_conversion(torch.ops.aten.clone)
 def Clone(*args, **kargs):
-    return tops_op.Copy(*args, **kargs)
+    return tops_op.Clone(*args, **kargs)
+
+@register_conversion(torch.ops.aten.copy.default)
+def Copy(*args, **kwargs):
+    return tops_op.Copy(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.neg)
 def Neg(*args):
@@ -244,6 +256,10 @@ def Concatenate(*args, **kwargs):
 @register_conversion(torch.ops.aten.empty_like.default)
 def EmptyLike(*args, **kwargs):
     return tops_op.EmptyLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.new_empty_strided.default)
+def NewEmptyStrided(*args, **kwargs):
+    return tops_op.NewEmptyStrided(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.eq.Tensor)
 def Euqal(*args, **kwargs):

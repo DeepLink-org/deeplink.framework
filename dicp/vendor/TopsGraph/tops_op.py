@@ -267,11 +267,19 @@ class HardswishBackward(Operator):
         self.torch_op = aten.hardswish_backward
 
 
-class Copy(Operator):
+class Clone(Operator):
     def __init__(self, *args, **kargs):
         super().__init__("Clone")
         self.args = args
         self.torch_op = aten.clone
+
+
+class Copy(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy.default
 
 
 class Neg(Operator):
@@ -365,6 +373,14 @@ class Getitem(Operator):
         self.torch_op = operator.getitem
 
 
+class NativeDropout(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NativeDropout")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.native_dropout.default
+
+
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Batch_Norm")
@@ -425,6 +441,14 @@ class EmptyLike(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
+
+
+class NewEmptyStrided(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NewEmptyStrided")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.new_empty_strided.default
 
 
 class Euqal(Operator):
