@@ -10,6 +10,8 @@
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 
 namespace dipu {
+  // seems DIPUCachingAllocator.h and this class has Cycle reference? need refactor?
+void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
 
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;
@@ -46,7 +48,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::Stream getStream(c10::Device device) const noexcept override {
-    return c10::Stream(c10::Stream::DEFAULT, device);
+    return getCurrentDIPUStream(device.index()).unwrap();
   }
 
   c10::Stream exchangeStream(c10::Stream s) const noexcept override {
@@ -62,11 +64,12 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     return devproxy::getDeviceCount();
   }
 
+  c10::Stream getStreamFromGlobalPool(c10::Device d, bool isHighPriority = false) const override {
+    return getDIPUStreamFromPool(d.index());
+  }
+
   c10::Stream getDefaultStream(c10::Device device) const override {
-    DIPUStream stream = getCurrentDIPUStream(device.index());
-    return c10::Stream(c10::Stream::UNSAFE,
-                       device,
-                       static_cast<c10::StreamId>(stream.id()));
+    return getDefaultDIPUStream(device.index());
   }
 
   void record(
@@ -123,9 +126,14 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     devproxy::destroyEvent(dipu_event);
     setDevice(orig_device);
   }
-
-  void recordDataPtrOnStream(const c10::DataPtr& dataptr, const c10::Stream& stream) const override {
-    // todo: DIPUCachingAllocator::recordStream(dataptr, stream);
+  // call from ivalue_inl.h  synchronizeWithCurrentStreams with 'current stream' = default stream.
+  // it's useless in ddp, because output tensor is record with comm stream in colletive(), 
+  // but may be useful in other communication mode.
+  void recordDataPtrOnStream(const c10::DataPtr& dataptr, const c10::Stream& s) const override {
+    DIPUStream stream(s);
+    if (stream != getDefaultDIPUStream()) {
+      dipu::recordStream(dataptr, stream);
+    }
   }
 };
 
