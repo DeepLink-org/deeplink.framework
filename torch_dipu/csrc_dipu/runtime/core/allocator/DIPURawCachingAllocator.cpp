@@ -40,18 +40,20 @@ public:
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "RawCachingAllocator: empty_cache");
-    while(async_mem_pool()->ready()) {
-      auto mem = async_mem_pool()->get();
-      void* ptr = std::get<0>(mem);
-      raw_allocator()->raw_deallocate(ptr);
+    while(async_mem_pool()->size() > 0) {
+      if(async_mem_pool()->ready()) {
+        auto mem = async_mem_pool()->get();
+        void* ptr = std::get<0>(mem);
+        raw_allocator()->raw_deallocate(ptr);
+      } else {
+        std::this_thread::yield();
+      }
     }
   }
 
   void release_all_memory() const override {
     DIPU_DEBUG_ALLOCATOR(8, "RawCachingAllocator: release_all_memory");
-    while(async_mem_pool()->size() > 0) {
-      empty_cache();
-    }
+    empty_cache();
   }
 };
 

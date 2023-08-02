@@ -33,7 +33,7 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 512;
+    static constexpr size_t kMinAllocationSize = 32;
     size_t allocateSize = ((nbytes + kMinAllocationSize - 1) / kMinAllocationSize) * kMinAllocationSize;
     return allocateSize;
   }
@@ -84,8 +84,14 @@ public:
   }
 
   void empty_cache() const override {
-    flush_mem_pool();
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+    while(async_mem_pool()->size() > 0) {
+      if (async_mem_pool()->ready()) {
+        flush_mem_pool();
+      } else {
+        std::this_thread::yield();
+      }
+    }
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = impl->idel_blocks_.begin(); iter != impl->idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;

@@ -494,7 +494,13 @@ public:
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
-    std::pair<void*, int> block = impl->allocateRaw(size);
+    std::pair<void*, int> block;
+    try {
+        block = impl->allocateRaw(size);
+    }catch(...) {
+        empty_cache();
+        block = impl->allocateRaw(size);
+    }
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
 
@@ -505,6 +511,16 @@ public:
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this << ", device:" << device());
+    while (async_mem_pool()->size() > 0) {
+        if (!async_mem_pool()->ready()) {
+            std::this_thread::yield();
+            continue;
+        }
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
+        impl->releaseRaw(ptr, id);
+    }
     impl->emptyCache();
   }
 
