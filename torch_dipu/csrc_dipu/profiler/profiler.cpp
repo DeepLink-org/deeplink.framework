@@ -5,6 +5,7 @@
 #include <thread>
 #include <unordered_map>
 #include <deque>
+#include <vector>
 
 #include <c10/util/Exception.h>
 
@@ -14,6 +15,8 @@
 namespace dipu {
 
 namespace profile {
+
+static const int32_t DEFAULT_FLUSH_READY_INTERVAL = 1000;
 
 #define STREAM_THREAD_NAME ":Dipu stream "
 
@@ -230,6 +233,7 @@ private:
     // mutex for records and tracker
     static std::mutex mtx_;
     std::list<DeviceRecord> records_;
+    std::vector<Record> ready_records_;
     std::unique_ptr<StreamTimeOffsetTracker> pTracker_;
 
     std::unordered_map<size_t, size_t> streamName_;
@@ -238,6 +242,19 @@ private:
 
 private:
     DeviceRecordsImpl() {}
+
+    static bool enableFlushReadyEvent() {
+        static bool enable_flush_ready = (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr);
+        return enable_flush_ready;
+    }
+
+    static int32_t flushReadyEventInterval() {
+        static int32_t flush_ready_event_interval = []() -> int32_t {
+            const char* str = std::getenv("DIPU_FLUSH_READY_EVENT_INTERVAL");
+            return str == nullptr ? DEFAULT_FLUSH_READY_INTERVAL : std::stoi(str);
+        }();
+        return flush_ready_event_interval;
+    }
 
     deviceEvent_t beginEvent() const {
         TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
@@ -282,6 +299,34 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
         records_.push_back(record);
+        if (enableFlushReadyEvent() && (records_.size() % flushReadyEventInterval() == 0)) {
+            flushReady();
+        }
+    }
+
+    void flushReady() {
+        while (records_.size() > 0) {
+            auto& r = records_.front();
+            ensureStreamName(r.streamId);
+            auto start_status = dipu::devproxy::getEventStatus(r.start->get());
+            auto end_status = dipu::devproxy::getEventStatus(r.stop->get());
+            auto origin_status = dipu::devproxy::getEventStatus(beginEvent());
+            if (start_status != devapis::EventStatus::READY ||
+                end_status != devapis::EventStatus::READY ||
+                origin_status != devapis::EventStatus::READY) {
+                break;
+            }
+            float t1 = 0.0f;
+            float t2 = 0.0f;
+            dipu::devproxy::eventElapsedTime(&t1, beginEvent(), r.start->get());
+            dipu::devproxy::eventElapsedTime(&t2, r.start->get(), r.stop->get());
+            ready_records_.push_back(Record({r.name, r.opId,
+                                         static_cast<size_t>(t1 * 1e3),
+                                         static_cast<size_t>((t1 + t2) * 1e3),
+                                         r.streamId,
+                                         r.extraInfo}));
+            records_.pop_front();
+        }
     }
 
     void flush() {
@@ -292,6 +337,14 @@ public:
             trakcer.sync();
             float ratio = trakcer.ratio();
             size_t offset = trakcer.offset();
+
+            for (auto& r : ready_records_) {
+                r.begin = static_cast<size_t>(r.begin * 1e-3 * ratio) + offset;
+                r.end = static_cast<size_t>(r.end * 1e-3 * ratio) + offset;
+                r.threadIdx = streamName_[r.threadIdx];
+                addRecord(r);
+            }
+            ready_records_.clear();
 
             for (auto& r : records_) {
                 ensureStreamName(r.streamId);
