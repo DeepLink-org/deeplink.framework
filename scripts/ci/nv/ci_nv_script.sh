@@ -20,7 +20,7 @@ function config_dipu_nv_cmake() {
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=cuda -DPYTORCH_DIR=${PYTORCH_DIR} \
-        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=${USE_COVERAGE}
+        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=ON
     cd ../
 }
 
