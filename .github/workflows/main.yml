@@ -102,7 +102,6 @@ jobs:
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
-      USE_COVERAGE: OFF
     steps:
       - name: Run-test
         run: |
@@ -229,7 +228,6 @@ jobs:
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
-      USE_COVERAGE: OFF
     steps:
       - name: Run-test
         run: |
