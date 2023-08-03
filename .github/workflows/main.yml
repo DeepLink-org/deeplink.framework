@@ -107,6 +107,7 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
@@ -233,6 +234,7 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
