@@ -73,6 +73,8 @@ def empty_cache():
     if is_initialized():
         _C._dipu_emptyCache()
 
+_C.init_resource()
+
 def release_all_resources():
     if is_initialized():
         _C.release_all_resources()
