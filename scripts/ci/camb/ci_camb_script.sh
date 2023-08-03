@@ -17,7 +17,7 @@ function config_dipu_camb_cmake() {
     echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=camb -DPYTORCH_DIR=${PYTORCH_DIR} \
-        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=ON
+        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
 }
 
