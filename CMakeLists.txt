@@ -16,7 +16,7 @@ list(APPEND DEVICE_STPU "STPU" "stpu")
 
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
-execute_process(COMMAND  "git status --porcelain | egrep \"^(M| M)\" | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
+execute_process(COMMAND  "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
 if ("${DIPU_MODIFY_LEN}" STREQUAL "0")
 
 else()
