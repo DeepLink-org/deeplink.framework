@@ -1,17 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include <csrc_dipu/binding/exportapi.h>
 
-class Initializer final {
-public:
-    Initializer() {
-    }
-    Initializer(const Initializer&) = delete;
-    Initializer& operator=(const Initializer&) = delete;
-    ~Initializer() {
-    }
-};
-static Initializer init;
-
 static std::vector<PyMethodDef> methods;
 
 static void AddPyMethodDefs(std::vector<PyMethodDef>& vector, PyMethodDef* methods)
