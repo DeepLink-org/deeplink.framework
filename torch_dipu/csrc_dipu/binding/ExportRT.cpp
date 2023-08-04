@@ -199,6 +199,10 @@ static void exportMemCaching(py::module& m) {
     emptyCachedMem();
   });
 
+  m.def("init_resource", []() {
+    initResource();
+  });
+
   m.def("release_all_resources", []() {
     releaseAllResources();
   });

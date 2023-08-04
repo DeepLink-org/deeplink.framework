@@ -14,6 +14,15 @@ list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_STPU "STPU" "stpu")
 
+execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
+string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
+execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
+if (DIPU_MODIFY_LEN GREATER 0)
+    set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
+endif()
+message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
+add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
+
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()

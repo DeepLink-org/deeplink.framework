@@ -10,6 +10,7 @@ __dipu__ = 'dipu'
 __diputype__ = 'xpu'
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
+_C.init_resource()
 
 class _MetaDeviceType(type):
     device_ = torch.device
@@ -67,16 +68,16 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
     def _proxyFuncInst(self, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(self, *args, **kwargs)
-    
+
     def _proxyFuncStatic(*args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(*args, **kwargs)
-    
+
     # class __new__ always pass cls parameter to args
     def _proxyNewClass(cls, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(*args, **kwargs)
-  
+
     if caller == "static":
         return _proxyFuncStatic
     elif caller == "class_new":
