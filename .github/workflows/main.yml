@@ -20,7 +20,7 @@ env:
   CUDA_CLUSTER: SH1988
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
-  USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/dev') || startsWith(github.ref, 'refs/heads/wgs')) && 'ON' || 'OFF' }}
+  USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/20')) && 'ON' || 'OFF' }}
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
