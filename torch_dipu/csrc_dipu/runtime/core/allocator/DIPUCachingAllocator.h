@@ -18,9 +18,22 @@ using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
 class MemStats
 {
-protected:
+private:
   mutable size_t reserved_in_bytes_ = 0;
   mutable size_t allocated_in_bytes_ = 0;
+  mutable size_t max_reserved_in_bytes_ = 0;
+  mutable size_t max_allocated_in_bytes_ = 0;
+protected:
+  void set_memory_reserved(size_t reserved_in_bytes) const {
+    reserved_in_bytes_ = reserved_in_bytes;
+    max_reserved_in_bytes_ = max_reserved_in_bytes_ > reserved_in_bytes ? max_reserved_in_bytes_ : reserved_in_bytes;
+  }
+
+  void set_memory_allocated(size_t allocated_in_bytes) const {
+    allocated_in_bytes_ = allocated_in_bytes;
+    max_allocated_in_bytes_ = max_allocated_in_bytes_  > allocated_in_bytes ? max_allocated_in_bytes_ : allocated_in_bytes;
+  }
+
 public:
   MemStats() {
 
@@ -35,12 +48,20 @@ public:
     }
   }
 
-  size_t memory_allocated() {
+  size_t memory_allocated() const {
     return allocated_in_bytes_;
   }
 
-  size_t memory_reserved() {
+  size_t memory_reserved() const {
     return reserved_in_bytes_;
+  }
+
+  size_t max_memory_allocated() {
+    return max_allocated_in_bytes_;
+  }
+
+  size_t max_memory_reserved() {
+    return max_reserved_in_bytes_;
   }
 };
 
@@ -136,6 +157,10 @@ c10::Allocator* getAllocator(c10::DeviceType device_type);
 size_t memoryReserved(const c10::Device& device);
 
 size_t memoryAllocated(const c10::Device& device);
+
+size_t maxMemoryReserved(const c10::Device& device);
+
+size_t maxMemoryAllocated(const c10::Device& device);
 
 void emptyCachedMem();
 

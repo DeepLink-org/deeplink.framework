@@ -123,6 +123,24 @@ size_t memoryAllocated(const c10::Device& device) {
   return 0;
 }
 
+size_t maxMemoryReserved(const c10::Device& device) {
+  c10::Allocator* allocator = getAllocator(device);
+  auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
+  if (cached_allocator != nullptr) {
+      return cached_allocator->max_memory_reserved();
+  }
+  return 0;
+}
+
+size_t maxMemoryAllocated(const c10::Device& device) {
+  c10::Allocator* allocator = getAllocator(device);
+  auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
+  if (cached_allocator != nullptr) {
+      return cached_allocator->max_memory_allocated();
+  }
+  return 0;
+}
+
 void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
   void* ctx = ptr.get_context();
   if(ctx == nullptr) {

@@ -33,7 +33,7 @@ __all__ = [
     # "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
 
     # # mem manage
-    "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved",
+    "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
     # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now
