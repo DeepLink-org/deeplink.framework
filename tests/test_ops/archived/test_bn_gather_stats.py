@@ -1,10 +1,13 @@
 import unittest
 import torch
 
-
+# Now the test case only support CUDA, When using other device, the test will skip.
+# TODO: save and read baseline data, which will make the test case work in other device.
 class TestSchema(unittest.TestCase):
 
     def test_batch_norm_gather_stats_with_counts(self):
+        if(torch.cuda.is_available() == False):
+            return
         workpiece = 7
         input = torch.rand(2, 8, 32, 56, 56)
         mean_all =  torch.rand(workpiece,8)
@@ -15,10 +18,10 @@ class TestSchema(unittest.TestCase):
         eps = 1e-5
         count_all = torch.rand(workpiece * 8)
         device_cuda = torch.device("cuda")
-        device_dipu = torch.device("xpu")
         res1 = self._test_bng(input, mean_all, invstd_all, running_mean, running_var, momentum, eps, count_all, device_cuda)
         import torch_dipu
-        res2 = self._test_bng(input, mean_all, invstd_all, running_mean, running_var, momentum, eps, count_all, device_dipu)        
+        device_cuda = torch.device("cuda")
+        res2 = self._test_bng(input, mean_all, invstd_all, running_mean, running_var, momentum, eps, count_all, device_cuda)        
         print(res1)
         print(res2)
 

@@ -2,19 +2,23 @@ import unittest
 import torch
 
 
+# Now the test case only support CUDA, When using other device, the test will skip.
+# TODO: save and read baseline data, which will make the test case work in other device.
 class TestSchema(unittest.TestCase):
 
     def test_batch_norm_backward_reduce(self):
+        if(torch.cuda.is_available() == False):
+            return
         input = torch.rand(2, 8, 32, 56, 56)
         mean =  torch.rand(8)
         invstd =  torch.rand(8)
         weight = torch.rand(8)
         grad_out = torch.rand(2, 8, 32, 56, 56)
         device_cuda = torch.device("cuda")
-        device_dipu = torch.device("xpu")
         res1 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_cuda)
         import torch_dipu
-        res2 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_dipu)  
+        device_cuda = torch.device("cuda")
+        res2 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_cuda)  
         print(res1)
         print(res2)
 
