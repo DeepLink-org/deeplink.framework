@@ -15,7 +15,37 @@ namespace dipu {
 
 using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
-class DIPU_API CacheAllocator: public c10::Allocator {
+
+class MemStats
+{
+protected:
+  mutable size_t reserved_in_bytes_ = 0;
+  mutable size_t allocated_in_bytes_ = 0;
+public:
+  MemStats() {
+
+  }
+
+  ~MemStats() {
+    if (allocated_in_bytes_ != 0) {
+      DIPU_DEBUG_ALLOCATOR(8, "~MemStats: allocated_in_bytes_:" << allocated_in_bytes_);
+    }
+    if (reserved_in_bytes_ != 0) {
+      DIPU_DEBUG_ALLOCATOR(2, "~MemStats: reserved_in_bytes_:" << reserved_in_bytes_);
+    }
+  }
+
+  size_t memory_allocated() {
+    return allocated_in_bytes_;
+  }
+
+  size_t memory_reserved() {
+    return reserved_in_bytes_;
+  }
+};
+
+
+class DIPU_API CacheAllocator: public c10::Allocator, public MemStats {
   c10::Allocator* raw_allocator_ = nullptr;
   AsyncMemPool* async_mem_pool_ = nullptr;
   mutable c10::Device device_ = c10::DeviceType::CPU;
@@ -102,6 +132,10 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 void setAllocator(const std::string name, c10::DeviceType device_type, std::function<c10::Allocator*(int)> allocator_get_fn, uint8_t priority = 0);
 
 c10::Allocator* getAllocator(c10::DeviceType device_type);
+
+size_t memoryReserved(const c10::Device& device);
+
+size_t memoryAllocated(const c10::Device& device);
 
 void emptyCachedMem();
 

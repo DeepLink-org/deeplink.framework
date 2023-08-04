@@ -33,8 +33,8 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 32;
-    size_t allocateSize = ((nbytes + kMinAllocationSize - 1) / kMinAllocationSize) * kMinAllocationSize;
+    static constexpr size_t kMinAllocationSize = 512;
+    size_t allocateSize = ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
     return allocateSize;
   }
 
@@ -56,6 +56,7 @@ public:
           ptr = data_ptr.get();
           device() = data_ptr.device();
           data_ptr.release_context();
+          reserved_in_bytes_ += nbytes;
           break;
         }
         catch(...) {
@@ -68,6 +69,7 @@ public:
       }
       impl->allocated_.insert(ptr);
       impl->total_alocated_bytes_+= nbytes;
+      allocated_in_bytes_ += nbytes;
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
 
@@ -81,6 +83,7 @@ public:
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     impl->idel_blocks_[nbytes].push_back(ptr);
     impl->total_idel_bytes_ += nbytes;
+    allocated_in_bytes_ -= nbytes;
   }
 
   void empty_cache() const override {
@@ -100,6 +103,7 @@ public:
         void* ptr = idel_blocks.front();
         idel_blocks.pop_front();
         impl->total_alocated_bytes_ -= size;
+        reserved_in_bytes_ -= size;
         impl->allocated_.erase(ptr);
         raw_allocator()->raw_deallocate(ptr);
       }

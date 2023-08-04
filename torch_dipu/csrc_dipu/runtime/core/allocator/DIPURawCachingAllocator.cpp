@@ -32,9 +32,13 @@ public:
   };
 
   c10::DataPtr allocate(size_t size) const override {
+    static constexpr size_t kMinAllocationSize = 512;
+    size = ((size - 1) | (kMinAllocationSize - 1)) + 1;
     empty_cache();
     DIPU_DEBUG_ALLOCATOR(4, "RawCachingAllocator: malloc " << size << " nbytes");
     auto ptr = raw_allocator()->raw_allocate(size);
+    reserved_in_bytes_ += size;
+    allocated_in_bytes_ += size;
     return c10::DataPtr(ptr, new DataPtrContextBase(this, ptr, size), deleteRawCachingAllocatorContext, device());
   }
 
@@ -44,7 +48,10 @@ public:
       if(async_mem_pool()->ready()) {
         auto mem = async_mem_pool()->get();
         void* ptr = std::get<0>(mem);
+        size_t size = std::get<1>(mem);
         raw_allocator()->raw_deallocate(ptr);
+        reserved_in_bytes_ -= size;
+        allocated_in_bytes_ -= size;
       } else {
         std::this_thread::yield();
       }

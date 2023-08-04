@@ -430,6 +430,10 @@ public:
         this->allocate_fn = allocate_fn;
         this->deallocate_fn = deallocate_fn;
     }
+
+    size_t memory_reserved() {
+        return cachedBytes;
+    }
 };
 
 static void deleteBFContext(void* ptr);
@@ -483,6 +487,7 @@ public:
                 events.back().record(*iter);
             }
             allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_), events);
+            allocator_->allocated_in_bytes_ -= size();
         }
         allocator_->restore();
       } else {
@@ -503,6 +508,9 @@ public:
     }
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
+
+    allocated_in_bytes_ += size;
+    reserved_in_bytes_ = impl->memory_reserved();
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr << ",device:" << device());
