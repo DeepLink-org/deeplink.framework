@@ -20,6 +20,7 @@ env:
   CUDA_CLUSTER: SH1988
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
+  USE_COVERAGE: ${{ github.ref == 'main' && 'ON' || 'OFF' }}
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
@@ -87,6 +88,7 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
@@ -106,10 +108,12 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
+          sh /mnt/lustre/share/platform/dep/sonar/coverage_DIPU_camb.sh ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
           """
 
   Test-One-Iter-Camb:
@@ -214,6 +218,7 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
@@ -231,9 +236,11 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
+          export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
+          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
           """
   
   Test-One-Iter_Cuda:
