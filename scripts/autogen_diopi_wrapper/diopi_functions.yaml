@@ -1754,3 +1754,8 @@
   custom_code_at_the_beginning: |
     auto out = at::empty_like(grad_out);
   interface: diopiBatchNormBackwardElemt(ctx, out, grad_out, input, mean, invstd, weight, sum_dy, sum_dy_xmu, count);
+
+- schema: batch_norm_elemt(Tensor input, Tensor? weight, Tensor? bias, Tensor mean, Tensor invstd, float eps) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(input);
+  interface: diopiBatchNormElemt(ctx, out, input, weight, bias, mean, invstd, eps);
