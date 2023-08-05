@@ -97,7 +97,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/mmaction2/Kinetics400 data/kinetics400 
+        # ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/mmaction2/Kinetics400 data/kinetics400 
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
