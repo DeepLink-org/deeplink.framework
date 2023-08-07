@@ -293,6 +293,14 @@ def Sigmoid(*args, **kwargs):
 def Slice(*args, **kwargs):
     return tops_op.Slice(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.slice_scatter.default)
+def SliceScatter(*args, **kwargs):
+    return tops_op.SliceScatter(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.index.Tensor)
+def Index(*args, **kwargs):
+    return tops_op.Index(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.where.self)
 def Where(*args, **kwargs):
     return tops_op.Where(*args, **kwargs)

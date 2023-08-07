@@ -515,6 +515,22 @@ class Slice(Operator):
         self.torch_op = aten.slice.Tensor
         
         
+class SliceScatter(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("SliceScatter")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.slice_scatter.default
+
+
+class Index(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Index")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.index.Tensor
+
+
 class Where(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Where")

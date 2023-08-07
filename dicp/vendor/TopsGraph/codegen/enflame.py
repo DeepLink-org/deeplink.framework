@@ -40,13 +40,13 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
 need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
-             'ArangeDefault']
+             'ArangeDefault', 'SliceScatter']
 
 need_dict = ['Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter', 
                  'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
-                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'ArangeDefault']
+                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'ArangeDefault', 'SliceScatter']
 
 def process_name(name, target):
     if hasattr(target, "name"):
@@ -154,7 +154,6 @@ class EnflameCodegen(torch.fx.Interpreter):
     def gen_import_code(self):
         self.import_code.splice(
             f"""
-                import random
                 import torch
                 {"import torch_dipu" if dipu_flag else ""}
                 
@@ -871,7 +870,49 @@ class EnflameOverrides(OpOverrides):
             src_code += f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});"
         
         return src_code
-    
+
+    @staticmethod
+    def SliceScatter(op_var, node, *args):
+        shape_operand = node.args[0].meta['val'].shape
+        dim = node.args[2] if len(node.args) > 2 else 0
+        start = node.args[3] if len(node.args) > 3 else 0
+        end = node.args[4] if len(node.args) > 4 and node.args[4] < shape_operand[dim] else shape_operand[dim]
+        step = node.args[5] if len(node.args) > 5 else 1
+        src_code = ""
+        for i in range(start, end, step):
+            start_indices = []
+            for j in range(len(shape_operand)):
+                index = i if j == dim else 0
+                src_code += f"builder::Type {op_var}_start_index_type{i}_{j}({{{1}}}, builder::PrimitiveType::S64());\n" \
+                            f"std::vector<int64_t> {op_var}_start_index_data{i}_{j} = {{{index}}}; \n" \
+                            f"builder::Op {op_var}_start{i}_{j} = builder::Const(hlir_builder, {op_var}_start_index_data{i}_{j}.data(), {op_var}_start_index_type{i}_{j});\n"
+                start_indices.append(f"{op_var}_start{i}_{j}")
+            operand = args[0] if i == start else f"{op_var}_{i - step}"
+            src_code += f"builder::Op {op_var}_{i} = builder::DynamicUpdateSlice({operand}, {args[1]}, {{{', '.join(start_indices)}}});\n\n"
+        src_code += f"builder::Op {op_var} = {op_var}_{range(start, end, step)[-1]};\n"
+        return src_code
+
+    @staticmethod
+    def Index(op_var, node, *args):
+        for item in node.args[-1]:
+            print(len(item.meta['val'].size()))
+        src_code = ""
+        indices_list = args[-1].strip("{ }").split(", ")   
+        if len(indices_list) == 1:
+            indices = indices_list[0]
+        else:
+            src_code += f"builder::Op {op_var}_indices = builder::Concatenate({{{', '.join(indices_list)}}}, 0);\n"
+            indices = f"{op_var}_indices"
+        src_code += f"std::vector<int64_t> {op_var}_offset_dims = {{{indices}.GetType().GetRank()}};\n" \
+                    f"std::vector<int64_t> {op_var}_collapsed_slice_dims = {{0}};\n" \
+                    f"std::vector<int64_t> {op_var}_start_index_map = {{0}};\n" \
+                    f"int64_t {op_var}_index_vector_dim = {indices}.GetType().GetRank();\n" \
+                    f"auto {op_var}_dimension_numbers = builder::GatherDimensionNumbers({op_var}_offset_dims, {op_var}_collapsed_slice_dims, {op_var}_start_index_map, {op_var}_index_vector_dim);\n" \
+                    f"std::vector<int64_t> {op_var}_slice_sizes = {args[0]}.GetType().GetShape();\n" \
+                    f"{op_var}_slice_sizes[0] = 1;\n" \
+                    f"builder::Op {op_var} = builder::Gather({args[0]}, {indices}, {op_var}_dimension_numbers, {op_var}_slice_sizes);\n"
+        return src_code
+
     @staticmethod
     def Select(op_var, node, args_dict):
         args = node.args
