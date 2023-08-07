@@ -50,13 +50,13 @@ function build_needed_repo_cuda() {
     # cd ../mmpretrain
     # pip install -e .
     # cd ..
-    cd DI-engine
-    pip install -e .
-    cd ..
-    #安装强化学习需要用的包
-    pip install lz4
-    pip install readerwriterlock
-    pip install Flask==2.1.0
+    # cd DI-engine
+    # pip install -e .
+    # cd ..
+    # #安装强化学习需要用的包
+    # pip install lz4
+    # pip install readerwriterlock
+    # pip install Flask==2.1.0
 }
 
 function build_needed_repo_camb() {
