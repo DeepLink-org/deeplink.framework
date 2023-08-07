@@ -3,9 +3,11 @@
 import collections
 
 from torch_dipu import _C
-from .device import current_device, _get_device_index, devicectx
+from .device import current_device, _get_device_index, devicectx, __dipu__
 from .utils import is_initialized
 from .streams import current_stream, Stream
+
+import torch
 
 
 def caching_allocator_alloc(size, device=None, stream=None):
@@ -79,6 +81,31 @@ def release_all_resources():
         _C.release_all_resources()
 
 
+def memory_reserved(device = None):
+    if device is None:
+        device = current_device()
+        device = _get_device_index(device)
+        device = torch.device(__dipu__ + ":" + str(device))
+    return _C.memory_reserved(device)
+
+def memory_allocated(device = None):
+    if device is None:
+        device = current_device()
+        device = torch.device(__dipu__ + ":" + str(device))
+    return _C.memory_allocated(device)
+
+def max_memory_reserved(device = None):
+    if device is None:
+        device = current_device()
+        device = _get_device_index(device)
+        device = torch.device(__dipu__ + ":" + str(device))
+    return _C.max_memory_reserved(device)
+
+def max_memory_allocated(device = None):
+    if device is None:
+        device = current_device()
+        device = torch.device(__dipu__ + ":" + str(device))
+    return _C.max_memory_allocated(device)
 
 ## just an empty shell now
 def memory_stats(device=None):

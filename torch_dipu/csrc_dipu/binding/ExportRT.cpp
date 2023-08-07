@@ -206,6 +206,22 @@ static void exportMemCaching(py::module& m) {
   m.def("release_all_resources", []() {
     releaseAllResources();
   });
+
+  m.def("memory_reserved", [](const c10::Device& device)->size_t {
+    return memoryReserved(device);
+  });
+
+  m.def("memory_allocated", [](const c10::Device& device)->size_t {
+    return memoryAllocated(device);
+  });
+
+  m.def("max_memory_reserved", [](const c10::Device& device)->size_t {
+    return maxMemoryReserved(device);
+  });
+
+  m.def("max_memory_allocated", [](const c10::Device& device)->size_t {
+    return maxMemoryAllocated(device);
+  });
 }
 
 
