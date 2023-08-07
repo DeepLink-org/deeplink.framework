@@ -1734,10 +1734,10 @@
 - schema: batch_norm_backward_reduce(Tensor grad_out, Tensor input, Tensor mean, Tensor invstd, Tensor? weight, bool input_g, bool weight_g, bool bias_g) -> (Tensor, Tensor, Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    at::Tensor out0 = at::Tensor();
-    at::Tensor out1 = at::Tensor();
-    at::Tensor out2 = at::Tensor();
-    at::Tensor out3 = at::Tensor();
+    at::Tensor out0;
+    at::Tensor out1;
+    at::Tensor out2;
+    at::Tensor out3;
     if(input_g){
       out0 = at::empty({shape}, input.options().dtype(at::kFloat));
       out1 = at::empty({shape}, input.options().dtype(at::kFloat));
