@@ -1,7 +1,6 @@
 #!/bin/bash
 
 function clone_needed_repo() {
-
     set -e
     # clone some repositories
 
