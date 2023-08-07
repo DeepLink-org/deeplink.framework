@@ -64,7 +64,7 @@ def process_one_iter(model_info):
         opt_arg = p4
         package_name = "mmlab"
     elif("DI" in p1):
-        train_path = p1/p2
+        train_path = p1+"/"+p2
         config_path = ""
         work_dir = ""
         opt_arg = ""
