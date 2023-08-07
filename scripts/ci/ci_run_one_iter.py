@@ -57,10 +57,22 @@ def process_one_iter(model_info):
     p3 = model_info_list[2]
     p4 = model_info_list[3] if len(model_info_list) == 4 else ""
 
-    train_path = p1 + "/tools/train.py"
-    config_path = p1 + "/configs/" + p2
-    work_dir = "--work-dir=./one_iter_data/" + p3
-    opt_arg = p4
+    if("mm" in p1):
+        train_path = p1 + "/tools/train.py"
+        config_path = p1 + "/configs/" + p2
+        work_dir = "--work-dir=./one_iter_data/" + p3
+        opt_arg = p4
+        package_name = "mmlab"
+    elif("DI" in p1):
+        train_path = p1/p2
+        config_path = ""
+        work_dir = ""
+        opt_arg = ""
+        package_name = "diengine"
+    else:
+        print("Wrong model info in  {}".format(model_info), flush = True)
+        exit(1)
+
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
@@ -94,10 +106,10 @@ def process_one_iter(model_info):
 
     if device_type == 'cuda':
         cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {}".format(github_job_name, slurm_par, gpu_requests, package_name)
     else:
         cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {}".format(github_job_name, slurm_par, gpu_requests, package_name)
 
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)

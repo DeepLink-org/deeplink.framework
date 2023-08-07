@@ -14,10 +14,11 @@ function clone_needed_repo() {
     MMACTION2_VERSION=dipu_v1.0.0_one_iter_tool
     MMOCR_VERSION=dipu_v1.0.0_one_iter_tool
     MMAGIC=dipu_v1.0.0_one_iter_tool
-    SMART_VERSION=dev_for_mmcv2.0
+    SMART_VERSION=slc/support-eiengine-trans
     MMYOLO=dipu_v0.5.0_one_iter_tool
+    DIENGINE=dipu_v0.4.8_one_iter_tool
 
-
+    rm -rf DI-engine && git clone -b ${DIENGINE} https://github.com/DeepLink-org/DI-engine.git
     rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
     rm -rf mmdetection && git clone -b ${MMDETECTION_VERSION} https://github.com/DeepLink-org/mmdetection.git
@@ -49,6 +50,11 @@ function build_needed_repo_cuda() {
     # cd ../mmpretrain
     # pip install -e .
     # cd ..
+
+    #安装强化学习需要用的包
+    pip install lz4
+    pip install readerwriterlock
+    pip install Flask==2.1.0
 }
 
 function build_needed_repo_camb() {
@@ -66,6 +72,7 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
         export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
