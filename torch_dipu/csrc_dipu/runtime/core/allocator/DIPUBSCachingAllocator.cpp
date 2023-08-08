@@ -33,7 +33,14 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 512;
+    static const size_t kMinAllocationSize = [](){
+      size_t size = 512;
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      if (env != nullptr) {
+        size = std::atoi(env);
+      }
+      return size;
+    }();
     size_t allocateSize = ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
     return allocateSize;
   }

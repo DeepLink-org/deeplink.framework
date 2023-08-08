@@ -19,12 +19,14 @@ def test_mem_stats(algorithm, log_mask):
         pin_ins.append(y)
         allocated = torch.cuda.memory_allocated(x.device)
         allocated_default = torch.cuda.memory_allocated()
+        allocated_by_index = torch.cuda.memory_allocated(0)
         pin_allocated = torch.cuda.memory_allocated(y.device)
         reserved = torch.cuda.memory_reserved(x.device)
         real_allocated += ((numel * 4 - 1) | 511) + 1
         print(f"numel:{numel}, allocated:{allocated}, reserved:{reserved}, real_allocated:{real_allocated}")
         assert allocated == real_allocated
         assert allocated == allocated_default
+        assert allocated == allocated_by_index
         assert pin_allocated == real_allocated
         assert reserved >= allocated
         del x, y
