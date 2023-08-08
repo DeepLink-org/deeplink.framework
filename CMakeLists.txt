@@ -5,6 +5,10 @@ project(TorchDIPU)
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS  "Whether to build dipu lib, default on" ON)
 
+# use gcover
+OPTION (ENABLE_COVERAGE "Use gcov" OFF)
+MESSAGE(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
+
 # device related
 set(DEVICE "camb" CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
@@ -13,6 +17,15 @@ list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_STPU "STPU" "stpu")
+
+execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
+string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
+execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
+if (DIPU_MODIFY_LEN GREATER 0)
+    set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
+endif()
+message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
+add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
 # config
 include(cmake/BaseFuncions.cmake)
@@ -42,6 +55,11 @@ else()
 endif()
 
 
+
+if (ENABLE_COVERAGE)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
 
 
 # findTorch encounter some error, need check。

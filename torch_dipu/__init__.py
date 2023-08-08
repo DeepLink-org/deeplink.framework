@@ -4,6 +4,8 @@ import os
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
 # os.environ['DIPU_MEM_CHECK_ENABLE_BACKTRACE'] = '1'
+
+os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
 mockcuda = False if os.environ.get("DIPU_MOCK_CUDA", 'True').lower()=='false' else True
 
 import torch
