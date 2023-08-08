@@ -1,4 +1,4 @@
-#include "DIPUCachingAllocator.h"
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include "c10/cuda/CUDACachingAllocator.h"
 
 namespace c10 {
@@ -38,7 +38,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     return false;
   }
-  
+
   virtual DataPtr allocate(size_t n) const override {
     //DIPU_PATCH_CUDA_ALLOCATOR();
     auto data_ptr = c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(n);
@@ -56,7 +56,6 @@ static DIPUCUDAAllocatorProxy cuda_allocator_proxy;
 } // namespace c10
 
 int patchCachingAllocator() {
-  std::cout << __FUNCTION__ << std::endl;
   c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&c10::cuda::CUDACachingAllocator::cuda_allocator_proxy));
   return 0;
 }
