@@ -52,7 +52,7 @@ public:
 };
 
 static CUDACopyInplace cuda_copy_inplace;
-static int32_t cuda_init = [&]() {
+static int32_t cuda_init = []() {
   setDipuCopyInplace(&cuda_copy_inplace);
   return 1;
 }();
