@@ -159,6 +159,10 @@ def Clone(*args, **kargs):
 def Copy(*args, **kwargs):
     return tops_op.Copy(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.lift_fresh_copy.default)
+def LiftFreshCopy(*args, **kwargs):
+    return tops_op.LiftFreshCopy(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.neg)
 def Neg(*args):
     return tops_op.Neg(*args)

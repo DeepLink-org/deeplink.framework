@@ -282,6 +282,21 @@ class Copy(Operator):
         self.torch_op = torch.ops.aten.copy.default
 
 
+class LiftFreshCopy(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("LiftFreshCopy")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.lift_fresh_copy.default
+
+    def __call__(self, *args, **kwargs):
+        if hasattr(args[0], 'meta'):
+            return args[0].meta['val']
+        else:
+            with FakeTensorMode():
+                return torch.empty(())
+
+
 class Neg(Operator):
     def __init__(self, *args):
         super().__init__("Neg")

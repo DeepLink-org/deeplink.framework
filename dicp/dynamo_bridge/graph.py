@@ -9,6 +9,7 @@ import torch.fx
 
 from torch._dynamo import config as dynamo_config
 from torch._dynamo.utils import dynamo_timed
+from torch._subclasses import FakeTensor, FakeTensorMode
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +38,16 @@ class GraphTransformer:
         for n in self.gm.graph.nodes:
             if n.op == 'call_function':
                 n.meta['val'] = (n.target(*n.args, **n.kwargs))
+            elif n.op == 'get_attr':
+                target_atoms = n.target.split('.')
+                attr_itr = self.gm
+                for i, atom in enumerate(target_atoms):
+                    if not hasattr(attr_itr, atom):
+                        raise RuntimeError(f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
+                    attr_itr = getattr(attr_itr, atom)
+                    attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
+                with FakeTensorMode():
+                    n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
 
     def codegen(self):
         return self.backend_codegen(self.gm).codegen()

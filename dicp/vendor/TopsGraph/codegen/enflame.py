@@ -37,6 +37,16 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
             "torch.bool": "builder::PrimitiveType::PRED()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
+cxx_type_set = {"torch.float32": "float_t",
+                "torch.float": "float_t",
+                "torch.float64": "double_t",
+                "torch.double": "double_t",
+                "torch.int32": "int32_t",
+                "torch.int": "int32_t",
+                "torch.int64": "int64_t",
+                "torch.long": "int64_t",
+                "torch.bool": "bool"}
+
 need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
@@ -94,6 +104,21 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);")
         self.build_graph_code.writeline("")
 
+    def get_attr(self, name, target, args, kwargs):
+        assert isinstance(target, str)
+        self.args_dict[name] = 'op' + str(len(self.args_dict))
+        attr = self.fetch_attr(target)
+        assert(isinstance(attr, torch.Tensor))
+        if attr.size():
+            data = str(attr)[str(attr).find('(') + 1 : -1].replace('[', '{').replace(']', '}')
+            shape = '{' + str(attr.shape).split('[')[-1].split(']')[0] + '}'
+            self.build_graph_code.writeline(f"builder::Type {self.args_dict[name]}_type({shape}, {type_set[str(attr.dtype)]});")
+            self.build_graph_code.writeline(f"std::vector<{cxx_type_set[str(attr.dtype)]}> {self.args_dict[name]}_data{data};")
+            self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = builder::Const(hlir_builder, {self.args_dict[name]}_data.data(), {self.args_dict[name]}_type);")
+        else:
+            self.build_graph_code.writeline(f"builder::Type {self.args_dict[name]}_type({{1}}, {type_set[str(attr.dtype)]});")
+            self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = builder::Const(hlir_builder, {attr}, {self.args_dict[name]}_type);")
+        
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = 'op' + str(len(self.args_dict))
@@ -521,6 +546,10 @@ class EnflameOverrides(OpOverrides):
     def Copy(op_var, *args):
         return f"builder::Op {op_var} = {args[1]};"
     
+    @staticmethod
+    def LiftFreshCopy(op_var, x):
+        return f"builder::Op {op_var} = {x};"
+
     @staticmethod
     def Abs(op_var, x):
         return f"builder::Op {op_var} = builder::Abs({x});"
