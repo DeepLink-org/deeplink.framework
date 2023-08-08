@@ -8,6 +8,8 @@ target = torch.zeros(2, 1000).cuda()
 
 optimizers = [
     torch.optim.Adadelta(model.parameters(), lr=0.01),
+    torch.optim.Adadelta(model.parameters(), 0.01, 0.9, 1e-6, 0, False),
+    torch.optim.Adadelta(model.parameters(), 0.01, 0.9, 1e-6, 0, True),
     torch.optim.Adagrad(model.parameters(), lr=0.01),
     torch.optim.Adam(model.parameters(), lr=0.01),
     torch.optim.AdamW(model.parameters(), lr=0.01),
@@ -17,7 +19,9 @@ optimizers = [
     torch.optim.RAdam(model.parameters(), lr=0.01),
     torch.optim.RMSprop(model.parameters(), lr=0.01),
     torch.optim.Rprop(model.parameters(), lr=0.01),
-    torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9),
+    torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, foreach=False),
+    torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9, foreach=True)
 ]
 loss_fn = torch.nn.MSELoss()
 
