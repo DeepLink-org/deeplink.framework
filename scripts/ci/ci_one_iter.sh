@@ -46,14 +46,14 @@ function build_needed_repo_cuda() {
     # # Install MMYOLO
     # pip install -e . --no-deps
     cd ..
-    # cd mmagic
-    # pip install -e . -v --no-deps
+    cd mmagic
+    pip install -e . -v 
     # cd ../mmpretrain
     # pip install -e .
     # cd ..
     # cd DI-engine
     # pip install -e .
-    # cd ..
+    cd ..
     # #安装强化学习需要用的包
     # pip install lz4
     # pip install readerwriterlock
