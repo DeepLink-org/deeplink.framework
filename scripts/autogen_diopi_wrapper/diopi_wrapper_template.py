@@ -192,6 +192,7 @@ static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
 
 
 using namespace dipu::diopi_helper;
+std::set<std::string> opset;
 
 $functions_code
 

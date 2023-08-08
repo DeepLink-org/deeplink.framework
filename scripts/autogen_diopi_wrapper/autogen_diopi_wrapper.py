@@ -147,7 +147,13 @@ def create_print_op_args_code(fun_config):
     for input in inputs:
         input = input.strip()
         code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
-    code += "}"
+    code += "}\n"
+    code +=  f'if (opset.find("{opname}") == opset.end()) ' 
+    code += '{\n'
+    code +=  f'\tstd::cout << "find:  "<<  "{opname}" << std::endl;\n'
+    code +=  f'\tstd::ofstream file;\n\tfile.open("oplists.txt", std::ios::app);\n\tfile << "{opname}"<< std::endl;\n\tfile.close();\n'
+    code +=  f'\topset.insert("{opname}");\n'
+    code += '}'
     return code
 
 
