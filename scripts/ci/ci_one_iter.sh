@@ -46,18 +46,19 @@ function build_needed_repo_cuda() {
     # # Install MMYOLO
     # pip install -e . --no-deps
     cd ..
-    cd mmagic
-    pip install -e . -v 
+    # cd mmagic
+    # pip install -e . -v 
     # cd ../mmpretrain
     # pip install -e .
     # cd ..
     # cd DI-engine
     # pip install -e .
-    cd ..
+    # cd ..
     # #安装强化学习需要用的包
     # pip install lz4
     # pip install readerwriterlock
     # pip install Flask==2.1.0
+    pip install transformers
 }
 
 function build_needed_repo_camb() {
