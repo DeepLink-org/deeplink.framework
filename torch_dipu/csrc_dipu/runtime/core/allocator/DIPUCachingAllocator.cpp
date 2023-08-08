@@ -4,8 +4,6 @@
 #include <map>
 #include <tuple>
 #include <set>
-#include <atomic>
-
 
 namespace dipu {
 
@@ -184,10 +182,6 @@ namespace {
   static int m = [&]() {
     c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 255);
     c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator, 255);
-
-
-    //allocator.store((CUDAAllocator*)&dipu_default_device_allocator);
-
     return 0;
   }();
 
