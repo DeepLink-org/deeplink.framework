@@ -1,38 +1,20 @@
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include "c10/cuda/CUDACachingAllocator.h"
-
+#include <unordered_map>
 namespace c10 {
 
 namespace cuda {
 
 namespace CUDACachingAllocator {
 
+
 #define DIPU_PATCH_CUDA_ALLOCATOR(x) \
-    std::cout << __FUNCTION__ << ":" << __LINE__ << "this function should not be called!" x << std::endl;
+    std::cout << __FUNCTION__ << ":" << __LINE__ << " this function should not be called!" x << std::endl;
 
 class DIPUCUDAAllocatorProxy : public CUDAAllocator {
+  std::unordered_map<void*, c10::DataPtr> tempMemBlock;
  public:
-  virtual void* raw_alloc(size_t nbytes) override {
-    return c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->raw_allocate(nbytes);
-  }
-
-  virtual void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-    auto data_ptr = c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(nbytes);
-    //dipu::recordStream(data_ptr, dipu::DIPUStream());
-    data_ptr.release_context();
-    return data_ptr.get();
-  }
-
-  virtual void raw_delete(void* ptr) override {
-    c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->raw_deallocate(ptr);
-  }
-
-  virtual void init(int device_count) override {}
-
-  virtual bool initialized() override {
-    return true;
-  }
+  virtual void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override {DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void setMemoryFraction(double fraction, int device) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void* getBaseAllocation(void* ptr, size_t* size) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void recordStream(const DataPtr&, CUDAStream stream) override { DIPU_PATCH_CUDA_ALLOCATOR();}
@@ -48,9 +30,23 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   virtual void recordHistory(bool enabled, CreateContextFn context_recorder, size_t alloc_trace_max_entries, bool alloc_trace_record_context) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void attachOutOfMemoryObserver(OutOfMemoryObserver observer) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual std::string name() override { DIPU_PATCH_CUDA_ALLOCATOR();}
+  virtual void cacheInfo(int dev_id, size_t* largestBlock) override {DIPU_PATCH_CUDA_ALLOCATOR();}
 
-  virtual void cacheInfo(int dev_id, size_t* largestBlock) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
+  virtual void* raw_alloc(size_t nbytes) override {
+    auto data_ptr = this->allocate(nbytes);
+    void* ptr = data_ptr.get();
+    tempMemBlock.emplace(ptr, std::move(data_ptr));
+    return ptr;
+  }
+
+  virtual void raw_delete(void* ptr) override {
+    tempMemBlock.erase(ptr);
+  }
+
+  virtual void init(int device_count) override {}
+
+  virtual bool initialized() override {
+    return true;
   }
 
   virtual void emptyCache() override {
@@ -79,7 +75,10 @@ static DIPUCUDAAllocatorProxy cuda_allocator_proxy;
 } // namespace c10
 
 int patchCachingAllocator() {
-  c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&c10::cuda::CUDACachingAllocator::cuda_allocator_proxy));
+  const char* env = std::getenv("DIPU_PATCH_CUDA_CACHED_ALLOCATOR");
+  if (env != nullptr && std::atoi(env) > 0) {
+    c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&c10::cuda::CUDACachingAllocator::cuda_allocator_proxy));
+  }
   return 0;
 }
 
