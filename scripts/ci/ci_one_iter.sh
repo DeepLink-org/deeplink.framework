@@ -59,6 +59,7 @@ function build_needed_repo_cuda() {
     # pip install readerwriterlock
     # pip install Flask==2.1.0
     pip install transformers
+    pip install accelerate
 }
 
 function build_needed_repo_camb() {
