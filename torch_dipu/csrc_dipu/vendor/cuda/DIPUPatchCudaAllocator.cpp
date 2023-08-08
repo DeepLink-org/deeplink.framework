@@ -12,14 +12,28 @@ namespace CUDACachingAllocator {
 
 class DIPUCUDAAllocatorProxy : public CUDAAllocator {
  public:
-  virtual void* raw_alloc(size_t nbytes) override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual void raw_delete(void* ptr) override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual void init(int device_count) override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual bool initialized() override { DIPU_PATCH_CUDA_ALLOCATOR();}
+  virtual void* raw_alloc(size_t nbytes) override {
+    return c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->raw_allocate(nbytes);
+  }
+
+  virtual void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+    auto data_ptr = c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(nbytes);
+    //dipu::recordStream(data_ptr, dipu::DIPUStream());
+    data_ptr.release_context();
+    return data_ptr.get();
+  }
+
+  virtual void raw_delete(void* ptr) override {
+    c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->raw_deallocate(ptr);
+  }
+
+  virtual void init(int device_count) override {}
+
+  virtual bool initialized() override {
+    return true;
+  }
   virtual void setMemoryFraction(double fraction, int device) override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual void emptyCache() override { DIPU_PATCH_CUDA_ALLOCATOR();}
-  virtual void cacheInfo(int dev_id, size_t* largestBlock) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void* getBaseAllocation(void* ptr, size_t* size) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void recordStream(const DataPtr&, CUDAStream stream) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual DeviceStats getDeviceStats(int device) override { DIPU_PATCH_CUDA_ALLOCATOR();}
@@ -34,6 +48,15 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   virtual void recordHistory(bool enabled, CreateContextFn context_recorder, size_t alloc_trace_max_entries, bool alloc_trace_record_context) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void attachOutOfMemoryObserver(OutOfMemoryObserver observer) override { DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual std::string name() override { DIPU_PATCH_CUDA_ALLOCATOR();}
+
+  virtual void cacheInfo(int dev_id, size_t* largestBlock) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+
+  virtual void emptyCache() override {
+    dipu::emptyCachedMem();
+  }
+
   virtual bool needsPoolSpecificPeerAccess() override {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     return false;
