@@ -6,20 +6,6 @@
 #include <set>
 #include <atomic>
 
-namespace c10 {
-
-namespace cuda {
-namespace CUDACachingAllocator {
-class CUDAAllocator;
-extern std::atomic<CUDAAllocator*> allocator;
-
-}; //  CUDACachingAllocator
-}; // namespace cuda
-}; // namespace c10
-
-void patchCachingAllocator() {
-  c10::cuda::CUDACachingAllocator::allocator.store((c10::cuda::CUDACachingAllocator::CUDAAllocator*)c10::GetAllocator(dipu::DIPU_DEVICE_TYPE));
-}
 
 namespace dipu {
 
