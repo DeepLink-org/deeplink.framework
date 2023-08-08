@@ -19,7 +19,7 @@ optimizers = [
     torch.optim.Rprop(model.parameters(), lr=0.01),
     torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 ]
-loss_fn = torch.nn.CrossEntropyLoss()
+loss_fn = torch.nn.MSELoss()
 
 for epoch in range(2):
     for optimizer in optimizers:
