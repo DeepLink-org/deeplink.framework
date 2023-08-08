@@ -11,6 +11,10 @@ namespace dipu {
 extern devapis::VendorDeviceType VENDOR_TYPE;
 namespace devapis {
 
+DIPU_API deviceId_t initVendor();
+
+
+
 DIPU_API deviceId_t current_device();
 
 DIPU_API DIPUDeviceProperties getDeviceProperties(int32_t device_index);
