@@ -26,13 +26,14 @@ namespace dipu
     const char *filename1 = "impl_Ops.txt";
     const char *filename2 = "fallback_Ops.txt";
     int opnum = countOp();
-    if (opnum == 1)
-    {
-      std::remove(filename1);
-      std::remove(filename2);
-    }
+
     if (opnum > 0)
     {
+      if (opnum == 1)
+      {
+        std::remove(filename1);
+        std::remove(filename2);
+      }
       if (opset.find(name) == opset.end())
       {
         std::ofstream file;
