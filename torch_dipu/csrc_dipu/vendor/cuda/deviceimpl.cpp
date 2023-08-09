@@ -13,9 +13,10 @@ using cuda_deviceId = int;
 // =====================
 //  Device class related
 // =====================
+extern int patchCachingAllocator();
 
 void initializeVendor() {
-
+    patchCachingAllocator();
 }
 
 void finalizeVendor() {
