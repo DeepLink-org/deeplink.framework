@@ -5,7 +5,7 @@ namespace dipu {
 
 namespace devproxy {
 
-void initializVendor() {
+void initializeVendor() {
   devapis::initializeVendor();
 }
 
