@@ -96,7 +96,7 @@ namespace {
 #define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                               \
   static void C10_CONCATENATE(                                          \
       DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid)(torch::Library&);      \
-  static const DIPUOpRegister C10_CONCATENATE(                          \
+  static const DIPUOpRegister C10_CONCATENATE(                \
       DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                \
       c10::guts::if_constexpr<c10::impl::dispatch_key_allowlist_check(  \
           c10::DispatchKey::k)>(                                        \
@@ -112,4 +112,4 @@ namespace {
   void C10_CONCATENATE(                                                 \
       DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid)(torch::Library & m)
 
-}
+} // namespace
