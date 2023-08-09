@@ -1,6 +1,7 @@
 #include "DIPUGlobals.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include <iostream>
 #include <ctime>
 namespace dipu {
@@ -19,6 +20,7 @@ void initResource() {
   printPromptAtStartup();
   devproxy::initializeVendor();
   initCachedAllocator();
+  at::DIPUOpRegister::register_op();
 }
 
 void releaseAllResources() {

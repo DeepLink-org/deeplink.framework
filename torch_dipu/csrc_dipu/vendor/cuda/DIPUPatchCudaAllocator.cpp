@@ -74,6 +74,8 @@ static DIPUCUDAAllocatorProxy cuda_allocator_proxy;
 
 } // namespace c10
 
+namespace dipu {
+
 int patchCachingAllocator() {
   const char* env = std::getenv("DIPU_PATCH_CUDA_CACHED_ALLOCATOR");
   if (env != nullptr) {
@@ -88,3 +90,5 @@ int patchCachingAllocator() {
   c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&c10::cuda::CUDACachingAllocator::cuda_allocator_proxy));
   return 0;
 }
+
+} // namespace dipu
