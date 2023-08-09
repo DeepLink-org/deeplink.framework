@@ -17,12 +17,14 @@ static void printPromptAtStartup() {
 
 void initResource() {
   printPromptAtStartup();
+  devproxy::initializeVendor();
 }
 
+
 void releaseAllResources() {
-    DIPU_DEBUG_ALLOCATOR(2, "releaseAllResources");
     releaseAllDeviceMem();
     releaseAllEvent();
+    devproxy::finalizeVendor();
 }
 
 } // namespace dipu

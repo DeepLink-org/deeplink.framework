@@ -13,6 +13,15 @@ using tops_deviceId = int;
 // =====================
 //  Device class related
 // =====================
+
+void initializeVendor() {
+
+}
+
+void finalizeVendor() {
+
+}
+
 deviceId_t current_device() {
   tops_deviceId devId_;
   DIPU_CALLTOPSRT(::topsGetDevice(&devId_))

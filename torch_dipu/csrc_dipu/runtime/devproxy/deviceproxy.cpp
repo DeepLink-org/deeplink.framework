@@ -5,6 +5,14 @@ namespace dipu {
 
 namespace devproxy {
 
+void initializVendor() {
+  devapis::initializeVendor();
+}
+
+void finalizeVendor() {
+  devapis::finalizeVendor();
+}
+
 deviceId_t current_device() {
   return devapis::current_device();
 }

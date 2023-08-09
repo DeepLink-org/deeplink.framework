@@ -14,6 +14,14 @@ namespace devapis {
         }                                                                             \
     }
 
+void initializeVendor() {
+
+}
+
+void finalizeVendor() {
+
+}
+
 class DeviceGuard {
 public:
   DeviceGuard(int device): device_bak(-1) {
