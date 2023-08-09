@@ -386,12 +386,12 @@ public:
         emptyCacheWithoutLock();
     }
 
-    std::pair<void*, int> allocateRaw(size_t nbytes) {
-        if (!nbytes) {
-            return std::make_pair(nullptr, 0);
+    std::tuple<void*, int, size_t> allocateRaw(size_t size) {
+        if (!size) {
+            return std::make_tuple(nullptr, 0, 0);
         }
 
-        nbytes = roundBytes(nbytes);
+        size_t nbytes = roundBytes(size);
 
         allocatedBytes += nbytes;
 
@@ -408,9 +408,9 @@ public:
                 id = split(id, nbytes);
             }
             chunks_[id].allocated = true;
-            return std::make_pair(chunks_[id].ptr, id);
+            return std::make_tuple(chunks_[id].ptr, id, nbytes);
         }
-        return std::make_pair(nullptr, 0);;
+        return std::make_tuple(nullptr, 0, 0);;
     }
 
     void releaseRaw(void* ptr, int id) {
@@ -430,6 +430,10 @@ public:
         this->allocate_fn = allocate_fn;
         this->deallocate_fn = deallocate_fn;
     }
+
+    size_t memory_reserved() {
+        return cachedBytes;
+    }
 };
 
 static void deleteBFContext(void* ptr);
@@ -446,6 +450,7 @@ private:
         DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr << " ,id:" << id << " ,allocator:" << this << ", device:" << device());
         impl->releaseRaw(ptr, id);
     }
+    set_memory_reserved(impl->memory_reserved());
   }
 
   void check_impl() const{
@@ -459,15 +464,16 @@ private:
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
 
-  void* makeContext(void* ptr, size_t size, int id) const{
-        auto ctx = new Context(ptr, size, id, this);
+  void* makeContext(void* ptr, size_t size, size_t nbytes, int id) const{
+        auto ctx = new Context(ptr, size, nbytes, id, this);
         return ctx;
   }
 
 public:
   struct Context: public DataPtrContextBase {
-    int id_;
-    Context(void* ptr, size_t size, int id, const BFCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size), id_(id) {
+    int id_ = 0;
+    size_t nbytes_ = 0;
+    Context(void* ptr, size_t size, size_t nbytes, int id, const BFCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size), id_(id), nbytes_(nbytes){
 
     }
 
@@ -483,6 +489,7 @@ public:
                 events.back().record(*iter);
             }
             allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_), events);
+            allocator_->set_memory_allocated(allocator_->memory_allocated() - nbytes_);
         }
         allocator_->restore();
       } else {
@@ -491,21 +498,44 @@ public:
     }
   };
 
+  friend class Context;
+
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
-    std::pair<void*, int> block = impl->allocateRaw(size);
+    std::tuple<void*, int, size_t> block;
+    try {
+        block = impl->allocateRaw(size);
+    }catch(...) {
+        empty_cache();
+        block = impl->allocateRaw(size);
+    }
     void* ptr = std::get<0>(block);
     int id = std::get<1>(block);
+    size_t nbytes = std::get<2>(block);
 
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, id), deleteBFContext, device());
-    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << size << " nbytes, ptr:" << ptr << ",device:" << device());
+    set_memory_allocated(memory_allocated() + nbytes);
+    set_memory_reserved(impl->memory_reserved());
+
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes, id), deleteBFContext, device());
+    DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << nbytes << ",requires " << size << " nbytes, ptr:" << ptr << ",device:" << device());
     return data_ptr;
   }
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this << ", device:" << device());
+    while (async_mem_pool()->size() > 0) {
+        if (!async_mem_pool()->ready()) {
+            std::this_thread::yield();
+            continue;
+        }
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
+        impl->releaseRaw(ptr, id);
+    }
     impl->emptyCache();
+    set_memory_reserved(impl->memory_reserved());
   }
 
   void release_all_memory() const override {

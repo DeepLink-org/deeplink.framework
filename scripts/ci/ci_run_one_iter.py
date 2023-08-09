@@ -32,7 +32,7 @@ print("now pid!!!!:",os.getpid(),os.getppid())
 print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
 
 os.environ['DIPU_DUMP_OP_ARGS'] = "0"
-os.environ['DIPU_DEBUG_ALLOCATOR'] = "3"
+os.environ['DIPU_DEBUG_ALLOCATOR'] = "0"
 
 # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  #we set 0.2 by default
 
@@ -64,7 +64,7 @@ def process_one_iter(model_info):
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
-    
+
     if 'fallback_op_list' in model_info:
         os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = model_info['fallback_op_list']
     else:

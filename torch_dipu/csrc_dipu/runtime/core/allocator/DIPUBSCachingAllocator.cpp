@@ -33,21 +33,30 @@ public:
   }
 
   size_t getAllocateSize(size_t nbytes) const{
-    static constexpr size_t kMinAllocationSize = 512;
-    size_t allocateSize = ((nbytes + kMinAllocationSize - 1) / kMinAllocationSize) * kMinAllocationSize;
+    static const size_t kMinAllocationSize = [](){
+      size_t size = 512;
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      if (env != nullptr) {
+        size = std::atoi(env);
+      }
+      return size;
+    }();
+    size_t allocateSize = ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
     return allocateSize;
   }
 
   c10::DataPtr allocate(size_t size) const override{
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::allocate " << size << ",allocator:" << this <<", memory-usage" << memory_allocated() << "/" << memory_reserved());
     flush_mem_pool();
     std::lock_guard<mutex_t> lk(mutex_);
-    const size_t nbytes = getAllocateSize(size);
+    size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
     if (idel_blocks.size() > 0) {
       ptr = idel_blocks.front();
       idel_blocks.pop_front();
       impl->total_idel_bytes_ -= nbytes;
+      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::reuse " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
     if (ptr == nullptr){
       for (size_t i = 0; i < 2; i++) {
@@ -56,6 +65,7 @@ public:
           ptr = data_ptr.get();
           device() = data_ptr.device();
           data_ptr.release_context();
+          set_memory_reserved(memory_reserved() + nbytes);
           break;
         }
         catch(...) {
@@ -70,22 +80,29 @@ public:
       impl->total_alocated_bytes_+= nbytes;
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
-
+    set_memory_allocated(memory_allocated() + nbytes);
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, device());
     return data_ptr;
   }
 
   void restore(size_t size, void* ptr) const{
+    size_t nbytes = getAllocateSize(size);
     std::lock_guard<mutex_t> lk(mutex_);
-    const size_t nbytes = getAllocateSize(size);
-    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore " << nbytes << ", used:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore " << nbytes << " bytes, ptr:" << ptr << ",allocator:" << this);
     impl->idel_blocks_[nbytes].push_back(ptr);
     impl->total_idel_bytes_ += nbytes;
+    set_memory_allocated(memory_allocated() - nbytes);
   }
 
   void empty_cache() const override {
-    flush_mem_pool();
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+    while(async_mem_pool()->size() > 0) {
+      if (async_mem_pool()->ready()) {
+        flush_mem_pool();
+      } else {
+        std::this_thread::yield();
+      }
+    }
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = impl->idel_blocks_.begin(); iter != impl->idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;
@@ -94,6 +111,7 @@ public:
         void* ptr = idel_blocks.front();
         idel_blocks.pop_front();
         impl->total_alocated_bytes_ -= size;
+        set_memory_reserved(memory_reserved() - size);
         impl->allocated_.erase(ptr);
         raw_allocator()->raw_deallocate(ptr);
       }
@@ -102,23 +120,8 @@ public:
   }
 
   void release_all_memory() const {
-    if (impl == nullptr) {
-      return;
-    }
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::release_all_memory allocator:"  << this);
-
-    while(async_mem_pool()->size() > 0) {
-      if (async_mem_pool()->ready()) {
-        async_mem_pool()->get();
-      } else {
-        std::this_thread::yield();
-      }
-    }
-
-    for (auto iter = impl->allocated_.begin(); iter != impl->allocated_.end(); iter++) {
-      raw_allocator()->raw_deallocate(*iter);
-    }
-    impl.reset(nullptr);
+    empty_cache();
   }
 
   void flush_mem_pool() const {

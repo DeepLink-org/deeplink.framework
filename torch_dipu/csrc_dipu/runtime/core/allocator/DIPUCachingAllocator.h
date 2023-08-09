@@ -15,7 +15,58 @@ namespace dipu {
 
 using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
-class DIPU_API CacheAllocator: public c10::Allocator {
+
+class MemStats
+{
+private:
+  mutable size_t reserved_in_bytes_ = 0;
+  mutable size_t allocated_in_bytes_ = 0;
+  mutable size_t max_reserved_in_bytes_ = 0;
+  mutable size_t max_allocated_in_bytes_ = 0;
+protected:
+  void set_memory_reserved(size_t reserved_in_bytes) const {
+    reserved_in_bytes_ = reserved_in_bytes;
+    max_reserved_in_bytes_ = max_reserved_in_bytes_ > reserved_in_bytes ? max_reserved_in_bytes_ : reserved_in_bytes;
+  }
+
+  void set_memory_allocated(size_t allocated_in_bytes) const {
+    allocated_in_bytes_ = allocated_in_bytes;
+    max_allocated_in_bytes_ = max_allocated_in_bytes_  > allocated_in_bytes ? max_allocated_in_bytes_ : allocated_in_bytes;
+  }
+
+public:
+  MemStats() {
+
+  }
+
+  ~MemStats() {
+    if (allocated_in_bytes_ != 0) {
+      DIPU_DEBUG_ALLOCATOR(8, "~MemStats: allocated_in_bytes_:" << allocated_in_bytes_);
+    }
+    if (reserved_in_bytes_ != 0) {
+      DIPU_DEBUG_ALLOCATOR(2, "~MemStats: reserved_in_bytes_:" << reserved_in_bytes_);
+    }
+  }
+
+  size_t memory_allocated() const {
+    return allocated_in_bytes_;
+  }
+
+  size_t memory_reserved() const {
+    return reserved_in_bytes_;
+  }
+
+  size_t max_memory_allocated() {
+    return max_allocated_in_bytes_;
+  }
+
+  size_t max_memory_reserved() {
+    return max_reserved_in_bytes_;
+  }
+};
+
+
+class DIPU_API CacheAllocator: public c10::Allocator, public MemStats {
   c10::Allocator* raw_allocator_ = nullptr;
   AsyncMemPool* async_mem_pool_ = nullptr;
   mutable c10::Device device_ = c10::DeviceType::CPU;
@@ -102,6 +153,14 @@ class DIPU_API CacheAllocator: public c10::Allocator {
 void setAllocator(const std::string name, c10::DeviceType device_type, std::function<c10::Allocator*(int)> allocator_get_fn, uint8_t priority = 0);
 
 c10::Allocator* getAllocator(c10::DeviceType device_type);
+
+size_t memoryReserved(const c10::Device& device);
+
+size_t memoryAllocated(const c10::Device& device);
+
+size_t maxMemoryReserved(const c10::Device& device);
+
+size_t maxMemoryAllocated(const c10::Device& device);
 
 void emptyCachedMem();
 

@@ -21,8 +21,7 @@ static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
 }
 
 static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self, at::Tensor& out) {
-  std::cout << "custom fallback to cpu, name=" << "silu_out" << std::endl;
-
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=silu_out" << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
   out_cpu = at::silu_out(self_cpu, out_cpu);
@@ -43,7 +42,7 @@ static c10::List<c10::optional<at::Tensor>> to_cpu( const c10::List<c10::optiona
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(const at::Tensor& self,
             const c10::List<c10::optional<at::Tensor>>& indices, at::Tensor& out) {
-  std::cout << "custom fallback to cpu, name=" << "index.Tensor_out" << std::endl;
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=index.Tensor_out" << std::endl);
   auto indices_cpu = to_cpu(indices);
 
   at::Tensor out_cpu = out.cpu();
@@ -55,7 +54,7 @@ static at::Tensor& custom_fallback_dipu_index_tensor_out(const at::Tensor& self,
 static at::Tensor& custom_fallback_dipu__index_put_impl_(at::Tensor& self,
               const c10::List<c10::optional<at::Tensor>>& indices,
               const at::Tensor& values, bool accumulate, bool unsafe) {
-  std::cout << "custom fallback to cpu, name=" << "_index_put_impl_" << std::endl;
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=_index_put_impl_" << std::endl);
 
   auto indices_cpu = to_cpu(indices);
   at::Tensor self_cpu = self.cpu();
