@@ -158,7 +158,7 @@ void setDipuCopyInplace(DIPUCopyInplace *op) {
   }
 }
 
-static int32_t default_init = [&]() {
+static int32_t default_init = []() {
   setDipuCopyInplace(&default_copy_inplace_op);
   return 1;
 }();
