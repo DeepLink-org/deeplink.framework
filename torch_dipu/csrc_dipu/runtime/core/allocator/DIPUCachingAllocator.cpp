@@ -176,16 +176,14 @@ namespace {
       return getAllocator(device_type_)->raw_deleter();
     }
   };
-
-  // Make the c10::GetAllocator interface available
   static DIPUDeviceCachingProxy dipu_default_device_allocator(dipu::DIPU_DEVICE_TYPE);
-  static int m = [&]() {
-    c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 255);
-    c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator, 255);
-    return 0;
-  }();
-
 };
+
+void initCachedAllocator() {
+  // Make the c10::GetAllocator interface available
+  c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator, 255);
+  c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator, 255);
+}
 
 
 }  // namespace dipu

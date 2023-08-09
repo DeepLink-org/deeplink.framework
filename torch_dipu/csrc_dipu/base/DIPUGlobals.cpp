@@ -18,13 +18,13 @@ static void printPromptAtStartup() {
 void initResource() {
   printPromptAtStartup();
   devproxy::initializeVendor();
+  initCachedAllocator();
 }
 
-
 void releaseAllResources() {
-    releaseAllDeviceMem();
-    releaseAllEvent();
-    devproxy::finalizeVendor();
+  releaseAllDeviceMem();
+  releaseAllEvent();
+  devproxy::finalizeVendor();
 }
 
 } // namespace dipu
