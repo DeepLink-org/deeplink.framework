@@ -148,12 +148,7 @@ def create_print_op_args_code(fun_config):
         input = input.strip()
         code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
     code += "}\n"
-    code +=  f'if (opset.find("{opname}") == opset.end()) ' 
-    code += '{\n'
-    code +=  f'\tstd::cout << "find:  "<<  "{opname}" << std::endl;\n'
-    code +=  f'\tstd::ofstream file;\n\tfile.open("oplists.txt", std::ios::app);\n\tfile << "{opname}"<< std::endl;\n\tfile.close();\n'
-    code +=  f'\topset.insert("{opname}");\n'
-    code += '}'
+    code += f'dipu::countOps("{opname}", 1);'
     return code
 
 

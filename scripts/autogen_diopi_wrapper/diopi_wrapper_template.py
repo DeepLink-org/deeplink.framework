@@ -13,6 +13,7 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
+#include <csrc_dipu/utils/helpfunc.hpp>
 #include "CustomFallbackFunctions.hpp"
 
 $header_include_code
@@ -192,7 +193,6 @@ static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
 
 
 using namespace dipu::diopi_helper;
-std::set<std::string> opset;
 
 $functions_code
 
