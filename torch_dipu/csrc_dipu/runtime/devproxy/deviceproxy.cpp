@@ -3,6 +3,18 @@
 #include "../core/DIPUEventPool.h"
 namespace dipu {
 
+namespace devapis{
+
+__attribute__((weak)) void initializeVendor() {
+  
+}
+
+__attribute__((weak)) void finalizeVendor() {
+
+}
+
+} // namespace devapis
+
 namespace devproxy {
 
 void initializeVendor() {
