@@ -3,53 +3,56 @@
 
 namespace dipu
 {
-  bool isDeviceTensor(const at::Tensor &tensor)
-  {
-    return tensor.unsafeGetTensorImpl()->device_type() == dipu::DIPU_DEVICE_TYPE;
-  }
+bool isDeviceTensor(const at::Tensor &tensor)
+{
+  return tensor.unsafeGetTensorImpl()->device_type() == dipu::DIPU_DEVICE_TYPE;
+}
 
-  int countOp()
+int countOp()
+{
+  const char *env_ptr = std::getenv("DIPU_COUNT_OP");
+  static int count = 0;
+  if (env_ptr != nullptr)
   {
-    const char *env_ptr = std::getenv("DIPU_COUNT_OP");
-    static int count = 0;
     if (std::strcmp(env_ptr, "true") == 0 or std::strcmp(env_ptr, "True") == 0 or std::strcmp(env_ptr, "TRUE") == 0)
     {
       count += 1;
     }
-    return count;
   }
+  return count;
+}
 
-  std::set<std::string> opset;
+std::set<std::string> opset;
 
-  void countOps(std::string name, int flag)
+void countOps(std::string name, int flag)
+{
+  const char *filename1 = "impl_Ops.txt";
+  const char *filename2 = "fallback_Ops.txt";
+  int opnum = countOp();
+
+  if (opnum > 0)
   {
-    const char *filename1 = "impl_Ops.txt";
-    const char *filename2 = "fallback_Ops.txt";
-    int opnum = countOp();
-
-    if (opnum > 0)
+    if (opnum == 1)
     {
-      if (opnum == 1)
+      std::remove(filename1);
+      std::remove(filename2);
+    }
+    if (opset.find(name) == opset.end())
+    {
+      std::ofstream file;
+      if (flag == 1)
       {
-        std::remove(filename1);
-        std::remove(filename2);
+        file.open(filename1, std::ios::app);
       }
-      if (opset.find(name) == opset.end())
+      else
       {
-        std::ofstream file;
-        if (flag == 1)
-        {
-          file.open(filename1, std::ios::app);
-        }
-        else
-        {
-          file.open(filename2, std::ios::app);
-        }
-        file << name << std::endl;
-        file.close();
-        opset.insert(name);
+        file.open(filename2, std::ios::app);
       }
+      file << name << std::endl;
+      file.close();
+      opset.insert(name);
     }
   }
+}
 
 } // end dipu

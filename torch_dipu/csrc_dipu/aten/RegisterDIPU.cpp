@@ -66,7 +66,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     "Currently the foreach operator does not support fallback");
 
   DIPU_REGISTER_LOG("fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl);
-  // dipu::countOps(std::string(name), 2);
+  dipu::countOps(std::string(name), 2);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
