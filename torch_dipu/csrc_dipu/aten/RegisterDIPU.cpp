@@ -82,14 +82,17 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   }
 }
 
-std::list<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>> DIPUOpRegister::dipuOpRegisterList;
+std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>> DIPUOpRegister::dipuOpRegisterList;
+std::mutex DIPUOpRegister::mutex_;
 
 void DIPUOpRegister::register_op() {
+  std::lock_guard<std::mutex> guard(mutex_);
   for (auto iter = dipuOpRegisterList.begin(); iter !=  dipuOpRegisterList.end(); ++iter) {
     torch::Library* lib = std::get<0>(*iter);
     DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(*iter);
     fun_ptr(*lib);
   }
+  dipuOpRegisterList.clear();
 }
 
 namespace {

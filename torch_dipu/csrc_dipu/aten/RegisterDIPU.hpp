@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
-#include <list>
+#include <deque>
+#include <mutex>
 #include <torch/library.h>
 
 namespace dipu {
@@ -61,14 +62,16 @@ public:
 private:
     OpRegFunPtr fun_ptr_;
     torch::Library lib_;
-    static std::list<std::tuple<torch::Library*, OpRegFunPtr>> dipuOpRegisterList;
+    static std::deque<std::tuple<torch::Library*, OpRegFunPtr>> dipuOpRegisterList;
+    static std::mutex mutex_;
 public:
     DIPUOpRegister(OpRegFunPtr fun_ptr, const char* ns, c10::optional<c10::DispatchKey> key, const char* file, int line): lib_(torch::Library::IMPL, ns, key, file, line), fun_ptr_(fun_ptr) {
         const char* env = std::getenv("DIPU_IMMEDIATE_REGISTER_OP");
         if (env != nullptr && std::atoi(env) > 0) {
             fun_ptr_(lib_);
         } else {
-            dipuOpRegisterList.emplace_back(std::make_tuple(&lib_, fun_ptr_));
+            std::lock_guard<std::mutex> guard(mutex_);
+            dipuOpRegisterList.push_back(std::make_tuple(&lib_, fun_ptr_));
         }
     }
 
@@ -84,7 +87,7 @@ namespace {
 #define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                               \
   static void C10_CONCATENATE(                                          \
       DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid)(torch::Library&);      \
-  static const DIPUOpRegister C10_CONCATENATE(                \
+  static const ::at::DIPUOpRegister C10_CONCATENATE(                    \
       DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                \
       c10::guts::if_constexpr<c10::impl::dispatch_key_allowlist_check(  \
           c10::DispatchKey::k)>(                                        \

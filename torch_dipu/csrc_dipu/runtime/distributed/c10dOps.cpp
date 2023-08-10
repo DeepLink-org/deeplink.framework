@@ -3,7 +3,7 @@
 #include <c10/util/intrusive_ptr.h>
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
-#include <torch/library.h>
+#include <csrc_dipu/aten/RegisterDIPU.hpp>
 
 #include <csrc_dipu/base/basedef.h>
 
@@ -108,7 +108,7 @@ std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>> allga
           output_tensors, work);
 }
 
-// refer to distributed/c10d/Ops.cpp 
+// refer to distributed/c10d/Ops.cpp
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
     at::Tensor& output_tensor,
     at::Tensor& input_tensor,
@@ -180,7 +180,7 @@ c10::intrusive_ptr<Work> barrier_dipu(
 }
 
 // register functions to dispatcher
-TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
+DIPU_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("send", send_dipu);
   m.impl("recv_", recv_dipu_);
   m.impl("broadcast_", broadcast_dipu_);
