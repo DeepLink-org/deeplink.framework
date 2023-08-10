@@ -12,7 +12,7 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
              'view_as_complex', 'view_as_real', 'slice', 'select',
-             'pow', 'cat', 'expand', 'transpose', 'inmul']
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm']
 
 sym_to_inputs = {}
 
@@ -619,53 +619,78 @@ class AscendOverrides:
         for i in range(len(args)):
             if isinstance(args[i], Node):
                 args_str.append(args_dict[args[i].name])
-            # elif isinstance(args[i], bool):
-            #     args_str.append(str(args[i]).lower())
-            # elif isinstance(args[i], torch.fx.immutable_collections.immutable_list):
-            #     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
-            # elif isinstance(args[i], torch.dtype):
-            #     in_shape_size = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-            #     src_code.writeline(f'std::vector<int64_t> {op_var}_shape{count}{in_shape_size};')
-            #     args_str.append(f'{op_var}_type{count}')
-            #     count += 1
             else:
                 args_str.append(args[i])
         return src_code, args_str
 
     @staticmethod
     def mul(name, node, x, y):
-        (_, y_node) = node.args
-        if isinstance(y_node, torch.fx.node.Node):
+        (x_node, y_node) = node.args
+        
+        if not isinstance(y_node, torch.fx.node.Node):
+            # y is scalar
+            dtype = node.meta['val'].dtype
+            not_support_type = False
+            try:
+                cpp_dtype = get_cpp_dtype(dtype)
+                ascend_dtype = get_ascend_dtype(dtype)
+            except:
+                cpp_dtype = "FLOAT"
+                ascend_dtype = "FLOAT"
+                not_support_type = True
+            
+            mul_op = OP(name, "Mul")
+            mul_op.set_input("x1", x)
+            scalar_op = OP(f"{name}_scalar", "Const")
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+            if not_support_type:
+                ascend_dtype = get_ascend_dtype(dtype)
+                cast_op = OP(f"{name}_scalar_cast", "Cast")
+                cast_op.set_input("x", f"{name}_scalar")
+                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+                mul_op.set_input("x2", f"{name}_scalar_cast")
+                return [scalar_op.to_node(), cast_op.to_node(), mul_op.to_node()]
+            else:
+                mul_op.set_input("x2", f"{name}_scalar")
+                return [scalar_op.to_node(), mul_op.to_node()]
+        
+        if y_node.meta['val'].dtype != torch.complex64:
             op = OP(name, "Mul")
             op.set_input("x1", x)
             op.set_input("x2", y)
             return op.to_node()
 
-        # y is scalar
-        dtype = node.meta['val'].dtype
-        not_support_type = False
-        try:
-            cpp_dtype = get_cpp_dtype(dtype)
-            ascend_dtype = get_ascend_dtype(dtype)
-        except:
-            cpp_dtype = "FLOAT"
-            ascend_dtype = "FLOAT"
-            not_support_type = True
+        assert x_node.meta["val"].dtype == torch.complex64
+        assert y_node.meta["val"].dtype == torch.complex64
         
-        mul_op = OP(name, "Mul")
-        mul_op.set_input("x1", x)
-        scalar_op = OP(f"{name}_scalar", "Const")
-        scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
-        if not_support_type:
-            ascend_dtype = get_ascend_dtype(dtype)
-            cast_op = OP(f"{name}_scalar_cast", "Cast")
-            cast_op.set_input("x", f"{name}_scalar")
-            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
-            mul_op.set_input("x2", f"{name}_scalar_cast")
-            return [scalar_op.to_node(), cast_op.to_node(), mul_op.to_node()]
-        else:
-            mul_op.set_input("x2", f"{name}_scalar")
-            return [scalar_op.to_node(), mul_op.to_node()]
+        def gen_op(op_type, name, x1, x2):
+            op = OP(name, op_type)
+            op.set_input("x1", x1)
+            op.set_input("x2", x2)
+            return op
+
+        # (a + bj)*(c + dj) = (ac - bd)+(ad + bc)j
+        a = OP(f"{name}_a", "Identity")
+        a.set_input_with_index("x", x, 0)
+        b = OP(f"{name}_b", "Identity")
+        b.set_input_with_index("x", x, 1)
+        c = OP(f"{name}_c", "Identity")
+        c.set_input_with_index("x", y, 0)
+        d = OP(f"{name}_d", "Identity")
+        d.set_input_with_index("x", y, 1)
+
+        ac = gen_op("Mul", f"{name}_ac", f"{name}_a", f"{name}_c")
+        bd = gen_op("Mul", f"{name}_bd", f"{name}_b", f"{name}_d")
+        ad = gen_op("Mul", f"{name}_ad", f"{name}_a", f"{name}_d")
+        bc = gen_op("Mul", f"{name}_bc", f"{name}_b", f"{name}_c")
+        ac_bd = gen_op("Sub", f"{name}_ac_bd", f"{name}_ac", f"{name}_bd")
+        ad_bc = gen_op("Add", f"{name}_ad_bc", f"{name}_ad", f"{name}_bc")
+
+        id_op = OP(name, "IdentityN")
+        id_op.set_dynamic_input("x", 2, [f"{name}_ac_bd", f"{name}_ad_bc"])
+        id_op.set_dynamic_output("y", 2)
+        ops = [a, b, c, d, ac, bd, ad, bc, ac_bd, ad_bc, id_op]
+        return [op.to_node() for op in ops]
 
     @staticmethod
     def add(name, node, x, y):
@@ -835,8 +860,11 @@ class AscendOverrides:
 
     @staticmethod
     def view(name, node, x, size):
-        numel = node.meta['val'].numel()
+        x_node = node.target.x.node
         shape = list(node.meta['val'].shape)
+        if x_node.meta["val"].dtype == torch.complex64:
+            shape.append(1)
+        numel = node.meta['val'].numel()
         shape_size = len(shape)
         if shape.count(-1) > 0:
             prod = 1
@@ -859,10 +887,31 @@ class AscendOverrides:
             const_op = OP(f"{name}_preprocess", "Const")    
             const_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [shape_size])
             ops.append(const_op.to_node())
-        op = OP(name, "Reshape")
-        op.set_input("x", x)
-        op.set_input("shape", f"{name}_preprocess")
-        ops.append(op.to_node())
+
+        if x_node.meta["val"].dtype == torch.complex64:
+            tmp = []
+            real = OP(f"{name}_real", "Identity")
+            real.set_input_with_index("x", x, 0)
+            imag = OP(f"{name}_imag", "Identity")
+            imag.set_input_with_index("x", x, 1)
+            
+            real_reshape = OP(f"{name}_real_reshape", "Reshape")
+            real_reshape.set_input("x", f"{name}_real")
+            real_reshape.set_input("shape", f"{name}_preprocess")
+            imag_reshape = OP(f"{name}_imag_reshape", "Reshape")
+            imag_reshape.set_input("x", f"{name}_imag")
+            imag_reshape.set_input("shape", f"{name}_preprocess")
+
+            id_op = OP(name, "IdentityN")
+            id_op.set_dynamic_input("x", 2, [f"{name}_real_reshape", f"{name}_imag_reshape"])
+            id_op.set_dynamic_output("y", 2)
+            tmp = [real, imag, real_reshape, imag_reshape, id_op]
+            ops.extend([op.to_node() for op in tmp])
+        else:
+            op = OP(name, "Reshape")
+            op.set_input("x", x)
+            op.set_input("shape", f"{name}_preprocess")
+            ops.append(op.to_node())
         return ops
 
     @staticmethod
@@ -1236,10 +1285,16 @@ class AscendOverrides:
         return ops
 
     @staticmethod
-    def mm(name, x, y):
+    def mm(name, node, x, y):
+        if node.target.change_input:
+            (x, y) = (y, x)
         op = OP(name, "MatMul")
         op.set_input("x1", x)
         op.set_input("x2", y)
+        if node.target.trans_a:
+            op.set_attr_bool("transpose_x1", True)
+        if node.target.trans_b:
+            op.set_attr_bool("transpose_x2", True)
         return op.to_node()
 
     @staticmethod
@@ -1610,57 +1665,38 @@ class AscendOverrides:
     def view_as_complex(name, node, x):
         x_shape = list(node.target.x.node.meta['val'].shape)
         x_dtype = node.target.x.node.meta['val'].dtype
-        y_shape = list(node.meta['val'].shape)
+
+        assert x_dtype == torch.float32
         assert x_shape[-1] == 2
 
         dim = len(x_shape) - 1
-        shape_size = len(y_shape)
-        shape_str = '{' + ','.join(map(str, y_shape)) + '}'
-        output_dtype = 'DT_COMPLEX64' if x_dtype == torch.float32 else 'DT_COMPLEX128'
-
-        ops = []
-        split_op = OP(f"{name}_split", "SplitD")
+        split_op = OP(f"{name}", "SplitD")
         split_op.set_input("x", x)
         split_op.set_attr_int("split_dim", dim)
         split_op.set_attr_int("num_split", 2)
         split_op.set_dynamic_output("y", 2)
-        
-        complex_op = OP(f"{name}_complex", "Complex")
-        complex_op.set_input_with_index("real", f"{name}_split", 0)
-        complex_op.set_input_with_index("imag", f"{name}_split", 1)
-        
-        ops.append(split_op.to_node())
-        ops.append(complex_op.to_node())
-
-        if symint_in_shape(y_shape):
-            ops.extend(process_dynamic_shape(y_shape, name))
-        else:
-            const_op = OP(f"{name}_preprocess", "Const") 
-            const_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
-            ops.append(const_op.to_node())
-            
-        op = OP(name, "Reshape")
-        op.set_input("x", f"{name}_complex")
-        op.set_input("shape", f"{name}_preprocess")
-        ops.append(op.to_node())
-        return ops
+        return [split_op.to_node()]      
       
     @staticmethod
     def view_as_real(name, node, x):
         assert node.meta['val'].dtype == torch.float32
         x_shape = list(node.target.x.node.meta['val'].shape)
-        dim = len(x_shape) - 1
+        dim = len(x_shape)
         
-        op1 = OP(f"{name}_real", "Real")
-        op1.set_input("input", x)
-        op2 = OP(f"{name}_imag", "Imag")
-        op2.set_input("input", x)
-        op3 = OP(name, "Pack")
-        op3.set_dynamic_input("x", 2, [f"{name}_real", f"{name}_imag"])
+        op1 = OP(f"{name}_getitem_1", "Identity")
+        op1.set_input_with_index("x", x, 0)
+        op2 = OP(f"{name}_getitem_2", "Identity")
+        op2.set_input_with_index("x", x, 1)
+        op3 = OP(f"{name}_pack", "Pack")
+        op3.set_dynamic_input("x", 2, [f"{name}_getitem_1", f"{name}_getitem_2"])
         op3.set_attr_int("axis", dim)
         op3.set_attr_int("N", 2)
-
-        return [op1.to_node(), op2.to_node(), op3.to_node()]
+        
+        op4 = OP(name, "Squeeze")
+        op4.set_input("x", f"{name}_pack")
+        op4.set_attr_list_int("x", [-1])
+        
+        return [op1.to_node(), op2.to_node(), op3.to_node(), op4.to_node()]
 
     @staticmethod
     def stack(name, x, dim):
