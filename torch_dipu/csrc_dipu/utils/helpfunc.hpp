@@ -24,4 +24,4 @@ DIPU_API void countOps(std::string name, int flag);
 
 DIPU_API int countOp();
 
-} // end dipu
+} //end dipu
