@@ -147,7 +147,8 @@ def create_print_op_args_code(fun_config):
     for input in inputs:
         input = input.strip()
         code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
-    code += "}"
+    code += "}\n"
+    code += f'dipu::countOps("{opname}", 1);'
     return code
 
 

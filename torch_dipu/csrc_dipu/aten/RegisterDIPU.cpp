@@ -10,6 +10,7 @@
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
 #include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -65,6 +66,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     "Currently the foreach operator does not support fallback");
 
   DIPU_REGISTER_LOG("fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl);
+  dipu::countOps(std::string(name), 2);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",

@@ -20,4 +20,8 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 
+DIPU_API void countOps(std::string name, int flag);
+
+DIPU_API int countOp();
+
 } // end dipu
