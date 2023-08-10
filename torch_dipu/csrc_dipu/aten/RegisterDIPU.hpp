@@ -1,18 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include <list>
 #include <torch/library.h>
-#include <ATen/core/dispatch/Dispatcher.h>
-#include <ATen/ops/_reshape_alias_native.h>
-#include <ATen/native/CPUFallback.h>
-#include "DIPUATenFunctions.h"
-
-#include <diopi/functions.h>
-
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/Log.h>
-#include <list>
-
-using dnative = dipu::native::DIPUATenFunctions;
 
 namespace dipu {
 
