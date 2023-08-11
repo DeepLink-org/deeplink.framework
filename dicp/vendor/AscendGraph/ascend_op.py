@@ -69,11 +69,21 @@ class AddV2(Operator):
 
 
 class MatMul(Operator):
-    def __init__(self, a, b):
+    def __init__(self, a, b, trans_a=False, trans_b=False, change_input=False):
         super().__init__("mm")
         self.a = a
         self.b = b
-        self.torch_op = aten.matmul
+        self.trans_a = trans_a
+        self.trans_b = trans_b
+        self.change_input = change_input
+        self.torch_op = self.matmul
+    
+    def matmul(self, a, b):
+        if self.change_input:
+            (a, b) = (b, a)
+        trans_b = b if not self.trans_b else aten.t(b)
+        trans_a = a if not self.trans_a else aten.t(a)
+        return aten.matmul(trans_a, trans_b)
 
 
 class BatchMatMul(Operator):

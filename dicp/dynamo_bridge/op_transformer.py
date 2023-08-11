@@ -7,18 +7,15 @@ from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 
 class OpSetTransformer:
-    def __init__(self, patterns, conversions):
+    def __init__(self, patterns):
         self._patterns = patterns
-        self._conversions = conversions
 
     def transform(self, module: torch.fx.GraphModule):
         # first step: replace pattern
         for pat in self._patterns:
             replace_pattern(module, pat.pattern, pat.replacement)
+        return module
 
-        # second step: transform single operater
-        return SingleOpTransformer(module,
-                             self._conversions).transform()
 
 class SingleOpTransformer(torch.fx.Transformer):
     def __init__(self, module, conversions):
