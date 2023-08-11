@@ -20,7 +20,7 @@ function clone_needed_repo() {
     DIENGINE=dipu_v0.4.8_one_iter_tool
 
     rm -rf DI-engine && git clone -b ${DIENGINE} https://github.com/DeepLink-org/DI-engine.git
-    rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/ParrotsDL/SMART.git
+    rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/DeepLink-org/SMART.git
     rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
     rm -rf mmdetection && git clone -b ${MMDETECTION_VERSION} https://github.com/DeepLink-org/mmdetection.git
     rm -rf mmsegmentation && git clone -b ${MMSEGMENTATION_VERSION} https://github.com/DeepLink-org/mmsegmentation.git
@@ -38,6 +38,7 @@ function clone_needed_repo() {
 function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
+    cd ..
     # cd ../mmdet 
     # pip install -e . --no-deps
     # cd ../mmyolo
@@ -45,7 +46,6 @@ function build_needed_repo_cuda() {
     # pip install -r requirements/albu.txt --no-deps
     # # Install MMYOLO
     # pip install -e . --no-deps
-    cd ..
     # cd mmagic
     # pip install -e . -v 
     # cd ../mmpretrain
@@ -58,8 +58,8 @@ function build_needed_repo_cuda() {
     # pip install lz4
     # pip install readerwriterlock
     # pip install Flask==2.1.0
-    pip install transformers
-    pip install accelerate
+    # pip install transformers
+    # pip install accelerate
 }
 
 function build_needed_repo_camb() {
@@ -109,7 +109,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
-        # ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/mmaction2/Kinetics400 data/kinetics400 
+        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400 
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
