@@ -10,7 +10,7 @@ bool isDeviceTensor(const at::Tensor &tensor)
 
 int countOp()
 {
-  const char *env_ptr = std::getenv("DIPU_COUNT_OP");
+  static const char *env_ptr = std::getenv("DIPU_COUNT_OP");
   static int count = 0;
   if (env_ptr != nullptr)
   {
