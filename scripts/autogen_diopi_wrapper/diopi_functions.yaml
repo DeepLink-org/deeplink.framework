@@ -510,7 +510,6 @@
 - schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
   size_attr: [stride, padding, dilation, bias_sizes, output_padding]
-  register_op: False
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
     at::Tensor grad_weight;
