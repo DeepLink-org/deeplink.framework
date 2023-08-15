@@ -45,7 +45,10 @@ class Operator():
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or isinstance(x, FakeTensor):
+            if isinstance(x, FakeTensor):
+                x.fake_mode = fake_mode
+                return x
+            if not isinstance(x, torch.Tensor):
                 return x
             return FakeTensor.from_tensor(x, fake_mode)
         new_args = tree_map(make_faketensor, new_args)
@@ -488,6 +491,48 @@ class FullLike(Operator):
         self.x = x
         self.value = value
         self.torch_op = aten.full_like
+
+
+class RepeatInterleave(Operator):
+    def __init__(self, x, output_size):
+        super().__init__("repeat_interleave")
+        self.x = x
+        self.shape = output_size
+        self.torch_op = aten.repeat_interleave
+
+
+class Empty(Operator):
+    def __init__(self, size, dtype, layout, device):
+        super().__init__("empty")
+        self.size = size
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.torch_op = aten.empty
+
+
+class IndexSelect(Operator):
+    def __init__(self, x, dim, index):
+        super().__init__("index_select")
+        self.x = x
+        self.dim = dim
+        self.index = index
+        self.torch_op = aten.index_select
+
+
+class Fill(Operator):
+    def __init__(self, x, value):
+        super().__init__("fill")
+        self.x = x
+        self.value = value
+        self.torch_op = aten.fill
+
+
+class Ones(Operator):
+    def __init__(self, shape):
+        super().__init__("ones")
+        self.shape = shape
+        self.torch_op = aten.ones
 
 
 class Full(Operator):

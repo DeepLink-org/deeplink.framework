@@ -12,7 +12,7 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
              'view_as_complex', 'view_as_real', 'slice', 'select',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm']
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'fill']
 
 sym_to_inputs = {}
 
@@ -50,7 +50,7 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
     def generate_digits_op(shapes):
         count = len(x_names)
         op = OP(f"{name}_dim_{suffix}{count}", "Const")
-        op.set_attr_tensor("value", "INT32", "INT32", "NCHW", shapes, [len(shapes)])
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", shapes, [1, len(shapes)])
         ops.append(op.to_node())
         x_names.append(f"{name}_dim_{suffix}{count}")
     
@@ -58,14 +58,14 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
         count = len(x_names)
         elem = elem.node.str()
         elems = elem.strip().split(' ')
-        
+
         if len(elems) > 1:
             assert len(elems) == 3
             assert elems[2].isdigit()
             assert elems[1] == '+' or elems[1] == '-'
             op_type = "Add" if elems[1] == '+' else "Sub"
             op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
-            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [])
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(elems[2])], [1, 1])
             op2 = OP(f"{name}_dim_{suffix}{count}", op_type)
             op2.set_input("x1", sym_to_inputs[elems[0]])
             op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
@@ -73,13 +73,18 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
             x_names.append(f"{name}_dim_{suffix}{count}")
         else:
             x_names.append(sym_to_inputs[elems[0]])
-       
+
 
     dims = []
     for elem in shape:
         if not isinstance(elem, torch.SymInt):
             dims.append(elem)
             continue
+        st = elem.node.str()
+        if st.isdigit():
+            dims.append(int(st))
+            continue
+
         if len(dims) > 0:
             generate_digits_op(dims)
             dims = []
@@ -88,11 +93,15 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
         generate_digits_op(dims)
 
     # concat all ops
-    op = OP(f"{name}_{suffix}", "ConcatD")    
+    op = OP(f"{name}_{suffix}_concat", "ConcatD")
     op.set_dynamic_input("x", len(x_names), x_names)
-    op.set_attr_int("concat_dim", 0)
+    op.set_attr_int("concat_dim", 1)
     op.set_attr_int("N", len(x_names))
-    ops.append(op.to_node())
+
+    op1 = OP(f"{name}_{suffix}", "Squeeze")
+    op1.set_input("x", f"{name}_{suffix}_concat")
+    op1.set_attr_int("axis", 0)
+    ops.extend([op.to_node(), op1.to_node()])
     return ops
 
 
@@ -186,7 +195,7 @@ class AscendCodegen(torch.fx.Interpreter):
         index = -1
 
         if isinstance(fake_tensor, torch.SymInt):
-            dims = [1]
+            dims = [1, 1]
             data_type = "INT32"
             format = "ND"
             sym_to_inputs[fake_tensor.node.str()] = name
@@ -211,6 +220,7 @@ class AscendCodegen(torch.fx.Interpreter):
             "dims": dims,
             "format": format,
             "data_type": data_type,
+            "cpp_data_type": data_type,
             "index": index
         })
         self.graph_input_names.append(self.args_dict[name])
@@ -326,7 +336,7 @@ class AscendCodegen(torch.fx.Interpreter):
         call_body.splice(f"""
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
-                                     args[idx] = torch.tensor(args[idx], device='cpu', dtype=torch.int32)
+                                     args[idx] = torch.tensor(args[idx], device='xla', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
@@ -387,7 +397,7 @@ class AscendCodegen(torch.fx.Interpreter):
             self.build_options.append(
               {
                 "name": "input_format",
-                "value": "NCHW"
+                "value": "ND"
               }
             )
             value_str = ""
@@ -764,7 +774,7 @@ class AscendOverrides:
             ops.extend(process_dynamic_shape(perm, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const")
-            const_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", perm, [rank])
+            const_op.set_attr_tensor("value", "INT32", "INT32", "ND", perm, [rank])
             ops.append(const_op.to_node())
         transpose_op = OP(name, "Transpose")
         transpose_op.set_input("x", input)
@@ -839,7 +849,7 @@ class AscendOverrides:
     def symsize(name, x, dim):
         dim = [dim] if not isinstance(dim, list) else dim
         op1 = OP(f"{name}_dim", "Const") 
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
         op2 = OP(name, "Gather")
         op2.set_input("x", x)
         op2.set_input("indices", f"{name}_dim")
@@ -866,18 +876,32 @@ class AscendOverrides:
             shape.append(1)
         numel = node.meta['val'].numel()
         shape_size = len(shape)
-        if shape.count(-1) > 0:
+
+        neg = False
+        for i in shape:
+            if not isinstance(i, torch.SymInt):
+                if i == -1:
+                    neg = True
+                    break
+
+        if neg:
             prod = 1
             for i in shape:
-                if i > 0:
-                    prod *= i
+                if not isinstance(i, torch.SymInt):
+                    if i > 0:
+                        prod *= i
+                else:
+                    assert False
 
             real_shape = []
             for i in shape:
-                if i > 0:
-                    real_shape.append(str(i))
+                if not isinstance(i, torch.SymInt):
+                    if i > 0:
+                        real_shape.append(str(i))
+                    else:
+                        real_shape.append(str(numel / prod))
                 else:
-                    real_shape.append(str(numel / prod))
+                    assert False
             shape = real_shape
 
         ops = []
@@ -967,7 +991,7 @@ class AscendOverrides:
     @staticmethod
     def embedding(name, weight, indices):
         op1 = OP(f"{name}_axis", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [0], [])
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [])
         op2 = OP(name, "GatherV2")
         op2.set_input("x", weight)
         op2.set_input("indices", indices)
@@ -1191,7 +1215,7 @@ class AscendOverrides:
     def gather(name, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
         op1 = OP(f"{name}_dim", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
         op2 = OP(name, "GatherD")
         op2.set_input("x", x)
         op2.set_input("dim", f"{name}_dim")
@@ -1245,6 +1269,66 @@ class AscendOverrides:
         op.set_input("value", f"{name}_val")
 
         return [axes_op.to_node(), val_op.to_node(), op.to_node()]
+
+    @staticmethod
+    def empty(name, size, dtype, layout, device):
+        op = OP(f"{name}", "Empty")
+        op.set_input("shape", f"{size}")
+        op.set_attr_int("dtype", f"{dtype}")
+
+        return op.to_node()
+
+    @staticmethod
+    def fill(name, node, x, value):
+        x_shape = list(node.target.x.node.meta['val'].shape)
+
+        op = OP(f"{name}", "Fill")
+        op.set_input("dims", f"{x_shape}")
+        op.set_input("value", f"{value}")
+
+        return op.to_node()
+
+    @staticmethod
+    def repeat_interleave(name, x, output_size):
+        op = OP(f"{name}", "RepeatInterleave")
+        op.set_input("x", f"{x}")
+        op.set_input("repeats", f"{output_size}")
+
+        return op.to_node()
+
+    @staticmethod
+    def index_select(name, x, dim, index):
+        # index_str = '{' + ','.join(map(str, index)) + '}'
+        op = OP(f"{name}_dim", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [1])
+
+        op1 = OP(f"{name}_index", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", {index}, [len(index)])
+
+        op2 = OP(f"{name}", "GatherV2")
+        op2.set_input("x", f"{x}")
+        op2.set_input("indices", f"{name}_index")
+        op2.set_input("axis", f"{name}_dim")
+
+        return [op.to_node(), op1.to_node(), op2.to_node()]
+
+    @staticmethod
+    def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
+        # shape = shape.strip('{}').split(', ')
+        # shape_str = '{' + ','.join(map(str, shape)) + '}'
+        # op = OP(f"{name}_like", "Const")
+        # op.set_attr_tensor("value", "INT32", "INT32", "ND", 0, [shape])
+        # import pdb; pdb.set_trace()
+
+        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
+        op = OP(f"{name}_like", "Empty")
+        op.set_input("shape", f"{shape}")
+        op.set_attr_int("dtype", f"{dtype}")
+
+        op1 = OP(f"{name}", "OnesLike")
+        op1.set_input("x", f"{name}_like")
+
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def scatter(name, node, var, dim, index, value):

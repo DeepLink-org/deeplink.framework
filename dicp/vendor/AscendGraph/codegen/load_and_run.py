@@ -2,6 +2,7 @@ import acl
 import os
 import numpy as np
 import torch
+import atexit
 
 
 # the range for dynamic shape
@@ -200,6 +201,8 @@ class AscendExecutor(object):
                     else:
                         temp_buffer_size *= MAX_RANGE
                         dims[idx] = MAX_RANGE
+                np_dtype = get_np_dtype(dtype)
+                temp_buffer_size *= np.dtype(np_dtype).itemsize
 
             if temp_buffer_size == 0:
                 temp_buffer_size = 1
@@ -222,17 +225,19 @@ class AscendExecutor(object):
                 dtype = acl.mdl.get_input_data_type(self.model_desc, i)
                 np_dtype = get_np_dtype(dtype)
                 buffer_size = tot_size * np.dtype(np_dtype).itemsize
-          
+
             if buffer_size == 0:
+                buffer_size = 1
                 ptr = zero_tensor.data_ptr()
             else:
                 ptr = images[i].data_ptr()
             data = acl.create_data_buffer(ptr, buffer_size)
             _, ret = acl.mdl.add_dataset_buffer(self.load_input_dataset, data)
+            check_ret("acl.mdl.add_dataset_buffer", ret)
             if ret != ACL_SUCCESS:
                 ret = acl.destroy_data_buffer(data)
                 check_ret("acl.destroy_data_buffer", ret)
-            
+
             if dims is not None and i in dims.keys():
                 dtype = acl.mdl.get_input_data_type(self.model_desc, i)
                 format = acl.mdl.get_input_format(self.model_desc, i)
@@ -257,10 +262,11 @@ class AscendExecutor(object):
         self.load_output_dataset = acl.mdl.create_dataset()
         for i in range(self.num_outputs):
             temp_buffer, ret = acl.rt.malloc(self.output_size[i],
-                            ACL_MEM_MALLOC_HUGE_FIRST)            
+                            ACL_MEM_MALLOC_HUGE_FIRST) 
             data = acl.create_data_buffer(temp_buffer, self.output_size[i])
             self.output_data.append(temp_buffer)
             _, ret = acl.mdl.add_dataset_buffer(self.load_output_dataset, data)
+            check_ret("acl.mdl.add_dataset_buffer", ret)
             if ret != ACL_SUCCESS:
                 ret = acl.destroy_data_buffer(data)
                 check_ret("acl.destroy_data_buffer", ret)
@@ -320,20 +326,22 @@ class AscendExecutor(object):
             ret = acl.mdl.destroy_dataset(dataset)
             check_ret("acl.mdl.destroy_dataset", ret)
 
-        while self.output_data:
-            item = self.output_data.pop()
+        for item in self.output_data:
             ret = acl.rt.free(item)
             check_ret("acl.rt.free", ret)
+        self.output_data.clear()
 
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
         self.exe = AscendExecutor(device_id, model_path)
+        atexit.register(self.cleanup)
 
     def run(self, images, dims=None):
         return self.exe.run(images, dims)
 
-    def __del__(self):
+    def cleanup(self):
+        assert hasattr(self, "exe")
         self.exe.release_resource()
 
 

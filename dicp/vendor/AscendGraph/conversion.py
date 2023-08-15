@@ -227,6 +227,26 @@ def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.FullLike(x, value)
 
+@registe_conversion(torch.ops.aten.empty)
+def empty(size, dtype=torch.int64, layout=torch.strided, device='cpu'):
+    return ascend_op.Empty(size, dtype, layout, device)
+
+@registe_conversion(torch.ops.aten.index_select)
+def index_select(x, dim, index):
+    return ascend_op.IndexSelect(x, dim, index)
+
+@registe_conversion(torch.ops.aten.fill)
+def fill(x, value):
+    return ascend_op.Fill(x, value)
+
+@registe_conversion(torch.ops.aten.ones)
+def ones(shape, dtype=torch.int64, device='cpu', pin_memory=False):
+    return ascend_op.Ones(shape)
+
+@registe_conversion(torch.ops.aten.repeat_interleave)
+def repeat_interleave(x, output_size = 1):
+    return ascend_op.RepeatInterleave(x, output_size)
+
 @registe_conversion(torch.ops.aten.full.default)
 def full(dims, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False):
