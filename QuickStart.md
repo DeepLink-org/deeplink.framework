@@ -43,9 +43,9 @@ pytorch 2.0 推荐使用commitid：c263bd43e8e8502d4726643bc6fd046f0130ac0e
 ``` bash
 cd /home/$USER/code
 git clone git@github.com:pytorch/pytorch.git
+cd pytorch
 git submodule update --init --recursive
 git checkout c263bd43e8e8502d4726643bc6fd046f0130ac0e
-cd pytorch
 pip install -r requirements.txt
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop
