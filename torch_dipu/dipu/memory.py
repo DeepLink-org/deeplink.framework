@@ -85,12 +85,14 @@ def memory_reserved(device = None):
     if device is None:
         device = current_device()
         device = _get_device_index(device)
+    if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.memory_reserved(device)
 
 def memory_allocated(device = None):
     if device is None:
         device = current_device()
+    if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.memory_allocated(device)
 
@@ -98,12 +100,14 @@ def max_memory_reserved(device = None):
     if device is None:
         device = current_device()
         device = _get_device_index(device)
+    if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.max_memory_reserved(device)
 
 def max_memory_allocated(device = None):
     if device is None:
         device = current_device()
+    if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.max_memory_allocated(device)
 

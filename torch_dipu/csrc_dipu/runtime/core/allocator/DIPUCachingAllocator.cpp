@@ -24,7 +24,7 @@ static std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
 
-constexpr const char* dipu_default_memcaching_algorithm = "BS";
+constexpr const char* dipu_default_memcaching_algorithm = "BF";
 
 std::string dipu_device_memcaching_algorithm = []() {
   const char* env = std::getenv("DIPU_DEVICE_MEMCACHING_ALGORITHM");

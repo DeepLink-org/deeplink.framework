@@ -30,13 +30,13 @@ DIOPI_RT_API diopiError_t diopiGetTensorDataConst(diopiConstTensorHandle_t pth, 
 
 DIOPI_RT_API diopiError_t diopiGetTensorShape(diopiConstTensorHandle_t pth, diopiSize_t* size) {
     const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
-    *size = diopiSize_t{ptr->sizes().data(), ptr->dim()};
+    *size = diopiSize_t{ptr->sizes().data(), static_cast<int64_t>(ptr->dim())};
     return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth, diopiSize_t* stride) {
     const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
-    *stride = diopiSize_t{ptr->strides().data(), ptr->dim()};
+    *stride = diopiSize_t{ptr->strides().data(), static_cast<int64_t>(ptr->dim())};
     return diopiSuccess;
 }
 
