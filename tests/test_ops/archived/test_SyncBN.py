@@ -21,8 +21,8 @@ class TestSchema(unittest.TestCase):
         x_dipu = x_cuda.to(device_dipu)
         z2_mean, z2_invstd = torch.batch_norm_stats(x_dipu, 1e-5)
 
-        self.assertTrue(torch.allclose(z1_mean.cpu(),z2_mean.cpu()))
-        self.assertTrue(torch.allclose(z1_invstd.cpu(),z2_invstd.cpu()))
+        self.assertTrue(torch.allclose(z1_mean.cpu(), z2_mean.cpu()))
+        self.assertTrue(torch.allclose(z1_invstd.cpu(), z2_invstd.cpu()))
 
     def test_batch_norm_gather_stats_with_counts(self):
         if (torch.cuda.is_available() is False):
@@ -77,7 +77,7 @@ class TestSchema(unittest.TestCase):
         weight = torch.rand(8)
         grad_out = torch.rand(2, 8, 32, 56, 56)
         res1 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_cuda)
-        res2 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_dipu)  
+        res2 = self._test_bnbr(input, mean, invstd, weight, grad_out, device_dipu)
         self._test_res(res1, res2)
 
     def _test_bnbr(self, input, mean_all, invstd_all, weight, grad_out, device):
