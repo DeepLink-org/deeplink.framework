@@ -7,6 +7,9 @@
 
 namespace dipu {
 
+// Ensures call initDIPUGenerator once
+static std::once_flag dipu_init_flag;
+
 // Total number of dipu in the system.
 static int64_t num_dipu;
 
@@ -20,7 +23,7 @@ static std::vector<at::Generator> default_gens_dipu;
 * Populates the global variables related to DIPU generators
 * Warning: this function must only be called once!
 */
-void initDIPUGenerator() {
+static void initDIPUGenerator() {
   num_dipu = devproxy::getDeviceCount();
   dipu_gens_init_flag.resize(num_dipu);
   default_gens_dipu.resize(num_dipu);
@@ -33,6 +36,8 @@ void initDIPUGenerator() {
  * when a user does not explicitly mention any generator.
  */
 const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
+  std::call_once(dipu_init_flag, initDIPUGenerator);
+
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
     idx = devproxy::current_device();
@@ -177,8 +182,10 @@ void set_rng_state(at::DeviceIndex idx, at::Tensor state) {
  *
  **/
 void manual_seed(at::DeviceIndex idx, uint64_t seed) {
-  auto defaultGenerator = getDefaultDIPUGenerator(idx);
-  defaultGenerator.set_current_seed(seed);
+  auto gen = getDefaultDIPUGenerator(idx);
+  auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
+  std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+  gen_impl->set_current_seed(seed);
 }
 
 /**
@@ -186,8 +193,10 @@ void manual_seed(at::DeviceIndex idx, uint64_t seed) {
  *
  **/
 void seed(at::DeviceIndex idx) {
-  auto defaultGenerator = getDefaultDIPUGenerator(idx);
-  defaultGenerator.seed();
+  auto gen = getDefaultDIPUGenerator(idx);
+  auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
+  std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+  gen_impl->seed();
 }
 
 /**

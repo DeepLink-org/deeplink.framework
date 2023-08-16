@@ -5,7 +5,7 @@ echo "pwd: $(pwd)"
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
     echo "building dipu_py PYTORCH_DIR: ${PYTORCH_DIR}"
-    export CMAKE_BUILD_TYPE=Release
+    export CMAKE_BUILD_TYPE=debug
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
@@ -18,7 +18,7 @@ function config_dipu_nv_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     echo "config_dipu_nv_cmake PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-    cmake ../  -DCMAKE_BUILD_TYPE=Release \
+    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
         -DDEVICE=cuda -DPYTORCH_DIR=${PYTORCH_DIR} \
         -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../

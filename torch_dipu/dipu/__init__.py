@@ -8,6 +8,9 @@ from .memory import *
 from .streams import *
 from .tensor import *
 from .storages import *
+import torch_dipu
+
+_is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 
 # DIPU need follow api in https://pytorch.org/docs/stable/cuda.html, but shoudln't appear name
 # as "gpu" or "cuda" (mock cuda is another problem)
@@ -29,9 +32,9 @@ __all__ = [
     "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event",
 
     # random
-    # "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
-    # "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
-
+    "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
+    "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
+    "_is_in_bad_fork",
     # # mem manage
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
     # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"

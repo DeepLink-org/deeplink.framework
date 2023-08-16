@@ -3,6 +3,11 @@
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include <iostream>
 #include <ctime>
+#ifndef WIN32
+#include <pthread.h>
+#include <mutex>
+#endif
+
 namespace dipu {
 
 const char* getDipuCommitId() {
@@ -23,6 +28,33 @@ void releaseAllResources() {
     DIPU_DEBUG_ALLOCATOR(2, "releaseAllResources");
     releaseAllDeviceMem();
     releaseAllEvent();
+}
+
+static bool in_bad_fork = false;
+
+#include <iostream>
+bool is_in_bad_fork() {
+  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+  return in_bad_fork;
+}
+
+#ifndef WIN32
+// Called in the forked child if device has already been initialized
+static void forked_child() {
+  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+  in_bad_fork = true;
+}
+#endif
+
+// Should be called before the first device call.
+// Note: This is distinct from initExtension because a stub device implementation
+// has some working functions (e.g. device_count) but cannot fully initialize.
+void poison_fork() {
+  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+#ifndef WIN32
+  static std::once_flag flag;
+  std::call_once(flag, []{ pthread_atfork(nullptr, nullptr, forked_child); });
+#endif
 }
 
 } // namespace dipu

@@ -41,8 +41,6 @@ uint64_t initial_seed(at::DeviceIndex idx);
 at::Tensor get_rng_state(at::DeviceIndex idx);
 void set_rng_state(at::DeviceIndex idx, at::Tensor state);
 
-
-void initDIPUGenerator();
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index = -1);
 
 }  // namespace dipu
