@@ -230,6 +230,7 @@ jobs:
           set -e
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
+          pip install clang-tidy
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 python run-clang-tidy.py -p build/compile_commands.json \
           || ( exit 1 )
           """
