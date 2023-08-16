@@ -218,7 +218,7 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
-          echo clang-tidy
+          which clang-tidy
           exit 1
           """
       - name: Build dipu
