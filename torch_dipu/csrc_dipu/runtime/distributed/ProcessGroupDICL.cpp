@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 #include "./ProcessGroupDICL.h"
 namespace dipu {
@@ -225,10 +226,8 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std
     int rank = getRank() * devSize + i;
     dipuGuard.reset_device(devices[i]);
 
-    // need use pool stream, not current stream. fix stream guard err.
+    // use pool stream, not current stream
     auto commStream = getDIPUStreamFromPool(devices[i].index());
-    // auto commStream = getCurrentDIPUStream(devices[i].index());
-
     diclComms[i] = DICLComm::create(numRanks, rank, diclID, commStream);
   }
 
@@ -279,6 +278,27 @@ std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::T
   }
   return flattened;
 }
+void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest, 
+                      const at::Tensor& src) {
+  auto diclStream = diclComm->diclStream_;
+  DIPUStreamGuard guard(diclStream.unwrap());
+  for (size_t j = 0; j < dest.size(); ++j) {
+    dest[j].copy_(src[j], true);
+    dipu::recordStream(dest[j], diclStream);
+  }
+}
+
+void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest,
+                          const at::Tensor& src) {
+  auto diclStream = diclComm->diclStream_;
+  auto currStream = dipu::getCurrentDIPUStream(diclStream.device_index());
+  diclComm->preCopyEvent_.record(diclStream);
+  // copy after comm finish, loss concurrency,assume all dest finish in one comm op
+  diclComm->preCopyEvent_.wait(currStream);
+  for (size_t j = 0; j < dest.size(); ++j) {
+    dest[j].copy_(src[j], true);
+  }
+}
 }  // annoy namespace
 
 
@@ -325,8 +345,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     // need add adapter to handle int64/double! camb not support double
     fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
 
-    // todo:: add recordStream after cacheAllocator ready
-    // DIPUCachingAllocator::recordStream(outputs[i].storage().data_ptr(), stream);
+    dipu::recordStream(inputs[i], diclComms[i]->diclStream_);
+    if (inputs[i].storage().data_ptr().get() != outputs[i].storage().data_ptr().get()) {
+      dipu::recordStream(outputs[i], diclComms[i]->diclStream_);
+    }
 
     // mock comm with just copy, used in standalone test.
     // DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
@@ -434,18 +456,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
       // Copy the flattened output tensors to the outputs.
       for (size_t i = 0; i < output_tensors.size(); ++i) {
-        DIPUStreamGuard guard(diclComms[i]->diclStream_.unwrap());
-        for (size_t j = 0; j < output_tensors[0].size(); ++j) {
-          output_tensors[i][j].copy_(outputFlattened[i][j], false);
-          //todo:: add recordStream after cacheAllocator ready
-          // DIPUCachingAllocator::recordStream(
-          //     output_tensors[i][j].storage().data_ptr(), diclComms[i]->diclStream_);
-        }
+        // warnning & todo:: copy in comm stream, but diopi-cuda use aten copy_, 
+        // underlying stream is incorrect. change to use default stream and wait will cause pref hurt.
+        copyInCommStream(diclComms[i], output_tensors[i], outputFlattened[i]);
+        // copyInCurrentStream(diclComms[i], output_tensors[i], outputFlattened[i]);
       }
     }, 
     OpType::ALLGATHER);
-    // std::cout << outputFlattened[0] << std::endl;
-    // std::cout << output_tensors[0][0] << std::endl;
     return work;
 }
 
