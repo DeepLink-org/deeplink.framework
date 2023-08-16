@@ -214,6 +214,13 @@ jobs:
     env:
       GPU_REQUESTS: 1
     steps:
+      - name: Check clang-tidy
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          echo clang-tidy
+          exit 1
+          """
       - name: Build dipu
         run: |
           ssh ${CUDA_CLUSTER} """
