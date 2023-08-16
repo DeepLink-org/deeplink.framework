@@ -24,7 +24,6 @@ camb:
 
     # # mmdetection3d
     - model_cfg: "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3classs"
-      fallback_op_list: "cat.out"
 
     # # mmsegmentation
     - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024"
@@ -42,6 +41,8 @@ camb:
     - model_cfg: "mmocr textrecog/crnn/crnn_mini-vgg_5e_mj.py workdirs_crnn_mini-vgg_5e_mj"
     - model_cfg: "mmocr textdet/dbnet/dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015.py workdirs_dbnet_resnet50-dcnv2_fpnc_1200e_icdar2015"
 
+    # # mmyolo
+    - model_cfg: "mmyolo yolov5/yolov5_s-v61_syncbn_8xb16-300e_coco.py wordir_yolov5_s-v61_syncbn_8xb16-300e_coco"
 
 
 cuda:
