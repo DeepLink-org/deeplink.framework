@@ -224,6 +224,15 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
+      - name: Check clang-tidy
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}
+          source scripts/ci/nv/ci_nv_env.sh
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 python run-clang-tidy.py -p build/compile_commands.json \
+          || ( exit 1 )
+          """
 
   Test-Cuda:
     name: Test-dipu-cuda
