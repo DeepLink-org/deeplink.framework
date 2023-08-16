@@ -1,6 +1,6 @@
 set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # python path
 include_directories(${PYTHON_INCLUDE_DIR})
 
