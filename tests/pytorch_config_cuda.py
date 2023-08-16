@@ -128,7 +128,7 @@ DISABLED_TESTS_CUDA = {
          #  FAIL
         'test_add', #assertEqual(res, m1 + m2.contiguous()) failed
         'test_atan2',
-        'test_broadcasting',
+        # 'test_broadcasting',
         'test_bitwise_ops',
         'test_comparison_ops_type_promotion_and_broadcasting',
         'test_copysign',

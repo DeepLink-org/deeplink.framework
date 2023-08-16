@@ -1116,18 +1116,8 @@
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), tensors.size(), dim);
 
-- schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
-  custom_code_at_the_beginning: |
-    auto out = at::empty_like(self);
-  interface: diopiMaskedFill(ctx, out, self, mask, value)
-
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
   interface: diopiMaskedFillInp(ctx, self, mask, value)
-
-- schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
-  custom_code_at_the_beginning: |
-    auto out = at::empty_like(self);
-  interface: diopiMaskedFillScalar(ctx, out, self, mask, value)
 
 - schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
   interface: diopiMaskedFillInpScalar(ctx, self, mask, value)
