@@ -5,7 +5,6 @@
 #include <c10/core/DispatchKey.h>
 #include <csrc_dipu/runtime/device/basedef.h>
 
-
 #define C10_COMPILE_TIME_MAX_DIPUS 16
 
 #define DIPU_DEVICE_TYPE_MACRO XPU
@@ -26,4 +25,4 @@ const auto DIPU_Backend_TYPE = c10::Backend::XPU;
 
 const auto DICL_BACKEND_NAME = "dicl";
 
-} // end ns dipu
+}  // namespace dipu

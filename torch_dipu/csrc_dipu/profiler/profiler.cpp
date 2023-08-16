@@ -1,16 +1,15 @@
-#include <iostream>
-#include <cstdio>
-#include <fstream>
-#include <mutex>
-#include <thread>
-#include <unordered_map>
-#include <deque>
-#include <vector>
+#include "profiler.h"
 
 #include <c10/util/Exception.h>
 
-#include "profiler.h"
-
+#include <cstdio>
+#include <deque>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 namespace dipu {
 
@@ -25,17 +24,11 @@ private:
     deviceEvent_t evt_;
 
 public:
-    DeviceEvent() {
-        dipu::devproxy::createEvent(&evt_);
-    }
+    DeviceEvent() { dipu::devproxy::createEvent(&evt_); }
 
-    ~DeviceEvent() {
-        dipu::devproxy::destroyEvent(evt_);
-    }
+    ~DeviceEvent() { dipu::devproxy::destroyEvent(evt_); }
 
-    deviceEvent_t get() const {
-        return evt_;
-    }
+    deviceEvent_t get() const { return evt_; }
 
     DeviceEvent(const DeviceEvent&) = delete;
     DeviceEvent& operator=(const DeviceEvent&) = delete;
@@ -43,19 +36,12 @@ public:
     DeviceEvent& operator=(DeviceEvent&&) = default;
 };
 
-
 namespace {
-
 
 bool gEnableFlag = false;
 bool gIsNano = true;
 
-
-
-
 time_point gBegin = clock_t::now();
-
-
 
 class StreamTimeOffsetTracker final {
     DeviceEvent begin_;
@@ -83,17 +69,11 @@ public:
         ratio_ = 1.0f * (endOffset - beginOffset_) / time;
     }
 
-    const DeviceEvent& begin() const {
-        return begin_;
-    }
+    const DeviceEvent& begin() const { return begin_; }
 
-    size_t offset() const {
-        return beginOffset_;
-    }
+    size_t offset() const { return beginOffset_; }
 
-    float ratio() const {
-        return ratio_;
-    }
+    float ratio() const { return ratio_; }
 };
 
 class RecordsImpl final {
@@ -102,9 +82,9 @@ private:
     using mutex_t = std::mutex;
 
     static mutex_t mut_;
-    std::vector<std::unique_ptr<records_t>> allRecordLists_ { 5 };
+    std::vector<std::unique_ptr<records_t>> allRecordLists_{5};
     std::unordered_map<size_t, string_t> threadName_;
-    size_t newIdxs { 0 };
+    size_t newIdxs{0};
 
     thread_local static size_t threadIdx;
     thread_local static records_t* pRecords;
@@ -137,8 +117,7 @@ public:
 
     static void abandon() {
         std::lock_guard<mutex_t> lk(mut_);
-        if (pInstance != nullptr)
-            pInstance.release();
+        if (pInstance != nullptr) pInstance.release();
     }
 
     size_t getLocalIdx() {
@@ -180,7 +159,6 @@ private:
             setup = true;
         }
     }
-
 
 public:
     ~RecordsImpl() {}
@@ -226,8 +204,6 @@ thread_local bool RecordsImpl::setup = false;
 std::unique_ptr<RecordsImpl> RecordsImpl::pInstance;
 RecordsImpl::mutex_t RecordsImpl::mut_;
 
-
-
 class DeviceRecordsImpl final {
 private:
     // mutex for records and tracker
@@ -261,8 +237,7 @@ private:
         return pTracker_->begin().get();
     }
 
-    size_t getTime(const DeviceEvent& evt,
-                   float scale = 1., size_t shift = 0) {
+    size_t getTime(const DeviceEvent& evt, float scale = 1., size_t shift = 0) {
         float time;
         dipu::devproxy::waitEvent(evt.get());
         dipu::devproxy::eventElapsedTime(&time, beginEvent(), evt.get());
@@ -275,15 +250,12 @@ private:
             size_t idx = count + 90090000u;
             streamName_[streamId] = idx;
             auto& impl = RecordsImpl::get();
-            impl.setThreadName(
-                    std::to_string(impl.getLocalIdx()) + STREAM_THREAD_NAME + std::to_string(count), idx);
+            impl.setThreadName(std::to_string(impl.getLocalIdx()) + STREAM_THREAD_NAME + std::to_string(count), idx);
         }
     }
 
 public:
-    ~DeviceRecordsImpl() {
-        flush();
-    }
+    ~DeviceRecordsImpl() { flush(); }
 
 public:
     void ensureSetup(deviceStream_t stream) {
@@ -311,20 +283,14 @@ public:
             auto start_status = dipu::devproxy::getEventStatus(r.start->get());
             auto end_status = dipu::devproxy::getEventStatus(r.stop->get());
             auto origin_status = dipu::devproxy::getEventStatus(beginEvent());
-            if (start_status != devapis::EventStatus::READY ||
-                end_status != devapis::EventStatus::READY ||
-                origin_status != devapis::EventStatus::READY) {
+            if (start_status != devapis::EventStatus::READY || end_status != devapis::EventStatus::READY || origin_status != devapis::EventStatus::READY) {
                 break;
             }
             float t1 = 0.0f;
             float t2 = 0.0f;
             dipu::devproxy::eventElapsedTime(&t1, beginEvent(), r.start->get());
             dipu::devproxy::eventElapsedTime(&t2, r.start->get(), r.stop->get());
-            ready_records_.push_back(Record({r.name, r.opId,
-                                         static_cast<size_t>(t1 * 1e3),
-                                         static_cast<size_t>((t1 + t2) * 1e3),
-                                         r.streamId,
-                                         r.extraInfo}));
+            ready_records_.push_back(Record({r.name, r.opId, static_cast<size_t>(t1 * 1e3), static_cast<size_t>((t1 + t2) * 1e3), r.streamId, r.extraInfo}));
             records_.pop_front();
         }
     }
@@ -348,10 +314,7 @@ public:
 
             for (auto& r : records_) {
                 ensureStreamName(r.streamId);
-                addRecord(Record({r.name, r.opId,
-                                  getTime(*r.start, ratio, offset),
-                                  getTime(*r.stop, ratio, offset),
-                                  streamName_[r.streamId], r.extraInfo}));
+                addRecord(Record({r.name, r.opId, getTime(*r.start, ratio, offset), getTime(*r.stop, ratio, offset), streamName_[r.streamId], r.extraInfo}));
             }
             reset();
         }
@@ -364,47 +327,33 @@ public:
 
     static void abandon() {
         std::lock_guard<std::mutex> lk(mtx_);
-        if (pInstance_ != nullptr)
-            pInstance_.release();
+        if (pInstance_ != nullptr) pInstance_.release();
     }
 
     static DeviceRecordsImpl& get() {
         if (pInstance_ == nullptr) {
             std::lock_guard<std::mutex> lk(mtx_);
-            if (pInstance_ == nullptr)
-                pInstance_.reset(new DeviceRecordsImpl());
+            if (pInstance_ == nullptr) pInstance_.reset(new DeviceRecordsImpl());
         }
         return *pInstance_;
     }
 };
 
-
 std::unique_ptr<DeviceRecordsImpl> DeviceRecordsImpl::pInstance_;
 std::mutex DeviceRecordsImpl::mtx_;
 
-
-
 }  // end namespace
 
+bool isEnable() { return gEnableFlag; }
 
-bool isEnable() {
-    return gEnableFlag;
-}
-
-void FlushAllRecords() {
-    DeviceRecordsImpl::get().flush();
-}
+void FlushAllRecords() { DeviceRecordsImpl::get().flush(); }
 
 void abandonAllRecords() {
     RecordsImpl::abandon();
     DeviceRecordsImpl::abandon();
-
 }
 
-void setProfileOpen(bool profileFlag) {
-    gEnableFlag = profileFlag;
-}
-
+void setProfileOpen(bool profileFlag) { gEnableFlag = profileFlag; }
 
 thread_local std::string sProfileScopeName = "";
 thread_local size_t sProfileScopeId = 0;
@@ -415,13 +364,9 @@ void setScopePair(const std::string& name, size_t id) {
     sProfileScopeId = id;
 }
 
-size_t generateId() {
-    return ++moduleId;
-}
+size_t generateId() { return ++moduleId; }
 
-void resetId() {
-    moduleId = 10000;
-}
+void resetId() { moduleId = 10000; }
 
 size_t timestamp(const time_point& t) {
     if (gIsNano) {
@@ -433,17 +378,11 @@ size_t timestamp(const time_point& t) {
     }
 }
 
+void setThreadName(const string_t& name) { RecordsImpl::get().setThreadName(name); }
 
-void setThreadName(const string_t& name) {
-    RecordsImpl::get().setThreadName(name);
-}
+void addRecord(const Record& record) { RecordsImpl::get().addRecord(record); }
 
-void addRecord(const Record& record) {
-    RecordsImpl::get().addRecord(record);
-}
-
-RecordCreator::RecordCreator(const string_t& name, size_t opId,
-                             const ExtraRecordInfo& extraInfo) {
+RecordCreator::RecordCreator(const string_t& name, size_t opId, const ExtraRecordInfo& extraInfo) {
     if (isEnable()) {
         name_ = name;
         opId_ = opId;
@@ -453,21 +392,16 @@ RecordCreator::RecordCreator(const string_t& name, size_t opId,
     }
 }
 
-RecordCreator::~RecordCreator() {
-    end();
-}
+RecordCreator::~RecordCreator() { end(); }
 
 void RecordCreator::end() {
     if (!end_) {
-        addRecord(Record{name_, opId_, timestamp(begin_),
-                            timestamp(clock_t::now()), -1u, extraInfo_});
+        addRecord(Record{name_, opId_, timestamp(begin_), timestamp(clock_t::now()), -1u, extraInfo_});
     }
     end_ = true;
 }
 
-
-DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream, size_t opId,
-                                         const ExtraRecordInfo& extraInfo) {
+DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream, size_t opId, const ExtraRecordInfo& extraInfo) {
     if (isEnable()) {
         DeviceRecordsImpl::get().ensureSetup(stream);
         name_ = name;
@@ -481,30 +415,22 @@ DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream, s
     }
 }
 
-DeviceRecordCreator::~DeviceRecordCreator() {
-    end();
-}
+DeviceRecordCreator::~DeviceRecordCreator() { end(); }
 
 void DeviceRecordCreator::end() {
     if (!end_) {
         TORCH_CHECK(pStart_, "dipu profiler error with pStart_ is not inited");
         TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
         dipu::devproxy::recordEvent(pStop_->get(), stream_);
-        DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
-                pStart_, pStop_, (size_t)stream_,
-                name_, opId_, extraInfo_});
+        DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{pStart_, pStop_, (size_t)stream_, name_, opId_, extraInfo_});
     }
     end_ = true;
 }
 
-
-RecordBlockCreator::RecordBlockCreator(string_t name, size_t opId,
-                                       const ExtraRecordInfo& extraInfo,
-                                       deviceStream_t stream, bool enProfile) {
+RecordBlockCreator::RecordBlockCreator(string_t name, size_t opId, const ExtraRecordInfo& extraInfo, deviceStream_t stream, bool enProfile) {
     if (enProfile && isEnable()) {
         pHostRecord_.reset(new RecordCreator(name, opId, extraInfo));
-        pDeviceRecord_.reset(new DeviceRecordCreator(name, stream,
-                                                     opId, extraInfo));
+        pDeviceRecord_.reset(new DeviceRecordCreator(name, stream, opId, extraInfo));
     }
 }
 
@@ -518,10 +444,7 @@ RecordBlockCreator::~RecordBlockCreator() {
     pDeviceRecord_.reset();
 }
 
-
-std::list<Record> getRecordList() {
-    return RecordsImpl::get().getAllRecordList_();
-}
+std::list<Record> getRecordList() { return RecordsImpl::get().getAllRecordList_(); }
 
 void startProfile() {
     gEnableFlag = true;

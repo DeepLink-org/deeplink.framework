@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
-#include <stdio.h>
-
 #include "./diopirt_impl.h"
+
+#include <stdio.h>
 
 namespace diopihelper = dipu::diopi_helper;
 
@@ -78,10 +78,8 @@ DIOPI_RT_API diopiError_t diopiGetStream(diopiContextHandle_t ctx, diopiStreamHa
     return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiRequireTensor(
-    diopiContextHandle_t ctx, diopiTensorHandle_t* tensor,
-    const diopiSize_t* size, const diopiSize_t* stride,
-    const diopiDtype_t dtype, const diopiDevice_t device) {
+DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx, diopiTensorHandle_t* tensor, const diopiSize_t* size, const diopiSize_t* stride,
+                                             const diopiDtype_t dtype, const diopiDevice_t device) {
     // TORCH_CHECK(tensor != nullptr && *tensor == nullptr, "invalid parameter tensor");
     at::IntArrayRef at_dims(size->data, size->len);
     caffe2::TypeMeta at_type = diopihelper::toATenType(dtype);
@@ -100,9 +98,7 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(
     return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiRequireBuffer(
-    diopiContextHandle_t ctx, diopiTensorHandle_t* tensor,
-    int64_t num_bytes, diopiDevice_t device) {
+DIOPI_RT_API diopiError_t diopiRequireBuffer(diopiContextHandle_t ctx, diopiTensorHandle_t* tensor, int64_t num_bytes, diopiDevice_t device) {
     diopiSize_t size{&num_bytes, 1};
     return diopiRequireTensor(ctx, tensor, &size, nullptr, diopi_dtype_int8, device);
 }

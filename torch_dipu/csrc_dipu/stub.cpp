@@ -3,40 +3,28 @@
 
 static std::vector<PyMethodDef> methods;
 
-static void AddPyMethodDefs(std::vector<PyMethodDef>& vector, PyMethodDef* methods)
-{
-  if (!vector.empty()) {
-    // remove nullptr terminator
-    vector.pop_back();
-  }
-  while (true) {
-    vector.push_back(*methods);
-    if (!methods->ml_name) {
-      break;
+static void AddPyMethodDefs(std::vector<PyMethodDef>& vector, PyMethodDef* methods) {
+    if (!vector.empty()) {
+        // remove nullptr terminator
+        vector.pop_back();
     }
-    methods++;
-  }
+    while (true) {
+        vector.push_back(*methods);
+        if (!methods->ml_name) {
+            break;
+        }
+        methods++;
+    }
 }
 
 extern "C" PyObject* initModule() {
+    AddPyMethodDefs(methods, dipu::exportTensorFunctions());
+    static struct PyModuleDef torchdipu_module = {PyModuleDef_HEAD_INIT, "torch_dipu._C", nullptr, -1, methods.data()};
+    PyObject* module = PyModule_Create(&torchdipu_module);
 
-  AddPyMethodDefs(methods, dipu::exportTensorFunctions());
-  static struct PyModuleDef torchdipu_module = {
-     PyModuleDef_HEAD_INIT,
-     "torch_dipu._C",
-     nullptr,
-     -1,
-     methods.data()
-  };
-  PyObject* module = PyModule_Create(&torchdipu_module);
-
-  dipu::exportDIPURuntime(module);
-  dipu::exportProfiler(module);
-  return module;
+    dipu::exportDIPURuntime(module);
+    dipu::exportProfiler(module);
+    return module;
 }
 
-PyMODINIT_FUNC PyInit__C(void){
-  return initModule();
-}
-
-
+PyMODINIT_FUNC PyInit__C(void) { return initModule(); }

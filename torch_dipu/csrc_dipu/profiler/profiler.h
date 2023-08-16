@@ -3,10 +3,10 @@
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
-#include <string>
-#include <memory>
 #include <chrono>
 #include <list>
+#include <memory>
+#include <string>
 #include <utility>
 
 namespace dipu {
@@ -33,7 +33,6 @@ void FlushAllRecords();
 void abandonAllRecords();
 size_t timestamp(const time_point& t);
 
-
 struct ExtraRecordInfo {
     string_t scope;
     size_t opSeqId;
@@ -57,7 +56,6 @@ struct ExtraRecordInfo {
     }
 };
 
-
 struct Record {
     string_t name;
     size_t opId;
@@ -67,10 +65,8 @@ struct Record {
     ExtraRecordInfo extraInfo;
 };
 
-
 void setThreadName(const string_t& name);
 void addRecord(const Record& record);
-
 
 class RecordCreator final {
 private:
@@ -81,8 +77,7 @@ private:
     ExtraRecordInfo extraInfo_;
 
 public:
-    explicit RecordCreator(const string_t& name, size_t opId = 0,
-                           const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
+    explicit RecordCreator(const string_t& name, size_t opId = 0, const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
 
     ~RecordCreator();
 
@@ -110,8 +105,7 @@ private:
     ExtraRecordInfo extraInfo_;
 
 public:
-    DeviceRecordCreator(string_t name, deviceStream_t stream, size_t opId = 0,
-                        const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
+    DeviceRecordCreator(string_t name, deviceStream_t stream, size_t opId = 0, const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
 
     ~DeviceRecordCreator();
 
@@ -119,9 +113,7 @@ private:
     void end();
 };
 
-
 void setProfileOpen(bool profileFlag);
-
 
 size_t generateId();
 
@@ -129,10 +121,9 @@ void resetId();
 
 class RecordBlockCreator {
 public:
-    explicit RecordBlockCreator(string_t name, size_t opId = generateId(),
-                       const ExtraRecordInfo& extraInfo = ExtraRecordInfo(),
-                       deviceStream_t stream = dipu::getCurrentDIPUStream(), bool enProfile = isEnable());
-    
+    explicit RecordBlockCreator(string_t name, size_t opId = generateId(), const ExtraRecordInfo& extraInfo = ExtraRecordInfo(),
+                                deviceStream_t stream = dipu::getCurrentDIPUStream(), bool enProfile = isEnable());
+
     void end();
 
     ~RecordBlockCreator();
@@ -140,7 +131,6 @@ public:
 private:
     std::unique_ptr<RecordCreator> pHostRecord_ = nullptr;
     std::unique_ptr<DeviceRecordCreator> pDeviceRecord_ = nullptr;
-
 };
 
 std::list<Record> getRecordList();

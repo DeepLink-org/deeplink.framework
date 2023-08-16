@@ -1,16 +1,15 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <list>
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 #include <c10/core/Scalar.h>
 #include <c10/util/Exception.h>
-
+#include <csrc_dipu/runtime/rthelper.h>
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>
 
-#include <csrc_dipu/runtime/rthelper.h>
+#include <list>
 
 using deviceStream_t = dipu::deviceStream_t;
 
