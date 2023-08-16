@@ -455,7 +455,7 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize;
+    ::diopiSize_t output_paddingDiopiSize{nullptr, 0};
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
   custom_code_before_return: |
@@ -486,7 +486,7 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize;
+    ::diopiSize_t output_paddingDiopiSize{nullptr, 0};
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
   interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
