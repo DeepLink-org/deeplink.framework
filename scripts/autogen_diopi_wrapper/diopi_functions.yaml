@@ -574,26 +574,21 @@
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
 
-- schema: "dropout(Tensor input, float p, bool train) -> Tensor"
-  register_op: False
-  outs: [mask]
+- schema: "native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)"
   custom_code_at_the_beginning: |
-    at::Tensor out = at::empty_like(input);
-    at::Tensor mask;
-    if (input.requires_grad()) {
-       mask = at::empty(input.sizes(), input.options().dtype(at::kByte));;
+    at::Tensor out0 = at::empty_like(input);
+    at::Tensor out1;
+    bool train_ = train.value_or(false);
+    if (train_) {
+      out1 = at::empty(input.sizes(), input.options().dtype(at::kByte));;
     }
-  interface: diopiDropout(ctx, out, mask, input, p, train)
+  interface: diopiDropout(ctx, out0, out1, input, p, train_)
 
-- schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
-  register_op: False
-  outs: [mask]
+- schema: "native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor"
   custom_code_at_the_beginning: |
-    at::Tensor mask;
-    if (self.requires_grad()) {
-       mask = at::empty(self.sizes(), self.options().dtype(at::kByte));;
-    }
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+    at::Tensor out = grad_output * mask * scale;
+    return out;
+  interface: diopiMul(ctx, out, out, out)
 
 - schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
