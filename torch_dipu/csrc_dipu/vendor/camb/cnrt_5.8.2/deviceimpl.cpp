@@ -4,6 +4,15 @@
 namespace dipu
 {
 namespace devapis {
+
+void initializeVendor() {
+
+}
+
+void finalizeVendor() {
+
+}
+
 // camb5.8.2
 // set current device given device according to id
 void setDevice(deviceId_t devId) {

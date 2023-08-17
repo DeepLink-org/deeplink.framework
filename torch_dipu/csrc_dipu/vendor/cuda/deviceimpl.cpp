@@ -7,17 +7,29 @@
 namespace dipu {
 DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::CUDA;
 
+extern int patchCachingAllocator();
+
 namespace devapis {
 
 using cuda_deviceId = int;
 // =====================
 //  Device class related
 // =====================
+
+void initializeVendor() {
+    patchCachingAllocator();
+}
+
+void finalizeVendor() {
+
+}
+
+
 deviceId_t current_device() {
   cuda_deviceId devId_;
   DIPU_CALLCUDA(::cudaGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
-}   
+}
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   ::cudaDeviceProp device_prop;

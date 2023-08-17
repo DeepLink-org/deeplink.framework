@@ -6,10 +6,14 @@
 #include <c10/core/Storage.h>
 #include <ATen/core/op_registration/adaption.h>
 #include <ATen/EmptyTensor.h>
+#include <ATen/native/CPUFallback.h>
 
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
 #include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
+
+using dnative = dipu::native::DIPUATenFunctions;
 
 static std::string force_fallback_operators_list = []()-> std::string {
     std::ifstream stream(".dipu_force_fallback_op_list.config", std::ios_base::in | std::ios::binary);
@@ -27,7 +31,6 @@ static std::string force_fallback_operators_list = []()-> std::string {
     }
     return content;
 }();
-
 
 namespace dipu {
 bool get_force_fallback(const char* opname) {
@@ -79,6 +82,18 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   }
 }
 
+std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>> DIPUOpRegister::dipuOpRegisterList;
+std::mutex DIPUOpRegister::mutex_;
+
+void DIPUOpRegister::register_op() {
+  std::lock_guard<std::mutex> guard(mutex_);
+  for (auto iter = dipuOpRegisterList.begin(); iter !=  dipuOpRegisterList.end(); ++iter) {
+    torch::Library* lib = std::get<0>(*iter);
+    DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(*iter);
+    fun_ptr(*lib);
+  }
+  dipuOpRegisterList.clear();
+}
 
 namespace {
   // dipu native ops
@@ -259,7 +274,7 @@ namespace {
 }  // inner anonymous namespace
 
 
-TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
+DIPU_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
     m.fallback(torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());
 }
 
@@ -268,7 +283,7 @@ TORCH_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
 //   m.fallback(torch::CppFunction::makeFallthrough());
 // }
 
-TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
+DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_DIPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_DIPU_empty_strided));
@@ -305,17 +320,14 @@ c10::WarningHandler* getIgnoreHandler() {
   return &handler_;
 }
 
-// override BackendSelect is_pinned and _pin_memory operator
-TORCH_LIBRARY_IMPL(aten, BackendSelect, m) {
-  // disable override warning log which like
-  // [W OperatorEntry.cpp:159] Warning: Overriding a previously registered kernel for the same operator and the same dispatch key
+DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
   c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
   m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"), TORCH_FN(wrapper_BackendSelect_is_pinned));
   m.impl(TORCH_SELECTIVE_NAME("aten::_pin_memory"), TORCH_FN(wrapper_BackendSelect__pin_memory));
 }
 
 // override CPU operator
-TORCH_LIBRARY_IMPL(aten, CPU, m) {
+DIPU_LIBRARY_IMPL(aten, CPU, m) {
   // disable override warning log
   c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
   m.impl("empty.memory_format", TORCH_FN(wrapper_CPU_empty_memory_format));

@@ -12,6 +12,10 @@ namespace dipu {
 
 namespace devproxy {
 
+DIPU_API void initializeVendor();
+
+DIPU_API void finalizeVendor();
+
 DIPU_API deviceId_t current_device();
 
 DIPU_API DIPUDeviceProperties getDeviceProperties(int32_t device_index);

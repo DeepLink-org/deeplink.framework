@@ -3,7 +3,27 @@
 #include "../core/DIPUEventPool.h"
 namespace dipu {
 
+namespace devapis{
+
+__attribute__((weak)) void initializeVendor() {
+  
+}
+
+__attribute__((weak)) void finalizeVendor() {
+
+}
+
+} // namespace devapis
+
 namespace devproxy {
+
+void initializeVendor() {
+  devapis::initializeVendor();
+}
+
+void finalizeVendor() {
+  devapis::finalizeVendor();
+}
 
 deviceId_t current_device() {
   return devapis::current_device();
