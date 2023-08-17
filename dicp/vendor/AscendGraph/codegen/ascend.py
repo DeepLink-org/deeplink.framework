@@ -10,7 +10,7 @@ graph_id = 0
 need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
-             'nll_loss_backward', 'native_batch_norm_backward',
+             'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'fill']
 
@@ -210,7 +210,7 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = shape
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
         else:
-            dims = fake_tensor.shape
+            dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
             
         # gen data_nodes
@@ -1273,8 +1273,9 @@ class AscendOverrides:
     @staticmethod
     def empty(name, size, dtype, layout, device):
         op = OP(f"{name}", "Empty")
-        op.set_input("shape", f"{size}")
-        op.set_attr_int("dtype", f"{dtype}")
+        op.set_input("shape", size)
+        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
+        op.set_attr_int("dtype", dtype)
 
         return op.to_node()
 
@@ -1283,47 +1284,43 @@ class AscendOverrides:
         x_shape = list(node.target.x.node.meta['val'].shape)
 
         op = OP(f"{name}", "Fill")
-        op.set_input("dims", f"{x_shape}")
-        op.set_input("value", f"{value}")
+        op.set_input("dims", x_shape)
+        op.set_input("value", value)
 
         return op.to_node()
 
     @staticmethod
-    def repeat_interleave(name, x, output_size):
-        op = OP(f"{name}", "RepeatInterleave")
-        op.set_input("x", f"{x}")
-        op.set_input("repeats", f"{output_size}")
+    def repeat_interleave(name, node, x, output_size):
+        numel = node.target.x.node.meta['val'].numel()
+        assert(output_size % numel == 0)
 
-        return op.to_node()
+        op = OP(f"{name}_repeats", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", output_size / numel, [1])
+
+        op1 = OP(f"{name}", "RepeatInterleave")
+        op1.set_input("x", x)
+        op1.set_input("repeats", f"{name}_repeats")
+
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def index_select(name, x, dim, index):
-        # index_str = '{' + ','.join(map(str, index)) + '}'
         op = OP(f"{name}_dim", "Const")
         op.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [1])
 
-        op1 = OP(f"{name}_index", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "ND", {index}, [len(index)])
+        op1 = OP(f"{name}", "GatherV2")
+        op1.set_input("x", x)
+        op1.set_input("indices", index)
+        op1.set_input("axis", f"{name}_dim")
 
-        op2 = OP(f"{name}", "GatherV2")
-        op2.set_input("x", f"{x}")
-        op2.set_input("indices", f"{name}_index")
-        op2.set_input("axis", f"{name}_dim")
-
-        return [op.to_node(), op1.to_node(), op2.to_node()]
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
-        # shape = shape.strip('{}').split(', ')
-        # shape_str = '{' + ','.join(map(str, shape)) + '}'
-        # op = OP(f"{name}_like", "Const")
-        # op.set_attr_tensor("value", "INT32", "INT32", "ND", 0, [shape])
-        # import pdb; pdb.set_trace()
-
         dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
         op = OP(f"{name}_like", "Empty")
-        op.set_input("shape", f"{shape}")
-        op.set_attr_int("dtype", f"{dtype}")
+        op.set_input("shape", shape)
+        op.set_attr_int("dtype", dtype)
 
         op1 = OP(f"{name}", "OnesLike")
         op1.set_input("x", f"{name}_like")
