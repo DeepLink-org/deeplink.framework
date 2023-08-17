@@ -588,7 +588,7 @@
 
 - schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiBernoulliScalar(ctx, self, p, 0);
+  interface: diopiBernoulliScalar(ctx, self, p);
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
