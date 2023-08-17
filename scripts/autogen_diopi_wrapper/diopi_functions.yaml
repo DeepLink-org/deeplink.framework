@@ -408,6 +408,7 @@
 
 - schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
   register_op: False
+  #register_op: True
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out = at::empty_like(self);
@@ -415,7 +416,8 @@
 
 
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  autograd: True
+  register_op: False
+  #autograd: True
   custom_code_at_the_beginning: |
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -443,6 +445,8 @@
     return outputs;
 
 - schema: "convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
+  custom_fallback: True
+  autocompare: False
   size_attr: [stride, padding, dilation]
   custom_code_at_the_beginning: |
     int64_t batch_size = input.size(0);
@@ -457,6 +461,8 @@
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  custom_fallback: True
+  autocompare: False
   size_attr: [stride, padding, dilation, bias_sizes]
   device: [camb]
   custom_code_at_the_beginning: |
@@ -485,6 +491,8 @@
   interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  custom_fallback: True
+  autocompare: False
   size_attr: [stride, padding, dilation, bias_sizes]
   device: [-camb, all]
   custom_code_at_the_beginning: |
@@ -566,61 +574,30 @@
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
 
-- schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
-  custom_code_at_the_beginning: |
-    at::Tensor out = at::empty_like(input);
-  register_op: False
-  interface: diopiDropout(ctx, out, mask, input, p, train)
-
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
-  autocompare: disable
-  custom_code_at_the_beginning: |
-    auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
-    at::Tensor out = at::empty_like(input);
-  interface: diopiDropout(ctx, out, mask, input, p, train)
-  outs: [mask]
-  autograd: True
-  saved_data: [p, mask]
-  forward_schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
-  forward_process_code: |
-    auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
-    at::Tensor out = at::empty_like(input);
-  cal_grad_code: |
-        auto p = p_.toDouble();
-        double p1m = 1. - p;
-        double scale = p1m == 0 ? 0. : 1. / p1m;
-        auto mask = mask_.toTensor();
-        at::Tensor out = grad_outputs[0] * mask * scale;
-  backward_return_code: |
-    std::vector<at::Tensor> outputs(6);
-    outputs[0] = out;
-    return outputs;
-
-- schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
   register_op: False
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+  outs: [mask]
+  custom_code_at_the_beginning: |
+    at::Tensor out = at::empty_like(input);
+    at::Tensor mask;
+    if (input.requires_grad()) {
+       mask = at::empty(input.sizes(), input.options().dtype(at::kByte));;
+    }
+  interface: diopiDropout(ctx, out, mask, input, p, train)
 
 - schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
+  register_op: False
   outs: [mask]
+  custom_code_at_the_beginning: |
+    at::Tensor mask;
+    if (self.requires_grad()) {
+       mask = at::empty(self.sizes(), self.options().dtype(at::kByte));;
+    }
   interface: diopiDropoutInp(ctx, self, mask, p, train)
-  autograd: True
-  forward_process_code: |
-    auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
-  saved_data: [p, mask]
-  forward_schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
-  cal_grad_code: |
-    auto p = p_.toDouble();
-    double p1m = 1. - p;
-    double scale = p1m == 0 ? 0. : 1. / p1m;
-    auto mask = mask_.toTensor();
-    at::Tensor out = grad_outputs[0] * mask * scale;
-  backward_return_code: |
-    std::vector<at::Tensor> outputs(6);
-    outputs[0] = out;
-    return outputs;
-  wrappter_custom_return: return self;
+
+- schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
+  interface: diopiBernoulliScalar(ctx, self, p, 0);
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
@@ -702,35 +679,27 @@
 
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  autocompare: False
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(input.sizes(), input.options());
-    auto grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-    at::Tensor grad_bias;
-    bool bias_has_value = output_mask[2];
-    if (bias_has_value) {
+    at::Tensor grad_input, grad_weight, grad_bias;
+    if (output_mask[0]) {
+      grad_input = at::empty(input.sizes(), grad_output.options());
+    }
+    if (output_mask[1]) {
+      grad_weight = at::empty(weight.sizes(), grad_output.options());
+    }
+    if (output_mask[2]) {
       grad_bias = at::empty({grad_output.size(-1)}, grad_output.options());
     }
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
-  autograd: True
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
     auto out = at::empty(output_size, input.options());
   interface: diopiLinear(ctx, out, input, weight, bias)
-  forward_process_code: |
-    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
-    std::array<bool, 3> output_mask{input.requires_grad(), weight.requires_grad(), bias_has_value};
-  saved_data: [output_mask, input, weight]
-  cal_grad_code: |
-    auto output_mask = output_mask_.to<std::array<bool, 3>>();
-    auto input = input_.toTensor();
-    auto weight = weight_.toTensor();
-    auto grad_output = grad_outputs[0];
-  backward_schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  backward_return_code: |
-    return {std::get<0>(result), std::get<1>(result), std::get<2>(result)};
+
 - schema: "_log_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLogSoftmaxBackward(ctx, out, grad_output, output, dim)
 

@@ -99,6 +99,14 @@ static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_
   return std::tie(out, save_mean, save_invstd);
 }
 
+static at::Tensor custom_fallback_dipu_convolution_overrideable(const at::Tensor& input, const at::Tensor& weight, const c10::optional<at::Tensor>& bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups) {
+  return at::convolution(input, weight, bias, stride, padding, dilation, transposed, output_padding, groups);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convolution_backward_overrideable(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool, 3> output_mask) {
+  return at::convolution_backward(grad_output, input, weight, c10::nullopt, stride, padding, dilation, transposed, output_padding, groups, output_mask);
+}
+
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm(const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt, const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training, double momentum, double eps) {

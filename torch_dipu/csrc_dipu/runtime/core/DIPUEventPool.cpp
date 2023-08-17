@@ -40,11 +40,11 @@ public:
     }
 
     void get(T& event) {
-        std::lock_guard<mutex_t> _(event_mutex_);
         if (event_pool_.empty()) {
             allocator_(event);
             allocate_num_++;
         } else {
+            std::lock_guard<mutex_t> _(event_mutex_);
             event = event_pool_.back();
             event_pool_.pop_back();
         }

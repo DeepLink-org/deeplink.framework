@@ -77,14 +77,20 @@ public:
   bool isPinnedPtr(const void *p) {
     bool is_pinned = false;
     {
-      std::lock_guard<std::mutex> lck(mtx_);
-      for (auto iter = blocks_.begin(); iter != blocks_.end(); iter++) {
+      //std::lock_guard<std::mutex> lck(mtx_);
+      for (auto iter = blocks_.crbegin(); iter != blocks_.crend(); iter++) {
         const void* ptr = iter->first;
         const size_t size = iter->second;
         const char* cptr = static_cast<const char*>(ptr);
         const char* cp = static_cast<const char*>(p);
-        if (cp >= cptr && cp < (cptr + size)) {
-          return true;
+        const char* max_ptr = cptr + size;
+        if (cp >= cptr && cp < max_ptr) {
+          is_pinned = true;
+          break;
+        } else {
+          if (cp >= max_ptr) {
+            break;
+          }
         }
       }
     }
@@ -93,10 +99,10 @@ public:
 
 private:
   static std::mutex mtx_;
-  static std::unordered_map<void*, size_t> blocks_;
+  static std::map<void*, size_t> blocks_;
 };
 
-std::unordered_map<void*, size_t> DIPURawHostAllocatorImpl::blocks_;
+std::map<void*, size_t> DIPURawHostAllocatorImpl::blocks_;
 std::mutex DIPURawHostAllocatorImpl::mtx_;
 
 namespace {

@@ -148,7 +148,7 @@ public:
         }
 
         allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
-        allocator_->flush_mem_pool();
+        //allocator_->flush_mem_pool();
       }
     }
   };

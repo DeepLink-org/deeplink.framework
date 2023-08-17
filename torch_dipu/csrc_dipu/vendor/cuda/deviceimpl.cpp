@@ -128,7 +128,16 @@ bool isStreamEmpty(deviceStream_t stream) {
 // =====================
 
 void createEvent(deviceEvent_t* event) {
-    DIPU_CALLCUDA(::cudaEventCreateWithFlags(event, cudaEventDisableTiming))
+    static bool enableTiming = []() {
+        const char* env = std::getenv("DIPU_CUDA_EVENT_TIMING");
+        if (env) {
+            return std::atoi(env) > 0;
+        } else {
+            return true;
+        }
+    }();
+
+    DIPU_CALLCUDA(::cudaEventCreateWithFlags(event, enableTiming ? cudaEventDefault : cudaEventDisableTiming))
 }
 
 void destroyEvent(deviceEvent_t event) {

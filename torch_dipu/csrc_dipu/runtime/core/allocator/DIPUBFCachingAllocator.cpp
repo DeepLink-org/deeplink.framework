@@ -1,46 +1,15 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPUCachingAllocator.h"
+#include "DIPUSpinMutex.h"
 #include <queue>
 #include <vector>
 #include <stack>
-#include <atomic>
 #include <thread>
 #include <map>
 #include <functional>
 
 namespace dipu {
-
-/// Simple spin-lock to help build thread-safe functions.
-class SpinMutex {
-private:
-    std::atomic<bool> excl_ { false };
-
-public:
-    constexpr SpinMutex() noexcept = default;
-
-    SpinMutex(const SpinMutex&) = delete;
-
-    void delay() const noexcept {
-        std::this_thread::yield();
-    }
-
-    void lock() {
-        for (bool exp = false;
-             !excl_.compare_exchange_weak(exp, true, std::memory_order_acq_rel);
-             exp = false) delay();
-    }
-
-    bool try_lock() {
-        bool exp = false;
-        return
-            excl_.compare_exchange_weak(exp, true, std::memory_order_acq_rel);
-    }
-
-    void unlock() {
-        excl_.store(false, std::memory_order_release);
-    }
-};
 
 class BFCachingAllocatorImpl{
 public:
@@ -166,6 +135,7 @@ private:
     std::vector<StreamSetHandle> streamSets_;
 
     using mutex_t = SpinMutex;
+    //using mutex_t = std::recursive_mutex;
     mutable mutex_t mut_;
 
     static size_t roundBytes(size_t nbytes) {
