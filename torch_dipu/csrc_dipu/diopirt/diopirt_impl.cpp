@@ -107,4 +107,28 @@ DIOPI_RT_API diopiError_t diopiRequireBuffer(
     return diopiRequireTensor(ctx, tensor, &size, nullptr, diopi_dtype_int8, device);
 }
 
+DIOPI_RT_API diopiError_t diopiGeneratorInitState(diopiConstGeneratorHandle_t th) {
+//   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+//   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+//   const dipu::DIPUGeneratorImpl* impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+//   impl->init_state();
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiGeneratorUpdateState(diopiConstGeneratorHandle_t th) {
+//   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+//   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+//   dipu::DIPUGeneratorImpl* impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+//   impl->update_state();
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiConstGeneratorHandle_t th, void **data) {
+  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+  const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+  // TODO(caikun): add lock
+  *data = generator->get_state().data_ptr();
+  return diopiSuccess;
+}
+
 }  // extern "C"

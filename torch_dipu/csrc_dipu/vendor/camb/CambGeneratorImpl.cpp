@@ -46,6 +46,7 @@ public:
       DIPU_CALLCNNL(cnnlRandGetMTGP32StateSize(nullptr, &state_size));
       auto options = at::TensorOptions().device(device_).dtype(at::kByte);
       state_ = at::empty(state_size, options);
+      std::cout << "init state, state size=" << state_size << std::endl;
     });
   }
 
@@ -61,7 +62,7 @@ public:
     // hardcoding the number just like the original impl.
     const int cpu_numel = 5056;
     const int gpu_numel = 816;
-    const int mlu_numel = 1049600;
+    const int mlu_numel = 1180672;
     at::Tensor state_tmp(state.shallow_copy_and_detach(state.version_counter(), true));
     if (state_tmp.numel() == cpu_numel || state_tmp.numel() == gpu_numel) {
         return;

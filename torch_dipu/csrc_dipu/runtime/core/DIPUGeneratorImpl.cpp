@@ -1,9 +1,11 @@
 // Copyright (c) 2023, DeepLink.
+#include <ATen/ATen.h>
 #include <ATen/Utils.h>
 
 #include "DIPUGeneratorImpl.h"
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
+ #include <iostream>
 
 namespace dipu {
 
@@ -141,8 +143,9 @@ DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
 c10::intrusive_ptr<c10::TensorImpl> DIPUGeneratorImpl::get_state() const {
   init_state();
   update_state();
-  auto state_cpu = state_.cpu();
-  return state_cpu.getIntrusivePtr();
+  return state_.getIntrusivePtr();
+  // auto state_clone = state_.clone();
+  // return state_clone.getIntrusivePtr();
 }
 
 /**

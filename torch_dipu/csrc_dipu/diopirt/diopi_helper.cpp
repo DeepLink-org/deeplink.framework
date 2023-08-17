@@ -24,6 +24,15 @@ namespace diopi_helper {
     return toDiopiTensorHandle(tensor.value());
 }
 
+::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const at::Generator& generator) {
+    return generator.defined() ? reinterpret_cast<::diopiConstGeneratorHandle_t>(&generator) : nullptr;
+}
+
+::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const c10::optional<at::Generator>& generator) {
+    if (!generator.has_value()) return nullptr;
+    return toDiopiGeneratorHandle(generator.value());
+}
+
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {
     ::diopiScalar_t result;
     switch (scalar.type()) {
