@@ -385,13 +385,11 @@
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n, 0)
+  interface: diopiRandperm(ctx, out, n)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandperm(ctx, out, n, seed)
+  interface: diopiRandperm(ctx, out, n)
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -455,7 +453,6 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize{nullptr, 0};
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
   custom_code_before_return: |
@@ -467,7 +464,7 @@
     if (!output_mask[1]) {
         grad_weight = grad_weight_empty;
     }
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
@@ -486,10 +483,9 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize{nullptr, 0};
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
   size_attr: [stride, padding, dilation]
@@ -922,9 +918,7 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiUniformInp(ctx, self, from, to, seed)
+  interface: diopiUniformInp(ctx, self, from, to)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1006,21 +1000,15 @@
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
+  interface: diopiRandomInp(ctx, self, 0, nullptr)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, &to, seed)
+  interface: diopiRandomInp(ctx, self, 0, &to)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
