@@ -110,6 +110,7 @@ def handle_error(error):
         print("Kill all!", flush = True)
         p.terminate()
     error_flag.value = 1
+    exit(1)
 
 if __name__=='__main__':
     curPath = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
