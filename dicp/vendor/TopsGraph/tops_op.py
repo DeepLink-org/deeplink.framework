@@ -293,6 +293,22 @@ class Max_pool2d_with_indices_backward(Operator):
         super().__init__("MaxPool2D_Grad")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices_backward
+        
+        
+class Adaptive_avg_pool2d(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("AvgPool2D")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten._adaptive_avg_pool2d.default
+       
+        
+class Adaptive_avg_pool2d_backward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("AvgPool2D_Grad")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten._adaptive_avg_pool2d_backward.default
 
 
 class Gather(Operator):

@@ -169,6 +169,14 @@ def Max_pool2d_with_indices(*args):
 def Max_pool2d_with_indices_backward(*args):
     return tops_op.Max_pool2d_with_indices_backward(*args)
 
+@register_conversion(torch.ops.aten._adaptive_avg_pool2d.default)
+def Adaptive_avg_pool2d(*args, **kwargs):
+    return tops_op.Adaptive_avg_pool2d(*args, **kwargs)
+
+@register_conversion(torch.ops.aten._adaptive_avg_pool2d_backward.default)
+def Adaptive_avg_pool2d_backward(*args, **kwargs):
+    return tops_op.Adaptive_avg_pool2d_backward(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.gather)
 def Gather(*args):
     return tops_op.Gather(*args)
