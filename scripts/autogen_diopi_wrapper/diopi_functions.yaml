@@ -1135,6 +1135,7 @@
   interface: diopiBaddbmmInp(ctx, self, batch1, batch2, betaDouble, alphaDouble)
 
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
+  no_device_check_args: [other]
   custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -1397,6 +1398,7 @@
 
 - schema: "_ctc_loss(Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, int blank=0, bool zero_infinity=False) -> (Tensor neg_log_likelihood, Tensor log_alpha)"
   ins: [input_lengths_tensor, target_lengths_tensor]
+  no_device_check_args: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     int64_t batch_size = log_probs.size(1);
     int64_t num_labels = log_probs.size(2);
@@ -1416,6 +1418,7 @@
 
 - schema: "_ctc_loss_backward(Tensor grad, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, bool zero_infinity=False) -> Tensor grad_input"
   ins: [input_lengths_tensor, target_lengths_tensor]
+  no_device_check_args: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     auto grad_input = at::empty(log_probs.sizes(), grad.options());
     auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);

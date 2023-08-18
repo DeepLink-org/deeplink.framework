@@ -444,7 +444,7 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
     debug_code = "if (dumpOpArgLevel() > 0) {\n\t"
-    debug_code += f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code += f'printf("--%-50s %-30s \\n", "[{op_name}]:", "{diopi_func}");' + '\n'
     debug_code += "}\n"
     return debug_code
 
@@ -501,13 +501,13 @@ def create_device_check_code(fun_config):
     exclude_tensors = fun_config.get('no_device_check_args', [])
     for args in exclude_tensors:
         tensors.discard(args)
-
+    op_name = get_op_name_from_schema(fun_config['schema'])
     for args in set(tensors):
         if not args.endswith('?'):
-            code += f'TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{args} should be on dipu");\n'
+            code += f'TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
         else:
             args = args[0:-1]
-            code += f'TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{args} should be on dipu");\n'
+            code += f'TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
 
     return code
 
