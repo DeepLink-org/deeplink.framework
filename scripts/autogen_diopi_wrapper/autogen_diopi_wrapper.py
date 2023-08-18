@@ -493,7 +493,23 @@ if ($arg_name.has_value()) {
     )
     return process_code
 
+def create_device_check_code(fun_config):
+    code = ''
+    tensors = get_function_inputs_from_schema(fun_config['schema']) + fun_config.get('ins', [])
+    tensors += get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])
+    tensors = set(tensors)
+    exclude_tensors = fun_config.get('no_device_check_args', [])
+    for args in exclude_tensors:
+        tensors.discard(args)
 
+    for args in set(tensors):
+        if not args.endswith('?'):
+            code += f'TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{args} should be on dipu");\n'
+        else:
+            args = args[0:-1]
+            code += f'TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{args} should be on dipu");\n'
+
+    return code
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -600,6 +616,7 @@ def functions_code_gen(fun_config):
             attrs_process_code=[attrs_process_code],
             output_process_code=[output_process_code],
             custom_code_before_call_diopi = [fun_config.get('custom_code_before_call_diopi', '').replace('; ', ';\n')],
+            device_check_code=[create_device_check_code(fun_config)],
             diopi_fun_call_code=[diopi_fun_call_code],
             custom_code_before_return=[fun_config.get('custom_code_before_return', '').replace('; ', ';\n')],
             return_code=[return_code],
