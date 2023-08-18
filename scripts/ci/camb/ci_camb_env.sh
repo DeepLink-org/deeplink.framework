@@ -26,7 +26,6 @@ export DIPU_PATH=${DIPU_ROOT}
 
 #export MLU_INVOKE_BLOCKING=1
 
-export DIPU_FORCE_FALLBACK_OPS_LIST=mul.Scalar,mul_.Scalar,mul.Scalar_out,mul_.Tensor,mul.out,add_out,_index_put_impl_,_unique2,col2im
 
 #export DIPU_DEBUG_ALLOCATOR=15
 export DIPU_DEVICE_MEMCACHING_ALGORITHM=BS

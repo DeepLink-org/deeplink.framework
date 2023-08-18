@@ -33,6 +33,7 @@ jobs:
     steps:
       - name: clone repo
         run: |
+          set -e
           cd ${GITHUB_WORKSPACE} && rm -rf DIPU DIPU_DIOPI && git clone https://github.com/DeepLink-org/DIPU.git && cd DIPU
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             echo "${{ github.base_ref }} "

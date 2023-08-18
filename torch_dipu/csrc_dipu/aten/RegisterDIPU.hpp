@@ -1,16 +1,7 @@
 // Copyright (c) 2023, DeepLink.
+#include <deque>
+#include <mutex>
 #include <torch/library.h>
-#include <ATen/core/dispatch/Dispatcher.h>
-#include <ATen/ops/_reshape_alias_native.h>
-#include <ATen/native/CPUFallback.h>
-#include "DIPUATenFunctions.h"
-
-#include <diopi/functions.h>
-
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/Log.h>
-
-using dnative = dipu::native::DIPUATenFunctions;
 
 namespace dipu {
 
@@ -64,4 +55,52 @@ namespace at {
     }                                                                                                                   \
 } while (false);
 
+
+class DIPUOpRegister {
+public:
+    typedef void (*OpRegFunPtr)(torch::Library&);
+private:
+    OpRegFunPtr fun_ptr_;
+    torch::Library lib_;
+    static std::deque<std::tuple<torch::Library*, OpRegFunPtr>> dipuOpRegisterList;
+    static std::mutex mutex_;
+public:
+    DIPUOpRegister(OpRegFunPtr fun_ptr, const char* ns, c10::optional<c10::DispatchKey> key, const char* file, int line): lib_(torch::Library::IMPL, ns, key, file, line), fun_ptr_(fun_ptr) {
+        const char* env = std::getenv("DIPU_IMMEDIATE_REGISTER_OP");
+        if (env != nullptr && std::atoi(env) > 0) {
+            fun_ptr_(lib_);
+        } else {
+            std::lock_guard<std::mutex> guard(mutex_);
+            dipuOpRegisterList.push_back(std::make_tuple(&lib_, fun_ptr_));
+        }
+    }
+
+    static void register_op();
+};
+
 } //end ns at
+
+namespace {
+
+#define DIPU_LIBRARY_IMPL(ns, k, m) _DIPU_LIBRARY_IMPL(ns, k, m, C10_UID)
+
+#define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                               \
+  static void C10_CONCATENATE(                                          \
+      DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid)(torch::Library&);      \
+  static const ::at::DIPUOpRegister C10_CONCATENATE(                    \
+      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                \
+      c10::guts::if_constexpr<c10::impl::dispatch_key_allowlist_check(  \
+          c10::DispatchKey::k)>(                                        \
+          []() {                                                        \
+           return &C10_CONCATENATE(                                     \
+                DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid);             \
+          },                                                            \
+          []() { return [](torch::Library&) -> void {}; }),             \
+      #ns,                                                              \
+      c10::make_optional(c10::DispatchKey::k),                          \
+      __FILE__,                                                         \
+      __LINE__);                                                        \
+  void C10_CONCATENATE(                                                 \
+      DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid)(torch::Library & m)
+
+} // namespace

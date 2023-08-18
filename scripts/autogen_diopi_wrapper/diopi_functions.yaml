@@ -457,7 +457,6 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
   custom_code_before_return: |
@@ -469,7 +468,7 @@
     if (!output_mask[1]) {
         grad_weight = grad_weight_empty;
     }
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
@@ -488,10 +487,9 @@
     if (output_mask[2]) {
         grad_bias = at::empty(bias_sizes, grad_output.options());
     }
-    ::diopiSize_t output_paddingDiopiSize;
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, transposed, output_paddingDiopiSize, groups);
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
   size_attr: [stride, padding, dilation]
@@ -1723,3 +1721,46 @@
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiAmax(ctx, out, self, dimDiopiSize, keepdim)
+
+- schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
+  custom_code_at_the_beginning: |
+    auto shape = input.size(1);
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+  interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
+
+- schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
+  custom_code_at_the_beginning: |
+    auto shape = input.size(1);
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+  interface: diopiBatchNormGatherStatsWithCounts(ctx, out0, out1, input, mean, invstd, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), momentum, eps, counts)
+
+- schema: batch_norm_backward_reduce(Tensor grad_out, Tensor input, Tensor mean, Tensor invstd, Tensor? weight, bool input_g, bool weight_g, bool bias_g) -> (Tensor, Tensor, Tensor, Tensor)
+  custom_code_at_the_beginning: |
+    auto shape = input.size(1);
+    at::Tensor out0;
+    at::Tensor out1;
+    at::Tensor out2;
+    at::Tensor out3;
+    if(input_g){
+      out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+      out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+    }
+    if(weight_g){
+      out2 = at::empty({shape}, input.options().dtype(at::kFloat));
+    }
+    if(bias_g){
+      out3 = at::empty({shape}, input.options().dtype(at::kFloat));
+    }
+  interface: diopiBatchNormBackwardReduce(ctx, out0, out1, out2, out3, grad_out, input, mean, invstd, weight, input_g, weight_g, bias_g)
+
+- schema: batch_norm_backward_elemt(Tensor grad_out, Tensor input, Tensor mean, Tensor invstd, Tensor? weight, Tensor sum_dy, Tensor sum_dy_xmu, Tensor count) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(grad_out);
+  interface: diopiBatchNormBackwardElemt(ctx, out, grad_out, input, mean, invstd, weight, sum_dy, sum_dy_xmu, count);
+
+- schema: batch_norm_elemt(Tensor input, Tensor? weight, Tensor? bias, Tensor mean, Tensor invstd, float eps) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(input);
+  interface: diopiBatchNormElemt(ctx, out, input, weight, bias, mean, invstd, eps);

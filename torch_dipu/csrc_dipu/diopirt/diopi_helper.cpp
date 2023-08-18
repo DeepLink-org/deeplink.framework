@@ -184,7 +184,7 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
 }
 
 ::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& input) {
-    ::diopiSize_t diopi_size;
+    ::diopiSize_t diopi_size{nullptr, 0};
     if (input.has_value()) {
         diopi_size.data = input.value().data();
         diopi_size.len = input.value().size();
@@ -193,7 +193,7 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
 }
 
 ::diopiSize_t toDiopiSize(at::IntArrayRef input) {
-    ::diopiSize_t diopi_size;
+    ::diopiSize_t diopi_size{nullptr, 0};
     diopi_size.data = input.data();
     diopi_size.len = input.size();
     return diopi_size;

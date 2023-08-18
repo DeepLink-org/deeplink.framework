@@ -13,6 +13,7 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
+#include <csrc_dipu/utils/Log.h>
 #include "CustomFallbackFunctions.hpp"
 
 $header_include_code
@@ -202,11 +203,11 @@ $functions_code
 
 namespace at {
 
-TORCH_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
+DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
     $op_register_code
 }
 
-TORCH_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
+DIPU_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
     $autograd_op_register_code
 }
 

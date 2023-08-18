@@ -14,22 +14,14 @@ void setDevice(deviceId_t devId) {
   DIPU_CALLCNRT(::cnrtSetDevice(devId_))
 }
 
-class CambDeviceInit {
-public:
-  explicit CambDeviceInit() {
-    DIPU_CALLCNDEV(::cndevInit(0));
-  }
+void initializeVendor() {
+  DIPU_CALLCNDEV(::cndevInit(0));
+}
 
-  ~CambDeviceInit() {
-    // ::cndevRelease();
-  }
-};
-
-__attribute__((destructor(101))) void deInitCamb() {
+void finalizeVendor() {
   ::cndevRelease();
 }
 
-static CambDeviceInit g_camb_init;
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   ::cnrtDeviceProp_t device_prop;

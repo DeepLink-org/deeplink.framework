@@ -12,11 +12,20 @@ using stpu_deviceId = int;
 // =====================
 //  Device class related
 // =====================
+
+void initializVendor() {
+
+}
+
+void finalizeVendor() {
+
+}
+
 deviceId_t current_device() {
   stpu_deviceId devId_;
   DIPU_CALLSTPU(::tangGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
-}   
+}
 
 // in tang_runtime_api.h
 // set current device given device according to id

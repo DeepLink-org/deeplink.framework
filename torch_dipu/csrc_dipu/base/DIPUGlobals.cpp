@@ -1,6 +1,7 @@
 #include "DIPUGlobals.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include <iostream>
 #include <ctime>
 #ifndef WIN32
@@ -22,12 +23,15 @@ static void printPromptAtStartup() {
 
 void initResource() {
   printPromptAtStartup();
+  devproxy::initializeVendor();
+  initCachedAllocator();
+  at::DIPUOpRegister::register_op();
 }
 
 void releaseAllResources() {
-    DIPU_DEBUG_ALLOCATOR(2, "releaseAllResources");
-    releaseAllDeviceMem();
-    releaseAllEvent();
+  releaseAllDeviceMem();
+  releaseAllEvent();
+  devproxy::finalizeVendor();
 }
 
 static bool in_bad_fork = false;
