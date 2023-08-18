@@ -38,7 +38,7 @@ type_set = {"torch.float16": "builder::PrimitiveType::F16()",
             "torch.complex64": "builder::PrimitiveType::F32()"}
 
 need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex',
              'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad']
 
 need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
@@ -953,6 +953,39 @@ class EnflameOverrides(OpOverrides):
         padding = str(args[4]).replace('[','{').replace(']','}')
         
         src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {ksize}, {strides}, {padding});"
+        
+        return src_code
+    
+    # redispatch
+    @staticmethod
+    def AvgPool2D(op_var, *args_str):
+        if len(args_str) != 2 or args_str[1] != "{1, 1}":
+            raise ValueError(f"Op AvgPool2D error: {args_str}.")
+        axis = "{2, 3}"
+        src_code = f"builder::Op {op_var} = builder::ReduceMean({args_str[0]}, true, {axis});"
+        
+        return src_code
+    
+    # redispatch
+    @staticmethod
+    def AvgPool2D_Grad(op_var, node, *args_str):
+        dims = []
+        for i in range(0, len(node.meta['val'].shape)):
+            dims.append(str(i))
+        broadcast_dims = '{' + ', '.join(dims) + '}'
+        
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        data_type = node.meta['val'].dtype.__str__()
+        
+        value = node.meta['val'].shape[2] * node.meta['val'].shape[3]
+                
+        src_code = f"builder::Type {op_var}_expand_type({shape}, {type_set[data_type]});\n"
+        src_code += f"builder::Op {op_var}_tmp = BroadcastInDim({args_str[0]}, {broadcast_dims}, {op_var}_expand_type);\n"
+        
+        src_code += f"float {op_var}_const_value = static_cast<float>({str(value)});\n"
+        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, f32_type));\n"
+        
+        src_code += f"builder::Op {op_var} = builder::Div({op_var}_tmp, {op_var}_const);\n"
         
         return src_code
 
