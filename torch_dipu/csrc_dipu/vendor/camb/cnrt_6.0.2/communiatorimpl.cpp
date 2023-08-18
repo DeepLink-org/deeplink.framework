@@ -5,15 +5,14 @@ namespace dipu {
 namespace devapis {
 
   // CNCL type typing
-  static std::map<at::ScalarType, cnclDataType_t> cncl_data_type = {
+  static std::unordered_map<at::ScalarType, cnclDataType_t> cncl_data_type = {
       {at::kChar, cnclInt8}, {at::kByte, cnclUint8}, {at::kHalf, cnclHalf},
-      {at::kFloat, cnclFloat}, {at::kInt, cnclInt32}, {at::kLong, cnclInvalid}, 
-      {at::kDouble, cnclInvalid}
+      {at::kFloat, cnclFloat}, {at::kInt, cnclInt32}, {at::kBool, cnclInt8},
+      {at::kLong, cnclInvalid}, {at::kDouble, cnclInvalid}
   };
 
   static void convertTypeSize(size_t& count, at::ScalarType& datatype) {
-    auto cnnltype = cncl_data_type[datatype];
-    if (cnnltype == cnclDataType_t::cnclInvalid && (datatype == at::ScalarType::Long || datatype ==  at::ScalarType::Double)) {
+    if (datatype == at::ScalarType::Long || datatype ==  at::ScalarType::Double) {
       datatype = at::kByte;
       count = count * sizeof(long);
     }
