@@ -385,13 +385,15 @@
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n, 0)
+  custom_code_at_the_beginning: |
+    diopiConstGeneratorHandle_t generatorHandle = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandperm(ctx, out, n, generatorHandle)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
   custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandperm(ctx, out, n, seed)
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandperm(ctx, out, n, generatorHandle)
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -923,8 +925,8 @@
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiUniformInp(ctx, self, from, to, seed)
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiUniformInp(ctx, self, from, to, generatorHandle)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
   custom_code_at_the_beginning: |
@@ -936,6 +938,7 @@
 
 - schema: "multinomial(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None) -> Tensor"
   custom_code_at_the_beginning: |
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
     auto out = at::empty_like(self);
     if (self.dim() == 2){
       out = at::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
@@ -943,10 +946,12 @@
     else if (self.dim() == 1) {
       out = at::empty({num_samples,}, self.options().dtype(at::kLong));
     }
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generatorHandle)
 
 - schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  custom_code_at_the_beginning: |
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generatorHandle)
 
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1007,20 +1012,20 @@
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
   custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, nullptr, seed)
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandomInp(ctx, self, 0, nullptr, generatorHandle)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
   custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: diopiRandomInp(ctx, self, 0, &to, seed)
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandomInp(ctx, self, 0, &to, generatorHandle)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
   custom_code_at_the_beginning: |
-    const int64_t seed = (generator.has_value() && generator.value().defined()) ? generator.value().seed() : 0;
-  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, seed)"
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, generatorHandle)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1349,7 +1354,9 @@
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiNormalInp(ctx, self, mean, std)
+  custom_code_at_the_beginning: |
+    diopiConstGeneratorHandle_t generatorHandle = (generator.has_value() && generator.value().defined()) ? toDiopiGeneratorHandle(generator) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiNormalInp(ctx, self, mean, std, generatorHandle)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMm(ctx, out, self, mat2)

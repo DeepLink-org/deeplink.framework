@@ -19,6 +19,8 @@ $header_include_code
 
 namespace dipu::native {
 
+using dipu::diopi_helper::toDiopiGeneratorHandle;
+
 inline bool checkDiopiReturnValue() {
     static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
     return enable;
