@@ -143,9 +143,8 @@ DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
 c10::intrusive_ptr<c10::TensorImpl> DIPUGeneratorImpl::get_state() const {
   init_state();
   update_state();
-  return state_.getIntrusivePtr();
-  // auto state_clone = state_.clone();
-  // return state_clone.getIntrusivePtr();
+  auto state_clone = state_.clone();
+  return state_clone.getIntrusivePtr();
 }
 
 /**
@@ -165,8 +164,8 @@ at::Tensor get_rng_state(at::DeviceIndex idx) {
   auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
   std::lock_guard<std::mutex> lock(gen_impl->mutex_);
   auto state_ptr = gen_impl->get_state();
-  auto state_cpu = at::Tensor(std::move(state_ptr)).cpu();
-  return state_cpu;
+  auto state = at::Tensor(std::move(state_ptr));
+  return state;
 }
 
 /**

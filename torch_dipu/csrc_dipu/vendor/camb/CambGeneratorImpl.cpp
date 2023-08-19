@@ -58,7 +58,7 @@ public:
   void set_state(const c10::TensorImpl& state) override {
     std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
     at::detail::check_rng_state(state);
-    // 5056 is numel() of a cpu state tensor, 816 is gpu's and 1049600 is mlu's,
+    // 5056 is numel() of a cpu state tensor, 816 is gpu's and 1180672 is mlu's,
     // hardcoding the number just like the original impl.
     const int cpu_numel = 5056;
     const int gpu_numel = 816;

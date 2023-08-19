@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include <stdio.h>
+#include <mutex>
 
 #include "./diopirt_impl.h"
 
@@ -42,6 +43,7 @@ DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth, dio
 
 DIOPI_RT_API diopiError_t diopiGetTensorDtype(diopiConstTensorHandle_t pth, diopiDtype_t* dtype) {
     const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
+    // std::cout << "in diopiGetTensorDtype, tensor = " << *ptr << std::endl;
     *dtype = diopihelper::toDiopiDtype(ptr->scalar_type());
     return diopiSuccess;
 }
@@ -123,11 +125,34 @@ DIOPI_RT_API diopiError_t diopiGeneratorUpdateState(diopiConstGeneratorHandle_t 
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiConstGeneratorHandle_t th, void **data) {
+DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx, diopiConstGeneratorHandle_t th, diopiTensorHandle_t *state) {
   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
-  // TODO(caikun): add lock
-  *data = generator->get_state().data_ptr();
+  dipu::DIPUGeneratorImpl* gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+
+  at::Tensor tensor;
+  {
+    std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+    tensor = at::Tensor::wrap_tensor_impl(gen_impl->get_state());
+  }
+  std::cout << "in diopiGeneratorGetState, tensor.scalar_type() = " << tensor.scalar_type()
+    << ", tensor.device() = " << tensor.device() << std::endl;
+  ctx->arrays.emplace_back(std::move(tensor));
+  *state = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiConstGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
+  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
+  const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+  dipu::DIPUGeneratorImpl* gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(new_state);
+
+  {
+    std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+    gen_impl->set_state(*(ptr->unsafeGetTensorImpl()));
+  }
+
   return diopiSuccess;
 }
 
