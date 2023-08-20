@@ -45,6 +45,7 @@ public:
       int64_t offset = 0;
       memcpy(rng_state + states_size, &current_seed, seed_size);
       memcpy(rng_state + states_size + seed_size, &offset, offset_size);
+      state_need_reset_ = false;
       std::cout << "finish update state, state_.scalar_type() = " << state_.scalar_type() << std::endl;
     }
   }
