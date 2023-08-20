@@ -1272,22 +1272,31 @@ class AscendOverrides:
 
     @staticmethod
     def empty(name, size, dtype, layout, device):
-        op = OP(f"{name}", "Empty")
-        op.set_input("shape", size)
-        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
-        op.set_attr_int("dtype", dtype)
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(size)])
 
-        return op.to_node()
+        dtype = get_ascend_dtype(dtype)
+        op1 = OP(f"{name}", "Empty")
+        op1.set_input("shape", f"{name}_shape")
+        op1.set_attr_str("dtype", dtype)
+
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def fill(name, node, x, value):
         x_shape = list(node.target.x.node.meta['val'].shape)
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", x_shape, [len(x_shape)])
 
-        op = OP(f"{name}", "Fill")
-        op.set_input("dims", x_shape)
-        op.set_input("value", value)
+        assert isinstance(value, int)
+        op1 = OP(f"{name}_value", "Const")
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", [value], [1])
 
-        return op.to_node()
+        op2 = OP(f"{name}", "Fill")
+        op2.set_input("dims", f"{name}_shape")
+        op2.set_input("value", f"{name}_value")
+
+        return [op.to_node(), op1.to_node(), op2.to_node()]
 
     @staticmethod
     def repeat_interleave(name, node, x, output_size):
@@ -1295,7 +1304,7 @@ class AscendOverrides:
         assert(output_size % numel == 0)
 
         op = OP(f"{name}_repeats", "Const")
-        op.set_attr_tensor("value", "INT32", "INT32", "ND", output_size / numel, [1])
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", [int(output_size / numel)], [1])
 
         op1 = OP(f"{name}", "RepeatInterleave")
         op1.set_input("x", x)
@@ -1317,15 +1326,18 @@ class AscendOverrides:
 
     @staticmethod
     def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
-        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
-        op = OP(f"{name}_like", "Empty")
-        op.set_input("shape", shape)
-        op.set_attr_int("dtype", dtype)
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
 
-        op1 = OP(f"{name}", "OnesLike")
-        op1.set_input("x", f"{name}_like")
+        dtype = get_ascend_dtype(dtype)
+        op1 = OP(f"{name}_like", "Empty")
+        op1.set_input("shape", f"{name}_shape")
+        op1.set_attr_str("dtype", dtype)
 
-        return [op.to_node(), op1.to_node()]
+        op2 = OP(f"{name}", "OnesLike")
+        op2.set_input("x", f"{name}_like")
+
+        return [op.to_node(), op1.to_node(), op2.to_node()]
 
     @staticmethod
     def scatter(name, node, var, dim, index, value):

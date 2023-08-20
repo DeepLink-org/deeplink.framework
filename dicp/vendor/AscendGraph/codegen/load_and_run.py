@@ -250,7 +250,7 @@ class AscendExecutor(object):
     def _prepare_output(self, output_tensor):
         self.load_output_dataset = acl.mdl.create_dataset()
         for i in range(self.num_outputs):
-            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='dipu')
+            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
             output_tensor.append(item)
             data = acl.create_data_buffer(item.data_ptr(), self.output_size[i])
             _, ret = acl.mdl.add_dataset_buffer(self.load_output_dataset, data)
@@ -283,7 +283,7 @@ class AscendExecutor(object):
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
             np_dtype = get_np_dtype(dtype)
             tot_size *= np.dtype(np_dtype).itemsize
-            item = torch.empty(out_dim, dtype=self.output_dtypes[i], device='dipu')
+            item = torch.empty(out_dim, dtype=self.output_dtypes[i], device='xpu')
             output_tensor.append(item)
             ret = acl.rt.memcpy(item.data_ptr(),
                                 tot_size,
