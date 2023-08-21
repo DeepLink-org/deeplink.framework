@@ -109,24 +109,7 @@ DIOPI_RT_API diopiError_t diopiRequireBuffer(
     return diopiRequireTensor(ctx, tensor, &size, nullptr, diopi_dtype_int8, device);
 }
 
-DIOPI_RT_API diopiError_t diopiGeneratorInitState(diopiConstGeneratorHandle_t th) {
-//   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
-//   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
-//   const dipu::DIPUGeneratorImpl* impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
-//   impl->init_state();
-  return diopiSuccess;
-}
-
-DIOPI_RT_API diopiError_t diopiGeneratorUpdateState(diopiConstGeneratorHandle_t th) {
-//   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
-//   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
-//   dipu::DIPUGeneratorImpl* impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
-//   impl->update_state();
-  return diopiSuccess;
-}
-
 DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx, diopiConstGeneratorHandle_t th, diopiTensorHandle_t *state) {
-  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
   dipu::DIPUGeneratorImpl* gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
 
@@ -135,15 +118,13 @@ DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx, diopi
     std::lock_guard<std::mutex> lock(gen_impl->mutex_);
     tensor = at::Tensor::wrap_tensor_impl(gen_impl->get_state());
   }
-  std::cout << "in diopiGeneratorGetState, tensor.scalar_type() = " << tensor.scalar_type()
-    << ", tensor.device() = " << tensor.device() << std::endl;
+
   ctx->arrays.emplace_back(std::move(tensor));
   *state = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiConstGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
-  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
   const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
   dipu::DIPUGeneratorImpl* gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
   const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(new_state);

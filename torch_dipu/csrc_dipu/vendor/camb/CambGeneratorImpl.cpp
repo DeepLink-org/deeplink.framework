@@ -38,7 +38,6 @@ public:
    * See Note [Acquire lock when using random generators]
    */
   void init_state() const override {
-    std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
     // resize and set the state tensor.
     TORCH_CHECK(is_floating_device, "MLUGeneratorImpl only support on floating device");
     std::call_once(init_state_flag, [&] {
@@ -46,7 +45,6 @@ public:
       DIPU_CALLCNNL(cnnlRandGetMTGP32StateSize(nullptr, &state_size));
       auto options = at::TensorOptions().device(device_).dtype(at::kByte);
       state_ = at::empty(state_size, options);
-      std::cout << "init state, state size=" << state_size << std::endl;
     });
   }
 
@@ -56,8 +54,6 @@ public:
   * See Note [Acquire lock when using random generators]
   */
   void set_state(const c10::TensorImpl& state) override {
-    std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
-    // at::detail::check_rng_state(state);
     // 5056 is numel() of a cpu state tensor, 816 is gpu's and 1180672 is mlu's,
     // hardcoding the number just like the original impl.
     const int cpu_numel = 5056;
@@ -81,7 +77,6 @@ public:
    * See Note [Acquire lock when using random generators]
     */
   void update_state() const override {
-    std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
     // update the state tensor.
     if (is_floating_device && state_need_reset_) {
       auto state_ptr = state_.tensor_data().data_ptr();
@@ -96,7 +91,6 @@ public:
 };
 
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index) {
-  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
   return at::make_generator<MLUGeneratorImpl>(device_index);
 }
 

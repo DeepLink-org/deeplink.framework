@@ -16,17 +16,7 @@ public:
   CUDAGeneratorImpl(at::DeviceIndex device_index): dipu::DIPUGeneratorImpl(device_index) {
   }
 
-  // void init_state() const override {
-  //   std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
-  //   // resize and set the state tensor.
-  //   std::call_once(init_state_flag, [&] {
-  //     init_state_from_seed();
-  //     std::cout << "init state, state size=" << total_size << std::endl;
-  //   });
-  // }
-
   void set_state(const c10::TensorImpl& state) override {
-    std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
     at::detail::check_rng_state(state);
     at::Tensor state_tmp(state.shallow_copy_and_detach(state.version_counter(), true));
     state_ = state_tmp;
@@ -34,7 +24,6 @@ public:
   }
 
   void update_state() const override {
-    std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
     if (state_need_reset_) {
       state_ = at::detail::empty_cpu({(int64_t)total_size}, c10::ScalarType::Byte, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
       auto rng_state = state_.data_ptr<uint8_t>();
@@ -46,13 +35,11 @@ public:
       memcpy(rng_state + states_size, &current_seed, seed_size);
       memcpy(rng_state + states_size + seed_size, &offset, offset_size);
       state_need_reset_ = false;
-      std::cout << "finish update state, state_.scalar_type() = " << state_.scalar_type() << std::endl;
     }
   }
 };
 
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index) {
-  std::cout << "enter into " << __FILE__ << ":" << __FUNCTION__ << std::endl;
   return at::make_generator<CUDAGeneratorImpl>(device_index);
 }
 

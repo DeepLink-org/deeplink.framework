@@ -20,4 +20,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
 
 DIPU_API bool isDeviceTensor(const at::Tensor &tensor);
 
+DIPU_API bool is_in_bad_fork();
+void poison_fork();
+
 } // end dipu
