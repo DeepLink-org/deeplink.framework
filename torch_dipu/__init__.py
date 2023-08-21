@@ -22,6 +22,7 @@ from .dipu.tensor import apply_tensor_type_patch
 from .profiler.profiler import dipu_profiler, dipu_kineto_available
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.optim import apply_optim_patch
+from .dipu.generator import apply_generator_patch
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -104,6 +105,7 @@ def apply_patches():
     apply_temp_patch()
     apply_dataloader_patch()
     apply_optim_patch()
+    apply_generator_patch()
 
 
 apply_patches()

@@ -20,6 +20,45 @@ class TestGenerator(TestCase):
         current_state = torch.cuda.get_rng_state(0)
         assert torch.allclose(current_state, torch.tensor(1, device=current_state.device, dtype=current_state.dtype))
 
+    def test_torch_generator(self):
+        gen = torch.Generator()
+        assert gen.device.type == 'cpu'
+        gen.manual_seed(1)
+        assert gen.initial_seed() == 1
+
+        gen = torch.Generator("cpu")
+        assert gen.device.type == 'cpu'
+
+        gen = torch.Generator("cuda")
+        assert gen.device.type == 'xpu'
+
+        gen = torch.Generator("cuda:1")
+        assert gen.device == torch.device('xpu:1')
+
+        gen = torch.Generator("dipu")
+        assert gen.device.type == 'xpu'
+        gen.manual_seed(1)
+        assert gen.initial_seed() == 1
+
+    def test_randn_with_generator(self):
+        gen = torch.Generator()
+        gen.manual_seed(1)
+        data1 = torch.randn(2, 3, generator = gen)
+        gen.manual_seed(1)
+        data2 = torch.randn(2, 3, generator = gen)
+        assert torch.allclose(data1, data2)
+        data2 = torch.randn(2, 3, generator = gen)
+        assert not torch.allclose(data1, data2)
+
+        gen = torch.Generator('cuda')
+        gen.manual_seed(1)
+        data1 = torch.randn(2, 3, generator = gen, device = 'cuda')
+        gen.manual_seed(1)
+        data2 = torch.randn(2, 3, generator = gen, device = 'cuda')
+        assert torch.allclose(data1, data2)
+        data2 = torch.randn(2, 3, generator = gen, device = 'cuda')
+        assert not torch.allclose(data1, data2)
+
     def test_uniform_(self):
         t1 = torch.arange(0, 100, dtype=torch.float32).cuda()
         t2 = t1.clone()

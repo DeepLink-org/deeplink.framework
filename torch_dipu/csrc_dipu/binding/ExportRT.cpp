@@ -268,6 +268,11 @@ static void exportGenerator(py::module& m) {
   });
 
   m.def("_is_in_bad_fork", []()->bool { return is_in_bad_fork(); });
+
+  m.def("_create_dipu_generator", [](int idx)->at::Generator {
+    at::DeviceIndex index = static_cast<at::DeviceIndex>(idx);
+    return createDIPUGenerator(index);
+  });
 }
 
 DIPU_API void exportDIPURuntime(PyObject* module) {

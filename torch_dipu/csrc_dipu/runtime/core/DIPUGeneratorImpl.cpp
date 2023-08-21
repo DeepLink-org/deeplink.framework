@@ -55,6 +55,7 @@ const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
  * Utility to create a DIPUGeneratorImpl. Returns a shared_ptr
  */
 at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
+  std::call_once(dipu_init_flag, initDIPUGenerator);
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
     idx = devproxy::current_device();
