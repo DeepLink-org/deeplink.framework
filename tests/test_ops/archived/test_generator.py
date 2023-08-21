@@ -32,8 +32,8 @@ class TestGenerator(TestCase):
         gen = torch.Generator("cuda")
         assert gen.device.type == 'xpu'
 
-        gen = torch.Generator("cuda:1")
-        assert gen.device == torch.device('xpu:1')
+        gen = torch.Generator("cuda:0")
+        assert gen.device == torch.device('xpu:0')
 
         gen = torch.Generator("dipu")
         assert gen.device.type == 'xpu'
@@ -125,7 +125,7 @@ class TestGenerator(TestCase):
         print("randn allclose success")
 
     def test_randperm(self):
-        if torch_dipu.dipu.vendor_type != "MLU":
+        if torch_dipu.dipu.vendor_type == "MLU":
             return
 
         torch.manual_seed(1)
