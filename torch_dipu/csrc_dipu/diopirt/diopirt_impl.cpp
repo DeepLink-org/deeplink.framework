@@ -43,7 +43,6 @@ DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth, dio
 
 DIOPI_RT_API diopiError_t diopiGetTensorDtype(diopiConstTensorHandle_t pth, diopiDtype_t* dtype) {
     const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
-    // std::cout << "in diopiGetTensorDtype, tensor = " << *ptr << std::endl;
     *dtype = diopihelper::toDiopiDtype(ptr->scalar_type());
     return diopiSuccess;
 }

@@ -3,7 +3,6 @@
 
 #include <csrc_dipu/runtime/core/DIPUGeneratorImpl.h>
 
-#include <iostream>
 namespace dipu {
 
 static const size_t states_size = 200 * sizeof(4120);

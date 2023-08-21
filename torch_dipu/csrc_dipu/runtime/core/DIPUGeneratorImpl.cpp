@@ -5,8 +5,6 @@
 #include "DIPUGeneratorImpl.h"
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
- #include <iostream>
-
 namespace dipu {
 
 // Ensures call initDIPUGenerator once
