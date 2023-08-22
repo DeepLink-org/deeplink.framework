@@ -35,20 +35,13 @@ private:
 
     void* allocateOnDevice(size_t nbytes) {
         void* ptr = nullptr;
-        for (size_t i = 0; i < 2; i++) {
-            try {
-                ptr = allocate_fn(nbytes);
-                cachedBytes += nbytes;
-                break;
-            }
-            catch(...) {
-                if (i == 0) {
-                    emptyCacheWithoutLock();
-                } else {
-                    throw std::runtime_error("no device memory available");
-                }
-            }
+        try {
+            ptr = allocate_fn(nbytes);
+            cachedBytes += nbytes;
+        } catch(...) {
+
         }
+
         DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocatorImpl: allocateOnDevice " << nbytes << " nbytes, ptr:" << ptr);
         return ptr;
     }
@@ -473,14 +466,17 @@ public:
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
-    std::tuple<void*, int, size_t> block;
-    try {
-        block = impl->allocateRaw(size);
-    }catch(...) {
+    std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
+    void* ptr = std::get<0>(block);
+    if (ptr == nullptr && size > 0) {
         empty_cache();
         block = impl->allocateRaw(size);
+        ptr = std::get<0>(block);
+        if (ptr == nullptr) {
+            throw std::runtime_error("no device memory available");
+        }
     }
-    void* ptr = std::get<0>(block);
+
     int id = std::get<1>(block);
     size_t nbytes = std::get<2>(block);
 
