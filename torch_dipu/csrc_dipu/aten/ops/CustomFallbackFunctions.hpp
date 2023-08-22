@@ -103,7 +103,7 @@ static at::Tensor custom_fallback_dipu_convolution_overrideable(const at::Tensor
   return at::convolution(input, weight, bias, stride, padding, dilation, transposed, output_padding, groups);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convolution_backward_overrideable(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool, 3> output_mask) {
+static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convolution_backward_overrideable(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool, 3> output_mask) {
   return at::convolution_backward(grad_output, input, weight, c10::nullopt, stride, padding, dilation, transposed, output_padding, groups, output_mask);
 }
 
