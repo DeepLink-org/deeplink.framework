@@ -162,6 +162,7 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
       {"FLOAT16", ge::DataType::DT_FLOAT16},
       {"INT32", ge::DataType::DT_INT32},
       {"INT64", ge::DataType::DT_INT64},
+      {"BOOL", ge::DataType::DT_BOOL},
   };
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];

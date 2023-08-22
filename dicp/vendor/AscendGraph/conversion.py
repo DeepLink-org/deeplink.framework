@@ -170,7 +170,7 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
-@registe_conversion(torch.ops.aten.expand)
+@registe_conversion(torch.ops.aten.expand.default)
 def expand(x, dims):
     return ascend_op.ExpandD(x, dims)
 
@@ -225,12 +225,13 @@ def identity(x, idx):
 @registe_conversion(torch.ops.aten.full_like)
 def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
-    return ascend_op.FullLike(x, value)
+    return ascend_op.FullLike(x, value, dtype, layout, device, pin_memory, memory_format)
 
 @registe_conversion(torch.ops.aten.full.default)
 def full(dims, value, dtype = torch.float32, layout = torch.strided,
-             device = 'cpu', pin_memory = False):
-    return ascend_op.Full(dims, value)
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.Full(dims, value, dtype, layout, device, pin_memory, memory_format)
+
 
 @registe_conversion(torch.ops.aten.max_pool2d_with_indices)
 def maxpool2d(input, kernel_size, stride, padding):
@@ -317,6 +318,47 @@ def cat(x, dim=0):
 @registe_conversion(torch.ops.aten.select.int)
 def select(x, dim, index):
     return ascend_op.Select(x, dim, index)
+
+@registe_conversion(torch.ops.aten.arange.default)
+def arange(end, dtype=None, device=None, layout=None, pin_memory=False):
+    return ascend_op.Arange(end, dtype, device, layout, pin_memory)
+
+@registe_conversion(torch.ops.aten.lt.Tensor)
+def lt(x, y):
+    return ascend_op.Lt(x, y)
+  
+@registe_conversion(torch.ops.aten.masked_fill.Scalar)
+def masked_fill(x, y, value):
+    return ascend_op.MaskedFill(x, y, value)
+  
+@registe_conversion(torch.ops.aten.rsub.Scalar)
+def rsub(x, value):
+    return ascend_op.Rsub(x, value)
+
+@registe_conversion(torch.ops.aten.index.Tensor)
+def index(*args, **kwargs):
+    return ascend_op.Index(*args, **kwargs)
+
+@registe_conversion(torch.ops.aten._unsafe_view.default)
+def unsafe_view(a, b):
+    return ascend_op.UnsafeView(a, b)
+ 
+@registe_conversion(torch.ops.aten.slice_backward.default)
+def slice_backward(grad, input_shape, dim, start, end, step):
+    return ascend_op.SliceBackward(grad, input_shape, dim, start, end, step)
+
+@registe_conversion(torch.ops.aten.empty_like.default)
+def empty_like(x, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.EmptyLike(x, dtype, layout, device, pin_memory, memory_format)
+  
+@registe_conversion(torch.ops.aten.fill.Scalar)
+def fill_scalar(x, value):
+    return ascend_op.FillScalar(x, value)
+
+@registe_conversion(torch.ops.aten._softmax_backward_data.default)
+def softmax_backward_data(grad_output, output, dim, input_dtype):
+    return ascend_op.SoftmaxBackward(grad_output, output, dim, input_dtype)
 
 
 @registe_pattern

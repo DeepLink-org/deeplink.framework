@@ -12,7 +12,8 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
              'nll_loss_backward', 'native_batch_norm_backward',
              'view_as_complex', 'view_as_real', 'slice', 'select',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm']
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'masked_fill',
+             'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar']
 
 sym_to_inputs = {}
 
@@ -114,8 +115,9 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "INT32"
     elif dtype == torch.complex64:
         return "COMPLEX64"
+    elif dtype == torch.bool:
+        return "BOOL"
     else:
-        import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
 
 
@@ -128,10 +130,11 @@ def get_ascend_dtype_num(dtype: str):
         return 3
     elif dtype == "INT64":
         return 9
+    elif dtype == "BOOL":
+        return 12
     elif dtype == "COMPLEX64":
         return 16
     else:
-        import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
 
 
@@ -143,7 +146,6 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
     elif dtype == torch.int32:
         return "INT32"
     else:
-        import pdb;pdb.set_trace()
         raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
 
 class AscendCodegen(torch.fx.Interpreter):
@@ -1214,10 +1216,12 @@ class AscendOverrides:
             op.set_input("x", x)
             return op.to_node()
         
-        op = OP(name, "ExpandD")
+        shape_op = OP(f"{name}_shape", "Const")
+        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
+        op = OP(name, "Expand")
         op.set_input("x", x)
-        op.set_attr_list_int("shape", shape)
-        return op.to_node()
+        op.set_input("shape", f"{name}_shape")
+        return [shape_op.to_node(), op.to_node()]
 
     @staticmethod
     def zeros_like(name, x, *args):
@@ -1227,10 +1231,11 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def full(name, node, dims, fill_value):
+    def full(name, node, dims, fill_value, dtype=None, device=None,
+             layout=None, pin_memory=False, memory_format=None):
         if len(dims) == 0:
             dims = [1]
-        torch_dtype = node.kwargs['dtype']
+        torch_dtype = dtype if dtype else torch.get_default_dtype()
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
         
@@ -1830,3 +1835,125 @@ class AscendOverrides:
         ops.append(op3.to_node())        
         ops.append(op5.to_node())
         return ops
+
+    @staticmethod
+    def arange(name, end, dtype=None, device=None, layout=None, pin_memory=None):
+        # assum dtype is torch.int64
+        start_op = OP(f"{name}_start", "Const")
+        start_op.set_attr_tensor("value", "INT64", "INT64", "ND", [0], [])
+        end_op = OP(f"{name}_end", "Const")
+        end_op.set_attr_tensor("value", "INT64", "INT64", "ND", [end], [])
+        step_op = OP(f"{name}_step", "Const")
+        step_op.set_attr_tensor("value", "INT64", "INT64", "ND", [1], [])
+        arange_op = OP(name, "Range")
+        arange_op.set_input("start", f"{name}_start")
+        arange_op.set_input("limit", f"{name}_end")
+        arange_op.set_input("delta", f"{name}_step")
+        ops = [start_op, end_op, step_op, arange_op]
+        return [x.to_node() for x in ops]
+
+    @staticmethod
+    def lt(name, x, y):
+        op = OP(name, "Less")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
+        return op.to_node()
+      
+    @staticmethod
+    def masked_fill(name, node, x, y, value):
+        dtype = node.target.x.node.meta['val'].dtype
+        value_op = OP(f"{name}_value", "Const")
+        value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+        op = OP(name, "MaskedFill")
+        op.set_input("x", x)
+        op.set_input("mask", y)
+        op.set_input("value", f"{name}_value")
+        return [value_op.to_node(), op.to_node()]
+      
+    @staticmethod
+    def rsub(name, node, x, value):
+        # this is rsub.scalar
+        dtype = node.target.x.node.meta['val'].dtype
+        value_op = OP(f"{name}_value", "Const")
+        value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+        op = OP(name, "Sub")
+        op.set_input("x1", x)
+        op.set_input("x2", f"{name}_value")
+        return [value_op.to_node(), op.to_node()]
+      
+    @staticmethod
+    def index(name, node, x, index):
+        # TODO(tangzhiyi): use Index Op
+        assert len(index) == 1
+        axis_op = OP(f"{name}_axis", "Const")
+        axis_op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [])
+        gather_op = OP(name, "GatherV2")
+        gather_op.set_input("x", x)
+        gather_op.set_input("indices", index[0].name)
+        gather_op.set_input("axis", f"{name}_axis")
+        return [axis_op.to_node(), gather_op.to_node()]
+
+    @staticmethod
+    def slice_backward(name, node, grad, input_shape, dim, start, end, step):
+        y_shape = list(node.meta['val'].shape)
+        start = start if start >= 0 else input_shape[dim] + start
+
+        assert dim >= 0 and dim < len(input_shape)
+        assert start >=0 and start < input_shape[dim]
+
+        offset = [0] * len(input_shape)
+        offset[dim] = start
+
+        start_op = OP(f"{name}_start", "Const")
+        start_op.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(offset)])
+
+        end_op = OP(f"{name}_end", "Const")
+        end_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+
+        step_op = OP(f"{name}_stride", "Const")
+        step_op.set_attr_tensor("value", "INT32", "INT32", "ND", [step], [])
+
+        zero_op = OP(f"{name}_zero", "ZerosLike")
+        zero_op.set_input("x", grad)
+
+        shape_op = OP(f"{name}_shape", "Const")
+        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", input_shape, [len(input_shape)])
+            
+        op = OP(name, "StridedSliceGrad")
+        op.set_input("shape", f"{name}_shape")
+        op.set_input("begin", f"{name}_start")
+        op.set_input("end", f"{name}_end")
+        op.set_input("strides", f"{name}_stride")
+        op.set_input("dy", f"{name}_zero")
+        ops = [start_op, end_op, step_op, zero_op, shape_op, op]
+        return [x.to_node() for x in ops]
+      
+    @staticmethod
+    def empty_like(name, node, x, dtype=None, device=None, layout=None,
+                   pin_memory=False, memory_format=None):
+        dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
+        shape = list(node.target.x.node.meta['val'].shape)
+        
+        shape_op = OP(f"{name}_shape", "Const")
+        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
+        empty_op = OP(name, "Empty")
+        empty_op.set_input("shape", f"{name}_shape")
+        empty_op.set_attr_int("dtype", get_ascend_dtype_num(dtype))
+        return [shape_op.to_node(), empty_op.to_node()]    
+
+    @staticmethod
+    def fill_scalar(name, node, x, value):
+        assert node.target.x.node.meta['val'].dtype == torch.float32
+        fills_op = OP(name, "Fills")
+        fills_op.set_input("x", x)
+        fills_op.set_attr_float("value", float(value))
+        return fills_op.to_node()
+
+    @staticmethod
+    def softmax_backward(name, grad_output, output, dim, input_dtype):
+        dim = [dim] if not isinstance(dim, list) else dim
+        op = OP(name, "SoftmaxGrad")
+        op.set_input("grad_softmax", grad_output)
+        op.set_input("softmax", output)
+        op.set_attr_list_int("axes", dim)
+        return op.to_node()
