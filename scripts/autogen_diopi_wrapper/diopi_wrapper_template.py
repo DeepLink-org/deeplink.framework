@@ -25,6 +25,17 @@ inline bool checkDiopiReturnValue() {
     return enable;
 }
 
+inline bool checkTensorDevice() {
+    static bool enable = []() {
+        const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
+        if (env_ptr == nullptr) {
+            return false;
+        }
+        return std::atoi(env_ptr) > 0 ? true : false;
+    }();
+    return enable;
+}
+
 inline void synchronizeIfEnable() {
     static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
     if (mode != nullptr) {
