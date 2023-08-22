@@ -1,6 +1,8 @@
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include "c10/cuda/CUDACachingAllocator.h"
 #include <unordered_map>
+#include <mutex>
+
 namespace c10 {
 
 namespace cuda {
@@ -13,6 +15,8 @@ namespace CUDACachingAllocator {
 
 class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   std::unordered_map<void*, c10::DataPtr> tempMemBlock;
+  using mutex_t = std::mutex;
+  mutable mutex_t mut_;
  public:
   virtual void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override {DIPU_PATCH_CUDA_ALLOCATOR();}
   virtual void setMemoryFraction(double fraction, int device) override { DIPU_PATCH_CUDA_ALLOCATOR();}
@@ -35,11 +39,13 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   virtual void* raw_alloc(size_t nbytes) override {
     auto data_ptr = this->allocate(nbytes);
     void* ptr = data_ptr.get();
+    std::lock_guard<mutex_t> lk(mut_);
     tempMemBlock.emplace(ptr, std::move(data_ptr));
     return ptr;
   }
 
   virtual void raw_delete(void* ptr) override {
+    std::lock_guard<mutex_t> lk(mut_);
     tempMemBlock.erase(ptr);
   }
 
@@ -82,6 +88,8 @@ int patchCachingAllocator() {
     if (std::atoi(env) <= 0) {
       return 0;
     }
+  } else {
+    return 0;
   }
   /*
     Our implementation idea is different from the native pytorch implementation,
