@@ -151,7 +151,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             f"""
                 import random
                 import torch
-                import torch_dipu
+                {"import torch_dipu" if dipu_flag else ""}
                 
                 from ctypes import c_void_p, c_long
                 from torch import empty_strided, as_strided, device
@@ -339,10 +339,14 @@ class EnflameCodegen(torch.fx.Interpreter):
                 otensor = self.output_args[i].meta['val']
                 call_body.writeline(bufs[-1] + ' = ' + self.gen_empty_tensor(otensor))
         call_body.writeline("")
-        call_body.writeline(f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
+        if dipu_flag:
+            call_body.writeline(f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
 
         call_str = 'kernel_cpp_0('
-        call_str += 'c_void_p(dipu_stream), '
+        if dipu_flag:
+            call_str += 'c_void_p(dipu_stream), '
+        else:
+            call_str += 'c_void_p(), '
         for i in range(len(self.input_args)):
             call_str += 'c_void_p(' + args[i] + '.data_ptr()), '
         for i in range(len(self.output_args)):

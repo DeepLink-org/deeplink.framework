@@ -90,11 +90,10 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
   topsError_t ret;
   topsStream_t stream;
 
+  topsSetDevice(device_id);
   if (!dipu_flag) {
     topsStreamCreate(&stream);
   }
-
-  topsSetDevice(device_id);
 
   // 2.1 query InputCount,output_count
   uint64_t input_count = 0, output_count = 0;
