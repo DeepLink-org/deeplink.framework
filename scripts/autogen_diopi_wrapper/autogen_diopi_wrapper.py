@@ -502,12 +502,19 @@ def create_device_check_code(fun_config):
     for args in exclude_tensors:
         tensors.discard(args)
     op_name = get_op_name_from_schema(fun_config['schema'])
+    if len(tensors) > 0:
+        code += "if (checkTensorDevice()) {\n"
+
     for args in set(tensors):
         if not args.endswith('?'):
-            code += f'TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
+            code += f'\tTORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
         else:
             args = args[0:-1]
-            code += f'TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
+            code += f'\tTORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
+
+    if len(tensors) > 0:
+        code += "}"
+
 
     return code
 
