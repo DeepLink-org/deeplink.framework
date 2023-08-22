@@ -2,7 +2,7 @@
 #pragma once
 
 #include <mutex>
-#include <list>
+#include <deque>
 #include <tuple>
 #include <deque>
 #include "DIPUSpinMutex.h"
@@ -26,9 +26,8 @@ class AsyncResourcePoolImpl: public AsyncResourcePool<T>{
 
 template<class T, int algorithm>
 class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncResourcePool<T>{
-  std::list<T> list_;
-  using mutex_t = std::recursive_mutex;
-  //using mutex_t = dipu::SpinMutex;
+  std::deque<T> list_;
+  using mutex_t = std::mutex;
   mutex_t mutex_;
   public:
     void add(const T& t, std::deque<DIPUEvent>& events) override {
@@ -57,9 +56,8 @@ class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncReso
 template<class T, int algorithm>
 class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResourcePool<T>{
     using Res = std::tuple<T, std::deque<DIPUEvent>>;
-    std::list<Res> list_;
-    using mutex_t = std::recursive_mutex;
-    //using mutex_t = dipu::SpinMutex;
+    std::deque<Res> list_;
+    using mutex_t = std::mutex;
     mutex_t mutex_;
   public:
     void add(const T& t, std::deque<DIPUEvent>& events) override {
@@ -68,16 +66,14 @@ class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public Async
     }
 
     T get() override {
+      std::lock_guard<mutex_t> lk(mutex_);
       T t = std::get<0>(list_.front());
-      {
-        std::lock_guard<mutex_t> lk(mutex_);
-        list_.pop_front();
-      }
+      list_.pop_front();
       return t;
     }
 
     bool ready() override {
-      //std::lock_guard<mutex_t> lk(mutex_);
+      std::lock_guard<mutex_t> lk(mutex_);
       if (list_.empty()) {
         return false;
       }
