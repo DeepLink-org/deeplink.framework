@@ -35,6 +35,7 @@ std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
 
 bool isPinnedPtr(const void *p)
 {
+  TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");     
   return false;
 }
 
