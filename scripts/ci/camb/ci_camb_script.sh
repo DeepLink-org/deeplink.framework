@@ -25,12 +25,12 @@ function autogen_diopi_wrapper() {
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                             \
         --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                           \
         --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                              \
-        --use_diopi_adapter True                                                              \
-        --diopi_adapter_header third_party/DIOPI/proto/include/diopi/diopi_adaptors.hpp       \
         --autocompare  False                                                                  \
         --print_func_call_info True                                                           \
         --print_op_arg True                                                                   \
-        --fun_config_dict '{"current_device": "camb"}'
+        --fun_config_dict '{"current_device": "camb"}'                                        \
+        --use_diopi_adapter False                                                             \
+        # --diopi_adapter_header third_party/DIOPI/proto/include/diopi/diopi_adaptors.hpp
 
     # only test mulity config autogen
     python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
