@@ -43,6 +43,9 @@ camb:
     # # mmyolo
     - model_cfg: "mmyolo yolov5/yolov5_s-v61_syncbn_8xb16-300e_coco.py wordir_yolov5_s-v61_syncbn_8xb16-300e_coco"
 
+    # # DI-engine
+    - model_cfg: "DI-engine ding/example/ppo.py workdirs_ppo"
+    - model_cfg: "DI-engine ding/example/sac.py workdirs_sac" 
 
 cuda:
     # # mmpretrain
