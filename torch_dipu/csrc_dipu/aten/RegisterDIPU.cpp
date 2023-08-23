@@ -255,7 +255,7 @@ namespace {
 
   bool wrapper_DIPU_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    // const OptionalDeviceGuard device_guard(device_of(self));
+    const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::is_pinned(self, device);
   }
 
