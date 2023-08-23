@@ -444,7 +444,6 @@
 
 - schema: "convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
   custom_fallback: True
-  autocompare: False
   size_attr: [stride, padding, dilation]
   custom_code_at_the_beginning: |
     int64_t batch_size = input.size(0);
@@ -489,7 +488,6 @@
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   custom_fallback: True
-  autocompare: False
   size_attr: [stride, padding, dilation, bias_sizes]
   device: [-camb, all]
   custom_code_at_the_beginning: |
@@ -670,7 +668,7 @@
 
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  autocompare: False
+  custom_fallback: True
   custom_code_at_the_beginning: |
     at::Tensor grad_input, grad_weight, grad_bias;
     if (output_mask[0]) {
@@ -1267,7 +1265,6 @@
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
-  force_fallback: False
   interface: diopiSilu(ctx, out, self)
 
 - schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
