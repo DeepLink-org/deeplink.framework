@@ -43,4 +43,6 @@ void set_rng_state(at::DeviceIndex idx, at::Tensor state);
 
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index = -1);
 
+void releaseAllGenerator();
+
 }  // namespace dipu

@@ -210,4 +210,8 @@ uint64_t initial_seed(at::DeviceIndex idx) {
   return seed;
 }
 
+void releaseAllGenerator() {
+  default_gens_dipu.clear();
+}
+
 }  // namespace dipu
