@@ -33,6 +33,12 @@ std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
   {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
 };
 
+bool isPinnedPtr(const void *p)
+{
+  TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");     
+  return false;
+}
+
 #define HCCL_THROW(cmd)                                                   \
   do {                                                                    \
     TORCH_CHECK(cmd == HCCL_SUCCESS, "HCCL error in: " +                  \
