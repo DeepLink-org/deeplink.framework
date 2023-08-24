@@ -81,6 +81,7 @@ function export_repo_pythonpath(){
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
         export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
