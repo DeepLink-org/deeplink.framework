@@ -123,8 +123,8 @@ DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx, diopi
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiConstGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
-  const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
+  at::Generator* generator = reinterpret_cast<at::Generator*>(th);
   dipu::DIPUGeneratorImpl* gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
   const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(new_state);
 

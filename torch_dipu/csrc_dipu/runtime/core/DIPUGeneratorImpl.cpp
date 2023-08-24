@@ -35,7 +35,7 @@ static void initDIPUGenerator() {
  * maintain a global running state of the pseudo random number generation,
  * when a user does not explicitly mention any generator.
  */
-const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
+at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
   std::call_once(dipu_init_flag, initDIPUGenerator);
 
   at::DeviceIndex idx = device_index;

@@ -35,8 +35,8 @@ namespace diopi_helper {
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const c10::optional<at::Tensor>& tensor);
 
-::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const at::Generator& generator);
-::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const c10::optional<at::Generator>& generator);
+::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator& generator);
+::diopiGeneratorHandle_t toDiopiGeneratorHandle(c10::optional<at::Generator>& generator);
 
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar);
 ::diopiScalar_t toDiopiScalar(const at::Scalar& scalar, const c10::ScalarType& type);

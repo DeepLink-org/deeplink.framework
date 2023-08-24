@@ -386,7 +386,7 @@
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
   custom_code_at_the_beginning: |
-    diopiConstGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   interface: diopiRandperm(ctx, out, n, generatorDiopiGenerator)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"

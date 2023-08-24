@@ -503,7 +503,7 @@ if ($arg_name.has_value()) {
 def create_optional_generator_process_code(arg_name):
     process_template = CodeTemplate(
 """
-::diopiConstGeneratorHandle_t ${arg_name}DiopiGenerator = (${arg_name}.has_value() && ${arg_name}.value().defined()) ? toDiopiGeneratorHandle(${arg_name}) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+::diopiGeneratorHandle_t ${arg_name}DiopiGenerator = (${arg_name}.has_value() && ${arg_name}.value().defined()) ? toDiopiGeneratorHandle(${arg_name}) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
 """
     )
     process_code = process_template.substitute(

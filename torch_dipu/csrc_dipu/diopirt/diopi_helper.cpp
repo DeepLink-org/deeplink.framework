@@ -24,11 +24,11 @@ namespace diopi_helper {
     return toDiopiTensorHandle(tensor.value());
 }
 
-::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const at::Generator& generator) {
-    return generator.defined() ? reinterpret_cast<::diopiConstGeneratorHandle_t>(&generator) : nullptr;
+::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator& generator) {
+    return generator.defined() ? reinterpret_cast<::diopiGeneratorHandle_t>(&generator) : nullptr;
 }
 
-::diopiConstGeneratorHandle_t toDiopiGeneratorHandle(const c10::optional<at::Generator>& generator) {
+::diopiGeneratorHandle_t toDiopiGeneratorHandle(c10::optional<at::Generator>& generator) {
     if (!generator.has_value()) return nullptr;
     return toDiopiGeneratorHandle(generator.value());
 }

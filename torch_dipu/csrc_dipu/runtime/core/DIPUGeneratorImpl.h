@@ -32,7 +32,7 @@ protected:
   mutable bool state_need_reset_;
 };
 
-const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index = -1);
+at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index = -1);
 at::Generator createDIPUGenerator(at::DeviceIndex device_index = -1);
 
 void manual_seed(at::DeviceIndex idx, uint64_t seed);
