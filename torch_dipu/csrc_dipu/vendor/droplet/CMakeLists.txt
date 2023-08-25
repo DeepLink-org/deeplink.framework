@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
 set(DROPLET_INSTALL "/usr/local/tangrt-0.1")
-include(cmake/FindDROPLETCompiler.cmake)
+include(cmake/FindDropletCompiler.cmake)
 
 set(VENDOR_INCLUDE_DIRS "${DROPLET_INSTALL}/include" PARENT_SCOPE)
 set(VENDOR_LIB_DIRS "${DROPLET_INSTALL}/lib/linux-x86_64" PARENT_SCOPE)
