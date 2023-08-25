@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <c10/util/Exception.h>
 
+#include <csrc_dipu/runtime/core/DIPUStream.h>
+#include <csrc_dipu/diopirt/diopirt_impl.h>
+#include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
@@ -63,6 +66,24 @@ at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src, bool n
   return copy_uncontiguous(iter, self, src, non_blocking);
 }
 
+static at::Tensor& copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+  if (self.numel() == 0) {
+    return self;
+  }
+
+  dipu::DIPUStream stream = getCurrentDIPUStream();
+  ::diopiContext context(stream.rawstream());
+  auto ctx = &context;
+
+  ::diopiConstTensorHandle_t srcDiopiTensorHandle = dipu::diopi_helper::toDiopiTensorHandle(src);
+  ::diopiTensorHandle_t selfDiopiTensorHandle = dipu::diopi_helper::toDiopiTensorHandle(self);
+  ::diopiError_t ret = ::diopiCopyInp(ctx, srcDiopiTensorHandle, selfDiopiTensorHandle);
+  TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"(::diopiCopyInp(ctx, src, dst);)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+
+  dipu::devapis::syncStream(stream.rawstream());
+  return self;
+}
+
 at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   int64_t numel = iter.numel();
   c10::Device dst_device = iter.device(0);
@@ -71,7 +92,8 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
   bool same_type = iter.dtype(0) == iter.dtype(1);
   bool memcpy_eligible = same_type && iter.is_contiguous();
   if (!memcpy_eligible) {
-    return native::DIPUATenFunctions::copy_(self, src, non_blocking);
+    at::Tensor src_expand = src.expand_as(self);
+    return copy_(self, src_expand, non_blocking);
   }
 
   void *dst_ptr = iter.data_ptr(0);
