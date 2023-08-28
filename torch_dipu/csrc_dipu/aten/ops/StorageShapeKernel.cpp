@@ -39,8 +39,10 @@ namespace dipu::native {
     if (storage->data_ptr()) {   // copy old to new
       MemChecker::instance().check(data.get());
       MemChecker::instance().check(storage->data());
-      dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes, device, data.get(),
-            device, storage->data());
+      if (storage->data() != nullptr) {
+        dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes, device, data.get(),
+              device, storage->data());
+      }
     }
     // Destructively overwrite data_ptr
     storage->set_data_ptr_noswap(std::move(data));

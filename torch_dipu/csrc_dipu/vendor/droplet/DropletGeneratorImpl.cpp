@@ -5,9 +5,9 @@
 namespace dipu {
 // just an example
 // not implemented now
-class STPUGeneratorImpl : public dipu::DIPUGeneratorImpl {
+class DROPLETGeneratorImpl : public dipu::DIPUGeneratorImpl {
 public:
-  STPUGeneratorImpl(at::DeviceIndex device_index): dipu::DIPUGeneratorImpl(device_index) {
+  DROPLETGeneratorImpl(at::DeviceIndex device_index): dipu::DIPUGeneratorImpl(device_index) {
   }
 
   void init_state() const override {
@@ -21,7 +21,7 @@ public:
 };
 
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index) {
-  return at::make_generator<STPUGeneratorImpl>(device_index);
+  return at::make_generator<DROPLETGeneratorImpl>(device_index);
 }
 
 }

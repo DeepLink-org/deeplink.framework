@@ -7,7 +7,7 @@
 namespace dipu {
 
 
-#define DIPU_CALLSTPU(Expr)   {                                                     \
+#define DIPU_CALLDROPLET(Expr)   {                                                     \
     tangError_t ret = Expr;                                                         \
     if (ret != tangSuccess) {                                                       \
         printf("call a tangrt function (%s) failed. return code=%d", #Expr, ret);   \
