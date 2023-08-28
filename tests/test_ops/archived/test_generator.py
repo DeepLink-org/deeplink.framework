@@ -137,6 +137,34 @@ class TestGenerator(TestCase):
         assert not torch.allclose(t1, t2)
         print("randperm allclose success")
 
+    def test_dropout(self):
+        m = torch.nn.Dropout(p=0.2).cuda()
+        input = torch.randn(20, 16).cuda()
+        torch.manual_seed(1)
+        t1 = m(input)
+        torch.manual_seed(1)
+        t2 = m(input)
+        assert torch.allclose(t1, t2)
+        t2 = m(input)
+        assert not torch.allclose(t1, t2)
+        print("dropout allclose success")
+
+    def test_dropout_(self):
+        m = torch.nn.Dropout(p=0.2, inplace=True).cuda()
+        input = torch.randn(20, 16).cuda()
+        p = 0.2
+        torch.manual_seed(1)
+        t1 = input.clone()
+        m(t1)
+        torch.manual_seed(1)
+        t2 = input.clone()
+        m(t2)
+        assert torch.allclose(t1, t2)
+        t2 = input.clone()
+        m(t2)
+        assert not torch.allclose(t1, t2)
+        print("dropout_ allclose success")
+
 
 if __name__ == "__main__":
     run_tests()

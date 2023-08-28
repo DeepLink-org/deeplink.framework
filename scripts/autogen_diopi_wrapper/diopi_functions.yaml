@@ -594,15 +594,17 @@
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
   custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(input);
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   register_op: False
-  interface: diopiDropout(ctx, out, mask, input, p, train)
+  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
   autocompare: disable
   custom_code_at_the_beginning: |
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
-  interface: diopiDropout(ctx, out, mask, input, p, train)
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
   outs: [mask]
   autograd: True
   saved_data: [p, mask]
@@ -622,14 +624,17 @@
     return outputs;
 
 - schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   register_op: False
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
 
 - schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   outs: [mask]
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
   autograd: True
   forward_process_code: |
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
