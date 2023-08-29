@@ -38,19 +38,19 @@ function clone_needed_repo() {
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
 
-    check_and_clone_repository("DI-engine",${DIENGINE})
-    check_and_clone_repository("SMART",${SMART_VERSION})
-    check_and_clone_repository("mmpretrain",${MMPRETRAIN_VERSION})
-    check_and_clone_repository("mmdetection",${MMDETECTION_VERSION})
-    check_and_clone_repository("mmsegmentation",${MMSEGMENTATION_VERSION})
-    check_and_clone_repository("mmpose",${MMPOSE_VERSION})
-    check_and_clone_repository("mmdetection3d",${MMDETECTION3D_VERSION})
-    check_and_clone_repository("mmaction2",${MMACTION2_VERSION})
-    check_and_clone_repository("mmocr",${MMOCR_VERSION})
-    check_and_clone_repository("mmagic",${MMAGIC})
-    check_and_clone_repository("mmyolo",${MMYOLO})
-    check_and_clone_repository("mmengine",${MMENGINE_VERSION})
-    check_and_clone_repository("mmcv",${MMCV_VERSION})
+    check_and_clone_repository "DI-engine" ${DIENGINE}
+    check_and_clone_repository "SMART" ${SMART_VERSION}
+    check_and_clone_repository "mmpretrain" ${MMPRETRAIN_VERSION}
+    check_and_clone_repository "mmdetection" ${MMDETECTION_VERSION}
+    check_and_clone_repository "mmsegmentation" ${MMSEGMENTATION_VERSION}
+    check_and_clone_repository "mmpose" ${MMPOSE_VERSION}
+    check_and_clone_repository "mmdetection3d" ${MMDETECTION3D_VERSION}
+    check_and_clone_repository "mmaction2" ${MMACTION2_VERSION}
+    check_and_clone_repository "mmocr" ${MMOCR_VERSION}
+    check_and_clone_repository "mmagic" ${MMAGIC}
+    check_and_clone_repository "mmyolo" ${MMYOLO}
+    check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
+    check_and_clone_repository "mmcv" ${MMCV_VERSION}
     cd ..
 }
 
