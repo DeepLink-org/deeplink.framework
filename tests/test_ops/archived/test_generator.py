@@ -8,6 +8,11 @@ from torch_dipu.testing._internal.common_utils import create_common_tensor, Test
 class TestGenerator(TestCase):
     def test_python_api(self):
         torch.seed()
+        torch.cuda.seed_all()
+        torch.cuda.random.seed_all()
+        torch.cuda.manual_seed_all(1)
+        rngs = torch.cuda.get_rng_state_all()
+        torch.cuda.set_rng_state_all(rngs)
         torch.manual_seed(1)
         assert torch.cuda.initial_seed() == 1
         assert torch.initial_seed() == 1
@@ -164,6 +169,11 @@ class TestGenerator(TestCase):
         m(t2)
         assert not torch.allclose(t1, t2)
         print("dropout_ allclose success")
+
+    def test_default_generators(self):
+        assert len(torch.cuda.default_generators) > 0
+        torch.cuda.default_generators[0].manual_seed(1)
+        assert torch.cuda.default_generators[0].initial_seed() == 1
 
 
 if __name__ == "__main__":

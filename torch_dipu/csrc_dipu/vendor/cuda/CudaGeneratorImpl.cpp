@@ -17,6 +17,9 @@ public:
 
   void set_state(const c10::TensorImpl& state) override {
     at::detail::check_rng_state(state);
+    auto state_size = state.numel();
+    TORCH_CHECK(state_size == total_size || state_size == total_size - offset_size, "RNG state is wrong size");
+
     at::Tensor state_tmp(state.shallow_copy_and_detach(state.version_counter(), true));
     state_ = state_tmp;
     state_need_reset_ = false;

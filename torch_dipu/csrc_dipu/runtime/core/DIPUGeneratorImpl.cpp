@@ -140,8 +140,9 @@ DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
  * See Note [Acquire lock when using random generators]
   */
 c10::intrusive_ptr<c10::TensorImpl> DIPUGeneratorImpl::get_state() const {
-  init_state();
-  update_state();
+  if (state_need_reset_) {
+    update_state();
+  }
   auto state_clone = state_.clone();
   return state_clone.getIntrusivePtr();
 }

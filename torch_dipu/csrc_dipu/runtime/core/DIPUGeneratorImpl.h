@@ -23,7 +23,6 @@ public:
 
 protected:
   void set_state_flag(bool flag);
-  virtual void init_state() const {}
   virtual void update_state() const {}
 
   DIPUGeneratorImpl* clone_impl() const override;

@@ -82,6 +82,9 @@ def apply_torch_function_patch():
             if hasattr(torch.cuda, attr):
                 setattr(torch.cuda, attr, getattr(dipu, attr))
 
+            if attr in torch.cuda.random.__all__ and hasattr(torch.cuda.random, attr):
+                setattr(torch.cuda.random, attr, getattr(dipu, attr))
+
 
 # temp solution, need redesign storage
 def apply_temp_patch():

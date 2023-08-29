@@ -34,7 +34,7 @@ __all__ = [
     # random
     "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
     "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
-    "_is_in_bad_fork",
+    "_is_in_bad_fork", "default_generators",
 
     # # mem manage
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
