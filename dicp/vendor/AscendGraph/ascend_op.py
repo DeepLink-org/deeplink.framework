@@ -812,6 +812,36 @@ class SoftmaxBackward(Operator):
         self.torch_op = aten._softmax_backward_data.default
 
 
+class LiftFreshCopy(Operator):
+    def __init__(self, x):
+        super().__init__("lift_fresh_copy")
+        self.x= x
+        self.torch_op = torch.ops.aten.lift_fresh_copy.default
+
+    def __call__(self, x):
+        if hasattr(x, 'meta'):
+            return x.meta['val']
+        else:
+            with FakeTensorMode():
+                return torch.empty(())
+
+
+class Maximum(Operator):
+    def __init__(self, x, y):
+        super().__init__("maximum")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.maximum.default
+
+
+class Eq(Operator):
+    def __init__(self, x, y):
+        super().__init__("eq")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.eq.Tensor
+
+
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
     if hasattr(a, 'meta'):

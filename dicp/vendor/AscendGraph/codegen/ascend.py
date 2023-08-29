@@ -230,6 +230,14 @@ class AscendCodegen(torch.fx.Interpreter):
         else:
             self.common_nodes.append(op)
 
+    def get_attr(self, name, target, args, kwargs):
+        assert isinstance(target, str)
+        attr = self.fetch_attr(target)
+        assert(isinstance(attr, torch.Tensor))
+        self.args_dict[name] = name 
+        op = getattr(self.override, 'gen_const_attr')(name, attr)
+        self.common_nodes.append(op)
+
     def call_method(self, name, target, args, kwargs):
         pass
 
@@ -624,6 +632,20 @@ class AscendOverrides:
             else:
                 args_str.append(args[i])
         return src_code, args_str
+
+    @staticmethod
+    def gen_const_attr(name, val):
+        torch_dtype = val.dtype
+        shape = list(val.shape)
+
+        assert len(shape) == 0
+        assert torch_dtype == torch.float32
+        real_val = float(val.numpy().tolist())
+        cpp_dtype = get_cpp_dtype(torch_dtype)
+        ascend_dtype = get_ascend_dtype(torch_dtype)
+        op = OP(name, "Const")
+        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [real_val], [])
+        return op.to_node()
 
     @staticmethod
     def mul(name, node, x, y):
@@ -1956,4 +1978,26 @@ class AscendOverrides:
         op.set_input("grad_softmax", grad_output)
         op.set_input("softmax", output)
         op.set_attr_list_int("axes", dim)
+        return op.to_node()
+
+    @staticmethod
+    def lift_fresh_copy(name, x):
+        op = OP(name, "Copy")
+        op.set_input("x", x)
+        op.set_dynamic_output("y", 1)
+        op.set_attr_int("N", 1)
+        return op.to_node()
+ 
+    @staticmethod
+    def maximum(name, x, y):
+        op = OP(name, "Maximum")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
+        return op.to_node()
+
+    @staticmethod
+    def eq(name, x, y):
+        op = OP(name, "Equal")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
         return op.to_node()

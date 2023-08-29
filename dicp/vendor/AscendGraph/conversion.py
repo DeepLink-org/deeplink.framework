@@ -360,6 +360,18 @@ def fill_scalar(x, value):
 def softmax_backward_data(grad_output, output, dim, input_dtype):
     return ascend_op.SoftmaxBackward(grad_output, output, dim, input_dtype)
 
+@registe_conversion(torch.ops.aten.lift_fresh_copy.default)
+def LiftFreshCopy(*args, **kwargs):
+    return ascend_op.LiftFreshCopy(*args, **kwargs)
+
+@registe_conversion(torch.ops.aten.maximum.default)
+def Maximum(x, y):
+    return ascend_op.Maximum(x, y)
+
+@registe_conversion(torch.ops.aten.eq.Tensor)
+def Eq(x, y):
+    return ascend_op.Eq(x, y)
+
 
 @registe_pattern
 class ReplaceVarMean:
