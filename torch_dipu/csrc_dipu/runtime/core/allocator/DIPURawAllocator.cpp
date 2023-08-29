@@ -77,7 +77,7 @@ public:
   bool isPinnedPtr(const void *p) {
     bool is_pinned = false;
     {
-      //std::lock_guard<std::mutex> lck(mtx_);
+      std::lock_guard<std::mutex> lck(mtx_);
       for (auto iter = blocks_.crbegin(); iter != blocks_.crend(); iter++) {
         const void* ptr = iter->first;
         const size_t size = iter->second;
