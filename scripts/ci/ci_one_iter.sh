@@ -5,7 +5,7 @@ function check_and_clone_repository() {
     branch_name=$2
     current_path=$(pwd)
     repo_path="$current_path/$repo_name"
-    if [ "$repo_name" == "mmcv" ]; then
+    if [ "$repo_name" == "mmcv" ] || [ "$repo_name" == "mmengine" ]; then
         clone_url="https://github.com/open-mmlab/$repo_name.git"
     else
         clone_url="https://github.com/DeepLink-org/$repo_name.git"
@@ -15,7 +15,11 @@ function check_and_clone_repository() {
     fi
     cd "$repo_path" || exit
     current_branch=$(git rev-parse --abbrev-ref HEAD)
-    if [ "$current_branch" != "$branch_name" ]; then
+    current_commit=$(git rev-parse HEAD)
+    current_tag=$(git describe --tags)
+    if [ "$current_branch" == "$branch_name" ] || [ "$current_commit" == "$branch_name" ] || [ "current_tag" == "$branch_name" ]; then
+        echo "$repo_name $branch_name is right"
+    else
         git fetch
         git checkout "$branch_name"
     fi
