@@ -1,10 +1,29 @@
 #!/bin/bash
 
+function check_and_clone_repository() {
+    repo_name=$1
+    branch_name=$2
+    current_path=$(pwd)
+    repo_path="$current_path/$repo_name"
+    if [ "$repo_name" == "mmcv" ]; then
+        clone_url="https://github.com/open-mmlab/$repo_name.git"
+    else
+        clone_url="https://github.com/DeepLink-org/$repo_name.git"
+    fi
+    if [ ! -d "$repo_path" ]; then
+        git clone "$clone_url"
+    fi
+    cd "$repo_path" || exit
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$current_branch" != "$branch_name" ]; then
+        git fetch
+        git checkout "$branch_name"
+    fi
+}
+
 function clone_needed_repo() {
     set -e
     # clone some repositories
-
-    #define some version
     MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
@@ -19,20 +38,20 @@ function clone_needed_repo() {
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
 
-    rm -rf DI-engine && git clone -b ${DIENGINE} https://github.com/DeepLink-org/DI-engine.git
-    rm -rf SMART && git clone -b ${SMART_VERSION} https://github.com/DeepLink-org/SMART.git
-    rm -rf mmpretrain && git clone -b ${MMPRETRAIN_VERSION} https://github.com/DeepLink-org/mmpretrain.git
-    rm -rf mmdetection && git clone -b ${MMDETECTION_VERSION} https://github.com/DeepLink-org/mmdetection.git
-    rm -rf mmsegmentation && git clone -b ${MMSEGMENTATION_VERSION} https://github.com/DeepLink-org/mmsegmentation.git
-    rm -rf mmpose && git clone -b ${MMPOSE_VERSION} https://github.com/DeepLink-org/mmpose.git
-    rm -rf mmdetection3d && git clone -b ${MMDETECTION3D_VERSION} https://github.com/DeepLink-org/mmdetection3d.git
-    rm -rf mmaction2 && git clone -b ${MMACTION2_VERSION} https://github.com/DeepLink-org/mmaction2.git
-    rm -rf mmocr && git clone -b ${MMOCR_VERSION} https://github.com/DeepLink-org/mmocr.git
-    rm -rf mmagic && git clone -b ${MMAGIC} https://github.com/DeepLink-org/mmagic.git
-    rm -rf mmyolo && git clone -b ${MMYOLO} https://github.com/DeepLink-org/mmyolo.git
-    rm -rf mmengine && git clone -b ${MMENGINE_VERSION} https://github.com/open-mmlab/mmengine.git
-    rm -rf mmcv && git clone https://github.com/open-mmlab/mmcv.git
-    cd mmcv && git checkout ${MMCV_VERSION} && cd ..
+    check_and_clone_repository("DI-engine",${DIENGINE})
+    check_and_clone_repository("SMART",${SMART_VERSION})
+    check_and_clone_repository("mmpretrain",${MMPRETRAIN_VERSION})
+    check_and_clone_repository("mmdetection",${MMDETECTION_VERSION})
+    check_and_clone_repository("mmsegmentation",${MMSEGMENTATION_VERSION})
+    check_and_clone_repository("mmpose",${MMPOSE_VERSION})
+    check_and_clone_repository("mmdetection3d",${MMDETECTION3D_VERSION})
+    check_and_clone_repository("mmaction2",${MMACTION2_VERSION})
+    check_and_clone_repository("mmocr",${MMOCR_VERSION})
+    check_and_clone_repository("mmagic",${MMAGIC})
+    check_and_clone_repository("mmyolo",${MMYOLO})
+    check_and_clone_repository("mmengine",${MMENGINE_VERSION})
+    check_and_clone_repository("mmcv",${MMCV_VERSION})
+    cd ..
 }
 
 function build_needed_repo_cuda() {
