@@ -72,8 +72,6 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   }
 };
 
-static DIPUCUDAAllocatorProxy cuda_allocator_proxy;
-
 } // namespace CUDACachingAllocator
 
 } // namespace cuda
@@ -95,8 +93,13 @@ int patchCachingAllocator() {
     Our implementation idea is different from the native pytorch implementation,
     so the interface cannot be fully aligned. We only implement the most basic and necessary functions.
   */
-  c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&c10::cuda::CUDACachingAllocator::cuda_allocator_proxy));
+  static c10::cuda::CUDACachingAllocator::DIPUCUDAAllocatorProxy cuda_allocator_proxy;
+  c10::cuda::CUDACachingAllocator::allocator.store(dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(&cuda_allocator_proxy));
   return 0;
 }
+/*This order is really unrequired and unimportant,
+and this compilation unit may not be compiled, so it is still initialized with global variables
+*/
+static int n = patchCachingAllocator();
 
 } // namespace dipu

@@ -7,8 +7,6 @@
 namespace dipu {
 DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::CUDA;
 
-extern int patchCachingAllocator();
-
 namespace devapis {
 
 using cuda_deviceId = int;
@@ -17,7 +15,7 @@ using cuda_deviceId = int;
 // =====================
 
 void initializeVendor() {
-    patchCachingAllocator();
+    
 }
 
 void finalizeVendor() {
