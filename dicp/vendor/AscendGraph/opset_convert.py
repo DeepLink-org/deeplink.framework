@@ -21,7 +21,7 @@ def register_ascend_fuse_pass(cls):
     ascend_fuse_passes.append(cls())
     return cls
 
-@register_ascend_fuse_pass        
+#@register_ascend_fuse_pass        
 class FuseTransposeMatmul():
     class MatMulOperatorSupport(OperatorSupportBase):
         def is_node_supported(self, submodules, node: torch.fx.Node) -> bool:
