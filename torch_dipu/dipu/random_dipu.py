@@ -5,13 +5,14 @@ from torch import Tensor
 
 from torch_dipu import _C
 from .utils import _lazy_init, _lazy_call
-from .device import device_count, current_device, _get_device_index
+from .device import device_count, current_device, _get_device_index, __diputype__
 from .generator import Generator
 
 def _create_default_generators() -> Tuple[Generator]:
     generators = []
     for i in range(device_count()):
-        device = torch.device(i)
+        dev_name = __diputype__ + ":" + str(i)
+        device = torch.device(dev_name)
         generators.append(Generator(device))
     return tuple(generators)
 

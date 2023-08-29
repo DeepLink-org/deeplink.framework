@@ -16,7 +16,7 @@ static size_t mlu_state_size = []() {
   size_t size = 0;
   DIPU_CALLCNNL(cnnlRandGetMTGP32StateSize(nullptr, &size));
   return size;
-};
+}();
 
 static deviceHandle_t getDeviceHandler(c10::DeviceIndex device_index) {
   if (device_index == -1) {
@@ -65,7 +65,7 @@ public:
 
     if (!state_.defined()) {
       auto options = at::TensorOptions().device(device_).dtype(at::kByte);
-      state_ = at::empty(state_size, options);
+      state_ = at::empty(mlu_state_size, options);
     }
     auto state_ptr = state_.tensor_data().data_ptr();
     dipu::DIPUGuard guard(state_.device());
