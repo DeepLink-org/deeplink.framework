@@ -10,15 +10,17 @@ function check_and_clone_repository() {
     else
         clone_url="https://github.com/DeepLink-org/$repo_name.git"
     fi
-    if [ ! -d "$repo_path" ]; then
+    if [ -d "$repo_path" ]; then
         cd $repo_name
         current_branch=$(git rev-parse --abbrev-ref HEAD)_$(git rev-parse HEAD)_$(git describe --tags 2>/dev/null || echo "none")
-        if [ "$current_branch" =~ "$branch_name" ]; then
+        if [[ "$current_branch" =~ "$branch_name" ]]; then
             echo "$repo_name $branch_name is right"
+            cd ..
         fi
     else
         cd $current_path && rm -rf  $repo_name
         git clone -b ${branch_name} ${clone_url}
+        cd ..
     fi
 }
 
