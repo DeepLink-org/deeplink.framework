@@ -9,6 +9,7 @@ set(DIPU_VENDOR_LIB cnnl cncl cndev PARENT_SCOPE)
 
 message(STATUS "Cambricon Neuware Root: ${NEUWARE_ROOT_DIR}")
 message(STATUS "Cambricon CNRT Version: ${CNRT_VERSION}")
+message(STATUS "Cambricon CNRT major Version: ${CNRT_MAJOR_VERSION}")
 message(STATUS "Cambricon CNCC Flags: ${CMAKE_CNCC_FLAGS}")
 message(STATUS "Cambricon CNCC Targets: ${CNCC_TARGETS}")
 
@@ -16,5 +17,5 @@ message(STATUS "Cambricon CNCC Targets: ${CNCC_TARGETS}")
 # rewrite vendor header file path if needed
 # set(UsedVendor "camb/XX" PARENT_SCOPE)
 
-file(GLOB SRC_FILES  *.cpp  cnrt_${CNRT_VERSION}/*.cpp)
+file(GLOB SRC_FILES  *.cpp  cnrt_${CNRT_MAJOR_VERSION}.x/*.cpp)
 set(VENDOR_FILES  ${SRC_FILES} PARENT_SCOPE)
