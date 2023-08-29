@@ -13,7 +13,7 @@ function check_and_clone_repository() {
     if [ ! -d "$repo_path" ]; then
         cd $repo_name
         current_branch=$(git rev-parse --abbrev-ref HEAD)_$(git rev-parse HEAD)_$(git describe --tags 2>/dev/null || echo "none")
-        if [ "$current_branch" =~ "$branch_name" ]
+        if [ "$current_branch" =~ "$branch_name" ]; then
             echo "$repo_name $branch_name is right"
         fi
     else
