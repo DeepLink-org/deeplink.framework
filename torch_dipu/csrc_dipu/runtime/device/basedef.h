@@ -46,7 +46,7 @@ enum class VendorDeviceType : enum_t {
   CUDA, //cuda
   GCU,  //gcu
   SUPA, //Biren
-  STPU, //stpu
+  DROPLET, //droplet
 };
 
 enum class EventStatus: enum_t {
