@@ -27,7 +27,7 @@ export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
-export PATH=${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
+export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/include/python3.8
 export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
@@ -43,5 +43,6 @@ export VENDOR_INCLUDE_DIRS=${CUDA_PATH}/include
 export DIPU_DEVICE_MEMCACHING_ALGORITHM=BF
 export DIPU_HOST_MEMCACHING_ALGORITHM=BF
 export DIPU_PATCH_CUDA_CACHED_ALLOCATOR=1
+export DIPU_CHECK_TENSOR_DEVICE=1
 
 source activate $ENV_NAME

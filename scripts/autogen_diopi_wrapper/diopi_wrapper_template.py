@@ -20,8 +20,21 @@ $header_include_code
 
 namespace dipu::native {
 
+using dipu::diopi_helper::toDiopiGeneratorHandle;
+
 inline bool checkDiopiReturnValue() {
     static bool enable = std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
+    return enable;
+}
+
+inline bool checkTensorDevice() {
+    static bool enable = []() {
+        const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
+        if (env_ptr == nullptr) {
+            return false;
+        }
+        return std::atoi(env_ptr) > 0 ? true : false;
+    }();
     return enable;
 }
 
@@ -227,6 +240,8 @@ $cppsignautre {
     $output_process_code
 
     $attrs_process_code
+
+    $device_check_code
 
     $custom_code_before_call_diopi
 

@@ -7,7 +7,6 @@ import re
 import shutil
 import subprocess
 import sys
-import traceback
 import platform
 
 import distutils.ccompiler
@@ -66,13 +65,8 @@ def get_build_type():
     return build_type
 
 def get_pytorch_dir():
-    try:
-        import torch
-        return os.path.dirname(os.path.abspath(torch.__file__))
-    except Exception:
-        _, _, exc_traceback = sys.exc_info()
-        frame_summary = traceback.extract_tb(exc_traceback)[-1]
-        return os.path.dirname(frame_summary.filename)
+    import torch
+    return os.path.dirname(os.path.abspath(torch.__file__))
 
 class CPPLibBuild(build_clib, object):
     def run(self):

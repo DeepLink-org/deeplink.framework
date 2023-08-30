@@ -249,6 +249,12 @@ def get_function_optional_scalar_args_from_schema(schema):
     return re.findall('Scalar *\? +([\w\d_]+)', param_list)
 
 
+def get_function_optional_generator_args_from_schema(schema):
+    param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
+    param_list = param_list[0:param_list.rfind(')')]
+    return re.findall('Generator *\? +([\w\d_]+)', param_list)
+
+
 def get_function_int_array_args_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
     int_arrays = []
@@ -444,7 +450,7 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
     debug_code = "if (dumpOpArgLevel() > 0) {\n\t"
-    debug_code += f'printf("[%s:%d]:%s  %s \\n",__FUNCTION__,__LINE__,"{op_name}", "{diopi_func}");' + '\n'
+    debug_code += f'printf("--%-50s %-30s \\n", "[{op_name}]:", "{diopi_func}");' + '\n'
     debug_code += "}\n"
     return debug_code
 
@@ -493,6 +499,40 @@ if ($arg_name.has_value()) {
     )
     return process_code
 
+def create_device_check_code(fun_config):
+    code = ''
+    tensors = get_function_inputs_from_schema(fun_config['schema']) + fun_config.get('ins', [])
+    tensors += get_function_outputs_from_schema(fun_config['schema']) + fun_config.get('outs', [])
+    tensors = set(tensors)
+    exclude_tensors = fun_config.get('no_device_check_args', [])
+    for args in exclude_tensors:
+        tensors.discard(args)
+    op_name = get_op_name_from_schema(fun_config['schema'])
+    if len(tensors) > 0:
+        code += "if (checkTensorDevice()) {\n"
+
+    for args in set(tensors):
+        if not args.endswith('?'):
+            code += f'\tTORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
+        else:
+            args = args[0:-1]
+            code += f'\tTORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
+
+    if len(tensors) > 0:
+        code += "}"
+
+    return code
+
+def create_optional_generator_process_code(arg_name):
+    process_template = CodeTemplate(
+"""
+::diopiGeneratorHandle_t ${arg_name}DiopiGenerator = (${arg_name}.has_value() && ${arg_name}.value().defined()) ? toDiopiGeneratorHandle(${arg_name}) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+"""
+    )
+    process_code = process_template.substitute(
+        arg_name=[arg_name],
+    )
+    return process_code
 
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
@@ -552,8 +592,9 @@ def functions_code_gen(fun_config):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
         diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
-
-
+    for generator_param in get_function_optional_generator_args_from_schema(fun_config['schema']):
+        attrs_process_code += create_optional_generator_process_code(generator_param)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + generator_param.strip() + '( *[,\)])', R'\1' + f"{generator_param}DiopiGenerator" + R'\2', diopi_fun_call_code)
 
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
     attrs_process_code += create_int_array_process_code(int_array_list)
@@ -600,6 +641,7 @@ def functions_code_gen(fun_config):
             attrs_process_code=[attrs_process_code],
             output_process_code=[output_process_code],
             custom_code_before_call_diopi = [fun_config.get('custom_code_before_call_diopi', '').replace('; ', ';\n')],
+            device_check_code=[create_device_check_code(fun_config)],
             diopi_fun_call_code=[diopi_fun_call_code],
             custom_code_before_return=[fun_config.get('custom_code_before_return', '').replace('; ', ';\n')],
             return_code=[return_code],

@@ -385,11 +385,13 @@
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n)
+  custom_code_at_the_beginning: |
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandperm(ctx, out, n, generatorDiopiGenerator)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n)
+  interface: diopiRandperm(ctx, out, n, generator)
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -592,15 +594,17 @@
 - schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
   custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(input);
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   register_op: False
-  interface: diopiDropout(ctx, out, mask, input, p, train)
+  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
 
 - schema: "dropout(Tensor input, float p, bool train) -> Tensor"
   autocompare: disable
   custom_code_at_the_beginning: |
     auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
     at::Tensor out = at::empty_like(input);
-  interface: diopiDropout(ctx, out, mask, input, p, train)
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
   outs: [mask]
   autograd: True
   saved_data: [p, mask]
@@ -620,14 +624,17 @@
     return outputs;
 
 - schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   register_op: False
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
 
 - schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   outs: [mask]
-  interface: diopiDropoutInp(ctx, self, mask, p, train)
+  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
   autograd: True
   forward_process_code: |
     auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
@@ -918,7 +925,7 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
-  interface: diopiUniformInp(ctx, self, from, to)
+  interface: diopiUniformInp(ctx, self, from, to, generator)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
   custom_code_at_the_beginning: |
@@ -937,10 +944,10 @@
     else if (self.dim() == 1) {
       out = at::empty({num_samples,}, self.options().dtype(at::kLong));
     }
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generator)
 
 - schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generator)
 
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1000,15 +1007,15 @@
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandomInp(ctx, self, 0, nullptr)
+  interface: diopiRandomInp(ctx, self, 0, nullptr, generator)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandomInp(ctx, self, 0, &to)
+  interface: diopiRandomInp(ctx, self, 0, &to, generator)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr)"
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, generator)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1198,6 +1205,7 @@
   interface: diopiBaddbmmInp(ctx, self, batch1, batch2, betaDouble, alphaDouble)
 
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
+  no_device_check_args: [other]
   custom_code_at_the_beginning: |
     at::Tensor out = at::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -1337,7 +1345,7 @@
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiNormalInp(ctx, self, mean, std)
+  interface: diopiNormalInp(ctx, self, mean, std, generator)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMm(ctx, out, self, mat2)
@@ -1460,6 +1468,7 @@
 
 - schema: "_ctc_loss(Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, int blank=0, bool zero_infinity=False) -> (Tensor neg_log_likelihood, Tensor log_alpha)"
   ins: [input_lengths_tensor, target_lengths_tensor]
+  no_device_check_args: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     int64_t batch_size = log_probs.size(1);
     int64_t num_labels = log_probs.size(2);
@@ -1479,6 +1488,7 @@
 
 - schema: "_ctc_loss_backward(Tensor grad, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, bool zero_infinity=False) -> Tensor grad_input"
   ins: [input_lengths_tensor, target_lengths_tensor]
+  no_device_check_args: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     auto grad_input = at::empty(log_probs.sizes(), grad.options());
     auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);

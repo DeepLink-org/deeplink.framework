@@ -46,7 +46,7 @@ jobs:
 
           cd ${GITHUB_WORKSPACE}/DIPU && rm -rf third_party/DIOPI && git submodule update --init --recursive
 
-          rm -rf mmlab_pack && mkdir -p mmlab_pack && cd mmlab_pack
+          rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/DIPU_DIOPI/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
