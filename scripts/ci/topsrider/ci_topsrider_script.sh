@@ -7,7 +7,7 @@ function build_dipu_py() {
     # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
 }
 
 function config_dipu_cmake() {
@@ -37,8 +37,8 @@ function build_dipu_lib() {
     autogen_diopi_wrapper
     config_dipu_cmake
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
 function build_diopi_lib() {

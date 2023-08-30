@@ -9,7 +9,7 @@ function build_dipu_py() {
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
 }
 
 function config_dipu_nv_cmake() {
@@ -55,8 +55,8 @@ function build_dipu_lib() {
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_nv_cmake 2>&1 | tee ./cmake_nv.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
 case $1 in
