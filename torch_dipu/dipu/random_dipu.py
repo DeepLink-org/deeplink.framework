@@ -1,12 +1,22 @@
 # Copyright (c) 2023, DeepLink.
-from typing import Iterable, List, Union
+from typing import Iterable, List, Union, Tuple
 import torch
 from torch import Tensor
 
 from torch_dipu import _C
 from .utils import _lazy_init, _lazy_call
-from .device import device_count, current_device, _get_device_index
+from .device import device_count, current_device, _get_device_index, __diputype__
+from .generator import Generator
 
+def _create_default_generators() -> Tuple[Generator]:
+    generators = []
+    for i in range(device_count()):
+        dev_name = __diputype__ + ":" + str(i)
+        device = torch.device(dev_name)
+        generators.append(Generator(device))
+    return tuple(generators)
+
+default_generators: Tuple[Generator] = _create_default_generators()
 
 ### Random sampling
 def get_rng_state(device: Union[int, str, torch.device] = 'dipu') -> Tensor:
@@ -44,12 +54,7 @@ def set_rng_state(new_state: Tensor, device: Union[int, str, torch.device] = 'di
         come into effect.
     """
     new_state_copy = new_state.clone(memory_format=torch.contiguous_format)
-    if isinstance(device, str):
-        device = torch.device(device)
-    elif isinstance(device, int):
-        device = torch.device('dipu', device)
-
-    idx = device.index
+    idx = _get_device_index(device)
     if idx is None:
         idx = current_device()
 
@@ -82,8 +87,7 @@ def manual_seed(seed):
 
     def cb():
         idx = current_device()
-        default_generator = _C.default_generators[idx]
-        default_generator.manual_seed(seed)
+        _C._manual_seed(idx, seed)
 
     _lazy_call(cb)
 
@@ -100,8 +104,7 @@ def manual_seed_all(seed):
 
     def cb():
         for i in range(device_count()):
-            default_generator = _C.default_generators[i]
-            default_generator.manual_seed(seed)
+            _C._manual_seed(i, seed)
 
     _lazy_call(cb)
 
@@ -117,8 +120,7 @@ def seed():
     """
     def cb():
         idx = current_device()
-        default_generator = _C.default_generators[idx]
-        default_generator.seed()
+        _C._seed(idx)
 
     _lazy_call(cb)
 
@@ -132,13 +134,12 @@ def seed_all():
         random_seed = 0
         seeded = False
         for i in range(device_count()):
-            default_generator = _C.default_generators[i]
             if not seeded:
-                default_generator.seed()
-                random_seed = default_generator.initial_seed()
+                _C._seed(i)
+                random_seed = _C._initial_seed(i)
                 seeded = True
             else:
-                default_generator.manual_seed(random_seed)
+                _C._manual_seed(i, random_seed)
 
     _lazy_call(cb)
 
@@ -151,5 +152,4 @@ def initial_seed():
     """
     _lazy_init()
     idx = current_device()
-    default_generator = _C.default_generators[idx]
-    return default_generator.initial_seed()
+    return _C._initial_seed(idx)

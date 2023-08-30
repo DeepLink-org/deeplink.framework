@@ -19,12 +19,11 @@ public:
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  virtual void set_state(const c10::TensorImpl& state){};
+  virtual void set_state(const c10::TensorImpl& state) {}
 
 protected:
   void set_state_flag(bool flag);
-  virtual void init_state() const {}
-  virtual void update_state() const {};
+  virtual void update_state() const {}
 
   DIPUGeneratorImpl* clone_impl() const override;
   uint64_t seed_ = c10::default_rng_seed_val;
@@ -32,7 +31,7 @@ protected:
   mutable bool state_need_reset_;
 };
 
-const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index = -1);
+at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index = -1);
 at::Generator createDIPUGenerator(at::DeviceIndex device_index = -1);
 
 void manual_seed(at::DeviceIndex idx, uint64_t seed);
@@ -41,8 +40,8 @@ uint64_t initial_seed(at::DeviceIndex idx);
 at::Tensor get_rng_state(at::DeviceIndex idx);
 void set_rng_state(at::DeviceIndex idx, at::Tensor state);
 
-
-void initDIPUGenerator();
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index = -1);
+
+void releaseAllGenerator();
 
 }  // namespace dipu

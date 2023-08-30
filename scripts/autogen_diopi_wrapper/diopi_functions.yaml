@@ -385,11 +385,13 @@
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n)
+  custom_code_at_the_beginning: |
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiRandperm(ctx, out, n, generatorDiopiGenerator)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandperm(ctx, out, n)
+  interface: diopiRandperm(ctx, out, n, generator)
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -574,7 +576,8 @@
     if (train_) {
       out1 = at::empty(input.sizes(), input.options().dtype(at::kByte));;
     }
-  interface: diopiDropout(ctx, out0, out1, input, p, train_)
+    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+  interface: diopiDropout(ctx, out0, out1, input, p, train_, generatorDiopiGenerator)
 
 - schema: "native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor"
   custom_code_at_the_beginning: |
@@ -584,7 +587,7 @@
 
 - schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiBernoulliScalar(ctx, self, p);
+  interface: diopiBernoulliScalar(ctx, self, p, generatorDiopiGenerator);
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
@@ -852,7 +855,7 @@
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiUniformInp(ctx, self, from, to)
+  interface: diopiUniformInp(ctx, self, from, to, generator)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
   custom_code_at_the_beginning: |
@@ -871,10 +874,10 @@
     else if (self.dim() == 1) {
       out = at::empty({num_samples,}, self.options().dtype(at::kLong));
     }
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generator)
 
 - schema: "multinomial.out(Tensor self, int num_samples, bool replacement=False, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiMultinomial(ctx, out, self, num_samples, replacement)
+  interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generator)
 
 - schema: "roll(Tensor self, int[1] shifts, int[1] dims=[]) -> Tensor"
   custom_code_at_the_beginning: |
@@ -934,15 +937,15 @@
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandomInp(ctx, self, 0, nullptr)
+  interface: diopiRandomInp(ctx, self, 0, nullptr, generator)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiRandomInp(ctx, self, 0, &to)
+  interface: diopiRandomInp(ctx, self, 0, &to, generator)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr)"
+  interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, generator)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1271,7 +1274,7 @@
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  interface: diopiNormalInp(ctx, self, mean, std)
+  interface: diopiNormalInp(ctx, self, mean, std, generator)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMm(ctx, out, self, mat2)

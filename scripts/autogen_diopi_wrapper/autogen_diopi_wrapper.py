@@ -249,6 +249,12 @@ def get_function_optional_scalar_args_from_schema(schema):
     return re.findall('Scalar *\? +([\w\d_]+)', param_list)
 
 
+def get_function_optional_generator_args_from_schema(schema):
+    param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
+    param_list = param_list[0:param_list.rfind(')')]
+    return re.findall('Generator *\? +([\w\d_]+)', param_list)
+
+
 def get_function_int_array_args_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
     int_arrays = []
@@ -518,8 +524,19 @@ def create_device_check_code(fun_config):
     if len(tensors) > 0:
         code += "}"
 
-
     return code
+
+def create_optional_generator_process_code(arg_name):
+    process_template = CodeTemplate(
+"""
+::diopiGeneratorHandle_t ${arg_name}DiopiGenerator = (${arg_name}.has_value() && ${arg_name}.value().defined()) ? toDiopiGeneratorHandle(${arg_name}) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+"""
+    )
+    process_code = process_template.substitute(
+        arg_name=[arg_name],
+    )
+    return process_code
+
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -578,8 +595,9 @@ def functions_code_gen(fun_config):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
         diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
-
-
+    for generator_param in get_function_optional_generator_args_from_schema(fun_config['schema']):
+        attrs_process_code += create_optional_generator_process_code(generator_param)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + generator_param.strip() + '( *[,\)])', R'\1' + f"{generator_param}DiopiGenerator" + R'\2', diopi_fun_call_code)
 
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
     attrs_process_code += create_int_array_process_code(int_array_list)
