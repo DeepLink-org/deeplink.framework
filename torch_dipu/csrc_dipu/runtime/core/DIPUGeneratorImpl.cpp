@@ -1,11 +1,14 @@
 // Copyright (c) 2023, DeepLink.
+#include <ATen/ATen.h>
 #include <ATen/Utils.h>
 
 #include "DIPUGeneratorImpl.h"
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
-
 namespace dipu {
+
+// Ensures call initDIPUGenerator once
+static std::once_flag dipu_init_flag;
 
 // Total number of dipu in the system.
 static int64_t num_dipu;
@@ -20,7 +23,7 @@ static std::vector<at::Generator> default_gens_dipu;
 * Populates the global variables related to DIPU generators
 * Warning: this function must only be called once!
 */
-void initDIPUGenerator() {
+static void initDIPUGenerator() {
   num_dipu = devproxy::getDeviceCount();
   dipu_gens_init_flag.resize(num_dipu);
   default_gens_dipu.resize(num_dipu);
@@ -32,7 +35,9 @@ void initDIPUGenerator() {
  * maintain a global running state of the pseudo random number generation,
  * when a user does not explicitly mention any generator.
  */
-const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
+at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
+  std::call_once(dipu_init_flag, initDIPUGenerator);
+
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
     idx = devproxy::current_device();
@@ -50,6 +55,7 @@ const at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
  * Utility to create a DIPUGeneratorImpl. Returns a shared_ptr
  */
 at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
+  std::call_once(dipu_init_flag, initDIPUGenerator);
   at::DeviceIndex idx = device_index;
   if (idx == -1) {
     idx = devproxy::current_device();
@@ -134,10 +140,11 @@ DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
  * See Note [Acquire lock when using random generators]
   */
 c10::intrusive_ptr<c10::TensorImpl> DIPUGeneratorImpl::get_state() const {
-  init_state();
-  update_state();
-  auto state_cpu = state_.cpu();
-  return state_cpu.getIntrusivePtr();
+  if (state_need_reset_) {
+    update_state();
+  }
+  auto state_clone = state_.clone();
+  return state_clone.getIntrusivePtr();
 }
 
 /**
@@ -157,8 +164,8 @@ at::Tensor get_rng_state(at::DeviceIndex idx) {
   auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
   std::lock_guard<std::mutex> lock(gen_impl->mutex_);
   auto state_ptr = gen_impl->get_state();
-  auto state_cpu = at::Tensor(std::move(state_ptr)).cpu();
-  return state_cpu;
+  auto state = at::Tensor(std::move(state_ptr));
+  return state;
 }
 
 /**
@@ -177,8 +184,10 @@ void set_rng_state(at::DeviceIndex idx, at::Tensor state) {
  *
  **/
 void manual_seed(at::DeviceIndex idx, uint64_t seed) {
-  auto defaultGenerator = getDefaultDIPUGenerator(idx);
-  defaultGenerator.set_current_seed(seed);
+  auto gen = getDefaultDIPUGenerator(idx);
+  auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
+  std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+  gen_impl->set_current_seed(seed);
 }
 
 /**
@@ -186,8 +195,10 @@ void manual_seed(at::DeviceIndex idx, uint64_t seed) {
  *
  **/
 void seed(at::DeviceIndex idx) {
-  auto defaultGenerator = getDefaultDIPUGenerator(idx);
-  defaultGenerator.seed();
+  auto gen = getDefaultDIPUGenerator(idx);
+  auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(gen, getDefaultDIPUGenerator());
+  std::lock_guard<std::mutex> lock(gen_impl->mutex_);
+  gen_impl->seed();
 }
 
 /**
@@ -198,6 +209,10 @@ uint64_t initial_seed(at::DeviceIndex idx) {
   auto defaultGenerator = getDefaultDIPUGenerator(idx);
   auto seed = defaultGenerator.current_seed();
   return seed;
+}
+
+void releaseAllGenerator() {
+  default_gens_dipu.clear();
 }
 
 }  // namespace dipu

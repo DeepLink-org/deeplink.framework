@@ -48,6 +48,7 @@ static void exportDevices(py::module& m) {
     devproxy::setDevice(static_cast<devapis::deviceId_t>(idx));
   });
   m.def("_dipu_get_device_count", []() -> int {
+    poison_fork();
     return devproxy::getDeviceCount();
   });
   m.def("_dipu_current_device", []() -> int {
@@ -245,6 +246,35 @@ static void patchTensor(py::module& m) {
   });
 }
 
+static void exportGenerator(py::module& m) {
+  m.def("_manual_seed", [](at::DeviceIndex idx, uint64_t seed) {
+    manual_seed(idx, seed);
+  });
+
+  m.def("_seed", [](at::DeviceIndex idx) {
+    seed(idx);
+  });
+
+  m.def("_initial_seed", [](at::DeviceIndex idx)->uint64_t {
+    return initial_seed(idx);
+  });
+
+  m.def("_get_rng_state", [](at::DeviceIndex idx)->at::Tensor {
+    return get_rng_state(idx);
+  });
+
+  m.def("_set_rng_state", [](at::DeviceIndex idx, at::Tensor state) {
+    set_rng_state(idx, state);
+  });
+
+  m.def("_is_in_bad_fork", []()->bool { return is_in_bad_fork(); });
+
+  m.def("_create_dipu_generator", [](int idx)->at::Generator {
+    at::DeviceIndex index = static_cast<at::DeviceIndex>(idx);
+    return createDIPUGenerator(index);
+  });
+}
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
@@ -255,5 +285,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportMemCaching(m);
   patchStorage(m);
   patchTensor(m);
+  exportGenerator(m);
 }
 }  // end ns dipu

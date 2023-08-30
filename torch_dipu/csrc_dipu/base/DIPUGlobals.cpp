@@ -1,6 +1,7 @@
 #include "DIPUGlobals.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/DIPUGeneratorImpl.h"
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include <iostream>
 #include <ctime>
@@ -24,6 +25,7 @@ void initResource() {
 }
 
 void releaseAllResources() {
+  releaseAllGenerator();
   releaseAllDeviceMem();
   releaseAllEvent();
   devproxy::finalizeVendor();

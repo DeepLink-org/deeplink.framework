@@ -22,6 +22,7 @@ from .dipu.tensor import apply_tensor_type_patch
 from .profiler.profiler import dipu_profiler, dipu_kineto_available
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.optim import apply_optim_patch
+from .dipu.generator import apply_generator_patch
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -81,6 +82,9 @@ def apply_torch_function_patch():
             if hasattr(torch.cuda, attr):
                 setattr(torch.cuda, attr, getattr(dipu, attr))
 
+            if attr in torch.cuda.random.__all__ and hasattr(torch.cuda.random, attr):
+                setattr(torch.cuda.random, attr, getattr(dipu, attr))
+
 
 # temp solution, need redesign storage
 def apply_temp_patch():
@@ -104,6 +108,7 @@ def apply_patches():
     apply_temp_patch()
     apply_dataloader_patch()
     apply_optim_patch()
+    apply_generator_patch()
 
 
 apply_patches()
