@@ -27,7 +27,7 @@ export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
 export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
-export PATH=${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
+export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 export PYTHON_INCLUDE_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/include/python3.8
 export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
