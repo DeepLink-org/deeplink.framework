@@ -12,9 +12,9 @@ function check_and_clone_repository() {
     fi
     if [ -d "$repo_path" ]; then
         cd $repo_name
+        git fetch
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ "$current_branch" == "$branch_name" ]; then
-            git fetch
             if [ $(git rev-list HEAD...origin/$branch_name --count) != 0 ]; then
                 echo "Updating $repo_name $branch_name from remote..."
                 git pull origin $branch_name
