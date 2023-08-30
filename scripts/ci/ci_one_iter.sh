@@ -20,6 +20,7 @@ function check_and_clone_repository() {
     else
         cd $current_path && rm -rf  $repo_name
         git clone -b ${branch_name} ${clone_url}
+        echo "$repo_name $branch_name is cloned"
         cd ..
     fi
 }
