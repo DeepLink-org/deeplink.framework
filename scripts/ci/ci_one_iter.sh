@@ -7,7 +7,7 @@ function clone_needed_repo() {
     #define some version
     MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
     MMENGINE_VERSION=v0.7.4
-    MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
+    MMPRETRAIN_VERSION=slc/test_shuffle
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
     MMSEGMENTATION_VERSION=dipu_v1.0.0_one_iter_tool
     MMPOSE_VERSION=dipu_v1.0.0_one_iter_tool
