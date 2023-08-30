@@ -851,6 +851,7 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiUniformInp(ctx, self, from, to)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
