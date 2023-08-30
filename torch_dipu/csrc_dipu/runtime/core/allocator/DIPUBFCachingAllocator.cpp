@@ -128,7 +128,6 @@ private:
     std::vector<StreamSetHandle> streamSets_;
 
     using mutex_t = SpinMutex;
-    //using mutex_t = std::recursive_mutex;
     mutable mutex_t mut_;
 
     static size_t roundBytes(size_t nbytes) {
@@ -472,9 +471,7 @@ public:
         empty_cache();
         block = impl->allocateRaw(size);
         ptr = std::get<0>(block);
-        if (ptr == nullptr) {
-            throw std::runtime_error("no device memory available");
-        }
+        TORCH_CHECK(ptr != nullptr, "no memory available")
     }
 
     int id = std::get<1>(block);
