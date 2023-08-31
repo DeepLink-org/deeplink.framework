@@ -130,10 +130,10 @@ class TestGenerator(TestCase):
         print("randn allclose success")
 
     def test_bernoulli(self):
-        x = torch.empty(100, device='cuda')
+        x = torch.ones(100, device='cuda')
         torch.manual_seed(1)
         t1 = x.bernoulli_(0.5)
-        x = torch.empty(100, device='cuda')
+        x = torch.zeros(100, device='cuda')
         torch.manual_seed(1)
         t2 = x.bernoulli_(0.5)
         assert torch.allclose(t1, t2)
