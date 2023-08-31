@@ -12,23 +12,18 @@ function check_and_clone_repository() {
     fi
     if [ -d "$repo_path" ]; then
         cd $repo_name
-        git fetch
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$current_branch" == "$branch_name" ]; then
-            if [ $(git rev-list HEAD...origin/$branch_name --count) != 0 ]; then
-                echo "Updating $repo_name $branch_name from remote..."
-                git pull origin $branch_name
-            else
-                echo "$repo_name $branch_name is right"
-            fi
+        current_branch=$(git rev-parse --abbrev-ref HEAD)_$(git rev-parse HEAD)_$(git describe --tags 2>/dev/null || echo "none")
+        if [[ "$current_branch" =~ "$branch_name" ]]; then
+            echo "$repo_name $branch_name is right"
+            cd ..
         else
-            echo "Switching to $branch_name in $repo_name..."
-            git checkout $branch_name
-            git pull origin $branch_name
+            git checkout main && git pull && git checkout $branch_name 
+            cd ..
         fi
         cd ..
     else
-        git clone -b ${branch_name} ${clone_url}
+        cd $current_path && rm -rf  $repo_name
+        git clone -b ${branch_name} ${clone_url} || (git clone ${clone_url} && cd $repo_name && git checkout ${branch_name} && cd ..)
     fi
 }
 
