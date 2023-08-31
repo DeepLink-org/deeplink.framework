@@ -20,7 +20,6 @@ function check_and_clone_repository() {
             git checkout main && git pull && git checkout $branch_name 
             cd ..
         fi
-        cd ..
     else
         cd $current_path && rm -rf  $repo_name
         git clone -b ${branch_name} ${clone_url} || (git clone ${clone_url} && cd $repo_name && git checkout ${branch_name} && cd ..)
