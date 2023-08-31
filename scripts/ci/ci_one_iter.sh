@@ -16,11 +16,13 @@ function check_and_clone_repository() {
         if [[ "$current_branch" =~ "$branch_name" ]]; then
             echo "$repo_name $branch_name is right"
             cd ..
+        else
+            git checkout main && git pull && git checkout $branch_name 
+            cd ..
         fi
     else
         cd $current_path && rm -rf  $repo_name
-        git clone -b ${branch_name} ${clone_url}
-        cd ..
+        git clone -b ${branch_name} ${clone_url} || (git clone ${clone_url} && cd $repo_name && git checkout ${branch_name} && cd ..)
     fi
 }
 
