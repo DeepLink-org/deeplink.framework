@@ -56,12 +56,51 @@ namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }
 
+void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stack* stack) {
+  static int level = []() {
+    const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+    return  env_ptr ? std::atoi(env_ptr) : 0;
+  }();
+
+  if (level < 2) {
+    return;
+  }
+  const auto name = c10::toString(op.operator_name());
+  printf("--%-50s %-30s \n", ("[" + name + "]:").data(), "dipu_fallback");
+
+  auto& schema_args = op.schema().arguments();
+  const auto num_arguments = schema_args.size();
+  auto arguments = torch::jit::last(stack, num_arguments);
+  const auto arguments_begin = stack->size() - num_arguments;
+  for (const auto idx : c10::irange(arguments.size())) {
+    std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
+    const auto& ivalue = arguments[idx];
+    if (ivalue.isTensor()) {
+      const auto& tensor = ivalue.toTensor();
+      if (tensor.defined()) {
+        std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
+            << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
+            << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
+        if (level > 2) {
+            std::cout << std::endl << tensor;
+        }
+      } else {
+        std::cout << "undefined";
+      }
+      std::cout << std::endl;
+    } else {
+      std:: cout << ivalue << std::endl;
+    }
+  }
+}
+
 }
 
 namespace at {
 
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack) {
+  dipu::dump_fallback_op_args(op, stack);
   const auto name = c10::toString(op.operator_name());
 
   TORCH_CHECK(name.find("foreach") == std::string::npos,

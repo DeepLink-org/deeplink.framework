@@ -53,7 +53,7 @@ def extract_op_info(op):
     op_info = dict()
     op_name = re.search('(?<=(\-\-\[)).*(?=\])', op).group().strip()
     op_info['aten_name'] = op_name
-    op_info['diopi_fun'] = re.search('diopi.*',op).group().strip()
+    op_info['diopi_fun'] = re.search('[\w\d_]+', op[op.find(']:'):]).group().strip()
     op_info['args'] = extract_op_arg(op)
     return op_info
 
