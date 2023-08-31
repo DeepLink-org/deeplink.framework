@@ -129,6 +129,16 @@ class TestGenerator(TestCase):
         assert not torch.allclose(t1, t2)
         print("randn allclose success")
 
+    def test_bernoulli(self):
+        x = torch.empty(100, device='cuda')
+        torch.manual_seed(1)
+        t1 = x.bernoulli_(0.5)
+        x = torch.empty(100, device='cuda')
+        torch.manual_seed(1)
+        t2 = x.bernoulli_(0.5)
+        assert torch.allclose(t1, t2)
+        print(".bernoulli allclose success")
+
     def test_randperm(self):
         if torch_dipu.dipu.vendor_type == "MLU":
             return
