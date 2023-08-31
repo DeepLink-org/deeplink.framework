@@ -3,11 +3,11 @@ camb:
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet50_8xb32_in1k"
     - model_cfg: "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin-large_16xb64_in1k"
     - model_cfg: "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vit-base-p17_64xb64_in1k-384px"
-    - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k_bs256 --no-pin-memory"
+    - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k --no-pin-memory"
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet-b2_8xb32_in1k"
     - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k"
-    - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenet-v2-1x_16xb64_in1k_2566"
+    - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenet-v2-1x_16xb64_in1k"
       # fallback_op_list: "conv2d,div.out,native_batch_norm,mean.out"
 
     # # mmdetection
@@ -55,7 +55,7 @@ cuda:
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k"
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenet-v2_8xb32_in1k"
     - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k"
-    - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenet-v2-1x_16xb64_in1k_2566"
+    - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenet-v2-1x_16xb64_in1k"
       # fallback_op_list: "native_batch_norm*"
     # mmdetection
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco" 
