@@ -1656,3 +1656,10 @@
   custom_code_at_the_beginning: |
     auto out = at::empty_like(input);
   interface: diopiBatchNormElemt(ctx, out, input, weight, bias, mean, invstd, eps);
+  
+- schema: smooth_l1_loss.out(Tensor self, Tensor target, int reduction=Mean, float beta=1.0, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiSmoothL1Loss(ctx, out, self, target, static_cast<diopiReduction_t>(reduction), static_cast<double>(beta));
+
+- schema: smooth_l1_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, int reduction, float beta, *, Tensor(a!) grad_input) -> Tensor(a!)
+  interface: diopiSmoothL1LossBackward(ctx, grad_input, grad_output, self, target, static_cast<diopiReduction_t>(reduction), static_cast<double>(beta));
+  
