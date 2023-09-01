@@ -69,6 +69,12 @@ def process_one_iter(model_info):
         work_dir = ""
         opt_arg = ""
         package_name = "diengine"
+    elif("trans" in p1):
+        train_path = p1+"/"+p2
+        config_path = ""
+        work_dir = "--work-dir=./one_iter_data/" + p3
+        opt_arg = ""
+        package_name = "transformer"
     else:
         print("Wrong model info in  {}".format(model_info), flush = True)
         exit(1)

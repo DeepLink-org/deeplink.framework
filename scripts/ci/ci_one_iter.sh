@@ -29,7 +29,7 @@ function check_and_clone_repository() {
 function clone_needed_repo() {
     set -e
     # clone some repositories
-    MMCV_VERSION=99a8d05766e447d37a01e204339de24cef45895b
+    MMCV_VERSION=ee93530acc675231014b92a58fd6e4a59e27cc13
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
@@ -42,6 +42,7 @@ function clone_needed_repo() {
     SMART_VERSION=dev_for_mmcv2.0
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
+    TRANSFORMERS=dipu_v4.31.0_one_iter_tool
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -55,6 +56,7 @@ function clone_needed_repo() {
     check_and_clone_repository "mmagic" ${MMAGIC}
     check_and_clone_repository "mmyolo" ${MMYOLO}
     check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
+    check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
     cd ..
 }
@@ -102,10 +104,15 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
         export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
         export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
         export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
@@ -140,6 +147,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
         ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/models_code/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
@@ -158,6 +166,8 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
+
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
