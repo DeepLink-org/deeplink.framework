@@ -72,7 +72,7 @@ def process_one_iter(model_info):
     elif("trans" in p1):
         train_path = p1+"/"+p2
         config_path = ""
-        work_dir = "--work-dir=./one_iter_data/" + p3
+        work_dir = ""
         opt_arg = ""
         package_name = "transformer"
     else:
