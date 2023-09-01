@@ -72,7 +72,7 @@ public:
           if (i == 0) {
             empty_cache();
           } else {
-            throw std::runtime_error("no device memory available");
+            TORCH_CHECK(false, "no memory available")
           }
         }
       }

@@ -58,7 +58,7 @@ def demo_basic_ddp(rank, world_size, port):
         in1 = torch.randn(20, 10).to(dev1)
         in1.requires_grad = True
         outputs = ddp_model(in1)
-        outputs.backward(torch.ones_like(outputs))
+        outputs.backward(torch.ones_like(outputs), retain_graph = True)
 
         labels = torch.randn(20, 5).to(dev1)
         o1 = loss_fn(outputs, labels)

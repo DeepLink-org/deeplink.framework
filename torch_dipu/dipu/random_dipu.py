@@ -27,7 +27,7 @@ def get_rng_state(device: Union[int, str, torch.device] = 'dipu') -> Tensor:
             Default: ``'dipu'`` (i.e., ``torch.device('dipu')``, the current dipu device).
 
     """
-    idx = _get_device_index(device, optional=True)
+    idx = _get_device_index(device, optional = True)
     if idx is None:
         idx = current_device()
     return _C._get_rng_state(idx)
@@ -54,7 +54,7 @@ def set_rng_state(new_state: Tensor, device: Union[int, str, torch.device] = 'di
         come into effect.
     """
     new_state_copy = new_state.clone(memory_format=torch.contiguous_format)
-    idx = _get_device_index(device)
+    idx = _get_device_index(device, optional = True)
     if idx is None:
         idx = current_device()
 

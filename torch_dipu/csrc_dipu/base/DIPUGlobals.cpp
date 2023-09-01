@@ -5,6 +5,7 @@
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include <iostream>
 #include <ctime>
+#include <atomic>
 namespace dipu {
 
 const char* getDipuCommitId() {
@@ -17,18 +18,53 @@ static void printPromptAtStartup() {
   std::cout << time_str.substr(0, time_str.size() - 1) << " dipu | git hash:" << getDipuCommitId() << std::endl;
 }
 
-void initResource() {
+static void initResourceImpl() {
+  static std::atomic_bool called(false);
+  if (called == true) {
+    return;
+  }
+  called = true;
+
   printPromptAtStartup();
   devproxy::initializeVendor();
   initCachedAllocator();
   at::DIPUOpRegister::register_op();
 }
 
-void releaseAllResources() {
+static void releaseAllResourcesImpl() {
+  static std::atomic_bool called(false);
+  if (called == true) {
+    return;
+  }
+  called = true;
   releaseAllGenerator();
   releaseAllDeviceMem();
   releaseAllEvent();
   devproxy::finalizeVendor();
+}
+
+namespace {
+  class DIPUIniter {
+  public:
+    DIPUIniter() {
+      initResourceImpl();
+    }
+
+    ~DIPUIniter() {
+      releaseAllResourcesImpl();
+    }
+  };
+} // namespace
+
+void initResource() {
+ initResourceImpl();
+ /* In some cases(eg: spawn process), the resource cleanup function we registered will not be executed,
+    so we use the destructor of the static variable in the function here just in case. */
+ static DIPUIniter initer;
+}
+
+void releaseAllResources() {
+ releaseAllResourcesImpl();
 }
 
 } // namespace dipu

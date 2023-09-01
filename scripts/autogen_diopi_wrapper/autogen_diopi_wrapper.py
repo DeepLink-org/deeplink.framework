@@ -369,9 +369,9 @@ def create_call_cpp_function_code_from_schema(schema):
     return code
 
 
-def create_call_aten_cpu_cpp_function_code_from_schema(schema):
+def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
+    schema = fun_config['schema']
     opname = get_op_name_from_schema(schema)
-    #opname = re.sub('\.[\w]+_out', '_outf', opname)
     opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
     opname = re.sub('\.out[\w_\d]*', '_outf', opname)
     opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
@@ -397,8 +397,11 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
         sym_int_process_code = create_int_array_process_code(sym_int_array_params) + '\n'
     else:
         sym_int_process_code = ''
-
-    code = 'auto ' + ' result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+    if fun_config.get('custom_fallback', False) == True:
+        opname = 'custom_fallback_' + create_fun_name_from_schema(schema)
+    else:
+        opname = 'at::' + opname
+    code = 'auto ' + ' result_cpu = ' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
     for sym_int_param in sym_int_array_params:
         code = code.replace(sym_int_param, sym_int_param + 'Vector')
 
@@ -469,6 +472,7 @@ def create_autograd_function_name(op_name):
     for patten in re.findall('[_\.][a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
     op_name = op_name.replace('_', 'Inp')
+    op_name = op_name.replace('.', '')
     return op_name + 'Function'
 
 def create_save_for_backward_code(args_name_list):
@@ -676,7 +680,7 @@ def functions_code_gen(fun_config):
         autocompare_code = autocompare_template.substitute(
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(raw_fun_name, auto_compare_fun_name)],
             transform_input_to_cpu_code=[create_transform_input_to_cpu_code(fun_config)],
-            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_schema(fun_config['schema'])],
+            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_config(fun_config)],
             comment=[fun_config['schema']],
             execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
             transform_result_to_cpu_code=[],

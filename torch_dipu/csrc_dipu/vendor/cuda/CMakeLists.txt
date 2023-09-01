@@ -18,9 +18,12 @@ set(VENDOR_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS} ${NCCL_INCLUDE_DIR} PARENT_SCOPE)
 set(VENDOR_LIB_DIRS ${NCCL_LIBRARIES} PARENT_SCOPE)
 
 
-file(GLOB SRC_FILES  *.cpp)
-set(VENDOR_FILES  ${SRC_FILES} PARENT_SCOPE)
+if (CUDA_FOUND)
+    file(GLOB PATCH_SRC_FILES  patch/*.cpp)
+endif()
 
+file(GLOB SRC_FILES  *.cpp)
+set(VENDOR_FILES  ${SRC_FILES} ${PATCH_SRC_FILES} PARENT_SCOPE)
 
 # now dipu not contains device code, but may be in future.
 # include(cmake/CUDAComputeArch.cmake)

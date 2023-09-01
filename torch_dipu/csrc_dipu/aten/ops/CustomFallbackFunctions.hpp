@@ -99,6 +99,49 @@ static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_
   return std::tie(out, save_mean, save_invstd);
 }
 
+static at::Tensor custom_fallback_dipu_convolution_overrideable(const at::Tensor& input, const at::Tensor& weight, const c10::optional<at::Tensor>& bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups) {
+  auto input_cpu = input.cpu();
+  auto weight_cpu = weight.cpu();
+  auto bias_cpu = dipu_to_cpu(bias);
+  auto result = at::convolution(input_cpu, weight_cpu, bias_cpu, stride, padding, dilation, transposed, output_padding, groups);
+  return result.to(input.device());
+}
+
+static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convolution_backward_overrideable(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool, 3> output_mask) {
+  auto device = input.device();
+  auto grad_output_cpu = grad_output.cpu();
+  auto input_cpu = input.cpu();
+  auto weight_cpu = weight.cpu();
+  auto output_mask_temp = output_mask;
+  output_mask_temp[2] = false;
+  auto result = at::convolution_backward(grad_output_cpu, input_cpu, weight_cpu, c10::nullopt, stride, padding, dilation, transposed, output_padding, groups, output_mask_temp);
+
+  at::Tensor grad_input, grad_weight, grad_bias;
+
+  if (output_mask[0]) {
+    grad_input = std::get<0>(result).to(device);
+  }
+  if (output_mask[1]) {
+    grad_weight = std::get<1>(result).to(device);
+  }
+
+  if (output_mask[2]) {
+    std::vector<int64_t> bias_sizes{grad_output.size(1)};
+    at::Tensor grad_bias_cpu = at::empty(bias_sizes, grad_output.options().device(c10::DeviceType::CPU));
+    grad_bias = at::empty(bias_sizes, grad_output.options());
+    at::Tensor atTmp = grad_output_cpu;
+    int64_t size = grad_output_cpu.dim() - 1;
+    while (grad_bias_cpu.dim() != size) {
+      atTmp = at::sum(atTmp, -1, false);
+      size -= 1;
+    }
+    atTmp = at::sum(atTmp, 0, false);
+    grad_bias_cpu = atTmp;
+    grad_bias = grad_bias_cpu.to(device);
+  }
+  return std::make_tuple(grad_input, grad_weight, grad_bias);
+}
+
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm(const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt, const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training, double momentum, double eps) {
@@ -124,6 +167,47 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_nativ
   return custom_fallback_dipu_native_batch_norm_out(
       input, weight_opt, bias_opt, running_mean_opt, running_var_opt,
       training, momentum, eps, out, save_mean, save_invstd);
+}
+
+static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_linear_backward(const at::Tensor& input, const at::Tensor& grad_output, const at::Tensor& weight, ::std::array<bool, 3> output_mask) {
+    auto input_cpu = input.cpu();
+    auto grad_output_cpu = grad_output.cpu();
+    auto weight_cpu = weight.cpu();
+
+    at::Tensor grad_input_cpu, grad_weight_cpu, grad_bias_cpu;
+    at::Tensor grad_input, grad_weight, grad_bias;
+    int64_t dims = input.dim();
+    const auto device = input.device();
+
+    if (output_mask[0]) {
+      auto grad_input_cpu = at::matmul(grad_output_cpu, weight_cpu);
+      grad_input = grad_input_cpu.to(device);
+    }
+    if (output_mask[1]) {
+        auto grad_weight_cpu = at::matmul(input_cpu.transpose(dims - 2, dims - 1), grad_output_cpu);
+        grad_weight_cpu = grad_weight_cpu.transpose(dims - 2, dims - 1);
+        if (dims > 2) {
+            std::vector<int64_t> sumDim;
+            for (int i = 0; i < dims - 2; ++i) {
+                sumDim.push_back(i);
+            }
+            at::IntArrayRef atSumDim(sumDim.data(), sumDim.size());
+            grad_weight_cpu = at::sum(grad_weight_cpu, atSumDim);
+            grad_weight = grad_weight_cpu.to(device);
+        }
+    }
+
+    if (output_mask[2]) {
+        std::vector<int64_t> sumDim;
+        for (int i = 0; i < dims - 1; ++i) {
+            sumDim.push_back(i);
+        }
+        at::IntArrayRef atSumDim(sumDim.data(), sumDim.size());
+        grad_bias_cpu = at::sum(grad_output_cpu, atSumDim);
+        grad_bias = grad_bias_cpu.to(device);
+    }
+
+  return std::make_tuple(grad_input, grad_weight, grad_bias);
 }
 
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm_backward(
