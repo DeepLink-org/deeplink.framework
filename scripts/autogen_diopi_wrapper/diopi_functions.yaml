@@ -415,7 +415,7 @@
 
 
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  autograd: True
+  register_op: False
   custom_code_at_the_beginning: |
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -442,54 +442,8 @@
     outputs[0] = result;
     return outputs;
 
-- schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  register_op: False
-  size_attr: [stride, padding, dilation, bias_sizes]
-  device: [camb]
-  custom_code_at_the_beginning: |
-    at::Tensor grad_input;
-    at::Tensor grad_weight;
-    at::Tensor grad_bias;
-    grad_input = at::empty(input.sizes(), input.options());
-    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-    if (output_mask[2]) {
-        grad_bias = at::empty(bias_sizes, grad_output.options());
-    }
-  custom_code_before_call_diopi: |
-    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  custom_code_before_return: |
-    at::Tensor grad_input_empty;
-    at::Tensor grad_weight_empty;
-    if (!output_mask[0]) {
-        grad_input = grad_input_empty;
-    }
-    if (!output_mask[1]) {
-        grad_weight = grad_weight_empty;
-    }
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
-
-- schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  register_op: False
-  size_attr: [stride, padding, dilation, bias_sizes]
-  device: [-camb, all]
-  custom_code_at_the_beginning: |
-    at::Tensor grad_input;
-    at::Tensor grad_weight;
-    at::Tensor grad_bias;
-    if (output_mask[0]) {
-      grad_input = at::empty(input.sizes(), input.options());
-    }
-    if (output_mask[1]) {
-      grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-    }
-    if (output_mask[2]) {
-        grad_bias = at::empty(bias_sizes, grad_output.options());
-    }
-  custom_code_before_call_diopi: |
-    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
-  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
-
-- schema: conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor
+- schema: "convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
+  custom_fallback: True
   size_attr: [stride, padding, dilation]
   custom_code_at_the_beginning: |
     int64_t batch_size = input.size(0);
@@ -502,35 +456,28 @@
     c10::SmallVector<int64_t, 8> output_size = {batch_size, out_channel, out_height, out_width};
     at::Tensor out = at::empty(output_size, input.options());
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
-  autograd: True
-  forward_process_code: |
-    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
-  saved_data: [stride, padding, dilation, groups, bias_has_value, input, weight]
-  backward_schema: "convolution_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  cal_grad_code: |
-      auto grad_output = grad_outputs.at(0);
-      auto input = input_.toTensor();
-      auto weight = weight_.toTensor();
-      auto padding = padding_.toIntVector();
-      auto stride = stride_.toIntVector();
-      auto dilation = dilation_.toIntVector();
-      bool bias_has_value = bias_has_value_.toBool();
-      auto groups = groups_.toInt();
-      std::vector<int64_t> bias_sizes;
-      if (bias_has_value) {
-        bias_sizes.push_back(grad_output.size(1));
-      }
-      std::array<bool, 3> output_mask;
-      output_mask[0] = input.requires_grad();
-      output_mask[1] = weight.requires_grad();
-      output_mask[2] = bias_has_value;
-      bool transposed = false;
-      at::IntArrayRef output_padding{};
-  backward_return_code: |
-    std::vector<at::Tensor>  outputs = {
-          std::get<0>(result), std::get<1>(result), std::get<2>(result),
-          at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
-    return outputs;
+
+- schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  custom_fallback: True
+  size_attr: [stride, padding, dilation, bias_sizes]
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input;
+    at::Tensor grad_weight;
+    at::Tensor grad_bias;
+    std::vector<int64_t> bias_sizes;
+    if (output_mask[0]) {
+      grad_input = at::empty(input.sizes(), input.options());
+    }
+    if (output_mask[1]) {
+      grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    }
+    if (output_mask[2]) {
+      bias_sizes.push_back(grad_output.size(1));
+      grad_bias = at::empty(bias_sizes, grad_output.options());
+    }
+  custom_code_before_call_diopi: |
+    ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
+  interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   register_op: False
@@ -591,66 +538,26 @@
           at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor()};
     return outputs;
 
-- schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
+- schema: "native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)"
   custom_code_at_the_beginning: |
-    at::Tensor out = at::empty_like(input);
+    at::Tensor out0 = at::empty_like(input);
+    at::Tensor out1;
+    bool train_ = train.value_or(false);
+    if (train_) {
+      out1 = at::empty(input.sizes(), input.options().dtype(at::kByte));;
+    }
     diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
-  register_op: False
-  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
+  interface: diopiDropout(ctx, out0, out1, input, p, train_, generatorDiopiGenerator)
 
-- schema: "dropout(Tensor input, float p, bool train) -> Tensor"
+- schema: "native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor"
+  custom_code_at_the_beginning: |
+    at::Tensor out = grad_output * mask * scale;
+    return out;
+  interface: diopiMul(ctx, out, out, out)
+
+- schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
-  custom_code_at_the_beginning: |
-    auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
-    at::Tensor out = at::empty_like(input);
-    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
-  interface: diopiDropout(ctx, out, mask, input, p, train, generatorDiopiGenerator)
-  outs: [mask]
-  autograd: True
-  saved_data: [p, mask]
-  forward_schema: "dropout_impl(Tensor input, float p, bool train, *, Tensor(a!) mask) -> Tensor"
-  forward_process_code: |
-    auto mask = at::empty(input.sizes(), input.options().dtype(at::kByte));
-    at::Tensor out = at::empty_like(input);
-  cal_grad_code: |
-        auto p = p_.toDouble();
-        double p1m = 1. - p;
-        double scale = p1m == 0 ? 0. : 1. / p1m;
-        auto mask = mask_.toTensor();
-        at::Tensor out = grad_outputs[0] * mask * scale;
-  backward_return_code: |
-    std::vector<at::Tensor> outputs(6);
-    outputs[0] = out;
-    return outputs;
-
-- schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
-  register_op: False
-  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
-
-- schema: "dropout_(Tensor(a!) self, float p, bool train) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
-    diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
-  outs: [mask]
-  interface: diopiDropoutInp(ctx, self, mask, p, train, generatorDiopiGenerator)
-  autograd: True
-  forward_process_code: |
-    auto mask = at::empty(self.sizes(), self.options().dtype(at::kByte));
-  saved_data: [p, mask]
-  forward_schema: "dropout__impl(Tensor(a!) self, Tensor(b!) mask, float p, bool train) -> Tensor(a!)"
-  cal_grad_code: |
-    auto p = p_.toDouble();
-    double p1m = 1. - p;
-    double scale = p1m == 0 ? 0. : 1. / p1m;
-    auto mask = mask_.toTensor();
-    at::Tensor out = grad_outputs[0] * mask * scale;
-  backward_return_code: |
-    std::vector<at::Tensor> outputs(6);
-    outputs[0] = out;
-    return outputs;
-  wrappter_custom_return: return self;
+  interface: diopiBernoulliScalar(ctx, self, p, generatorDiopiGenerator);
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLog(ctx, out, self)
@@ -732,35 +639,27 @@
 
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+  custom_fallback: True
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(input.sizes(), input.options());
-    auto grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
-    at::Tensor grad_bias;
-    bool bias_has_value = output_mask[2];
-    if (bias_has_value) {
+    at::Tensor grad_input, grad_weight, grad_bias;
+    if (output_mask[0]) {
+      grad_input = at::empty(input.sizes(), grad_output.options());
+    }
+    if (output_mask[1]) {
+      grad_weight = at::empty(weight.sizes(), grad_output.options());
+    }
+    if (output_mask[2]) {
       grad_bias = at::empty({grad_output.size(-1)}, grad_output.options());
     }
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
-  autograd: True
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
     auto out = at::empty(output_size, input.options());
   interface: diopiLinear(ctx, out, input, weight, bias)
-  forward_process_code: |
-    bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
-    std::array<bool, 3> output_mask{input.requires_grad(), weight.requires_grad(), bias_has_value};
-  saved_data: [output_mask, input, weight]
-  cal_grad_code: |
-    auto output_mask = output_mask_.to<std::array<bool, 3>>();
-    auto input = input_.toTensor();
-    auto weight = weight_.toTensor();
-    auto grad_output = grad_outputs[0];
-  backward_schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  backward_return_code: |
-    return {std::get<0>(result), std::get<1>(result), std::get<2>(result)};
+
 - schema: "_log_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLogSoftmaxBackward(ctx, out, grad_output, output, dim)
 
@@ -925,6 +824,7 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiUniformInp(ctx, self, from, to, generator)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
@@ -1337,7 +1237,6 @@
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
-  force_fallback: False
   interface: diopiSilu(ctx, out, self)
 
 - schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
