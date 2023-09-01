@@ -42,7 +42,7 @@ function clone_needed_repo() {
     SMART_VERSION=dev_for_mmcv2.0
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
-    TRANSFORMERS=dipu_v4.31.0_one_iter_tool
+    TRANSFORMERS=dipu_v4.28.1_one_iter_tool
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
