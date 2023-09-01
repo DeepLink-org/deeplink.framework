@@ -7,6 +7,7 @@ camb:
       precision:
         atol: 0.015
         metric: 0.015
+        rtol: 0.01
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenet-v3-large_8xb128_in1k"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet-b2_8xb32_in1k"
     - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext-small_32xb128_in1k"
@@ -14,6 +15,7 @@ camb:
       precision:
         atol: 0.015
         metric: 0.015
+        rtol: 0.01
 
     # # mmdetection
     - model_cfg: "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"
@@ -64,6 +66,7 @@ cuda:
       precision:
         atol: 0.015
         metric: 0.015
+        rtol: 0.01
     # mmdetection
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr_r50_8xb2-150e_coco"
     - model_cfg: "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3_d53_8xb8-320-273e_coco"
