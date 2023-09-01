@@ -105,6 +105,8 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
         export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
         export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+        # set the environment variable for the transformers repository
+        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
         export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
@@ -113,6 +115,8 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
         export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
         export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+        # set the environment variable for the transformers repository
+        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
@@ -147,7 +151,6 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
         ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
         ln -s /mnt/lustre/share_data/parrots.tester.s.03/models_code/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
-        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
@@ -166,7 +169,6 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
-        export HF_HOME=/mnt/lustre/share_data/platform_ci/huggingface
 
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
@@ -191,6 +193,3 @@ case $1 in
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac
-
-
-
