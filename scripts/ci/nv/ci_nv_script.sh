@@ -9,7 +9,7 @@ function build_dipu_py() {
     export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
 }
 
 function config_dipu_nv_cmake() {
@@ -37,7 +37,6 @@ function autogen_diopi_wrapper() {
 
 function build_diopi_lib() {
     cd third_party/DIOPI/
-    git checkout .
     cd impl
     which cmake
     sh scripts/build_impl.sh clean
@@ -52,11 +51,12 @@ function build_dipu_lib() {
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     echo  "PYTORCH_DIR:${PYTORCH_DIR}"
     echo  "PYTHON_INCLUDE_DIR:${PYTHON_INCLUDE_DIR}"
+    export DIOPI_BUILD_TESTRT=1
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_nv_cmake 2>&1 | tee ./cmake_nv.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
 case $1 in

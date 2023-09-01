@@ -104,9 +104,7 @@ class CppExtensionBuilder:
 
     extra_link_args = []
 
-    # DEBUG = (os.getenv('DEBUG', default='').upper() in ['ON', '1', 'YES', 'TRUE', 'Y'])
-    # always set on in poc
-    DEBUG = "ON"
+    DEBUG = (os.getenv('DEBUG', default='').upper() in ['ON', '1', 'YES', 'TRUE', 'Y'])
 
     extra_compile_args = [
         '-std=c++14',
@@ -123,7 +121,7 @@ class CppExtensionBuilder:
 
     @staticmethod
     def genDIPUExt():
-        return CppExtensionBuilder.extcamb('torch_dipu._C',  
+        return CppExtensionBuilder.extcamb('torch_dipu._C',
             sources=["torch_dipu/csrc_dipu/stub.cpp"],
             libraries=["torch_dipu_python", "torch_dipu"],
             include_dirs= CppExtensionBuilder.include_directories,
@@ -131,7 +129,7 @@ class CppExtensionBuilder:
             library_dirs=["./build/torch_dipu/csrc_dipu"],
             extra_link_args= CppExtensionBuilder.extra_link_args + ['-Wl,-rpath,$ORIGIN/lib'],
         )
-    
+
     @staticmethod
     def extcamb(name, sources, *args, **kwargs):
         r'''
@@ -176,7 +174,7 @@ def start_debug():
         print("Waiting for debugger attach at %s:%s ......" % (host, port), flush=True)
         ptvsd.enable_attach(address=(host, port), redirect_output=True)
         ptvsd.wait_for_attach()
- 
+
 # start_debug()
 
 # placeholder: autogen design.....
@@ -193,7 +191,7 @@ setup(
         CppExtensionBuilder.genDIPUExt(),
     ],
     cmdclass={
-        # build_clib not work now, need enhance 
+        # build_clib not work now, need enhance
         'build_clib': CPPLibBuild,
         'build_ext': BuildExt,
     })

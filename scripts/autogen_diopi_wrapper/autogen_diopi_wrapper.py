@@ -249,6 +249,12 @@ def get_function_optional_scalar_args_from_schema(schema):
     return re.findall('Scalar *\? +([\w\d_]+)', param_list)
 
 
+def get_function_optional_generator_args_from_schema(schema):
+    param_list = schema[schema.find('(') + 1 : schema.find('->')].strip()
+    param_list = param_list[0:param_list.rfind(')')]
+    return re.findall('Generator *\? +([\w\d_]+)', param_list)
+
+
 def get_function_int_array_args_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
     int_arrays = []
@@ -363,9 +369,9 @@ def create_call_cpp_function_code_from_schema(schema):
     return code
 
 
-def create_call_aten_cpu_cpp_function_code_from_schema(schema):
+def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
+    schema = fun_config['schema']
     opname = get_op_name_from_schema(schema)
-    #opname = re.sub('\.[\w]+_out', '_outf', opname)
     opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
     opname = re.sub('\.out[\w_\d]*', '_outf', opname)
     opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
@@ -391,8 +397,11 @@ def create_call_aten_cpu_cpp_function_code_from_schema(schema):
         sym_int_process_code = create_int_array_process_code(sym_int_array_params) + '\n'
     else:
         sym_int_process_code = ''
-
-    code = 'auto ' + ' result_cpu = at::' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+    if fun_config.get('custom_fallback', False) == True:
+        opname = 'custom_fallback_' + create_fun_name_from_schema(schema)
+    else:
+        opname = 'at::' + opname
+    code = 'auto ' + ' result_cpu = ' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
     for sym_int_param in sym_int_array_params:
         code = code.replace(sym_int_param, sym_int_param + 'Vector')
 
@@ -516,8 +525,19 @@ def create_device_check_code(fun_config):
     if len(tensors) > 0:
         code += "}"
 
-
     return code
+
+def create_optional_generator_process_code(arg_name):
+    process_template = CodeTemplate(
+"""
+::diopiGeneratorHandle_t ${arg_name}DiopiGenerator = (${arg_name}.has_value() && ${arg_name}.value().defined()) ? toDiopiGeneratorHandle(${arg_name}) : toDiopiGeneratorHandle(getDefaultDIPUGenerator());
+"""
+    )
+    process_code = process_template.substitute(
+        arg_name=[arg_name],
+    )
+    return process_code
+
 
 file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
@@ -576,8 +596,9 @@ def functions_code_gen(fun_config):
         attrs_process_code += create_optional_scalar_process_code(scalar_param)
         diopi_fun_call_code = re.sub('([,\(] *&? *)' + scalar_param.strip() + '( *[,\)])', R'\1' + f"{scalar_param}DiopiScalarPtr" + R'\2', diopi_fun_call_code)
 
-
-
+    for generator_param in get_function_optional_generator_args_from_schema(fun_config['schema']):
+        attrs_process_code += create_optional_generator_process_code(generator_param)
+        diopi_fun_call_code = re.sub('([,\(] *&? *)' + generator_param.strip() + '( *[,\)])', R'\1' + f"{generator_param}DiopiGenerator" + R'\2', diopi_fun_call_code)
 
     int_array_list = get_function_int_array_args_from_schema(fun_config['schema'])
     attrs_process_code += create_int_array_process_code(int_array_list)
@@ -659,7 +680,7 @@ def functions_code_gen(fun_config):
         autocompare_code = autocompare_template.substitute(
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema']).replace(raw_fun_name, auto_compare_fun_name)],
             transform_input_to_cpu_code=[create_transform_input_to_cpu_code(fun_config)],
-            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_schema(fun_config['schema'])],
+            execute_op_on_cpu_code=[create_call_aten_cpu_cpp_function_code_from_config(fun_config)],
             comment=[fun_config['schema']],
             execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
             transform_result_to_cpu_code=[],

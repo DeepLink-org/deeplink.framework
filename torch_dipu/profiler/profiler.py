@@ -34,7 +34,7 @@ class dipu_profiler(object):
         kwargs['activities'] = [ProfilerActivity.CPU]
         self._torch_profiler = profile(*args, **kwargs)
         self._running = False
-    
+
     def __enter__(self, *args, **kwargs):
         self._start()
         self._torch_profiler.__enter__(*args, **kwargs)
@@ -54,7 +54,7 @@ class dipu_profiler(object):
 
     def step(self, *args, **kwargs):
         self._torch_profiler.step(*args, **kwargs)
-    
+
     def _start(self):
         if not self._running:
             _C.profile_start()
@@ -112,7 +112,7 @@ class dipu_profiler(object):
                         if not evt.is_remote
                         else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "',
                         '"input shape": ' + ('"%s"' % str(input_shape)),
-                        
+
                     )
                 )
                 for k in evt.kernels:
@@ -128,6 +128,8 @@ class dipu_profiler(object):
                             '"cat": "cpu_to_cuda", '
                             '"args": {}}, ' % (evt.trace_name, evt.time_range.start,
                                                evt.thread, next_id))
+                    if not hasattr(k, 'trace_name'):
+                        continue
                     f.write(
                         '{"name": "%s", '
                         '"ph": "X", '
