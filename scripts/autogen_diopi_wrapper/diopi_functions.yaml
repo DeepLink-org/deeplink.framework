@@ -1478,13 +1478,18 @@
     at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
     at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   interface: diopiCTCLoss(ctx, out, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths, target_lengths, blank, reductionDiopi, zero_infinity)
+  forward_process_code: |
+    auto targets_dev = targets.to(log_probs.device());
+    auto input_lengths_dev = input_lengths.to(log_probs.device());
+    auto target_lengths_dev = target_lengths.to(log_probs.device());
+  forward_schema: ctc_loss_tensor(Tensor log_probs, Tensor targets_dev, Tensor input_lengths_dev, Tensor target_lengths_dev, int blank=0, int reduction=Mean, bool zero_infinity=False) -> Tensor
   backward_schema: "ctc_loss_tensor_backward(Tensor grad_output, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   saved_data: [log_probs, targets, input_lengths, target_lengths, blank, reduction, zero_infinity]
   cal_grad_code: |
     auto log_probs = log_probs_.toTensor();
-    auto targets = targets_.toTensor();
-    auto input_lengths = input_lengths_.toTensor();
-    auto target_lengths = target_lengths_.toTensor();
+    auto targets = targets_.toTensor().to(log_probs.device());
+    auto input_lengths = input_lengths_.toTensor().to(log_probs.device());
+    auto target_lengths = target_lengths_.toTensor().to(log_probs.device());
     auto blank = blank_.toInt();
     auto reduction = reduction_.toInt();
     auto zero_infinity = zero_infinity_.toBool();

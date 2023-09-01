@@ -52,8 +52,6 @@ def test_ctc_loss_intlist_none():
 
     targets = torch.randint(1, 20, (16, 30), dtype=torch.long)
 
-    # input_lengths = torch.full((16,), 50, dtype=torch.long)
-    # target_lengths = torch.randint(10, 30, (16,), dtype=torch.long)
     input_lengths = tuple(np.array([50] * 16).astype(np.int64))
     target_lengths = tuple(np.random.randint(10, 30, (16,)).astype(np.int64))
 
