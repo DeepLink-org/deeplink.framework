@@ -1656,10 +1656,63 @@
   custom_code_at_the_beginning: |
     auto out = at::empty_like(input);
   interface: diopiBatchNormElemt(ctx, out, input, weight, bias, mean, invstd, eps);
-  
+
 - schema: smooth_l1_loss.out(Tensor self, Tensor target, int reduction=Mean, float beta=1.0, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiSmoothL1Loss(ctx, out, self, target, static_cast<diopiReduction_t>(reduction), static_cast<double>(beta));
 
 - schema: smooth_l1_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, int reduction, float beta, *, Tensor(a!) grad_input) -> Tensor(a!)
   interface: diopiSmoothL1LossBackward(ctx, grad_input, grad_output, self, target, static_cast<diopiReduction_t>(reduction), static_cast<double>(beta));
-  
+
+- schema: _foreach_add_.List(Tensor(a!)[] self, Tensor[] other, *, Scalar alpha=1)->()
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto selfVec = self.vec();
+    for (size_t i = 0;i < self.size();i++) {
+      dipu_add__tensor(selfVec[i], other.at(i), alpha);
+    }
+    return;
+  interface: diopiAddInp(ctx, self, other, alpha)
+
+- schema: _foreach_add.List(Tensor[] self, Tensor[] other, *, Scalar alpha=1) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = at::empty(in.sizes(), in.options());
+      dipu_add_out(self.at(i), other.at(i), alpha, out[i]);
+    }
+    return out;
+  interface: diopiAdd(ctx, self, other, alpha)
+
+- schema: _foreach_mul_.List(Tensor(a!)[] self, Tensor[] other) -> ()
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto selfVec = self.vec();
+    for (size_t i = 0;i < self.size();i++) {
+      dipu_mul__tensor(selfVec[i], other.at(i));
+    }
+    return;
+  interface: diopiMulInp(ctx, self, other, alpha)
+
+- schema: _foreach_mul_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto selfVec = self.vec();
+    for (size_t i = 0;i < self.size();i++) {
+      dipu_mul__scalar(selfVec[i], scalar);
+    }
+    return;
+  interface: diopiMulInpScalar(ctx, self, other, alpha)
+
+- schema: _foreach_neg(Tensor[] self) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = at::empty(in.sizes(), in.options());
+      dipu_neg_out(self.at(i), out[i]);
+    }
+    return out;
+  interface: diopiNeg(ctx, out, self)
