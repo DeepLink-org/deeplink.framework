@@ -104,9 +104,9 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   const auto name = c10::toString(op.operator_name());
 
   TORCH_CHECK(name.find("foreach") == std::string::npos,
-    "Currently the foreach operator does not support fallback");
+    "Currently the foreach operator does not support fallback: ", name);
 
-  DIPU_REGISTER_LOG("fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl);
+  DIPU_REGISTER_LOG("fallback to cpu, name=" << name << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
