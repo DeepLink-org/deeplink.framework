@@ -29,4 +29,4 @@ def apply_optim_patch():
     torch.optim.RAdam.__init__ = GetOptimProxy(torch.optim.RAdam.__init__, -1, "foreach")
     torch.optim.RMSprop.__init__ = GetOptimProxy(torch.optim.RMSprop.__init__, 7, "foreach")
     torch.optim.Rprop.__init__ = GetOptimProxy(torch.optim.Rprop.__init__, -1, "foreach")
-    torch.optim.SGD.__init__ = GetOptimProxy(torch.optim.SGD.__init__, -1, "foreach")
+    #torch.optim.SGD.__init__ = GetOptimProxy(torch.optim.SGD.__init__, -1, "foreach")
