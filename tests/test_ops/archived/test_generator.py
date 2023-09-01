@@ -130,14 +130,19 @@ class TestGenerator(TestCase):
         print("randn allclose success")
 
     def test_bernoulli(self):
-        x = torch.ones(100, device='cuda')
+        x = 2 * torch.ones(100, device='cuda')
         torch.manual_seed(1)
         t1 = x.bernoulli_(0.5)
+        assert torch.all((t1 == 0) | (t1 == 1))
         x = torch.zeros(100, device='cuda')
         torch.manual_seed(1)
         t2 = x.bernoulli_(0.5)
+        assert torch.all((t2 == 0) | (t2 == 1))
         assert torch.allclose(t1, t2)
-        print(".bernoulli allclose success")
+        t2 = x.bernoulli_(0.5)
+        assert torch.all((t2 == 0) | (t2 == 1))
+        assert not torch.allclose(t1, t2)
+        print("bernoulli allclose success")
 
     def test_randperm(self):
         if torch_dipu.dipu.vendor_type == "MLU":
