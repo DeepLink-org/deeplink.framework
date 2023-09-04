@@ -4,8 +4,9 @@ import _operator
 import torch
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from abc import ABC, abstractmethod
+from collections import defaultdict
 
-conversions = {}
+conversions = defaultdict(list)
 patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
@@ -26,10 +27,11 @@ def _registe_conversion(
         if isinstance(fn, torch._ops.OpOverloadPacket):
             for overload in fn.overloads():
                 other_fn = getattr(fn, overload)
-                if other_fn not in conversions:
-                    aten_fn.append(other_fn)
+                # if other_fn not in conversions:
+                aten_fn.append(other_fn)
 
-    conversions.update({fn: wrapped for fn in aten_fn})
+    for fn in aten_fn:
+        conversions[fn].append(wrapped)
     return wrapped
 
 
@@ -56,12 +58,24 @@ class BaseReplacePattern(ABC):
     def replacement(*args, **kwargs):
         pass
 
+@registe_conversion(torch.ops.aten.arange.default)
+def arange(end, start=0, step=1, device='cpu', pin_memory=False):
+    return ascend_op.Arange(start, end, step)
+
+@registe_conversion(torch.ops.aten.eq)
+def eq(a, b):
+    return ascend_op.Eq(a, b)
+
 @registe_conversion(torch.ops.aten.add)
 def add(a, b):
     return ascend_op.Add(a, b)
 
 @registe_conversion(torch.ops.aten.sub)
 def sub(a, b):
+    return ascend_op.Sub(a, b)
+
+@registe_conversion(torch.ops.aten.rsub)
+def rsub(a, b):
     return ascend_op.Sub(a, b)
 
 @registe_conversion(torch.ops.aten.mul)
@@ -71,6 +85,10 @@ def mul(a, b):
 @registe_conversion(torch.ops.aten.div)
 def div(a, b):
     return ascend_op.Div(a, b)
+
+@registe_conversion(torch.ops.aten.maximum)
+def maximum(a, b):
+    return ascend_op.Max(a, b)
 
 @registe_conversion(torch.ops.aten.convolution)
 def convolution(input, weight, bias, stride, padding,
@@ -130,6 +148,10 @@ def sumdim(x, dims, keepdim = True):
 def clone(a, memory_format = torch.contiguous_format):
     return ascend_op.Copy(a, memory_format)
 
+@registe_conversion(torch.ops.aten.copy_)
+def copy_(dst, src):
+    return ascend_op.Copy_(dst, src)
+
 @registe_conversion(torch.ops.aten.copy)
 def copy(dst, src):
     return ascend_op.CopyInner(dst, src)
@@ -139,8 +161,8 @@ def convert_element_type(x, dtype):
     return ascend_op.Convert(x, dtype)
 
 @registe_conversion(torch.ops.aten.embedding)
-def embedding(weight, indices):
-    return ascend_op.Embedding(weight, indices)
+def embedding(weight, indices, padding_idx=-1):
+    return ascend_op.Embedding(weight, indices, padding_idx)
 
 @registe_conversion(torch.ops.aten.sigmoid)
 def sigmoid(x):
@@ -174,6 +196,10 @@ def permute(x, dims):
 def expand(x, dims):
     return ascend_op.ExpandD(x, dims)
 
+@registe_conversion(torch.ops.aten.cumsum)
+def cumsum(x, dim, dtype=None):
+    return ascend_op.CumSum(x, dim, dtype)
+
 @registe_conversion(torch.ops.aten.mm)
 def matmul(a, b):
     return ascend_op.MatMul(a, b)
@@ -182,7 +208,15 @@ def matmul(a, b):
 def batchmatmul(a, b):
     return ascend_op.BatchMatMul(a, b)
 
-@registe_conversion(torch.ops.aten.scatter.value)
+@registe_conversion(torch.ops.aten.sort)
+def sort(x, dim=-1, descending=False):
+    return ascend_op.Sort(x, dim, descending)
+
+@registe_conversion(torch.ops.aten.topk)
+def topk(x, k, dim=-1, largest=True, sorted=True):
+    return ascend_op.TopK(x, k, dim, largest, sorted)
+
+@registe_conversion(torch.ops.aten.scatter)
 def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
 
@@ -210,6 +244,10 @@ def where(condition, a, b):
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
 
+@registe_conversion(torch.ops.aten._unsafe_view)
+def unsafe_view(x, shape):
+    return ascend_op.TranShape(x, shape)
+
 @registe_conversion(_operator.mul)
 def inmul(a, b):
     return ascend_op.InMul(a, b)
@@ -227,13 +265,33 @@ def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.FullLike(x, value)
 
+@registe_conversion(torch.ops.aten.lift_fresh_copy)
+def lift_fresh_copy(tensor_constant):
+    return ascend_op.LiftFreshCopy(tensor_constant)
+
+@registe_conversion(torch.ops.aten.lt)
+def lt(a, b):
+    return ascend_op.Lt(a, b)
+
+@registe_conversion(torch.ops.aten.masked_fill)
+def masked_fill(x, mask, value):
+    return ascend_op.MaskedFill(x, mask, value)
+
 @registe_conversion(torch.ops.aten.empty)
 def empty(size, dtype=torch.int64, layout=torch.strided, device='cpu'):
     return ascend_op.Empty(size, dtype, layout, device)
 
+@registe_conversion(torch.ops.aten.index)
+def index(x, index):
+    return ascend_op.IndexSelect(x, 0, index, None)
+
 @registe_conversion(torch.ops.aten.index_select)
-def index_select(x, dim, index):
-    return ascend_op.IndexSelect(x, dim, index)
+def index_arg2_(x, index):
+    return ascend_op.IndexSelect(x, 0, index, 2)
+
+@registe_conversion(torch.ops.aten.index_select)
+def index_arg3_(x, dim, index):
+    return ascend_op.IndexSelect(x, dim, index, 3)
 
 @registe_conversion(torch.ops.aten.fill)
 def fill(x, value):
@@ -242,6 +300,10 @@ def fill(x, value):
 @registe_conversion(torch.ops.aten.ones)
 def ones(shape, dtype=torch.int64, device='cpu', pin_memory=False):
     return ascend_op.Ones(shape)
+
+@registe_conversion(torch.ops.aten.new_ones)
+def new_ones(x, shape, dtype=torch.int64, layout=None, device='cpu', pin_memory=False):
+    return ascend_op.NewOnes(x, shape)
 
 @registe_conversion(torch.ops.aten.repeat_interleave)
 def repeat_interleave(x, output_size = 1):

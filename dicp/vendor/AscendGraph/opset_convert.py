@@ -21,7 +21,7 @@ def register_ascend_fuse_pass(cls):
     ascend_fuse_passes.append(cls())
     return cls
 
-@register_ascend_fuse_pass        
+# @register_ascend_fuse_pass        
 class FuseTransposeMatmul():
     class MatMulOperatorSupport(OperatorSupportBase):
         def is_node_supported(self, submodules, node: torch.fx.Node) -> bool:
@@ -37,7 +37,7 @@ class FuseTransposeMatmul():
                                                 allows_single_node_partition=False)
         partitions = partitioner.propose_partitions()
         return partitioner.fuse_partitions(partitions)
-    
+
     def hit(self, sub_nodes):
         match_trans = False
         match_mm = False
@@ -46,7 +46,7 @@ class FuseTransposeMatmul():
                 match_mm = True
             if node.op == 'call_function' and node.target.name() == "aten::t":
                 match_trans = True
-        
+
         if match_trans and match_mm:
             return True
         return False
@@ -88,6 +88,24 @@ class FuseTransposeMatmul():
 class AscendOpTransformer(SingleOpTransformer):
     def __init__(self, module, conversions):
         super().__init__(module, conversions)
+
+    def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+        if target in self._conversions:
+            conversions = self._conversions[target]
+            arg_str = 'arg{}'.format(len(args))
+            if len(conversions) > 1:
+                for conversion in conversions:
+                    name_str = conversion.__name__
+                    if 'arg' in name_str and arg_str in name_str:
+                        out = conversion(*args, **kwargs)
+                        break
+            else:
+                out = conversions[0](*args, **kwargs)
+            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
+            proxy.node.meta = fx_traceback.get_current_meta()
+            return proxy
+
+        return self.tracer.create_proxy('call_function', target, args, kwargs)
 
     def call_module(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
         sub_graph = self.fetch_attr(target)
