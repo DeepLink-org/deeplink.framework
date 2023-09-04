@@ -20,7 +20,7 @@ def parase_args():
     return args
 
 def get_all_op_from_train_log(log_content):
-    ops = re.findall('--\[.*\]:[ \w\d_]+\s[\t\w\d_\t: \.,\[\]\n]+', log_content)
+    ops = re.findall('(?:--\[.*\]: *[\w\d_]+ *)\s(?:[\t ]+[\w\d_\.]+:.*\s)*', log_content)
     return ops
 
 def extract_op_arg(op):
