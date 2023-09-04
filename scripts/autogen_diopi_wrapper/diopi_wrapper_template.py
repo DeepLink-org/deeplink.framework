@@ -230,6 +230,7 @@ diopi_wrapper_function_template_content = \
 """
 //  $comment
 $cppsignautre {
+    dipu::profile::RecordBlockCreator _(__FUNCTION__);
     ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
     auto ctx = &context;
 
