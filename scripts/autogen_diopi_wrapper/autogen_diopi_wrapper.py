@@ -159,6 +159,7 @@ def create_param_list_from_schema(schema):
     param_list = param_list[0:param_list.rfind(')')]
     args_type_map = OrderedDict({
         'Tensor\([a-z]\)' : 'Tensor',
+        'Scalar *\[ *\]' : 'at::ArrayRef<at::Scalar>',
         'Tensor *\( *[a-z]\!\) *\[ *\]' : 'at::ArrayRef<at::Tensor>',
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
