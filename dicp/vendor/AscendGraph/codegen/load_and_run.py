@@ -6,7 +6,7 @@ import atexit
 
 
 # the range for dynamic shape
-MAX_RANGE = 128
+MAX_RANGE = 16
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -105,7 +105,6 @@ class MemoryPool:
     def __init__(self):
         self.work_ptr = None
         self.weight_ptr = None
-        atexit.register(self.release_memory)
         self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
@@ -154,9 +153,10 @@ class AscendExecutor(object):
         self.output_dtypes = []
         self.output_data = []
 
-        atexit.register(self.release_resource)
-
         self.init_resource()
+    
+    def __del__(self):
+        self.release_resource()
 
     def release_resource(self):
         print("Releasing resources stage:")
@@ -165,7 +165,6 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
-        
         memory_pool.release_memory()
 
     def load_model(self):
@@ -207,20 +206,6 @@ class AscendExecutor(object):
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
         for i in range(self.num_inputs):
             temp_buffer_size = acl.mdl.get_input_size_by_index(self.model_desc, i)
-            if temp_buffer_size == 0:
-                temp_buffer_size = 1
-                dims, ret = acl.mdl.get_input_dims(self.model_desc, i)
-                check_ret("acl.mdl.get_input_dims", ret)
-                dims = dims["dims"]
-                for idx, dim in enumerate(dims):
-                    if dim > -1:
-                        temp_buffer_size *= dim
-                    else:
-                        temp_buffer_size *= MAX_RANGE
-                        dims[idx] = MAX_RANGE
-                dtype = acl.mdl.get_input_data_type(self.model_desc, i)
-                np_dtype = get_np_dtype(dtype)
-                temp_buffer_size *= np.dtype(np_dtype).itemsize
             self.input_size.append(temp_buffer_size)
 
         for i in range(self.num_outputs):
@@ -251,7 +236,7 @@ class AscendExecutor(object):
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
         self.load_input_dataset = acl.mdl.create_dataset()
-        zero_tensor = torch.randn(1).to('xpu')
+        zero_tensor = torch.randn(1).to('dipu')
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():
@@ -330,7 +315,7 @@ class AscendExecutor(object):
 
     def run(self, images, dims=None):
         assert len(images) > 0
-        input = list(map(lambda x: x.to('xpu'), images))
+        input = list(map(lambda x: x.to('dipu'), images))
         self._prepare_input(input, dims)
         output = []
         if dims is not None:
@@ -377,7 +362,6 @@ class AscendModel():
         return self.exe.run(images, dims)
 
     def cleanup(self):
-        self.exe.release_resource()
         del self.exe
 
 
