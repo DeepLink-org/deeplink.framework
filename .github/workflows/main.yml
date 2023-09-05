@@ -48,6 +48,7 @@ jobs:
           bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
+          wget http://ci.parrots.sensetime.com:8002/parrots/huggingface.tar.gz && tar xzf huggingface.tar.gz && rm -rf huggingface.tar.gz
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/DIPU_DIOPI/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
