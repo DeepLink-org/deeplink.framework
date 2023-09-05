@@ -81,15 +81,34 @@ class Add(Operator):
         super().__init__("add")
         self.a = a
         self.b = b
-        self.torch_op = aten.add
 
+    def __call__(self, a, b):
+        if hasattr(a, 'meta'):
+            a = a.meta['val']
+            a_shape = a.shape
+        else:
+            a_shape = [1]
+        if hasattr(b, 'meta'):
+            b = b.meta['val']
+            b_shape = b.shape
+        else:
+            b_shape = [1]
 
-class AddV2(Operator):
-    def __init__(self, a, b):
-        super().__init__("addv2")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.add
+        fake_mode = None
+        for arg in [a, b]:
+            if isinstance(arg, FakeTensor):
+                fake_mode = arg.fake_mode
+                break
+        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+
+        # TODO! better to check
+        # whether satisfy broadcast
+        if np.prod(a_shape) > np.prod(b_shape):
+            shape = a_shape
+        else:
+            shape = b_shape
+        with fake_mode:
+            return aten.empty(shape, dtype=a.dtype)
 
 
 class Arange(Operator):
@@ -194,6 +213,14 @@ class Mul(Operator):
     def __call__(self, a, b):
         if hasattr(a, 'meta'):
             a = a.meta['val']
+            a_shape = a.shape
+        else:
+            a_shape = [1]
+        if hasattr(b, 'meta'):
+            b = b.meta['val']
+            b_shape = b.shape
+        else:
+            b_shape = [1]
 
         fake_mode = None
         for arg in [a, b]:
@@ -202,8 +229,15 @@ class Mul(Operator):
                 break
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
+        # TODO! better to check
+        # whether satisfy broadcast
+        if np.prod(a_shape) > np.prod(b_shape):
+            shape = a_shape
+        else:
+            shape = b_shape
+
         with fake_mode:
-            return aten.empty(a.shape, dtype=a.dtype)
+            return aten.empty(shape, dtype=a.dtype)
 
 
 class Div(Operator):
