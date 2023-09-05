@@ -107,7 +107,7 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
         # set the environment variable for the transformers repository
         export HF_HOME=${basic_path}/huggingface
-        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/platform_ci/hub
+        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
         export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
@@ -118,7 +118,7 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
         # set the environment variable for the transformers repository
         export HF_HOME=${basic_path}/huggingface
-        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/platform_ci/hub
+        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1

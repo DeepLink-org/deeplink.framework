@@ -48,7 +48,6 @@ jobs:
           bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
-          wget http://ci.parrots.sensetime.com:8002/parrots/huggingface.tar.gz && tar xzf huggingface.tar.gz && rm -rf huggingface.tar.gz
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
           cd ${GITHUB_WORKSPACE}/DIPU_DIOPI/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
@@ -94,6 +93,7 @@ jobs:
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
+          rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
@@ -223,6 +223,7 @@ jobs:
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}
           source scripts/ci/nv/ci_nv_env.sh
+          rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
