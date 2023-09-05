@@ -108,7 +108,7 @@ def handle_error(error: str) -> None:
         p.terminate()
     error_flag.value = 1
 
-def print_file(file_name)
+def print_file(file_name):
     with open(file_name) as f:
         lines = f.read()
         logging.info(lines)
