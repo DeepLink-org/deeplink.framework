@@ -7,8 +7,52 @@ import time
 import yaml
 import multiprocessing
 import logging
+
+
+
+
+class PipeHandler(logging.Handler):
+    def emit(self, record):
+        msg = self.format(record)
+        pipe_conn.send(msg)
+
+# 创建一个日志记录器
+logger = logging.getLogger()
+
+# 创建和配置日志处理程序
+pipe_handler = PipeHandler()
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+pipe_handler.setFormatter(formatter)
+logger.addHandler(pipe_handler)
+logger.setLevel(logging.INFO)
+
 log_format = '%(asctime)s - %(levelname)s: %(message)s'
-logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
+# logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
+
+
+
+# def child_process(pipe_conn):
+#     # 创建一个自定义的日志处理程序，将日志消息写入管道
+#     class PipeHandler(logging.Handler):
+#         def emit(self, record):
+#             msg = self.format(record)
+#             pipe_conn.send(msg)
+
+#     # 创建一个日志记录器
+#     logger = logging.getLogger()
+
+#     # 创建和配置日志处理程序
+#     pipe_handler = PipeHandler()
+#     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+#     pipe_handler.setFormatter(formatter)
+#     logger.addHandler(pipe_handler)
+#     logger.setLevel(logging.INFO)
+
+#     # 在子进程中记录日志
+#     logger.info("这是子进程的日志消息")
+
+#     # 关闭管道连接
+#     pipe_conn.close()
 
 
 def run_cmd(cmd: str) -> None:
@@ -17,7 +61,15 @@ def run_cmd(cmd: str) -> None:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
+def log_pipe_conn(func):
+    def wrapper(pipe_conn, *args, **kwargs)
+        func(*args, **kwargs)
+        pipe_conn.close()
+    return wrapper
 
+# process_one_iter = log_func(process_one_iter)
+
+@log_pipe_conn
 def process_one_iter(model_info: dict) -> None:
     begin_time = time.time()
 
@@ -119,15 +171,13 @@ if __name__ == '__main__':
     partition = ' '.join(partition_arg)
     logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
-
+    max_model_num = 100
     if device == 'cuda':
-        model_num = 100
         logging.info("we use cuda!")
     else:
-        model_num = 100
         logging.info("we use camb")
 
-    logging.info(f"now pid!!!!: {os.getpid()} {os.getppid()}")
+    logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 
 
     logging.info(f"python path: {os.environ.get('PYTHONPATH', None)}")
@@ -145,21 +195,35 @@ if __name__ == '__main__':
             logging.error(f"Device type: {device} is not supported!")
             exit(1)
 
-        model_num = min(len(original_list), model_num)
-        logging.info(f"model nums: {len(original_list)}, chosen model num: {model_num}")
+        if len(original_list) > max_model_num:
+            selected_list = random.sample(original_list, max_model_num)
+        else:
+            selected_list = original_list
+
+        selected_model_num = len(selected_list)
+        logging.info(f"model nums: {len(original_list)}, chosen model num: {selected_model_num}")
 
         # random choose model
-        selected_list = random.sample(original_list, model_num)
+
 
         os.mkdir("one_iter_data")
 
         p = Pool(max_parall)
+        parent_conns = []
+        child_conns = []
         try:
-            for i in range(model_num):
-                p.apply_async(process_one_iter, args=(selected_list[i],), error_callback=handle_error)
+            for i in range(selected_model_num):
+                parent_conn, child_conn = multiprocessing.Pipe()
+                parent_conns.append(parent_conn)
+                p.apply_async(process_one_iter, args=(child_conn, selected_list[i]), error_callback=handle_error)
             logging.info('Waiting for all subprocesses done...')
             p.close()
             p.join()
+
+            for i in range(selected_model_num):
+                message = parent_conns[i].recv()
+                print(message)
+
             if (error_flag.value != 0):
                 exit(1)
             logging.info('All subprocesses done.')
