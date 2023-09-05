@@ -18,7 +18,7 @@ def run_cmd(cmd: str) -> None:
         raise Exception(error)
 
 
-def process_one_iter(model_info: dict) -> None:
+def process_one_iter(log_file, model_info: dict) -> None:
     begin_time = time.time()
 
     model_info_list = model_info['model_cfg'].split()
@@ -90,8 +90,8 @@ def process_one_iter(model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
 
-    run_cmd(cmd_run_one_iter)
-    run_cmd(cmd_cp_one_iter)
+    run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
+    run_cmd(cmd_cp_one_iter + f" 2>&1 >> {log_file}")
 
     end_time = time.time()
     run_time = round(end_time - begin_time)
@@ -119,15 +119,13 @@ if __name__ == '__main__':
     partition = ' '.join(partition_arg)
     logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
-
+    max_model_num = 100
     if device == 'cuda':
-        model_num = 100
         logging.info("we use cuda!")
     else:
-        model_num = 100
         logging.info("we use camb")
 
-    logging.info(f"now pid!!!!: {os.getpid()} {os.getppid()}")
+    logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 
 
     logging.info(f"python path: {os.environ.get('PYTHONPATH', None)}")
@@ -145,18 +143,24 @@ if __name__ == '__main__':
             logging.error(f"Device type: {device} is not supported!")
             exit(1)
 
-        model_num = min(len(original_list), model_num)
-        logging.info(f"model nums: {len(original_list)}, chosen model num: {model_num}")
+        if len(original_list) > max_model_num:
+            selected_list = random.sample(original_list, max_model_num)
+        else:
+            selected_list = original_list
+
+        selected_model_num = len(selected_list)
+        logging.info(f"model nums: {len(original_list)}, chosen model num: {selected_model_num}")
 
         # random choose model
-        selected_list = random.sample(original_list, model_num)
+
 
         os.mkdir("one_iter_data")
 
         p = Pool(max_parall)
         try:
-            for i in range(model_num):
-                p.apply_async(process_one_iter, args=(selected_list[i],), error_callback=handle_error)
+            for i in range(selected_model_num):
+                log_file = f"child_{i}_log.txt"
+                p.apply_async(process_one_iter, args=(log_file, selected_list[i],), error_callback=handle_error)
             logging.info('Waiting for all subprocesses done...')
             p.close()
             p.join()
