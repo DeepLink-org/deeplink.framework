@@ -107,7 +107,7 @@ def apply_patches():
     apply_profiler_patch()
     apply_temp_patch()
     apply_dataloader_patch()
-    apply_optim_patch()
+    # apply_optim_patch()
     apply_generator_patch()
 
 
