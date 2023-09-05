@@ -42,6 +42,12 @@ def process_one_iter(model_info: dict) -> None:
         work_dir = ""
         opt_arg = ""
         package_name = "diengine"
+    elif ("trans" in p1):
+        train_path = p1 + "/" + p2
+        config_path = ""
+        work_dir = ""
+        opt_arg = ""
+        package_name = "transformer"
     else:
         logging.error(f"Wrong model info in {model_info}")
         exit(1)
