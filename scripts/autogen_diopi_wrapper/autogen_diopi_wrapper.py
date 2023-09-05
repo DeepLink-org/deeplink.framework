@@ -477,6 +477,7 @@ def create_autograd_function_name(op_name):
     for patten in re.findall('[_\.][a-z]{1}', op_name):
         op_name = op_name.replace(patten, patten[1].upper())
     op_name = op_name.replace('_', 'Inp')
+    op_name = op_name.replace('.', '')
     return op_name + 'Function'
 
 def create_save_for_backward_code(args_name_list):
