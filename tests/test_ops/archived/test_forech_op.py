@@ -55,6 +55,19 @@ class TestGenerator(TestCase):
         for i in range(len(weights_cpu)):
             assert torch.allclose(weights_cpu[i], weights_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
 
+    def test_foreach_add_scalar(self):
+        weights_cpu = []
+        weights_dipu = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            weights_cpu.append(x)
+            weights_dipu.append(x.cuda())
+        scalar = torch.randn(1).item()
+        result_cpu = torch._foreach_add(weights_cpu, scalar)
+        result_dipu = torch._foreach_add(weights_dipu, scalar)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(result_cpu[i], result_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
     def test_foreach_mul_(self):
         weights_cpu = []
         grads_cpu = []
@@ -158,6 +171,98 @@ class TestGenerator(TestCase):
         result_cpu = torch._foreach_neg(inputs_cpu)
         result_dipu = torch._foreach_neg(inputs_dipu)
         for i in range(len(inputs_cpu)):
+            assert torch.allclose(result_cpu[i], result_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div_(self):
+        weights_cpu = []
+        grads_cpu = []
+        weights_dipu = []
+        grads_dipu = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            y = torch.randn(3, 5)
+            weights_cpu.append(x)
+            grads_cpu.append(y)
+            weights_dipu.append(x.cuda())
+            grads_dipu.append(y.cuda())
+
+        torch._foreach_div_(weights_cpu, grads_cpu)
+        torch._foreach_div_(weights_dipu, grads_dipu)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(weights_cpu[i], weights_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div__scalar(self):
+        weights_cpu = []
+        weights_dipu = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            weights_cpu.append(x)
+            weights_dipu.append(x.cuda())
+        scalar = torch.randn(1).item()
+        torch._foreach_div_(weights_cpu, scalar)
+        torch._foreach_div_(weights_dipu, scalar)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(weights_cpu[i], weights_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div__scalarlist(self):
+        weights_cpu = []
+        weights_dipu = []
+        scalars = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            weights_cpu.append(x)
+            weights_dipu.append(x.cuda())
+            scalar = torch.randn(1).item()
+            scalars.append(scalar)
+        torch._foreach_div_(weights_cpu, scalars)
+        torch._foreach_div_(weights_dipu, scalars)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(weights_cpu[i], weights_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div_scalar(self):
+        weights_cpu = []
+        weights_dipu = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            weights_cpu.append(x)
+            weights_dipu.append(x.cuda())
+        scalar = torch.randn(1).item()
+        result_cpu = torch._foreach_div(weights_cpu, scalar)
+        result_dipu = torch._foreach_div(weights_dipu, scalar)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(result_cpu[i], result_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div_scalar_list(self):
+        weights_cpu = []
+        weights_dipu = []
+        scalars = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            weights_cpu.append(x)
+            weights_dipu.append(x.cuda())
+            scalar = torch.randn(1).item()
+            scalars.append(scalar)
+        result_cpu = torch._foreach_div(weights_cpu, scalars)
+        result_dipu = torch._foreach_div(weights_dipu, scalars)
+        for i in range(len(weights_cpu)):
+            assert torch.allclose(result_cpu[i], result_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+
+    def test_foreach_div(self):
+        weights_cpu = []
+        grads_cpu = []
+        weights_dipu = []
+        grads_dipu = []
+        for i in range(100):
+            x = torch.randn(3, 5)
+            y = torch.randn(3, 5)
+            weights_cpu.append(x)
+            grads_cpu.append(y)
+            weights_dipu.append(x.cuda())
+            grads_dipu.append(y.cuda())
+
+        result_cpu = torch._foreach_div(weights_cpu, grads_cpu)
+        result_dipu = torch._foreach_div(weights_dipu, grads_dipu)
+        for i in range(len(weights_cpu)):
             assert torch.allclose(result_cpu[i], result_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
 
     def test_foreach_addcmul__scalar_list(self):
