@@ -9,50 +9,18 @@ import multiprocessing
 import logging
 
 
+class Logger(object):
+    def __init__(self, handler, name, level=logging.INFO):
+        self.logger = logging.getLogger(name)
+        formatter = logging.Formatter(fmt='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.setLevel(level)
 
+    def get_logger(self):
+        return self.logger
 
-class PipeHandler(logging.Handler):
-    def emit(self, record):
-        msg = self.format(record)
-        pipe_conn.send(msg)
-
-# 创建一个日志记录器
-logger = logging.getLogger()
-
-# 创建和配置日志处理程序
-pipe_handler = PipeHandler()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-pipe_handler.setFormatter(formatter)
-logger.addHandler(pipe_handler)
-logger.setLevel(logging.INFO)
-
-log_format = '%(asctime)s - %(levelname)s: %(message)s'
-# logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
-
-
-
-# def child_process(pipe_conn):
-#     # 创建一个自定义的日志处理程序，将日志消息写入管道
-#     class PipeHandler(logging.Handler):
-#         def emit(self, record):
-#             msg = self.format(record)
-#             pipe_conn.send(msg)
-
-#     # 创建一个日志记录器
-#     logger = logging.getLogger()
-
-#     # 创建和配置日志处理程序
-#     pipe_handler = PipeHandler()
-#     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-#     pipe_handler.setFormatter(formatter)
-#     logger.addHandler(pipe_handler)
-#     logger.setLevel(logging.INFO)
-
-#     # 在子进程中记录日志
-#     logger.info("这是子进程的日志消息")
-
-#     # 关闭管道连接
-#     pipe_conn.close()
+main_logger = Logger(logging.StreamHandler(), "parrent log").get_logger()
 
 
 def run_cmd(cmd: str) -> None:
@@ -61,21 +29,21 @@ def run_cmd(cmd: str) -> None:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
+
 def log_pipe_conn(func):
-    def wrapper(pipe_conn, *args, **kwargs)
+    def wrapper(pipe_conn, *args, **kwargs):
         func(*args, **kwargs)
         pipe_conn.close()
     return wrapper
 
-# process_one_iter = log_func(process_one_iter)
 
 @log_pipe_conn
-def process_one_iter(model_info: dict) -> None:
-    begin_time = time.time()
+def process_one_iter(model_info: dict, logger) -> None:
 
+    begin_time = time.time()
     model_info_list = model_info['model_cfg'].split()
     if (len(model_info_list) < 3 or len(model_info_list) > 4):
-        logging.error(f"Wrong model info in {model_info}")
+        logger.error(f"Wrong model info in {model_info}")
         exit(1)
     p1 = model_info_list[0]
     p2 = model_info_list[1]
@@ -95,7 +63,7 @@ def process_one_iter(model_info: dict) -> None:
         opt_arg = ""
         package_name = "diengine"
     else:
-        logging.error(f"Wrong model info in {model_info}")
+        logger.error(f"Wrong model info in {model_info}")
         exit(1)
 
     os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd() + "/one_iter_data/" + p3
@@ -107,7 +75,7 @@ def process_one_iter(model_info: dict) -> None:
     else:
         os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = ""
 
-    logging.info(f"train_path = {train_path}, config_path = {config_path}, work_dir = {work_dir}, opt_arg = {opt_arg}")
+    logger.info(f"train_path = {train_path}, config_path = {config_path}, work_dir = {work_dir}, opt_arg = {opt_arg}")
 
     if not os.path.exists(storage_path):
         os.makedirs(storage_path)
@@ -123,13 +91,13 @@ def process_one_iter(model_info: dict) -> None:
     if not os.path.exists(dst):
         os.symlink(src, dst)
 
-    logging.info(f"model:{p2}")
+    logger.info(f"model:{p2}")
 
     precision = model_info.get('precision', {})
     atol = precision.get('atol', 1e-2)
     rtol = precision.get('rtol', 1e-4)
     metric = precision.get('metric', 1e-2)
-    logging.info(f'Using pricision: atol-{atol}, rtol-{rtol}, metric-{metric}')
+    logger.info(f'Using pricision: atol-{atol}, rtol-{rtol}, metric-{metric}')
 
     if device == 'cuda':
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
@@ -150,13 +118,13 @@ def process_one_iter(model_info: dict) -> None:
     hour = run_time // 3600
     minute = (run_time - 3600 * hour) // 60
     second = run_time - 3600 * hour - 60 * minute
-    logging.info(f"The running time of {p2} :{hour} hours {minute} mins {second} secs")
+    logger.info(f"The running time of {p2} :{hour} hours {minute} mins {second} secs")
 
 
 def handle_error(error: str) -> None:
-    logging.error(f"Error: {error}")
+    main_logger.error(f"Error: {error}")
     if p is not None:
-        logging.error("Kill all!")
+        main_logger.error("Kill all!")
         p.terminate()
     error_flag.value = 1
 
@@ -215,7 +183,14 @@ if __name__ == '__main__':
             for i in range(selected_model_num):
                 parent_conn, child_conn = multiprocessing.Pipe()
                 parent_conns.append(parent_conn)
-                p.apply_async(process_one_iter, args=(child_conn, selected_list[i]), error_callback=handle_error)
+
+                class PipeHandler(logging.Handler):
+                    def emit(self, record):
+                        msg = self.format(record)
+                        child_conn.send(msg)
+
+                logger = Logger(PipeHandler(), "child{i} log").get_logger()
+                p.apply_async(process_one_iter, args=(child_conn, selected_list[i], logger), error_callback=handle_error)
             logging.info('Waiting for all subprocesses done...')
             p.close()
             p.join()
