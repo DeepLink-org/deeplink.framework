@@ -452,7 +452,7 @@
     auto kernel_size = weight.sizes().slice(2);
     int64_t out_height = (height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1;
     int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
-    c10::SmallVector<int64_t, 8> output_size = {batch_size, out_channel, out_height, out_width};
+    c10::SmallVector<int64_t, 4> output_size = {batch_size, out_channel, out_height, out_width};
     at::Tensor out = at::empty(output_size, input.options());
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
@@ -1047,7 +1047,15 @@
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
   custom_code_at_the_beginning: |
     dim += ((dim >= 0) ? 0 : self.sizes().size());
-    auto output_size = self.sizes().vec();
+    if (max_indices.numel() <= 0) {
+      auto output_size = self.sizes().vec();
+      if (keepdim) {
+        output_size[dim] = 1;
+      } else {
+        output_size.erase(output_size.begin() + dim);
+      }
+      max_indices.resize_(output_size);
+    }
   interface: diopiMax(ctx, max, max_indices, self, dim)
 
 - schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
@@ -1362,7 +1370,7 @@
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor grad_input = at::empty_like(log_probs);
 
-  interface: diopiCTCLossBackward(ctx,  grad_input,  grad_output, log_probs, targets, input_lengths, target_lengths, neg_log_likelihood, log_alpha, blank, reductionDiopi, zero_infinity) 
+  interface: diopiCTCLossBackward(ctx,  grad_input,  grad_output, log_probs, targets, input_lengths, target_lengths, neg_log_likelihood, log_alpha, blank, reductionDiopi, zero_infinity)
 
 - schema: "ctc_loss.Tensor(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank=0, int reduction=Mean, bool zero_infinity=False) -> Tensor"
   device: [camb]
@@ -1419,7 +1427,7 @@
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
-    
+
     auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
     auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
@@ -1430,7 +1438,7 @@
 
     at::Tensor grad_input = at::empty_like(log_probs);
 
-  interface: diopiCTCLossBackward(ctx,  grad_input,  grad_output, log_probs, targets, input_lengths_tensor, target_lengths_tensor, neg_log_likelihood, log_alpha, blank, reductionDiopi, zero_infinity) 
+  interface: diopiCTCLossBackward(ctx,  grad_input,  grad_output, log_probs, targets, input_lengths_tensor, target_lengths_tensor, neg_log_likelihood, log_alpha, blank, reductionDiopi, zero_infinity)
 
 - schema: "ctc_loss.IntList(Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, int blank=0, int reduction=Mean, bool zero_infinity=False) -> Tensor"
   device: [camb]
