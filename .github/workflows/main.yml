@@ -166,11 +166,11 @@ jobs:
               rm -rf one_iter_data
               touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
           """
-        
+
       - name: Check for failure
         if: ${{ failure() }}
         run: exit 1
-  
+
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
     needs: [Rsync]
@@ -207,7 +207,7 @@ jobs:
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-Camb-Diopi \
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Latest-Target && exit 1 )
           """
-  
+
   Build-Cuda:
     name: Build-dipu-cuda
     needs: [Rsync]
@@ -243,7 +243,27 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
           bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
           """
-  
+
+  Benchmark-Cuda:
+    name: Benchmark-dipu-cuda
+    needs: [Build-Cuda]
+    runs-on: github-poc-ci
+    env:
+      GPU_REQUESTS: 1
+    steps:
+      - name: Run-benchmark
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          export USE_COVERAGE=${USE_COVERAGE}
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
+          source scripts/ci/nv/ci_nv_env.sh
+          cd benchmark/op_benchmark
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh run_benchmark.sh | tee dipu_op_benchmark.txt
+          diff  -y --left-column -W 400 dipu_op_benchmark.txt pt_op_benchmark.txt > dipu_pt_op_benchmark_compare_result.log
+          cat dipu_pt_op_benchmark_compare_result.log
+          """
+
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
     needs: [Build-Cuda]
@@ -276,7 +296,7 @@ jobs:
             rm -rf one_iter_data
             python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" ${CUDA_PARTATION}  && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
-        
+
       - name: Perform cleanup one iter data
         if: always()
         run: |
