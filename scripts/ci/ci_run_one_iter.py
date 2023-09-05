@@ -1,102 +1,74 @@
 import os
 import sys
 import random
-from multiprocessing import Pool, Queue, Manager
+from multiprocessing import Pool
 import subprocess as sp
 import time
 import yaml
 import multiprocessing
-import signal
+import logging
+log_format = '%(asctime)s - %(levelname)s: %(message)s'
+logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
 
 
-#set some params
-max_parall = 8
-device_type = sys.argv[1]
-github_job = sys.argv[2]
-gpu_requests = sys.argv[3]
-slurm_par_arg = sys.argv[4:]
-slurm_par = ' '.join(slurm_par_arg)
-print("github_job:{},slurm_par:{},gpu_requests:{}".format(github_job, slurm_par, gpu_requests))
-error_flag = multiprocessing.Value('i',0) #if encount error
-
-if device_type == 'cuda':
-    random_model_num = 100
-    print("we use cuda!")
-else:
-    random_model_num = 100
-    print("we use camb")
-
-print("now pid!!!!:",os.getpid(),os.getppid())
-
-
-print("python path: {}".format(os.environ.get('PYTHONPATH', None)), flush = True)
-
-os.environ['DIPU_DUMP_OP_ARGS'] = "0"
-os.environ['DIPU_DEBUG_ALLOCATOR'] = "0"
-
-# os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  #we set 0.2 by default
-
-
-def run_cmd(cmd):
-    cp = sp.run(cmd, shell = True, encoding = "utf-8")
+def run_cmd(cmd: str) -> None:
+    cp = sp.run(cmd, shell=True, encoding="utf-8")
     if cp.returncode != 0:
-        error = "Some thing wrong has happened when running command [{}]:{}".format(cmd, cp.stderr)
+        error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
 
-def process_one_iter(model_info):
-
+def process_one_iter(model_info: dict) -> None:
     begin_time = time.time()
 
     model_info_list = model_info['model_cfg'].split()
-    if(len(model_info_list) < 3 or len(model_info_list) > 4):
-        print("Wrong model info in  {}".format(model_info), flush = True)
+    if (len(model_info_list) < 3 or len(model_info_list) > 4):
+        logging.error(f"Wrong model info in {model_info}")
         exit(1)
     p1 = model_info_list[0]
     p2 = model_info_list[1]
     p3 = model_info_list[2]
     p4 = model_info_list[3] if len(model_info_list) == 4 else ""
 
-    if("mm" in p1):
+    if ("mm" in p1):
         train_path = p1 + "/tools/train.py"
         config_path = p1 + "/configs/" + p2
         work_dir = "--work-dir=./one_iter_data/" + p3
         opt_arg = p4
         package_name = "mmlab"
-    elif("DI" in p1):
-        train_path = p1+"/"+p2
+    elif ("DI" in p1):
+        train_path = p1 + "/" + p2
         config_path = ""
         work_dir = ""
         opt_arg = ""
         package_name = "diengine"
-    elif("trans" in p1):
-        train_path = p1+"/"+p2
+    elif ("trans" in p1):
+        train_path = p1 + "/" + p2
         config_path = ""
         work_dir = ""
         opt_arg = ""
         package_name = "transformer"
     else:
-        print("Wrong model info in  {}".format(model_info), flush = True)
+        logging.error(f"Wrong model info in {model_info}")
         exit(1)
 
-    os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd()+"/one_iter_data/" + p3
+    os.environ['ONE_ITER_TOOL_STORAGE_PATH'] = os.getcwd() + "/one_iter_data/" + p3
 
     storage_path = os.environ['ONE_ITER_TOOL_STORAGE_PATH']
 
-    if 'fallback_op_list' in model_info:
+    if model_info.get('fallback_op_list', None):
         os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = model_info['fallback_op_list']
     else:
         os.environ['DIPU_FORCE_FALLBACK_OPS_LIST'] = ""
 
-
-    print("train_path = {}, config_path = {}, work_dir = {}, opt_arg = {}".format(train_path, config_path, work_dir, opt_arg), flush = True)
+    logging.info(f"train_path = {train_path}, config_path = {config_path}, work_dir = {work_dir}, opt_arg = {opt_arg}")
 
     if not os.path.exists(storage_path):
         os.makedirs(storage_path)
 
-    if device_type == 'camb':
+    if device == 'camb':
         base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
-    elif device_type == 'cuda':
+    elif device == 'cuda':
         base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
     src = f'{base_data_src}/{p3}/baseline'
     if not os.path.exists(src):
@@ -105,21 +77,24 @@ def process_one_iter(model_info):
     if not os.path.exists(dst):
         os.symlink(src, dst)
 
-    print("model:{}".format(p2), flush = True)
+    logging.info(f"model:{p2}")
 
-    # github_job_name = github_job+"_"+p2
-    github_job_name = github_job #为了方便统一scancel，因此使用同样的jobname
+    precision = model_info.get('precision', {})
+    atol = precision.get('atol', 1e-2)
+    rtol = precision.get('rtol', 1e-4)
+    metric = precision.get('metric', 1e-2)
+    logging.info(f'Using pricision: atol-{atol}, rtol-{rtol}, metric-{metric}')
 
-    if device_type == 'cuda':
-        if(p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
-            cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh".format(github_job_name, slurm_par, gpu_requests)
+    if device == 'cuda':
+        if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
+            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh"
             cmd_cp_one_iter = ""
         else:
-            cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-            cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {}".format(github_job_name, slurm_par, gpu_requests, package_name)
+            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+            cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}"
     else:
-        cmd_run_one_iter = "srun --job-name={} --partition={}  --gres={} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {} {} {} {}".format(github_job_name, slurm_par, gpu_requests, train_path, config_path, work_dir, opt_arg)
-        cmd_cp_one_iter = "srun --job-name={} --partition={}  --gres={} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {}".format(github_job_name, slurm_par, gpu_requests, package_name)
+        cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
 
     run_cmd(cmd_run_one_iter)
     run_cmd(cmd_cp_one_iter)
@@ -129,60 +104,71 @@ def process_one_iter(model_info):
     hour = run_time // 3600
     minute = (run_time - 3600 * hour) // 60
     second = run_time - 3600 * hour - 60 * minute
-    print ("The running time of {} :{} hours {} mins {} secs".format(p2, hour, minute, second), flush = True)
+    logging.info(f"The running time of {p2} :{hour} hours {minute} mins {second} secs")
 
 
-
-def handle_error(error):
-    print("Error: {}".format(error), flush = True)
+def handle_error(error: str) -> None:
+    logging.error(f"Error: {error}")
     if p is not None:
-        print("Kill all!", flush = True)
+        logging.error("Kill all!")
         p.terminate()
     error_flag.value = 1
 
 
-if __name__=='__main__':
-    curPath = os.path.dirname(os.path.realpath(__file__))
-    yamlPath = os.path.join(curPath, "test_one_iter_model_list.yaml")
-    original_list_f = open(yamlPath, 'r', encoding = 'utf-8')
-    original_list_cfg = original_list_f.read()
-    original_list_d = yaml.safe_load(original_list_cfg)
+if __name__ == '__main__':
+    # set some params
+    max_parall = 8
+    device = sys.argv[1]
+    job_name = sys.argv[2]
+    gpu_requests = sys.argv[3]
+    partition_arg = sys.argv[4:]
+    partition = ' '.join(partition_arg)
+    logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
+    error_flag = multiprocessing.Value('i', 0)  # if encount error
 
-    try:
-        original_list = original_list_d[device_type]
-    except:
-        print("The device is not supported!", flush = True)
-        exit(1)
+    if device == 'cuda':
+        model_num = 100
+        logging.info("we use cuda!")
+    else:
+        model_num = 100
+        logging.info("we use camb")
 
-    length = len(original_list)
+    logging.info(f"now pid!!!!: {os.getpid()} {os.getppid()}")
 
-    if(random_model_num > length):
-        random_model_num = length
 
-    print("model num:{}, chosen model num:{}".format(length, random_model_num), flush = True)
+    logging.info(f"python path: {os.environ.get('PYTHONPATH', None)}")
 
-    #random choose model
-    selected_list = random.sample(original_list, random_model_num)
-
+    os.environ['DIPU_DUMP_OP_ARGS'] = "0"
+    os.environ['DIPU_DEBUG_ALLOCATOR'] = "0"
     os.environ['ONE_ITER_TOOL_DEVICE'] = "dipu"
     os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "cpu"
-
-
-    os.mkdir("one_iter_data")
-
-
-    p = Pool(max_parall)
-    try:
-        # if device_type == 'cuda':
-        #     run_cmd("salloc -p {} -N4 -n4 --gres=gpu:8 --cpus-per-task 40".format(slurm_par))
-        for i in range(random_model_num):
-            p.apply_async(process_one_iter, args = (selected_list[i],), error_callback = handle_error)
-        print('Waiting for all subprocesses done...', flush = True)
-        p.close()
-        p.join()
-        if(error_flag.value != 0):
+    # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  # 0.2 by default
+    curPath = os.path.dirname(os.path.realpath(__file__))
+    yamlPath = os.path.join(curPath, "test_one_iter_model_list.yaml")
+    with open(yamlPath, 'r', encoding='utf-8') as f:
+        original_list = yaml.safe_load(f.read()).get(device, None)
+        if not original_list:
+            logging.error(f"Device type: {device} is not supported!")
             exit(1)
-        print('All subprocesses done.', flush = True)
-    except:
-        exit(1)
 
+        model_num = min(len(original_list), model_num)
+        logging.info(f"model nums: {len(original_list)}, chosen model num: {model_num}")
+
+        # random choose model
+        selected_list = random.sample(original_list, model_num)
+
+        os.mkdir("one_iter_data")
+
+        p = Pool(max_parall)
+        try:
+            for i in range(model_num):
+                p.apply_async(process_one_iter, args=(selected_list[i],), error_callback=handle_error)
+            logging.info('Waiting for all subprocesses done...')
+            p.close()
+            p.join()
+            if (error_flag.value != 0):
+                exit(1)
+            logging.info('All subprocesses done.')
+        except Exception as e:
+            logging.error(e)
+            exit(1)
