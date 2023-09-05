@@ -108,6 +108,11 @@ def handle_error(error: str) -> None:
         p.terminate()
     error_flag.value = 1
 
+def print_file(file_name)
+    with open(file_name) as f:
+        lines = f.read()
+        logging.info(lines)
+
 
 if __name__ == '__main__':
     # set some params
@@ -164,6 +169,8 @@ if __name__ == '__main__':
             logging.info('Waiting for all subprocesses done...')
             p.close()
             p.join()
+            for i in range(selected_model_num):
+                print_file(f"child_{i}_log.txt")
             if (error_flag.value != 0):
                 exit(1)
             logging.info('All subprocesses done.')
