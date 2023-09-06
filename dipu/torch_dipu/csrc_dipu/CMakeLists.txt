@@ -69,6 +69,11 @@ endif()
 target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 
+set(CMAKE_THREAD_PREFER_PTHREAD ON)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(${DIPU_LIB} Threads::Threads)
+
 ## copy vendor header file
 set(VENDOR_DIST "${DIST_DIR}/csrc_dipu/vendor/")
 set(VENDOR_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
