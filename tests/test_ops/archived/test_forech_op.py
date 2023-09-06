@@ -5,7 +5,7 @@ import torch_dipu
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 
 
-class TestGenerator(TestCase):
+class TestForeach(TestCase):
     def test_foreach_add_(self):
         weights_cpu = []
         grads_cpu = []
