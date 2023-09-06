@@ -92,7 +92,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
-        run_cmd(cmd_run_one_iter + f" 2>>&1 > {log_file}")
+        run_cmd(cmd_run_one_iter + f" 2>&1 >> {log_file}")
     run_cmd(cmd_cp_one_iter + f" 2>&1 >> {log_file}")
 
     end_time = time.time()
