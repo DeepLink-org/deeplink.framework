@@ -33,9 +33,9 @@ public:
     if (state_need_reset_) {
       state_ = at::detail::empty_cpu({(int64_t)total_size}, c10::ScalarType::Byte, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
       auto rng_state = state_.data_ptr<uint8_t>();
-      uint64_t current_seed = this->current_seed();
+      uint64_t seed = this->current_seed();
       int64_t offset = 0;
-      memcpy(rng_state, &current_seed, seed_size);
+      memcpy(rng_state, &seed, seed_size);
       memcpy(rng_state + seed_size, &offset, offset_size);
       state_need_reset_ = false;
     }
