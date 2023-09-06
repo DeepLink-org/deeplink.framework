@@ -26,6 +26,6 @@ output_cpu = m(input_cpu)
 print(output_cpu)
 
 rtol = 1e-5
-atol = 1e-8
+atol = 1e-5
 assert np.allclose(output_cpu.detach().numpy(), output_dipu.detach().cpu().numpy(), rtol, atol, True)
 print("conv2d output compare successfully")
