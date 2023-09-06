@@ -103,6 +103,10 @@ def apply_profiler_patch():
     setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
     torch.profiler.profile = dipu_profiler
 
+def apply_amp_patch():
+    torch.xpu = dipu.dipu
+    torch.autocast.__init__ = GetDeviceProxy(torch.autocast.__init__, pos = 0, name = "device_type", caller = "str_static")
+
 
 def apply_patches():
     apply_tensor_method_patch()
@@ -114,5 +118,7 @@ def apply_patches():
     apply_dataloader_patch()
     apply_generator_patch()
     apply_stream_patch()
+    apply_amp_patch()
+
 
 apply_patches()

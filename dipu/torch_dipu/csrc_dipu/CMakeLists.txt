@@ -26,6 +26,7 @@ file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
     aten/CPUFallback.cpp
     aten/util/*.cpp
     aten/ops/*Kernel*.cpp
+    aten/ops/DIPUAmp.cpp
 )
 
 file(GLOB BASE_FILES base/*.cpp)

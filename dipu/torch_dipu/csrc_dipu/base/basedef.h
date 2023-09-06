@@ -11,6 +11,11 @@
 #define DIPU_DEVICE_TYPE_MACRO XPU
 #define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO AutogradXPU
 
+#define DeviceTypeDIPU  at::DeviceType::XPU
+#define AutocastDIPU  AutocastXPU
+
+#define ADD_NS(RAW_OP) at::RAW_OP
+
 // to do: abstract a layer which not depend on pytorch
 namespace dipu {
 

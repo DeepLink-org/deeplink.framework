@@ -65,6 +65,17 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
             kwargs[name] = torch.device(deviceValue)
         return args, kwargs
 
+    def _deviceToStr(args, kwargs):
+        # pos device
+        if pos >= 0 and pos < len(args) and isinstance(args[pos], torch.device):
+            argList = list(args)
+            argList[pos] = args[pos].type
+            args = tuple(argList)
+        deviceValue = kwargs.get(name, None)
+        if deviceValue != None and isinstance(args[pos], torch.device):
+            kwargs[name] = deviceValue.type
+        return args, kwargs
+
     def _proxyFuncInst(self, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(self, *args, **kwargs)
@@ -77,11 +88,19 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
     def _proxyNewClass(cls, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(*args, **kwargs)
+    
+    # return device in string
+    def _proxyFuncStaticStr(self, *args, **kwargs):
+        args, kwargs = _replaceDevice(args, kwargs)
+        args, kwargs = _deviceToStr(args, kwargs)
+        return rawfunc(self, *args, **kwargs)
 
     if caller == "static":
         return _proxyFuncStatic
     elif caller == "class_new":
         return _proxyNewClass
+    elif caller == "str_static":
+        return _proxyFuncStaticStr
     else:
         return _proxyFuncInst
 

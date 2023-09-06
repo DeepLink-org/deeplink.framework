@@ -23,7 +23,7 @@ def test_stor1():
 
   snew = s1.resize_(0)
   assert(snew.size() == 0)
-  assert(x1.is_dipu() == True)
+  assert(x1.is_dipu == True)
 
 if __name__ == '__main__':
     test_stor1()
