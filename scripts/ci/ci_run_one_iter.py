@@ -18,7 +18,7 @@ def run_cmd(cmd: str) -> None:
         raise Exception(error)
 
 
-def process_one_iter(log_file, model_info: dict) -> None:
+def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     begin_time = time.time()
 
     model_info_list = model_info['model_cfg'].split()
@@ -89,8 +89,10 @@ def process_one_iter(log_file, model_info: dict) -> None:
     else:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
-
-    run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
+    if clear_log:
+        run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
+    else:
+        run_cmd(cmd_run_one_iter + f" 2>>&1 > {log_file}")
     run_cmd(cmd_cp_one_iter + f" 2>&1 >> {log_file}")
 
     end_time = time.time()
@@ -149,6 +151,7 @@ if __name__ == '__main__':
             exit(1)
 
         if len(original_list) > max_model_num:
+            # random choose model
             selected_list = random.sample(original_list, max_model_num)
         else:
             selected_list = original_list
@@ -156,21 +159,20 @@ if __name__ == '__main__':
         selected_model_num = len(selected_list)
         logging.info(f"model nums: {len(original_list)}, chosen model num: {selected_model_num}")
 
-        # random choose model
-
-
         os.mkdir("one_iter_data")
 
         p = Pool(max_parall)
+        log_files=[]
         try:
             for i in range(selected_model_num):
-                log_file = f"child_{i}_log.txt"
-                p.apply_async(process_one_iter, args=(log_file, selected_list[i],), error_callback=handle_error)
+                log_file = f"child_{i%max_parall}_log.txt"
+                log_files.append(log_file)
+                p.apply_async(process_one_iter, args=(log_file, i<max_parall, selected_list[i],), error_callback=handle_error)
             logging.info('Waiting for all subprocesses done...')
             p.close()
             p.join()
-            for i in range(selected_model_num):
-                print_file(f"child_{i}_log.txt")
+            for log_file in log_files:
+                print_file(log_file)
             if (error_flag.value != 0):
                 exit(1)
             logging.info('All subprocesses done.')
