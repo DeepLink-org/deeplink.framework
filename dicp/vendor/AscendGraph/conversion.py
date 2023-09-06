@@ -86,6 +86,10 @@ def abs(a):
 def rsqrt(a):
     return ascend_op.Rsqrt(a)
 
+@registe_conversion(torch.ops.aten.sqrt)
+def sqrt(a):
+    return ascend_op.Sqrt(a)
+
 @registe_conversion(torch.ops.aten.log)
 def log(a):
     return ascend_op.Log(a)

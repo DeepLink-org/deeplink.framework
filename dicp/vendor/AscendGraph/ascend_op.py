@@ -136,6 +136,13 @@ class Rsqrt(Operator):
         self.torch_op = aten.rsqrt
 
 
+class Sqrt(Operator):
+    def __init__(self, a):
+        super().__init__("sqrt")
+        self.a = a
+        self.torch_op = aten.sqrt
+
+
 class Log(Operator):
     def __init__(self, a):
         super().__init__("log")

@@ -105,15 +105,11 @@ class MemoryPool:
         self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
-        self.work_size = 13 * 1024 * 1024 * 1024
+        self.work_size = 15 * 1024 * 1024 * 1024
         self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
 
-        self.weight_size = 9600
-        self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
-                                            ACL_MEM_MALLOC_HUGE_FIRST)
-        check_ret("acl.rt.malloc", ret)
 
 memory_pool = MemoryPool()
 
@@ -147,6 +143,11 @@ class AscendExecutor(object):
 
 
     def load_model(self):
+        work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        check_ret("acl.mdl.query_size", ret)
+        weight_ptr, ret = acl.rt.malloc(weight_size,
+                                              ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
         config_handle = acl.mdl.create_config_handle()
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
         check_ret("set_config_opt", ret) 
@@ -154,16 +155,16 @@ class AscendExecutor(object):
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, memory_pool.weight_ptr)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, weight_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, memory_pool.weight_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, work_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)

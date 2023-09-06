@@ -1,11 +1,18 @@
-import torch
 import json
+import os
+import random
+import uuid
+
+import numpy as np
+import torch
 
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
 
 graph_id = 0
+
+precision_check = bool(os.environ.get("DICP_ASCEND_PRECISION_CHECK", False))
 
 need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'where', 'convolution', 'le', 'scalar_tensor',
@@ -16,7 +23,6 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar']
 
 sym_to_inputs = {}
-
 def get_graph_id():
     global graph_id
     graph_id = graph_id + 1
@@ -148,9 +154,11 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
     else:
         raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
 
+
 class AscendCodegen(torch.fx.Interpreter):
-    def __init__(self, graph):
+    def __init__(self, graph, aten_graph=None):
         self.graph = graph
+        self.aten_graph = aten_graph
         self.override = AscendOverrides
 
         self.import_code = IndentedBuffer()
@@ -173,7 +181,7 @@ class AscendCodegen(torch.fx.Interpreter):
         self.py_output_names = []
         self.graph_output_names = []
         self.build_options = []
-        
+
         global sym_to_inputs
         sym_to_inputs = {}
 
@@ -290,6 +298,15 @@ class AscendCodegen(torch.fx.Interpreter):
                 
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
+                
+                def check_tensor(a, b, atol=5e-2, rtol=1e-2):
+                    try:
+                        if not torch.allclose(a, b, atol=atol, rtol, equal_nan=True):
+                            import pdb;pdb.set_trace()
+                            pass
+                    except Exception as e:
+                        import pdb;pdb.set_trace()
+                        pass
             """
             , strip=True
         )
@@ -340,13 +357,35 @@ class AscendCodegen(torch.fx.Interpreter):
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
+        
+        if precision_check and self.aten_graph is not None:
+            # 1. export aten graph to disk
+            def get_unique_str():
+                uuid_str = str(uuid.uuid1())
+                return 'm' + str(uuid.uuid3(uuid.NAMESPACE_DNS, uuid_str + str(os.getpid())))
+            module_path = get_unique_str().replace('-', '')
+            folder_path = "/tmp/dicp_debug/aten_modules/" + module_path
+            os.system(f"mkdir -p {folder_path}")
+            self.aten_graph.to_folder(folder_path)
+          
+            # 2. import aten graph
+            call_str.append(f'from aten_modules.{module_path} import FxModule')
+            call_str.append('aten_call = FxModule()')
+            call_str.append('aten_output = aten_call(*args)')
+
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
             else:
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
+        if precision_check:
+            for i, name in enumerate(self.py_output_names):
+                if name != 'None' and name not in self.args and name not in self.symint_outputs:
+                    call_str.append(f"{name}_cpu = aten_output[{i}]")
+                    call_str.append(f"check_tensor({name}, {name}_cpu)")
         call_body.writelines(call_str)
+
         del_args = [f'del ' + x for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
         call_body.writeline(f"args.clear()")
@@ -744,11 +783,18 @@ class AscendOverrides:
             # y is scalar
             ascend_dtype = get_ascend_dtype(out_dtype)
             cpp_dtype = get_cpp_dtype(out_dtype)
+            
+            if out_dtype == torch.float or out_dtype == torch.float16:
+                adds_op = OP(name, "Adds")
+                adds_op.set_input("x", x_name)
+                adds_op.set_attr_float("value", float(y))
+                return adds_op.to_node()
+
             scalar_op = OP(f'{name}_scalar', "Const")
             scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
             y_name = f"{name}_scalar"
             ops.append(scalar_op.to_node())
-        add_op = OP(name, "AddV2")
+        add_op = OP(name, "Add")
         add_op.set_input("x1", x_name)
         add_op.set_input("x2", y_name)
         ops.append(add_op.to_node())
@@ -804,15 +850,55 @@ class AscendOverrides:
 
     @staticmethod
     def sqrt(name, x):
-        op = OP(name, "Sqrt")
+        op = OP(f"{name}_sqrt", "Sqrt")
         op.set_input("x", x)
-        return op.to_node()
+
+        # 1. make nan tensor
+        zero_op = OP(f"{name}_zero", "ZerosLike")
+        zero_op.set_input("x", x)
+        nan_op = OP(f"{name}_nan", "Div")
+        nan_op.set_input("x1", f"{name}_zero")
+        nan_op.set_input("x2", f"{name}_zero")
+
+        # 2. get condition tensor
+        cond_op = OP(f"{name}_cond", "Less")
+        cond_op.set_input("x1", x)
+        cond_op.set_input("x2", f"{name}_zero")
+
+        # 3. post process result
+        res_op = OP(name, "Select")
+        res_op.set_input("condition", f"{name}_cond")
+        res_op.set_input("x1", f"{name}_nan")
+        res_op.set_input("x2", f"{name}_sqrt")
+
+        ops = [op, zero_op, cond_op, nan_op, res_op]
+        return [n.to_node() for n in ops]
 
     @staticmethod
     def rsqrt(name, x):
-        op = OP(name, "Rsqrt")
+        op = OP(f"{name}_rsqrt", "Rsqrt")
         op.set_input("x", x)
-        return op.to_node()
+
+        # 1. make nan tensor
+        zero_op = OP(f"{name}_zero", "ZerosLike")
+        zero_op.set_input("x", x)
+        nan_op = OP(f"{name}_nan", "Div")
+        nan_op.set_input("x1", f"{name}_zero")
+        nan_op.set_input("x2", f"{name}_zero")
+
+        # 2. get condition tensor
+        cond_op = OP(f"{name}_cond", "Less")
+        cond_op.set_input("x1", x)
+        cond_op.set_input("x2", f"{name}_zero")
+
+        # 3. post process result
+        res_op = OP(name, "Select")
+        res_op.set_input("condition", f"{name}_cond")
+        res_op.set_input("x1", f"{name}_nan")
+        res_op.set_input("x2", f"{name}_rsqrt")
+        
+        ops = [op, zero_op, cond_op, nan_op, res_op]
+        return [n.to_node() for n in ops]
 
     @staticmethod
     def convolution(name, node, input, weight, bias, stride, padding,
@@ -903,7 +989,6 @@ class AscendOverrides:
                 else:
                     real_shape.append(str(numel / prod))
             shape = real_shape
-
         ops = []
         if symint_in_shape(shape):
             ops.extend(process_dynamic_shape(shape, name))
@@ -1161,7 +1246,7 @@ class AscendOverrides:
         matmul_op.set_input("x2", b)
         ops.append(matmul_op.to_node())
 
-        add_op = OP(name, "AddV2")
+        add_op = OP(name, "Add")
         add_op.set_input("x1", f"{name}_c_beta")
         add_op.set_input("x2", f"{name}_matmul")
         ops.append(add_op.to_node())
@@ -1917,38 +2002,24 @@ class AscendOverrides:
 
     @staticmethod
     def slice_backward(name, node, grad, input_shape, dim, start, end, step):
-        y_shape = list(node.meta['val'].shape)
         start = start if start >= 0 else input_shape[dim] + start
-
+        assert step == 1
         assert dim >= 0 and dim < len(input_shape)
         assert start >=0 and start < input_shape[dim]
-
-        offset = [0] * len(input_shape)
-        offset[dim] = start
-
-        start_op = OP(f"{name}_start", "Const")
-        start_op.set_attr_tensor("value", "INT32", "INT32", "ND", offset, [len(offset)])
-
-        end_op = OP(f"{name}_end", "Const")
-        end_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
-
-        step_op = OP(f"{name}_stride", "Const")
-        step_op.set_attr_tensor("value", "INT32", "INT32", "ND", [step], [])
-
-        zero_op = OP(f"{name}_zero", "ZerosLike")
-        zero_op.set_input("x", grad)
-
-        shape_op = OP(f"{name}_shape", "Const")
-        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", input_shape, [len(input_shape)])
-            
-        op = OP(name, "StridedSliceGrad")
-        op.set_input("shape", f"{name}_shape")
-        op.set_input("begin", f"{name}_start")
-        op.set_input("end", f"{name}_end")
-        op.set_input("strides", f"{name}_stride")
-        op.set_input("dy", f"{name}_zero")
-        ops = [start_op, end_op, step_op, zero_op, shape_op, op]
-        return [x.to_node() for x in ops]
+        rank = len(input_shape)
+        end = end if end <= input_shape[dim] else input_shape[dim]
+        end = end if end >=0 else end + input_shape[dim]
+        pad = np.zeros((rank, 2), dtype=np.int32)
+        for i, v in enumerate(input_shape):
+            if i == dim:
+                pad[i][0] = start
+                pad[i][1] = v - end
+        const_op = OP(f"{name}_paddings", "Const")
+        const_op.set_attr_tensor("value", "INT32", "INT32", "ND", pad.flatten().tolist(), [rank, 2])
+        pad_op = OP(name, "Pad")
+        pad_op.set_input("x", grad)
+        pad_op.set_input("paddings", f"{name}_paddings")
+        return [const_op.to_node(), pad_op.to_node()]
       
     @staticmethod
     def empty_like(name, node, x, dtype=None, device=None, layout=None,
@@ -1982,10 +2053,8 @@ class AscendOverrides:
 
     @staticmethod
     def lift_fresh_copy(name, x):
-        op = OP(name, "Copy")
+        op = OP(name, "Identity")
         op.set_input("x", x)
-        op.set_dynamic_output("y", 1)
-        op.set_attr_int("N", 1)
         return op.to_node()
  
     @staticmethod

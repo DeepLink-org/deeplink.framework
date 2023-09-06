@@ -32,6 +32,7 @@ class GraphTransformer:
             self.backend_codegen = AscendCodegen
 
     def transform(self):
+        self.aten_gm = self.gm
         self.gm = self.backend_opset_transform(self.gm)
 
     def infer_shape_dtype(self):
@@ -50,7 +51,7 @@ class GraphTransformer:
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
 
     def codegen(self):
-        return self.backend_codegen(self.gm).codegen()
+        return self.backend_codegen(self.gm, self.aten_gm).codegen()
 
     @dynamo_timed
     def compile_to_module(self):
