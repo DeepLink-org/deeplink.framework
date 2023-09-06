@@ -59,14 +59,7 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
-if(DEFINED ENV{DIOPI_IMPL_LIB})
-  find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ENV DIOPI_IMPL_LIB REQUIRED)
-else()
-  set(DIOPI_IMPL_LIB diopi_impl)
-endif()
-
-# need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
+target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)

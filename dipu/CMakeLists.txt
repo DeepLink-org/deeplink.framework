@@ -1,4 +1,3 @@
-
 cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU)
 
@@ -110,9 +109,12 @@ include_directories(${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
-set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
-include_directories(${DIOPI_PROTO_PATH}/include)
-add_definitions(-DDIOPI_ATTR_WEAK)
+set(WITH_DIOPI "${CMAKE_SOURCE_DIR}/third_party/DIOPI")
+add_library(diopi_impl SHARED IMPORTED)
+set_target_properties(diopi_impl PROPERTIES
+    IMPORTED_LOCATION "${WITH_DIOPI}/impl/lib/libdiopi_impl.so"
+    INTERFACE_INCLUDE_DIRECTORIES "${WITH_DIOPI}/proto/include"
+    INTERFACE_COMPILE_DEFINITIONS DIOPI_ATTR_WEAK)
 
 if (LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)
