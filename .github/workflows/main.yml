@@ -259,9 +259,8 @@ jobs:
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda
           source scripts/ci/nv/ci_nv_env.sh
           cd benchmark/op_benchmark
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh run_benchmark.sh | tee dipu_op_benchmark.txt
-          diff  -y --left-column -W 400 dipu_op_benchmark.txt pt_op_benchmark.txt > dipu_pt_op_benchmark_compare_result.log
-          cat dipu_pt_op_benchmark_compare_result.log
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G sh run_benchmark.sh | tee dipu_op_benchmark.txt \
+          ||  (diff  -y --left-column -W 400 dipu_op_benchmark.txt pt_op_benchmark.txt > dipu_pt_op_benchmark_compare_result.log &&  cat dipu_pt_op_benchmark_compare_result.log && exit 1)
           """
 
   Test-One-Iter_Cuda:
