@@ -105,6 +105,7 @@ class MemoryPool:
     def __init__(self):
         self.work_ptr = None
         self.weight_ptr = None
+        atexit.register(self.release_memory)
         self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
@@ -165,7 +166,6 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
-        memory_pool.release_memory()
 
     def load_model(self):
         config_handle = acl.mdl.create_config_handle()

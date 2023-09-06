@@ -681,10 +681,11 @@ class FullLike(Operator):
 
 
 class RepeatInterleave(Operator):
-    def __init__(self, x, output_size):
+    def __init__(self, repeats, output_size):
         super().__init__("repeat_interleave")
-        self.x = x
-        self.shape = output_size
+        # TODO! multliple overload params for repeat_interleave
+        self.repeats = repeats
+        self.output_size = output_size
         self.torch_op = aten.repeat_interleave
 
 

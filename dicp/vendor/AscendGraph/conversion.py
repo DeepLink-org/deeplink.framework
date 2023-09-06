@@ -306,8 +306,8 @@ def new_ones(x, shape, dtype=torch.int64, layout=None, device='cpu', pin_memory=
     return ascend_op.NewOnes(x, shape)
 
 @registe_conversion(torch.ops.aten.repeat_interleave)
-def repeat_interleave(x, output_size = 1):
-    return ascend_op.RepeatInterleave(x, output_size)
+def repeat_interleave(repeats, output_size = 1):
+    return ascend_op.RepeatInterleave(repeats, output_size)
 
 @registe_conversion(torch.ops.aten.full.default)
 def full(dims, value, dtype = torch.float32, layout = torch.strided,
