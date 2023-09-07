@@ -24,9 +24,6 @@ from .dipu.dataloader import apply_dataloader_patch
 from .dipu.optim import apply_optim_patch
 from .dipu.generator import apply_generator_patch
 
-
-
-
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
     torch.Tensor.to = GetDeviceProxy(torch.Tensor.to)
