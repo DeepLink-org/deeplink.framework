@@ -149,6 +149,7 @@ ge::Format get_ascend_format(const std::string& format) {
       {"NCHW", FORMAT_NCHW},
       {"NHWC", FORMAT_NHWC},
       {"ND", FORMAT_ND},
+      {"FRACTAL_NZ", FORMAT_FRACTAL_NZ},
   };
   if (format_map.count(format) > 0) {
     return format_map[format];

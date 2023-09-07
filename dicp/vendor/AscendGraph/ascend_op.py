@@ -11,6 +11,8 @@ aten = torch.ops.aten
 
 class Operator():
     __name__: str
+    _singleton = None
+
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
@@ -31,24 +33,52 @@ class Operator():
         else:
             raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
     
-    def __call__(self, *args, **kwargs):
-        def get_meta(x):
-            return x if not hasattr(x, 'meta') else x.meta['val']
-        new_args = tree_map(get_meta, args)
-        
+    @classmethod
+    def get_singleton(cls):
+        args = [None] * (cls.__init__.__code__.co_argcount - 1)
+        if cls._singleton is None:
+           cls._singleton = cls(*args)
+        return cls._singleton
+
+    def name(self):
+        return self.__name__
+
+    def get_fake_mode_from_args(self, args):
         fake_mode = None
-        tmp_args, _ = tree_flatten(new_args)
-        for arg in tmp_args:
+        for arg in args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
-        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+            elif isinstance(arg, list):
+                for x in arg:
+                    if isinstance(x, FakeTensor):
+                        fake_mode = x.fake_mode
+                        break
+                if fake_mode is not None:
+                    break
+        if fake_mode is None:
+            fake_mode = self.fake_mode
+        return fake_mode
 
-        def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or isinstance(x, FakeTensor):
-                return x
-            return FakeTensor.from_tensor(x, fake_mode)
-        new_args = tree_map(make_faketensor, new_args)
+    def __call__(self, *args, **kwargs):
+        new_args = []
+        for arg in args:
+            if isinstance(arg, list):
+                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
+            else:
+                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
+        new_args = tuple(new_args)
+
+        fake_mode = self.get_fake_mode_from_args(new_args)
+
+        tmp_args = []
+        for arg in new_args:
+            if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
+                tmp_args.append(arg)
+            else:
+                tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
+        new_args = tuple(tmp_args)
+
         return self.torch_op(*new_args, **kwargs)
 
 
@@ -91,7 +121,12 @@ class BatchMatMul(Operator):
         super().__init__("bmm")
         self.a = a
         self.b = b
-        self.torch_op = aten.bmm
+        self.torch_op = self.bmm
+    
+    def bmm(self, x1, x2, adj_x1=False, adj_x2=False):
+        tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
+        tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
+        return aten.bmm(tensor_x1, tensor_x2)
 
 
 class Sub(Operator):

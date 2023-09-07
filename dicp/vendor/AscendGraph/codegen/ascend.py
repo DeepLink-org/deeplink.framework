@@ -203,7 +203,9 @@ class AscendCodegen(torch.fx.Interpreter):
         else:
             dims = fake_tensor.shape
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
-            
+        
+        if 'format' in self.cur_node.meta:
+            format =  self.cur_node.meta['format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
@@ -860,7 +862,7 @@ class AscendOverrides:
 
     @staticmethod
     def view(name, node, x, size):
-        x_node = node.target.x.node
+        x_node = node.args[0]
         shape = list(node.meta['val'].shape)
         if x_node.meta["val"].dtype == torch.complex64:
             shape.append(1)
@@ -1207,7 +1209,7 @@ class AscendOverrides:
 
     @staticmethod
     def expand(name, node, x, shape):
-        x_shape = list(node.target.x.node.meta['val'].shape)
+        x_shape = list(node.args[0].meta['val'].shape)
         y_shape = list(node.meta['val'].shape)
         if x_shape == y_shape:
             op = OP(name, "Identity")
@@ -1298,12 +1300,16 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def bmm(name, x, y):
+    def bmm(name, x1, x2, adj_x1=False, adj_x2=False):
         op = OP(name, "BatchMatMul")
-        op.set_input("x1", x)
-        op.set_input("x2", y )
+        op.set_input("x1", x1)
+        if adj_x1:
+            op.set_attr_bool("adj_x1", True)
+        op.set_input("x2", x2)
+        if adj_x2:
+            op.set_attr_bool("adj_x2", True)
         return op.to_node()
-    
+
     @staticmethod
     def convolution_backward(name, grad_output, input, weight, bias_size,
         
