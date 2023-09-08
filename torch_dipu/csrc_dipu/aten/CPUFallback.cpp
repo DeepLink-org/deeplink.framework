@@ -75,6 +75,8 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   std::vector<int> tensor_args_indices;
 
   std::vector<c10::List<at::Tensor>> tensorlist_args;
+  std::vector<c10::List<at::Tensor>> cpu_tensorlist_args;
+  std::vector<int> tensorlist_args_indices;
 
   static bool log_fallback_detail = std::getenv("DIPU_LOG_FALLBACK_INFO") != nullptr;
 
@@ -87,6 +89,7 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
         << schema_args[idx].name()
         << "\ttype:" << schema_args[idx].type()
         << "\tisTensor:" << ivalue.isTensor()
+        << "\tisTensorList:" << ivalue.isTensorList()
         << "\talias_info:" << schema_args[idx].alias_info()
         << std::endl;
     }
@@ -98,9 +101,11 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
       // Note: we copy each TensorList argument to CPU individually out of convenience,
       // but XLA would benefit from materializing all tensor and TensorList args onto the CPU at the same time.
       // We can improve this if we need better perf for XLA's CPU fallbacks.
+      tensorlist_args.push_back(ivalue.toTensorList());
       auto cpu_ivalue = c10::IValue(c10::List<at::Tensor>(to_cpu(ivalue.toTensorList().vec())));
       (*stack)[arguments_begin + idx] = std::move(cpu_ivalue);
-      tensorlist_args.push_back(ivalue.toTensorList());
+      cpu_tensorlist_args.push_back((*stack)[arguments_begin + idx].toTensorList());
+      tensorlist_args_indices.push_back(idx);
     }
   }
   // XLA requires all of the tensor arguments to be gathered up and converted to CPU together.
@@ -123,18 +128,35 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
     auto tensor_idx = tensor_args_indices[i];
     const at::AliasInfo* alias_info = schema_args[tensor_idx].alias_info();
     if ((alias_info != nullptr && alias_info->isWrite())) {
-        at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
-    } else if(force_copy_tensor && cpu_tensors[i].defined()) {
       if (log_fallback_detail) {
-        std::cout << "force_copy_tensor: " << tensor_idx << ":" << cpu_tensors[i].options()
+        std::cout << "write back: " << tensor_idx << ":" << cpu_tensors[i].options()
             << ",size:" << cpu_tensors[i].sizes()
             << ", " << tensor_args[i].options()
             << ",size:"<< cpu_tensors[i].sizes() << std::endl;
       }
-      at::_copy_from_and_resize(cpu_tensors[i], tensor_args[i]);
+      tensor_args[i].reshape_as(cpu_tensors[i]).copy_(cpu_tensors[i], false);
     }
   }
+  for (const auto i : c10::irange(tensorlist_args_indices.size())) {
+    auto tensorlist_idx = tensorlist_args_indices[i];
+    const at::AliasInfo* alias_info = schema_args[tensorlist_idx].alias_info();
+    if ((alias_info != nullptr && alias_info->isWrite())) {
+      c10::List<at::Tensor> cpu_tensorlist = cpu_tensorlist_args[i];
+      std::vector<at::Tensor> tensorlist = tensorlist_args[i].vec();
+      for(auto j = 0; j < tensorlist.size(); j++) {
 
+        if (cpu_tensorlist.get(j).defined()) {
+          tensorlist[j].reshape_as(cpu_tensorlist.get(j)).copy_(cpu_tensorlist.get(j), false);
+        }
+        if (log_fallback_detail) {
+          std::cout << "write back " << tensorlist_idx << "th args " << j << "th tensor:"
+            << cpu_tensorlist.get(j).sizes() << cpu_tensorlist.get(j).options()
+            << tensorlist[j].sizes() << tensorlist[j].options() << std::endl;
+        }
+      }
+      (*stack)[arguments_begin + tensorlist_idx] = c10::IValue(c10::List<at::Tensor>(tensorlist));
+    }
+  }
   // Step 4: Convert any CPU output tensors back to the original input device.
   // For mutable alias'd outputs, we also need to take special care
   // to move the ORIGINAL input tensor back onto the stack, in place of
