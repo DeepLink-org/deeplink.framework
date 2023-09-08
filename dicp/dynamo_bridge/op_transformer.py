@@ -29,7 +29,13 @@ class SingleOpTransformer(torch.fx.Transformer):
 
     def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
         if target in self._conversions:
-            out = self._conversions[target](*args, **kwargs)
+            converted_target = self._conversions[target]
+            if isinstance(converted_target, tuple):
+                # converted_target: (Operation, process_args_kwargs_fn)
+                out, process_fn = converted_target
+                args, kwargs = process_fn(args, kwargs)
+            else:
+                out = self._conversions[target](*args, **kwargs)
             proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
             proxy.node.meta = fx_traceback.get_current_meta()
             return proxy

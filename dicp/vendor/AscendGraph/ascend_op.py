@@ -11,6 +11,8 @@ aten = torch.ops.aten
 
 class Operator():
     __name__: str
+    _singleton = None
+
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
@@ -31,6 +33,16 @@ class Operator():
         else:
             raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
     
+    @classmethod
+    def get_singleton(cls):
+        args = [None] * (cls.__init__.__code__.co_argcount - 1)
+        if cls._singleton is None:
+           cls._singleton = cls(*args)
+        return cls._singleton
+
+    def name(self):
+        return self.__name__
+
     def __call__(self, *args, **kwargs):
         def get_meta(x):
             return x if not hasattr(x, 'meta') else x.meta['val']
@@ -91,7 +103,12 @@ class BatchMatMul(Operator):
         super().__init__("bmm")
         self.a = a
         self.b = b
-        self.torch_op = aten.bmm
+        self.torch_op = self.bmm
+    
+    def bmm(self, x1, x2, adj_x1=False, adj_x2=False):
+        tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
+        tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
+        return aten.bmm(tensor_x1, tensor_x2)
 
 
 class Sub(Operator):
