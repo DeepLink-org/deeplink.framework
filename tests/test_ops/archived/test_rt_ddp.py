@@ -86,6 +86,103 @@ def demo_allreduce(rank, world_size, port):
         dist.all_reduce(te_result, op=op)
     cleanup()
 
+# need at least 2 card
+def demo_p2p(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  sended_tensor = torch.arange(2).to(device=rank, dtype=torch.float16)
+  received_tensor = torch.zeros(2).to(rank, dtype=torch.float16)
+  for i in range(1, 3):
+    if rank == 0:
+      send_op = dist.P2POp(dist.isend, sended_tensor, 1)
+      recv_op = dist.P2POp(dist.irecv, received_tensor, 1)
+      reqs = dist.batch_isend_irecv([send_op, recv_op])
+      for req in reqs:
+        req.wait()
+      print(received_tensor)
+
+    if rank == 1:
+      send_op = dist.P2POp(dist.isend, sended_tensor, 0)
+      recv_op = dist.P2POp(dist.irecv, received_tensor, 0)
+
+      reqs = dist.batch_isend_irecv([recv_op, send_op])
+
+      # dicl not really support group p2p (underlying device also not support it?)
+      # so, such test will block
+      # reqs = dist.batch_isend_irecv([send_op, recv_op])
+
+      for req in reqs:
+        req.wait()
+      print(received_tensor)
+  cleanup()
+
+
+def demo_allgather(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  src1 = torch.ones((2, 4)).to(rank)
+  dests = torch.zeros((world_size * 2, 4)).to(rank)
+  dests = [*dests.chunk(world_size, 0),]
+  for i in range(1, 3):
+    dist.all_gather(dests, src1)
+  assert torch.allclose(src1, dests[0])
+  cleanup()
+
+def demo_bcast(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  src1 = torch.ones((2, 4)).to(rank)
+  dst = torch.empty((2, 4)).to(rank)
+  # print(dst)
+  for i in range(1, 3):
+    if rank == 0:
+      dist.broadcast(src1, 0)
+    else:
+      dist.broadcast(dst, 0)
+  assert torch.allclose(src1, dst)
+  cleanup()
+
+def demo_reduce(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  src_dst0 = torch.ones((2, 4)).to(rank)
+  for i in range(1, 2):
+    dist.reduce(src_dst0, 0, op=dist.reduce_op.SUM)
+  if rank == 0:
+    assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst0.cpu())
+  cleanup()
+
+
+def demo_reducescatter(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  src1 = torch.ones((2 * world_size, 4)).to(rank)
+  srcs = [*src1.chunk(world_size, 0),]
+
+  dst = torch.zeros((2, 4)).to(rank)
+  # print(dst)
+  for i in range(1, 3):
+    dist.reduce_scatter(dst, srcs, op=dist.reduce_op.SUM)
+  
+  assert torch.allclose(srcs[0], dst.cpu())
+  cleanup()
+
+def demo_reducescatter_base(rank, world_size):
+  import torch_dipu
+  setup(rank, world_size)
+
+  src1 = torch.ones((world_size * 2, 4)).to(rank)
+  dst = torch.zeros((2, 4)).to(rank)
+  for i in range(1, 3):
+    dist.reduce_scatter_tensor(dst, src1, op=dist.reduce_op.SUM)
+  assert torch.allclose(torch.ones((2, 4)), dst.cpu())
+  cleanup()
+
 def demo_model_parallel(rank, world_size, port):
     print(f"Running DDP with model parallel example on rank {rank}.")
     backend  ="nccl"
@@ -129,5 +226,14 @@ if __name__ == "__main__":
     world_size = 1
     run_demo(demo_basic_ddp, world_size, port)
     run_demo(demo_allreduce, world_size, port)
+    run_demo(demo_allgather, world_size, port)
+    run_demo(demo_bcast, world_size, port)
+    run_demo(demo_reduce, world_size, port)
+    run_demo(demo_reducescatter, world_size, port)
+    run_demo(demo_reducescatter_base, world_size, port)
+
+
+    # need 2 card to run
+    # run_demo(demo_p2p, world_size, port)
 
     # run_demo(demo_model_parallel, world_size)

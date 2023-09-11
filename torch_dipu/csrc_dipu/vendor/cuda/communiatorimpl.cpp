@@ -90,9 +90,9 @@ namespace devapis {
     return DICL_SUCCESS;
   }
 
-  DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype,
+  DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t sendCount, at::ScalarType datatype,
                               diclComm_t comm, deviceStream_t stream) {
-    NCCL_THROW(ncclAllGather(sendBuf, recvBuf, count, ncclDataType[datatype], comm, stream));
+    NCCL_THROW(ncclAllGather(sendBuf, recvBuf, sendCount, ncclDataType[datatype], comm, stream));
     return DICL_SUCCESS;
   }
 
@@ -102,9 +102,9 @@ namespace devapis {
     return DICL_SUCCESS;
   }
 
-  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, at::ScalarType dataType, 
-                                  const ReduceOp& op, diclComm_t comm, deviceStream_t stream) {
-    throw std::runtime_error("mlu Not implement diclReduceScatter");
+  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount, at::ScalarType datatype, 
+                                  const ReduceOp& reduceOp, diclComm_t comm, deviceStream_t stream) {
+    NCCL_THROW(ncclReduceScatter(sendBuf, recvBuf, recvCount, ncclDataType[datatype], ncclOp[reduceOp], comm, stream));
   }
 
   DIPU_API diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype, int peer,

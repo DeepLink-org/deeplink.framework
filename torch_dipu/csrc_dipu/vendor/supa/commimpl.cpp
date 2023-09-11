@@ -110,7 +110,7 @@ diclResult_t diclReduce(const void *sendbuff, void *recvbuff, size_t count, at::
   SUCCL_CALL(succlReduce(sendbuff, recvbuff, count, suDataType, suOp, root, comm, stream));
 }
 
-diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, at::ScalarType dataType,
+diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount, at::ScalarType dataType,
                                const ReduceOp &op, diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(dataType);
   ConvertOpType(op);

@@ -83,7 +83,7 @@ DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
 }
 
 DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
-                                        uint64_t recvCount,
+                                        size_t recvCount,
                                         at::ScalarType dataType,
                                         const ReduceOp& op, diclComm_t comm,
                                         deviceStream_t stream) {

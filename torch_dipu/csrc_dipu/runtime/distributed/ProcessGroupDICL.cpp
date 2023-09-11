@@ -2,15 +2,21 @@
 #include <ATen/record_function.h>
 #include <torch/torch.h>
 
+#include <utility>
+
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 #include "./ProcessGroupDICL.h"
 namespace dipu {
+
+using std::pair;
+
 namespace {
 
-// Get the deviceList String from the list of devices
-std::string getKeyFromDevices(const std::vector<at::Device>& devices) {
+// Get the list of devices from list of tensors, collective comm always use all ranks,
+// so no rank prefix required in key.
+static inline std::string getDevieceIds(const std::vector<at::Device>& devices) {
   std::string deviceList;
   for (auto& device : devices) {
     if (deviceList.empty()) {
@@ -22,16 +28,27 @@ std::string getKeyFromDevices(const std::vector<at::Device>& devices) {
   return deviceList;
 }
 
-static std::string getKeySendRecv(int my_rank, int peer) {
-  int low_rank = my_rank < peer ? my_rank : peer;
-  int high_rank = my_rank < peer ? peer : my_rank;
-  std::string send_recv_pair =
-      std::to_string(low_rank) + ":" + std::to_string(high_rank);
-  return send_recv_pair;
+static inline pair<int, int> mapPGRank2P2P(int myRank, int peer) {
+  // ProcessGroupNCCL support send/recv self, but that seems only work with ncclGroup?
+  TORCH_CHECK(myRank != peer, "Invalid destination rank: should not be "
+      "the same as rank of the current process.");
+  pair<int, int> p2pRanks;
+  // self p2p rank
+  p2pRanks.first = myRank <= peer ? 0 : 1;
+  // p2p target rank
+  p2pRanks.second = 1 - p2pRanks.first;
+  return p2pRanks;
 }
 
-// Get the list of devices from list of tensors
-static std::vector<at::Device> getDeviceList(const std::vector<at::Tensor>& tensors) {
+// Get p2p sorted ranks as key, p2p only support 1 device tensor at a time and one comm endpoint
+// can bind with either device. so use rank as comm key is enough.
+static inline std::string getP2PRankIds(int myRank, int peer, const std::vector<at::Device>& devices) {
+  int lowRank = myRank < peer ? myRank : peer;
+  int highRank = myRank < peer ? peer : myRank;
+  return  std::to_string(lowRank) + ":" + std::to_string(highRank);
+}
+
+static inline std::vector<at::Device> getDeviceList(const std::vector<at::Tensor>& tensors) {
   std::vector<at::Device> res;
   res.reserve(tensors.size());
   for (auto& tensor : tensors) {
@@ -40,7 +57,7 @@ static std::vector<at::Device> getDeviceList(const std::vector<at::Tensor>& tens
   return res;
 }
 
-static void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
+static inline void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
   for (size_t i = 0; i < comms.size(); ++i) {
     comms[i]->preSyncStream();
   }
@@ -148,8 +165,8 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
 
 ProcessGroupDICL::~ProcessGroupDICL() {}
 
-void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2POp,
-      const std::string& p2pKey, int p2pRank) {
+void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
+    const std::string& storeKey, int commRank) {
   // For collective operations:
   // For every DICL communicator that we create we need to broadcast
   // a unique ID from rank 0 to all other ranks. This broadcast is
@@ -164,13 +181,7 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2
   // runtime errors. To avoid that, use the src:target pair instead
   // of sequence number for p2p communications.
 
-  std::string storeKey;
-  if (!isSingleP2POp) {
-    storeKey = std::to_string(diclCommCounter_++);
-  } else {
-    storeKey  = p2pKey;
-  }
-  if (rank_ == 0 || (isSingleP2POp && p2pRank == 0)) {
+  if (commRank == 0) {
     auto vec = std::vector<uint8_t>(
         reinterpret_cast<uint8_t*>(uniqueId),
         reinterpret_cast<uint8_t*>(uniqueId) + devapis::DICL_UNIQUE_ID_BYTES_SIZE);
@@ -186,63 +197,56 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2
   }
 }
 
-std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std::string& devicesKey,
-      const std::vector<at::Device>& devices, OpType opType, int p2pRank, bool isSendRecvSelf) {
+std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(const std::string& localCommsKey,
+      const std::vector<at::Device>& devices, int commsRank, OpType opType) {
  // Sanity check
-  if (devicesKey.empty()) {
+  if (localCommsKey.empty()) {
     throw std::runtime_error(
         "Not able to create/get the DICL Communicator since "
         "the DIPU devices are not known");
   }
-  for (auto& device : devices) {
-    usedDeviceIdxs_.insert(device.index());
-  }
   {
     std::lock_guard<std::mutex> lock(devDICLCommMapLock_);
-    if (devDICLCommsMap_.find(devicesKey) != devDICLCommsMap_.end()) {
+    if (devDICLCommsMap_.find(localCommsKey) != devDICLCommsMap_.end()) {
       // Reuse the cached communicator if there is one.
-      return devDICLCommsMap_[devicesKey];
+      return devDICLCommsMap_[localCommsKey];
     }
   }
   // not cached, create a new entry
   std::vector<std::shared_ptr<DICLComm>> diclComms;
   auto devSize = devices.size();
   diclComms.resize(devSize);
+  int deviceWorldSize = isP2POp(opType, false) ? 2 : getSize() * devSize;
 
   commUniqueId diclID;
-
-  bool singleP2POp = isP2POp(opType, false);
-  // For point-to-point communication, lower rank of the two will get unique id.
-  if (rank_ == 0 || (singleP2POp && p2pRank == 0)) {
+  if (commsRank == 0) {
     devproxy::diclGetUniqueId(&diclID);
   }
-
-  broadcastUniqueID(&diclID, singleP2POp, devicesKey, p2pRank);
+  std::string bcastKey = isP2POp(opType, false) ? localCommsKey : std::to_string(diclCommCounter_++);
+  broadcastUniqueID(&diclID, bcastKey, commsRank);
 
   OptionalDIPUGuard dipuGuard;
 
   for (int i=0; i < devSize; i++) {
-    int numRanks = getSize();
-    int rank = getRank() * devSize + i;
+    int deviceCommRank = isP2POp(opType, false) ? commsRank : getRank() * devSize + i;
     dipuGuard.reset_device(devices[i]);
-
     // use pool stream, not current stream
     auto commStream = getDIPUStreamFromPool(devices[i].index());
-    diclComms[i] = DICLComm::create(numRanks, rank, diclID, commStream);
+    diclComms[i] = DICLComm::create(deviceWorldSize, deviceCommRank, diclID, commStream);
   }
 
   // Hold the lock before modifying the cache.
   std::lock_guard<std::mutex> lock(devDICLCommMapLock_);
   // Move the DICL resource to cache
-  devDICLCommsMap_.emplace(devicesKey, std::move(diclComms));
-  return devDICLCommsMap_[devicesKey];
+  devDICLCommsMap_.emplace(localCommsKey, std::move(diclComms));
+  return devDICLCommsMap_[localCommsKey];
 }
 
 namespace {
 
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
 // ensure compatibility with the corresponding tensor in `other'.
-std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::Tensor>>& tensor_lists,
+static inline std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::Tensor>>& tensor_lists,
                                 std::vector<at::Tensor>& other, size_t world_size) {
   if (tensor_lists.size() != other.size()) {
     throw std::runtime_error(
@@ -278,17 +282,23 @@ std::vector<at::Tensor> flatten_for_scatter_gather(std::vector<std::vector<at::T
   }
   return flattened;
 }
-void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest, 
-                      const at::Tensor& src) {
+
+template <bool RecordDest, typename Dest, typename Src>
+static inline void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const Dest& dest, 
+                      const Src& src, int nums) {
   auto diclStream = diclComm->diclStream_;
   DIPUStreamGuard guard(diclStream.unwrap());
-  for (size_t j = 0; j < dest.size(); ++j) {
+  for (size_t j = 0; j < nums; ++j) {
     dest[j].copy_(src[j], true);
-    dipu::recordStream(dest[j], diclStream);
+    if (RecordDest) {
+      dipu::recordStream(dest[j], diclStream);
+    } else {
+      dipu::recordStream(src[j], diclStream);
+    }
   }
 }
 
-void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest,
+static inline void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<at::Tensor>& dest,
                           const at::Tensor& src) {
   auto diclStream = diclComm->diclStream_;
   auto currStream = dipu::getCurrentDIPUStream(diclStream.device_index());
@@ -305,34 +315,43 @@ void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm, const std::vector<
 // Check that all `tensors', different device may need extend this func to do device specific check
 void ProcessGroupDICL::checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
   if (tensors.size() == 0) {
-    throw std::runtime_error("Tensor list must be nonempty");
+    TORCH_CHECK(false, "Tensor list must be nonempty");
   }
   if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
-    throw std::runtime_error(
+    TORCH_CHECK(false,
         "Tensor list mustn't be larger than the number of available DIPUs");
   }
+  const auto& first = tensors.front();
+
+  // Set for ensuring that tensors are on separate devices.
+  std::unordered_set<decltype(first.get_device())> usedDevices;
+  usedDevices.reserve(tensors.size());
+
   for (auto tensor: tensors) {
     if (!dipu::isDeviceTensor(tensor) || !tensor.is_non_overlapping_and_dense()) {
-      throw std::runtime_error("Tensors must be DIPU and non-overlapping and dense");
+      TORCH_CHECK(false, "Tensors must be DIPU and non-overlapping and dense");
+    }
+    if (tensor.scalar_type() != first.scalar_type()) {
+      TORCH_CHECK(false, "Tensors must have identical type");
+    }
+    if (tensor.sizes() != first.sizes()) {
+      TORCH_CHECK(false, "Tensors must have identical size");
+    }
+    if (tensor.strides() != first.strides()) {
+      TORCH_CHECK(false, "Tensors must have identical strides");
+    }
+    const auto inserted = usedDevices.insert(tensor.get_device()).second;
+    if (!inserted) {
+      TORCH_CHECK(false, "Tensors must be on distinct DIPU devices");
     }
   }
 }
 
-// std::function< diclResult_t(at::Tensor&, at::Tensor&, DiclComm, DIPUStream&) >
-// enhance: need change template params to lamada, make collective() func overridable by sub class
 template <typename Fn, typename PreProcess, typename PostProcess>
-c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
-    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
-    PreProcess pre, PostProcess post, OpType opType) {
-  const auto devices = getDeviceList(inputs);
-
-  TORCH_CHECK(devices.size() == 1,
-    "dipu support one device per process only, multidevices is not fully tested ", 
-    " you can comment out this assert if you try to test,");
-  const auto key = getKeyFromDevices(devices);
-  auto diclComms = getDICLComms(key, devices, opType);
-
-  // First let DICL streams wait for input tensors allocation streams
+c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(std::vector<at::Tensor>& inputs,
+    std::vector<at::Tensor>& outputs, std::vector<std::shared_ptr<DICLComm>>& diclComms,
+    const std::vector<at::Device>& devices, Fn fn, PreProcess pre, PostProcess post, OpType opType) {
+        // First let DICL streams wait for input tensors allocation streams
   syncStreams(diclComms);
   auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(diclComms, blockingWait_, opTimeout_);
 
@@ -340,7 +359,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   pre(diclComms);
 
   for (size_t i = 0; i < inputs.size(); ++i) {
-    dipuGuard.reset_device(devices[i]);
+    dipuGuard.reset_device(diclComms[i]->device_);
 
     // need add adapter to handle int64/double! camb not support double
     fn(inputs[i], outputs[i], diclComms[i]->rawComm(), diclComms[i]->diclStream_);
@@ -370,6 +389,25 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   return work;
 }
 
+// std::function< diclResult_t(at::Tensor&, at::Tensor&, DiclComm, DIPUStream&) >
+// enhance: need change template params to lamada, make collective() func overridable by sub class
+template <typename Fn, typename PreProcess, typename PostProcess>
+c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
+    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
+    PreProcess pre, PostProcess post, OpType opType) {
+  const auto devices = getDeviceList(inputs);
+
+  TORCH_CHECK(devices.size() == 1,
+    "dipu support one device per process only, nccl multidevices use ncclGroupStart/End, ", 
+    "but we cannot support group based comm now.");
+  
+  const auto localCommsKey = getDevieceIds(devices);
+
+  // collective use PG.rank_ as comsBaseRank
+  auto diclComms = getDICLComms(localCommsKey, devices, this->rank_, opType);
+  return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
+}
+
 template <typename Fn>
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs, Fn fn, OpType opType) {
@@ -377,8 +415,30 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(std::vector<at::Tensor>& i
                     [](std::vector<std::shared_ptr<DICLComm>>&) {}, opType);
 }
 
+template <typename Fn, typename PreProcess, typename PostProcess>
+c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
+    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, int peerRank, 
+    Fn fn, PreProcess pre, PostProcess post, OpType opType) {
+
+  const auto devices = getDeviceList(inputs);
+  auto p2pPair = mapPGRank2P2P(rank_, peerRank);
+  // pytorch nccl has same problem but not check
+  TORCH_CHECK(devices.size() == 1, "DICL P2P comm does not support multi-device tensor input");
+  
+  // pytorch nccl always create new comm when new send/recv pair appear, here we follow this behavior.
+  // However, It's also works well by using the default collective commms to do pair comm, which cost lower resource
+  // in very big group size but may cause different pairs block in same stream.
+  const auto localCommsKey = getP2PRankIds(rank_, peerRank, devices);
+
+  // p2p use self p2pRank as commsRank, one commsRank corresponds to one device
+  auto& diclComms = getDICLComms(localCommsKey, devices, p2pPair.first, opType);
+
+  return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
+}
+
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
+  // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
   return collective(
       tensors,
@@ -403,6 +463,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
 c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
     std::vector<at::Tensor>& tensors, const BroadcastOptions& opts) {
   checkDeviceTensors(tensors);
+  // inplace in = out, only rootRank use in.
   return collective(
     tensors,
     tensors,
@@ -411,6 +472,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
         diclComm_t comm,
         DIPUStream& stream) {
       RECORD_FUNCTION("DiclBroadcast", std::vector<c10::IValue>({input}));
+      // only one root (root rank root device)
       const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
       return devproxy::diclBroadcast(
           input.data_ptr(),
@@ -426,18 +488,49 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
     std::vector<at::Tensor>& tensors, const ReduceOptions& opts) {
-  throw std::runtime_error("ProcessGroupDICL does not support reduce now");
+  // inplace in = out, only rootRank use out.
+  checkDeviceTensors(tensors);
+
+  auto tensor = tensors.back();
+  int dev_in_group = 0;
+  return collective(
+      tensors,
+      tensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          diclComm_t comm,
+          DIPUStream& stream) {
+        RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
+        const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
+        return devproxy::diclReduce(
+            input.data_ptr(),
+            output.data_ptr(),
+            (size_t)input.numel(),
+            input.scalar_type(),
+            opts.reduceOp,
+            root,
+            comm,
+            stream.rawstream());
+      },
+      OpType::REDUCE);
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const GatherOptions& opts) {
+  TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
-    std::vector<std::vector<at::Tensor>>& output_tensors,
-    std::vector<at::Tensor>& input_tensors, const AllgatherOptions& opts) {
-  checkDeviceTensors(input_tensors);
-
+    std::vector<std::vector<at::Tensor>>& outputs,
+    std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
+  checkDeviceTensors(inputs);
+  // output = input * ranks, no inplace. every ranks use both in&out.
   auto outputFlattened =
-      flatten_for_scatter_gather(output_tensors, input_tensors, this->size_);
+      flatten_for_scatter_gather(outputs, inputs, this->size_);
 
-  auto work = collective(input_tensors, outputFlattened,
+  auto work = collective(inputs, outputFlattened,
     [&](at::Tensor& input,
         at::Tensor& output,
         diclComm_t comm,
@@ -455,11 +548,11 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
     [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
       // Copy the flattened output tensors to the outputs.
-      for (size_t i = 0; i < output_tensors.size(); ++i) {
-        // warnning & todo:: copy in comm stream, but diopi-cuda use aten copy_, 
-        // underlying stream is incorrect. change to use default stream and wait will cause pref hurt.
-        copyInCommStream(diclComms[i], output_tensors[i], outputFlattened[i]);
-        // copyInCurrentStream(diclComms[i], output_tensors[i], outputFlattened[i]);
+      for (size_t i = 0; i < outputs.size(); ++i) {
+        // warnning & todo:: copy in comm stream,
+        // record dest tensor outputs, because src tensor outputFlattened already recorded in collective.
+        copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i], outputs[i].size());
+        // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
       }
     }, 
     OpType::ALLGATHER);
@@ -467,18 +560,15 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
-    at::Tensor& output_tensor, at::Tensor& input_tensor, const AllgatherOptions& opts) {
-  
-  TORCH_CHECK(input_tensor.dtype() == output_tensor.dtype(), "output tensor must have the same type as input tensor");
-
-  TORCH_CHECK(input_tensor.numel() * this->size_ == output_tensor.numel(),
+    at::Tensor& outputTensor, at::Tensor& inputTensor, const AllgatherOptions& opts) {
+  // output = input * ranks.
+  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(), "output tensor must have the same type as input tensor");
+  TORCH_CHECK(inputTensor.numel() * this->size_ == outputTensor.numel(),
       "output tensor size must be equal to world_size times input tensor size");
 
   // just a wrapper to fit the collective interface
-  auto inputs = std::vector<at::Tensor>{input_tensor};
-  auto outputs = std::vector<at::Tensor>{output_tensor};
-  checkDeviceTensors(inputs);
-  checkDeviceTensors(outputs);
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  auto outputs = std::vector<at::Tensor>{outputTensor};
 
   return collective(
       inputs,
@@ -487,6 +577,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
           at::Tensor& output,
           diclComm_t comm,
           DIPUStream& stream) {
+        RECORD_FUNCTION("DiclAllgather_base", std::vector<c10::IValue>({input}));
         return devproxy::diclAllGather(
           input.data_ptr(),
           output.data_ptr(),
@@ -498,13 +589,86 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
       OpType::_ALLGATHER_BASE);
 }
 
+c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
+    at::Tensor& outputTensor,
+    at::Tensor& inputTensor,
+    const ReduceScatterOptions& opts) {
+  // input = output * ranks, no inplace, output = reduced(input)[rank]
+
+  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(), "output tensor must have the same type as input tensor");
+  TORCH_CHECK(inputTensor.numel()== this->size_ * outputTensor.numel(),
+       "input tensor must be the same size as output size times world size")
+
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  auto outputs = std::vector<at::Tensor>{outputTensor};
+
+  return collective(
+      inputs,
+      outputs,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          diclComm_t comm,
+          DIPUStream& stream) {
+        RECORD_FUNCTION("DiclReduceScatter_base", std::vector<c10::IValue>({input}));
+        return devproxy::diclReduceScatter(
+          input.data_ptr(),
+          output.data_ptr(),
+          (size_t)output.numel(),
+          input.scalar_type(),
+          opts.reduceOp,
+          comm,
+          stream.rawstream());
+      },
+      OpType::_REDUCE_SCATTER_BASE);
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
+    std::vector<at::Tensor>& outputs,
+    std::vector<std::vector<at::Tensor>>& inputs,
+    const ReduceScatterOptions& opts) {
+  // input = output * ranks, no inplace, output = reduced(input)[rank]
+  checkDeviceTensors(outputs);
+  auto inputFlattened =
+      flatten_for_scatter_gather(inputs, outputs, this->size_);
+  checkDeviceTensors(inputFlattened);
+
+  auto work = collective(
+    inputFlattened, 
+    outputs,
+    [&](at::Tensor& input,
+        at::Tensor& output,
+        diclComm_t comm,
+        DIPUStream& stream) {
+      RECORD_FUNCTION("DiclReduceScatter", std::vector<c10::IValue>({input}));
+      return devproxy::diclReduceScatter(
+          input.data_ptr(),
+          output.data_ptr(),
+          (size_t)output.numel(),
+          input.scalar_type(),
+          opts.reduceOp,
+          comm,
+          stream.rawstream());
+    },
+    [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
+      // Copy the inputs[i].size nums raw tensor intto flattened
+      for (size_t i = 0; i < inputs.size(); ++i) {
+        // record src tensor inputs, because dest tensor inputFlattened already recorded in collective
+        copyInCommStream<false>(diclComms[i], inputFlattened[i], inputs[i], inputs[0].size());
+      }
+    },
+    [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {}, 
+    OpType::REDUCE_SCATTER);
+  return work;
+}
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
     std::vector<at::Tensor>& tensors, int dstRank, int tag) {
   checkDeviceTensors(tensors);
-  return collective(
+  auto p2pPair = mapPGRank2P2P(rank_, dstRank);
+  return pointToPoint(
     tensors,
     tensors,
+    dstRank,
     [&](at::Tensor& input,
         at::Tensor& output,
         diclComm_t comm,
@@ -514,19 +678,23 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::send(
           input.data_ptr(),
           (size_t)input.numel(),
           input.scalar_type(),
-          dstRank,
+          p2pPair.second,
           comm,
           stream.rawstream());
     },
+    [](std::vector<std::shared_ptr<DICLComm>>&) {},
+    [](std::vector<std::shared_ptr<DICLComm>>&) {},
     OpType::SEND);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
     std::vector<at::Tensor>& tensors, int srcRank, int tag) {
   checkDeviceTensors(tensors);
-  return collective(
+  auto p2pPair = mapPGRank2P2P(rank_, srcRank);
+  return pointToPoint(
     tensors,
     tensors,
+    srcRank,
     [&](at::Tensor& input,
         at::Tensor& output,
         diclComm_t comm,
@@ -536,10 +704,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
           input.data_ptr(),
           (size_t)input.numel(),
           input.scalar_type(),
-          srcRank,
+          p2pPair.second,
           comm,
           stream.rawstream());
     },
+    [](std::vector<std::shared_ptr<DICLComm>>&) {},
+    [](std::vector<std::shared_ptr<DICLComm>>&) {},
     OpType::RECV);
 }
 
