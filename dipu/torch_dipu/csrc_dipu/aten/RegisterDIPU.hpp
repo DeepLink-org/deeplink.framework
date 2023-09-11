@@ -1,4 +1,6 @@
 // Copyright (c) 2023, DeepLink.
+#pragma once
+
 #include <deque>
 #include <mutex>
 #include <torch/library.h>
