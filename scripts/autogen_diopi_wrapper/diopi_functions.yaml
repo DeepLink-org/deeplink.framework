@@ -947,6 +947,14 @@
 - schema: pow.Scalar_out(Scalar self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowScalar(ctx, out, self, exponent)
 
+- schema: prod(Tensor self, *, ScalarType? dtype=None) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = at::empty({}, self.options());
+  interface: diopiProd(ctx, out, self, nullptr)
+
+- schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiProd(ctx, out, self, &dim)
+
 - schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
   autocompare: disable
   custom_code_at_the_beginning: |
