@@ -7,15 +7,24 @@ from abc import ABC, abstractmethod
 
 conversions = {}
 patterns = []
+backend_patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
+def args_kwargs_unchange(args, kwargs):
+    return args, kwargs
+
 def _registe_conversion(
-    aten_fn, decomp_fn
+    aten_fn, decomp_fn, process_args_kwargs_fn=None
 ):
-    @functools.wraps(decomp_fn)
-    def wrapped(*args, **kwargs):
-        return decomp_fn(*args, **kwargs)
+    register_op_singleton_flag = isinstance(decomp_fn, type) and issubclass(decomp_fn, ascend_op.Operator)
+    if register_op_singleton_flag:
+        wrapped = (decomp_fn.get_singleton(),
+                   args_kwargs_unchange if process_args_kwargs_fn is None else process_args_kwargs_fn)
+    else:
+        @functools.wraps(decomp_fn)
+        def wrapped(*args, **kwargs):
+            return decomp_fn(*args, **kwargs)
     
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
@@ -30,7 +39,10 @@ def _registe_conversion(
                     aten_fn.append(other_fn)
 
     conversions.update({fn: wrapped for fn in aten_fn})
-    return wrapped
+    if register_op_singleton_flag:
+        return wrapped[0]
+    else:
+        return wrapped
 
 
 def registe_conversion(aten_fn):
@@ -46,6 +58,11 @@ def registe_conversion(aten_fn):
 def registe_pattern(Pattern):
     patterns.append(Pattern)
     return Pattern
+
+# Backend Patterns
+def register_backend_pattern(pattern):
+    backend_patterns.append(pattern)
+    return pattern
 
 
 class BaseReplacePattern(ABC):
@@ -110,10 +127,6 @@ def relu(a):
 def silu(a):
     return ascend_op.Silu(a)
 
-@registe_conversion(torch.ops.aten.transpose)
-def transpose(input, dim0, dim1):
-    return ascend_op.Transpose(input, dim0, dim1)
-
 @registe_conversion(torch.ops.aten._softmax)
 def _softmax(x, dim, half_to_float):
     return ascend_op.Softmax(x, dim, half_to_float)
@@ -174,18 +187,6 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
-@registe_conversion(torch.ops.aten.expand.default)
-def expand(x, dims):
-    return ascend_op.ExpandD(x, dims)
-
-@registe_conversion(torch.ops.aten.mm)
-def matmul(a, b):
-    return ascend_op.MatMul(a, b)
-
-@registe_conversion(torch.ops.aten.bmm)
-def batchmatmul(a, b):
-    return ascend_op.BatchMatMul(a, b)
-
 @registe_conversion(torch.ops.aten.scatter.value)
 def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
@@ -209,10 +210,6 @@ def gather(x, dims, index):
 @registe_conversion(torch.ops.aten.where)
 def where(condition, a, b):
     return ascend_op.Where(condition, a, b)
-
-@registe_conversion(torch.ops.aten.view)
-def view(x, shape):
-    return ascend_op.TranShape(x, shape)
 
 @registe_conversion(_operator.mul)
 def inmul(a, b):
@@ -256,10 +253,6 @@ def convolutionbackward(grad, input, weight, bias,
     return ascend_op.ConvBackward(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks)
-
-@registe_conversion(torch.ops.aten.t.default)
-def t(input):
-    return ascend_op.T(input)
 
 @registe_conversion(torch.ops.aten._log_softmax.default)
 def log_softmax(x, dim, half_to_float):
@@ -376,9 +369,21 @@ def Maximum(x, y):
 def Eq(x, y):
     return ascend_op.Eq(x, y)
 
+@registe_conversion(torch.ops.aten.t.default)
+def t(input):
+    return ascend_op.T(input)
+
+@registe_conversion(torch.ops.aten.mm)
+def matmul(a, b):
+    return ascend_op.MatMul(a, b)
+
+transpose = torch.fx.wrap(registe_conversion(torch.ops.aten.transpose)(ascend_op.Transpose))
+expand = torch.fx.wrap(registe_conversion(torch.ops.aten.expand)(ascend_op.ExpandD))
+view = torch.fx.wrap(registe_conversion(torch.ops.aten.view)(ascend_op.TranShape))
+bmm = torch.fx.wrap(registe_conversion(torch.ops.aten.bmm)(ascend_op.BatchMatMul))
 
 @registe_pattern
-class ReplaceVarMean:
+class ReplaceVarMean(BaseReplacePattern):
     def pattern(input, dims):
         return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
@@ -387,3 +392,15 @@ class ReplaceVarMean:
         varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
         return ascend_op.ret_tuple(varVal, meanVal)
 
+
+@register_backend_pattern
+class FuseTransposeBmm(BaseReplacePattern):
+    def pattern(x1, x2):
+        transpose_3 = transpose(x2, 2, 3)
+        expand_1 = expand(transpose_3, [1, 32, 128, 32])
+        view_16 = view(expand_1, [32, 128, 32])
+        return bmm(x1, view_16)
+
+    def replacement(x1, x2):
+        view_16 = view(x2, [32, 32, 128])
+        return bmm(x1, view_16, adj_x1 = False, adj_x2 = True)

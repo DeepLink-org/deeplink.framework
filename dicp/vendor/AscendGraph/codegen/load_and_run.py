@@ -95,7 +95,6 @@ buffer_method = {
 
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
-        import pdb;pdb.set_trace()
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
@@ -121,8 +120,6 @@ class AscendExecutor(object):
         self.model_id = None                # pointer
         self.context = None                 # pointer
         self.model_desc = None              # pointer when using
-        self.load_input_dataset = None
-        self.load_output_dataset = None
         self.num_inputs = 0
         self.num_outputs = 0
         self.input_size = []
@@ -130,6 +127,11 @@ class AscendExecutor(object):
         self.output_dims = []
         self.output_dtypes = []
         self.output_data = []
+        self.input_shape = []
+        self.input_dataset = acl.mdl.create_dataset()
+        self.input_data_buffers = []
+        self.output_dataset = acl.mdl.create_dataset()
+        self.output_data_buffers = []
 
         self.init_resource()
 
@@ -187,6 +189,14 @@ class AscendExecutor(object):
         for i in range(self.num_inputs):
             temp_buffer_size = acl.mdl.get_input_size_by_index(self.model_desc, i)
             self.input_size.append(temp_buffer_size)
+            input_dims, ret = acl.mdl.get_input_dims(self.model_desc, i)
+            check_ret("acl.mdl.get_input_dims", ret)
+            self.input_shape.append(input_dims)
+            data_buf = acl.create_data_buffer(0, 1)
+            self.input_data_buffers.append(data_buf)
+            _, ret = acl.mdl.add_dataset_buffer(self.input_dataset, data_buf)
+            check_ret("acl.add_dataset_buffer", ret)
+
         for i in range(self.num_outputs):
             temp_buffer_size = acl.mdl.get_output_size_by_index(self.model_desc, i)
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
@@ -207,12 +217,15 @@ class AscendExecutor(object):
             self.output_dtypes.append(get_tensor_dtype(dtype))
             self.output_dims.append(dims)
             self.output_size.append(temp_buffer_size)
+            data_buf = acl.create_data_buffer(0, 1)
+            self.output_data_buffers.append(data_buf)
+            _, ret = acl.mdl.add_dataset_buffer(self.output_dataset, data_buf)
+            check_ret("acl.add_dataset_buffer", ret)
 
         print("init resource success")
 
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
-        self.load_input_dataset = acl.mdl.create_dataset()
         zero_tensor = torch.randn(1).xpu()
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
@@ -228,47 +241,38 @@ class AscendExecutor(object):
                 ptr = zero_tensor.data_ptr()
             else:
                 ptr = images[i].data_ptr()
-            data = acl.create_data_buffer(ptr, buffer_size)
-            _, ret = acl.mdl.add_dataset_buffer(self.load_input_dataset, data)
-            if ret != ACL_SUCCESS:
-                ret = acl.destroy_data_buffer(data)
-                check_ret("acl.destroy_data_buffer", ret)
+
+            ret = acl.update_data_buffer(self.input_data_buffers[i], ptr, buffer_size)
+            check_ret("acl.update_data_buffer", ret)
             
             if dims is not None and i in dims.keys():
                 dtype = acl.mdl.get_input_data_type(self.model_desc, i)
                 format = acl.mdl.get_input_format(self.model_desc, i)
                 tensorDesc = acl.create_tensor_desc(dtype, dims[i], format)
-                dataset, ret = acl.mdl.set_dataset_tensor_desc(self.load_input_dataset,
+                dataset, ret = acl.mdl.set_dataset_tensor_desc(self.input_dataset,
                                                 tensorDesc, i)
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
-                assert(dataset == self.load_input_dataset)            
+                assert(dataset == self.input_dataset)            
 
     def _prepare_output(self, output_tensor):
-        self.load_output_dataset = acl.mdl.create_dataset()
         for i in range(self.num_outputs):
             item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
             output_tensor.append(item)
-            data = acl.create_data_buffer(item.data_ptr(), self.output_size[i])
-            _, ret = acl.mdl.add_dataset_buffer(self.load_output_dataset, data)
-            if ret != ACL_SUCCESS:
-                ret = acl.destroy_data_buffer(data)
-                check_ret("acl.destroy_data_buffer", ret)
+            ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
+            check_ret("acl.update_data_buffer", ret)
 
     def _prepare_tmp_output(self):
-        self.load_output_dataset = acl.mdl.create_dataset()
         for i in range(self.num_outputs):
             temp_buffer, ret = acl.rt.malloc(self.output_size[i],
                             ACL_MEM_MALLOC_HUGE_FIRST)            
-            data = acl.create_data_buffer(temp_buffer, self.output_size[i])
+            ret = acl.update_data_buffer(self.output_data_buffers[i], temp_buffer, self.output_size[i])
+            check_ret("acl.update_data_buffer", ret)
             self.output_data.append(temp_buffer)
-            _, ret = acl.mdl.add_dataset_buffer(self.load_output_dataset, data)
-            if ret != ACL_SUCCESS:
-                ret = acl.destroy_data_buffer(data)
-                check_ret("acl.destroy_data_buffer", ret)
+            
 
     def _prepare_real_output(self, output_tensor):
         for i in range(self.num_outputs):
-            out = acl.mdl.get_dataset_tensor_desc(self.load_output_dataset, i)
+            out = acl.mdl.get_dataset_tensor_desc(self.output_dataset, i)
             tsize = acl.get_tensor_desc_num_dims(out)
             out_dim = []
             tot_size = 1
@@ -304,23 +308,11 @@ class AscendExecutor(object):
 
     def forward(self):
         ret = acl.mdl.execute(self.model_id,
-                              self.load_input_dataset,
-                              self.load_output_dataset)
+                              self.input_dataset,
+                              self.output_dataset)
         check_ret("acl.mdl.execute", ret)
 
     def _destroy_databuffer(self):
-        for dataset in [self.load_input_dataset, self.load_output_dataset]:
-            if not dataset:
-                continue
-            number = acl.mdl.get_dataset_num_buffers(dataset)
-            for i in range(number):
-                data_buf = acl.mdl.get_dataset_buffer(dataset, i)
-                if data_buf:
-                    ret = acl.destroy_data_buffer(data_buf)
-                    check_ret("acl.destroy_data_buffer", ret)
-            ret = acl.mdl.destroy_dataset(dataset)
-            check_ret("acl.mdl.destroy_dataset", ret)
-
         while self.output_data:
             item = self.output_data.pop()
             ret = acl.rt.free(item)

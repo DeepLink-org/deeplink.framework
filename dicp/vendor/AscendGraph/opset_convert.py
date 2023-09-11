@@ -11,7 +11,7 @@ from torch.fx.passes.operator_support import OperatorSupportBase
 
 from dicp.dynamo_bridge.op_transformer import OpSetTransformer, SingleOpTransformer
 from dicp.vendor.AscendGraph.ascend_op import MatMul
-from dicp.vendor.AscendGraph.conversion import patterns, conversions
+from dicp.vendor.AscendGraph.conversion import patterns, conversions, backend_patterns
 
 
 ascend_fuse_passes = []
@@ -105,6 +105,19 @@ class AscendOpTransformer(SingleOpTransformer):
         return proxy         
 
 
+# 该pass需要在FuseTransposeMatmul之后
+class ArgsTransDataPass:
+    def transform(self, gm:torch.fx.graph_module):
+        for n in gm.graph.nodes:
+            if n.op != 'call_function':
+                continue
+            if type(n.target) in [MatMul]:
+                for arg in n.args:
+                    if arg.op == 'placeholder':
+                        arg.meta['format'] = 'FRACTAL_NZ'
+        return gm
+
+
 def ascendgraph_opset_convert(
     gm: torch.fx.GraphModule,
 ):
@@ -113,4 +126,6 @@ def ascendgraph_opset_convert(
 
     gm = OpSetTransformer(patterns).transform(gm)
     gm = AscendOpTransformer(gm, conversions).transform()
+    # gm = ArgsTransDataPass().transform(gm)
+    gm = OpSetTransformer(backend_patterns).transform(gm)
     return gm
