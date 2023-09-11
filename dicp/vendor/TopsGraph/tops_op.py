@@ -70,10 +70,11 @@ class Operator():
         return self.torch_op(*new_args, **kwargs)
 
 class Add(Operator):
-    def __init__(self, a, b):
+    def __init__(self, a, b, **kwargs):
         super().__init__("Add")
         self.a = a
         self.b = b
+        self.kwargs = kwargs
         self.torch_op = aten.add.Tensor
 
 class AddDefalut(Operator):
@@ -241,6 +242,12 @@ class Copy(Operator):
         self.args = args
         self.torch_op = aten.clone
 
+class Alias(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Clone")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.alias
 
 class Neg(Operator):
     def __init__(self, *args):

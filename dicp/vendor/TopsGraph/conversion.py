@@ -42,8 +42,8 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def Add(a, b):
-    return tops_op.Add(a, b)
+def Add(a, b, **kwargs):
+    return tops_op.Add(a, b, **kwargs)
 
 @register_conversion(torch.ops.aten.add.default)
 def AddDefalut(a, b):
@@ -56,7 +56,7 @@ def Abs(a):
 @register_conversion(torch.ops.aten.mul)
 def Mul(a, b):
     if isinstance(a, Proxy):
-        if hasattr(a.node, "meta"):
+        if hasattr(a.node, "meta") and 'val' in a.node.meta:
             if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :
                 return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
@@ -134,6 +134,9 @@ def hardswishbackward(a, b):
 @register_conversion(torch.ops.aten.clone)
 def Clone(*args, **kargs):
     return tops_op.Copy(*args, **kargs)
+
+Alias = register_conversion(torch.ops.aten.alias)(tops_op.Alias)
+torch.fx.wrap("Alias")
 
 @register_conversion(torch.ops.aten.neg)
 def Neg(*args):
