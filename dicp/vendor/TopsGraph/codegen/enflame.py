@@ -54,7 +54,7 @@ def process_name(name, target):
     return real_op
 
 class EnflameCodegen(torch.fx.Interpreter):
-    def __init__(self, graph):
+    def __init__(self, graph, aten_graph=None):
         self.name = 'topsgraph'
         self.device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
         

@@ -104,15 +104,11 @@ class MemoryPool:
         self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
-        self.work_size = 13 * 1024 * 1024 * 1024
+        self.work_size = 15 * 1024 * 1024 * 1024
         self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                             ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
 
-        self.weight_size = 9600
-        self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
-                                            ACL_MEM_MALLOC_HUGE_FIRST)
-        check_ret("acl.rt.malloc", ret)
 
 memory_pool = MemoryPool()
 
@@ -149,6 +145,11 @@ class AscendExecutor(object):
 
 
     def load_model(self):
+        work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        check_ret("acl.mdl.query_size", ret)
+        weight_ptr, ret = acl.rt.malloc(weight_size,
+                                              ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
         config_handle = acl.mdl.create_config_handle()
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
         check_ret("set_config_opt", ret) 
@@ -156,16 +157,16 @@ class AscendExecutor(object):
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, memory_pool.weight_ptr)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, weight_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, memory_pool.weight_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, work_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
@@ -225,7 +226,7 @@ class AscendExecutor(object):
 
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
-        zero_tensor = torch.randn(1).to('dipu')
+        zero_tensor = torch.randn(1).xpu()
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():
@@ -255,7 +256,7 @@ class AscendExecutor(object):
 
     def _prepare_output(self, output_tensor):
         for i in range(self.num_outputs):
-            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='dipu')
+            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
             output_tensor.append(item)
             ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
@@ -281,7 +282,7 @@ class AscendExecutor(object):
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
             np_dtype = get_np_dtype(dtype)
             tot_size *= np.dtype(np_dtype).itemsize
-            item = torch.empty(out_dim, dtype=self.output_dtypes[i], device='dipu')
+            item = torch.empty(out_dim, dtype=self.output_dtypes[i], device='xpu')
             output_tensor.append(item)
             ret = acl.rt.memcpy(item.data_ptr(),
                                 tot_size,
@@ -292,8 +293,8 @@ class AscendExecutor(object):
 
     def run(self, images, dims=None):
         assert len(images) > 0
-        # input = list(map(lambda x: x.to('dipu'), images))
-        self._prepare_input(images, dims)
+        input = list(map(lambda x: x.xpu(), images))
+        self._prepare_input(input, dims)
         output = []
         if dims is not None:
             self._prepare_tmp_output()

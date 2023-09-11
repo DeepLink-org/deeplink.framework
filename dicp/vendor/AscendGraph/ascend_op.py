@@ -57,7 +57,11 @@ class Operator():
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or isinstance(x, FakeTensor):
+            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) \
+                        and x.fake_mode == fake_mode):
+                return x
+            if isinstance(x, FakeTensor):
+                x.fake_mode = fake_mode
                 return x
             return FakeTensor.from_tensor(x, fake_mode)
         new_args = tree_map(make_faketensor, new_args)
@@ -147,6 +151,13 @@ class Rsqrt(Operator):
         super().__init__("rsqrt")
         self.a = a
         self.torch_op = aten.rsqrt
+
+
+class Sqrt(Operator):
+    def __init__(self, a):
+        super().__init__("sqrt")
+        self.a = a
+        self.torch_op = aten.sqrt
 
 
 class Log(Operator):
@@ -273,6 +284,7 @@ class ExpandD(Operator):
         super().__init__("expand")
         self.x = x
         self.dims = dims
+        self.torch_op = aten.expand
 
     def __call__(self, x, dims):
         if hasattr(x, 'meta'):
@@ -498,20 +510,30 @@ class SquareSumV1(Operator):
 
 
 class FullLike(Operator):
-    def __init__(self, x, value):
+    def __init__(self, x, value, dtype, layout, device, pin_memory, memory_format):
         super().__init__("zeros_like")
         #TODO! only handles cases for zero
         assert value == 0
         self.x = x
         self.value = value
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
         self.torch_op = aten.full_like
 
 
 class Full(Operator):
-    def __init__(self, dims, value):
+    def __init__(self, dims, value, dtype, layout, device, pin_memory, memory_format):
         super().__init__("full")
         self.dims = dims
         self.value = value
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
         self.torch_op = aten.full
 
 
@@ -713,6 +735,157 @@ class Select(Operator):
         self.dim = dim
         self.index = index
         self.torch_op = aten.select
+
+
+class Arange(Operator):
+    def __init__(self, end, dtype, device, layout, pin_memory):
+        super().__init__("arange")
+        self.end = end
+        self.dtype = dtype
+        self.device = device
+        self.layout = layout
+        self.pin_memory = pin_memory
+        self.torch_op = aten.arange
+        
+
+class Lt(Operator):
+    def __init__(self, x, y):
+        super().__init__("lt")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.lt
+
+
+class MaskedFill(Operator):
+    def __init__(self, x, y, value):
+        super().__init__("masked_fill")
+        self.x = x
+        self.y = y
+        self.value = value
+        self.torch_op = aten.masked_fill
+
+
+class Rsub(Operator):
+    def __init__(self, x, value):
+        super().__init__("rsub")
+        self.x = x
+        self.value = value
+        self.torch_op = aten.rsub
+
+
+class Index(Operator):
+    def __init__(self, x, index):
+        super().__init__("index")
+        self.x = x
+        self.index = index
+        self.torch_op = aten.index.Tensor
+
+
+class UnsafeView(Operator):
+    def __init__(self, x, shape):
+        super().__init__("view")
+        self.x = x
+        self.shape = shape
+
+    def __call__(self, x, shape):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
+        return aten.reshape(x, shape)
+      
+
+class SliceBackward(Operator):
+    def __init__(self, grad, input_shape, dim, start, end, step):
+        super().__init__("slice_backward")
+        self.grad = grad
+        self.input_shape = input_shape
+        self.dim = dim
+        self.start = start
+        self.end = end
+        self.step = step
+        self.torch_op = aten.slice_backward.default
+
+
+class EmptyLike(Operator):
+    def __init__(self, x, dtype, layout, device, pin_memory, memory_format):
+        super().__init__("empty_like")
+        self.x = x
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
+        self.torch_op = aten.empty_like.default
+
+
+class FillScalar(Operator):
+    def __init__(self, x, value):
+        super().__init__("fill_scalar")
+        self.x = x
+        self.value = value
+        self.torch_op = aten.fill.Scalar
+
+
+class SoftmaxBackward(Operator):
+    def __init__(self, grad_output, output, dim, input_dtype):
+        super().__init__("softmax_backward")
+        self.grad_output = grad_output
+        self.output = output
+        self.dim = dim
+        self.input_dtype = input_dtype
+        self.torch_op = aten._softmax_backward_data.default
+
+
+class LiftFreshCopy(Operator):
+    def __init__(self, x):
+        super().__init__("lift_fresh_copy")
+        self.x= x
+        self.torch_op = torch.ops.aten.lift_fresh_copy.default
+
+    def __call__(self, x):
+        if hasattr(x, 'meta'):
+            return x.meta['val']
+        else:
+            with FakeTensorMode():
+                return torch.empty(())
+
+
+class Maximum(Operator):
+    def __init__(self, x, y):
+        super().__init__("maximum")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.maximum.default
+
+
+class Eq(Operator):
+    def __init__(self, x, y):
+        super().__init__("eq")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.eq.Tensor
+
+
+class Bernoulli(Operator):
+    def __init__(self, x, p, generator):
+        super().__init__("bernoulli")
+        self.x = x
+        self.p = p
+        self.generator = generator
+        self.torch_op = aten.bernoulli.p
+
+
+class NewEmptyStrided(Operator):
+    def __init__(self, x, size, stride, dtype, layout, device, pin_memory):
+        super().__init__("new_empty_strided")
+        self.x = x
+        self.size = size
+        self.stride = stride
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.torch_op = aten.new_empty_strided.default
 
 
 @torch.fx.wrap
