@@ -10,7 +10,7 @@
   - for users
     - pip install .
   - for dev
-    - export PYTHONPATH=$PWD:$PYTHONPATH
+    - pip install -e .
 3. demo
   - TopsGraph
     - cd DICP/test/Tops/
