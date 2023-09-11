@@ -382,6 +382,15 @@ expand = torch.fx.wrap(registe_conversion(torch.ops.aten.expand)(ascend_op.Expan
 view = torch.fx.wrap(registe_conversion(torch.ops.aten.view)(ascend_op.TranShape))
 bmm = torch.fx.wrap(registe_conversion(torch.ops.aten.bmm)(ascend_op.BatchMatMul))
 
+@registe_conversion(torch.ops.aten.bernoulli.p)
+def Bernoulli(x, p, generator=None):
+    return ascend_op.Bernoulli(x, p, generator)
+
+@registe_conversion(torch.ops.aten.new_empty_strided.default)
+def NewEmptyStrided(x, size, stride, dtype = torch.float32, layout = torch.strided,
+                      device = 'cpu', pin_memory = False):
+    return ascend_op.NewEmptyStrided(x, size, stride, dtype, layout, device, pin_memory)
+
 @registe_pattern
 class ReplaceVarMean(BaseReplacePattern):
     def pattern(input, dims):

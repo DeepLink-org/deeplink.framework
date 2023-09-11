@@ -20,7 +20,8 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
              'nll_loss_backward', 'native_batch_norm_backward',
              'view_as_complex', 'view_as_real', 'slice', 'select',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'masked_fill',
-             'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar']
+             'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
+             'bernoulli', 'new_empty_strided']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -233,7 +234,6 @@ class AscendCodegen(torch.fx.Interpreter):
 
         _, args_list = AscendOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
         real_op = process_name(name, target)
-        
         op = getattr(self.override, real_op)(*args_list, **kwargs)
         if isinstance(op, list):
             self.common_nodes.extend(op)
@@ -302,11 +302,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
                 
                 def check_tensor(a, b, atol=5e-2, rtol=1e-2):
-                    try:
-                        if not torch.allclose(a, b, atol=atol, rtol, equal_nan=True):
-                            import pdb;pdb.set_trace()
-                            pass
-                    except Exception as e:
+                    if not torch.allclose(a, b, atol=atol, rtol=rtol, equal_nan=True):
                         import pdb;pdb.set_trace()
                         pass
             """
@@ -639,7 +635,14 @@ class AscendOperator:
             "value_type": "float",
             "value": float(value)
         })
-    
+
+    def set_attr_dtype_str(self, name: str, value: str):
+        self.attrs.append({
+            "name": name,
+            "value_type": "dtype_str",
+            "value": value
+        })
+
     def set_attr_tensor(self, name: str, data_type: str, 
                         cpp_data_type: str,
                         format: str,
@@ -691,10 +694,9 @@ class AscendOverrides:
     @staticmethod
     def mul(name, node, x, y):
         (x_node, y_node) = node.args
-        
+        dtype = node.meta['val'].dtype
         if not isinstance(y_node, torch.fx.node.Node):
             # y is scalar
-            dtype = node.meta['val'].dtype
             not_support_type = False
             try:
                 cpp_dtype = get_cpp_dtype(dtype)
@@ -720,10 +722,29 @@ class AscendOverrides:
                 return [scalar_op.to_node(), mul_op.to_node()]
         
         if y_node.meta['val'].dtype != torch.complex64:
+            x_dtype = x_node.meta['val'].dtype
+            y_dtype = y_node.meta['val'].dtype
+            
+            ops = []
+            x_name = x
+            y_name = y
+            if x_dtype != dtype:
+                x_name = f"{name}_x1_cast"
+                x1 = OP(x_name, "Cast")
+                x1.set_input("x", x)
+                x1.set_attr_int("dst_type", get_ascend_dtype_num(get_ascend_dtype(dtype)))
+                ops.append(x1.to_node())
+            if y_dtype != dtype:
+                y_name = f"{name}_x2_cast"
+                x2 = OP(y_name, "Cast")
+                x2.set_input("x", y)
+                x2.set_attr_int("dst_type", get_ascend_dtype_num(get_ascend_dtype(dtype)))
+                ops.append(x2.to_node())
             op = OP(name, "Mul")
-            op.set_input("x1", x)
-            op.set_input("x2", y)
-            return op.to_node()
+            op.set_input("x1", x_name)
+            op.set_input("x2", y_name)
+            ops.append(op.to_node())
+            return ops
 
         assert x_node.meta["val"].dtype == torch.complex64
         assert y_node.meta["val"].dtype == torch.complex64
@@ -782,16 +803,15 @@ class AscendOverrides:
                 cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
                 ops.append(cast_op.to_node())
         else:
-            # y is scalar
-            ascend_dtype = get_ascend_dtype(out_dtype)
-            cpp_dtype = get_cpp_dtype(out_dtype)
-            
+            # y is scalar  
             if out_dtype == torch.float or out_dtype == torch.float16:
                 adds_op = OP(name, "Adds")
                 adds_op.set_input("x", x_name)
                 adds_op.set_attr_float("value", float(y))
                 return adds_op.to_node()
 
+            ascend_dtype = get_ascend_dtype(out_dtype)
+            cpp_dtype = get_cpp_dtype(out_dtype)
             scalar_op = OP(f'{name}_scalar', "Const")
             scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
             y_name = f"{name}_scalar"
@@ -1043,6 +1063,12 @@ class AscendOverrides:
             op = OP(name, "Identity")
             op.set_input("x", x)
             return op.to_node()
+
+    @staticmethod
+    def copy(name, dst, src):
+        op = OP(name, "Identity")
+        op.set_input("x", src)
+        return op.to_node()
 
     @staticmethod
     def unsqueeze(name, x, dim):
@@ -1975,24 +2001,45 @@ class AscendOverrides:
     @staticmethod
     def masked_fill(name, node, x, y, value):
         dtype = node.target.x.node.meta['val'].dtype
-        value_op = OP(f"{name}_value", "Const")
-        value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+        if dtype != torch.float16:
+            value_op = OP(f"{name}_value", "Const")
+            value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+            op = OP(name, "MaskedFill")
+            op.set_input("x", x)
+            op.set_input("mask", y)
+            op.set_input("value", f"{name}_value")
+            return [value_op.to_node(), op.to_node()]
+        value_op = OP(f"{name}_value_fp32", "Const")
+        value_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [value], [])
+        cast_op = OP(f"{name}_value", "Cast")
+        cast_op.set_input("x", f"{name}_value_fp32")
+        cast_op.set_attr_int("dst_type", get_ascend_dtype_num("FLOAT16"))
         op = OP(name, "MaskedFill")
         op.set_input("x", x)
         op.set_input("mask", y)
         op.set_input("value", f"{name}_value")
-        return [value_op.to_node(), op.to_node()]
+        return [value_op.to_node(), cast_op.to_node(), op.to_node()]
       
     @staticmethod
     def rsub(name, node, x, value):
         # this is rsub.scalar
         dtype = node.target.x.node.meta['val'].dtype
-        value_op = OP(f"{name}_value", "Const")
-        value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+        if dtype != torch.float16:
+            value_op = OP(f"{name}_value", "Const")
+            value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
+            op = OP(name, "Sub")
+            op.set_input("x1", x)
+            op.set_input("x2", f"{name}_value")
+            return [value_op.to_node(), op.to_node()]
+        value_op = OP(f"{name}_value_fp32", "Const")
+        value_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [value], [])
+        cast_op = OP(f"{name}_value", "Cast")
+        cast_op.set_input("x", f"{name}_value_fp32")
+        cast_op.set_attr_int("dst_type", get_ascend_dtype_num("FLOAT16"))
         op = OP(name, "Sub")
         op.set_input("x1", x)
         op.set_input("x2", f"{name}_value")
-        return [value_op.to_node(), op.to_node()]
+        return [value_op.to_node(), cast_op.to_node(), op.to_node()]
       
     @staticmethod
     def index(name, node, x, index):
@@ -2042,7 +2089,6 @@ class AscendOverrides:
 
     @staticmethod
     def fill_scalar(name, node, x, value):
-        assert node.target.x.node.meta['val'].dtype == torch.float32
         fills_op = OP(name, "Fills")
         fills_op.set_input("x", x)
         fills_op.set_attr_float("value", float(value))
@@ -2076,3 +2122,43 @@ class AscendOverrides:
         op.set_input("x1", x)
         op.set_input("x2", y)
         return op.to_node()
+
+    @staticmethod
+    def bernoulli(name, node, x, p, generator=None):
+        assert generator is None
+        dtype = get_ascend_dtype(node.args[0].meta['val'].dtype)
+
+        shape_op = OP(f"{name}_shape", "Shape")
+        shape_op.set_input("x", x)
+        prop_op = OP(f"{name}_p", "Const")
+        prop_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [float(p)], [])
+
+        # set seed to -1 and offset to 0, so the random number
+        # generator is seeded by a random seed.
+        seed_op = OP(f"{name}_seed", "Const")
+        seed_op.set_attr_tensor("value", "INT64", "INT64", "ND", [-1], [])
+        offset_op = OP(f"{name}_offset", "Const")
+        offset_op.set_attr_tensor("value", "INT64", "INT64", "ND", [0], [])
+
+        bernoulli_op = OP(name, "StatelessBernoulli")
+        bernoulli_op.set_input("shape", f"{name}_shape")
+        bernoulli_op.set_input("prob", f"{name}_p")
+        bernoulli_op.set_input("seed", f"{name}_seed")
+        bernoulli_op.set_input("offset", f"{name}_offset")
+        bernoulli_op.set_attr_dtype_str("dtype", dtype)
+
+        ops = [shape_op, prop_op, seed_op, offset_op, bernoulli_op]
+        return [op.to_node() for op in ops]
+
+    @staticmethod
+    def new_empty_strided(name, node, x, dtype=None, device=None, layout=None,
+                   pin_memory=False):
+        dtype = get_ascend_dtype(node.target.x.node.meta['val'].dtype)
+        shape = list(node.target.x.node.meta['val'].shape)
+        
+        shape_op = OP(f"{name}_shape", "Const")
+        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
+        empty_op = OP(name, "Empty")
+        empty_op.set_input("shape", f"{name}_shape")
+        empty_op.set_attr_int("dtype", get_ascend_dtype_num(dtype))
+        return [shape_op.to_node(), empty_op.to_node()]

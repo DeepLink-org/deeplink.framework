@@ -279,6 +279,9 @@ void parseCommonNode(
       auto value_type = attr["value_type"];
       if (value_type == "str") {
         op.SetAttr(attr_name, attr["value"].get<std::string>());
+      } else if (value_type == "dtype_str") {
+        auto value = attr["value"].get<std::string>();
+        op.SetAttr(attr_name, get_ascend_datatype(value));
       } else if (value_type == "list_int") {
         auto value = attr["value"].get<std::vector<int64_t>>();
         op.SetAttr(attr_name.c_str(), value);

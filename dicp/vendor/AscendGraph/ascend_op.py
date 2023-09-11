@@ -866,6 +866,28 @@ class Eq(Operator):
         self.torch_op = aten.eq.Tensor
 
 
+class Bernoulli(Operator):
+    def __init__(self, x, p, generator):
+        super().__init__("bernoulli")
+        self.x = x
+        self.p = p
+        self.generator = generator
+        self.torch_op = aten.bernoulli.p
+
+
+class NewEmptyStrided(Operator):
+    def __init__(self, x, size, stride, dtype, layout, device, pin_memory):
+        super().__init__("new_empty_strided")
+        self.x = x
+        self.size = size
+        self.stride = stride
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.torch_op = aten.new_empty_strided.default
+
+
 @torch.fx.wrap
 def addv2(a, b) -> torch.Tensor:
     if hasattr(a, 'meta'):
