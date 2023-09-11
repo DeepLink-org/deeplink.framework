@@ -949,7 +949,7 @@
 
 - schema: prod(Tensor self, *, ScalarType? dtype=None) -> Tensor
   custom_code_at_the_beginning: |
-    auto out = at::empty({1}, self.options());
+    auto out = at::empty({}, self.options());
   interface: diopiProd(ctx, out, self, nullptr)
 
 - schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
