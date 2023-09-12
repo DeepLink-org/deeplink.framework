@@ -27,6 +27,7 @@ file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
     aten/util/*.cpp
     aten/ops/*Kernel*.cpp
     aten/ops/DIPUAmp.cpp
+    aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
 )
 
 file(GLOB BASE_FILES base/*.cpp)
