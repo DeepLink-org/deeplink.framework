@@ -3,8 +3,10 @@
 #include <mutex>
 
 #include "./diopirt_impl.h"
+#include "csrc_dipu/profiler/profiler.h"
 
 namespace diopihelper = dipu::diopi_helper;
+using dipu::profile::RecordBlockCreator;
 
 extern "C" {
 
@@ -134,6 +136,21 @@ DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiGeneratorHandle_t th, diop
   }
 
   return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiRecordFunctionStart(const char* record_name, diopiRecordFunctionHandle_t* record_function) {
+    RecordBlockCreator* dipu_record_block = new RecordBlockCreator(record_name);
+    *record_function = reinterpret_cast<diopiRecordFunctionHandle_t>(dipu_record_block);
+    return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiRecordFunctionEnd(diopiRecordFunctionHandle_t* record_function) {
+    TORCH_CHECK(record_function != nullptr, "invalid parameter record_function");
+    RecordBlockCreator* dipu_record_block = reinterpret_cast<RecordBlockCreator*>(*record_function);
+    dipu_record_block->end();
+    delete dipu_record_block;
+    *record_function = nullptr;
+    return diopiSuccess;
 }
 
 }  // extern "C"
