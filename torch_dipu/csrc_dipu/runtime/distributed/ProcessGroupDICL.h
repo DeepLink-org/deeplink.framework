@@ -28,7 +28,8 @@ using c10d::AllreduceOptions;
 using c10d::ReduceOptions;
 using c10d::AllgatherOptions;
 using c10d::BarrierOptions;
-
+using c10d::GatherOptions;
+using c10d::ReduceScatterOptions;
 
 // Environment variable which controls whether or not wait() is blocking or
 // non-blocking.
@@ -78,7 +79,7 @@ constexpr int64_t diclSyncBusyWaitMillis = 30;
 //
 //   // Now continue on other work in the current stream.
 
-// not support gather/scatter/reduce_scatter/ all _coalesced func & _base func now, 
+// not support gather/ all _coalesced func func now, 
 // If needed in the future, we will add
 class DIPU_API ProcessGroupDICL : public Backend {
  public:
@@ -178,11 +179,22 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Work> reduce(std::vector<at::Tensor>& tensors,
       const ReduceOptions& opts = ReduceOptions()) override;
 
+  c10::intrusive_ptr<Work> gather(std::vector<std::vector<at::Tensor>>& outputTensors,
+      std::vector<at::Tensor>& inputTensors,
+      const GatherOptions& opts = GatherOptions()) override;
+
   c10::intrusive_ptr<Work> allgather(std::vector<std::vector<at::Tensor>>& output_tensors,
       std::vector<at::Tensor>& input_tensors, const AllgatherOptions& opts = AllgatherOptions()) override;
 
   c10::intrusive_ptr<Work> _allgather_base(at::Tensor& output_tensor,
       at::Tensor& input_tensor, const AllgatherOptions& opts = AllgatherOptions()) override;
+
+  c10::intrusive_ptr<Work> reduce_scatter(std::vector<at::Tensor>& outputs,
+      std::vector<std::vector<at::Tensor>>& inputs,
+      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+  
+  c10::intrusive_ptr<Work> _reduce_scatter_base(at::Tensor& outputs, at::Tensor& inputs,
+      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors,
       int dstRank, int tag) override;
@@ -201,14 +213,14 @@ class DIPU_API ProcessGroupDICL : public Backend {
   virtual void checkDeviceTensors(const std::vector<at::Tensor>& tensors);
 
   // Helper that broadcasts DICL clique ID to all ranks through the store
-  virtual void broadcastUniqueID(commUniqueId* uniqueId, bool isSingleP2POp,
-                              const std::string& p2pKey, int p2pRank);
+  virtual void broadcastUniqueID(commUniqueId* uniqueId,
+        const std::string& storeKey, int commRank);
 
   // Helper that either looks up the cached DICL communicators or creates
   // a new set of DICL communicators as a cache entry
   virtual std::vector<std::shared_ptr<DICLComm>>& getDICLComms(
         const std::string& devicesKey, const std::vector<at::Device>& devices,
-        OpType opType, int p2pRank = 0, bool isSendRecvSelf = false);
+        int commsRank, OpType opType);
 
   template <typename Fn>
   c10::intrusive_ptr<Work> collective(
@@ -216,8 +228,19 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   template <typename Fn, typename PreProcess, typename PostProcess>
   c10::intrusive_ptr<Work> collective(
-      std::vector<at::Tensor>& input, std::vector<at::Tensor>& output, Fn fn,
+      std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
       PreProcess pre, PostProcess post, OpType opType);
+
+  template <typename Fn, typename PreProcess, typename PostProcess>
+  c10::intrusive_ptr<Work> pointToPoint(
+      std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, int peer,
+      Fn fn, PreProcess pre, PostProcess post, OpType opType);
+
+  template <typename Fn, typename PreProcess, typename PostProcess>
+  c10::intrusive_ptr<Work> doComm(
+      std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs,
+      std::vector<std::shared_ptr<DICLComm>>& diclComms, const std::vector<at::Device>& devices,
+      Fn fn, PreProcess pre, PostProcess post, OpType opType);
 
   // The store is used to broadcast the DICL unique ID of rank 0.
   c10::intrusive_ptr<Store> store_;

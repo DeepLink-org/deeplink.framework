@@ -82,7 +82,7 @@ namespace devapis {
     return DICL_SUCCESS;
   }
 
-  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t count, at::ScalarType datatype, 
+  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t count, at::ScalarType datatype, 
                             const ReduceOp& op, diclComm_t comm, deviceStream_t stream) {
     convertTypeSize(count, datatype);
     CNCL_THROW(cnclReduceScatter(sendBuf, recvBuf, count, cncl_data_type[datatype], cncl_op[op], comm, stream));

@@ -72,7 +72,7 @@ DIPU_API diclResult_t diclReduce(const void* sendBuf, void* recvBuf, size_t coun
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
+DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount,
                                         at::ScalarType dataType, const ReduceOp& op, 
                                         diclComm_t comm, deviceStream_t stream) {
   HCCL_THROW(HcclReduceScatter(sendBuf, recvBuf, recvCount, getHcclDataType(dataType),

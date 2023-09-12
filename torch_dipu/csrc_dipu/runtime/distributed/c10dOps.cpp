@@ -138,6 +138,24 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> reduce_scatter_dip
       output_tensors_vec, work);
 }
 
+std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
+    at::Tensor& output_tensor,
+    at::Tensor& input_tensor,
+    const c10::intrusive_ptr<ProcessGroup>& process_group,
+    const c10::intrusive_ptr<ReduceOp>& reduce_op,
+    int64_t timeout) {
+  auto work =
+      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+          ->_reduce_scatter_base(
+              output_tensor,
+              input_tensor,
+              ReduceScatterOptions{
+                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
+
+  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+}
+
+
 c10::intrusive_ptr<Work> gather_dipu_(
     const std::vector<std::vector<at::Tensor>>& output_tensors,
     const at::TensorList& input_tensors,
@@ -184,14 +202,16 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("send", send_dipu);
   m.impl("recv_", recv_dipu_);
   m.impl("broadcast_", broadcast_dipu_);
+  m.impl("reduce_", reduce_dipu_);
   m.impl("allreduce_", allreduce_dipu_);
   m.impl("allgather_", allgather_dipu_);
   m.impl("_allgather_base_", _allgather_base_dipu_);
-  m.impl("barrier", barrier_dipu);
-
-  m.impl("reduce_", reduce_dipu_);
   m.impl("scatter_", scatter_dipu_);
   m.impl("reduce_scatter_", reduce_scatter_dipu_);
+  m.impl("_reduce_scatter_base_", _reduce_scatter_base_dipu_);
+  m.impl("barrier", barrier_dipu);
+
+  // not implement
   m.impl("gather_", gather_dipu_);
 
   // unregistered op, we expect it can fallback to cpu, but it not work now (hard to sync).
