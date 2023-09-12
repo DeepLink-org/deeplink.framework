@@ -88,8 +88,11 @@ def create_fun_name_from_schema(schema):
     return op_name
 
 def create_return_code_frome_schema(schema, allow_return_ref = True):
-    schema = re.sub('Tensor\([a-z]\)' , 'Tensor', schema)
+    if re.search('\( *\)', schema[schema.find('->'):]) is not None:
+        return "void "
+    schema = re.sub('Tensor\([a-z]\) ' , 'Tensor ', schema)
     return_code = schema[schema.find('->'):].replace('->', '').strip()
+    return_code = re.sub('Tensor *\[ *\] *', 'std::vector<Tensor> ' ,return_code)
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('([\w_\d:&]+)[ ]+([\w\d_]+)?', R'\1', return_code)
@@ -156,6 +159,8 @@ def create_param_list_from_schema(schema):
     param_list = param_list[0:param_list.rfind(')')]
     args_type_map = OrderedDict({
         'Tensor\([a-z]\)' : 'Tensor',
+        'Scalar *\[ *\]' : 'at::ArrayRef<at::Scalar>',
+        'Tensor *\( *[a-z]\!\) *\[ *\]' : 'at::ArrayRef<at::Tensor>',
         '[ ]*\([a-zA-Z]!\)' : '&',
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
@@ -214,7 +219,7 @@ def get_function_need_alloc_args_from_schema(schema):
     param_list = schema[schema.find('->') + 2 : ].strip()
     outputs += re.findall('\(?Tensor[ ]*([\w\d_]+){1}',  param_list)
 
-    no_name_args = re.findall('Tensor[ ]*(?!\([a-z]!\))(?![\w\d_ ]+)',  param_list)
+    no_name_args = re.findall('Tensor[ ]*(?!\([a-z]!\))(?![\w\d_ ]+)(?!(\[ *\]))',  param_list)
     no_name_args_num = len(no_name_args)
     for i in range(no_name_args_num):
         outputs.append('out' + (str(i) if no_name_args_num > 1 else ''))
@@ -354,7 +359,7 @@ def create_cpp_signature_from_schema(schema):
 
 
 def create_args_name_list_from_schema(schema):
-    code = '';
+    code = ''
     param_list = create_param_list_from_schema(schema)
     args_list = re.findall('([\w\d_<>:& ]+ )([\w\d_]+)', param_list)
     for i in range(len(args_list)):
@@ -445,7 +450,7 @@ def create_result_compare_code(fun_config):
         compare_code = f'_allclose({inputs[i]}_cpu, {inputs[i]})'
         code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << {compare_code} << std::endl;\n';
 
-    return code;
+    return code
 
 
 def create_code_to_print_fun_call_info_from_schema(fun_config):
@@ -588,7 +593,6 @@ def functions_code_gen(fun_config):
     diopi_scalar_suffix = 'DiopiScalar'
     for scalar_param in get_function_scalar_args_from_schema(fun_config['schema']):
         attrs_process_code += f"::diopiScalar_t {scalar_param}{diopi_scalar_suffix} = dipu::diopi_helper::toDiopiScalar({scalar_param});\n";
-        #diopi_fun_call_code = re.sub('&?[ ]*' + scalar_param.strip(), f"&{scalar_param}{diopi_scalar_suffix}", diopi_fun_call_code)
         diopi_fun_call_code = re.sub('([,\(]) *&? *' + scalar_param + '([,\)])', R'\1' + f"&{scalar_param}{diopi_scalar_suffix}" + R'\2', diopi_fun_call_code)
 
     cppsignature_template = CodeTemplate("$return_code $fun_name($param_list)")
