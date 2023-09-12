@@ -324,10 +324,6 @@ class EnflameCodegen(torch.fx.Interpreter):
         if args:
             call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline(f"args.clear()")
-        
-        if dipu_flag:
-            for i in range(len(self.input_args)):
-                call_body.writeline(f"arg{str(i)} = arg{str(i)}.to('dipu:{self.device_id}')")
         call_body.writeline("")
 
         bufs = []
