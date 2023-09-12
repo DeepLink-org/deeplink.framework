@@ -13,7 +13,34 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-def setup(backend, rank, world_size, port):
+
+def debugat(rank = 0):
+    import os
+    import ptvsd
+    import socket
+    # rank = int(os.environ['SLURM_PROCID'])
+    # ntasks = int(os.environ['SLURM_NTASKS'])
+
+    # rank = int(os.environ['RANK'])
+    # ntasks =int(os.environ['WORLD_SIZE'])
+
+    if rank == 0:
+        pid1 = os.getpid()
+
+        hostname = socket.gethostname()
+        ip = socket.gethostbyname(hostname)
+        print(hostname, ip, flush=True)
+        host = ip # or "localhost"
+        # host = "127.0.0.1"
+        port = 12346
+        print("cwd is:",  os.getcwd(), flush=True)
+        ptvsd.enable_attach(address=(host, port), redirect_output=False)
+        print("-------------------------print rank,:", rank, "pid1:", pid1, flush=True)
+        ptvsd.wait_for_attach()
+
+
+
+def setup(rank, world_size, port, backend="nccl"):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = str(port)
     print("comm using port:", str(port))
@@ -42,8 +69,7 @@ def demo_basic_ddp(rank, world_size, port):
     backend  ="nccl"
     dev1 = rank
 
-    # debugat(rank)
-    setup(backend, rank, world_size, port)
+    setup(rank, world_size, port, backend)
 
     for i in range(1, 4):
         # create model and move it to GPU with id rank
@@ -73,11 +99,9 @@ def demo_allreduce(rank, world_size, port):
     import torch_dipu
     print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
-    backend  ="nccl"
     dev1 = rank
 
-    # debugat(rank)
-    setup(backend, rank, world_size, port)
+    setup(rank, world_size, port)
 
     world_size = dist.get_world_size()
 
@@ -87,9 +111,9 @@ def demo_allreduce(rank, world_size, port):
     cleanup()
 
 # need at least 2 card
-def demo_p2p(rank, world_size):
+def demo_p2p(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   sended_tensor = torch.arange(2).to(device=rank, dtype=torch.float16)
   received_tensor = torch.zeros(2).to(rank, dtype=torch.float16)
@@ -118,9 +142,9 @@ def demo_p2p(rank, world_size):
   cleanup()
 
 
-def demo_allgather(rank, world_size):
+def demo_allgather(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   src1 = torch.ones((2, 4)).to(rank)
   dests = torch.zeros((world_size * 2, 4)).to(rank)
@@ -128,11 +152,12 @@ def demo_allgather(rank, world_size):
   for i in range(1, 3):
     dist.all_gather(dests, src1)
   assert torch.allclose(src1, dests[0])
+  print(dests[0])
   cleanup()
 
-def demo_bcast(rank, world_size):
+def demo_bcast(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   src1 = torch.ones((2, 4)).to(rank)
   dst = torch.empty((2, 4)).to(rank)
@@ -143,23 +168,25 @@ def demo_bcast(rank, world_size):
     else:
       dist.broadcast(dst, 0)
   assert torch.allclose(src1, dst)
+  print(dst)
   cleanup()
 
-def demo_reduce(rank, world_size):
+def demo_reduce(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   src_dst0 = torch.ones((2, 4)).to(rank)
   for i in range(1, 2):
     dist.reduce(src_dst0, 0, op=dist.reduce_op.SUM)
   if rank == 0:
     assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst0.cpu())
+  print(src_dst0)
   cleanup()
 
 
-def demo_reducescatter(rank, world_size):
+def demo_reducescatter(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   src1 = torch.ones((2 * world_size, 4)).to(rank)
   srcs = [*src1.chunk(world_size, 0),]
@@ -169,18 +196,20 @@ def demo_reducescatter(rank, world_size):
   for i in range(1, 3):
     dist.reduce_scatter(dst, srcs, op=dist.reduce_op.SUM)
   
-  assert torch.allclose(srcs[0], dst.cpu())
+  assert torch.allclose(srcs[0], dst)
+  print(dst)
   cleanup()
 
-def demo_reducescatter_base(rank, world_size):
+def demo_reducescatter_base(rank, world_size, port):
   import torch_dipu
-  setup(rank, world_size)
+  setup(rank, world_size, port)
 
   src1 = torch.ones((world_size * 2, 4)).to(rank)
   dst = torch.zeros((2, 4)).to(rank)
   for i in range(1, 3):
     dist.reduce_scatter_tensor(dst, src1, op=dist.reduce_op.SUM)
   assert torch.allclose(torch.ones((2, 4)), dst.cpu())
+  print(dst)
   cleanup()
 
 def demo_model_parallel(rank, world_size, port):
@@ -227,7 +256,6 @@ if __name__ == "__main__":
     run_demo(demo_basic_ddp, world_size, port)
     run_demo(demo_allreduce, world_size, port)
     run_demo(demo_allgather, world_size, port)
-    run_demo(demo_bcast, world_size, port)
     run_demo(demo_reduce, world_size, port)
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
@@ -235,5 +263,6 @@ if __name__ == "__main__":
 
     # need 2 card to run
     # run_demo(demo_p2p, world_size, port)
+    # run_demo(demo_bcast, world_size, port)
 
     # run_demo(demo_model_parallel, world_size)
