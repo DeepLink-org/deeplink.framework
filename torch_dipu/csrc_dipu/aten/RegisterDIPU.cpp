@@ -62,7 +62,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
     return  env_ptr ? std::atoi(env_ptr) : 0;
   }();
 
-  if (level < 2) {
+  if (level < 1) {
     return;
   }
   const auto name = c10::toString(op.operator_name());
@@ -81,7 +81,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
         std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
             << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
             << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
-        if (level > 2) {
+        if (level >= 2) {
             std::cout << std::endl << tensor;
         }
       } else {
@@ -103,10 +103,11 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   dipu::dump_fallback_op_args(op, stack);
   const auto name = c10::toString(op.operator_name());
 
-  TORCH_CHECK(name.find("foreach") == std::string::npos,
-    "Currently the foreach operator does not support fallback");
+  //TORCH_CHECK(name.find("foreach") == std::string::npos,
+  //  "Currently the foreach operator does not support fallback: ", name);
+  const bool forech_op = name.find("foreach") != std::string::npos;
 
-  DIPU_REGISTER_LOG("fallback to cpu, name=" << c10::toString(op.operator_name()) << std::endl);
+  DIPU_REGISTER_LOG("fallback to cpu, name=" << name << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
@@ -114,7 +115,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     "aten::native_batch_norm_backward",
   };
   auto iter = std::find(custom_fallback_operators_list.cbegin(), custom_fallback_operators_list.cend(), std::string(name));
-  if (iter != custom_fallback_operators_list.cend()) {
+  if (iter != custom_fallback_operators_list.cend() || forech_op) {
     dipu::native::cpu_fallback(op, stack);
   } else {
     at::native::cpu_fallback(op, stack);

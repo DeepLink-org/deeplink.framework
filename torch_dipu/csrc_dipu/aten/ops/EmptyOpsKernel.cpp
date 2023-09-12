@@ -7,6 +7,7 @@
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/profiler/profiler.h>
 
 using c10::device_or_default;
 using c10::layout_or_default;
@@ -23,42 +24,17 @@ namespace dipu::native {
     return c10::GetCPUAllocator();
   }
 
-  // use old logic, test
-  at::Tensor DIPUATenFunctions::empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
+at::Tensor DIPUATenFunctions::empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
         c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
         c10::optional<bool> pin_memory_opt, c10::optional<at::MemoryFormat> memory_format_opt) {
-
-    AT_ASSERT(c10::device_or_default(device_opt).type() == dipu::DIPU_DEVICE_TYPE);
-    TORCH_CHECK(!pinned_memory_or_default(pin_memory_opt), "Only dense tensors can be pinned");
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() == dipu::DIPU_DEVICE_TYPE);
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) == c10::Layout::Strided);
 
     c10::Allocator *allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
-    // ?? do gurad in allocator or wrapper?
-    const int64_t nelements = c10::multiply_integers(size);
-
-    auto dtype = c10::scalarTypeToTypeMeta(dtype_or_default(dtype_opt));
-    int64_t size_bytes = nelements * dtype.itemsize();
-    c10::intrusive_ptr<c10::StorageImpl> storage_impl = c10::make_intrusive<StorageImpl>(
-        c10::StorageImpl::use_byte_size_t(),
-        size_bytes,
-        allocator->allocate(size_bytes),
-        allocator,
-        true);
-
     constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
-    auto tensor = at::detail::make_tensor<TensorImpl>( std::move(storage_impl), dipu_ks, dtype);
-
-    // Default at::TensorImpl has size [0]
-    if (size.size() != 1 || size[0] != 0) {
-      tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-    }
-    if (memory_format_opt.has_value()) {
-      // Restriding a just-created empty contiguous tensor does nothing.
-      if (*memory_format_opt != at::MemoryFormat::Contiguous) {
-        tensor.unsafeGetTensorImpl()->empty_tensor_restride(*memory_format_opt);
-      }
-    }
-    return tensor;
-  }
+    return at::detail::empty_generic(size, allocator, dipu_ks, c10::dtype_or_default(dtype_opt), memory_format_opt);
+}
 
   at::Tensor DIPUATenFunctions::empty_cpu(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
@@ -77,7 +53,7 @@ namespace dipu::native {
   at::Tensor DIPUATenFunctions::empty_strided(at::IntArrayRef size, at::IntArrayRef stride, c10::optional<at::ScalarType> dtype_opt,
       c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
       c10::optional<bool> pin_memory_opt) {
-
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     auto device = c10::device_or_default(device_opt);
     AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
     AT_ASSERT(layout_or_default(layout_opt) == Layout::Strided);
