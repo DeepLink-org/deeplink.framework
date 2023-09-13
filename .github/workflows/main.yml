@@ -163,7 +163,7 @@ jobs:
               set -ex
               echo "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
-              cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/mmlab_pack
+              cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
               rm -rf one_iter_data
               touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
           """
