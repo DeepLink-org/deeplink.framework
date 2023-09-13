@@ -76,7 +76,7 @@ def sub(a, b):
 
 @registe_conversion(torch.ops.aten.rsub)
 def rsub(a, b):
-    return ascend_op.Sub(a, b)
+    return ascend_op.Rsub(a, b)
 
 @registe_conversion(torch.ops.aten.mul)
 def mul(a, b):
@@ -251,6 +251,14 @@ def unsafe_view(x, shape):
 @registe_conversion(_operator.mul)
 def inmul(a, b):
     return ascend_op.InMul(a, b)
+
+@registe_conversion(_operator.ge)
+def inge(a, b):
+    return ascend_op.InGe(a, b)
+
+@registe_conversion(_operator.add)
+def inadd(a, b):
+    return ascend_op.InAdd(a, b)
 
 @registe_conversion(torch.ops.aten.sym_size)
 def symsize(x, dim):

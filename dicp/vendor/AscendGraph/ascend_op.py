@@ -129,6 +129,13 @@ class Arange(Operator):
             (start, end, step) = args
         else:
             assert False
+        
+        if hasattr(start, 'meta'):
+            start = start.meta['val']
+        if hasattr(end, 'meta'):
+            end = end.meta['val']
+        if hasattr(step, 'meta'):
+            step = step.meta['val']
 
         with self.fake_mode:
             return aten.arange(start, end, step, dtype=torch.int32)
@@ -202,6 +209,14 @@ class Sub(Operator):
         self.a = a
         self.b = b
         self.torch_op = aten.sub
+
+
+class Rsub(Operator):
+    def __init__(self, a, b):
+        super().__init__("rsub")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.rsub
 
 
 class Mul(Operator):
@@ -603,6 +618,22 @@ class InMul(Operator):
         self.torch_op = _operator.mul
 
 
+class InGe(Operator):
+    def __init__(self, a, b):
+        super().__init__("inge")
+        self.a = a
+        self.b = b
+        self.torch_op = _operator.ge
+
+
+class InAdd(Operator):
+    def __init__(self, a, b):
+        super().__init__("inadd")
+        self.a = a
+        self.b = b
+        self.torch_op = _operator.add
+
+
 class SymSize(Operator):
     def __init__(self, x, dim):
         super().__init__("symsize")
@@ -817,6 +848,9 @@ class Full(Operator):
 
     def __call__(self, *args, **kwargs):
         (dims, value) = args
+        dims = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in dims]
+        if hasattr(value, 'meta'):
+            value = value.meta['val']
 
         with self.fake_mode:
             x = aten.empty(dims)
