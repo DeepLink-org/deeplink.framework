@@ -10,7 +10,7 @@ build.sh
 *.so
 
 # autogened file
-torch_dipu/csrc_dipu/aten/ops/*AutoGenedKernels*
+*AutoGenedKernels*
 
 # Patch / Merge
 *.orig
