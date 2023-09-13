@@ -11,13 +11,21 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
                                         at::Tensor& found_inf,
                                         const at::Tensor& inv_scale) {
     scaled_grad *= inv_scale.item();
-    if (scaled_grad.isinf().any().item<bool>()) {
+    if (!scaled_grad.isfinite().all().item<bool>()) {
         found_inf[0] = 1.f;
     }
 }
 
 }  // anonymous namespace
 
+// Multiplies each tensor in scaled_grads by inv_scale in-place.
+// If any element of any tensor in scaled_grads is inf or NaN, sets found_inf to 1.0.
+//
+// Args:
+// scaled_grads:  A TensorList of scaled gradient tensors.  May contain infs or NaNs.
+// found_inf:  A single-element float tensor to which 1.0 will be written if any gradient contain infs/nans.
+//             Pre-zeroing found_inf, if appropriate, is the responsibility of the caller.
+// inv_scale:  The inverse of the scale factor by which scaled_grads are currently multiplied.
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     at::TensorList scaled_grads, at::Tensor& found_inf,
     const at::Tensor& inv_scale) {
@@ -32,6 +40,20 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     }
 }
 
+// Updates the scale tensor in place.
+//
+// Args:
+// current_scale:  A one-element cuda float tensor containing the scale value.
+// growth_tracker:  A one-element torch.cuda.IntTensor containing the number of recent consecutive unskipped steps.
+// found_inf:  A one-element cuda float tensor. If > 0, indicates that infs/nans were found by the relevant
+//             prior _amp_non_finite_check_and_unscale_cuda call, and 0 if no infs/nans were found.
+// growth_factor:  Multiplier if no infs/NaNs were found (typically slightly > 1).
+// backoff_factor:  Multiplier if infs/NaNs were found (typically 0.5).
+// growth_interval:  Number of consecutive unskipped steps that must occur for current_scale to be multiplied by
+//                   growth_factor.
+//
+// Returns:
+// current_scale
 at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     at::Tensor& growth_tracker,
                                                     const at::Tensor& found_inf,
