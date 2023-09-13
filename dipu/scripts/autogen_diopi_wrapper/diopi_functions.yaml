@@ -2084,18 +2084,13 @@
 #- schema: _amp_foreach_non_finite_check_and_unscale_(Tensor(a!)[] self, Tensor(b!) found_inf, Tensor inv_scale) -> void
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
   custom_fallback: True
-# remove next 3 lines after DIOPI proto added diopiAmpForeachNonFiniteCheckAndUnscale
-  dummy_call_diopi: True
-  force_fallback: True
-  interface: printf("dummy")
-# and uncomment next line
-  #interface: diopiAmpForeachNonFiniteCheckAndUnscale(ctx, self, found_inf, inv_scale)
+  custom_code_at_the_beginning: |
+    std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
+    std::transform(self.begin(), self.end(), diopiTensorHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+    });
+  interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), self.size(), found_inf, inv_scale)
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
   custom_fallback: True
-# remove next 3 lines after DIOPI proto added diopiAmpUpdateScale
-  dummy_call_diopi: True
-  force_fallback: True
-  interface: printf("dummy")
-# and uncomment next line
-  #interface: diopiAmpUpdateScale(ctx, self, growth_tracker, found_inf, scale_growth_factor, scale_backoff_factor, growth_interval)
+  interface: diopiAmpUpdateScaleInp(ctx, self, growth_tracker, found_inf, scale_growth_factor, scale_backoff_factor, growth_interval)
