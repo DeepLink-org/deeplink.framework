@@ -238,7 +238,7 @@ jobs:
       - name: Run-test
         run: |
           ssh ${CUDA_CLUSTER} """
-          set -e
+          set -ex
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
@@ -256,7 +256,7 @@ jobs:
       - name: build some env
         run: |
           ssh ${CUDA_CLUSTER} """
-          set -e
+          set -ex
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
           basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
@@ -283,7 +283,7 @@ jobs:
         if: always()
         run: |
           ssh ${CUDA_CLUSTER} """
-              set -e
+              set -ex
               echo "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
@@ -305,7 +305,7 @@ jobs:
       - name: Build dipu diopi-latest-target
         run: |
           ssh ${CUDA_CLUSTER} """
-          set -e
+          set -ex
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
@@ -322,7 +322,7 @@ jobs:
       - name: Run-test
         run: |
           ssh ${CUDA_CLUSTER} """
-          set -e
+          set -ex
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
