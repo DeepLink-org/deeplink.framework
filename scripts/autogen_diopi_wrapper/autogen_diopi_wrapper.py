@@ -377,6 +377,9 @@ def create_call_cpp_function_code_from_schema(schema):
 def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     schema = fun_config['schema']
     opname = get_op_name_from_schema(schema)
+    opname = re.sub('\.ScalarList', '', opname)
+    opname = re.sub('(_foreach_[\w\d_]+_?)\.List', R'\1', opname)
+    opname = re.sub('ctc_loss\.IntList', 'ctc_loss', opname)
     opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
     opname = re.sub('\.out[\w_\d]*', '_outf', opname)
     opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
@@ -429,7 +432,12 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     return code
 
 def create_call_dipu_cpp_function_code_from_schema(schema):
-    code = create_return_code_frome_schema(schema) + ' result_device = ' + create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
+    code = create_return_code_frome_schema(schema)
+    if len(get_function_return_param_from_schema(schema)) > 0:
+        code += ' result_device = '
+    else:
+        code = code.replace('void ', '')
+    code += create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
     return code.replace('; ', ';\n')
 
 def create_result_compare_code(fun_config):
@@ -688,7 +696,7 @@ def functions_code_gen(fun_config):
             comment=[fun_config['schema']],
             execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
             transform_result_to_cpu_code=[],
-            result_compare_code=[create_result_compare_code(fun_config) + "\nreturn result_device;\n"],
+            result_compare_code=[create_result_compare_code(fun_config) + ("\nreturn result_device;\n" if len(get_function_return_param_from_schema(fun_config['schema'])) > 0 else "")],
         )
         fbody += autocompare_code
         fun_name = auto_compare_fun_name

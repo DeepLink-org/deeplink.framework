@@ -204,6 +204,17 @@ static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
     }
 }
 
+static std::string _allclose(const std::vector<at::Tensor>& a, const std::vector<at::Tensor>& b) {
+    if (a.size() != b.size()) {
+        return "not_allclose:";
+    }
+    std::string result;
+    for (size_t i = 0; i < a.size(); ++i) {
+        result += std::to_string(i) + "th " + _allclose(a[i], b[i]) + " ";
+    }
+    return result;
+}
+
 
 using namespace dipu::diopi_helper;
 
