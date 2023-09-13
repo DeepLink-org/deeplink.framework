@@ -97,6 +97,11 @@ void getDriverVersion(int *version) {
 //  mem related
 // =====================
 
+bool isPinnedPtr(const void *p) {
+  // TODO
+  return false;
+}
+
 void mallocHost(void **p, size_t nbytes) {
   if (nbytes <= 0) {
     *p = nullptr;

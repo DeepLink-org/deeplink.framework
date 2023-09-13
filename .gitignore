@@ -120,3 +120,6 @@ cmake-build-*/
 
 #.core file
 core.*
+
+fusion_result.json
+/dicp

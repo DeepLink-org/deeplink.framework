@@ -23,6 +23,29 @@ from setuptools.command.egg_info import egg_info
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VERSION = '0.1'
 
+def build_deps():
+    paths = [
+        ('third_party/nlohmann/json/single_include/nlohmann/json.hpp', 'dicp/vendor/AscendGraph/codegen/nlohmann/json.hpp')
+    ]
+    
+    for orig_path, new_path in paths:
+        if not os.path.exists(new_path):
+            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
+        # Copy the files from the orig location to the new location
+        if os.path.isfile(orig_path):
+            shutil.copyfile(orig_path, new_path)
+            continue
+        if os.path.isdir(orig_path):
+            if os.path.exists(new_path):
+                # copytree fails if the tree exists already, so remove it.
+                shutil.rmtree(new_path)
+            shutil.copytree(orig_path, new_path)
+            continue
+        raise RuntimeError("Check the file paths in `build_deps`")        
+
+build_deps()
+
 def which(thefile):
     path = os.environ.get("PATH", os.defpath).split(os.pathsep)
     for d in path:
@@ -187,9 +210,39 @@ setup(
     description='DIPU extension for PyTorch',
     url='https://github.com/DeepLink-org/dipu',
     packages=["torch_dipu"],
+    # libraries=[('torch_dipu', {'sources': list()})],
+    # package_dir={'': os.path.relpath(os.path.join(BASE_DIR, f"build/{get_build_type()}/packages"))},
+    classifiers=[
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Operating System :: POSIX :: Linux"
+    ],
+    entry_points = {
+        'torch_dynamo_backends': [
+            'topsgraph = torch_dipu.dicp.vendor.TopsGraph:topsgraph',
+            'ascendgraph = torch_dipu.dicp.vendor.AscendGraph:ascendgraph',
+        ]
+    },
+    python_requires=">=3.8",
+    install_requires=[
+        "torch >= 2.0.0a0"
+    ],
     ext_modules=[
         CppExtensionBuilder.genDIPUExt(),
     ],
+    package_data={
+        "torch_dipu/dicp/vendor": [
+            "TopsGraph/codegen/src/*.cpp",
+            "TopsGraph/codegen/include/*.h",
+            "AscendGraph/codegen/*.cpp",
+            "AscendGraph/codegen/*.h",
+            "AscendGraph/codegen/nlohmann/json.hpp"
+        ],
+        'torch_npu': [
+            '*.so', 'lib/*.so*',
+        ],
+    },
     cmdclass={
         # build_clib not work now, need enhance
         'build_clib': CPPLibBuild,

@@ -1,3 +1,6 @@
 [submodule "third_party/DIOPI"]
     path = third_party/DIOPI
     url = https://github.com/DeepLink-org/DIOPI.git
+[submodule "third_party/nlohmann/json"]
+	path = third_party/nlohmann/json
+	url = git@github.com:nlohmann/json.git
