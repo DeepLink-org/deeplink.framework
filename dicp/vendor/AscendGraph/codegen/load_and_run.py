@@ -6,7 +6,7 @@ import atexit
 
 
 # the range for dynamic shape
-MAX_RANGE = 16
+MAX_RANGE = 128
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -105,12 +105,12 @@ class MemoryPool:
     def __init__(self):
         self.work_ptr = None
         self.weight_ptr = None
-        atexit.register(self.release_memory)
-        self.init_work_weight_ptr()
+        #atexit.register(self.release_memory)
+        #self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 13 * 1024 * 1024 * 1024
+            self.work_size = 15 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                                 ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
@@ -120,7 +120,7 @@ class MemoryPool:
             self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
                                                 ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
-    
+
     def release_memory(self):
         print("Release bufferPtr from MemoryPool.")
         if self.work_ptr is not None:
@@ -156,18 +156,26 @@ class AscendExecutor(object):
 
         self.init_resource()
     
-    def __del__(self):
-        self.release_resource()
+    # def __del__(self):
+    #     self.release_resource()
 
     def release_resource(self):
         print("Releasing resources stage:")
-        ret = acl.mdl.unload(self.model_id)
-        check_ret("acl.mdl.unload", ret)
+        if self.model_id > -1:
+            ret = acl.mdl.unload(self.model_id)
+            check_ret("acl.mdl.unload", ret)
+            self.model_id = -1
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
+        memory_pool.release_memory()
 
     def load_model(self):
+        #work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        #check_ret("acl.mdl.query_size", ret)
+        #weight_ptr, ret = acl.rt.malloc(weight_size,
+        #                                      ACL_MEM_MALLOC_HUGE_FIRST)
+        #check_ret("acl.rt.malloc", ret)
         config_handle = acl.mdl.create_config_handle()
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
         check_ret("set_config_opt", ret) 
@@ -201,6 +209,7 @@ class AscendExecutor(object):
     def init_resource(self):
         print("init resource stage:")
 
+        memory_pool.init_work_weight_ptr()
         self.load_model()
         self.num_inputs = acl.mdl.get_num_inputs(self.model_desc)
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
@@ -236,7 +245,7 @@ class AscendExecutor(object):
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
         self.load_input_dataset = acl.mdl.create_dataset()
-        zero_tensor = torch.randn(1).to('dipu')
+        zero_tensor = torch.randn(1).xpu()
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():
@@ -315,7 +324,7 @@ class AscendExecutor(object):
 
     def run(self, images, dims=None):
         assert len(images) > 0
-        input = list(map(lambda x: x.to('dipu'), images))
+        input = list(map(lambda x: x.xpu(), images))
         self._prepare_input(input, dims)
         output = []
         if dims is not None:
@@ -355,11 +364,16 @@ class AscendExecutor(object):
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
-        atexit.register(self.cleanup)
-        self.exe = AscendExecutor(device_id, model_path)
+        self.device_id = device_id
+        self.model_path = model_path
+        #atexit.register(self.cleanup)
+        #self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None):
-        return self.exe.run(images, dims)
+        self.exe = AscendExecutor(self.device_id, self.model_path)
+        result = self.exe.run(images, dims)
+        self.exe.release_resource()
+        return result
 
     def cleanup(self):
         del self.exe
