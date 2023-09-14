@@ -204,13 +204,13 @@ static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
     }
 }
 
-static std::string _allclose(const std::vector<at::Tensor>& a, const std::vector<at::Tensor>& b) {
+static std::string _allclose(const c10::ArrayRef<at::Tensor>& a, const c10::ArrayRef<at::Tensor>& b) {
     if (a.size() != b.size()) {
         return "not_allclose:";
     }
     std::string result;
     for (size_t i = 0; i < a.size(); ++i) {
-        result += std::to_string(i) + "th " + _allclose(a[i], b[i]) + " ";
+        result += std::to_string(i) + "th " + _allclose(a[i], b[i]) + "; ";
     }
     return result;
 }
