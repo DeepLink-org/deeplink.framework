@@ -96,6 +96,11 @@ class dipu_profiler(object):
                     for i in evt.input_shapes:
                         if len(i) != 0:
                             input_shape.append(i)
+                stack = []
+                if evt.stack is not None:
+                    for i in evt.stack:
+                        if len(i)!=0:
+                            stack.append(i)
                 f.write(
                     '{"name": "%s", '
                     '"ph": "X", '
@@ -103,7 +108,7 @@ class dipu_profiler(object):
                     '"dur": %s, '
                     '"tid": %s, '
                     '"pid": "CPU functions", '
-                    '"args": {%s}}, '
+                    '"args": {%s, %s}}, '
                     % (
                         evt.trace_name,
                         evt.time_range.start,
@@ -112,7 +117,7 @@ class dipu_profiler(object):
                         if not evt.is_remote
                         else f'" node_id:{evt.node_id}, thread_id:{evt.thread} "',
                         '"input shape": ' + ('"%s"' % str(input_shape)),
-
+                        '"stack": '+ ('"%s"' % str(stack)),
                     )
                 )
                 for k in evt.kernels:
