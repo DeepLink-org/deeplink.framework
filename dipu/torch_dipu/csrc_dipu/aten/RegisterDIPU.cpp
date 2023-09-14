@@ -77,7 +77,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
         std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
             << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
             << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
-        if (level >= 2) {
+        if (level > 2) {
             std::cout << std::endl << tensor;
         }
       } else {
