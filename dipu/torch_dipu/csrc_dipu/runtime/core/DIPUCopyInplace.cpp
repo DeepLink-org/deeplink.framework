@@ -105,10 +105,7 @@ at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tenso
     TORCH_CHECK(false, "unsupported devices in copy_");
   }
 
-  if (non_blocking) {
-    // TODO(caikun): remove syncStream when cache allocator is ready
-    dipu::devproxy::syncStream(stream.rawstream());
-  } else {
+  if (!non_blocking) {
     dipu::devproxy::syncStream(stream.rawstream());
   }
   return self;
