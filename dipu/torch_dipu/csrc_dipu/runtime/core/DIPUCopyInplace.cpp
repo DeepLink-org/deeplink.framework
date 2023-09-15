@@ -84,10 +84,7 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
   dipu::devproxy::memCopyD2DAsync(stream.rawstream(), size, dst_device.index(), dst_ptr, src_device.index(), src_ptr);
 
-  if (non_blocking) {
-    // TODO(caikun): remove syncStream when cache allocator is ready
-    dipu::devproxy::syncStream(stream.rawstream());
-  } else {
+  if (!non_blocking) {
     dipu::devproxy::syncStream(stream.rawstream());
   }
   return self;
