@@ -18,7 +18,7 @@ public:
 
   class Context: public DataPtrContextBase {
     public:
-      Context(const CacheAllocator* allocator, void* ptr, size_t size):DataPtrContextBase(allocator, ptr, size){}
+      Context(const CacheAllocator* allocator, void* ptr, size_t size, size_t real_size):DataPtrContextBase(allocator, ptr, size), real_size_(real_size){}
       ~Context() {
         std::deque<DIPUEvent> events;
         for (auto iter = streams().begin(); iter != streams().end(); iter++) {
@@ -27,8 +27,10 @@ public:
         }
         auto allocator_ = static_cast<const RawCachingAllocator*>(allocator());
         allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
+        allocator_->set_memory_allocated(allocator_->memory_allocated() - real_size_);
         allocator_->empty_cache();
       }
+      size_t real_size_ = 0;
   };
 
   size_t getAllocateSize(size_t nbytes) const{
@@ -51,7 +53,7 @@ public:
     auto ptr = raw_allocator()->raw_allocate(nbytes);
     set_memory_reserved(memory_reserved() + nbytes);
     set_memory_allocated(memory_allocated() + nbytes);
-    return c10::DataPtr(ptr, new DataPtrContextBase(this, ptr, size), deleteRawCachingAllocatorContext, device());
+    return c10::DataPtr(ptr, new Context(this, ptr, size, nbytes), deleteRawCachingAllocatorContext, device());
   }
 
   void empty_cache() const override {
@@ -63,7 +65,6 @@ public:
         size_t size = std::get<1>(mem);
         size_t nbytes = getAllocateSize(size);
         raw_allocator()->raw_deallocate(ptr);
-        set_memory_allocated(memory_allocated() - nbytes);
         set_memory_reserved(memory_reserved() - nbytes);
       } else {
         std::this_thread::yield();

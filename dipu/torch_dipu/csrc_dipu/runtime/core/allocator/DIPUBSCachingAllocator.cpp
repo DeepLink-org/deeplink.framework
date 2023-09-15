@@ -81,7 +81,7 @@ public:
       DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
     set_memory_allocated(memory_allocated() + nbytes);
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, device());
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes), deleteBSContext, device());
     return data_ptr;
   }
 
@@ -91,7 +91,6 @@ public:
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore " << nbytes << " bytes, ptr:" << ptr << ",allocator:" << this);
     impl->idel_blocks_[nbytes].push_back(ptr);
     impl->total_idel_bytes_ += nbytes;
-    set_memory_allocated(memory_allocated() - nbytes);
   }
 
   void empty_cache() const override {
@@ -133,7 +132,7 @@ public:
   }
 
   struct Context: public DataPtrContextBase {
-    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size) {
+    Context(void* ptr, size_t size, size_t real_size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {
 
     }
 
@@ -148,14 +147,16 @@ public:
         }
 
         allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
+        allocator_->set_memory_allocated(allocator_->memory_allocated() - real_size_);
         allocator_->flush_mem_pool();
       }
     }
+    size_t real_size_ = 0;
   };
 
 
-  void* makeContext(void* ptr, size_t size) const{
-    auto ctx = new Context(ptr, size, this);
+  void* makeContext(void* ptr, size_t size, size_t real_size) const{
+    auto ctx = new Context(ptr, size, real_size, this);
     return ctx;
   }
 
