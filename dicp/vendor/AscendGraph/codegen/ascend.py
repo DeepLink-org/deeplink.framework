@@ -13,7 +13,7 @@ need_node = ['add', 'sub', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge'
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
              'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'masked_fill',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'fill', 'rsub']
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'fill', 'rsub', 'topk']
 
 sym_to_inputs = {}
 
@@ -348,6 +348,7 @@ class AscendCodegen(torch.fx.Interpreter):
           dim_len = 0
           for shape in self.actual_shape:
               dim_len += len(shape)
+          call_body.writeline(f'''max_range = 0''')
           dims = f'''dims = {{'''
           for idx, elem in enumerate(self.actual_shape):
               if len(elem) == 0:
@@ -355,9 +356,19 @@ class AscendCodegen(torch.fx.Interpreter):
               elem = [self.process_sym_name(dim) for dim in elem]
               dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
           dims = dims[:-1] + f'''}}'''
+          call_body.writeline(dims)
+          unique_elem = []
+          for elem in self.actual_shape:
+              for dim in elem:
+                  st = self.process_sym_name(dim)
+                  if not st in unique_elem:
+                    unique_elem.append(st)
+                    if not st.isdigit():
+                        call_body.writeline(f'''if max_range < {st}:''')
+                        call_body.writeline(f'''    max_range = {st}''')
         else:
-          dims = f'''dims = None'''
-        call_body.writeline(dims)
+          call_body.writeline(f'''dims = None''')
+          call_body.writeline(f'''max_range = 0''')
 
         call_body.splice(f"""
                              for idx in range(len(args)):
@@ -365,7 +376,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device='xpu', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims, max_range)']
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
@@ -1039,16 +1050,21 @@ class AscendOverrides:
     @staticmethod
     def inge(name, node, x, y):
         (x_node, y_node) = node.args
-        assert(not isinstance(y_node, torch.fx.node.Node))
-        assert isinstance(y, int)
-        cpp_dtype = "INT32"
-        ascend_dtype = "INT32"
-        const_op = OP(f"{name}_scalar", "Const")
-        const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
-        ge_op = OP(name, "GreaterEqual")
-        ge_op.set_input("x1", x)
-        ge_op.set_input("x2", f"{name}_scalar")
-        return [const_op.to_node(), ge_op.to_node()]
+        if not isinstance(y_node, torch.fx.node.Node):
+            assert isinstance(y, int)
+            cpp_dtype = "INT32"
+            ascend_dtype = "INT32"
+            const_op = OP(f"{name}_scalar", "Const")
+            const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+            ge_op = OP(name, "GreaterEqual")
+            ge_op.set_input("x1", x)
+            ge_op.set_input("x2", f"{name}_scalar")
+            return [const_op.to_node(), ge_op.to_node()]
+        else:
+            ge_op = OP(name, "GreaterEqual")
+            ge_op.set_input("x1", x)
+            ge_op.set_input("x2", y)
+            return ge_op.to_node()
 
     @staticmethod
     def inadd(name, node, x, y):
@@ -1064,10 +1080,22 @@ class AscendOverrides:
             add_op.set_input("x2", y)
             return [const_op.to_node(), add_op.to_node()]
         else:
+            y_name = y
+            ops = []
+            if not isinstance(y_node, torch.fx.node.Node):
+                assert isinstance(y, int)
+                cpp_dtype = "INT32"
+                ascend_dtype = "INT32"
+                const_op = OP(f"{name}_scalar", "Const")
+                const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+                ops.append(const_op.to_node())
+                y_name = f"{name}_scalar"
+
             add_op = OP(name, "AddV2")
             add_op.set_input("x1", x)
-            add_op.set_input("x2", y)
-            return add_op.to_node()
+            add_op.set_input("x2", y_name)
+            ops.append(add_op.to_node())
+            return ops
 
     @staticmethod
     def view(name, node, x, size):
@@ -1570,15 +1598,18 @@ class AscendOverrides:
             ops.append(op.to_node())
         
         shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
-        shape_name = shape
         if isinstance(shape, list) and symint_in_shape(shape):
             ops.extend(process_dynamic_shape(shape, name, "preprocess_shape"))
-            shape_name = f"{name}_preprocess_shape"
+            op1 = OP(name, "Expand")
+            op1.set_input("x", x_name)
+            op1.set_input("shape", f"{name}_preprocess_shape")
+            ops.append(op1.to_node())
+        else:
+            op1 = OP(name, "ExpandD")
+            op1.set_input("x", x_name)
+            op1.set_attr_list_int("shape", shape)
+            ops.append(op1.to_node())
 
-        op1 = OP(name, "ExpandD")
-        op1.set_input("x", x_name)
-        op1.set_attr_list_int("shape", shape_name)
-        ops.append(op1.to_node())
         return ops
 
     @staticmethod
@@ -1745,18 +1776,25 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def topk(name, x, k, dim=-1, largest=True, sorted=True):
-        op = OP(f"{name}_k", "Const")
-        op.set_attr_tensor("value", "INT32", "INT32", "ND", [k], [])
+    def topk(name, node, x, k, dim=-1, largest=True, sorted=True):
+        k_node = node.args[1]
+        k_name = k
+        ops = []
+        if not isinstance(k_node, torch.fx.node.Node):
+            k_name = f"{name}_k"
+            op = OP(k_name, "Const")
+            op.set_attr_tensor("value", "INT32", "INT32", "ND", [k], [])
+            ops.append(op.to_node())
 
         op1 = OP(name, "TopK")
         op1.set_input("x", x)
-        op1.set_input("k", f"{name}_k")
+        op1.set_input("k", k_name)
         op1.set_attr_int("dim", dim)
         op1.set_attr_bool("largest", largest)
         op1.set_attr_bool("sorted", sorted)
+        ops.append(op1.to_node())
 
-        return [op.to_node(), op1.to_node()]
+        return ops
 
     @staticmethod
     def scatter(name, node, var, dim, index, value):

@@ -138,7 +138,7 @@ memory_pool = MemoryPool()
 
 
 class AscendExecutor(object):
-    def __init__(self, device_id, model_path) -> None:
+    def __init__(self, device_id, model_path, dims, max_range) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
         self.model_id = None                # pointer
@@ -153,11 +153,15 @@ class AscendExecutor(object):
         self.output_dims = []
         self.output_dtypes = []
         self.output_data = []
+        self.input_dims = dims
+
+        global MAX_RANGE
+        if max_range > 128:
+            MAX_RANGE = max_range
+        else:
+            MAX_RANGE = 128
 
         self.init_resource()
-    
-    # def __del__(self):
-    #     self.release_resource()
 
     def release_resource(self):
         print("Releasing resources stage:")
@@ -369,8 +373,8 @@ class AscendModel():
         #atexit.register(self.cleanup)
         #self.exe = AscendExecutor(device_id, model_path)
 
-    def run(self, images, dims=None):
-        self.exe = AscendExecutor(self.device_id, self.model_path)
+    def run(self, images, dims=None, max_range=128):
+        self.exe = AscendExecutor(self.device_id, self.model_path, dims, max_range)
         result = self.exe.run(images, dims)
         self.exe.release_resource()
         return result
