@@ -1515,6 +1515,7 @@ class AscendOverrides:
         else:
             ops = []
             assert y_node != 0
+            cast_op = None
             dtype = node.meta['val'].dtype
             y_shape = list(x_node.meta['val'].shape)
 
