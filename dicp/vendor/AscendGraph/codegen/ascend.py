@@ -502,9 +502,6 @@ class AscendCodegen(torch.fx.Interpreter):
             for k in cur.keys():
                 self.expand_symint(cur, k)
                 self.remove_symint(cur[k])
-        else:
-            if not isinstance(cur, int) and not isinstance(cur, float) and not isinstance(cur, bool) and not isinstance(cur, str):
-                import pdb; pdb.set_trace()
 
     def gen_graph_json(self):
         self.parse_outputs()
@@ -1237,7 +1234,7 @@ class AscendOverrides:
                     if i > 0:
                         prod *= i
                 else:
-                    assert False
+                    raise RuntimeError("cannot handle with both negative and symint!")
 
             real_shape = []
             for i in shape:
@@ -1247,7 +1244,7 @@ class AscendOverrides:
                     else:
                         real_shape.append(str(numel / prod))
                 else:
-                    assert False
+                    raise RuntimeError("cannot handle with both negative and symint!")
             shape = real_shape
         ops = []
         if symint_in_shape(shape):

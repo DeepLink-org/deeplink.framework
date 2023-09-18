@@ -88,7 +88,7 @@ def add(a, b):
 def sub(a, b):
     return ascend_op.Sub(a, b)
 
-@registe_conversion(torch.ops.aten.rsub)
+@registe_conversion(torch.ops.aten.rsub.Scalar)
 def rsub(a, b):
     return ascend_op.Rsub(a, b)
 
@@ -100,7 +100,7 @@ def mul(a, b):
 def div(a, b):
     return ascend_op.Div(a, b)
 
-@registe_conversion(torch.ops.aten.maximum)
+@registe_conversion(torch.ops.aten.maximum.default)
 def maximum(a, b):
     return ascend_op.Max(a, b)
 
@@ -174,7 +174,7 @@ def copy(dst, src):
 def convert_element_type(x, dtype):
     return ascend_op.Convert(x, dtype)
 
-@registe_conversion(torch.ops.aten.embedding)
+@registe_conversion(torch.ops.aten.embedding.default)
 def embedding(weight, indices, padding_idx=-1):
     return ascend_op.Embedding(weight, indices, padding_idx)
 
@@ -206,23 +206,23 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
-@registe_conversion(torch.ops.aten.cumsum)
+@registe_conversion(torch.ops.aten.cumsum.default)
 def cumsum(x, dim, dtype=None):
     return ascend_op.CumSum(x, dim, dtype)
 
-@registe_conversion(torch.ops.aten.mm)
+@registe_conversion(torch.ops.aten.mm.default)
 def matmul(a, b):
     return ascend_op.MatMul(a, b)
 
-@registe_conversion(torch.ops.aten.sort)
+@registe_conversion(torch.ops.aten.sort.default)
 def sort(x, dim=-1, descending=False):
     return ascend_op.Sort(x, dim, descending)
 
-@registe_conversion(torch.ops.aten.topk)
+@registe_conversion(torch.ops.aten.topk.default)
 def topk(x, k, dim=-1, largest=True, sorted=True):
     return ascend_op.TopK(x, k, dim, largest, sorted)
 
-@registe_conversion(torch.ops.aten.scatter)
+@registe_conversion(torch.ops.aten.scatter.src)
 def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
 
@@ -279,11 +279,11 @@ def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
 def lift_fresh_copy(tensor_constant):
     return ascend_op.LiftFreshCopy(tensor_constant)
 
-@registe_conversion(torch.ops.aten.lt)
+@registe_conversion(torch.ops.aten.lt.Scalar)
 def lt(a, b):
     return ascend_op.Lt(a, b)
 
-@registe_conversion(torch.ops.aten.masked_fill)
+@registe_conversion(torch.ops.aten.masked_fill.Scalar)
 def masked_fill(x, mask, value):
     return ascend_op.MaskedFill(x, mask, value)
 
@@ -303,15 +303,15 @@ def index_arg2_(x, index):
 def index_arg3_(x, dim, index):
     return ascend_op.IndexSelect(x, dim, index, 3)
 
-@registe_conversion(torch.ops.aten.fill)
+@registe_conversion(torch.ops.aten.fill.Scalar)
 def fill(x, value):
     return ascend_op.Fill(x, value)
 
-@registe_conversion(torch.ops.aten.ones)
+@registe_conversion(torch.ops.aten.ones.default)
 def ones(shape, dtype=torch.int64, device='cpu', pin_memory=False):
     return ascend_op.Ones(shape)
 
-@registe_conversion(torch.ops.aten.new_ones)
+@registe_conversion(torch.ops.aten.new_ones.default)
 def new_ones(x, shape, dtype=torch.int64, layout=None, device='cpu', pin_memory=False):
     return ascend_op.NewOnes(x, shape)
 
@@ -460,23 +460,19 @@ def Eq(x, y):
 def t(input):
     return ascend_op.T(input)
 
-@registe_conversion(torch.ops.aten.mm)
-def matmul(a, b):
-    return ascend_op.MatMul(a, b)
-
-@registe_conversion(torch.ops.aten.transpose)
+@registe_conversion(torch.ops.aten.transpose.int)
 def transpose(input, dim0, dim1):
     return ascend_op.Transpose(input, dim0, dim1)
 
-@registe_conversion(torch.ops.aten.expand)
+@registe_conversion(torch.ops.aten.expand.default)
 def expand(x, dims):
     return ascend_op.ExpandD(x, dims)
 
-@registe_conversion(torch.ops.aten.view)
+@registe_conversion(torch.ops.aten.view.default)
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
 
-@registe_conversion(torch.ops.aten.bmm)
+@registe_conversion(torch.ops.aten.bmm.default)
 def bmm(x1, x2, adj_x1=False, adj_x2=False):
     return ascend_op.BatchMatMul(x1, x2, adj_x1, adj_x2)
 
