@@ -70,18 +70,11 @@ class Operator():
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
-<<<<<<< HEAD
-            if isinstance(x, FakeTensor):
-                x.fake_mode = fake_mode
-                return x
-            if not isinstance(x, torch.Tensor):
-=======
             if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) \
                         and x.fake_mode == fake_mode):
                 return x
             if isinstance(x, FakeTensor):
                 x.fake_mode = fake_mode
->>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
                 return x
             return FakeTensor.from_tensor(x, fake_mode)
         new_args = tree_map(make_faketensor, new_args)
@@ -883,7 +876,11 @@ class Full(Operator):
         super().__init__("full")
         self.dims = dims
         self.value = value
-<<<<<<< HEAD
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
 
     def __call__(self, *args, **kwargs):
         (dims, value) = args
@@ -894,14 +891,6 @@ class Full(Operator):
         with self.fake_mode:
             x = aten.empty(dims)
             return aten.fill(x, value)
-=======
-        self.dtype = dtype
-        self.layout = layout
-        self.device = device
-        self.pin_memory = pin_memory
-        self.memory_format = memory_format
-        self.torch_op = aten.full
->>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 
 
 class AddMm(Operator):
