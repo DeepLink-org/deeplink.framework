@@ -343,7 +343,7 @@ jobs:
         run: |
           set -ex
           cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export PYTORCH_DIR={CONDA_PREFIX}/pytorch
+          export PYTORCH_DIR=${CONDA_PREFIX}/pytorch
           export PYTHON_INCLUDE_DIR=${CONDA_PREFIX}/include/python3.8
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
-          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
