@@ -15,12 +15,22 @@ class Operator():
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
-        self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
-        self.fake_mode = (
-            FakeTensorMode(shape_env=self.shape_env)
-            if config.use_fake_tensor
-            else nullcontext()
-        )
+        if torch.__version__.startswith("2.0"):
+            self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
+            self.fake_mode = (
+                FakeTensorMode(shape_env=self.shape_env)
+                if config.use_fake_tensor
+                else nullcontext()
+            )
+        elif torch.__version__.startswith("2.1"):
+            self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
+            self.fake_mode = (
+                FakeTensorMode(shape_env=self.shape_env)
+                if config.fake_tensor_allow_meta
+                else nullcontext()
+            )
+        else:
+            raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
 
     def name(self):
         return self.__name__
@@ -283,6 +293,22 @@ class Max_pool2d_with_indices_backward(Operator):
         super().__init__("MaxPool2D_Grad")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices_backward
+        
+        
+class Adaptive_avg_pool2d(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("AvgPool2D")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten._adaptive_avg_pool2d.default
+       
+        
+class Adaptive_avg_pool2d_backward(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("AvgPool2D_Grad")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten._adaptive_avg_pool2d_backward.default
 
 
 class Gather(Operator):
