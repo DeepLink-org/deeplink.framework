@@ -5,6 +5,7 @@ from torch.fx.node import Argument, Target
 import torch.fx.traceback as fx_traceback
 from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
+from dicp.dynamo_bridge.compile_fx import is_torch_210
 
 class OpSetTransformer:
     def __init__(self, patterns):
@@ -47,3 +48,18 @@ class SingleOpTransformer(torch.fx.Transformer):
         if not 'val' in proxy.node.meta:
             proxy.node.meta['val'] = self.fetch_attr(target)
         return proxy
+
+if is_torch_210:
+    from torch._inductor.pattern_matcher import PatternMatcherPass, stable_topological_sort
+
+    class BackendPatternMatcherTransformer:
+        def __init__(self, patterns: PatternMatcherPass):
+            self._patterns = patterns
+
+        def transform(self, module: torch.fx.GraphModule):
+            match_count = self._patterns.apply(module)
+            if match_count:
+                stable_topological_sort(module.graph)
+                module.graph.lint()
+                module.recompile()
+            return module
