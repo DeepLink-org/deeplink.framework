@@ -42,12 +42,16 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def Add(a, b):
-    return tops_op.Add(a, b)
+def Add(a, b, **kwargs):
+    return tops_op.Add(a, b, **kwargs)
 
 @register_conversion(torch.ops.aten.add.default)
 def AddDefalut(a, b):
     return tops_op.AddDefalut(a, b)
+
+@register_conversion(torch.ops.aten.add.Scalar)
+def AddScalar(a, b):
+    return tops_op.AddScalar(a, b)
 
 @register_conversion(torch.ops.aten.abs)
 def Abs(a):
@@ -56,14 +60,22 @@ def Abs(a):
 @register_conversion(torch.ops.aten.mul)
 def Mul(a, b):
     if isinstance(a, Proxy):
-        if hasattr(a.node, "meta"):
+        if hasattr(a.node, "meta") and 'val' in a.node.meta:
             if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :
                 return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
 
-@register_conversion(torch.ops.aten.div)
+@register_conversion(torch.ops.aten.mul.Scalar)
+def MulScalar(a, b):
+    return tops_op.MulScalar(a, b)
+
+@register_conversion(torch.ops.aten.div.Tensor)
 def Div(a, b):
     return tops_op.Div(a, b)
+
+@register_conversion(torch.ops.aten.div.Scalar)
+def DivScalar(a, b):
+    return tops_op.DivScalar(a, b)
 
 @register_conversion(torch.ops.aten.sub)
 def Sub(a, b):
@@ -105,6 +117,14 @@ def Sumdim(*args):
 def Getitem(x, idx):
     return tops_op.Getitem(x, idx)
 
+@register_conversion(torch.ops.aten.index.Tensor)
+def Index(*args, **kwargs):
+    return tops_op.Index(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.native_dropout.default)
+def NativeDropout(*args, **kwargs):
+    return tops_op.NativeDropout(*args, **kwargs)
+
 # torch.ops.aten.squeeze.dim(,[])
 # torch.ops.aten.squeeze.dims(,)
 @register_conversion(torch.ops.aten.squeeze)
@@ -133,7 +153,18 @@ def hardswishbackward(a, b):
 
 @register_conversion(torch.ops.aten.clone)
 def Clone(*args, **kargs):
-    return tops_op.Copy(*args, **kargs)
+    return tops_op.Clone(*args, **kargs)
+
+@register_conversion(torch.ops.aten.copy.default)
+def Copy(*args, **kwargs):
+    return tops_op.Copy(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.lift_fresh_copy.default)
+def LiftFreshCopy(*args, **kwargs):
+    return tops_op.LiftFreshCopy(*args, **kwargs)
+
+Alias = register_conversion(torch.ops.aten.alias)(tops_op.Alias)
+torch.fx.wrap("Alias")
 
 @register_conversion(torch.ops.aten.neg)
 def Neg(*args):
@@ -157,9 +188,17 @@ def Convolution(*args):
 def ConvolutionBackward(*args):
     return tops_op.ConvolutionBackward(*args)
 
+@register_conversion(torch.ops.aten.lt.Tensor)
+def LtTensor(*args):
+    return tops_op.LtTensor(*args)
+
 @register_conversion(torch.ops.aten.le.Scalar)
 def Le(*args):
     return tops_op.LessEqual(*args)
+
+@register_conversion(torch.ops.aten.ne.Scalar)
+def NeScalar(*args):
+    return tops_op.NeScalar(*args)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
 def Max_pool2d_with_indices(*args):
@@ -225,6 +264,10 @@ def Concatenate(*args, **kwargs):
 def EmptyLike(*args, **kwargs):
     return tops_op.EmptyLike(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.new_empty_strided.default)
+def NewEmptyStrided(*args, **kwargs):
+    return tops_op.NewEmptyStrided(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.eq.Tensor)
 def Euqal(*args, **kwargs):
     return tops_op.Euqal(*args, **kwargs)
@@ -256,6 +299,14 @@ def Sigmoid(*args, **kwargs):
 @register_conversion(torch.ops.aten.slice.Tensor)
 def Slice(*args, **kwargs):
     return tops_op.Slice(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.slice_scatter.default)
+def SliceScatter(*args, **kwargs):
+    return tops_op.SliceScatter(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.index.Tensor)
+def Index(*args, **kwargs):
+    return tops_op.Index(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.where.self)
 def Where(*args, **kwargs):
@@ -320,6 +371,10 @@ def Gelu(*args, **kwargs):
 @register_conversion(torch.ops.aten.gelu_backward.default)
 def gelubackward(*args, **kwargs):
     return tops_op.GeluBackward(*args, **kwargs)
+
+@register_conversion(torch.ops.prims.iota.default)
+def Iota(*args, **kwargs):
+    return tops_op.Iota(*args, **kwargs)
 
 # Patterns
 def register_pattern(Pattern):

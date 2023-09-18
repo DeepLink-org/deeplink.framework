@@ -1,6 +1,7 @@
 import os 
 
 os.environ["DICP_TOPS_DEVICE_ID"] = "3"
+os.environ["DICP_TOPS_DIPU"] = "False"
 
 dir_name = os.path.dirname(os.path.abspath(__file__))
 os.chdir(dir_name)

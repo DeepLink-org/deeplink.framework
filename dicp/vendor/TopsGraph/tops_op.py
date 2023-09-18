@@ -70,10 +70,11 @@ class Operator():
         return self.torch_op(*new_args, **kwargs)
 
 class Add(Operator):
-    def __init__(self, a, b):
+    def __init__(self, a, b, **kwargs):
         super().__init__("Add")
         self.a = a
         self.b = b
+        self.kwargs = kwargs
         self.torch_op = aten.add.Tensor
 
 class AddDefalut(Operator):
@@ -82,6 +83,13 @@ class AddDefalut(Operator):
         self.a = a
         self.b = b
         self.torch_op = aten.add.default
+
+class AddScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Add")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.add.Scalar
 
 class Gemm(Operator):
     def __init__(self, a, b):
@@ -97,6 +105,13 @@ class Abs(Operator):
         self.a = a
         self.torch_op = aten.abs
 
+class LtTensor(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Less")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.lt.Tensor
+
 
 class LessEqual(Operator):
     def __init__(self, *args):
@@ -104,6 +119,12 @@ class LessEqual(Operator):
         self.args = args
         self.torch_op = aten.le.Scalar
 
+class NeScalar(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NotEqual")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.ne.Scalar
 
 class Mul(Operator):
     def __init__(self, a, b):
@@ -120,6 +141,12 @@ class ComplexMul(Operator):
         self.b = b
         self.torch_op = aten.mul
 
+class MulScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Mul")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.mul.Scalar
 
 class Div(Operator):
     def __init__(self, a, b):
@@ -128,6 +155,12 @@ class Div(Operator):
         self.b = b
         self.torch_op = aten.div
 
+class DivScalar(Operator):
+    def __init__(self, a, b):
+        super().__init__("Div")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.div.Scalar
 
 class Sub(Operator):
     def __init__(self, a, b):
@@ -235,11 +268,40 @@ class HardswishBackward(Operator):
         self.torch_op = aten.hardswish_backward
 
 
-class Copy(Operator):
+class Clone(Operator):
     def __init__(self, *args, **kargs):
         super().__init__("Clone")
         self.args = args
         self.torch_op = aten.clone
+
+class Alias(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Clone")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.alias
+
+class Copy(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy.default
+
+
+class LiftFreshCopy(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("LiftFreshCopy")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.lift_fresh_copy.default
+
+    def __call__(self, *args, **kwargs):
+        if hasattr(args[0], 'meta'):
+            return args[0].meta['val']
+        else:
+            with FakeTensorMode():
+                return torch.empty(())
 
 
 class Neg(Operator):
@@ -333,6 +395,14 @@ class Getitem(Operator):
         self.torch_op = operator.getitem
 
 
+class NativeDropout(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NativeDropout")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.native_dropout.default
+
+
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Batch_Norm")
@@ -393,6 +463,14 @@ class EmptyLike(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
+
+
+class NewEmptyStrided(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("NewEmptyStrided")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.new_empty_strided.default
 
 
 class Euqal(Operator):
@@ -459,6 +537,22 @@ class Slice(Operator):
         self.torch_op = aten.slice.Tensor
         
         
+class SliceScatter(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("SliceScatter")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.slice_scatter.default
+
+
+class Index(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Index")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.index.Tensor
+
+
 class Where(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Where")
@@ -584,6 +678,14 @@ class GeluBackward(Operator):
         self.args = args
         self.kwarg = kwargs
         self.torch_op = aten.gelu_backward.default
+
+
+class Iota(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Iota")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.prims.iota.default
 
 # TODO check if we need this wrap
 @torch.fx.wrap

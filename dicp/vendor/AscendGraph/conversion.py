@@ -8,15 +8,24 @@ from collections import defaultdict
 
 conversions = defaultdict(list)
 patterns = []
+backend_patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
+def args_kwargs_unchange(args, kwargs):
+    return args, kwargs
+
 def _registe_conversion(
-    aten_fn, decomp_fn
+    aten_fn, decomp_fn, process_args_kwargs_fn=None
 ):
-    @functools.wraps(decomp_fn)
-    def wrapped(*args, **kwargs):
-        return decomp_fn(*args, **kwargs)
+    register_op_singleton_flag = isinstance(decomp_fn, type) and issubclass(decomp_fn, ascend_op.Operator)
+    if register_op_singleton_flag:
+        wrapped = (decomp_fn.get_singleton(),
+                   args_kwargs_unchange if process_args_kwargs_fn is None else process_args_kwargs_fn)
+    else:
+        @functools.wraps(decomp_fn)
+        def wrapped(*args, **kwargs):
+            return decomp_fn(*args, **kwargs)
     
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
@@ -48,6 +57,11 @@ def registe_conversion(aten_fn):
 def registe_pattern(Pattern):
     patterns.append(Pattern)
     return Pattern
+
+# Backend Patterns
+def register_backend_pattern(pattern):
+    backend_patterns.append(pattern)
+    return pattern
 
 
 class BaseReplacePattern(ABC):
@@ -104,6 +118,10 @@ def abs(a):
 def rsqrt(a):
     return ascend_op.Rsqrt(a)
 
+@registe_conversion(torch.ops.aten.sqrt)
+def sqrt(a):
+    return ascend_op.Sqrt(a)
+
 @registe_conversion(torch.ops.aten.log)
 def log(a):
     return ascend_op.Log(a)
@@ -123,10 +141,6 @@ def relu(a):
 @registe_conversion(torch.ops.aten.silu)
 def silu(a):
     return ascend_op.Silu(a)
-
-@registe_conversion(torch.ops.aten.transpose)
-def transpose(input, dim0, dim1):
-    return ascend_op.Transpose(input, dim0, dim1)
 
 @registe_conversion(torch.ops.aten._softmax)
 def _softmax(x, dim, half_to_float):
@@ -192,6 +206,7 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
+<<<<<<< HEAD
 @registe_conversion(torch.ops.aten.expand)
 def expand(x, dims):
     return ascend_op.ExpandD(x, dims)
@@ -217,6 +232,9 @@ def topk(x, k, dim=-1, largest=True, sorted=True):
     return ascend_op.TopK(x, k, dim, largest, sorted)
 
 @registe_conversion(torch.ops.aten.scatter)
+=======
+@registe_conversion(torch.ops.aten.scatter.value)
+>>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
 
@@ -240,6 +258,7 @@ def gather(x, dims, index):
 def where(condition, a, b):
     return ascend_op.Where(condition, a, b)
 
+<<<<<<< HEAD
 @registe_conversion(torch.ops.aten.view)
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
@@ -248,6 +267,8 @@ def view(x, shape):
 def unsafe_view(x, shape):
     return ascend_op.TranShape(x, shape)
 
+=======
+>>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 @registe_conversion(_operator.mul)
 def inmul(a, b):
     return ascend_op.InMul(a, b)
@@ -271,7 +292,7 @@ def identity(x, idx):
 @registe_conversion(torch.ops.aten.full_like)
 def fulllike(x, value, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
-    return ascend_op.FullLike(x, value)
+    return ascend_op.FullLike(x, value, dtype, layout, device, pin_memory, memory_format)
 
 @registe_conversion(torch.ops.aten.lift_fresh_copy)
 def lift_fresh_copy(tensor_constant):
@@ -319,8 +340,9 @@ def repeat_interleave(repeats, output_size = 1):
 
 @registe_conversion(torch.ops.aten.full.default)
 def full(dims, value, dtype = torch.float32, layout = torch.strided,
-             device = 'cpu', pin_memory = False):
-    return ascend_op.Full(dims, value)
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.Full(dims, value, dtype, layout, device, pin_memory, memory_format)
+
 
 @registe_conversion(torch.ops.aten.max_pool2d_with_indices)
 def maxpool2d(input, kernel_size, stride, padding):
@@ -341,10 +363,6 @@ def convolutionbackward(grad, input, weight, bias,
     return ascend_op.ConvBackward(grad, input, weight, bias,
                 stride, padding, dilation, transposed,
                 output_padding, groups, output_masks)
-
-@registe_conversion(torch.ops.aten.t.default)
-def t(input):
-    return ascend_op.T(input)
 
 @registe_conversion(torch.ops.aten._log_softmax.default)
 def log_softmax(x, dim, half_to_float):
@@ -408,9 +426,83 @@ def cat(x, dim=0):
 def select(x, dim, index):
     return ascend_op.Select(x, dim, index)
 
+@registe_conversion(torch.ops.aten.arange.default)
+def arange(end, dtype=None, device=None, layout=None, pin_memory=False):
+    return ascend_op.Arange(end, dtype, device, layout, pin_memory)
+
+@registe_conversion(torch.ops.aten.lt.Tensor)
+def lt(x, y):
+    return ascend_op.Lt(x, y)
+  
+@registe_conversion(torch.ops.aten.masked_fill.Scalar)
+def masked_fill(x, y, value):
+    return ascend_op.MaskedFill(x, y, value)
+  
+@registe_conversion(torch.ops.aten.rsub.Scalar)
+def rsub(x, value):
+    return ascend_op.Rsub(x, value)
+
+@registe_conversion(torch.ops.aten.index.Tensor)
+def index(*args, **kwargs):
+    return ascend_op.Index(*args, **kwargs)
+
+@registe_conversion(torch.ops.aten._unsafe_view.default)
+def unsafe_view(a, b):
+    return ascend_op.UnsafeView(a, b)
+ 
+@registe_conversion(torch.ops.aten.slice_backward.default)
+def slice_backward(grad, input_shape, dim, start, end, step):
+    return ascend_op.SliceBackward(grad, input_shape, dim, start, end, step)
+
+@registe_conversion(torch.ops.aten.empty_like.default)
+def empty_like(x, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.EmptyLike(x, dtype, layout, device, pin_memory, memory_format)
+  
+@registe_conversion(torch.ops.aten.fill.Scalar)
+def fill_scalar(x, value):
+    return ascend_op.FillScalar(x, value)
+
+@registe_conversion(torch.ops.aten._softmax_backward_data.default)
+def softmax_backward_data(grad_output, output, dim, input_dtype):
+    return ascend_op.SoftmaxBackward(grad_output, output, dim, input_dtype)
+
+@registe_conversion(torch.ops.aten.lift_fresh_copy.default)
+def LiftFreshCopy(*args, **kwargs):
+    return ascend_op.LiftFreshCopy(*args, **kwargs)
+
+@registe_conversion(torch.ops.aten.maximum.default)
+def Maximum(x, y):
+    return ascend_op.Maximum(x, y)
+
+@registe_conversion(torch.ops.aten.eq.Tensor)
+def Eq(x, y):
+    return ascend_op.Eq(x, y)
+
+@registe_conversion(torch.ops.aten.t.default)
+def t(input):
+    return ascend_op.T(input)
+
+@registe_conversion(torch.ops.aten.mm)
+def matmul(a, b):
+    return ascend_op.MatMul(a, b)
+
+transpose = torch.fx.wrap(registe_conversion(torch.ops.aten.transpose)(ascend_op.Transpose))
+expand = torch.fx.wrap(registe_conversion(torch.ops.aten.expand)(ascend_op.ExpandD))
+view = torch.fx.wrap(registe_conversion(torch.ops.aten.view)(ascend_op.TranShape))
+bmm = torch.fx.wrap(registe_conversion(torch.ops.aten.bmm)(ascend_op.BatchMatMul))
+
+@registe_conversion(torch.ops.aten.bernoulli.p)
+def Bernoulli(x, p, generator=None):
+    return ascend_op.Bernoulli(x, p, generator)
+
+@registe_conversion(torch.ops.aten.new_empty_strided.default)
+def NewEmptyStrided(x, size, stride, dtype = torch.float32, layout = torch.strided,
+                      device = 'cpu', pin_memory = False):
+    return ascend_op.NewEmptyStrided(x, size, stride, dtype, layout, device, pin_memory)
 
 @registe_pattern
-class ReplaceVarMean:
+class ReplaceVarMean(BaseReplacePattern):
     def pattern(input, dims):
         return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
@@ -419,3 +511,15 @@ class ReplaceVarMean:
         varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
         return ascend_op.ret_tuple(varVal, meanVal)
 
+
+@register_backend_pattern
+class FuseTransposeBmm(BaseReplacePattern):
+    def pattern(x1, x2):
+        transpose_3 = transpose(x2, 2, 3)
+        expand_1 = expand(transpose_3, [1, 32, 128, 32])
+        view_16 = view(expand_1, [32, 128, 32])
+        return bmm(x1, view_16)
+
+    def replacement(x1, x2):
+        view_16 = view(x2, [32, 32, 128])
+        return bmm(x1, view_16, adj_x1 = False, adj_x2 = True)

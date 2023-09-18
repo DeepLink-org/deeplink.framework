@@ -149,6 +149,7 @@ ge::Format get_ascend_format(const std::string& format) {
       {"NCHW", FORMAT_NCHW},
       {"NHWC", FORMAT_NHWC},
       {"ND", FORMAT_ND},
+      {"FRACTAL_NZ", FORMAT_FRACTAL_NZ},
   };
   if (format_map.count(format) > 0) {
     return format_map[format];
@@ -162,6 +163,7 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
       {"FLOAT16", ge::DataType::DT_FLOAT16},
       {"INT32", ge::DataType::DT_INT32},
       {"INT64", ge::DataType::DT_INT64},
+      {"BOOL", ge::DataType::DT_BOOL},
   };
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];
@@ -277,6 +279,9 @@ void parseCommonNode(
       auto value_type = attr["value_type"];
       if (value_type == "str") {
         op.SetAttr(attr_name, attr["value"].get<std::string>());
+      } else if (value_type == "dtype_str") {
+        auto value = attr["value"].get<std::string>();
+        op.SetAttr(attr_name, get_ascend_datatype(value));
       } else if (value_type == "list_int") {
         auto value = attr["value"].get<std::vector<int64_t>>();
         op.SetAttr(attr_name.c_str(), value);

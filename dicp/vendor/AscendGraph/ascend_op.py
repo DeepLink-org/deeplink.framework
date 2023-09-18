@@ -24,6 +24,8 @@ def negative_in_shape(shape):
 
 class Operator():
     __name__: str
+    _singleton = None
+
     def __init__(self, name_):
         super().__init__()
         self.__name__ = name_
@@ -44,6 +46,16 @@ class Operator():
         else:
             raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
     
+    @classmethod
+    def get_singleton(cls):
+        args = [None] * (cls.__init__.__code__.co_argcount - 1)
+        if cls._singleton is None:
+           cls._singleton = cls(*args)
+        return cls._singleton
+
+    def name(self):
+        return self.__name__
+
     def __call__(self, *args, **kwargs):
         def get_meta(x):
             return x if not hasattr(x, 'meta') else x.meta['val']
@@ -58,10 +70,18 @@ class Operator():
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
+<<<<<<< HEAD
             if isinstance(x, FakeTensor):
                 x.fake_mode = fake_mode
                 return x
             if not isinstance(x, torch.Tensor):
+=======
+            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) \
+                        and x.fake_mode == fake_mode):
+                return x
+            if isinstance(x, FakeTensor):
+                x.fake_mode = fake_mode
+>>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
                 return x
             return FakeTensor.from_tensor(x, fake_mode)
         new_args = tree_map(make_faketensor, new_args)
@@ -200,7 +220,12 @@ class BatchMatMul(Operator):
         super().__init__("bmm")
         self.a = a
         self.b = b
-        self.torch_op = aten.bmm
+        self.torch_op = self.bmm
+    
+    def bmm(self, x1, x2, adj_x1=False, adj_x2=False):
+        tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
+        tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
+        return aten.bmm(tensor_x1, tensor_x2)
 
 
 class Sub(Operator):
@@ -283,6 +308,13 @@ class Rsqrt(Operator):
         super().__init__("rsqrt")
         self.a = a
         self.torch_op = aten.rsqrt
+
+
+class Sqrt(Operator):
+    def __init__(self, a):
+        super().__init__("sqrt")
+        self.a = a
+        self.torch_op = aten.sqrt
 
 
 class Log(Operator):
@@ -426,6 +458,7 @@ class ExpandD(Operator):
         super().__init__("expand")
         self.x = x
         self.dims = dims
+        self.torch_op = aten.expand
 
     def __call__(self, x, dims):
         if hasattr(x, 'meta'):
@@ -702,12 +735,17 @@ class SquareSumV1(Operator):
 
 
 class FullLike(Operator):
-    def __init__(self, x, value):
+    def __init__(self, x, value, dtype, layout, device, pin_memory, memory_format):
         super().__init__("zeros_like")
         #TODO! only handles cases for zero
         assert value == 0
         self.x = x
         self.value = value
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
         self.torch_op = aten.full_like
 
 
@@ -841,10 +879,11 @@ class NewOnes(Operator):
 
 
 class Full(Operator):
-    def __init__(self, dims, value):
+    def __init__(self, dims, value, dtype, layout, device, pin_memory, memory_format):
         super().__init__("full")
         self.dims = dims
         self.value = value
+<<<<<<< HEAD
 
     def __call__(self, *args, **kwargs):
         (dims, value) = args
@@ -855,6 +894,14 @@ class Full(Operator):
         with self.fake_mode:
             x = aten.empty(dims)
             return aten.fill(x, value)
+=======
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
+        self.torch_op = aten.full
+>>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 
 
 class AddMm(Operator):
@@ -1055,6 +1102,157 @@ class Select(Operator):
         self.dim = dim
         self.index = index
         self.torch_op = aten.select
+
+
+class Arange(Operator):
+    def __init__(self, end, dtype, device, layout, pin_memory):
+        super().__init__("arange")
+        self.end = end
+        self.dtype = dtype
+        self.device = device
+        self.layout = layout
+        self.pin_memory = pin_memory
+        self.torch_op = aten.arange
+        
+
+class Lt(Operator):
+    def __init__(self, x, y):
+        super().__init__("lt")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.lt
+
+
+class MaskedFill(Operator):
+    def __init__(self, x, y, value):
+        super().__init__("masked_fill")
+        self.x = x
+        self.y = y
+        self.value = value
+        self.torch_op = aten.masked_fill
+
+
+class Rsub(Operator):
+    def __init__(self, x, value):
+        super().__init__("rsub")
+        self.x = x
+        self.value = value
+        self.torch_op = aten.rsub
+
+
+class Index(Operator):
+    def __init__(self, x, index):
+        super().__init__("index")
+        self.x = x
+        self.index = index
+        self.torch_op = aten.index.Tensor
+
+
+class UnsafeView(Operator):
+    def __init__(self, x, shape):
+        super().__init__("view")
+        self.x = x
+        self.shape = shape
+
+    def __call__(self, x, shape):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
+        return aten.reshape(x, shape)
+      
+
+class SliceBackward(Operator):
+    def __init__(self, grad, input_shape, dim, start, end, step):
+        super().__init__("slice_backward")
+        self.grad = grad
+        self.input_shape = input_shape
+        self.dim = dim
+        self.start = start
+        self.end = end
+        self.step = step
+        self.torch_op = aten.slice_backward.default
+
+
+class EmptyLike(Operator):
+    def __init__(self, x, dtype, layout, device, pin_memory, memory_format):
+        super().__init__("empty_like")
+        self.x = x
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
+        self.torch_op = aten.empty_like.default
+
+
+class FillScalar(Operator):
+    def __init__(self, x, value):
+        super().__init__("fill_scalar")
+        self.x = x
+        self.value = value
+        self.torch_op = aten.fill.Scalar
+
+
+class SoftmaxBackward(Operator):
+    def __init__(self, grad_output, output, dim, input_dtype):
+        super().__init__("softmax_backward")
+        self.grad_output = grad_output
+        self.output = output
+        self.dim = dim
+        self.input_dtype = input_dtype
+        self.torch_op = aten._softmax_backward_data.default
+
+
+class LiftFreshCopy(Operator):
+    def __init__(self, x):
+        super().__init__("lift_fresh_copy")
+        self.x= x
+        self.torch_op = torch.ops.aten.lift_fresh_copy.default
+
+    def __call__(self, x):
+        if hasattr(x, 'meta'):
+            return x.meta['val']
+        else:
+            with FakeTensorMode():
+                return torch.empty(())
+
+
+class Maximum(Operator):
+    def __init__(self, x, y):
+        super().__init__("maximum")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.maximum.default
+
+
+class Eq(Operator):
+    def __init__(self, x, y):
+        super().__init__("eq")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.eq.Tensor
+
+
+class Bernoulli(Operator):
+    def __init__(self, x, p, generator):
+        super().__init__("bernoulli")
+        self.x = x
+        self.p = p
+        self.generator = generator
+        self.torch_op = aten.bernoulli.p
+
+
+class NewEmptyStrided(Operator):
+    def __init__(self, x, size, stride, dtype, layout, device, pin_memory):
+        super().__init__("new_empty_strided")
+        self.x = x
+        self.size = size
+        self.stride = stride
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.torch_op = aten.new_empty_strided.default
 
 
 @torch.fx.wrap
