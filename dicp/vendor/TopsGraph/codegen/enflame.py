@@ -123,7 +123,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         if name not in self.args_dict.keys():
             self.args_dict[name] = 'op' + str(len(self.args_dict))
 
-        arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args)
+        arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args, kwargs)
         real_op = process_name(name, target)
         
         if tops_debug:
@@ -426,7 +426,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
 class EnflameOverrides(OpOverrides):
     @staticmethod
-    def gen_args(op_var, args_dict, node, args):
+    def gen_args(op_var, args_dict, node, args, kwargs):
         gen_const_flag = True
         src_code = IndentedBuffer()
         args_str = [op_var]
@@ -445,6 +445,13 @@ class EnflameOverrides(OpOverrides):
             args_str.append(node) if name in need_node else args_str
             args_str.append(args_dict) if name in need_dict else args_str
             gen_const_flag = False if name in not_gen_const else True
+
+        # TODO need a gen_kwargs function
+        kwargs_flatten = []
+        for k, v in kwargs.items():
+            if name == "Add" and k == "alpha":
+                kwargs_flatten.append(v)
+        args += tuple(kwargs_flatten)
 
         for i in range(len(args)):
             if isinstance(args[i], type(None)):
@@ -551,9 +558,17 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def Add(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Add({x}, {y});"
- 
+    def Add(op_var, x, y, *args):
+        src_code = ""
+        if args:
+            assert len(args) == 1, "The number of Add Operation args should be at most one."
+            scaled_y = f"{op_var}_scaled_y";
+            src_code += f"builder::Op {scaled_y} = builder::Mul({y}, {args[0]});"
+        else:
+            scaled_y = y
+        src_code += f"builder::Op {op_var} = builder::Add({x}, {scaled_y});"
+        return src_code
+
     @staticmethod
     def Sub(op_var, x, y):
         return f"builder::Op {op_var} = builder::Sub({x}, {y});"
