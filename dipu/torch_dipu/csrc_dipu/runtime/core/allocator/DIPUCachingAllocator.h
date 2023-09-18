@@ -124,7 +124,11 @@ class DIPU_API CacheAllocator: public c10::Allocator, public MemStats {
     DataPtrContextBase(const CacheAllocator* allocator, void* ptr, size_t size): allocator_(allocator), ptr_(ptr), size_(size) {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
         auto current_stream = getCurrentDIPUStream();
-        streams_.insert(current_stream);
+        // If current stream is the default stream, we don't need to synchronize
+        // But before releasing the memory we must synchronize the default stream
+        if (getDefaultDIPUStream() != current_stream) {
+          streams_.insert(current_stream);
+        }
       }
       MemChecker::instance().insert(ptr, size);
     }

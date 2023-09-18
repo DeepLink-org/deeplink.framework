@@ -52,20 +52,27 @@ public:
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
-    if (idel_blocks.size() > 0) {
-      ptr = idel_blocks.front();
-      idel_blocks.pop_front();
-      impl->total_idel_bytes_ -= nbytes;
-      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::reuse " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+    if (idel_blocks.size() <= 0) {
+      empty_resource_pool();
     }
-    if (ptr == nullptr){
-      for (size_t i = 0; i < 2; i++) {
+    for (size_t i = 0; i < 2; i++) {
+      if (idel_blocks.size() > 0) {
+        ptr = idel_blocks.front();
+        idel_blocks.pop_front();
+        impl->total_idel_bytes_ -= nbytes;
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::reuse " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+        break;
+      } else {
         try {
           auto data_ptr = raw_allocator()->allocate(nbytes);
           ptr = data_ptr.get();
           device() = data_ptr.device();
           data_ptr.release_context();
           set_memory_reserved(memory_reserved() + nbytes);
+
+          impl->allocated_.insert(ptr);
+          impl->total_alocated_bytes_+= nbytes;
+          DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
           break;
         }
         catch(...) {
@@ -76,9 +83,6 @@ public:
           }
         }
       }
-      impl->allocated_.insert(ptr);
-      impl->total_alocated_bytes_+= nbytes;
-      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
     set_memory_allocated(memory_allocated() + nbytes);
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes), deleteBSContext, device());
@@ -93,8 +97,8 @@ public:
     impl->total_idel_bytes_ += nbytes;
   }
 
-  void empty_cache() const override {
-    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+  void empty_resource_pool() const {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_resource_pool ,allocator:"  << this);
     while(async_mem_pool()->size() > 0) {
       if (async_mem_pool()->ready()) {
         flush_mem_pool();
@@ -102,6 +106,11 @@ public:
         std::this_thread::yield();
       }
     }
+  }
+
+  void empty_cache() const override {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+    empty_resource_pool();
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = impl->idel_blocks_.begin(); iter != impl->idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;
