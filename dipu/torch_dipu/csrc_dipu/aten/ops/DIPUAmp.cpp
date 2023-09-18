@@ -1,14 +1,26 @@
-#include <csrc_dipu/aten/ops/DIPUAmp.hpp>
+#include "DIPUAmp.hpp"
 
 namespace at {
 namespace autocast {
 namespace{
 
-TORCH_LIBRARY_IMPL(_, AutocastDIPU, m) {
+/*******************************
+Banned functions
+*******************************/
+// Origin function is invisible, so we rewrite it.
+Tensor dipu_binary_cross_entropy_banned(const Tensor &, const Tensor &, const c10::optional<Tensor>&, int64_t) {
+  AT_ERROR("torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.\n"
+           "Many models use a sigmoid layer right before the binary cross entropy layer.\n"
+           "In this case, combine the two layers using torch.nn.functional.binary_cross_entropy_with_logits\n"
+           "or torch.nn.BCEWithLogitsLoss.  binary_cross_entropy_with_logits and BCEWithLogits are\n"
+           "safe to autocast.");
+}
+
+TORCH_LIBRARY_IMPL(_, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
   m.fallback(torch::CppFunction::makeFallthrough());
 }
 
-TORCH_LIBRARY_IMPL(aten, AutocastDIPU, m) {
+TORCH_LIBRARY_IMPL(aten, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
   // lower_precision_fp
   KERNEL_DIPU2(_convolution, deprecated, lower_precision_fp)
   KERNEL_DIPU(_convolution, lower_precision_fp)
@@ -118,9 +130,9 @@ TORCH_LIBRARY_IMPL(aten, AutocastDIPU, m) {
   // fp32_append_dtype
   // The fp32_append_dtype wrapper overrides implicit promotion behavior.
   // norm does not implicitly promote, but be aware when adding new ops to this policy.
-  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(ADD_NS(norm), "norm.Scalar", Tensor (const Tensor &, const Scalar&), Tensor (const Tensor &, const c10::optional<Scalar>&, ScalarType), fp32_append_dtype)
-  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(ADD_NS(norm), "norm.ScalarOpt_dim", Tensor (const Tensor &, const c10::optional<Scalar>&, IntArrayRef, bool), Tensor (const Tensor &, const c10::optional<Scalar>&, IntArrayRef, bool, ScalarType), fp32_append_dtype)
-  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(ADD_NS(norm), "norm.names_ScalarOpt_dim", Tensor (const Tensor &, const c10::optional<Scalar>&, DimnameList, bool), Tensor (const Tensor &, const c10::optional<Scalar>&, DimnameList, bool, ScalarType), fp32_append_dtype)
+  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(at::norm, "norm.Scalar", Tensor (const Tensor &, const Scalar&), Tensor (const Tensor &, const c10::optional<Scalar>&, ScalarType), fp32_append_dtype)
+  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(at::norm, "norm.ScalarOpt_dim", Tensor (const Tensor &, const c10::optional<Scalar>&, IntArrayRef, bool), Tensor (const Tensor &, const c10::optional<Scalar>&, IntArrayRef, bool, ScalarType), fp32_append_dtype)
+  KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(at::norm, "norm.names_ScalarOpt_dim", Tensor (const Tensor &, const c10::optional<Scalar>&, DimnameList, bool), Tensor (const Tensor &, const c10::optional<Scalar>&, DimnameList, bool, ScalarType), fp32_append_dtype)
   // promote
   KERNEL_DIPU(addcdiv, promote)
   KERNEL_DIPU(addcmul, promote)

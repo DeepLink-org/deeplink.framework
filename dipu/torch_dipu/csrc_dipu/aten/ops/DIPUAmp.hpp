@@ -1,3 +1,5 @@
+#pragma once
+
 #include <ATen/ATen.h>
 #include <torch/library.h>
 #include <ATen/NativeFunctions.h>
@@ -21,31 +23,18 @@ namespace autocast {
 // KERNEL_DIPU registration for AutocastDIPU
 #define KERNEL_DIPU(OP, POLICY) \
   m.impl(TORCH_SELECTIVE_NAME("aten::" #OP), \
-    &WrapFunction<CastPolicy::POLICY, DeviceTypeDIPU, decltype(ATEN_FN(OP)), decltype(ATEN_FN(OP)), &ATEN_FN(OP)>::type::call);
+    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN(OP)), decltype(ATEN_FN(OP)), &ATEN_FN(OP)>::type::call);
 #define KERNEL_DIPU2(OP, OVERLOAD, POLICY) \
   m.impl(TORCH_SELECTIVE_NAME("aten::" #OP "." #OVERLOAD), \
-    &WrapFunction<CastPolicy::POLICY, DeviceTypeDIPU, decltype(ATEN_FN2(OP, OVERLOAD)), decltype(ATEN_FN2(OP, OVERLOAD)), &ATEN_FN2(OP, OVERLOAD)>::type::call);
+    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN2(OP, OVERLOAD)), decltype(ATEN_FN2(OP, OVERLOAD)), &ATEN_FN2(OP, OVERLOAD)>::type::call);
 
 // Less-common but still useful case: redispatching to a function with a new signature (e.g. appending a dtype)
 #define KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(REDISPATCH_FUNC, REGISTER_NAME, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, POLICY) \
   m.impl(TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
-    &WrapFunction<CastPolicy::POLICY, DeviceTypeDIPU, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, &REDISPATCH_FUNC>::type::call);
+    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, &REDISPATCH_FUNC>::type::call);
 
 
 Tensor cached_cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type);
-
-/*******************************
-Banned functions
-*******************************/
-// Origin function is invisible, so we rewrite it.
-Tensor dipu_binary_cross_entropy_banned(const Tensor &, const Tensor &, const c10::optional<Tensor>&, int64_t) {
-  AT_ERROR("torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.\n"
-           "Many models use a sigmoid layer right before the binary cross entropy layer.\n"
-           "In this case, combine the two layers using torch.nn.functional.binary_cross_entropy_with_logits\n"
-           "or torch.nn.BCEWithLogitsLoss.  binary_cross_entropy_with_logits and BCEWithLogits are\n"
-           "safe to autocast.");
-}
-
 
 // Policies correspond to op categories that need code-divergent handling.
 // Wrapper templates below are specialized based on a policy template parameter.

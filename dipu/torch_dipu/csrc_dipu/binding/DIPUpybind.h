@@ -1,11 +1,14 @@
+#pragma once
+
 #include <pybind11/pybind11.h>
 #include <torch/types.h>  // for at::ScalarType
 #include <torch/python.h> 
 
-namespace py = pybind11;
 
 namespace pybind11 {
 namespace detail {
+
+namespace py = pybind11;
 
 at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
     TORCH_INTERNAL_ASSERT(THPDtype_Check(dtype_obj));
