@@ -15,13 +15,13 @@ print(a)
 
 ascend_model = MyModule()
 compiled_model = torch.compile(ascend_model, backend="ascendgraph")
-r1 = compiled_model(a)
+r1 = compiled_model(a).cpu()
 
 print(r1)
  
 torch._dynamo.reset()
 
 torch_model = MyModule()
-r2 = torch_model(a)
+r2 = torch_model(a).cpu()
 
 print(f"Test reshape op result:{torch.allclose(r1, r2, equal_nan=True)}")

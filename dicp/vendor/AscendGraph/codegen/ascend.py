@@ -1451,7 +1451,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def embedding(name, weight, indices, padding_idx):
+    def embedding(name, weight, indices, padding_idx=-1):
         # TODO! consider situation for padding_idx
         # during training stage
         op = OP(f"{name}_axis", "Const")
