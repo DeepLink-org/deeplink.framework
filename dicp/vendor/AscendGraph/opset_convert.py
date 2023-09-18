@@ -93,13 +93,14 @@ class AscendOpTransformer(SingleOpTransformer):
         if target in self._conversions:
             conversions = self._conversions[target]
             arg_str = 'arg{}'.format(len(args))
+            out = None
             if len(conversions) > 1:
                 for conversion in conversions:
                     name_str = conversion.__name__
                     if 'arg' in name_str and arg_str in name_str:
                         out = conversion(*args, **kwargs)
                         break
-            else:
+            if out is None:
                 out = conversions[0](*args, **kwargs)
             proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
             proxy.node.meta = fx_traceback.get_current_meta()

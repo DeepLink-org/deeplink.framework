@@ -209,16 +209,23 @@ class MatMul(Operator):
 
 
 class BatchMatMul(Operator):
-    def __init__(self, a, b):
+    def __init__(self, x1, x2, adj_x1=False, adj_x2=False):
         super().__init__("bmm")
-        self.a = a
-        self.b = b
-        self.torch_op = self.bmm
+        self.x1 = x1
+        self.x2 = x2
+        self.adj_x1 = adj_x1
+        self.adj_x2 = adj_x2
     
-    def bmm(self, x1, x2, adj_x1=False, adj_x2=False):
-        tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
-        tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
-        return aten.bmm(tensor_x1, tensor_x2)
+    def __call__(self, x1, x2, adj_x1=False, adj_x2=False):
+        if hasattr(x1, 'meta'):
+            x1 = x1.meta['val']
+        if hasattr(x2, 'meta'):
+            x2 = x2.meta['val']
+
+        with x1.fake_mode:
+            tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
+            tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
+            return aten.bmm(tensor_x1, tensor_x2)
 
 
 class Sub(Operator):
@@ -1093,17 +1100,6 @@ class Select(Operator):
         self.torch_op = aten.select
 
 
-class Arange(Operator):
-    def __init__(self, end, dtype, device, layout, pin_memory):
-        super().__init__("arange")
-        self.end = end
-        self.dtype = dtype
-        self.device = device
-        self.layout = layout
-        self.pin_memory = pin_memory
-        self.torch_op = aten.arange
-        
-
 class Lt(Operator):
     def __init__(self, x, y):
         super().__init__("lt")
@@ -1212,14 +1208,6 @@ class Maximum(Operator):
         self.x = x
         self.y = y
         self.torch_op = aten.maximum.default
-
-
-class Eq(Operator):
-    def __init__(self, x, y):
-        super().__init__("eq")
-        self.x = x
-        self.y = y
-        self.torch_op = aten.eq.Tensor
 
 
 class Bernoulli(Operator):

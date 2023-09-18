@@ -206,10 +206,6 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
-@registe_conversion(torch.ops.aten.expand)
-def expand(x, dims):
-    return ascend_op.ExpandD(x, dims)
-
 @registe_conversion(torch.ops.aten.cumsum)
 def cumsum(x, dim, dtype=None):
     return ascend_op.CumSum(x, dim, dtype)
@@ -217,10 +213,6 @@ def cumsum(x, dim, dtype=None):
 @registe_conversion(torch.ops.aten.mm)
 def matmul(a, b):
     return ascend_op.MatMul(a, b)
-
-@registe_conversion(torch.ops.aten.bmm)
-def batchmatmul(a, b):
-    return ascend_op.BatchMatMul(a, b)
 
 @registe_conversion(torch.ops.aten.sort)
 def sort(x, dim=-1, descending=False):
@@ -253,10 +245,6 @@ def gather(x, dims, index):
 @registe_conversion(torch.ops.aten.where)
 def where(condition, a, b):
     return ascend_op.Where(condition, a, b)
-
-@registe_conversion(torch.ops.aten.view)
-def view(x, shape):
-    return ascend_op.TranShape(x, shape)
 
 @registe_conversion(torch.ops.aten._unsafe_view)
 def unsafe_view(x, shape):
@@ -419,10 +407,6 @@ def cat(x, dim=0):
 def select(x, dim, index):
     return ascend_op.Select(x, dim, index)
 
-@registe_conversion(torch.ops.aten.arange.default)
-def arange(end, dtype=None, device=None, layout=None, pin_memory=False):
-    return ascend_op.Arange(end, dtype, device, layout, pin_memory)
-
 @registe_conversion(torch.ops.aten.lt.Tensor)
 def lt(x, y):
     return ascend_op.Lt(x, y)
@@ -480,10 +464,21 @@ def t(input):
 def matmul(a, b):
     return ascend_op.MatMul(a, b)
 
-transpose = torch.fx.wrap(registe_conversion(torch.ops.aten.transpose)(ascend_op.Transpose))
-expand = torch.fx.wrap(registe_conversion(torch.ops.aten.expand)(ascend_op.ExpandD))
-view = torch.fx.wrap(registe_conversion(torch.ops.aten.view)(ascend_op.TranShape))
-bmm = torch.fx.wrap(registe_conversion(torch.ops.aten.bmm)(ascend_op.BatchMatMul))
+@registe_conversion(torch.ops.aten.transpose)
+def transpose(input, dim0, dim1):
+    return ascend_op.Transpose(input, dim0, dim1)
+
+@registe_conversion(torch.ops.aten.expand)
+def expand(x, dims):
+    return ascend_op.ExpandD(x, dims)
+
+@registe_conversion(torch.ops.aten.view)
+def view(x, shape):
+    return ascend_op.TranShape(x, shape)
+
+@registe_conversion(torch.ops.aten.bmm)
+def bmm(x1, x2, adj_x1=False, adj_x2=False):
+    return ascend_op.BatchMatMul(x1, x2, adj_x1, adj_x2)
 
 @registe_conversion(torch.ops.aten.bernoulli.p)
 def Bernoulli(x, p, generator=None):
@@ -504,7 +499,7 @@ class ReplaceVarMean(BaseReplacePattern):
         varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
         return ascend_op.ret_tuple(varVal, meanVal)
 
-
+'''
 @register_backend_pattern
 class FuseTransposeBmm(BaseReplacePattern):
     def pattern(x1, x2):
@@ -516,3 +511,4 @@ class FuseTransposeBmm(BaseReplacePattern):
     def replacement(x1, x2):
         view_16 = view(x2, [32, 32, 128])
         return bmm(x1, view_16, adj_x1 = False, adj_x2 = True)
+'''

@@ -96,6 +96,7 @@ buffer_method = {
 
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
+        import pdb; pdb.set_trace()
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
