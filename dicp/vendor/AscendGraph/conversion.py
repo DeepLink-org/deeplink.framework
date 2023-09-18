@@ -206,7 +206,6 @@ def squeeze(x, dims):
 def permute(x, dims):
     return ascend_op.Permute(x, dims)
 
-<<<<<<< HEAD
 @registe_conversion(torch.ops.aten.expand)
 def expand(x, dims):
     return ascend_op.ExpandD(x, dims)
@@ -232,9 +231,6 @@ def topk(x, k, dim=-1, largest=True, sorted=True):
     return ascend_op.TopK(x, k, dim, largest, sorted)
 
 @registe_conversion(torch.ops.aten.scatter)
-=======
-@registe_conversion(torch.ops.aten.scatter.value)
->>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 def scatter(x, dims, index, value):
     return ascend_op.ScatterElement(x, dims, index, value)
 
@@ -258,7 +254,6 @@ def gather(x, dims, index):
 def where(condition, a, b):
     return ascend_op.Where(condition, a, b)
 
-<<<<<<< HEAD
 @registe_conversion(torch.ops.aten.view)
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
@@ -267,8 +262,6 @@ def view(x, shape):
 def unsafe_view(x, shape):
     return ascend_op.TranShape(x, shape)
 
-=======
->>>>>>> 6f31a6afc9a4d77c022abc43f0d01dc1f593a716
 @registe_conversion(_operator.mul)
 def inmul(a, b):
     return ascend_op.InMul(a, b)
