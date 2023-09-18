@@ -343,10 +343,11 @@ jobs:
         run: |
           set -ex
           cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib/:${LD_LIBRARY_PATH}
-          export CFLAGS="-Wl,--sysroot=${CONDA_PREFIX}/aarch64-conda-linux-gnu/sysroot/"
+          export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib
+          export DIPU_ROOT=$(pwd)/torch_dipu
+          export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH 
+          export CFLAGS=-Wl,--sysroot=${CONDA_PREFIX}/aarch64-conda-linux-gnu/sysroot/
           export PYTORCH_DIR=${CONDA_PREFIX}/lib/python3.8/site-packages
           export PYTHON_INCLUDE_DIR=${CONDA_PREFIX}/include/python3.8
-          env
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
