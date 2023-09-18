@@ -18,6 +18,8 @@ env:
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd -x SH-IDC1-10-198-8-60' }}
   CUDA_CLUSTER: SH1988
+  ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  ASCEND_CLUSTER: ASCEND
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
   USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/20')) && 'ON' || 'OFF' }}
@@ -61,6 +63,9 @@ jobs:
           ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${ASCEND_CLUSTER} "mkdir -p ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           result=`ssh ${CAMB_CLUSTER} """
                   mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -328,3 +333,17 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
+
+  Build-Ascend:
+    name: Build-dipu-ascend
+    needs: [Rsync]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          export PYTORCH_DIR={CONDA_PREFIX}/pytorch
+          export PYTHON_INCLUDE_DIR=${CONDA_PREFIX}/include/python3.8
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 
