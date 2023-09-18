@@ -105,19 +105,13 @@ class MemoryPool:
     def __init__(self):
         self.work_ptr = None
         self.weight_ptr = None
-        #atexit.register(self.release_memory)
-        #self.init_work_weight_ptr()
+        atexit.register(self.release_memory)
+        self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
             self.work_size = 15 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
-                                                ACL_MEM_MALLOC_HUGE_FIRST)
-            check_ret("acl.rt.malloc", ret)
-
-        if self.weight_ptr is None:
-            self.weight_size = 80240
-            self.weight_ptr, ret = acl.rt.malloc(self.weight_size,
                                                 ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
 
@@ -138,7 +132,7 @@ memory_pool = MemoryPool()
 
 
 class AscendExecutor(object):
-    def __init__(self, device_id, model_path, dims, max_range) -> None:
+    def __init__(self, device_id, model_path) -> None:
         self.device_id = device_id          # int
         self.model_path = model_path        # str
         self.model_id = None                # pointer
@@ -153,15 +147,11 @@ class AscendExecutor(object):
         self.output_dims = []
         self.output_dtypes = []
         self.output_data = []
-        self.input_dims = dims
-
-        global MAX_RANGE
-        if max_range > 128:
-            MAX_RANGE = max_range
-        else:
-            MAX_RANGE = 128
 
         self.init_resource()
+
+    def __del__(self):
+        self.release_resource()
 
     def release_resource(self):
         print("Releasing resources stage:")
@@ -172,14 +162,13 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
-        memory_pool.release_memory()
 
     def load_model(self):
-        #work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
-        #check_ret("acl.mdl.query_size", ret)
-        #weight_ptr, ret = acl.rt.malloc(weight_size,
-        #                                      ACL_MEM_MALLOC_HUGE_FIRST)
-        #check_ret("acl.rt.malloc", ret)
+        work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        check_ret("acl.mdl.query_size", ret)
+        weight_ptr, ret = acl.rt.malloc(weight_size,
+                                              ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
         config_handle = acl.mdl.create_config_handle()
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
         check_ret("set_config_opt", ret) 
@@ -187,16 +176,16 @@ class AscendExecutor(object):
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, memory_pool.weight_ptr)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, weight_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, memory_pool.weight_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_SIZET, work_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
@@ -213,7 +202,6 @@ class AscendExecutor(object):
     def init_resource(self):
         print("init resource stage:")
 
-        memory_pool.init_work_weight_ptr()
         self.load_model()
         self.num_inputs = acl.mdl.get_num_inputs(self.model_desc)
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
@@ -326,7 +314,13 @@ class AscendExecutor(object):
                                 ACL_MEMCPY_DEVICE_TO_DEVICE)
             check_ret("acl.rt.memcpy", ret)            
 
-    def run(self, images, dims=None):
+    def run(self, images, dims=None, max_range=128):
+        global MAX_RANGE
+        if max_range > 128:
+            MAX_RANGE = max_range
+        else:
+            MAX_RANGE = 128
+
         assert len(images) > 0
         input = list(map(lambda x: x.xpu(), images))
         self._prepare_input(input, dims)
@@ -368,19 +362,15 @@ class AscendExecutor(object):
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
-        self.device_id = device_id
-        self.model_path = model_path
-        #atexit.register(self.cleanup)
-        #self.exe = AscendExecutor(device_id, model_path)
+        atexit.register(self.cleanup)
+        self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None, max_range=128):
-        self.exe = AscendExecutor(self.device_id, self.model_path, dims, max_range)
-        result = self.exe.run(images, dims)
-        self.exe.release_resource()
-        return result
+        return self.exe.run(images, dims, max_range)
 
     def cleanup(self):
-        del self.exe
+        if hasattr(self, 'exe'):
+            del self.exe
 
 
 if __name__ == '__main__':
