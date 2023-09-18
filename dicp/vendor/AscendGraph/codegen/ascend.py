@@ -2404,6 +2404,7 @@ class AscendOverrides:
         # 1. get sum and square_sum
         op1 = OP(f"{name}_bn_training_reduce", "BNTrainingReduce")
         # TODO(tangzhiyi): now assume output name is y.
+        # TODO(daoxin): potential dynamic shape issue in resnet18
         op1.set_and_update_input("x", x, x_shape, "NCHW", x_dtype)
 
         # 2. call BNTrainingUpdate
