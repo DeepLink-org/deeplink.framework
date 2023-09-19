@@ -377,3 +377,28 @@ jobs:
           cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
+
+  Build-Ascend-Latest-Target:
+    name: Build-dipu-ascend-latest-target
+    needs: [Build-PyTorch-For-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+ 
+  Test-Ascend-Latest-Target:
+    name: Test-dipu-ascend-latest-target
+    needs: [Build-Ascend-Latest-Target]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash tests/run_ascend_tests.sh      
