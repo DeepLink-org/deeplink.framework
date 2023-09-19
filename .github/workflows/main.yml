@@ -368,6 +368,6 @@ jobs:
       - name: Run a test
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           python tests/test_ops/archived/test_tensor_add.py
