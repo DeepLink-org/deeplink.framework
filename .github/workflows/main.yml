@@ -360,3 +360,14 @@ jobs:
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
   
+  Test-Ascend:
+    name: Test-dipu-ascend
+    needs: [Build-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          python tests/test_ops/archived/test_tensor_add.py
