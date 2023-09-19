@@ -20,6 +20,7 @@ env:
   CUDA_CLUSTER: SH1988
   ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
+  ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
   USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/20')) && 'ON' || 'OFF' }}
@@ -82,6 +83,16 @@ jobs:
             ssh ${CAMB_CLUSTER} "rm -rf ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
             rsync -a --delete /home/autolink/rsync/sourcecode/pytorch/* ${CAMB_CLUSTER}:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}/
           fi
+          ssh ${ASCEND_CLUSTER} """
+          cd ${ASCEND_TORCH_DIR}
+          if [ \"\$(git rev-parse HEAD)\" != \"${PYTORCH_COMMIT}\" ]; then
+            rm -rf build
+          fi
+          if [ ! -d \"build\" ]; then  
+            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-\"$(dirname $(which conda))/../\"}  
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop  
+          fi
+          """
 
   Build-Camb:
     name: Build-dipu-camb
