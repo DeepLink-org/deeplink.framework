@@ -14,8 +14,9 @@ files.remove("test_all.py")
 
 len = 0
 files.sort()
+failure_case_list = []
 
-for file_name in files[27:]:
+for file_name in files:
     if "dipu" in file_name or "bwd" in file_name:
         continue
     len += 1
@@ -23,8 +24,10 @@ for file_name in files[27:]:
     res = os.system(f"python {file_name}")
     if res != 0:
         print(f"Run {file_name} failed.", flush=True)
-        break
+        failure_case_list.append(file_name)
+        continue
     print(f"TEST: {file_name} passed.", flush=True)
     
 print(f"All {len} tests completed.")
+print(f"Failure cases: {', '.join(failure_case_list)}")
     

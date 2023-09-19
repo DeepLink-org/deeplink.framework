@@ -20,6 +20,6 @@ tops_res = compiled_model(a, b)
 
 dynamo.reset()
 torch_model = MyModule()
-r2 = torch_model(a, b)
+torch_res = torch_model(a, b)
 
 print(f'Tests div result\n{torch.allclose(tops_res, torch_res, equal_nan=True)}')
