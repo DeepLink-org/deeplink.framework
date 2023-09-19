@@ -340,7 +340,7 @@ jobs:
     needs: [Rsync]
     runs-on: tps-ascend-ci
     steps:
-      - name: Compile PyTorch
+      - name: Build PyTorch
         run: |
           set -ex
           cd ${ASCEND_TORCH_DIR}
