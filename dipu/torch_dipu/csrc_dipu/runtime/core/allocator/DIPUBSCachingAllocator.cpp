@@ -124,7 +124,6 @@ public:
         raw_allocator()->raw_deallocate(ptr);
       }
     }
-    impl->idel_blocks_.clear();
   }
 
   void release_all_memory() const {
