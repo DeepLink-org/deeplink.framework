@@ -343,10 +343,6 @@ jobs:
         run: |
           set -ex
           cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-
-          export CFLAGS=-Wl,--sysroot=${CONDA_PREFIX}/aarch64-conda-linux-gnu/sysroot/
-          export PYTHON_INCLUDE_DIR=${CONDA_PREFIX}/include/python3.8
-
           source scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
