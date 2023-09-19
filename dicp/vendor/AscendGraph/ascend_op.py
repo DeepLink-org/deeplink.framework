@@ -168,7 +168,7 @@ class CumSum(Operator):
         self.x = x
         self.dim = dim
         self.dtype = dtype
-        self.torch_op = aten.cumsum
+        self.torch_op = aten.cumsum.default
 
 
 class MatMul(Operator):

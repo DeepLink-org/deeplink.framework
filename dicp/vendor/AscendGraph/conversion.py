@@ -291,15 +291,15 @@ def masked_fill(x, mask, value):
 def empty(size, dtype=torch.int64, layout=torch.strided, device='cpu'):
     return ascend_op.Empty(size, dtype, layout, device)
 
-@registe_conversion(torch.ops.aten.index)
+@registe_conversion(torch.ops.aten.index.Tensor)
 def index(x, index):
     return ascend_op.IndexSelect(x, 0, index, None)
 
-@registe_conversion(torch.ops.aten.index_select)
+@registe_conversion(torch.ops.aten.index_select.default)
 def index_arg2_(x, index):
     return ascend_op.IndexSelect(x, 0, index, 2)
 
-@registe_conversion(torch.ops.aten.index_select)
+@registe_conversion(torch.ops.aten.index_select.default)
 def index_arg3_(x, dim, index):
     return ascend_op.IndexSelect(x, dim, index, 3)
 
