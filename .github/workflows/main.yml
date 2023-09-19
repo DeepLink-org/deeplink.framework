@@ -347,9 +347,9 @@ jobs:
           if [ "$(git rev-parse HEAD)" != "${PYTORCH_COMMIT}" ]; then
             rm -rf build
           fi
-          if [ ! -d "build" ]; then  
-            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}  
-            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop  
+          if [ ! -d "build" ]; then
+            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop || (rm -rf build && exit 1)
           fi
       - name: Build dipu
         run: |
