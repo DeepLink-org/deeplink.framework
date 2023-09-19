@@ -344,8 +344,9 @@ jobs:
         run: |
           set -ex
           cd ${ASCEND_TORCH_DIR}
+          if [ "$(git rev-parse HEAD)" != "${PYTORCH_COMMIT}" ]; then
             rm -rf build
-          export LD_LIBRARY_PATH=${CONDA_PREFIX}/lib/:${LD_LIBRARY_PATH}
+          fi
           if [ ! -d "build" ]; then
             source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
             export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
