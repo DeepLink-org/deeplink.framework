@@ -12,9 +12,14 @@ namespace py = pybind11;
 
 at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
     TORCH_INTERNAL_ASSERT(THPDtype_Check(dtype_obj));
-    // PyTorch does not care about aliasing and they are using `-fno-strict-aliasing`
-    // TODO(lljbash): figure out if there would be problems
-    return reinterpret_cast<THPDtype*>(dtype_obj)->scalar_type;
+    // PyTorch does not care about aliasing and is compiled with
+    // `-fno-strict-aliasing`.
+    // In PyTorch they would write:
+    //   return reinterpret_cast<THPDtype*>(dtype_obj)->scalar_type;
+    // But we do care about aliasing.
+    THPDtype dtype;
+    std::memcpy(&dtype, dtype_obj, sizeof(dtype));
+    return dtype.scalar_type;
 }
 
 PyObject* scalarTypeToDtype(at::ScalarType scalar_type) {
