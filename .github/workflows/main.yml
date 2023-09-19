@@ -335,8 +335,8 @@ jobs:
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
-  Build-Ascend:
-    name: Build-dipu-ascend
+  Build-PyTorch-For-Ascend:
+    name: Build-dipu-pytorch-for-ascend
     needs: [Rsync]
     runs-on: tps-ascend-ci
     steps:
@@ -352,6 +352,12 @@ jobs:
             export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
             BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop --user || (rm -rf build && exit 1)
           fi
+
+  Build-Ascend:
+    name: Build-dipu-ascend
+    needs: [Build-PyTorch-For-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
       - name: Build dipu
         run: |
           set -ex
