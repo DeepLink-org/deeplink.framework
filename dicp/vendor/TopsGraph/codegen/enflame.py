@@ -47,12 +47,12 @@ cxx_type_set = {"torch.float32": "float_t",
                 "torch.long": "int64_t",
                 "torch.bool": "bool"}
 
-need_node = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
+need_node = ['Scalar', 'Div', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
+             'Viewasreal', 'Complexmul', 'Concatenate', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
              'ArangeDefault', 'SliceScatter']
 
-need_dict = ['Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter', 
                  'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
@@ -443,8 +443,10 @@ class EnflameOverrides(OpOverrides):
             return src_code, args_str
         else:
             args_str.append(node) if name in need_node else args_str
-            args_str.append(args_dict) if name in need_dict else args_str
-            gen_const_flag = False if name in not_gen_const else True
+            gen_const_flag = False if name in not_gen_const else gen_const_flag
+            if name in need_dict:
+                args_str.append(args_dict)
+                return src_code, args_str
 
         # TODO need a gen_kwargs function
         kwargs_flatten = []
@@ -1244,13 +1246,11 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(args_str) + '}'}, {dim});"
 
     @staticmethod
-    def Softmax(op_var, node, x, z):
-        y = node.args[1]
+    def Softmax(op_var, x, y, z):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
 
     @staticmethod
-    def Logsoftmax(op_var, node, x, z):
-        y = node.args[1]
+    def Logsoftmax(op_var, x, y, z):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z}, true);"
 
     @staticmethod
