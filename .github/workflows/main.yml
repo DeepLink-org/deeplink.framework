@@ -350,7 +350,7 @@ jobs:
           if [ ! -d "build" ]; then
             source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
             export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
-            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py develop --user || (rm -rf build && exit 1)
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py build_ext -i || (rm -rf build && exit 1)
           fi
 
   Build-Ascend:
