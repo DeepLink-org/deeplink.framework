@@ -4,7 +4,7 @@ set -ex
 source tests/common.sh
 
 function run_dipu_tests {
-  export DIPU_DUMP_OP_ARGS=2
+  # export DIPU_DUMP_OP_ARGS=2
   echo "fill_.Scalar" >> .dipu_force_fallback_op_list.config
   run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v -f TestTensorCreationDIPU # --locals -f
   echo "" >  .dipu_force_fallback_op_list.config
