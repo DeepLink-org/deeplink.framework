@@ -260,9 +260,7 @@ def Softmax(*args, **kwargs):
 def Range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.bmm.default)
-def Bmm(*args, **kwargs):
-    return tops_op.Bmm(*args, **kwargs)
+Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 
 @register_conversion(torch.ops.aten.dot.default)
 def Dot(*args, **kwargs):
@@ -288,9 +286,7 @@ def NewEmptyStrided(*args, **kwargs):
 def Euqal(*args, **kwargs):
     return tops_op.Euqal(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.expand.default)
-def Expand(*args, **kwargs):
-    return tops_op.Expand(*args, **kwargs)
+Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
 
 @register_conversion(torch.ops.aten.full.default)
 def Full(*args, **kwargs):
@@ -492,13 +488,19 @@ if is_torch_210:
     )
 
     backend_patterns = PatternMatcherPass()
+    backend_patterns_cls_list = []
 
     def symbolic_trace_ignore_args(fn, args):
         return torch.fx.symbolic_trace(fn)
+    
+    def register_backend_patterns(Pattern):
+        backend_patterns_cls_list.append(Pattern)
+        return Pattern
 
     @init_once_fakemode
     def lazy_register_backend_patterns():
-        GemmTransposeRhsPattern.register()
+        for pattern in backend_patterns_cls_list:
+            pattern.register()
 
     class BackendPatternBase:
         @staticmethod
@@ -529,6 +531,7 @@ if is_torch_210:
                 extra_check=cls.check_fn,
             )
 
+    @register_backend_patterns
     class GemmTransposeRhsPattern(BackendPatternBase):
         @staticmethod
         def pattern(reshaped_input, weight):
@@ -538,3 +541,21 @@ if is_torch_210:
         @staticmethod
         def replacement(reshaped_input, weight):
             return DotGeneral(reshaped_input, weight, "{}, {}, {1}, {1}")
+
+    @register_backend_patterns
+    class LlamaMatmulTransposePattern(BackendPatternBase):
+        @staticmethod
+        def pattern(xq, keys, expanded_xq_size, reshaped_xq_size, expanded_keys_size, reshaped_keys_size):
+            xq_1 = Permute(xq, [0, 2, 1, 3])
+            keys_1 = Permute(keys, [0, 2, 1, 3])
+            keys_2 = Permute(keys_1, [0, 1, 3, 2])
+            expanded_xq = Expand(xq_1, expanded_xq_size)
+            reshaped_xq = Reshape(expanded_xq, reshaped_xq_size)
+            expanded_keys = Expand(keys_2, expanded_keys_size)
+            reshaped_keys = Reshape(expanded_keys, reshaped_keys_size)
+            bmm_res = Bmm(reshaped_xq, reshaped_keys)
+            return bmm_res
+
+        @staticmethod
+        def replacement(xq, keys):
+            return DotGeneral(xq, keys, "{0, 2}, {0, 2}, {3}, {3}")
