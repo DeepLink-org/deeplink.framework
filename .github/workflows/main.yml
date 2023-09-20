@@ -7,8 +7,7 @@ on:
       - dev_v0.25
   pull_request:
     branches:
-      - main
-      - dev_v0.25
+      - '**'
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
