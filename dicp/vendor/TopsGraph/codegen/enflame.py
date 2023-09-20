@@ -717,6 +717,7 @@ class EnflameOverrides(OpOverrides):
         src_code = ""
         src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({dot_dimension_numbers_str});\n"
         src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
         return src_code
 
     @staticmethod
