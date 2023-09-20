@@ -378,6 +378,21 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
 
+  Test-One-Iter-Ascend:
+    name: Test-one-iter-ascend
+    needs: [Build-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu 
+          source scripts/ci/ascend/ci_ascend_env.sh 
+          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
+          cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_ascend
+
   Build-Ascend-Latest-Target:
     name: Build-dipu-ascend-latest-target
     needs: [Build-PyTorch-For-Ascend]
