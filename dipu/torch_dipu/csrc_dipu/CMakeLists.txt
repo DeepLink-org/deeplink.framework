@@ -2,7 +2,7 @@ set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
 
 # python path
-include_directories(${PYTHON_INCLUDE_DIR})
+include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
 
 # dipu include path
 set(DIPU_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../)

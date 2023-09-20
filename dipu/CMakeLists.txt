@@ -105,16 +105,16 @@ link_directories(${TORCH_LIBRARY_DIR})
 list(APPEND TORCH_INCLUDE_DIRS ${PYTORCH_DIR}/torch/include/
     ${PYTORCH_DIR}/torch/include/torch/csrc/api/include/
 )
-include_directories(${TORCH_INCLUDE_DIRS})
+include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
 set(WITH_DIOPI "${CMAKE_SOURCE_DIR}/third_party/DIOPI")
 add_library(diopi_impl SHARED IMPORTED)
 set_target_properties(diopi_impl PROPERTIES
-    IMPORTED_LOCATION "${WITH_DIOPI}/impl/lib/libdiopi_impl.so"
-    INTERFACE_INCLUDE_DIRECTORIES "${WITH_DIOPI}/proto/include"
-    INTERFACE_COMPILE_DEFINITIONS DIOPI_ATTR_WEAK)
+    IMPORTED_LOCATION "${WITH_DIOPI}/impl/lib/libdiopi_impl.so")
+target_include_directories(diopi_impl INTERFACE "${WITH_DIOPI}/proto/include")
+target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
 if (LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)
