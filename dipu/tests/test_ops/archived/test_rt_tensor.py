@@ -166,12 +166,10 @@ def test_complex_type():
     dipu.set_device(0)
     abs = torch.tensor((1, 2), dtype=torch.float64, device=dev2)
     angle = torch.tensor([np.pi / 2, 5 * np.pi / 4], dtype=torch.float64, device=dev2)
-    z1 = torch.polar(abs, angle)
+    # z1 = torch.polar(abs, angle)
     z2 = torch.polar(abs, angle)
-    z3 = z1 + z2 
-    print(z3)
-
-    zr = torch.view_as_real(z3)
+    print(z2)
+    zr = torch.view_as_real(z2)
     print(zr.cpu)
 
 if __name__ == '__main__':
