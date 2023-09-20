@@ -2,6 +2,7 @@ import acl
 import os
 import numpy as np
 import torch
+import atexit
 
 
 # the range for dynamic shape
@@ -101,13 +102,29 @@ def check_ret(message, ret):
 
 class MemoryPool:
     def __init__(self):
+        self.work_ptr = None
+        self.weight_ptr = None
+        atexit.register(self.release_memory)
         self.init_work_weight_ptr()
 
     def init_work_weight_ptr(self):
-        self.work_size = 15 * 1024 * 1024 * 1024
-        self.work_ptr, ret = acl.rt.malloc(self.work_size,
-                                            ACL_MEM_MALLOC_HUGE_FIRST)
-        check_ret("acl.rt.malloc", ret)
+        if self.work_ptr is None:
+            self.work_size = 15 * 1024 * 1024 * 1024
+            self.work_ptr, ret = acl.rt.malloc(self.work_size,
+                                                ACL_MEM_MALLOC_HUGE_FIRST)
+            check_ret("acl.rt.malloc", ret)
+
+    def release_memory(self):
+        print("Release bufferPtr from MemoryPool.")
+        if self.work_ptr is not None:
+            ret = acl.rt.free(self.work_ptr)
+            check_ret("acl.rt.free", ret)
+            self.work_ptr = None
+
+        if self.weight_ptr is not None:
+            ret = acl.rt.free(self.weight_ptr)
+            check_ret("acl.rt.free", ret)
+            self.weight_ptr = None
 
 
 memory_pool = MemoryPool()
@@ -135,14 +152,18 @@ class AscendExecutor(object):
 
         self.init_resource()
 
+    def __del__(self):
+        self.release_resource()
+
     def release_resource(self):
         print("Releasing resources stage:")
-        ret = acl.mdl.unload(self.model_id)
-        check_ret("acl.mdl.unload", ret)
+        if self.model_id > -1:
+            ret = acl.mdl.unload(self.model_id)
+            check_ret("acl.mdl.unload", ret)
+            self.model_id = -1
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
-
 
     def load_model(self):
         work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
@@ -211,6 +232,8 @@ class AscendExecutor(object):
                     else:
                         temp_buffer_size *= MAX_RANGE
                         dims[idx] = MAX_RANGE
+                np_dtype = get_np_dtype(dtype)
+                temp_buffer_size *= np.dtype(np_dtype).itemsize
 
             if temp_buffer_size == 0:
                 temp_buffer_size = 1
@@ -236,8 +259,9 @@ class AscendExecutor(object):
                 dtype = acl.mdl.get_input_data_type(self.model_desc, i)
                 np_dtype = get_np_dtype(dtype)
                 buffer_size = tot_size * np.dtype(np_dtype).itemsize
-          
+
             if buffer_size == 0:
+                buffer_size = 1
                 ptr = zero_tensor.data_ptr()
             else:
                 ptr = images[i].data_ptr()
@@ -291,7 +315,13 @@ class AscendExecutor(object):
                                 ACL_MEMCPY_DEVICE_TO_DEVICE)
             check_ret("acl.rt.memcpy", ret)            
 
-    def run(self, images, dims=None):
+    def run(self, images, dims=None, max_range=128):
+        global MAX_RANGE
+        if max_range > 128:
+            MAX_RANGE = max_range
+        else:
+            MAX_RANGE = 128
+
         assert len(images) > 0
         input = list(map(lambda x: x.xpu(), images))
         self._prepare_input(input, dims)
@@ -321,13 +351,15 @@ class AscendExecutor(object):
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
+        atexit.register(self.cleanup)
         self.exe = AscendExecutor(device_id, model_path)
 
-    def run(self, images, dims=None):
-        return self.exe.run(images, dims)
+    def run(self, images, dims=None, max_range=128):
+        return self.exe.run(images, dims, max_range)
 
-    def __del__(self):
-        self.exe.release_resource()
+    def cleanup(self):
+        if hasattr(self, 'exe'):
+            del self.exe
 
 
 if __name__ == '__main__':

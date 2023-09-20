@@ -14,14 +14,14 @@ graph_id = 0
 
 precision_check = bool(os.environ.get("DICP_ASCEND_PRECISION_CHECK", False))
 
-need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full',
-             'where', 'convolution', 'le', 'scalar_tensor',
-             't', 'nll_loss_forward', 'native_batch_norm_legit_functional',
-             'nll_loss_backward', 'native_batch_norm_backward',
-             'view_as_complex', 'view_as_real', 'slice', 'select',
+need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
+             'where', 'convolution', 'le', 'scalar_tensor', 'maximum', 'inadd',
+             't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
+             'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
+             'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided']
+             'bernoulli', 'new_empty_strided', 'fill']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -58,22 +58,22 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
     def generate_digits_op(shapes):
         count = len(x_names)
         op = OP(f"{name}_dim_{suffix}{count}", "Const")
-        op.set_attr_tensor("value", "INT32", "INT32", "NCHW", shapes, [len(shapes)])
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", shapes, [len(shapes)])
         ops.append(op.to_node())
         x_names.append(f"{name}_dim_{suffix}{count}")
-    
+
     def generate_sym_int(elem):
         count = len(x_names)
         elem = elem.node.str()
         elems = elem.strip().split(' ')
-        
+
         if len(elems) > 1:
             assert len(elems) == 3
             assert elems[2].isdigit()
             assert elems[1] == '+' or elems[1] == '-'
             op_type = "Add" if elems[1] == '+' else "Sub"
             op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
-            op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [1], [])
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(elems[2])], [1])
             op2 = OP(f"{name}_dim_{suffix}{count}", op_type)
             op2.set_input("x1", sym_to_inputs[elems[0]])
             op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
@@ -81,13 +81,18 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
             x_names.append(f"{name}_dim_{suffix}{count}")
         else:
             x_names.append(sym_to_inputs[elems[0]])
-       
+
 
     dims = []
     for elem in shape:
         if not isinstance(elem, torch.SymInt):
             dims.append(elem)
             continue
+        st = elem.node.str()
+        if st.isdigit():
+            dims.append(int(st))
+            continue
+
         if len(dims) > 0:
             generate_digits_op(dims)
             dims = []
@@ -96,10 +101,10 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
         generate_digits_op(dims)
 
     # concat all ops
-    op = OP(f"{name}_{suffix}", "ConcatD")    
+    op = OP(f"{name}_{suffix}", "ConcatD")
     op.set_dynamic_input("x", len(x_names), x_names)
-    op.set_attr_int("concat_dim", 0)
     op.set_attr_int("N", len(x_names))
+    op.set_attr_int("concat_dim", 0)
     ops.append(op.to_node())
     return ops
 
@@ -112,7 +117,9 @@ def symint_in_shape(shape):
 
 
 def get_ascend_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
+    if dtype == torch.bool:
+        return "BOOL"
+    elif dtype == torch.int64:
         return "INT64"
     elif dtype == torch.float32:
         return "FLOAT"
@@ -126,6 +133,20 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "BOOL"
     else:
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+
+
+def get_np_dtype(dtype):
+    if dtype == torch.float32:
+        return np.float32
+    elif dtype == torch.int64:
+        return np.int64
+    elif dtype == torch.int32:
+        return np.int32
+    elif dtype == torch.bool:
+        return np.bool_
+    elif dtype == torch.float16:
+        return np.float16
+    raise RuntimeError("unsupported np dtype!")
 
 
 def get_ascend_dtype_num(dtype: str):
@@ -150,6 +171,8 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
         return "INT64"
     elif dtype == torch.float32:
         return "FLOAT"
+    elif dtype == torch.float16:
+        return "FLOAT16"
     elif dtype == torch.int32:
         return "INT32"
     else:
@@ -212,7 +235,7 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = shape
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
         else:
-            dims = fake_tensor.shape
+            dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
         
         if 'format' in self.cur_node.meta:
@@ -224,6 +247,7 @@ class AscendCodegen(torch.fx.Interpreter):
             "dims": dims,
             "format": format,
             "data_type": data_type,
+            "cpp_data_type": data_type,
             "index": index
         })
         self.graph_input_names.append(self.args_dict[name])
@@ -240,13 +264,15 @@ class AscendCodegen(torch.fx.Interpreter):
         else:
             self.common_nodes.append(op)
 
+
     def get_attr(self, name, target, args, kwargs):
         assert isinstance(target, str)
         attr = self.fetch_attr(target)
         assert(isinstance(attr, torch.Tensor))
         self.args_dict[name] = name 
-        op = getattr(self.override, 'gen_const_attr')(name, attr)
+        op = getattr(self.override, 'get_const_attr')(name, attr)
         self.common_nodes.append(op)
+
 
     def call_method(self, name, target, args, kwargs):
         pass
@@ -337,6 +363,7 @@ class AscendCodegen(torch.fx.Interpreter):
           dim_len = 0
           for shape in self.actual_shape:
               dim_len += len(shape)
+          call_body.writeline(f'''max_range = 0''')
           dims = f'''dims = {{'''
           for idx, elem in enumerate(self.actual_shape):
               if len(elem) == 0:
@@ -344,17 +371,27 @@ class AscendCodegen(torch.fx.Interpreter):
               elem = [self.process_sym_name(dim) for dim in elem]
               dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
           dims = dims[:-1] + f'''}}'''
+          call_body.writeline(dims)
+          unique_elem = []
+          for elem in self.actual_shape:
+              for dim in elem:
+                  st = self.process_sym_name(dim)
+                  if not st in unique_elem:
+                    unique_elem.append(st)
+                    if not st.isdigit():
+                        call_body.writeline(f'''if max_range < {st}:''')
+                        call_body.writeline(f'''    max_range = {st}''')
         else:
-          dims = f'''dims = None'''
-        call_body.writeline(dims)
+          call_body.writeline(f'''dims = None''')
+          call_body.writeline(f'''max_range = 0''')
 
         call_body.splice(f"""
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
-                                     args[idx] = torch.tensor(args[idx], device='cpu', dtype=torch.int32)
+                                     args[idx] = torch.tensor(args[idx], device='xpu', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims)']
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims, max_range)']
         
         if precision_check and self.aten_graph is not None:
             # 1. export aten graph to disk
@@ -434,7 +471,7 @@ class AscendCodegen(torch.fx.Interpreter):
             self.build_options.append(
               {
                 "name": "input_format",
-                "value": "NCHW"
+                "value": "ND"
               }
             )
             value_str = ""
@@ -449,6 +486,23 @@ class AscendCodegen(torch.fx.Interpreter):
               }
             )
 
+    def expand_symint(self, d, k):
+        if isinstance(d[k], torch.SymInt):
+            if d[k].node.str().isdigit():
+                d[k] = d[k].node.hint
+            else:
+                import pdb; pdb.set_trace()   
+
+    def remove_symint(self, cur):
+        if isinstance(cur, list):
+            for idx in range(len(cur)):
+                self.expand_symint(cur, idx)
+                self.remove_symint(cur[idx])
+        elif isinstance(cur, dict):
+            for k in cur.keys():
+                self.expand_symint(cur, k)
+                self.remove_symint(cur[k])
+
     def gen_graph_json(self):
         self.parse_outputs()
         self.gen_build_options()
@@ -462,6 +516,7 @@ class AscendCodegen(torch.fx.Interpreter):
             "data_nodes": self.data_nodes,
             "common_nodes": self.common_nodes,
         }
+        self.remove_symint(graph)
         return json.dumps(graph)
 
     def gen_compile_graph_code(self):
@@ -669,7 +724,6 @@ class AscendOverrides:
         if process_name(node.name, node.target) in need_node:
             args_str.append(node)
             
-        count = 0
         for i in range(len(args)):
             if isinstance(args[i], Node):
                 args_str.append(args_dict[args[i].name])
@@ -694,10 +748,19 @@ class AscendOverrides:
     @staticmethod
     def mul(name, node, x, y):
         (x_node, y_node) = node.args
+        ops = []
         dtype = node.meta['val'].dtype
         if not isinstance(y_node, torch.fx.node.Node):
             # y is scalar
             not_support_type = False
+            cast_op = None
+
+            if dtype == torch.float16:
+                dtype = torch.float32
+                cast_op = OP(f'{name}_fp16_cast', "Cast")
+                cast_op.set_input('x', f'{name}_broadcast')
+                cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
             try:
                 cpp_dtype = get_cpp_dtype(dtype)
                 ascend_dtype = get_ascend_dtype(dtype)
@@ -705,29 +768,90 @@ class AscendOverrides:
                 cpp_dtype = "FLOAT"
                 ascend_dtype = "FLOAT"
                 not_support_type = True
-            
+
             mul_op = OP(name, "Mul")
             mul_op.set_input("x1", x)
+            y_shape = list(x_node.meta['val'].shape)
             scalar_op = OP(f"{name}_scalar", "Const")
-            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [1])
+            ops.append(scalar_op.to_node())
+
+            if symint_in_shape(y_shape):
+                ops.extend(process_dynamic_shape(y_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", f"{name}_scalar")
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            y_name = f"{name}_broadcast"
+
+            if cast_op is not None:
+                ops.append(cast_op.to_node())
+                y_name = f'{name}_fp16_cast'
+
             if not_support_type:
                 ascend_dtype = get_ascend_dtype(dtype)
-                cast_op = OP(f"{name}_scalar_cast", "Cast")
-                cast_op.set_input("x", f"{name}_scalar")
-                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+                cast_op1 = OP(f"{name}_scalar_cast", "Cast")
+                cast_op1.set_input("x", y_name)
+                cast_op1.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
                 mul_op.set_input("x2", f"{name}_scalar_cast")
-                return [scalar_op.to_node(), cast_op.to_node(), mul_op.to_node()]
+                ops.extend([cast_op1.to_node(), mul_op.to_node()])
+                return ops
             else:
-                mul_op.set_input("x2", f"{name}_scalar")
-                return [scalar_op.to_node(), mul_op.to_node()]
-        
+                mul_op.set_input("x2", y_name)
+                ops.append(mul_op.to_node())
+                return ops
+
+        cast_op = None
+        y_name = y
+        if x_node.meta['val'].dtype == torch.float16:
+            cast_op = OP(f'{name}_y_cast', "Cast")
+            cast_op.set_input('x', y)
+            cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+            ops.append(cast_op.to_node())
+            y_name = f'{name}_y_cast'
+
         if y_node.meta['val'].dtype != torch.complex64:
+            x_name = x
+            x_shape = list(x_node.meta['val'].shape)
+            y_shape = list(y_node.meta['val'].shape)
+
+            # handling with broadcasting cases
+            if np.prod(x_shape) < np.prod(y_shape):
+                if symint_in_shape(y_shape):
+                    ops.extend(process_dynamic_shape(y_shape, name, 'preprocess_x'))
+                else:
+                    x_shape_op = OP(f"{name}_preprocess_x", "Const")
+                    x_shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                    ops.append(x_shape_op.to_node())
+
+                broadcast_op = OP(f"{name}_x_broadcast_to", "BroadcastTo")
+                broadcast_op.set_input("x", x)
+                broadcast_op.set_input("shape", f"{name}_preprocess_x")
+
+                ops.append(broadcast_op.to_node())
+                x_name = f"{name}_x_broadcast_to"
+            elif np.prod(x_shape) > np.prod(y_shape):
+                if symint_in_shape(x_shape):
+                    ops.extend(process_dynamic_shape(x_shape, name, 'preprocess_y'))
+                else:
+                    y_shape_op = OP(f"{name}_preprocess_y", "Const")
+                    y_shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", x_shape, [len(x_shape)])
+                    ops.append(y_shape_op.to_node())
+
+                broadcast_op = OP(f"{name}_y_broadcast_to", "BroadcastTo")
+                broadcast_op.set_input("x", y_name)
+                broadcast_op.set_input("shape", f"{name}_preprocess_y")
+
+                ops.append(broadcast_op.to_node())
+                y_name = f"{name}_y_broadcast_to"
+
+
             x_dtype = x_node.meta['val'].dtype
             y_dtype = y_node.meta['val'].dtype
-            
-            ops = []
-            x_name = x
-            y_name = y
             if x_dtype != dtype:
                 x_name = f"{name}_x1_cast"
                 x1 = OP(x_name, "Cast")
@@ -823,11 +947,55 @@ class AscendOverrides:
         return ops
 
     @staticmethod
-    def sub(name, x, y):
+    def sub(name, node, x, y, reverse=False):
+        (x_node, y_node) = node.args
+        x_dtype = node.args[0].meta['val'].dtype
+        y_name = y
+        ops = []
+        if not isinstance(y_node, torch.fx.node.Node):
+            cast_op = None
+            if x_dtype == torch.float16:
+                x_dtype = torch.float32
+                cast_op = OP(f'{name}_cast', "Cast")
+                cast_op.set_input('x', f'{name}_broadcast')
+                cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
+            ascend_dtype = get_ascend_dtype(x_dtype)
+            cpp_dtype = get_cpp_dtype(x_dtype)
+            y_shape = list(x_node.meta['val'].shape)
+            scalar_op = OP(f'{name}_scalar', "Const")
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [1])
+            ops.append(scalar_op.to_node())
+
+            if symint_in_shape(y_shape):
+                ops.extend(process_dynamic_shape(y_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", f"{name}_scalar")
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            y_name = f'{name}_broadcast'
+
+            if cast_op is not None:
+                ops.append(cast_op.to_node())
+                y_name = f'{name}_cast'
+            
         sub_op = OP(name, "Sub")
-        sub_op.set_input("x1", x)
-        sub_op.set_input("x2", y)
-        return sub_op.to_node()
+        if not reverse:
+            sub_op.set_input("x1", x)
+            sub_op.set_input("x2", y_name)
+        else:
+            sub_op.set_input("x1", y_name)
+            sub_op.set_input("x2", x)
+        ops.append(sub_op.to_node())
+        return ops
+
+    @staticmethod
+    def rsub(name, node, x, y):
+        return getattr(AscendOverrides, 'sub')(name, node, x, y, True)
 
     @staticmethod
     def relu(name, x):
@@ -856,7 +1024,7 @@ class AscendOverrides:
             ops.extend(process_dynamic_shape(perm, name))
         else:
             const_op = OP(f"{name}_preprocess", "Const")
-            const_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", perm, [rank])
+            const_op.set_attr_tensor("value", "INT32", "INT32", "ND", perm, [rank])
             ops.append(const_op.to_node())
         transpose_op = OP(name, "Transpose")
         transpose_op.set_input("x", input)
@@ -970,12 +1138,15 @@ class AscendOverrides:
     @staticmethod
     def symsize(name, x, dim):
         dim = [dim] if not isinstance(dim, list) else dim
-        op1 = OP(f"{name}_dim", "Const") 
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
-        op2 = OP(name, "Gather")
+        op = OP(f"{name}_axis", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [1])
+        op1 = OP(f"{name}_indices", "Const") 
+        op1.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
+        op2 = OP(name, "GatherV2")
         op2.set_input("x", x)
-        op2.set_input("indices", f"{name}_dim")
-        return [op1.to_node(), op2.to_node()]
+        op2.set_input("indices", f"{name}_indices")
+        op2.set_input("axis", f"{name}_axis")
+        return [op.to_node(), op1.to_node(), op2.to_node()]
 
     @staticmethod
     def inmul(name, node, x, y):
@@ -991,6 +1162,56 @@ class AscendOverrides:
         return [const_op.to_node(), mul_op.to_node()]
 
     @staticmethod
+    def inge(name, node, x, y):
+        (x_node, y_node) = node.args
+        if not isinstance(y_node, torch.fx.node.Node):
+            assert isinstance(y, int)
+            cpp_dtype = "INT32"
+            ascend_dtype = "INT32"
+            const_op = OP(f"{name}_scalar", "Const")
+            const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+            ge_op = OP(name, "GreaterEqual")
+            ge_op.set_input("x1", x)
+            ge_op.set_input("x2", f"{name}_scalar")
+            return [const_op.to_node(), ge_op.to_node()]
+        else:
+            ge_op = OP(name, "GreaterEqual")
+            ge_op.set_input("x1", x)
+            ge_op.set_input("x2", y)
+            return ge_op.to_node()
+
+    @staticmethod
+    def inadd(name, node, x, y):
+        (x_node, y_node) = node.args
+        if not isinstance(x_node, torch.fx.node.Node):
+            assert isinstance(x, int)
+            cpp_dtype = "INT32"
+            ascend_dtype = "INT32"
+            const_op = OP(f"{name}_scalar", "Const")
+            const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [x], [])
+            add_op = OP(name, "AddV2")
+            add_op.set_input("x1", f"{name}_scalar")
+            add_op.set_input("x2", y)
+            return [const_op.to_node(), add_op.to_node()]
+        else:
+            y_name = y
+            ops = []
+            if not isinstance(y_node, torch.fx.node.Node):
+                assert isinstance(y, int)
+                cpp_dtype = "INT32"
+                ascend_dtype = "INT32"
+                const_op = OP(f"{name}_scalar", "Const")
+                const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+                ops.append(const_op.to_node())
+                y_name = f"{name}_scalar"
+
+            add_op = OP(name, "AddV2")
+            add_op.set_input("x1", x)
+            add_op.set_input("x2", y_name)
+            ops.append(add_op.to_node())
+            return ops
+
+    @staticmethod
     def view(name, node, x, size):
         x_node = node.args[0]
         shape = list(node.meta['val'].shape)
@@ -998,18 +1219,32 @@ class AscendOverrides:
             shape.append(1)
         numel = node.meta['val'].numel()
         shape_size = len(shape)
-        if shape.count(-1) > 0:
+
+        neg = False
+        for i in shape:
+            if not isinstance(i, torch.SymInt):
+                if i == -1:
+                    neg = True
+                    break
+
+        if neg:
             prod = 1
             for i in shape:
-                if i > 0:
-                    prod *= i
+                if not isinstance(i, torch.SymInt):
+                    if i > 0:
+                        prod *= i
+                else:
+                    raise RuntimeError("cannot handle with both negative and symint!")
 
             real_shape = []
             for i in shape:
-                if i > 0:
-                    real_shape.append(str(i))
+                if not isinstance(i, torch.SymInt):
+                    if i > 0:
+                        real_shape.append(str(i))
+                    else:
+                        real_shape.append(str(numel / prod))
                 else:
-                    real_shape.append(str(numel / prod))
+                    raise RuntimeError("cannot handle with both negative and symint!")
             shape = real_shape
         ops = []
         if symint_in_shape(shape):
@@ -1046,10 +1281,32 @@ class AscendOverrides:
         return ops
 
     @staticmethod
+    def get_const_attr(name, x):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        x_shape = list(x.shape)
+        x_value = x.tolist()
+        if not isinstance(x_value, list):
+            x_value = [x_value]
+
+        torch_dtype = x.dtype
+        cpp_dtype = get_cpp_dtype(torch_dtype)
+        ascend_dtype = get_ascend_dtype(torch_dtype)
+
+        op = OP(name, "Const")
+        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", x_value, x_shape)
+
+        return op.to_node()
+
+    @staticmethod
     def clone(name, x, memory_format=None):
         op = OP(name, "Identity")
         op.set_input("x", x)
         return op.to_node()
+
+    @staticmethod
+    def copy(name, dst, src):
+        return getattr(AscendOverrides, "clone")(name, src)
       
     @staticmethod
     def _to_copy(name, x, dtype=None, layout=None, device=None):
@@ -1065,9 +1322,98 @@ class AscendOverrides:
             return op.to_node()
 
     @staticmethod
-    def copy(name, dst, src):
+    def lt(name, node, a, b):
+        (x_node, y_node) = node.args
+        x_dtype = x_node.meta['val'].dtype
+        y_name = b
+        ops = []
+        if not isinstance(y_node, torch.fx.node.Node):
+            cast_op = None
+            if x_dtype == torch.float16:
+                x_dtype = torch.float32
+                cast_op = OP(f'{name}_cast', "Cast")
+                cast_op.set_input('x', f'{name}_broadcast')
+                cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
+            ascend_dtype = get_ascend_dtype(x_dtype)
+            cpp_dtype = get_cpp_dtype(x_dtype)
+            y_shape = list(x_node.meta['val'].shape)
+
+            scalar_op = OP(f'{name}_scalar', "Const")
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [b], [1])
+            ops.append(scalar_op.to_node())
+            if symint_in_shape(y_shape):
+                ops.extend(process_dynamic_shape(y_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", f"{name}_scalar")
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            y_name = f'{name}_broadcast'
+
+            if cast_op is not None:
+                ops.append(cast_op.to_node())
+                y_name = f'{name}_cast'
+
+        op = OP(name, "Less")
+        op.set_input("x1", a)
+        op.set_input("x2", y_name)
+        ops.append(op.to_node())
+        return ops
+
+    @staticmethod
+    def masked_fill(name, node, x, mask, value):
+        torch_dtype = node.args[0].meta['val'].dtype
+        cast_op = None
+        ops = []
+        if torch_dtype == torch.float16:
+            torch_dtype = torch.float32
+            cast_op = OP(f'{name}_cast', "Cast")
+            cast_op.set_input('x', f'{name}_broadcast')
+            cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
+        cpp_dtype = get_cpp_dtype(torch_dtype)
+        ascend_dtype = get_ascend_dtype(torch_dtype)
+
+        if str(value) == "-inf":
+            value = -3.4028235e38
+
+        op = OP(f"{name}_value", "Const")
+        op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [value], [1])
+        ops.append(op.to_node())
+        value_name = f"{name}_value"
+
+        mask_shape = list(node.args[1].meta['val'].shape)
+        if symint_in_shape(mask_shape):
+            ops.extend(process_dynamic_shape(mask_shape, name))
+        else:
+            shape_op = OP(f"{name}_preprocess", "Const")
+            shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", mask_shape, [len(mask_shape)])
+            ops.append(shape_op.to_node())
+        broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+        broadcast_op.set_input("x", f"{name}_value")
+        broadcast_op.set_input("shape", f"{name}_preprocess")
+        ops.append(broadcast_op.to_node())
+        value_name = f"{name}_broadcast"
+
+        if cast_op is not None:
+            ops.append(cast_op.to_node())
+            value_name = f'{name}_cast'
+
+        op1 = OP(name, "MaskedFill")
+        op1.set_input("x", x)
+        op1.set_input("mask", mask)
+        op1.set_input("value", value_name)
+        ops.append(op1.to_node())
+        return ops
+
+    @staticmethod
+    def lift_fresh_copy(name, tensor_constant):
         op = OP(name, "Identity")
-        op.set_input("x", src)
+        op.set_input("x", tensor_constant)
         return op.to_node()
 
     @staticmethod
@@ -1102,14 +1448,17 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def embedding(name, weight, indices):
-        op1 = OP(f"{name}_axis", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", [0], [])
-        op2 = OP(name, "GatherV2")
-        op2.set_input("x", weight)
-        op2.set_input("indices", indices)
-        op2.set_input("axis", f"{name}_axis")
-        return [op1.to_node(), op2.to_node()]
+    def embedding(name, weight, indices, padding_idx=-1):
+        # TODO! consider situation for padding_idx
+        # during training stage
+        op = OP(f"{name}_axis", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [1])
+        op1 = OP(f"{name}", "GatherV2")
+        op1.set_input("x", weight)
+        op1.set_input("indices", indices)
+        op1.set_input("axis", f"{name}_axis")
+
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def sigmoid(name, x):
@@ -1154,18 +1503,89 @@ class AscendOverrides:
 
     @staticmethod
     def div(name, node, x, y):
-        (_, y_node) = node.args
+        (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
             op = OP(name, "DivNoNan")
             op.set_input("x1", x)
             op.set_input("x2", y)
             return op.to_node()
         else:
-            div_value = str(1.0 / y_node)
-            op = OP(name, "Muls")
-            op.set_input("x", x)
-            op.set_attr_float("value", div_value)
-            return op.to_node()
+            ops = []
+            assert y_node != 0
+            cast_op = None
+            dtype = node.meta['val'].dtype
+            y_shape = list(x_node.meta['val'].shape)
+
+            if dtype == torch.float16:
+                dtype = torch.float32
+                cast_op = OP(f'{name}_fp16_cast', "Cast")
+                cast_op.set_input('x', f'{name}_broadcast')
+                cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
+            cpp_dtype = get_cpp_dtype(dtype)
+            ascend_dtype = get_ascend_dtype(dtype)
+            scalar_op = OP(f"{name}_scalar", "Const")
+            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y_node], [])
+            ops.append(scalar_op.to_node())
+
+            if symint_in_shape(y_shape):
+                ops.extend(process_dynamic_shape(y_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", f"{name}_scalar")
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            y_name = f"{name}_broadcast"
+
+            if cast_op is not None:
+                ops.append(cast_op.to_node())
+                y_name = f'{name}_fp16_cast'
+
+            div_op = OP(name, "Div")
+            div_op.set_input("x1", x)
+            div_op.set_input("x2", y_name)
+            ops.append(div_op.to_node())
+
+            return ops
+
+    @staticmethod
+    def maximum(name, node, a, b):
+        (a_node, b_node) = node.args
+        ops = []
+        b_name = b
+
+        a_shape = list(a_node.meta['val'].shape)
+        b_shape = list(b_node.meta['val'].shape)
+
+        if np.prod(b_shape) < np.prod(a_shape):
+            if symint_in_shape(a_shape):
+                ops.extend(process_dynamic_shape(a_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", a_shape, [len(a_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", b)
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            b_name = f"{name}_broadcast"
+
+        if a_node.meta['val'].dtype == torch.float16:
+            cast_op = OP(f'{name}_b_cast', "Cast")
+            cast_op.set_input('x', b_name)
+            cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+            ops.append(cast_op.to_node())
+            b_name = f'{name}_b_cast'
+
+        op = OP(name, "Maximum")
+        op.set_input("x1", a)
+        op.set_input("x2", b_name)
+        ops.append(op.to_node())
+
+        return ops
 
     @staticmethod
     def _softmax(name, x, dim=-1, half_to_float=False):
@@ -1325,16 +1745,16 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def gather(name, x, dim, index):
+    def gather(name, node, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
-        op1 = OP(f"{name}_dim", "Const")
-        op1.set_attr_tensor("value", "INT32", "INT32", "NCHW", dim, [len(dim)])
-        op2 = OP(name, "GatherD")
-        op2.set_input("x", x)
-        op2.set_input("dim", f"{name}_dim")
-        op2.set_input("index", index)
-        op2.set_attr_list_int(dim)
-        return [op1.to_node(), op2.to_node()]
+        op = OP(f"{name}_axis", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
+        op1 = OP(f"{name}", "GatherV2")
+        op1.set_input("x", x)
+        op1.set_input("indices", index)
+        op1.set_input("axis", f"{name}_axis")
+
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def neg(name, x):
@@ -1350,13 +1770,30 @@ class AscendOverrides:
             op = OP(name, "Identity")
             op.set_input("x", x)
             return op.to_node()
+
+        ops = []
+        x_name = x
+        if node.args[0].meta['val'].dtype == torch.int64:
+            x_name = f"{name}_cast"
+            op = OP(x_name, "Cast")
+            op.set_input("x", x)
+            op.set_attr_int("dst_type", get_ascend_dtype_num("INT32"))
+            ops.append(op.to_node())
         
-        shape_op = OP(f"{name}_shape", "Const")
-        shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
-        op = OP(name, "Expand")
-        op.set_input("x", x)
-        op.set_input("shape", f"{name}_shape")
-        return [shape_op.to_node(), op.to_node()]
+        shape = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in shape]
+        if isinstance(shape, list) and symint_in_shape(shape):
+            ops.extend(process_dynamic_shape(shape, name, "preprocess_shape"))
+            op1 = OP(name, "Expand")
+            op1.set_input("x", x_name)
+            op1.set_input("shape", f"{name}_preprocess_shape")
+            ops.append(op1.to_node())
+        else:
+            op1 = OP(name, "ExpandD")
+            op1.set_input("x", x_name)
+            op1.set_attr_list_int("shape", shape)
+            ops.append(op1.to_node())
+
+        return ops
 
     @staticmethod
     def zeros_like(name, x, *args):
@@ -1371,33 +1808,207 @@ class AscendOverrides:
         if len(dims) == 0:
             dims = [1]
         torch_dtype = dtype if dtype else torch.get_default_dtype()
+        if hasattr(node.kwargs, 'dtype'):
+            torch_dtype = node.kwargs['dtype']
         cpp_dtype = get_cpp_dtype(torch_dtype)
         ascend_dtype = get_ascend_dtype(torch_dtype)
-        
-        axes_op = OP(f"{name}_axes", "Const")
-        axes_op.set_attr_tensor("value", "INT32", "INT32", "ND", dims, [len(dims)])
+
+        dims = [dim.meta['val'] if hasattr(dim, 'meta') else dim for dim in dims]
+        if hasattr(fill_value, 'meta'):
+            fill_value = fill_value.meta['val']
+
+        ops = []
+        if symint_in_shape(dims):
+            ops.extend(process_dynamic_shape(dims, name))
+        else:
+            axes_op = OP(f"{name}_preprocess", "Const")
+            axes_op.set_attr_tensor("value", "INT32", "INT32", "ND", dims, [len(dims)])
+            ops.append(axes_op.to_node())
 
         val_op = OP(f"{name}_val", "Const")
         val_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [fill_value], [])
 
-        op = OP(name, "Fill")
-        op.set_input("dims", f"{name}_axes")
+        op = OP(f"{name}", "Fill")
+        op.set_input("dims", f"{name}_preprocess")
         op.set_input("value", f"{name}_val")
+        ops.extend([val_op.to_node(), op.to_node()])
 
-        return [axes_op.to_node(), val_op.to_node(), op.to_node()]
+        return ops
+
+    @staticmethod
+    def empty(name, size, dtype, layout, device):
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", size, [len(size)])
+
+        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
+        op1 = OP(f"{name}", "Empty")
+        op1.set_input("shape", f"{name}_shape")
+        op1.set_attr_int("dtype", dtype)
+
+        return [op.to_node(), op1.to_node()]
+
+    @staticmethod
+    def fill(name, node, x, value):
+        x_shape = list(node.args[0].meta['val'].shape)
+        if len(x_shape) == 0:
+            x_shape = [1]
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", x_shape, [len(x_shape)])
+
+        dtype = node.meta['val'].dtype
+        cpp_dtype = get_cpp_dtype(dtype)
+        ascend_dtype = get_ascend_dtype(dtype)
+        assert isinstance(value, int)
+        op1 = OP(f"{name}_value", "Const")
+        op1.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [value], [])
+
+        op2 = OP(f"{name}", "Fill")
+        op2.set_input("dims", f"{name}_shape")
+        op2.set_input("value", f"{name}_value")
+
+        return [op.to_node(), op1.to_node(), op2.to_node()]
+
+    @staticmethod
+    def repeat_interleave(name, node, repeats, output_size):
+        x_shape = list(node.target.repeats.node.meta['val'].shape)
+        assert len(x_shape) == 1
+        assert x_shape[0] == 1
+
+        op = OP(name, "Const")
+        op.set_attr_tensor("value", "INT64", "INT64", "ND", [0], [1])
+        '''
+        op1 = OP(f"{name}_interleave", "RepeatInterleave")
+        op1.set_input("x", f"{name}_value")
+        op1.set_input("repeats", repeats)
+        op1.set_attr_int("axis", 0)
+
+        op2 = OP(f"{name}_cast", "Cast")
+        op2.set_input("x", f"{name}_interleave")
+        op2.set_attr_int("dst_type", get_ascend_dtype_num(get_ascend_dtype(dtype)))
+
+        op3 = OP(f"{name}_shape", "Const")
+        op3.set_attr_tensor("value", "INT64", "INT64", "ND", x_shape, [len(x_shape)])
+
+        op4 = OP(name, "Reshape")
+        op4.set_input("x", f"{name}_cast")
+        op4.set_input("shape", f"{name}_shape")
+        '''
+        # TODO! fix implementation of repeatinterleave
+        # Consider situation for repeats > 1
+
+        return op.to_node()
+
+    @staticmethod
+    def index_select(name, x, dim, index):
+        dim = [dim] if not isinstance(dim, list) else dim
+        if isinstance(index, list):
+            assert len(index) == 1
+            index = str(index[0])
+        assert dim[0] == 0
+
+        ops = []
+        op = OP(f"{name}_dim", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
+        ops.append(op.to_node())
+
+        op1 = OP(f"{name}", "GatherV2")
+        op1.set_input("x", x)
+        op1.set_input("indices", index)
+        op1.set_input("axis", f"{name}_dim")
+        ops.append(op1.to_node())
+
+        return ops
+
+    @staticmethod
+    def index(name, x, index):
+        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
+
+    @staticmethod
+    def index_arg2_(name, x, index):
+        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
+    
+    @staticmethod
+    def index_arg3_(name, x, dim, index):
+        return getattr(AscendOverrides, "index_select")(name, x, dim, index)
+
+    @staticmethod
+    def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
+        op = OP(f"{name}_shape", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", shape, [len(shape)])
+
+        dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
+        op1 = OP(f"{name}_like", "Empty")
+        op1.set_input("shape", f"{name}_shape")
+        op1.set_attr_int("dtype", dtype)
+
+        op2 = OP(f"{name}", "OnesLike")
+        op2.set_input("x", f"{name}_like")
+
+        return [op.to_node(), op1.to_node(), op2.to_node()]
+
+    @staticmethod
+    def new_ones(name, x, shape, dtype=torch.int64, layout=None, device='cpu', pin_memory=False):
+        return getattr(AscendOverrides, "ones")(name, shape, dtype, device, pin_memory)
+
+    @staticmethod
+    def sort(name, x, dim=-1, descending=False):
+        op = OP(name, "Sort")
+        op.set_input("x", x)
+        op.set_attr_int("axis", dim)
+        op.set_attr_bool("descending", descending)
+
+        return op.to_node()
+
+    @staticmethod
+    def topk(name, node, x, k, dim=-1, largest=True, sorted=True):
+        k_node = node.args[1]
+        k_name = k
+        ops = []
+        if not isinstance(k_node, torch.fx.node.Node):
+            k_name = f"{name}_k"
+            op = OP(k_name, "Const")
+            op.set_attr_tensor("value", "INT32", "INT32", "ND", [k], [])
+            ops.append(op.to_node())
+
+        op1 = OP(name, "TopK")
+        op1.set_input("x", x)
+        op1.set_input("k", k_name)
+        op1.set_attr_int("dim", dim)
+        op1.set_attr_bool("largest", largest)
+        op1.set_attr_bool("sorted", sorted)
+        ops.append(op1.to_node())
+
+        return ops
 
     @staticmethod
     def scatter(name, node, var, dim, index, value):
         assert(len(node.args) > 3)
+        index_node = node.args[2]
         value_node = node.args[3]
-        dim = [dim] if not isinstance(dim, list) else dim
+        index_shape = list(index_node.meta['val'].shape)
+        assert isinstance(dim, int)
         
         if isinstance(value_node, torch.fx.node.Node):
-            op = OP(name, "ScatterElements")
-            op.set_input("data", var)
-            op.set_input("updates", value)
-            op.set_attr_list_int("axis", dim)
-            return op.to_node() 
+            ops = []
+            if symint_in_shape(index_shape):
+                ops.extend(process_dynamic_shape(index_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "NCHW", index_shape, [len(index_shape)])
+                ops.append(shape_op.to_node())
+
+            op = OP(f"{name}_value", "Reshape")
+            op.set_input("x", value)
+            op.set_input("shape", f"{name}_preprocess")
+            ops.append(op.to_node())
+
+            op1 = OP(name, "ScatterElements")
+            op1.set_input("data", var)
+            op1.set_input("indices", index)
+            op1.set_input("updates", f"{name}_value")
+            op1.set_attr_int("axis", dim)
+            ops.append(op1.to_node())
+            return ops
         
         ops = []
         dtype = node.meta['val'].dtype
@@ -1416,7 +2027,7 @@ class AscendOverrides:
         op.set_input("data", var)
         op.set_input("indices", index)
         op.set_input("updates", f"{name}_value_bcast")
-        op.set_attr_list_int("axis, dim")
+        op.set_attr_int("axis", dim)
 
         ops.append(value_op.to_node())
         ops.append(shape_op.to_node())
@@ -1606,12 +2217,24 @@ class AscendOverrides:
             return op.to_node()
         
         # TODO(tangzhiyi): get value type, now assume float
-        x2_op = OP(f"{name}_x2", "Const")
+        x2_name = f"{name}_x2"
+        x2_op = OP(x2_name, "Const")
         x2_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [x2], [])
+
+        cast_op = None
+        if x1_node.meta['val'].dtype == torch.float16:
+            x2_name = f'{name}_x2_cast'
+            cast_op = OP(x2_name, "Cast")
+            cast_op.set_input('x', f"{name}_x2")
+            cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
+
         op = OP(name, "LessEqual")
         op.set_input("x1", x1)
-        op.set_input("x2", f"{name}_x2")
-        return [x2_op.to_node(), op.to_node()]
+        op.set_input("x2", x2_name)
+
+        if cast_op is None:
+            return [x2_op.to_node(), op.to_node()]
+        return [x2_op.to_node(), cast_op.to_node(), op.to_node()]
 
     @staticmethod
     def scalar_tensor(name, node, val):
@@ -1635,6 +2258,86 @@ class AscendOverrides:
         op.set_dynamic_input("x", 3, [in1, in2, in3])
         op.set_dynamic_output("y", 3)
         return op.to_node()
+
+    @staticmethod
+    def arange(name, end, start=0, step=1, device='xpu', pin_memory=False):
+        assert isinstance(start, str) or isinstance(start, int)
+        assert isinstance(end, str) or isinstance(end, int)
+        assert isinstance(step, str) or isinstance(step, int)
+        ops = []
+
+        if isinstance(start, str) and start.isdigit():
+            start = int(start)
+        if isinstance(end, str) and end.isdigit():
+            end = int(end)
+        if isinstance(step, str) and step.isdigit():
+            step = int(step)
+
+        if isinstance(start, int):
+            op = OP(f"{name}_start", "Const")
+            op.set_attr_tensor("value", "INT32", "INT32", "ND", [int(start)], [])
+            start = f"{name}_start"
+            ops.append(op.to_node())
+
+        if isinstance(end, int):
+            op1 = OP(f"{name}_end", "Const")
+            op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(end)], [])
+            end = f"{name}_end"
+            ops.append(op1.to_node())
+
+        if isinstance(step, int):
+            op2 = OP(f"{name}_step", "Const")
+            op2.set_attr_tensor("value", "INT32", "INT32", "ND", [int(step)], [])
+            step = f"{name}_step"
+            ops.append(op2.to_node())
+
+        op3 = OP(name, "Range")
+        op3.set_input("start", start)
+        op3.set_input("limit", end)
+        op3.set_input("delta", step)
+        ops.append(op3.to_node())
+
+        return ops
+
+    @staticmethod
+    def eq(name, node, a, b):
+        (a_node, b_node) = node.args
+        b_name = b
+        ops = []
+        if not isinstance(b_node, torch.fx.node.Node):
+            assert isinstance(b, int)
+            b_shape = list(a_node.meta['val'].shape)
+            scalar_op = OP(f'{name}_const', "Const")
+            scalar_op.set_attr_tensor("value", "INT64", "INT64", "ND", [b], [1])
+            ops.append(scalar_op.to_node())
+
+            if symint_in_shape(b_shape):
+                ops.extend(process_dynamic_shape(b_shape, name))
+            else:
+                shape_op = OP(f"{name}_preprocess", "Const")
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", b_shape, [len(b_shape)])
+                ops.append(shape_op.to_node())
+            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
+            broadcast_op.set_input("x", f"{name}_const")
+            broadcast_op.set_input("shape", f"{name}_preprocess")
+            ops.append(broadcast_op.to_node())
+            b_name = f'{name}_broadcast'
+
+        eq_op = OP(name, "Equal") 
+        eq_op.set_input("x1", a)
+        eq_op.set_input("x2", b_name)
+        ops.append(eq_op.to_node())
+        return ops
+
+    @staticmethod
+    def cumsum(name, x, dim, dtype=None):
+        op = OP(f"{name}_dim", "Const")
+        op.set_attr_tensor("value", "INT32", "INT32", "ND", [dim], [1])
+
+        op1 = OP(name, "Cumsum") 
+        op1.set_input("x", x)
+        op1.set_input("axis", f"{name}_dim")
+        return [op.to_node(), op1.to_node()]
 
     @staticmethod
     def t(name, node, input):
@@ -1699,6 +2402,7 @@ class AscendOverrides:
         # 1. get sum and square_sum
         op1 = OP(f"{name}_bn_training_reduce", "BNTrainingReduce")
         # TODO(tangzhiyi): now assume output name is y.
+        # TODO(daoxin): potential dynamic shape issue in resnet18
         op1.set_and_update_input("x", x, x_shape, "NCHW", x_dtype)
 
         # 2. call BNTrainingUpdate
@@ -1916,8 +2620,8 @@ class AscendOverrides:
 
         op = OP(name, "ConcatD")
         op.set_dynamic_input("x", x_size, x_names)
-        op.set_attr_int("concat_dim", dim)
         op.set_attr_int("N", x_size)
+        op.set_attr_int("concat_dim", dim)
         ops.append(op.to_node())
         return ops
       
@@ -1974,51 +2678,6 @@ class AscendOverrides:
         ops.append(op3.to_node())        
         ops.append(op5.to_node())
         return ops
-
-    @staticmethod
-    def arange(name, end, dtype=None, device=None, layout=None, pin_memory=None):
-        # assum dtype is torch.int64
-        start_op = OP(f"{name}_start", "Const")
-        start_op.set_attr_tensor("value", "INT64", "INT64", "ND", [0], [])
-        end_op = OP(f"{name}_end", "Const")
-        end_op.set_attr_tensor("value", "INT64", "INT64", "ND", [end], [])
-        step_op = OP(f"{name}_step", "Const")
-        step_op.set_attr_tensor("value", "INT64", "INT64", "ND", [1], [])
-        arange_op = OP(name, "Range")
-        arange_op.set_input("start", f"{name}_start")
-        arange_op.set_input("limit", f"{name}_end")
-        arange_op.set_input("delta", f"{name}_step")
-        ops = [start_op, end_op, step_op, arange_op]
-        return [x.to_node() for x in ops]
-
-    @staticmethod
-    def lt(name, x, y):
-        op = OP(name, "Less")
-        op.set_input("x1", x)
-        op.set_input("x2", y)
-        return op.to_node()
-      
-    @staticmethod
-    def masked_fill(name, node, x, y, value):
-        dtype = node.target.x.node.meta['val'].dtype
-        if dtype != torch.float16:
-            value_op = OP(f"{name}_value", "Const")
-            value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
-            op = OP(name, "MaskedFill")
-            op.set_input("x", x)
-            op.set_input("mask", y)
-            op.set_input("value", f"{name}_value")
-            return [value_op.to_node(), op.to_node()]
-        value_op = OP(f"{name}_value_fp32", "Const")
-        value_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [value], [])
-        cast_op = OP(f"{name}_value", "Cast")
-        cast_op.set_input("x", f"{name}_value_fp32")
-        cast_op.set_attr_int("dst_type", get_ascend_dtype_num("FLOAT16"))
-        op = OP(name, "MaskedFill")
-        op.set_input("x", x)
-        op.set_input("mask", y)
-        op.set_input("value", f"{name}_value")
-        return [value_op.to_node(), cast_op.to_node(), op.to_node()]
       
     @staticmethod
     def rsub(name, node, x, value):
@@ -2101,26 +2760,6 @@ class AscendOverrides:
         op.set_input("grad_softmax", grad_output)
         op.set_input("softmax", output)
         op.set_attr_list_int("axes", dim)
-        return op.to_node()
-
-    @staticmethod
-    def lift_fresh_copy(name, x):
-        op = OP(name, "Identity")
-        op.set_input("x", x)
-        return op.to_node()
- 
-    @staticmethod
-    def maximum(name, x, y):
-        op = OP(name, "Maximum")
-        op.set_input("x1", x)
-        op.set_input("x2", y)
-        return op.to_node()
-
-    @staticmethod
-    def eq(name, x, y):
-        op = OP(name, "Equal")
-        op.set_input("x1", x)
-        op.set_input("x2", y)
         return op.to_node()
 
     @staticmethod

@@ -23,7 +23,7 @@ class SingleOpTransformer(torch.fx.Transformer):
         self._conversions = conversions
 
     def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
-        proxy =  super().placeholder(target, args, kwargs)
+        proxy = super().placeholder(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
         return proxy
 
@@ -40,3 +40,10 @@ class SingleOpTransformer(torch.fx.Transformer):
             proxy.node.meta = fx_traceback.get_current_meta()
             return proxy
         return super().call_function(target, args, kwargs)
+
+    def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+        proxy = super().get_attr(target, args, kwargs)
+        proxy.node.meta = fx_traceback.get_current_meta()
+        if not 'val' in proxy.node.meta:
+            proxy.node.meta['val'] = self.fetch_attr(target)
+        return proxy
