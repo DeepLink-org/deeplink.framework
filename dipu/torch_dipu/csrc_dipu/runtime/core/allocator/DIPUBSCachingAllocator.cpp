@@ -32,7 +32,24 @@ public:
     release_all_memory();
   }
 
-  size_t getAllocateSize(size_t nbytes) const{
+  // Better adaptability to memory blocks of various sizes, but internal fragmentation will be larger
+  size_t getAllocateSizeMoreAdaptable(size_t nbytes) const{
+    static const int kMinAllocationSizeExp = [](){
+      size_t size = 511;
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      if (env != nullptr) {
+        size = std::atoi(env);
+      }
+      int exp = 32 - __builtin_clz(size);
+      return exp;
+    }();
+    auto r = std::max(32 - __builtin_clz(nbytes), kMinAllocationSizeExp);
+    size_t allocateSize = 1 << r;
+    return allocateSize;
+  }
+
+  // The internal fragments are smaller, but are less adaptable to scenes with frequent and drastic changes in size.
+  size_t getAllocateSizeLessFragmentation(size_t nbytes) const{
     static const size_t kMinAllocationSize = [](){
       size_t size = 512;
       const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
@@ -43,6 +60,11 @@ public:
     }();
     size_t allocateSize = ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
     return allocateSize;
+  }
+
+  size_t getAllocateSize(size_t nbytes) const{
+    static bool less_fragmentation = std::getenv("DIPU_BS_MORE_ADAPTABLE") == nullptr;
+    return less_fragmentation ? getAllocateSizeLessFragmentation(nbytes) : getAllocateSizeMoreAdaptable(nbytes);
   }
 
   c10::DataPtr allocate(size_t size) const override{
