@@ -22,12 +22,13 @@ static constexpr size_t kMega = 1024 * 1024;
 using dipu::devapis::DIPUDeviceProperties;
 
 static void registerDIPUDeviceProperties(py::module& m) {
-  py::class_<DIPUDeviceProperties>(m, "_DIPUDeviceProperties")
+  py::class_<DIPUDeviceProperties, std::shared_ptr<DIPUDeviceProperties>>(m, "_DIPUDeviceProperties")
       .def_readonly("name", &DIPUDeviceProperties::name)
       .def_readonly("major", &DIPUDeviceProperties::major)
       .def_readonly("minor", &DIPUDeviceProperties::minor)
       .def_readonly("multi_processor_count", &DIPUDeviceProperties::multiProcessorCount)
       .def_readonly("total_memory", &DIPUDeviceProperties::totalGlobalMem)
+      .def_readonly("free_memory", &DIPUDeviceProperties::freeGlobalMem)
       .def("__repr__", [](const DIPUDeviceProperties& prop) {
         std::ostringstream stream;
         stream << "_DIPUDeviceProperties(name='" << prop.name
@@ -58,9 +59,9 @@ static void exportDevices(py::module& m) {
     devproxy::syncDevice();
     return;
   });
-  m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
-        return dipu::device::getDevicePropertiesFromCache(device);
-      }, py::return_value_policy::reference);
+  m.def("_dipu_getDeviceProperties", [](int device, bool force_update) -> std::shared_ptr<DIPUDeviceProperties> {
+        return dipu::device::getDevicePropertiesFromCache(device, force_update);
+      },  py::arg("device"), py::arg("force_update") = false);
 }
 
 static void exportStream(py::module& m) {

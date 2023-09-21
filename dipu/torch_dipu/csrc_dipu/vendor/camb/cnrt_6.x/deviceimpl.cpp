@@ -38,7 +38,9 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 
   DIPUDeviceProperties prop;
   prop.name = device_prop.name;
-  prop.totalGlobalMem = mem_info.physicalMemoryTotal << 20;;
+  prop.totalGlobalMem = mem_info.physicalMemoryTotal << 20;
+  // mem_info.physicalMemoryUsed or cndevProcessInfo_t returned by cndevGetProcessInfo seems not correct.
+  prop.freeGlobalMem = 0;
   prop.major = major;
   prop.minor = minor;
   prop.multiProcessorCount = multi_processor_cnt;

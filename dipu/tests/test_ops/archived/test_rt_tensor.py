@@ -124,6 +124,14 @@ def testDeviceProperties():
     print("device capability: ", torch.cuda.get_device_capability(0))
     print("device name: ", torch.cuda.get_device_name(0))
 
+def test_mem_get_info():
+  import torch_dipu
+  from torch import cuda
+  minfo = cuda.mem_get_info()
+  d1 = torch.ones((1024, 1024 * 30), device = "cuda")
+  minfo = cuda.mem_get_info()
+  print(minfo) 
+
 def test_type():
     import torch_dipu
     dev1 = "cuda"
@@ -177,6 +185,7 @@ if __name__ == '__main__':
         empty1()
         testdevice()
         testDeviceProperties()
+        test_mem_get_info()
         testStream()
         test_record_stream()
         testevent()

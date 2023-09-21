@@ -38,7 +38,7 @@ __all__ = [
 
     # # mem manage
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
-    # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
+    "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now
 ]

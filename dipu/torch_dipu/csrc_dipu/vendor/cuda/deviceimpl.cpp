@@ -39,6 +39,8 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   prop.major = device_prop.major;
   prop.minor = device_prop.minor;
   prop.multiProcessorCount = device_prop.multiProcessorCount;
+  cudaMemGetInfo(&prop.freeGlobalMem, nullptr);
+
   return prop;
 }
 
