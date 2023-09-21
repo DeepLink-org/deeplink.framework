@@ -1,7 +1,7 @@
 #include "DIPUAmp.hpp"
 
-#include <ATen/autocast_mode.h>
 #include <ATen/Operators.h>
+#include <ATen/autocast_mode.h>
 #include <torch/library.h>
 
 #include <csrc_dipu/base/basedef.h>
@@ -9,7 +9,11 @@
 namespace at {
 namespace autocast {
 
+// NOLINTBEGIN
+// ----------------------------------------------------------------------------
 // THESE MACROS SHOULD BE REFACTORED AFTER PYTORCH 2.1
+// ----------------------------------------------------------------------------
+
 // KERNEL_DIPU registration for AutocastDIPU
 #define KERNEL_DIPU(OP, POLICY)                                      \
   m.impl(TORCH_SELECTIVE_NAME("aten::" #OP),                         \
@@ -32,10 +36,13 @@ namespace autocast {
          &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE,            \
                        REGISTER_SIGNATURE, REDISPATCH_SIGNATURE,              \
                        &REDISPATCH_FUNC>::type::call);
+// ---------------------------  MACROS ENDED  ---------------------------------
 
+// ----------------------------------------------------------------------------
 // Code from aten/src/ATen/autocast_mode.cpp
 // SHOULD BE REMOVED AFTER PYTORCH 2.1
 // since they have been moved into autocast_mode.h
+// ----------------------------------------------------------------------------
 namespace {
 
 // Policies correspond to op categories that need code-divergent handling.
@@ -168,15 +175,14 @@ struct WrapFunction final {
 };
 
 }  // namespace
-// Code from aten/src/ATen/autocast_mode.cpp THAT NEEDS TO BE REMOVED ENDED
+// ---------- CODE THAT NEEDS TO BE REMOVED AFTER PYTORCH 2.1 ENDED ------------
+// NOLINTEND
 
 namespace {
 
-/*******************************
-Banned functions
-*******************************/
-// Origin function is invisible, so we rewrite it.
-Tensor dipu_binary_cross_entropy_banned(const Tensor &, const Tensor &,
+// This function will throw an error message when
+// torch.nn.functional.binary_cross_entropy is called within an autocast block
+Tensor DipuBinaryCrossEntropyBanned(const Tensor &, const Tensor &,
                                         const c10::optional<Tensor> &,
                                         int64_t) {
   AT_ERROR(
@@ -331,7 +337,7 @@ TORCH_LIBRARY_IMPL(aten, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
   KERNEL_DIPU(scatter_add, promote)
 
   m.impl(TORCH_SELECTIVE_NAME("aten::binary_cross_entropy"),
-         TORCH_FN((&at::autocast::dipu_binary_cross_entropy_banned)));
+         TORCH_FN((&at::autocast::DipuBinaryCrossEntropyBanned)));
 }
 
 }  // namespace
