@@ -286,3 +286,15 @@ class Event(_C._DIPUEventBase):
             return '<torch_dipu.dipu.Event {0:#x}>'.format(self._as_parameter_.value)
         else:
             return '<torch_dipu.dipu.Event uninitialized>'
+
+__Raw_C_Stream = torch._C.Stream
+__Raw_record_stream  = torch.Tensor.record_stream 
+def _dipu_record_stream(self, s: Stream):
+  rawTHPStream = __Raw_C_Stream(s.stream_id, s.device_index, s.device_type)
+  return __Raw_record_stream(self, rawTHPStream)
+
+def apply_stream_patch():
+  # in cuda, torch.cuda export struct THCPStream which is subclass of torch._C.Stream(struct THPStream)
+  # dipu Stream already has all properties of THPStream（stream_id，device_type/index),
+  # so we directly use it as torch._C.Stream 
+  torch._C.Stream = Stream
