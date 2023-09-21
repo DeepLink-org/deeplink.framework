@@ -169,16 +169,21 @@ namespace {
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
+    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
     if (non_blocking) {
       auto stream = dipu::getCurrentDIPUStream();
       const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
       if (self.is_cpu()) {
-        self.record_stream(stream);
+        if (self.options().pinned_memory()) {
+          self.record_stream(stream);
+        }
       } else if (!is_default_stream){
         self.record_stream(stream);
       }
       if (src.is_cpu()) {
-        src.record_stream(stream);
+        if (src.options().pinned_memory()) {
+          src.record_stream(stream);
+        }
       } else if (!is_default_stream) {
         src.record_stream(stream);
       }

@@ -39,7 +39,6 @@ namespace dipu::native {
 
   static void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     auto src_cast = cast2CompatibleDeviceTensor(src);
@@ -55,8 +54,6 @@ namespace dipu::native {
 
   static void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(src.device());
-
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     void* src_ptr = src.data_ptr();
@@ -108,7 +105,6 @@ namespace dipu::native {
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     void* src_ptr = src.data_ptr();

@@ -93,7 +93,6 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
 at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
-  dipu::OptionalDIPUGuard device_guard(dst_device.is_cuda() ? dst_device : src_device);
 
   int64_t nbytes = iter.numel() * iter.element_size(0);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
