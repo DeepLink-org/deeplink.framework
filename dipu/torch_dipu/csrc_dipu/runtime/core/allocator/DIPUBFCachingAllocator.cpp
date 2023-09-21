@@ -514,17 +514,7 @@ public:
         return;
     }
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this << ", device:" << device());
-    while (async_mem_pool()->size() > 0) {
-        if (!async_mem_pool()->ready()) {
-            std::this_thread::yield();
-            continue;
-        }
-        const auto block = async_mem_pool()->get();
-        void* ptr = std::get<0>(block);
-        int id = std::get<1>(block);
-        impl->releaseRaw(ptr, id);
-    }
-    impl.reset(nullptr);
+    empty_cache();
   }
 
   BFCachingAllocator() {
