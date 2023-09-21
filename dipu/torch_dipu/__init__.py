@@ -103,9 +103,13 @@ def apply_profiler_patch():
     setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
     torch.profiler.profile = dipu_profiler
 
+
 def apply_amp_patch():
-    torch.xpu = dipu.dipu
-    torch.autocast.__init__ = GetDeviceProxy(torch.autocast.__init__, pos = 0, name = "device_type", caller = "str_static")
+    torch.get_autocast_gpu_dtype = dipu.dipu.get_autocast_dipu_dtype
+    torch.set_autocast_gpu_dtype = dipu.dipu.set_autocast_dipu_dtype
+    torch.set_autocast_enabled = dipu.dipu.set_autocast_dipu_enabled
+    torch.is_autocast_enabled = dipu.dipu.is_autocast_dipu_enabled
+    torch.cuda.is_bf16_supported = dipu.dipu.is_bf16_supported
 
 
 def apply_patches():

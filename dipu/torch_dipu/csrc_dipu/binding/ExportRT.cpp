@@ -278,16 +278,16 @@ static void exportGenerator(py::module& m) {
 }
 
 static void exportAutocast(py::module& m) {
-  m.def("get_autocast_xpu_dtype", []()->at::ScalarType {
+  m.def("get_autocast_dipu_dtype", []()->at::ScalarType {
     return at::autocast::get_autocast_xpu_dtype();
   });
-  m.def("is_autocast_xpu_enabled", []()->bool {
+  m.def("is_autocast_dipu_enabled", []()->bool {
     return at::autocast::is_xpu_enabled();
   });
-  m.def("set_autocast_xpu_enabled", [](bool enabled) {
+  m.def("set_autocast_dipu_enabled", [](bool enabled) {
     at::autocast::set_xpu_enabled(enabled);
   });
-  m.def("set_autocast_xpu_dtype", [](at::ScalarType dtype) {
+  m.def("set_autocast_dipu_dtype", [](at::ScalarType dtype) {
     at::autocast::set_autocast_xpu_dtype(dtype);
   });
 }
