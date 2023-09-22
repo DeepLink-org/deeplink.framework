@@ -386,12 +386,37 @@ jobs:
       - name: Build some env
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu 
-          source scripts/ci/ascend/ci_ascend_env.sh 
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
           basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          ssh ${ASCEND_CLUSTER} """
+              set -ex
+              cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+              rm -rf one_iter_data
+              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          """
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
 
   Build-Ascend-Latest-Target:
     name: Build-dipu-ascend-latest-target
