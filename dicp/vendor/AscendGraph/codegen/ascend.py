@@ -180,7 +180,7 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
 
 
 class AscendCodegen(torch.fx.Interpreter):
-    def __init__(self, graph, aten_graph=None):
+    def __init__(self, graph, aten_graph=None, folder=None, graph_key=None):
         self.graph = graph
         self.aten_graph = aten_graph
         self.override = AscendOverrides

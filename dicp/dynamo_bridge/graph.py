@@ -10,6 +10,9 @@ import torch.fx
 from torch._dynamo import config as dynamo_config
 from torch._dynamo.utils import dynamo_timed
 from torch._subclasses import FakeTensor, FakeTensorMode
+from torch._inductor.codecache import cache_dir
+
+from dicp.dynamo_bridge.utils import save_cpu_gm
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +22,10 @@ class GraphTransformer:
         gm: torch.fx.GraphModule,
         backend: str,
     ):
-        self.gm = gm
+        self.origin_gm = gm
+        self.backend = backend
+        self.folder = cache_dir()
+        self.graph_key = save_cpu_gm(gm, self.folder)
         if backend == 'topsgraph':
             from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
@@ -32,7 +38,6 @@ class GraphTransformer:
             self.backend_codegen = AscendCodegen
 
     def transform(self):
-        self.aten_gm = self.gm
         self.gm = self.backend_opset_transform(self.gm)
 
     def infer_shape_dtype(self):
@@ -51,7 +56,7 @@ class GraphTransformer:
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
 
     def codegen(self):
-        return self.backend_codegen(self.gm, self.aten_gm).codegen()
+        return self.backend_codegen(self.gm, self.origin_gm, self.folder, self.graph_key).codegen()
 
     @dynamo_timed
     def compile_to_module(self):
