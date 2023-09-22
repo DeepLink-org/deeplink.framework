@@ -20,6 +20,7 @@ namespace dipu {
 
 static constexpr size_t kMega = 1024 * 1024;
 using dipu::devapis::DIPUDeviceProperties;
+using dipu::devapis::DIPUDeviceStatus;
 
 static void registerDIPUDeviceProperties(py::module& m) {
   py::class_<DIPUDeviceProperties, std::shared_ptr<DIPUDeviceProperties>>(m, "_DIPUDeviceProperties")
@@ -28,13 +29,23 @@ static void registerDIPUDeviceProperties(py::module& m) {
       .def_readonly("minor", &DIPUDeviceProperties::minor)
       .def_readonly("multi_processor_count", &DIPUDeviceProperties::multiProcessorCount)
       .def_readonly("total_memory", &DIPUDeviceProperties::totalGlobalMem)
-      .def_readonly("free_memory", &DIPUDeviceProperties::freeGlobalMem)
       .def("__repr__", [](const DIPUDeviceProperties& prop) {
         std::ostringstream stream;
         stream << "_DIPUDeviceProperties(name='" << prop.name
                << "', major=" << prop.major << ", minor=" << prop.minor
                << ", total_memory=" << prop.totalGlobalMem / kMega
                << "MB, multi_processor_count=" << prop.multiProcessorCount
+               << ")";
+        return stream.str();
+      });
+}
+
+static void registerDIPUDeviceStatus(py::module& m) {
+  py::class_<DIPUDeviceStatus, std::shared_ptr<DIPUDeviceStatus>>(m, "_DIPUDeviceStatus")
+      .def_readonly("free_memory", &DIPUDeviceStatus::freeGlobalMem)
+      .def("__repr__", [](const DIPUDeviceStatus& status) {
+        std::ostringstream stream;
+        stream << "DIPUDeviceStatus(used_memory=" << status.freeGlobalMem
                << ")";
         return stream.str();
       });
@@ -59,9 +70,19 @@ static void exportDevices(py::module& m) {
     devproxy::syncDevice();
     return;
   });
-  m.def("_dipu_getDeviceProperties", [](int device, bool force_update) -> std::shared_ptr<DIPUDeviceProperties> {
-        return dipu::device::getDevicePropertiesFromCache(device, force_update);
-      },  py::arg("device"), py::arg("force_update") = false);
+  m.def("_dipu_getDeviceProperties", [](int device) -> std::shared_ptr<DIPUDeviceProperties> {
+        return dipu::getDevicePropertiesFromCache(device);
+      },  py::arg("device"));
+
+  /* 
+    different with device properties, fill_status may cause creation of the device stub on the specified device, 
+    the sub will occupy mem, so caller should always fill status after set device()
+    and only fill status of current device, otherwise you will create stub an other device.
+  */
+   m.def("_dipu_getDeviceStatus", [](int device) -> std::shared_ptr<DIPUDeviceStatus> {
+        return dipu::getDeviceStatus(device);
+      },  py::arg("device"));
+
 }
 
 static void exportStream(py::module& m) {
@@ -279,6 +300,7 @@ static void exportGenerator(py::module& m) {
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   registerDIPUDeviceProperties(m);
+  registerDIPUDeviceStatus(m);
   exportDevices(m);
   exportStream(m);
   exportEvent(m);

@@ -3,7 +3,8 @@
 import collections
 from typing import Union, Tuple
 from torch_dipu import _C
-from .device import current_device, _get_device_index, devicectx, __dipu__, get_device_properties
+from .device import current_device, _get_device_index, devicectx, __dipu__, \
+                    get_device_properties, get_device_status
 from .utils import is_initialized
 from .streams import current_stream, Stream
 
@@ -123,13 +124,13 @@ def mem_get_info(device: Union[Device, int] = None) -> Tuple[int, int]:
     """
     if device is None:
         device = current_device()
-    props = get_device_properties(device, True)
-    total = props.total_memory
-    free = props.free_memory
+    total = get_device_properties(device).total_memory
+    free = get_device_status(device).free_memory
     if free == 0:
+      estimated_buffer = 1500 * 1024 * 1024
       print("warnning!! seems _DIPUDeviceProperties not contain valid free mem size,"
-              "we try to extimate free size which may be not an accurate value!")
-      free = total - memory_allocated(device) - 1200 * 1024 * 1024
+              "we try to estimate free size which may be not an accurate value!")
+      free = total - memory_allocated(device) - estimated_buffer
     return (free, total)
 
 ## just an empty shell now

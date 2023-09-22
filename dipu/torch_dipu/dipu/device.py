@@ -211,10 +211,13 @@ def get_device_capability(device: Optional[_device_t] = None) -> Tuple[int, int]
     prop = get_device_properties(device)
     return prop.major, prop.minor
 
-
-def get_device_properties(device: _device_t, update = False) -> _C._DIPUDeviceProperties:
+def get_device_properties(device: _device_t) -> _C._DIPUDeviceProperties:
     _lazy_init()
     device_id = _get_device_index(device, optional=True)
-    if device_id < 0 or device_id >= device_count():
-        raise AssertionError("Invalid device id")
-    return _C._dipu_getDeviceProperties(device_id, update)
+    return _C._dipu_getDeviceProperties(device_id)
+
+
+def get_device_status(device: _device_t) -> _C._DIPUDeviceStatus:
+    _lazy_init()
+    device_id = _get_device_index(device, optional=True)
+    return _C._dipu_getDeviceStatus(device_id)
