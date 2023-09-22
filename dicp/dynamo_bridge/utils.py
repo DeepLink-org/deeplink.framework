@@ -18,6 +18,21 @@ def copy_gm_to_cpu(gm: torch.fx.GraphModule):
     cpu_gm = copy.deepcopy(gm).cpu()
     return DeviceParamToCpu(cpu_gm).transform()
 
+def get_memory_format(tensor):
+    if tensor.is_contiguous(memory_format = torch.channels_last):
+        return torch.channels_last
+    elif tensor.is_contiguous(memory_format = torch.channels_last_3d):
+        return torch.channels_last_3d
+    else:
+        return torch.contiguous_format
+
+class TensorInfo:
+    def __init__(self, shape:list, dtype:torch.dtype, memory_format:torch.memory_format) -> None:
+        self.shape = shape
+        self.dtype = dtype
+        self.memory_format = memory_format
+        
+
 class DeviceParamToCpu(torch.fx.Transformer):
     def call_function(self, target: Target, args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         if 'device' in kwargs:

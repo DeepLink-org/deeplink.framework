@@ -466,21 +466,18 @@ def Eq(x, y):
 def t(input):
     return ascend_op.T(input)
 
-@registe_conversion(torch.ops.aten.transpose.int)
-def transpose(input, dim0, dim1):
-    return ascend_op.Transpose(input, dim0, dim1)
+transpose = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.transpose.int)(ascend_op.Transpose))
 
-@registe_conversion(torch.ops.aten.expand.default)
-def expand(x, dims):
-    return ascend_op.ExpandD(x, dims)
+expand = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.expand.default)(ascend_op.ExpandD))
 
 @registe_conversion(torch.ops.aten.view.default)
 def view(x, shape):
     return ascend_op.TranShape(x, shape)
 
-@registe_conversion(torch.ops.aten.bmm.default)
-def bmm(x1, x2, adj_x1=False, adj_x2=False):
-    return ascend_op.BatchMatMul(x1, x2, adj_x1, adj_x2)
+bmm = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.bmm.default)(ascend_op.BatchMatMul))
 
 @registe_conversion(torch.ops.aten.bernoulli.p)
 def Bernoulli(x, p, generator=None):
