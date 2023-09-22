@@ -114,9 +114,10 @@ class LtTensor(Operator):
 
 
 class LessEqual(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("LessEqual")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.le.Scalar
 
 class NeScalar(Operator):
@@ -177,9 +178,10 @@ class Sqrt(Operator):
         self.torch_op = aten.sqrt
 
 class Square(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Square")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.square
 
 
@@ -198,9 +200,10 @@ class Relu(Operator):
 
 
 class ReduceSum(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("ReduceSum")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.sum
 
 
@@ -305,9 +308,10 @@ class LiftFreshCopy(Operator):
 
 
 class Neg(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Neg")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.neg
 
 
@@ -332,28 +336,31 @@ class Rsqrt(Operator):
         self.torch_op = aten.rsqrt
 
 class Convolution(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Convolution")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.convolution
 
 class ConvolutionBackward(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Conv2D_Grad")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.convolution_backward.default
 
 class Max_pool2d_with_indices(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
 
 
 class Max_pool2d_with_indices_backward(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("MaxPool2D_Grad")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.max_pool2d_with_indices_backward
         
         
@@ -374,16 +381,17 @@ class Adaptive_avg_pool2d_backward(Operator):
 
 
 class Gather(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Gather")
         self.args = args
         self.torch_op = aten.gather
 
 
 class Log(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Log")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.log
 
 
@@ -464,6 +472,12 @@ class EmptyLike(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
 
+class Bernoulli(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Bernoulli")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.bernoulli.p
 
 class NewEmptyStrided(Operator):
     def __init__(self, *args, **kwargs):
@@ -610,9 +624,10 @@ class Embedding(Operator):
         self.torch_op = aten.embedding.default
 
 class Equal(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.eq.Scalar
 
 

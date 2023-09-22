@@ -86,8 +86,8 @@ def Sqrt(a):
     return tops_op.Sqrt(a)
 
 @register_conversion(torch.ops.aten.square)
-def Square(*args):
-    return tops_op.Square(*args)
+def Square(*args, **kwargs):
+    return tops_op.Square(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.reciprocal)
 def Reciprocal(a):
@@ -106,12 +106,12 @@ def Relu(a):
     return tops_op.Relu(a)
 
 @register_conversion(torch.ops.aten.sum)
-def Sum(*args):
-    return tops_op.ReduceSum(*args)
+def Sum(*args, **kwargs):
+    return tops_op.ReduceSum(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.sum.dim_IntList)
-def Sumdim(*args):
-    return tops_op.ReduceSum(*args)
+def Sumdim(*args, **kwargs):
+    return tops_op.ReduceSum(*args, **kwargs)
 
 @register_conversion(operator.getitem)
 def Getitem(x, idx):
@@ -159,6 +159,10 @@ def Clone(*args, **kargs):
 def Copy(*args, **kwargs):
     return tops_op.Copy(*args, **kwargs)
 
+@register_conversion(torch.ops.aten.copy_.default)
+def Copy(*args, **kwargs):
+    return tops_op.Copy(*args, **kwargs)
+
 @register_conversion(torch.ops.aten.lift_fresh_copy.default)
 def LiftFreshCopy(*args, **kwargs):
     return tops_op.LiftFreshCopy(*args, **kwargs)
@@ -167,46 +171,46 @@ Alias = register_conversion(torch.ops.aten.alias)(tops_op.Alias)
 torch.fx.wrap("Alias")
 
 @register_conversion(torch.ops.aten.neg)
-def Neg(*args):
-    return tops_op.Neg(*args)
+def Neg(*args, **kwargs):
+    return tops_op.Neg(*args, **kwargs)
 
 # %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
 #                          (args = (%relu_16, [-1, -2], True), kwargs = {})
 @register_conversion(torch.ops.aten.mean)
-def Mean(*args):
-    return tops_op.ReduceMean(*args)
+def Mean(*args, **kwargs):
+    return tops_op.ReduceMean(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.view)
 def View(a, b):
     return tops_op.Reshape(a, b)
 
 @register_conversion(torch.ops.aten.convolution)
-def Convolution(*args):
-    return tops_op.Convolution(*args)
+def Convolution(*args, **kwargs):
+    return tops_op.Convolution(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.convolution_backward.default)
-def ConvolutionBackward(*args):
-    return tops_op.ConvolutionBackward(*args)
+def ConvolutionBackward(*args, **kwargs):
+    return tops_op.ConvolutionBackward(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.lt.Tensor)
-def LtTensor(*args):
-    return tops_op.LtTensor(*args)
+def LtTensor(*args, **kwargs):
+    return tops_op.LtTensor(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.le.Scalar)
-def Le(*args):
-    return tops_op.LessEqual(*args)
+def Le(*args, **kwargs):
+    return tops_op.LessEqual(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.ne.Scalar)
-def NeScalar(*args):
-    return tops_op.NeScalar(*args)
+def NeScalar(*args, **kwargs):
+    return tops_op.NeScalar(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
-def Max_pool2d_with_indices(*args):
-    return tops_op.Max_pool2d_with_indices(*args)
+def Max_pool2d_with_indices(*args, **kwargs):
+    return tops_op.Max_pool2d_with_indices(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
-def Max_pool2d_with_indices_backward(*args):
-    return tops_op.Max_pool2d_with_indices_backward(*args)
+def Max_pool2d_with_indices_backward(*args, **kwargs):
+    return tops_op.Max_pool2d_with_indices_backward(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._adaptive_avg_pool2d.default)
 def Adaptive_avg_pool2d(*args, **kwargs):
@@ -217,12 +221,12 @@ def Adaptive_avg_pool2d_backward(*args, **kwargs):
     return tops_op.Adaptive_avg_pool2d_backward(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.gather)
-def Gather(*args):
-    return tops_op.Gather(*args)
+def Gather(*args, **kwargs):
+    return tops_op.Gather(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.log)
-def Log(*args):
-    return tops_op.Log(*args)
+def Log(*args, **kwargs):
+    return tops_op.Log(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.amax)
 def Max(*args, **kwargs):
@@ -263,6 +267,10 @@ def Concatenate(*args, **kwargs):
 @register_conversion(torch.ops.aten.empty_like.default)
 def EmptyLike(*args, **kwargs):
     return tops_op.EmptyLike(*args, **kwargs)
+
+@register_conversion(torch.ops.aten.bernoulli.p)
+def Bernoulli(*args, **kwargs):
+    return tops_op.Bernoulli(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.new_empty_strided.default)
 def NewEmptyStrided(*args, **kwargs):
@@ -337,8 +345,8 @@ def Embedding(*args, **kwargs):
     return tops_op.Embedding(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.eq.Scalar)
-def Eq(*args):
-    return tops_op.Equal(*args)
+def Eq(*args, **kwargs):
+    return tops_op.Equal(*args, **kwargs)
 
 @register_conversion(torch.ops.aten.repeat.default)
 def Tile(*args, **kwargs):
