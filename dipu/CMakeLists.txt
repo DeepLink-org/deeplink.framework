@@ -27,6 +27,14 @@ endif()
 message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
 add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
+# Automatically generate a list of supported diopi functions
+execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
+
+execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+add_compile_options(-DDIPU_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
+add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
+message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
+
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()

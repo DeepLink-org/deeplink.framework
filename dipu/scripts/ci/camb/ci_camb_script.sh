@@ -5,7 +5,6 @@ echo "pwd: $(pwd)"
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
     export CMAKE_BUILD_TYPE=Release
-    export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
     mv build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
