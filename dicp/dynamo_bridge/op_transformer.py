@@ -50,11 +50,65 @@ class SingleOpTransformer(torch.fx.Transformer):
         return proxy
 
 if is_torch_210:
-    from torch._inductor.pattern_matcher import PatternMatcherPass, stable_topological_sort
+    import functools
+    from typing import List
+    from torch.fx.experimental.proxy_tensor import maybe_disable_fake_tensor_mode
+    from torch._subclasses.fake_tensor import FakeTensorMode
+    from torch._inductor.pattern_matcher import (
+        PatternMatcherPass,
+        stable_topological_sort,
+        register_replacement,
+    )
+
+    def symbolic_trace_ignore_args(fn, args):
+        return torch.fx.symbolic_trace(fn)
+
+    class BackendPatternBase:
+        @staticmethod
+        def pattern(*args, **kwargs):
+            raise NotImplementedError("pattern is not implemented")
+
+        @staticmethod
+        def replacement(*args, **kwargs):
+            raise NotImplementedError("replacement is not implemented")
+
+        @classmethod
+        def gen_args(cls):
+            return [None] * (cls.pattern.__code__.co_argcount)
+
+        @staticmethod
+        def check_fn(match):
+            return True
+
+        @classmethod
+        @functools.lru_cache(None)
+        def register(cls, backend_patterns):
+            register_replacement(
+                cls.pattern,
+                cls.replacement,
+                cls.gen_args(),
+                symbolic_trace_ignore_args,
+                backend_patterns,
+                extra_check=cls.check_fn,
+            )
+
+    def register_backend_patterns(patterns_cls_list: List[BackendPatternBase], Pattern: BackendPatternBase):
+        patterns_cls_list.append(Pattern)
+        return Pattern
+
+    @functools.lru_cache(None)
+    def lazy_register_backend_patterns(patterns: PatternMatcherPass, patterns_cls_list: Tuple[BackendPatternBase]):
+        with torch._guards.tracing(
+            None
+        ), maybe_disable_fake_tensor_mode(), FakeTensorMode():
+            for pattern in patterns_cls_list:
+                pattern.register(patterns)
+
 
     class BackendPatternMatcherTransformer:
-        def __init__(self, patterns: PatternMatcherPass):
+        def __init__(self, patterns: PatternMatcherPass, patterns_cls_list: List[BackendPatternBase]):
             self._patterns = patterns
+            lazy_register_backend_patterns(self._patterns, tuple(patterns_cls_list))
 
         def transform(self, module: torch.fx.GraphModule):
             match_count = self._patterns.apply(module)

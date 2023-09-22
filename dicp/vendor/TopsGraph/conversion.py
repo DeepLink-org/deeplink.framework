@@ -481,57 +481,18 @@ class ReplacePatternSiLU:
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
 
 if is_torch_210:
-    from torch._inductor.pattern_matcher import (
+    import functools
+    from dicp.dynamo_bridge.op_transformer import (
+        BackendPatternBase,
         PatternMatcherPass,
-        register_replacement,
-        init_once_fakemode
+        register_backend_patterns,
     )
 
-    backend_patterns = PatternMatcherPass()
-    backend_patterns_cls_list = []
+    tops_patterns = PatternMatcherPass()
+    tops_patterns_cls_list = []
+    register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
 
-    def symbolic_trace_ignore_args(fn, args):
-        return torch.fx.symbolic_trace(fn)
-    
-    def register_backend_patterns(Pattern):
-        backend_patterns_cls_list.append(Pattern)
-        return Pattern
-
-    @init_once_fakemode
-    def lazy_register_backend_patterns():
-        for pattern in backend_patterns_cls_list:
-            pattern.register()
-
-    class BackendPatternBase:
-        @staticmethod
-        def pattern(*args, **kwargs):
-            raise NotImplementedError("pattern is not implemented")
-
-        @staticmethod
-        def replacement(*args, **kwargs):
-            raise NotImplementedError("replacement is not implemented")
-
-        @classmethod
-        def gen_args(cls):
-            return [None] * (cls.pattern.__code__.co_argcount)
-
-        @staticmethod
-        def check_fn(match):
-            return True
-
-        @classmethod
-        @functools.lru_cache(None)
-        def register(cls):
-            register_replacement(
-                cls.pattern,
-                cls.replacement,
-                cls.gen_args(),
-                symbolic_trace_ignore_args,
-                backend_patterns,
-                extra_check=cls.check_fn,
-            )
-
-    @register_backend_patterns
+    @register_tops_patterns
     class GemmTransposeRhsPattern(BackendPatternBase):
         @staticmethod
         def pattern(reshaped_input, weight):
@@ -542,7 +503,7 @@ if is_torch_210:
         def replacement(reshaped_input, weight):
             return DotGeneral(reshaped_input, weight, "{}, {}, {1}, {1}")
 
-    @register_backend_patterns
+    @register_tops_patterns
     class LlamaMatmulTransposePattern(BackendPatternBase):
         @staticmethod
         def pattern(xq, keys, expanded_xq_size, reshaped_xq_size, expanded_keys_size, reshaped_keys_size):

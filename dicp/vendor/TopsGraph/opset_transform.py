@@ -7,7 +7,7 @@ from dicp.dynamo_bridge.compile_fx import is_torch_210
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
-    from dicp.vendor.TopsGraph.conversion import lazy_register_backend_patterns, backend_patterns
+    from dicp.vendor.TopsGraph.conversion import tops_patterns, tops_patterns_cls_list
 
 def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
@@ -15,6 +15,6 @@ def topsgraph_opset_transform(
     gm = OpSetTransformer(patterns).transform(gm)
     gm = SingleOpTransformer(gm, conversions).transform()
     if is_torch_210:
-        lazy_register_backend_patterns()
-        gm = BackendPatternMatcherTransformer(backend_patterns).transform(gm)
+        gm = BackendPatternMatcherTransformer(
+            tops_patterns, tops_patterns_cls_list).transform(gm)
     return gm
