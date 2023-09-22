@@ -8,6 +8,8 @@ tops_debug = True if os.getenv('DICP_TOPS_DEBUG', default='False') == 'True' els
 
 dipu_flag = True if os.getenv('DICP_TOPS_DIPU', default='True') == 'True' else False
 
+tops_check_precision = os.getenv("DICP_TOPS_CHECK_PRECISION", "False") == "True"
+
 if torch.distributed.is_initialized():
     device_id = torch.distributed.get_rank()
 else:

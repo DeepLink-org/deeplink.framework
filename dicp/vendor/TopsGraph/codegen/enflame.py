@@ -17,7 +17,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
-from ..config import tops_debug, dipu_flag
+from ..config import tops_debug, dipu_flag, tops_check_precision
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
@@ -69,7 +69,7 @@ def process_name(name, target):
     return real_op
 
 class EnflameCodegen(torch.fx.Interpreter):
-    def __init__(self, graph, aten_graph=None):
+    def __init__(self, graph, origin_graph=None, folder=None, graph_key=None):
         self.name = 'topsgraph'
         self.device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
         
@@ -81,6 +81,9 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.build_graph_code = IndentedBuffer(initial_indent=1)
         
         self.graph = graph
+        self.folder = folder
+        self.graph_key = graph_key
+
         super().__init__(graph)
         self.override = EnflameOverrides
 
@@ -306,6 +309,52 @@ class EnflameCodegen(torch.fx.Interpreter):
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
         compile_graph_code.writeline("")
+        if tops_check_precision:
+            compile_graph_code.splice(
+                f"""
+                    def check_res(a, b, graph_name):
+                        if isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor):
+                            check_flag = torch.allclose(a, b, atol=1e-03, equal_nan=True)
+                            if check_flag:
+                                print(f"cpu test success!({'{graph_name}'})")
+                            else:
+                                print(f"cpu test fail!({'{graph_name}'})")
+                                print(f"cpu and tops comparision:")
+                                if not isinstance(a[0], bool):
+                                    print(f"a - b: {'{a - b}'}")
+                                print(f"a: {'{a}'}")
+                                print(f"b: {'{b}'}")
+                        elif isinstance(a, list) and isinstance(b, list):
+                            check_flag = True
+                            if len(a) != len(b):
+                                print(f"test check len: {'{len(a)}'}-{'{len(b)}'}")
+                                raise ValueError("Error: len1 != len2")
+                            for i in range(len(a)):
+                                if isinstance(a[i], type(None)):
+                                    continue
+                                if not isinstance(a[i], torch.Tensor) or not isinstance(b[i], torch.Tensor):
+                                    print(f"cpu test list type error({'{i}'})!({'{graph_name}'})")
+                                    check_flag = False
+                                else:
+                                    if not torch.allclose(a[i], b[i], rtol=1e-03, equal_nan=True):
+                                        print(f"cpu test fail({'{i}'})!({'{graph_name}'})")
+                                        print(f"cpu and tops comparision{'{i}'}:")
+                                        if a[i].type() != "torch.BoolTensor" and b[i].type() != "torch.BoolTensor":
+                                            print(f"a[i] - b[i]: {'{a[i] - b[i]}'}")
+                                        print(f"a[i]: {'{' +'a[i]' + '}'}")
+                                        print(f"b[i]: {'{' +'b[i]' + '}'}")
+                                        check_flag = False
+                                    else:
+                                        print(f"cpu test success({'{i}'})!({'{graph_name}'})")
+                            if check_flag:
+                                print(f"cpu test success(all-{'{len(a)}'})!({'{graph_name}'})")
+                        else:
+                            print(f"cpu test type error!({'{graph_name}'})")
+                            print(type(a), type(b))
+                        return
+                """
+                , strip=True
+            )
         compile_graph_code.writeline(f"source_code = '''")
         compile_graph_code.splice(self.get_kernel_header(), strip=True)
         compile_graph_code.writeline("")
@@ -336,6 +385,9 @@ class EnflameCodegen(torch.fx.Interpreter):
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
         else:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        # makes a copy of the tensor for view ops 
+        if tops_check_precision and prefix == "empty_strided":
+            res += ".contiguous()"
         return res
 
     def gen_empty_tensor(self, tensor):
@@ -381,6 +433,16 @@ class EnflameCodegen(torch.fx.Interpreter):
             else:
                 call_str += ')\n'
         call_body.writeline(call_str)
+
+        if tops_check_precision:
+            call_body.writeline("import sys")
+            call_body.writeline(f"if '{self.folder}' not in sys.path:")
+            with call_body.indent():
+                call_body.writeline(f"sys.path.insert(0, '{self.folder}')")
+            call_body.writeline(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_body.writeline(f"cpu_module = graph_module()")
+            call_body.writeline(f"cpu_res = cpu_module({', '.join(map(lambda s: s + '.cpu()', args))})")
+            call_body.writeline(f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
 
         for arg in args:
             call_body.writeline(f'del {arg}')
