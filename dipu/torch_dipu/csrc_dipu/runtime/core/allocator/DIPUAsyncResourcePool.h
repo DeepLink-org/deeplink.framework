@@ -19,42 +19,8 @@ public:
     virtual size_t size() = 0;
 };
 
-
 template<class T, at::DeviceType device_type, int algorithm>
 class AsyncResourcePoolImpl: public AsyncResourcePool<T>{
-};
-
-template<class T, int algorithm>
-class AsyncResourcePoolImpl<T, at::DeviceType::CPU, algorithm>: public AsyncResourcePool<T>{
-  std::deque<T> list_;
-  using mutex_t = std::mutex;
-  mutex_t mutex_;
-  public:
-    void add(const T& t, std::deque<DIPUEvent>& events) override {
-      std::lock_guard<mutex_t> lk(mutex_);
-      list_.push_back(t);
-    }
-
-    T get() override {
-      std::lock_guard<mutex_t> lk(mutex_);
-      T t = list_.front();
-      list_.pop_front();
-      return t;
-    }
-
-    bool ready() override {
-      std::lock_guard<mutex_t> lk(mutex_);
-      return !list_.empty();
-    }
-
-    size_t size() override {
-      std::lock_guard<mutex_t> lk(mutex_);
-      return list_.size();
-    }
-};
-
-template<class T, int algorithm>
-class AsyncResourcePoolImpl<T, dipu::DIPU_DEVICE_TYPE, algorithm> : public AsyncResourcePool<T>{
     using Res = std::tuple<T, std::deque<DIPUEvent>>;
     std::deque<Res> list_;
     using mutex_t = std::mutex;

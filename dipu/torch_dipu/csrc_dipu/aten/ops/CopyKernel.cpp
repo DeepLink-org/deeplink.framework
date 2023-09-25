@@ -39,7 +39,6 @@ namespace dipu::native {
 
   static void copy_H2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     auto src_cast = cast2CompatibleDeviceTensor(src);
@@ -48,18 +47,13 @@ namespace dipu::native {
 
     MemChecker::instance().check(dst);
     dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
-    if (non_blocking) {
-      /// need add host cache allocator
-      dipu::devproxy::syncStream(stream.rawstream());
-    } else {
+    if (!non_blocking) {
       dipu::devproxy::syncStream(stream.rawstream());
     }
   }
 
   static void copy_D2H(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(src.device());
-
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     void* src_ptr = src.data_ptr();
@@ -67,11 +61,7 @@ namespace dipu::native {
 
     MemChecker::instance().check(src);
     dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
-    if (non_blocking) {
-        // DIPU_LOGW("Copy data back to CPU device with " \
-        //     "non_blocking is not supported now ");
-      dipu::devproxy::syncStream(stream.rawstream());
-    } else {
+    if (!non_blocking) {
       dipu::devproxy::syncStream(stream.rawstream());
     }
   }
@@ -92,7 +82,7 @@ namespace dipu::native {
   inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
     // assume layout always = not suppport Sparse layout
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided, "only Strided layout is supported");
-  
+
     int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
     if (srcBytes != dstBytes || dst.numel() != src.numel() || dst.options().dtype() != src.options().dtype()) {
@@ -105,9 +95,9 @@ namespace dipu::native {
      if (dst.storage_offset() != 0 || src.storage_offset() != 0) {
       return false;
     }
-    // even tensors have zero offset and same stride/type cannot do simple safe direct copy 
+    // even tensors have zero offset and same stride/type cannot do simple safe direct copy
     // because we cannot simply decide how much data will be copyed from raw stor (unless check stride).
-    // so we always return false now. 
+    // so we always return false now.
     // need enhance in future, because always copy with the help of cpu is toooo0 slow.
     // **** check if copy safely using tensor.nbytes() when is_contiguous() = true.
     return false;
@@ -115,7 +105,6 @@ namespace dipu::native {
 
   static void copy_D2D(const at::Tensor& dst, const at::Tensor& src, bool non_blocking) {
     int64_t nbytes = getCopyBytes(dst, src);
-    DIPUGuard guard(dst.device());
     dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
     void* src_ptr = src.data_ptr();
@@ -125,11 +114,7 @@ namespace dipu::native {
     MemChecker::instance().check(dst);
     dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
-    if (non_blocking) {
-        // DIPU_LOGW("warnning: Copy between devices with " \
-        //     "non_blocking is not supported now ");
-      dipu::devproxy::syncStream(stream.rawstream());
-    } else {
+    if (!non_blocking) {
       dipu::devproxy::syncStream(stream.rawstream());
     }
   }
@@ -138,12 +123,12 @@ namespace dipu::native {
     if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
         // src is cpu.
         copy_H2D(self, src, non_blocking);
-    } 
-    else if (!dipu::isDeviceTensor(self) && dipu::isDeviceTensor(src)) {   
+    }
+    else if (!dipu::isDeviceTensor(self) && dipu::isDeviceTensor(src)) {
       // self is cpu.
       copy_D2H(self, src, non_blocking);
-    } 
-    else {   // device to device 
+    }
+    else {   // device to device
       copy_D2D(self, src, non_blocking);
     }
   }
@@ -167,7 +152,7 @@ namespace dipu::native {
              src.options().device(c10::DeviceType::CPU));
         // src storage size may bigger than src_cpu's  if src is a partial view.
         // but not smaller. because src_cpu use same stride as src.
-        // src -> src_cpu 
+        // src -> src_cpu
         doRealCp(src_cpu, src, non_blocking);
       }
 

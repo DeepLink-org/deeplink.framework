@@ -22,8 +22,7 @@ at::Tensor& copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   ::diopiError_t ret = ::diopiCopyInp(ctx, srcDiopiTensorHandle, selfDiopiTensorHandle);
   TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"(::diopiCopyInp(ctx, src, dst);)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
 
-  // TODO(caikun): remove syncStream when cache allocator is ready
-  if (non_blocking) {
+  if (!non_blocking) {
     dipu::devapis::syncStream(stream.rawstream());
   }
   return self;

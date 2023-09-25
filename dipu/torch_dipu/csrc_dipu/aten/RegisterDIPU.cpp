@@ -71,23 +71,36 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
   auto& schema_args = op.schema().arguments();
   const auto num_arguments = schema_args.size();
   auto arguments = torch::jit::last(stack, num_arguments);
+
+  auto dumpTensor = [&](const at::Tensor tensor) {
+    if (tensor.defined()) {
+        std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
+            << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
+            << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
+        if (level > 2) {
+            std::cout << std::endl << tensor;
+        }
+      } else {
+        std::cout << "undefined";
+      }
+  };
+
   const auto arguments_begin = stack->size() - num_arguments;
   for (const auto idx : c10::irange(arguments.size())) {
     std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
     const auto& ivalue = arguments[idx];
     if (ivalue.isTensor()) {
       const auto& tensor = ivalue.toTensor();
-      if (tensor.defined()) {
-        std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
-            << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
-            << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
-        if (level >= 2) {
-            std::cout << std::endl << tensor;
-        }
-      } else {
-        std::cout << "undefined";
-      }
+      dumpTensor(tensor);
       std::cout << std::endl;
+    } else if (ivalue.isTensorList()) {
+      const auto& tensorlist = ivalue.toTensorList();
+      std::cout << std::endl;
+      for (size_t i = 0; i < tensorlist.size(); i++) {
+        std::cout << "\t";
+        dumpTensor(tensorlist[i]);
+        std::cout << std::endl;
+      }
     } else {
       std:: cout << ivalue << std::endl;
     }
@@ -169,6 +182,25 @@ namespace {
   at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
+    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
+    if (non_blocking) {
+      auto stream = dipu::getCurrentDIPUStream();
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
+      if (self.is_cpu()) {
+        if (self.options().pinned_memory()) {
+          self.record_stream(stream);
+        }
+      } else if (!is_default_stream){
+        self.record_stream(stream);
+      }
+      if (src.is_cpu()) {
+        if (src.options().pinned_memory()) {
+          src.record_stream(stream);
+        }
+      } else if (!is_default_stream) {
+        src.record_stream(stream);
+      }
+    }
     if (use_slow_copy) {
       return dnative::copy_(self, src, non_blocking);
     } else {

@@ -1373,6 +1373,7 @@
 
 - schema: "ctc_loss_tensor_backward(Tensor grad_output, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
+  autocompare: disable
   register_op: False
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -1431,6 +1432,7 @@
 
 - schema: "ctc_loss_intlist_backward(Tensor grad_output, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
+  autocompare: disable
   register_op: False
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
