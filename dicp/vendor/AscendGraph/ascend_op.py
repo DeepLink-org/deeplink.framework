@@ -806,15 +806,44 @@ class Empty(Operator):
         self.torch_op = aten.empty
 
 
-class IndexSelect(Operator):
-    def __init__(self, x, dim, index, arg_num):
-        if arg_num is not None:
-            super().__init__("index_arg{}_".format(arg_num))
+class Index(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("index")
+    
+    def __call__(self, *args, **kwargs):
+        dim = 0
+        if len(args) == 2:
+            (x, index) = args
+        elif len(args) == 3:
+            (x, dim, index) = args
         else:
-            super().__init__("index")
-        self.x = x
-        self.dim = dim
-        self.index = index
+            assert False
+
+        if isinstance(index, list):
+            index = index[0]
+        if hasattr(index, 'meta'):
+            index = index.meta['val']
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+
+        fake_mode = None
+        for arg in [x, index]:
+            if isinstance(arg, FakeTensor):
+                fake_mode = arg.fake_mode
+                break
+        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+
+        for arg in [x, index]:
+            if isinstance(arg, FakeTensor):
+                arg.fake_mode = fake_mode
+
+        with fake_mode:
+            return aten.index_select(x.to('cpu'), dim, index.to('cpu'))
+
+
+class IndexSelect(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("index_select")
     
     def __call__(self, *args, **kwargs):
         dim = 0
