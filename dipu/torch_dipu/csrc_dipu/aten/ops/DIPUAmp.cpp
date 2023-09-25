@@ -1,43 +1,22 @@
+// Copyright (c) 2023, DeepLink.
+
 #include "DIPUAmp.hpp"
 
-#include <ATen/Operators.h>
-#include <ATen/autocast_mode.h>
-#include <torch/library.h>
+#include "ATen/Operators.h"
+#include "ATen/autocast_mode.h"
+#include "torch/library.h"
 
-#include <csrc_dipu/base/basedef.h>
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/device/basedef.h"
+
+#ifndef DIPU_NO_VENDOR_AUTOCAST
+#include "csrc_dipu/vendor/vendor_autocast.h"
+#endif
 
 namespace at {
 namespace autocast {
 
 // NOLINTBEGIN
-// ----------------------------------------------------------------------------
-// THESE MACROS SHOULD BE REFACTORED AFTER PYTORCH 2.1
-// ----------------------------------------------------------------------------
-
-// KERNEL_DIPU registration for AutocastDIPU
-#define KERNEL_DIPU(OP, POLICY)                                      \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP),                         \
-         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE,   \
-                       decltype(ATEN_FN(OP)), decltype(ATEN_FN(OP)), \
-                       &ATEN_FN(OP)>::type::call);
-#define KERNEL_DIPU2(OP, OVERLOAD, POLICY)                         \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP "." #OVERLOAD),         \
-         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, \
-                       decltype(ATEN_FN2(OP, OVERLOAD)),           \
-                       decltype(ATEN_FN2(OP, OVERLOAD)),           \
-                       &ATEN_FN2(OP, OVERLOAD)>::type::call);
-
-// Less-common but still useful case: redispatching to a function with a new
-// signature (e.g. appending a dtype)
-#define KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(                           \
-    REDISPATCH_FUNC, REGISTER_NAME, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, \
-    POLICY)                                                                   \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
-         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE,            \
-                       REGISTER_SIGNATURE, REDISPATCH_SIGNATURE,              \
-                       &REDISPATCH_FUNC>::type::call);
-// ---------------------------  MACROS ENDED  ---------------------------------
-
 // ----------------------------------------------------------------------------
 // Code from aten/src/ATen/autocast_mode.cpp
 // SHOULD BE REMOVED AFTER PYTORCH 2.1
@@ -175,16 +154,81 @@ struct WrapFunction final {
 };
 
 }  // namespace
-// ---------- CODE THAT NEEDS TO BE REMOVED AFTER PYTORCH 2.1 ENDED ------------
+// ---------- CODE THAT NEEDS TO BE REMOVED AFTER PYTORCH 2.1 ENDED -----------
+
+// ----------------------------------------------------------------------------
+// THESE MACROS SHOULD BE REFACTORED AFTER PYTORCH 2.1
+// ----------------------------------------------------------------------------
+
+// KERNEL_DIPU registration for AutocastDIPU
+#define KERNEL_DIPU(OP, POLICY)                                      \
+  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP),                         \
+         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE,   \
+                       decltype(ATEN_FN(OP)), decltype(ATEN_FN(OP)), \
+                       &ATEN_FN(OP)>::type::call);
+#define KERNEL_DIPU2(OP, OVERLOAD, POLICY)                         \
+  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP "." #OVERLOAD),         \
+         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, \
+                       decltype(ATEN_FN2(OP, OVERLOAD)),           \
+                       decltype(ATEN_FN2(OP, OVERLOAD)),           \
+                       &ATEN_FN2(OP, OVERLOAD)>::type::call);
+
+// Less-common but still useful case: redispatching to a function with a new
+// signature (e.g. appending a dtype)
+#define KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(                           \
+    REDISPATCH_FUNC, REGISTER_NAME, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, \
+    POLICY)                                                                   \
+  m.impl(TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME),                        \
+         &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE,            \
+                       REGISTER_SIGNATURE, REDISPATCH_SIGNATURE,              \
+                       &REDISPATCH_FUNC>::type::call);
+// ---------------------------  MACROS ENDED  ---------------------------------
 // NOLINTEND
 
 namespace {
 
+// Compile-time type conversion from dupu::autocast::CastPolicy
+template <dipu::autocast::CastPolicy>
+struct FromDipuCastPolicyHelper {
+  static void MaybeLogError() {
+    DIPU_LOGE("invalid cast policy, fallback to fp32.");
+  }
+  static const CastPolicy kPolicy = CastPolicy::fp32;
+};
+
+#define DIPU_DEFINE_CAST_POLICY_CONVERSION(DIPU_POLICY, POLICY)              \
+  template <>                                                                \
+  struct FromDipuCastPolicyHelper<dipu::autocast::CastPolicy::DIPU_POLICY> { \
+    static void MaybeLogError() {}                                           \
+    static const CastPolicy kPolicy = CastPolicy::POLICY;                    \
+  };
+
+DIPU_DEFINE_CAST_POLICY_CONVERSION(kLowerPrecisionFp, lower_precision_fp);
+DIPU_DEFINE_CAST_POLICY_CONVERSION(kFp32, fp32);
+DIPU_DEFINE_CAST_POLICY_CONVERSION(kPromote, promote);
+
+#undef DIPU_DEFINE_CAST_POLICY_CONVERSION
+
+// Bind macros with customizable cast policies.
+// Modified from KERNEL_DIPU/KERNEL_DIPU2
+#define DIPU_AUTOCAST_BIND(OP)                                           \
+  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP),                             \
+         &WrapFunction<                                                  \
+             FromDipuCastPolicyHelper<DIPU_OP_CAST_POLICY(OP)>::kPolicy, \
+             dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN(OP)),              \
+             decltype(ATEN_FN(OP)), &ATEN_FN(OP)>::type::call);
+#define DIPU_AUTOCAST_BIND2(OP, OVERLOAD)                                \
+  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP "." #OVERLOAD),               \
+         &WrapFunction<                                                  \
+             FromDipuCastPolicyHelper<DIPU_OP_CAST_POLICY(OP)>::kPolicy, \
+             dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN2(OP, OVERLOAD)),   \
+             decltype(ATEN_FN2(OP, OVERLOAD)),                           \
+             &ATEN_FN2(OP, OVERLOAD)>::type::call);
+
 // This function will throw an error message when
 // torch.nn.functional.binary_cross_entropy is called within an autocast block
 Tensor DipuBinaryCrossEntropyBanned(const Tensor &, const Tensor &,
-                                        const c10::optional<Tensor> &,
-                                        int64_t) {
+                                    const c10::optional<Tensor> &, int64_t) {
   AT_ERROR(
       R"(torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.
 Many models use a sigmoid layer right before the binary cross entropy layer.
@@ -199,88 +243,88 @@ TORCH_LIBRARY_IMPL(_, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
 
 TORCH_LIBRARY_IMPL(aten, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
   // lower_precision_fp
-  KERNEL_DIPU2(_convolution, deprecated, lower_precision_fp)
-  KERNEL_DIPU(_convolution, lower_precision_fp)
-  KERNEL_DIPU(conv1d, lower_precision_fp)
-  KERNEL_DIPU(conv2d, lower_precision_fp)
-  KERNEL_DIPU(conv3d, lower_precision_fp)
-  KERNEL_DIPU(conv_tbc, lower_precision_fp)
-  KERNEL_DIPU(conv_transpose1d, lower_precision_fp)
-  KERNEL_DIPU2(conv_transpose2d, input, lower_precision_fp)
-  KERNEL_DIPU2(conv_transpose3d, input, lower_precision_fp)
-  KERNEL_DIPU(convolution, lower_precision_fp)
-  KERNEL_DIPU(cudnn_convolution, lower_precision_fp)
-  KERNEL_DIPU(cudnn_convolution_transpose, lower_precision_fp)
-  KERNEL_DIPU(prelu, lower_precision_fp)
-  KERNEL_DIPU(addmm, lower_precision_fp)
-  KERNEL_DIPU(addmv, lower_precision_fp)
-  KERNEL_DIPU(addr, lower_precision_fp)
-  KERNEL_DIPU(matmul, lower_precision_fp)
-  KERNEL_DIPU(einsum, lower_precision_fp)
-  KERNEL_DIPU(mm, lower_precision_fp)
-  KERNEL_DIPU(mv, lower_precision_fp)
-  KERNEL_DIPU(linear, lower_precision_fp)
-  KERNEL_DIPU(addbmm, lower_precision_fp)
-  KERNEL_DIPU(baddbmm, lower_precision_fp)
-  KERNEL_DIPU(bmm, lower_precision_fp)
-  KERNEL_DIPU(chain_matmul, lower_precision_fp)
-  KERNEL_DIPU(linalg_multi_dot, lower_precision_fp)
-  KERNEL_DIPU(_thnn_fused_lstm_cell, lower_precision_fp)
-  KERNEL_DIPU(_thnn_fused_gru_cell, lower_precision_fp)
-  KERNEL_DIPU(lstm_cell, lower_precision_fp)
-  KERNEL_DIPU(gru_cell, lower_precision_fp)
-  KERNEL_DIPU(rnn_tanh_cell, lower_precision_fp)
-  KERNEL_DIPU(rnn_relu_cell, lower_precision_fp)
-  KERNEL_DIPU(_scaled_dot_product_flash_attention, lower_precision_fp)
-  KERNEL_DIPU(scaled_dot_product_attention, lower_precision_fp)
+  DIPU_AUTOCAST_BIND2(_convolution, deprecated)
+  DIPU_AUTOCAST_BIND(_convolution)
+  DIPU_AUTOCAST_BIND(conv1d)
+  DIPU_AUTOCAST_BIND(conv2d)
+  DIPU_AUTOCAST_BIND(conv3d)
+  DIPU_AUTOCAST_BIND(conv_tbc)
+  DIPU_AUTOCAST_BIND(conv_transpose1d)
+  DIPU_AUTOCAST_BIND2(conv_transpose2d, input)
+  DIPU_AUTOCAST_BIND2(conv_transpose3d, input)
+  DIPU_AUTOCAST_BIND(convolution)
+  DIPU_AUTOCAST_BIND(cudnn_convolution)
+  DIPU_AUTOCAST_BIND(cudnn_convolution_transpose)
+  DIPU_AUTOCAST_BIND(prelu)
+  DIPU_AUTOCAST_BIND(addmm)
+  DIPU_AUTOCAST_BIND(addmv)
+  DIPU_AUTOCAST_BIND(addr)
+  DIPU_AUTOCAST_BIND(matmul)
+  DIPU_AUTOCAST_BIND(einsum)
+  DIPU_AUTOCAST_BIND(mm)
+  DIPU_AUTOCAST_BIND(mv)
+  DIPU_AUTOCAST_BIND(linear)
+  DIPU_AUTOCAST_BIND(addbmm)
+  DIPU_AUTOCAST_BIND(baddbmm)
+  DIPU_AUTOCAST_BIND(bmm)
+  DIPU_AUTOCAST_BIND(chain_matmul)
+  DIPU_AUTOCAST_BIND(linalg_multi_dot)
+  DIPU_AUTOCAST_BIND(_thnn_fused_lstm_cell)
+  DIPU_AUTOCAST_BIND(_thnn_fused_gru_cell)
+  DIPU_AUTOCAST_BIND(lstm_cell)
+  DIPU_AUTOCAST_BIND(gru_cell)
+  DIPU_AUTOCAST_BIND(rnn_tanh_cell)
+  DIPU_AUTOCAST_BIND(rnn_relu_cell)
+  DIPU_AUTOCAST_BIND(_scaled_dot_product_flash_attention)
+  DIPU_AUTOCAST_BIND(scaled_dot_product_attention)
 
   // fp32
-  KERNEL_DIPU(acos, fp32)
-  KERNEL_DIPU(asin, fp32)
-  KERNEL_DIPU(cosh, fp32)
-  KERNEL_DIPU(erfinv, fp32)
-  KERNEL_DIPU(exp, fp32)
-  KERNEL_DIPU(expm1, fp32)
-  KERNEL_DIPU(log, fp32)
-  KERNEL_DIPU(log10, fp32)
-  KERNEL_DIPU(log2, fp32)
-  KERNEL_DIPU(log1p, fp32)
-  KERNEL_DIPU(reciprocal, fp32)
-  KERNEL_DIPU(rsqrt, fp32)
-  KERNEL_DIPU(sinh, fp32)
-  KERNEL_DIPU(tan, fp32)
-  KERNEL_DIPU2(pow, Tensor_Scalar, fp32)
-  KERNEL_DIPU2(pow, Tensor_Tensor, fp32)
-  KERNEL_DIPU2(pow, Scalar, fp32)
-  KERNEL_DIPU(softplus, fp32)
-  KERNEL_DIPU(layer_norm, fp32)
-  KERNEL_DIPU(native_layer_norm, fp32)
-  KERNEL_DIPU(group_norm, fp32)
-  KERNEL_DIPU2(frobenius_norm, dim, fp32)
-  KERNEL_DIPU(nuclear_norm, fp32)
-  KERNEL_DIPU2(nuclear_norm, dim, fp32)
-  KERNEL_DIPU(cosine_similarity, fp32)
-  KERNEL_DIPU(poisson_nll_loss, fp32)
-  KERNEL_DIPU(cosine_embedding_loss, fp32)
-  KERNEL_DIPU(nll_loss, fp32)
-  KERNEL_DIPU(nll_loss2d, fp32)
-  KERNEL_DIPU(hinge_embedding_loss, fp32)
-  KERNEL_DIPU(kl_div, fp32)
-  KERNEL_DIPU(l1_loss, fp32)
-  KERNEL_DIPU(smooth_l1_loss, fp32)
-  KERNEL_DIPU(huber_loss, fp32)
-  KERNEL_DIPU(mse_loss, fp32)
-  KERNEL_DIPU(margin_ranking_loss, fp32)
-  KERNEL_DIPU(multilabel_margin_loss, fp32)
-  KERNEL_DIPU(soft_margin_loss, fp32)
-  KERNEL_DIPU(triplet_margin_loss, fp32)
-  KERNEL_DIPU(multi_margin_loss, fp32)
-  KERNEL_DIPU(binary_cross_entropy_with_logits, fp32)
-  KERNEL_DIPU(dist, fp32)
-  KERNEL_DIPU(pdist, fp32)
-  KERNEL_DIPU(cdist, fp32)
-  KERNEL_DIPU(renorm, fp32)
-  KERNEL_DIPU(logsumexp, fp32)
+  DIPU_AUTOCAST_BIND(acos)
+  DIPU_AUTOCAST_BIND(asin)
+  DIPU_AUTOCAST_BIND(cosh)
+  DIPU_AUTOCAST_BIND(erfinv)
+  DIPU_AUTOCAST_BIND(exp)
+  DIPU_AUTOCAST_BIND(expm1)
+  DIPU_AUTOCAST_BIND(log)
+  DIPU_AUTOCAST_BIND(log10)
+  DIPU_AUTOCAST_BIND(log2)
+  DIPU_AUTOCAST_BIND(log1p)
+  DIPU_AUTOCAST_BIND(reciprocal)
+  DIPU_AUTOCAST_BIND(rsqrt)
+  DIPU_AUTOCAST_BIND(sinh)
+  DIPU_AUTOCAST_BIND(tan)
+  DIPU_AUTOCAST_BIND2(pow, Tensor_Scalar)
+  DIPU_AUTOCAST_BIND2(pow, Tensor_Tensor)
+  DIPU_AUTOCAST_BIND2(pow, Scalar)
+  DIPU_AUTOCAST_BIND(softplus)
+  DIPU_AUTOCAST_BIND(layer_norm)
+  DIPU_AUTOCAST_BIND(native_layer_norm)
+  DIPU_AUTOCAST_BIND(group_norm)
+  DIPU_AUTOCAST_BIND2(frobenius_norm, dim)
+  DIPU_AUTOCAST_BIND(nuclear_norm)
+  DIPU_AUTOCAST_BIND2(nuclear_norm, dim)
+  DIPU_AUTOCAST_BIND(cosine_similarity)
+  DIPU_AUTOCAST_BIND(poisson_nll_loss)
+  DIPU_AUTOCAST_BIND(cosine_embedding_loss)
+  DIPU_AUTOCAST_BIND(nll_loss)
+  DIPU_AUTOCAST_BIND(nll_loss2d)
+  DIPU_AUTOCAST_BIND(hinge_embedding_loss)
+  DIPU_AUTOCAST_BIND(kl_div)
+  DIPU_AUTOCAST_BIND(l1_loss)
+  DIPU_AUTOCAST_BIND(smooth_l1_loss)
+  DIPU_AUTOCAST_BIND(huber_loss)
+  DIPU_AUTOCAST_BIND(mse_loss)
+  DIPU_AUTOCAST_BIND(margin_ranking_loss)
+  DIPU_AUTOCAST_BIND(multilabel_margin_loss)
+  DIPU_AUTOCAST_BIND(soft_margin_loss)
+  DIPU_AUTOCAST_BIND(triplet_margin_loss)
+  DIPU_AUTOCAST_BIND(multi_margin_loss)
+  DIPU_AUTOCAST_BIND(binary_cross_entropy_with_logits)
+  DIPU_AUTOCAST_BIND(dist)
+  DIPU_AUTOCAST_BIND(pdist)
+  DIPU_AUTOCAST_BIND(cdist)
+  DIPU_AUTOCAST_BIND(renorm)
+  DIPU_AUTOCAST_BIND(logsumexp)
   // fp32_set_opt_dtype
   KERNEL_DIPU(prod, fp32_set_opt_dtype)
   KERNEL_DIPU2(prod, dim_int, fp32_set_opt_dtype)
@@ -325,16 +369,16 @@ TORCH_LIBRARY_IMPL(aten, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
              ScalarType),
       fp32_append_dtype)
   // promote
-  KERNEL_DIPU(addcdiv, promote)
-  KERNEL_DIPU(addcmul, promote)
-  KERNEL_DIPU(atan2, promote)
-  KERNEL_DIPU(bilinear, promote)
-  KERNEL_DIPU(cross, promote)
-  KERNEL_DIPU(dot, promote)
-  KERNEL_DIPU(grid_sampler, promote)
-  KERNEL_DIPU(index_put, promote)
-  KERNEL_DIPU(tensordot, promote)
-  KERNEL_DIPU(scatter_add, promote)
+  DIPU_AUTOCAST_BIND(addcdiv)
+  DIPU_AUTOCAST_BIND(addcmul)
+  DIPU_AUTOCAST_BIND(atan2)
+  DIPU_AUTOCAST_BIND(bilinear)
+  DIPU_AUTOCAST_BIND(cross)
+  DIPU_AUTOCAST_BIND(dot)
+  DIPU_AUTOCAST_BIND(grid_sampler)
+  DIPU_AUTOCAST_BIND(index_put)
+  DIPU_AUTOCAST_BIND(tensordot)
+  DIPU_AUTOCAST_BIND(scatter_add)
 
   m.impl(TORCH_SELECTIVE_NAME("aten::binary_cross_entropy"),
          TORCH_FN((&at::autocast::DipuBinaryCrossEntropyBanned)));

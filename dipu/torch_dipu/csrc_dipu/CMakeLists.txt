@@ -70,11 +70,19 @@ target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as
 target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 
 ## copy vendor header file
-set(VENDOR_DIST  "${DIST_DIR}/csrc_dipu/vendor/")
-add_custom_target(copy_include
+set(VENDOR_DIST "${DIST_DIR}/csrc_dipu/vendor/")
+set(VENDOR_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
+add_custom_command(OUTPUT vendor_include
     COMMAND mkdir -p ${VENDOR_DIST}
-    COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
-)
+    COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendorapi.h ${VENDOR_DIST}/vendorapi.h)
+if (EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h" AND
+        NOT IS_DIRECTORY "${VENDOR_HEADER_DIR}/vendor_autocast.h")
+    add_custom_command(OUTPUT vendor_include APPEND
+        COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendor_autocast.h ${VENDOR_DIST}/vendor_autocast.h)
+else()
+    target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
+endif()
+add_custom_target(copy_include DEPENDS vendor_include)
 add_dependencies(${DIPU_LIB} copy_include)
 
 
