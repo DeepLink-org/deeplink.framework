@@ -5,9 +5,6 @@ import torch
 import atexit
 
 
-# the range for dynamic shape
-MAX_RANGE = 128
-
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
 ACL_MEM_MALLOC_HUGE_ONLY = 1
@@ -96,6 +93,7 @@ buffer_method = {
 
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
+        import pdb; pdb.set_trace()
         raise Exception("{} failed ret={}"
                         .format(message, ret))
 
@@ -230,8 +228,8 @@ class AscendExecutor(object):
                     if dim > -1:
                         temp_buffer_size *= dim
                     else:
-                        temp_buffer_size *= MAX_RANGE
-                        dims[idx] = MAX_RANGE
+                        temp_buffer_size *= 1
+                        dims[idx] = 1
                 np_dtype = get_np_dtype(dtype)
                 temp_buffer_size *= np.dtype(np_dtype).itemsize
 
@@ -268,7 +266,7 @@ class AscendExecutor(object):
 
             ret = acl.update_data_buffer(self.input_data_buffers[i], ptr, buffer_size)
             check_ret("acl.update_data_buffer", ret)
-            
+
             if dims is not None and i in dims.keys():
                 dtype = acl.mdl.get_input_data_type(self.model_desc, i)
                 format = acl.mdl.get_input_format(self.model_desc, i)
@@ -285,14 +283,20 @@ class AscendExecutor(object):
             ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def _prepare_tmp_output(self):
+    def _prepare_dynamic_output(self, output_tensor):
         for i in range(self.num_outputs):
-            temp_buffer, ret = acl.rt.malloc(self.output_size[i],
-                            ACL_MEM_MALLOC_HUGE_FIRST)            
-            ret = acl.update_data_buffer(self.output_data_buffers[i], temp_buffer, self.output_size[i])
+            tot_size = 1
+            for elem in self.output_shape[i]:
+                tot_size *= elem
+            dtype = acl.mdl.get_output_data_type(self.model_desc, i)
+            np_dtype = get_np_dtype(dtype)
+            tot_size *= np.dtype(np_dtype).itemsize
+            self.output_dims[i] = self.output_shape[i]
+            self.output_size[i] = tot_size
+            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
+            output_tensor.append(item)
+            ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
-            self.output_data.append(temp_buffer)
-            
 
     def _prepare_real_output(self, output_tensor):
         for i in range(self.num_outputs):
@@ -315,21 +319,16 @@ class AscendExecutor(object):
                                 ACL_MEMCPY_DEVICE_TO_DEVICE)
             check_ret("acl.rt.memcpy", ret)            
 
-    def run(self, images, dims=None, max_range=128):
-        global MAX_RANGE
-        if max_range > 128:
-            MAX_RANGE = max_range
-        else:
-            MAX_RANGE = 128
-
+    def run(self, images, dims=None, output_shape=None):
+        self.output_shape = output_shape
         assert len(images) > 0
         input = list(map(lambda x: x.xpu(), images))
         self._prepare_input(input, dims)
         output = []
         if dims is not None:
-            self._prepare_tmp_output()
+            assert self.output_shape is not None
+            self._prepare_dynamic_output(output)
             self.forward()
-            self._prepare_real_output(output)
         else:
             self._prepare_output(output)
             self.forward()
@@ -354,8 +353,8 @@ class AscendModel():
         atexit.register(self.cleanup)
         self.exe = AscendExecutor(device_id, model_path)
 
-    def run(self, images, dims=None, max_range=128):
-        return self.exe.run(images, dims, max_range)
+    def run(self, images, dims=None, output_shape=None):
+        return self.exe.run(images, dims, output_shape)
 
     def cleanup(self):
         if hasattr(self, 'exe'):

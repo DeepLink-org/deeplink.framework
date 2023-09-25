@@ -294,7 +294,8 @@ class AscendCodegen(torch.fx.Interpreter):
 
         return getattr(self, op)(name, target, args, kwargs) 
 
-    def codegen(self):
+    def codegen(self, output_shape):
+        self.output_shape = output_shape
         self.run()
         return self.generate_code()
 
@@ -363,7 +364,6 @@ class AscendCodegen(torch.fx.Interpreter):
           dim_len = 0
           for shape in self.actual_shape:
               dim_len += len(shape)
-          call_body.writeline(f'''max_range = 0''')
           dims = f'''dims = {{'''
           for idx, elem in enumerate(self.actual_shape):
               if len(elem) == 0:
@@ -372,18 +372,21 @@ class AscendCodegen(torch.fx.Interpreter):
               dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
           dims = dims[:-1] + f'''}}'''
           call_body.writeline(dims)
-          unique_elem = []
-          for elem in self.actual_shape:
-              for dim in elem:
-                  st = self.process_sym_name(dim)
-                  if not st in unique_elem:
-                    unique_elem.append(st)
-                    if not st.isdigit():
-                        call_body.writeline(f'''if max_range < {st}:''')
-                        call_body.writeline(f'''    max_range = {st}''')
+
+          if len(self.output_shape.keys()) > 0:
+            shape_str = f'''output_shape = ['''
+            for elem in self.output_shape.values():
+                if len(elem) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                elem = [self.process_sym_name(dim) for dim in elem]
+                shape_str += "[" + ','.join(map(str, elem)) + '],'
+            shape_str = shape_str[:-1] + f''']'''
+            call_body.writeline(shape_str)
+          else:
+            call_body.writeline(f'''output_shape = None''')
         else:
           call_body.writeline(f'''dims = None''')
-          call_body.writeline(f'''max_range = 0''')
+          call_body.writeline(f'''output_shape = None''')
 
         call_body.splice(f"""
                              for idx in range(len(args)):
@@ -391,7 +394,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device='xpu', dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims, max_range)']
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims, output_shape)']
         
         if precision_check and self.aten_graph is not None:
             # 1. export aten graph to disk

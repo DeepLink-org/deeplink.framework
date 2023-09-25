@@ -50,7 +50,42 @@ class GraphTransformer:
                 with FakeTensorMode():
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
 
+    def get_output_shape(self):
+        code = self.gm.print_readable(False).split('\n')
+        ret_state = []
+        self.output_shape = {}
+        for idx in reversed(range(len(code))):
+            line = code[idx]
+            if 'return (' in line:
+                pos = line.find('return (')
+                line = line[pos + 8:]
+                pos = line.find(')')
+                line = line[:pos]
+                ret_state = line.split(', ')
+                break
+
+        for idx, ret in enumerate(ret_state):
+            ret_state[idx] = ret.replace(',', '')
+
+        for ret in ret_state:
+            shape = None
+            ret_str = ret + ': '
+            for idx in reversed(range(len(code))):
+                line = code[idx]
+                if ret_str in line and '[' in line and not 'return (' in line:
+                    pos = line.find('[')
+                    line = line[pos + 1:]
+                    pos = line.find(']')
+                    line = line[:pos]
+                    shape = line.split(', ')
+                    self.output_shape.update({ret: shape})
+                    break
+            assert shape is not None
+
     def codegen(self):
+        from dicp.vendor.AscendGraph.codegen.ascend import AscendCodegen
+        if self.backend_codegen in [AscendCodegen]:
+            return self.backend_codegen(self.gm, self.aten_gm).codegen(self.output_shape)
         return self.backend_codegen(self.gm, self.aten_gm).codegen()
 
     @dynamo_timed
