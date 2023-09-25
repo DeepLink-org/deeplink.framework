@@ -99,6 +99,10 @@ def rsub(a, b):
 def mul(a, b):
     return ascend_op.Mul(a, b)
 
+@registe_conversion(torch.ops.aten.mul.Tensor)
+def mul_tensor(a, b):
+    return ascend_op.MulTensor(a, b)
+
 @registe_conversion(torch.ops.aten.div)
 def div(a, b):
     return ascend_op.Div(a, b)

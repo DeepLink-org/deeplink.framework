@@ -21,7 +21,7 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided', 'fill']
+             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -901,6 +901,10 @@ class AscendOverrides:
         id_op.set_dynamic_output("y", 2)
         ops = [a, b, c, d, ac, bd, ad, bc, ac_bd, ad_bc, id_op]
         return [op.to_node() for op in ops]
+
+    @staticmethod
+    def mul_tensor(name, node, x, y):
+        return getattr(AscendOverrides, 'mul')(name, node, x, y)
 
     @staticmethod
     def add(name, node, x, y):
