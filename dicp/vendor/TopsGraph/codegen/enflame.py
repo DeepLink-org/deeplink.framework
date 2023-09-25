@@ -17,7 +17,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
-from ..config import tops_debug, dipu_flag
+from ..config import tops_debug, dipu_flag, tops_check_precision
 
 
 type_set = {"torch.float16": "builder::PrimitiveType::F16()",
@@ -47,14 +47,14 @@ cxx_type_set = {"torch.float32": "float_t",
                 "torch.long": "int64_t",
                 "torch.bool": "bool"}
 
-need_node = ['Scalar', 'Div', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
+need_node = ['Scalar', 'Div', 'ReduceSum', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Bmm', 'Slice', 'Select', 
              'Viewasreal', 'Complexmul', 'Concatenate', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
              'ArangeDefault', 'SliceScatter']
 
-need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Div', 'Bmm', 'Slice', 'Select', 'Complex', 'Concatenate']
 
-not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'Empty_Like', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter', 
+not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Slice', 'Scatter', 
                  'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
                  'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'ArangeDefault', 'SliceScatter']
 
@@ -69,7 +69,7 @@ def process_name(name, target):
     return real_op
 
 class EnflameCodegen(torch.fx.Interpreter):
-    def __init__(self, graph, aten_graph=None):
+    def __init__(self, graph, origin_graph=None, folder=None, graph_key=None):
         self.name = 'topsgraph'
         self.device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
         
@@ -81,6 +81,9 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.build_graph_code = IndentedBuffer(initial_indent=1)
         
         self.graph = graph
+        self.folder = folder
+        self.graph_key = graph_key
+
         super().__init__(graph)
         self.override = EnflameOverrides
 
@@ -94,7 +97,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         data_type = self.cur_node.meta['val'].dtype.__str__()
         if data_type not in type_set.keys():
             print("data_type:", data_type, flush=True)
-            raise ValueError("Type error")
+            raise ValueError("Type error!")
     
         in_shape = self.get_shape()
         if in_shape == '{}':
@@ -106,7 +109,8 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def get_attr(self, name, target, args, kwargs):
         assert isinstance(target, str)
-        self.args_dict[name] = 'op' + str(len(self.args_dict))
+        if name not in self.args_dict.keys():
+            self.args_dict[name] = 'op' + str(len(self.args_dict))
         attr = self.fetch_attr(target)
         assert(isinstance(attr, torch.Tensor))
         if attr.size():
@@ -139,7 +143,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         op_code = getattr(self.override, real_op)(*args_list)
         
         self.build_graph_code.splice(arg_code)
-        self.build_graph_code.splice(f'{op_code}')
+        self.build_graph_code.splice(f"{op_code}")
         self.build_graph_code.writeline("")
         
         return
@@ -306,6 +310,52 @@ class EnflameCodegen(torch.fx.Interpreter):
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
         compile_graph_code.writeline("")
+        if tops_check_precision:
+            compile_graph_code.splice(
+                f"""
+                    def check_res(a, b, graph_name):
+                        if isinstance(a, torch.Tensor) and isinstance(b, torch.Tensor):
+                            check_flag = torch.allclose(a, b, atol=1e-03, equal_nan=True)
+                            if check_flag:
+                                print(f"cpu test success!({'{graph_name}'})")
+                            else:
+                                print(f"cpu test fail!({'{graph_name}'})")
+                                print(f"cpu and tops comparision:")
+                                if not isinstance(a[0], bool):
+                                    print(f"a - b: {'{a - b}'}")
+                                print(f"a: {'{a}'}")
+                                print(f"b: {'{b}'}")
+                        elif isinstance(a, list) and isinstance(b, list):
+                            check_flag = True
+                            if len(a) != len(b):
+                                print(f"test check len: {'{len(a)}'}-{'{len(b)}'}")
+                                raise ValueError("Error: len1 != len2")
+                            for i in range(len(a)):
+                                if isinstance(a[i], type(None)):
+                                    continue
+                                if not isinstance(a[i], torch.Tensor) or not isinstance(b[i], torch.Tensor):
+                                    print(f"cpu test list type error({'{i}'})!({'{graph_name}'})")
+                                    check_flag = False
+                                else:
+                                    if not torch.allclose(a[i], b[i], rtol=1e-03, equal_nan=True):
+                                        print(f"cpu test fail({'{i}'})!({'{graph_name}'})")
+                                        print(f"cpu and tops comparision{'{i}'}:")
+                                        if a[i].type() != "torch.BoolTensor" and b[i].type() != "torch.BoolTensor":
+                                            print(f"a[i] - b[i]: {'{a[i] - b[i]}'}")
+                                        print(f"a[i]: {'{' +'a[i]' + '}'}")
+                                        print(f"b[i]: {'{' +'b[i]' + '}'}")
+                                        check_flag = False
+                                    else:
+                                        print(f"cpu test success({'{i}'})!({'{graph_name}'})")
+                            if check_flag:
+                                print(f"cpu test success(all-{'{len(a)}'})!({'{graph_name}'})")
+                        else:
+                            print(f"cpu test type error!({'{graph_name}'})")
+                            print(type(a), type(b))
+                        return
+                """
+                , strip=True
+            )
         compile_graph_code.writeline(f"source_code = '''")
         compile_graph_code.splice(self.get_kernel_header(), strip=True)
         compile_graph_code.writeline("")
@@ -319,6 +369,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_graph_code.splice(self.gen_load_func_code())
         compile_graph_code.splice(self.gen_run_func_code())
         compile_graph_code.writeline(f"'''")
+
         compile_graph_code.splice(
             f"""
                 compile_job = TopsCompileJob(source_code)
@@ -336,6 +387,9 @@ class EnflameCodegen(torch.fx.Interpreter):
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
         else:
             res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        # makes a copy of the tensor for view ops 
+        if tops_check_precision and prefix == "empty_strided":
+            res += ".contiguous()"
         return res
 
     def gen_empty_tensor(self, tensor):
@@ -356,31 +410,46 @@ class EnflameCodegen(torch.fx.Interpreter):
         call_body.writeline("")
 
         bufs = []
+        none_bufs = []
         for i in range(len(self.output_args)):
-            bufs.append('buf' + str(i))
-            if isinstance(self.output_args[i], type(None)):
-                call_body.writeline(bufs[-1] + ' = ' + (f"empty_strided((), ())"))
-            else:
+            bufs.append("buf" + str(i))
+            if not isinstance(self.output_args[i], type(None)):
                 otensor = self.output_args[i].meta['val']
-                call_body.writeline(bufs[-1] + ' = ' + self.gen_empty_tensor(otensor))
+                call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
+            else:
+                none_bufs.append("buf" + str(i))
+                call_body.writeline(bufs[-1] + " = " + (f"empty_strided((), ())"))
+
         call_body.writeline("")
         if dipu_flag:
             call_body.writeline(f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
+
+        arg_ptrs = []
+        for i in range(len(args)):
+            arg_ptrs.append("c_void_p(" + args[i] + ".data_ptr())")
+
+        buf_ptrs = []
+        for i in range(len(bufs)):
+            if bufs[i] not in none_bufs:
+                buf_ptrs.append("c_void_p(" + bufs[i] + ".data_ptr())")
 
         call_str = 'kernel_cpp_0('
         if dipu_flag:
             call_str += 'c_void_p(dipu_stream), '
         else:
             call_str += 'c_void_p(), '
-        for i in range(len(self.input_args)):
-            call_str += 'c_void_p(' + args[i] + '.data_ptr()), '
-        for i in range(len(self.output_args)):
-            call_str += 'c_void_p(' + bufs[i] + '.data_ptr())'
-            if i != len(self.output_args) - 1:
-                call_str += ', '
-            else:
-                call_str += ')\n'
+        call_str += ", ".join(arg_ptrs + buf_ptrs) + ")"
         call_body.writeline(call_str)
+
+        if tops_check_precision:
+            call_body.writeline("import sys")
+            call_body.writeline(f"if '{self.folder}' not in sys.path:")
+            with call_body.indent():
+                call_body.writeline(f"sys.path.insert(0, '{self.folder}')")
+            call_body.writeline(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_body.writeline(f"cpu_module = graph_module()")
+            call_body.writeline(f"cpu_res = cpu_module({', '.join(map(lambda s: s + '.cpu()', args))})")
+            call_body.writeline(f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
 
         for arg in args:
             call_body.writeline(f'del {arg}')
@@ -488,6 +557,8 @@ class EnflameOverrides(OpOverrides):
                      args_str.append(nodelistarg)
                 else:
                     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
+            elif isinstance(args[i], str):
+                args_str.append(args[i])
             else:
                 if "squeeze" in node.name:
                     src_code.writeline("")
@@ -519,8 +590,9 @@ class EnflameOverrides(OpOverrides):
 
                     data_type = '' if isinstance(val, type(None)) else val.dtype.__str__()
                     
-                    if data_type != "torch.int64":
-                        data_type = "torch.float32"
+                    # handle mixed args(float and bool).
+                    if data_type == "torch.bool":
+                        data_type = args[i -1].meta['val'].dtype.__str__() if i > 0 and isinstance(args[i -1], Node) else "torch.float32"
                     
                     src_code.writeline("")
                     src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {type_set[data_type]});")
@@ -541,6 +613,8 @@ class EnflameOverrides(OpOverrides):
                     count += 1
                 elif isinstance(args[i], int) or isinstance(args[i], float):
                     args_str.append(str(args[i]))
+                else:
+                    raise ValueError(f"Unsupported args type: {args[i]}!")
         return src_code, args_str
 
     @staticmethod
@@ -564,7 +638,7 @@ class EnflameOverrides(OpOverrides):
         src_code = ""
         if args:
             assert len(args) == 1, "The number of Add Operation args should be at most one."
-            scaled_y = f"{op_var}_scaled_y";
+            scaled_y = f"{op_var}_scaled_y"
             src_code += f"builder::Op {scaled_y} = builder::Mul({y}, {args[0]});"
         else:
             scaled_y = y
@@ -582,33 +656,38 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Div(op_var, node, args_dict):
         args = node.args
-        args_str = []
-
-        src_code = ""
-
-        for arg in args:
-            if isinstance(arg, Node):
-                input_type = arg.meta['val'].dtype.__str__()
-                input_shape = '{' + str(arg.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                if input_type != "torch.float32":
-                    src_code += f"{args_dict[arg.name]} = builder::Convert({args_dict[arg.name]}, builder::Type({input_shape}, f32_type));\n"
-                args_str.append(f"{args_dict[arg.name]}")
-            else:
-                src_code += f"float {op_var}_const_value = static_cast<float>({str(arg)});\n"
-                src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, f32_type));\n"
-                args_str.append(f"{op_var}_const")
+        args_str = [args_dict[args[0].name]]
+        src_code = "\n"
         
-        src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
-        
+        if isinstance(args[1], Node):
+            args_str.append(args_dict[args[1].name])
+            src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
+            return src_code
+
+        input_type = args[0].meta['val'].dtype.__str__()
         out_type = node.meta['val'].dtype.__str__()
-        if out_type != "torch.float32":
-            out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-            src_code += f"{op_var} = builder::Convert({op_var}, builder::Type({out_shape}, {type_set[out_type]}));"
-            
+
+        input_shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+
+        # convert to torch.float32 for div precision temporarily
+        if input_type == "torch.float16":
+            src_code += f"{args_dict[args[0].name]} = builder::Convert({args_dict[args[0].name]}, builder::Type({input_shape}, builder::PrimitiveType::F32()));\n"
+
+        src_code += f"float {op_var}_const_value = static_cast<float>({str(args[1])});\n"
+        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n"
+
+        args_str.append(f"{op_var}_const")
+
+        src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
+
+        if out_type == "torch.float16":
+            src_code += f"{op_var} = builder::Convert({op_var}, builder::Type({out_shape}, builder::PrimitiveType::F16()));"
+
         return src_code
     
     @staticmethod
-    def Dotgeneral(op_var, node, args_dict):
+    def Bmm(op_var, node, args_dict):
         args = node.args
         args_str = []
         src_code = ""
@@ -632,7 +711,15 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var} = builder::Convert({op_var}_tmp, {op_var}_type);"
 
         return src_code
-    
+
+    @staticmethod
+    def DotGeneral(op_var, lhs, rhs, dot_dimension_numbers_str):
+        src_code = ""
+        src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({dot_dimension_numbers_str});\n"
+        src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        return src_code
+
     @staticmethod
     def Dot(op_var, x, y):
         return f"builder::Op {op_var} = builder::Dot({x}, {y});"
@@ -642,8 +729,16 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Gemm({'{' + x + ',' + y + '}'});"
     
     @staticmethod
+    def Max(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Max({x}, {y});"
+    
+    @staticmethod
     def Less(op_var, x, y):
         return f'builder::Op {op_var} = builder::Less({x}, {y});'
+    
+    @staticmethod
+    def Equal(op_var, x, y):
+        return f"builder::Op {op_var} = builder::Equal({x}, {y});"
         
     @staticmethod
     def LessEqual(op_var, x, y):
@@ -697,8 +792,18 @@ class EnflameOverrides(OpOverrides):
     def Scalar(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()
         src_code = f"builder::Type {op_var}_scalar_type({'{' + '1' +'}'}, {type_set[data_type]});\n"
-        src_code += f"std::vector<float> {op_var}_scalar_data(1, {node.args[0]});\n"
-        src_code += f"auto {op_var} = builder::Const(hlir_builder, static_cast<void *>({op_var}_scalar_data.data()), {op_var}_scalar_type);"
+
+        if data_type == "torch.int64":
+            src_code += f'int {op_var}_const_value = static_cast<int64_t>({node.args[0]});'
+            src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), {op_var}_scalar_type);\n"
+        else:
+            src_code += f"float {op_var}_const_value = static_cast<float>({node.args[0]});\n"
+            if data_type == "torch.float32":
+                src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), {op_var}_scalar_type);\n"
+            else:
+                src_code += f"builder::Op {op_var}_t = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n"
+                src_code += f"builder::Op {op_var} = builder::Convert({op_var}_t, {op_var}_scalar_type);\n"
+
         return src_code
     
     @staticmethod
@@ -735,6 +840,14 @@ class EnflameOverrides(OpOverrides):
         data_type = node.meta['val'].dtype.__str__() 
         src_code = f"builder::Op {op_var} = builder::EmptyLike({args_str[0]}, {type_set[data_type]}, {{0}});"
         return src_code
+    
+    # temporary fake implementation.
+    @staticmethod
+    def Bernoulli(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__()
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]}, {type_set[data_type]}, {shape});"
+        return src_code
 
     @staticmethod
     def NewEmptyStrided(op_var, *args_str):
@@ -742,13 +855,16 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def OnesLike(op_var, node, *args_str):
-        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]});"
+        data_type = node.meta['val'].dtype.__str__()
+        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]}, {type_set[data_type]}, {shape});"
         return src_code
     
     @staticmethod
     def Full(op_var, node, *args_str):
+        data_type = node.meta['val'].dtype.__str__()
         src_code = f"std::vector<int64_t> {op_var}_in_shape{args_str[0]};\n"
-        src_code += f"builder::Type {op_var}_type({op_var}_in_shape, f32_type);\n"
+        src_code += f"builder::Type {op_var}_type({op_var}_in_shape, {type_set[data_type]});\n"
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {node.args[1]}, {op_var}_type);"
         return src_code
     
@@ -838,25 +954,33 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def ReduceSum(op_var, *args):
+    def ReduceSum(op_var, node, *args):
+        input_shape = '{' + ', '.join(map(str, node.args[0].meta['val'].shape)) + '}'
+        input_type = node.args[0].meta['val'].dtype.__str__()
+        output_type =  node.meta['val'].dtype.__str__()
+
         src_code = ''
+        if input_type != output_type:
+            src_code += f"{args[0]} = builder::Convert({args[0]}, builder::Type({input_shape}, {type_set[output_type]}));"
+
         if len(args) == 3:
-            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {args[2]}, {args[1]});"
+            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {args[2]}, {args[1]});"
         elif len(args) == 2:
             keepdim = 'false'
-            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});"
+            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});"
         elif len(args) == 1:
-            src_code = f"builder::Op {op_var} = builder::ReduceSum({args[0]});"
+            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]});"
         else:
             ValueError("ReduceSum args num error!")
+
         return src_code
 
     @staticmethod
     def Scatter(op_var, node, *args_str):
         new_args_str = []
         new_args_str.append(args_str[0])
-        new_args_str.append(str(node.args[1]))
         new_args_str.append(args_str[1])
+        new_args_str.append(args_str[2])
         
         if isinstance(node.args[3], float):
             src_code = f"const float {op_var}_value = {str(node.args[3])};\n"
@@ -876,8 +1000,8 @@ class EnflameOverrides(OpOverrides):
         
         new_args_str = []
         new_args_str.append(args_str[0])
+        new_args_str.append(args_str[2])
         new_args_str.append(args_str[1])
-        new_args_str.append(str(node.args[1]))
         
         src_code = f"builder::Type {op_var}_gather_type({shape}, {type_set[data_type]});\n"
         new_args_str.append(f"{op_var}_gather_type")
@@ -896,10 +1020,10 @@ class EnflameOverrides(OpOverrides):
         rank = len(shape)
         dim = int(args[1])
         
-        src_code = ""
+        src_code = "\n"
         if in_shape != out_shape:
             start_indice = (int(args[2]) + shape[dim]) % shape[dim]
-            limit_indice = int(args[3]) if int(args[3]) < shape[dim] else shape[dim]
+            limit_indice = (int(args[3]) + shape[dim]) % shape[dim] if int(args[3]) < shape[dim] else shape[dim]
             
             src_code += f"auto {op_var} = builder::SliceInDim({args_dict[args[0].name]}, {start_indice}, {limit_indice}, {1}, {dim});"
             
@@ -914,30 +1038,36 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def SliceScatter(op_var, node, *args):
-        shape_operand = node.args[0].meta['val'].shape
+    def SliceScatter(op_var, node, *args_str):
+        operand_shape = node.args[0].meta['val'].shape
         dim = node.args[2] if len(node.args) > 2 else 0
         start = node.args[3] if len(node.args) > 3 else 0
-        end = node.args[4] if len(node.args) > 4 and node.args[4] < shape_operand[dim] else shape_operand[dim]
+        end = (node.args[4] + operand_shape[dim]) % operand_shape[dim] if len(node.args) > 4 and node.args[4] < operand_shape[dim] else operand_shape[dim]
         step = node.args[5] if len(node.args) > 5 else 1
-        src_code = ""
-        for i in range(start, end, step):
-            start_indices = []
-            for j in range(len(shape_operand)):
-                index = i if j == dim else 0
-                src_code += f"builder::Type {op_var}_start_index_type{i}_{j}({{{1}}}, builder::PrimitiveType::S64());\n" \
-                            f"std::vector<int64_t> {op_var}_start_index_data{i}_{j} = {{{index}}}; \n" \
-                            f"builder::Op {op_var}_start{i}_{j} = builder::Const(hlir_builder, {op_var}_start_index_data{i}_{j}.data(), {op_var}_start_index_type{i}_{j});\n"
-                start_indices.append(f"{op_var}_start{i}_{j}")
-            operand = args[0] if i == start else f"{op_var}_{i - step}"
-            src_code += f"builder::Op {op_var}_{i} = builder::DynamicUpdateSlice({operand}, {args[1]}, {{{', '.join(start_indices)}}});\n\n"
-        src_code += f"builder::Op {op_var} = {op_var}_{range(start, end, step)[-1]};\n"
+        
+        if end != operand_shape[dim]:
+            print(f"Warning: EnflameOverrides.SliceScatter encounter unsupported end value: {end},  this will affect precision!")
+            
+        if step != 1:
+            print(f"Warning: EnflameOverrides.SliceScatter encounter unsupported step value: {step}, this will affect precision!")
+        
+        const_shape = "{1}"
+        const_value = "{0}"
+        src_code = f"builder::Type {op_var}_index_type({const_shape}, builder::PrimitiveType::S64());\n"
+        src_code += f"int64_t {op_var}_start_index_data = {const_value};\n"
+        src_code += f"builder::Op {op_var}_start_index = builder::Const(hlir_builder, &{op_var}_start_index_data, {op_var}_index_type);\n"
+        src_code += f"int64_t {op_var}_start_index_data_{dim} = {start};\n"
+        src_code += f"builder::Op {op_var}_start_index_{dim} = builder::Const(hlir_builder, &{op_var}_start_index_data_{dim}, {op_var}_index_type);\n"
+        
+        start_indices = [f"{op_var}_start_index" for i in range(len(operand_shape))]
+        start_indices[dim] = f"{op_var}_start_index_{dim}"
+        
+        src_code += f"builder::Op {op_var} = builder::DynamicUpdateSlice({args_str[0]}, {args_str[1]}, {{{', '.join(start_indices)}}});"
+        
         return src_code
 
     @staticmethod
     def Index(op_var, node, *args):
-        for item in node.args[-1]:
-            print(len(item.meta['val'].size()))
         src_code = ""
         indices_list = args[-1].strip("{ }").split(", ")   
         if len(indices_list) == 1:
@@ -978,7 +1108,7 @@ class EnflameOverrides(OpOverrides):
         
         src_code = f"auto {op_var}_t = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
 
-        src_code += f"builder::Type {op_var}_axes_type({'{' + '1' + '}'}, s64_type);\n"
+        src_code += f"builder::Type {op_var}_axes_type({'{1}'}, s64_type);\n"
         src_code += f"std::vector<int64_t> {op_var}_axes_data = {'{' + str(dim) + '}'};\n"
         src_code += f"builder::Op {op_var}_axes = builder::Const(hlir_builder, ({op_var}_axes_data.data()), {op_var}_axes_type);\n"
         src_code += f"auto {op_var} = builder::Squeeze({op_var}_t, {op_var}_axes);"
@@ -1232,16 +1362,15 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Concatenate(op_var, node, args_dict):
         args = node.args
-
-        if len(args) == 1:
-            dim = 0
-        else:
-            rank = len(node.args[0][0].meta['val'].shape)
-            dim = node.args[1] if node.args[1] > 0 else (node.args[1] + rank) % rank
-        
         args_str = []
+
         for arg in args[0]:
+            arg_shape = arg.meta['val'].shape
+            if 0 in arg_shape:
+                continue
             args_str.append(args_dict[arg.name])
+        
+        dim = (node.args[1] + len(node.meta["val"].shape)) % len(node.meta["val"].shape)
             
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(args_str) + '}'}, {dim});"
 
@@ -1276,5 +1405,5 @@ class EnflameOverrides(OpOverrides):
         src_code += f"std::vector<int64_t> {op_var}_gap_shape{'{' + str(node.args[0]) + '}'};\n"
         src_code += f"builder::Type {op_var}_gap_type = builder::Type({op_var}_gap_shape, {type_set[str(node.kwargs['dtype'])]});\n"
         src_code += f"builder::Op {op_var}_gap = builder::Const(hlir_builder, ({op_var}_gap_data.data()), {op_var}_gap_type);\n"
-        src_code += f"builder::Op {op_var} = builder::Add({op_var}_iota, {op_var}_gap);\n"
+        src_code += f"builder::Op {op_var} = builder::Add({op_var}_iota, {op_var}_gap);"
         return src_code

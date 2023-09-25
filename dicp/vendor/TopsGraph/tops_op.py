@@ -9,8 +9,19 @@ from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
 
+def binary_dtype_check(name, lhs_t, rhs_t):
+    assert lhs_t.dtype == rhs_t.dtype, \
+        f"{name}: dtype of lhs - {lhs_t.dtype}, dtype of rhs - {rhs_t.dtype}"
+    return lhs_t.dtype
+
+def binary_device_check(name, lhs_t, rhs_t):
+    assert lhs_t.device == rhs_t.device, \
+        f"{name}: device of lhs - {lhs_t.device}, device of rhs - {rhs_t.device}"
+    return lhs_t.device
+
 class Operator():
     __name__: str
+    _singleton = None
 
     def __init__(self, name_):
         super().__init__()
@@ -32,20 +43,19 @@ class Operator():
         else:
             raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
 
+    @classmethod
+    def get_singleton(cls):
+        args = [None] * (cls.__init__.__code__.co_argcount - 1)
+        if cls._singleton is None:
+           cls._singleton = cls(*args)
+        return cls._singleton
+
     def name(self):
         return self.__name__
 
-    def __call__(self, *args, **kwargs):
-        new_args = []
-        for arg in args:
-            if isinstance(arg, list):
-                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
-            else:
-                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
-        new_args = tuple(new_args)
-        
+    def get_fake_mode_from_args(self, args):
         fake_mode = None
-        for arg in new_args:
+        for arg in args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
@@ -58,6 +68,18 @@ class Operator():
                     break
         if fake_mode is None:
             fake_mode = self.fake_mode
+        return fake_mode
+
+    def __call__(self, *args, **kwargs):
+        new_args = []
+        for arg in args:
+            if isinstance(arg, list):
+                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
+            else:
+                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
+        new_args = tuple(new_args)
+
+        fake_mode = self.get_fake_mode_from_args(new_args)
             
         tmp_args = []
         for arg in new_args:
@@ -114,9 +136,10 @@ class LtTensor(Operator):
 
 
 class LessEqual(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("LessEqual")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.le.Scalar
 
 class NeScalar(Operator):
@@ -177,9 +200,10 @@ class Sqrt(Operator):
         self.torch_op = aten.sqrt
 
 class Square(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Square")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.square
 
 
@@ -198,9 +222,10 @@ class Relu(Operator):
 
 
 class ReduceSum(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("ReduceSum")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.sum
 
 
@@ -305,9 +330,10 @@ class LiftFreshCopy(Operator):
 
 
 class Neg(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Neg")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.neg
 
 
@@ -332,28 +358,31 @@ class Rsqrt(Operator):
         self.torch_op = aten.rsqrt
 
 class Convolution(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Convolution")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.convolution
 
 class ConvolutionBackward(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Conv2D_Grad")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.convolution_backward.default
 
 class Max_pool2d_with_indices(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
 
 
 class Max_pool2d_with_indices_backward(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("MaxPool2D_Grad")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.max_pool2d_with_indices_backward
         
         
@@ -374,16 +403,17 @@ class Adaptive_avg_pool2d_backward(Operator):
 
 
 class Gather(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Gather")
         self.args = args
         self.torch_op = aten.gather
 
 
 class Log(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Log")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.log
 
 
@@ -435,12 +465,74 @@ class Range(Operator):
         self.torch_op = aten.arange.start
 
 
-class Dotgeneral(Operator):
+class Bmm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Dotgeneral")
+        super().__init__("Bmm")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.bmm.default
+
+class DotGeneral(Operator):
+    def __init__(self):
+        super().__init__("DotGeneral")
+
+    def __call__(self, lhs, rhs, dot_dimension_numbers_str):
+        lhs_tensor = lhs.meta['val']
+        rhs_tensor = rhs.meta['val']
+        res_device = binary_device_check(self.name(), lhs_tensor, rhs_tensor)
+        res_dtype = binary_dtype_check(self.name(), lhs_tensor, rhs_tensor)
+
+        def str_to_int_list(string):
+            if string:
+                return list(map(lambda x: int(x.strip()), string.split(",")))
+            else:
+                return []
+
+        dot_dim_list= []
+        str_idx = 0
+        start_pos = str_idx
+        while(str_idx < len(dot_dimension_numbers_str)):
+            if dot_dimension_numbers_str[str_idx] == "{":
+                start_pos = str_idx
+            elif dot_dimension_numbers_str[str_idx] == "}":
+                dot_dim_list.append(str_to_int_list(dot_dimension_numbers_str[start_pos+1:str_idx]))
+            str_idx += 1
+
+        lhs_shape = lhs_tensor.shape
+        rhs_shape = rhs_tensor.shape
+        lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims  = dot_dim_list
+        lhs_shape_set = set(range(len(lhs_tensor.shape)))
+        rhs_shape_set = set(range(len(rhs_tensor.shape)))
+        assert lhs_shape_set | set(lhs_batch_dims) | set(lhs_contract_dims) == lhs_shape_set, \
+            f"{self.name()}: lhs_batch_dims: {lhs_batch_dims} or lhs_contract_dims: {lhs_contract_dims}" + \
+            f" isn't fully contained in lhs_shape_set: {lhs_shape_set}"
+        assert rhs_shape_set | set(rhs_batch_dims) | set(rhs_contract_dims) == rhs_shape_set, \
+            f"{self.name()}: rhs_batch_dims: {rhs_batch_dims} or rhs_contract_dims: {rhs_contract_dims}" + \
+            f" isn't fully contained in rhs_shape_set: {rhs_shape_set}"
+        assert len(lhs_batch_dims) == len(rhs_batch_dims), \
+            f"{self.name()}: batch_dims mismatch, lhs: {lhs_batch_dims}, rhs: {rhs_batch_dims}"
+        for idx in range(len(lhs_batch_dims)):
+            assert lhs_shape[lhs_batch_dims[idx]] == rhs_shape[rhs_batch_dims[idx]], \
+                f"{self.name()}: batch_dims size mismatch, lhs_batch_dims: {lhs_batch_dims}, rhs_batch_dims: {rhs_batch_dims}; " + \
+                f"lhs_shape[{lhs_batch_dims[idx]}]: {lhs_shape[lhs_batch_dims[idx]] } != " + \
+                f"rhs_shape[{rhs_batch_dims[idx]}]: {rhs_shape[rhs_batch_dims[idx]]}"
+        assert len(lhs_contract_dims) == 1 and len(rhs_contract_dims) == 1 \
+            and lhs_shape[lhs_contract_dims[0]] == rhs_shape[rhs_contract_dims[0]], \
+            f"{self.name()}: contract_dims mistmatch, lhs_contract_dims: {lhs_contract_dims}, rhs_contract_dims: {rhs_contract_dims}; " + \
+            f"lhs_shape: {lhs_shape}, rhs_shape: {rhs_shape}"
+        lhs_remain_dim = lhs_shape_set - set(lhs_batch_dims) - set(lhs_contract_dims)
+        assert len(lhs_remain_dim) == 1, f"{self.name()}: lhs_remain_dim mismatch, lhs_remain_dim: {lhs_remain_dim}"
+        rhs_remain_dim = rhs_shape_set - set(rhs_batch_dims) - set(rhs_contract_dims)
+        assert len(rhs_remain_dim) == 1, f"{self.name()}: rhs_remain_dim mismatch, rhs_remain_dim: {rhs_remain_dim}"
+
+        res_shape = []
+        for i in lhs_batch_dims:
+            res_shape.append(lhs_shape[i])
+        res_shape.append(lhs_shape[lhs_remain_dim.pop()])
+        res_shape.append(rhs_shape[rhs_remain_dim.pop()])
+        with self.get_fake_mode_from_args([lhs_tensor, rhs_tensor]):
+            fake_t = torch.empty(size=res_shape, dtype=res_dtype, device=res_device)
+        return fake_t
 
 class Dot(Operator):
     def __init__(self, *args, **kwargs):
@@ -464,6 +556,12 @@ class EmptyLike(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
 
+class Bernoulli(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Bernoulli")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.bernoulli.p
 
 class NewEmptyStrided(Operator):
     def __init__(self, *args, **kwargs):
@@ -610,9 +708,10 @@ class Embedding(Operator):
         self.torch_op = aten.embedding.default
 
 class Equal(Operator):
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args
+        self.kwargs = kwargs
         self.torch_op = aten.eq.Scalar
 
 

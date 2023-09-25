@@ -180,7 +180,7 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
 
 
 class AscendCodegen(torch.fx.Interpreter):
-    def __init__(self, graph, aten_graph=None):
+    def __init__(self, graph, aten_graph=None, folder=None, graph_key=None):
         self.graph = graph
         self.aten_graph = aten_graph
         self.override = AscendOverrides
@@ -1902,7 +1902,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def index_select(name, x, dim, index):
+    def _index(name, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
         if isinstance(index, list):
             assert len(index) == 1
@@ -1924,15 +1924,16 @@ class AscendOverrides:
 
     @staticmethod
     def index(name, x, index):
-        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
+        return getattr(AscendOverrides, "index_")(name, x, 0, index)
 
     @staticmethod
-    def index_arg2_(name, x, index):
-        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
-    
-    @staticmethod
-    def index_arg3_(name, x, dim, index):
-        return getattr(AscendOverrides, "index_select")(name, x, dim, index)
+    def index_select(*args, **kwargs):
+        if len(args) == 3:
+            (name, x, index) = args
+            return getattr(AscendOverrides, "_index")(name, x, 0, index)
+        else:
+            (name, x, dim, index) = args
+            return getattr(AscendOverrides, "_index")(name, x, dim, index)
 
     @staticmethod
     def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
