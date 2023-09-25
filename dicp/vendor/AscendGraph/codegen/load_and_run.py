@@ -101,7 +101,6 @@ def check_ret(message, ret):
 class MemoryPool:
     def __init__(self):
         self.work_ptr = None
-        self.weight_ptr = None
         atexit.register(self.release_memory)
         self.init_work_weight_ptr()
 
@@ -118,11 +117,6 @@ class MemoryPool:
             ret = acl.rt.free(self.work_ptr)
             check_ret("acl.rt.free", ret)
             self.work_ptr = None
-
-        if self.weight_ptr is not None:
-            ret = acl.rt.free(self.weight_ptr)
-            check_ret("acl.rt.free", ret)
-            self.weight_ptr = None
 
 
 memory_pool = MemoryPool()
@@ -147,6 +141,7 @@ class AscendExecutor(object):
         self.input_data_buffers = []
         self.output_dataset = acl.mdl.create_dataset()
         self.output_data_buffers = []
+        self.weight_ptr = None
 
         self.init_resource()
 
@@ -162,11 +157,18 @@ class AscendExecutor(object):
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None
+        if self.weight_ptr is not None:
+            ret = acl.rt.free(self.weight_ptr)
+            check_ret("acl.rt.free", ret)
+            self.weight_ptr = None
 
     def load_model(self):
         work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        if work_size > memory_pool.work_size:
+            work_size = memory_pool.work_size
+
         check_ret("acl.mdl.query_size", ret)
-        weight_ptr, ret = acl.rt.malloc(weight_size,
+        self.weight_ptr, ret = acl.rt.malloc(weight_size,
                                               ACL_MEM_MALLOC_HUGE_FIRST)
         check_ret("acl.rt.malloc", ret)
         config_handle = acl.mdl.create_config_handle()
@@ -176,7 +178,7 @@ class AscendExecutor(object):
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_PATH_PTR, self.model_path)
         check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, weight_ptr)
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_ADDR_PTR, self.weight_ptr)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
