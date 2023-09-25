@@ -12,7 +12,7 @@ def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
     grap_code = cpu_gm.code
     graph_key = code_hash(grap_code)
     cpu_gm.to_folder(folder + "/" + graph_key[:4], module_name=graph_key)
-    return graph_key
+    return cpu_gm, graph_key
     
 def copy_gm_to_cpu(gm: torch.fx.GraphModule):
     cpu_gm = copy.deepcopy(gm).cpu()

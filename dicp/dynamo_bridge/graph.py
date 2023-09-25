@@ -22,10 +22,10 @@ class GraphTransformer:
         gm: torch.fx.GraphModule,
         backend: str,
     ):
-        self.origin_gm = gm
+        self.gm = gm
         self.backend = backend
         self.folder = cache_dir()
-        self.graph_key = save_cpu_gm(gm, self.folder)
+        self.cpu_gm, self.graph_key = save_cpu_gm(gm, self.folder)
         if backend == 'topsgraph':
             from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
@@ -56,7 +56,7 @@ class GraphTransformer:
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
 
     def codegen(self):
-        return self.backend_codegen(self.gm, self.origin_gm, self.folder, self.graph_key).codegen()
+        return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen()
 
     @dynamo_timed
     def compile_to_module(self):
