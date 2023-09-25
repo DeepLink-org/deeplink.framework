@@ -3,7 +3,7 @@ import os
 import time
 import torch
 from torch import nn
-
+from typing import cast
 import numpy as np
 
 
@@ -72,7 +72,7 @@ def testDevice2():
 def testStream():
     import torch_dipu
     from torch import cuda
-    st0 = cuda.Stream(2)
+    st0 = cuda.Stream(0)
     res1 = st0.priority_range()
     res1 = st0.priority
     res1 = st0.synchronize()
@@ -87,7 +87,7 @@ def testStream():
     st1 = cuda.default_stream()
     res2 = st1.query()
     res2 = st1._as_parameter_
-    st2 = cuda.current_stream(2)
+    st2 = cuda.current_stream(0)
 
     with cuda.StreamContext(st2) as s: 
         print("in cur ctx")
@@ -95,11 +95,18 @@ def testStream():
     # st1 = dipu.current_stream()
     print(st1)
 
+def test_record_stream():
+  stream = torch.cuda.Stream()
+  s1 = torch.cuda.current_stream()
+  src1 = torch.ones((2, 4)).to(0)
+  src1.record_stream(cast(torch._C.Stream, stream))
+  src1.record_stream(s1)
+
 def testevent():
     import torch_dipu
     from torch import cuda
 
-    st0 = cuda.Stream(2)
+    st0 = cuda.Stream(0)
     ev1 = cuda.Event()
     ev1.record(st0)
     time.sleep(1)
@@ -113,19 +120,18 @@ def testevent():
     print(elapsed)
 
 def testDeviceProperties():
-    print("device properties: ", torch.cuda.get_device_properties(1))
-    print("device capability: ", torch.cuda.get_device_capability(1))
-    print("device name: ", torch.cuda.get_device_name(1))
+    print("device properties: ", torch.cuda.get_device_properties(0))
+    print("device capability: ", torch.cuda.get_device_capability(0))
+    print("device name: ", torch.cuda.get_device_name(0))
 
 def test_type():
     import torch_dipu
     dev1 = "cuda"
-    template = torch.arange(1, 12, dtype=torch.float32)
-    s1 = torch.arange(1, 8, dtype=torch.float32, device=dev1)
-    s2 = s1.new(template)
+    s1 = torch.arange(1, 12, dtype=torch.float32, device=dev1)
+    s2 = torch.Tensor.new(s1)
     s3 = s2.new((4, 3))
+    assert s3.shape == torch.Size((2,))
     s4 = s3.new(size = (4, 3))
-
     res = isinstance(s4, torch.cuda.FloatTensor)
     assert(res == True)
 
@@ -154,30 +160,30 @@ def test_complex_type():
     import torch_dipu
     from torch_dipu import dipu
     import numpy as np
-    dev2 = "cuda:2"
+    dev2 = "cuda:0"
 
     # manually set device 
-    dipu.set_device(2)
+    dipu.set_device(0)
     abs = torch.tensor((1, 2), dtype=torch.float64, device=dev2)
     angle = torch.tensor([np.pi / 2, 5 * np.pi / 4], dtype=torch.float64, device=dev2)
-    z1 = torch.polar(abs, angle)
+    # z1 = torch.polar(abs, angle)
     z2 = torch.polar(abs, angle)
-    z3 = z1 + z2 
-    print(z3)
-
-    dipu.set_device(0)
-    # test device change and view on different device.
-    zr = torch.view_as_real(z3)
+    print(z2)
+    zr = torch.view_as_real(z2)
     print(zr.cpu)
 
 if __name__ == '__main__':
     for i in range(1, 2):
         empty1()
         testdevice()
-        testDevice1()
-        testDevice2()
-        test_device_copy()
         testDeviceProperties()
         testStream()
+        test_record_stream()
         testevent()
+        test_type()
         test_complex_type()
+
+        # need more 2 device to run
+        # testDevice1()
+        # testDevice2()
+        # test_device_copy()

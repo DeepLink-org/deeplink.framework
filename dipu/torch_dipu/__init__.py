@@ -22,6 +22,7 @@ from .dipu.tensor import apply_tensor_type_patch
 from .profiler.profiler import dipu_profiler, dipu_kineto_available
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.generator import apply_generator_patch
+from .dipu.streams import apply_stream_patch, _dipu_record_stream
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -41,6 +42,11 @@ def apply_tensor_method_patch():
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
+
+    # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp 
+    # THPVariable_record_stream() will loss. so we currently replace in the python layer.
+    torch.Tensor.record_stream = _dipu_record_stream
+
     if mockcuda:
         torch.Tensor.cuda = torch.Tensor.dipu
         torch.Tensor.is_cuda = torch.Tensor.is_dipu
@@ -107,6 +113,6 @@ def apply_patches():
     apply_temp_patch()
     apply_dataloader_patch()
     apply_generator_patch()
-
+    apply_stream_patch()
 
 apply_patches()

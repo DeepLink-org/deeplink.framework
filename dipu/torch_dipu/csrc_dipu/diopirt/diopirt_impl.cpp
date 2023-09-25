@@ -139,14 +139,13 @@ DIOPI_RT_API diopiError_t diopiGeneratorSetState(diopiGeneratorHandle_t th, diop
 }
 
 DIOPI_RT_API diopiError_t diopiRecordStart(const char* record_name, void** record) {
-    RecordBlockCreator* dipu_record_block = new RecordBlockCreator(record_name);
-    *record = reinterpret_cast<void*>(dipu_record_block);
+    *record = new RecordBlockCreator(record_name);
     return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiRecordEnd(void** record) {
     TORCH_CHECK(record != nullptr, "invalid parameter record_function");
-    RecordBlockCreator* dipu_record_block = reinterpret_cast<RecordBlockCreator*>(*record);
+    auto dipu_record_block = static_cast<RecordBlockCreator*>(*record);
     dipu_record_block->end();
     delete dipu_record_block;
     *record = nullptr;

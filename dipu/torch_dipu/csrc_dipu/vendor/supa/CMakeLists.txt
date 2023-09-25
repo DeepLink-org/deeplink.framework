@@ -23,6 +23,12 @@ IF (NOT SUPA_SUPART_LIBRARY)
   MESSAGE(FATAL_ERROR " Could not find supa-runtime lib. Make sure fullstack is installed, or SUPA_PATH is set properly.")
 ENDIF()
 
+find_library(SUPA_SUCCL_LIBRARY succl
+  ${SUPA_PATH}/lib ${SUPA_PATH}/lib64 /usr/lib/x86_64-linux-gnu
+)
+IF (NOT SUPA_SUCCL_LIBRARY)
+  MESSAGE(FATAL_ERROR " Could not find supa succl lib. Make sure fullstack is installed, or SUPA_PATH is set properly.")
+ENDIF()
 
 # it's incorrect, need enhance find cmake to set lib fullpath
 # set(VENDOR_INCLUDE_DIRS "${ASCEND_TOOLKIT_ROOT}/include" PARENT_SCOPE)
@@ -34,4 +40,4 @@ set(VENDOR_FILES  ${SRC_FILES} PARENT_SCOPE)
 
 set(VENDOR_INCLUDE_DIRS ${SUPA_PATH}/include PARENT_SCOPE)
 set(VENDOR_LIB_DIRS ${SUPA_PATH}/lib ${SUPA_PATH}/lib64 PARENT_SCOPE)
-set(DIPU_VENDOR_LIB ${SUPA_SUPART_LIBRARY} PARENT_SCOPE)
+set(DIPU_VENDOR_LIB ${SUPA_SUPART_LIBRARY} ${SUPA_SUCCL_LIBRARY} PARENT_SCOPE)
