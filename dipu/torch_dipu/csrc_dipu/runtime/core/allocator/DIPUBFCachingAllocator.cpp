@@ -468,10 +468,15 @@ public:
     std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
     if (ptr == nullptr && size > 0) {
-        empty_cache();
+        empty_resource_pool();
         block = impl->allocateRaw(size);
         ptr = std::get<0>(block);
-        TORCH_CHECK(ptr != nullptr, "no memory available")
+        if (ptr == nullptr && size > 0) {
+            empty_cache();
+            block = impl->allocateRaw(size);
+            ptr = std::get<0>(block);
+            TORCH_CHECK(ptr != nullptr, "no memory available")
+        }
     }
 
     int id = std::get<1>(block);
@@ -487,6 +492,12 @@ public:
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: empty_cache, allocator:" << this << ", device:" << device());
+    empty_resource_pool();
+    impl->emptyCache();
+    set_memory_reserved(impl->memory_reserved());
+  }
+
+  void empty_resource_pool() const {
     while (async_mem_pool()->size() > 0) {
         if (!async_mem_pool()->ready()) {
             std::this_thread::yield();
@@ -497,26 +508,13 @@ public:
         int id = std::get<1>(block);
         impl->releaseRaw(ptr, id);
     }
-    impl->emptyCache();
-    set_memory_reserved(impl->memory_reserved());
   }
-
   void release_all_memory() const override {
     if (!impl) {
         return;
     }
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this << ", device:" << device());
-    while (async_mem_pool()->size() > 0) {
-        if (!async_mem_pool()->ready()) {
-            std::this_thread::yield();
-            continue;
-        }
-        const auto block = async_mem_pool()->get();
-        void* ptr = std::get<0>(block);
-        int id = std::get<1>(block);
-        impl->releaseRaw(ptr, id);
-    }
-    impl.reset(nullptr);
+    empty_cache();
   }
 
   BFCachingAllocator() {
