@@ -1,5 +1,10 @@
+// Copyright (c) 2023, DeepLink.
+//
+// Vendor-specific AMP autocast configuration file.
+
 #pragma once
 
+// See this included file for more details.
 #include "csrc_dipu/aten/ops/DIPUAmp.hpp"
 
 namespace dipu {

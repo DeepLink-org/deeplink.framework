@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 //
-// This file contains user-customizable autocast policies for AMP.
+// This file contains user-customizable autocast policies for Automatic Mixed
+// Precision (AMP).
 //
 // Each vendor should provide a "vendor_autocast.h" header containing
 // vendor-specified autocast policies that would override the default ones.
@@ -13,21 +14,28 @@
 //   namespace dipu {
 //   namespace autocast {
 //
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(dot, kLowerPrecisionFp);
 //   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv1d, kFp32);
 //   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv2d, kFp32);
 //   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv3d, kFp32);
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(mm, kPromote);
 //
 //   }  // namespace autocast
 //   }  // namespace dipu
 //
-// In this example, the involved conv ops will run in fp32 in autocast blocks
-// instead of lower_precision_fp (as default).
+// In this example,
+// - dot will run in lower precision (float16, bfloat16, etc.);
+// - conv1d, conv2d, conv3d will run in float32;
+// - mm will run in the widest dtype among args;
+// - the other ops will run in default policies.
 //
 // If no "vendor_autocast.h" or an empty one is provided, all ops will run in
 // default policies (just like CUDA).
 //
 // Go through this file for available cast policies, the list of customizable
 // ops and their default policies.
+//
+// See also: https://pytorch.org/docs/stable/amp.html
 
 #pragma once
 
