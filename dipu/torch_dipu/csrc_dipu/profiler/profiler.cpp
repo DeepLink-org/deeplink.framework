@@ -117,6 +117,7 @@ private:
     RecordsImpl() {}
 
     void reset(const std::lock_guard<std::mutex>& mut_) {
+        std::cout<< "调用reset了" <<std::endl;
         for (size_t i = 0; i < allRecordLists_.size(); ++i) {
             if (allRecordLists_[i] == nullptr) continue;
             auto& recList = *allRecordLists_[i];
@@ -153,6 +154,7 @@ public:
 
     records_t getAllRecordList_() {
         records_t allrecords;
+        // std::cout<< "record 长度" << allRecordLists_.size() <<std::endl;
         for (size_t i = 0; i < allRecordLists_.size(); ++i) {
             if (nullptr != allRecordLists_[i]) {
                 records_t* threadRecordList = allRecordLists_[i].get();
@@ -160,7 +162,10 @@ public:
                     allrecords.push_back(r);
                 }
             }
+            deleteIdx_();
         }
+        std::lock_guard<std::mutex> lock(mut_); 
+        reset(lock);
         return allrecords;
     }
 
@@ -180,6 +185,10 @@ private:
             setup = true;
         }
     }
+    void deleteIdx_(){
+        setup = false;
+        newIdxs = 0;
+    }
 
 
 public:
@@ -192,7 +201,9 @@ public:
         if (record.threadIdx == UNDEFINED_THREAD_ID) {
             record.threadIdx = threadIdx;
         }
+        std::cout<< "really add record了" <<std::endl;
         getLocalList_().push_back(record);
+        std::cout<< "getLocalList_长度:" <<getLocalList_().size() <<std::endl;
     }
 
     void setThreadName(const string_t& name, size_t idx = UNDEFINED_THREAD_ID) {
@@ -299,6 +310,7 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
         records_.push_back(record);
+        std::cout<< "插入了record, 目前的长度是" << records_.size() <<std::endl;
         if (enableFlushReadyEvent() && (records_.size() % flushReadyEventInterval() == 0)) {
             flushReady();
         }
@@ -476,6 +488,7 @@ DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream, s
         stream_ = stream;
         pStart_.reset(new DeviceEvent());
         pStop_.reset(new DeviceEvent());
+        std::cout<<"插入start event" << std::endl;
         dipu::devproxy::recordEvent(pStart_->get(), stream_);
         end_ = false;
     }
@@ -489,7 +502,9 @@ void DeviceRecordCreator::end() {
     if (!end_) {
         TORCH_CHECK(pStart_, "dipu profiler error with pStart_ is not inited");
         TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
+        std::cout << "插入 stop event" <<std::endl;
         dipu::devproxy::recordEvent(pStop_->get(), stream_);
+        std::cout<< "记录 Record" <<std::endl;
         DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
                 pStart_, pStop_, (size_t)stream_,
                 name_, opId_, extraInfo_});
@@ -502,6 +517,7 @@ RecordBlockCreator::RecordBlockCreator(string_t name, size_t opId,
                                        const ExtraRecordInfo& extraInfo,
                                        deviceStream_t stream, bool enProfile) {
     if (enProfile && isEnable()) {
+        std::cout<<"begin record"<<std::endl;
         pHostRecord_.reset(new RecordCreator(name, opId, extraInfo));
         pDeviceRecord_.reset(new DeviceRecordCreator(name, stream,
                                                      opId, extraInfo));
@@ -509,11 +525,13 @@ RecordBlockCreator::RecordBlockCreator(string_t name, size_t opId,
 }
 
 void RecordBlockCreator::end() {
+    std::cout<< "RecordBlockCreator::end" << std::endl;
     pHostRecord_.reset();
     pDeviceRecord_.reset();
 }
 
 RecordBlockCreator::~RecordBlockCreator() {
+    std::cout<< "RecordBlockCreator::~RecordBlockCreator" << std::endl;
     pHostRecord_.reset();
     pDeviceRecord_.reset();
 }
