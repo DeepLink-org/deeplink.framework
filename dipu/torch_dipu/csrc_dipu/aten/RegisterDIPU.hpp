@@ -16,9 +16,10 @@ namespace at {
 
 #define DIPU_REGISTER_LOG(x)                                \
     {                                                       \
-        const char* env = std::getenv("DIPU_DUMP_OP_ARGS"); \
-        if (env != nullptr && std::atoi(env) > 0) {         \
+        static bool should_print = true;                    \
+        if (should_print) {                                 \
             std::cout << x;                                 \
+            should_print = false;                           \
         }                                                   \
     }
 
