@@ -407,12 +407,10 @@ jobs:
       - name: Perform cleanup one iter data
         if: always()
         run: |
-          ssh ${ASCEND_CLUSTER} """
-              set -ex
-              cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
-              rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
-          """
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
 
       - name: Check for failure
         if: ${{ failure() }}
