@@ -18,7 +18,7 @@ camb:
     - model_cfg: "mmdetection ssd/ssd300_coco.py workdirs_ssd"
     - model_cfg: "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_dyhead"
     - model_cfg: "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask_rcnn"
-      precision: {atol: 0.025, metric: 0.025, rtol: 0.02}
+      precision: {atol: 0.025, metric: 0.02, rtol: 0.02}
     - model_cfg: "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos"
     - model_cfg: "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet"
 
