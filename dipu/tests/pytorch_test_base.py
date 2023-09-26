@@ -92,6 +92,7 @@ class DIPUTestBase(DeviceTypeTestBase):
     # and correctly on DIPU.
     @classmethod
     def instantiate_test(cls, name, test, *, generic_cls):
+        cls.device_type = 'dipu'
         test_name = name + '_' + cls.device_type
         class_name = cls.__name__
 
@@ -125,6 +126,8 @@ class DIPUTestBase(DeviceTypeTestBase):
                 if len(dipu_dtypes) != 0:
                     test.dtypes[cls.device_type] = dipu_dtypes
                     super().instantiate_test(name, test, generic_cls=generic_cls)
+
+        cls.device_type = 'cuda'
 
     @classmethod
     def get_primary_device(cls):
