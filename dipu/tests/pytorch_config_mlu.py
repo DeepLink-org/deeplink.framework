@@ -1,5 +1,4 @@
 # Copyright (c) 2023, DeepLink.
-from torch_dipu.testing._internal import common_utils
 
 TEST_PRECISIONS = {
     # test_name : floating_precision,
@@ -458,5 +457,3 @@ DISABLED_TESTS_MLU = {
         'test_clamp_propagates_nans', # [cnnlClip] Parameter min and max can not be null simultaneously.
     },
 }
-
-DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_MLU)
