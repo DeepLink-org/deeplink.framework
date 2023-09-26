@@ -64,26 +64,23 @@ class GraphTransformer:
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
 
     def get_output_shape(self):
-        code = self.gm.print_readable(False).split('\n')
+        nodes = list(self.gm.graph.nodes)
         ret_state = []
         self.output_shape = {}
 
-        for node in self.gm.graph.nodes:
+        for node in nodes:
             if node.op == 'output':
                 ret_state = [str(arg) for arg in node.args[0]]
                 break
 
         for ret in ret_state:
             shape = None
-            ret_str = ret + ': '
-            for idx in reversed(range(len(code))):
-                line = code[idx]
-                if ret_str in line and '[' in line and not 'return (' in line:
-                    pos = line.find('[')
-                    line = line[pos + 1:]
-                    pos = line.find(']')
-                    line = line[:pos]
-                    shape = line.split(', ')
+            for node in nodes:
+                if ret == str(node):
+                    if hasattr(node, 'meta'):
+                        node = node.meta['val']
+                    shape = list(node.shape)
+                    shape = [elem.node.str() if isinstance(elem, torch.SymInt) else str(elem) for elem in shape]
                     self.output_shape.update({ret: shape})
                     break
             assert shape is not None

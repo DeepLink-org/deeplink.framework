@@ -45,16 +45,9 @@ def get_fake_mode_from_tensors(input_tensors):
         raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
 
 
-def used_nodes_all_symint(nodes, codes):
-    input = None
-    for code in codes:
-        if 'def forward' in code:
-            input = code
-            break
-
-    assert input is not None
+def used_nodes_all_symint(nodes):
     for node in nodes:
-        if str(node) in input and len(node.users) > 0:
+        if node.op =='placeholder' and len(node.users) > 0:
             if hasattr(node, 'meta'):
                 node = node.meta['val']
             if not isinstance(node, torch.SymInt):
@@ -79,8 +72,7 @@ def compile_fx_inner(
         return make_boxed_func(gm.forward)
 
     # all symint inputs fallback to eager mode
-    if used_nodes_all_symint(
-        list(gm.graph.nodes), gm.print_readable(False).split('\n')):
+    if used_nodes_all_symint(list(gm.graph.nodes)):
         return gm
 
     # lift the maximum depth of the Python interpreter stack
