@@ -167,6 +167,13 @@ class Mul(Operator):
         super().__init__("mul")
         self.a = a
         self.b = b
+        self.torch_op = aten.mul
+
+class MulTensor(Operator):
+    def __init__(self, a, b):
+        super().__init__("mul_tensor")
+        self.a = a
+        self.b = b
 
     def __call__(self, a, b):
         if hasattr(a, 'meta'):
@@ -196,7 +203,6 @@ class Mul(Operator):
 
         with fake_mode:
             return aten.empty(shape, dtype=a.dtype)
-
 
 class Div(Operator):
     def __init__(self, a, b):
