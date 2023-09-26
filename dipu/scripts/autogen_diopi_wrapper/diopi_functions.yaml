@@ -394,12 +394,14 @@
 
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    const auto self_dtype = at::native::to(self, dtype);
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     if (out.numel() == 0) {
       std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
       out = at::empty(output_shape, self.options());
       }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiSum(ctx, out, self, diopi_size)
+  interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -619,8 +621,10 @@
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    const auto self_dtype = at::native::to(self, dtype);
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiMean(ctx, out, self, diopi_size);
+  interface: diopiMean(ctx, out, self_dtype_diopi, diopi_size);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   custom_code_at_the_beginning: |
@@ -666,7 +670,10 @@
   interface: diopiLogSoftmax(ctx, out, self, dim)
 
 - schema: "aten::log_softmax.int_out(Tensor self, int dim, ScalarType? dtype=None, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiLogSoftmax(ctx, out, self, dim)
+  custom_code_at_the_beginning: |
+    const auto self_dtype = at::native::to(self, dtype);
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
+  interface: diopiLogSoftmax(ctx, out, self_dtype_diopi, dim)
 
 - schema: "max_pool2d_with_indices.out(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, int[2] dilation=1, bool ceil_mode=False, *, Tensor(a!) out, Tensor(b!) indices) -> (Tensor(a!), Tensor(b!))"
   size_attr: [kernel_size, stride, padding, dilation]
@@ -948,11 +955,16 @@
 
 - schema: prod(Tensor self, *, ScalarType? dtype=None) -> Tensor
   custom_code_at_the_beginning: |
-    auto out = at::empty({}, self.options());
-  interface: diopiProd(ctx, out, self, nullptr)
+    const auto self_dtype = at::native::to(self, dtype);
+    auto out = at::empty({}, self_dtype.options());
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
+  interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
 
 - schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
-  interface: diopiProd(ctx, out, self, &dim)
+  custom_code_at_the_beginning: |
+    const auto self_dtype = at::native::to(self, dtype);
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
+  interface: diopiProd(ctx, out, self_dtype_diopi, &dim)
 
 - schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
   autocompare: disable
@@ -1308,7 +1320,10 @@
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiCumsum( ctx,  out, self, dim)
+  custom_code_at_the_beginning: |
+    const auto self_dtype = at::native::to(self, dtype);
+    ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
+  interface: diopiCumsum(ctx, out, self_dtype_diopi, dim)
 
 - schema: "flip(Tensor self, int[] dims) -> Tensor"
   custom_code_at_the_beginning: |
