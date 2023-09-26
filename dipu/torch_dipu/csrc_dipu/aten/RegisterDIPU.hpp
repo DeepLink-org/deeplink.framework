@@ -14,12 +14,15 @@ namespace at {
  void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack);
 
-#define DIPU_REGISTER_LOG(x)                                \
-    {                                                       \
-        const char* env = std::getenv("DIPU_DUMP_OP_ARGS"); \
-        if (env != nullptr && std::atoi(env) > 0) {         \
-            std::cout << x;                                 \
-        }                                                   \
+#define DIPU_REGISTER_LOG(x)                                     \
+    {                                                            \
+        static bool should_print = true;                         \
+        const char* env = std::getenv("DIPU_DUMP_OP_ARGS");      \
+        int env_value = (env != nullptr) ? std::atoi(env) : 0;   \
+        if (should_print && env_value >= 0) {                    \
+            std::cout << x;                                      \
+            should_print = false;                                \
+        }                                                        \
     }
 
 // Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
