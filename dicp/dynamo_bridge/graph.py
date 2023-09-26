@@ -67,18 +67,11 @@ class GraphTransformer:
         code = self.gm.print_readable(False).split('\n')
         ret_state = []
         self.output_shape = {}
-        for idx in reversed(range(len(code))):
-            line = code[idx]
-            if 'return (' in line:
-                pos = line.find('return (')
-                line = line[pos + 8:]
-                pos = line.find(')')
-                line = line[:pos]
-                ret_state = line.split(', ')
-                break
 
-        for idx, ret in enumerate(ret_state):
-            ret_state[idx] = ret.replace(',', '')
+        for node in self.gm.graph.nodes:
+            if node.op == 'output':
+                ret_state = [str(arg) for arg in node.args[0]]
+                break
 
         for ret in ret_state:
             shape = None
