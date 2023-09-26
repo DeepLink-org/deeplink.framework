@@ -1,6 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 
 import collections
+import math
 import sys
 import os
 import unittest
@@ -17,6 +18,13 @@ from contextlib import contextmanager
 from numbers import Number
 from unittest.result import TestResult
 from unittest.util import strclass
+
+def is_iterable(obj):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
 
 cpu = "cpu"
 dipu = torch.device("dipu")
@@ -272,7 +280,7 @@ class TestCase(expecttest.TestCase):
                                     allow_inf=allow_inf, exact_dtype=exact_dtype)
 
         else:
-            if abs(x) == inf or abs(y) == inf:
+            if abs(x) == math.inf or abs(y) == math.inf:
                 if allow_inf:
                     super(TestCase, self).assertEqual(x, y, message)
                 else:
@@ -337,6 +345,7 @@ class TestCase(expecttest.TestCase):
             prec = self.precision
 
         def _assertEqual(x, y, prec=None, message='', allow_inf=False, exact_dtype=None):
+            string_classes = (str, bytes)
             if isinstance(x, Number) or isinstance(y, Number):
                 self._assertNumberEqual(x, y, prec=prec, message=message,
                                         allow_inf=allow_inf, exact_dtype=exact_dtype)
