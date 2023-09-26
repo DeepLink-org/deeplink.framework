@@ -113,41 +113,22 @@ class CumSum(Operator):
 
 
 class MatMul(Operator):
-    def __init__(self, a, b, trans_a=False, trans_b=False, change_input=False):
+    def __init__(self):
         super().__init__("mm")
-        self.a = a
-        self.b = b
-        self.trans_a = trans_a
-        self.trans_b = trans_b
-        self.change_input = change_input
 
-    def __call__(self, *args, **kwargs):
-        trans_a = trans_b = change_input=False
-        if len(args) == 2:
-            (a, b) = args
-        elif len(args) == 4:
-            (a, b, trans_a, trans_b) = args
-        elif len(args) == 5:
-            (a, b, trans_a, trans_b, change_input) = args
-        else:
-            import pdb; pdb.set_trace()
-            assert False
-
+    def infer_result(self, a, b, trans_a=False, trans_b=False, change_input=False):
         if hasattr(a, 'meta'):
             a = a.meta['val']
         if hasattr(b, 'meta'):
             b = b.meta['val']
-
-        if len(args) > 4 and change_input:
+        if change_input:
             (a, b) = (b, a)
-
-        with a.fake_mode:
-            if len(args) > 2:
-                trans_b = b if not trans_b else aten.t(b)
-                trans_a = a if not trans_a else aten.t(a)
-                return aten.matmul(trans_a, trans_b)
-            return aten.matmul(a, b)
-
+        
+        trans_a_shape = shape_functions.t(a.shape) if trans_a else a.shape
+        trans_b_shape = shape_functions.t(b.shape) if trans_b else b.shape
+        mm_shape = shape_functions.matmul(trans_a_shape, trans_b_shape)
+        return TensorInfo(mm_shape, dtype=a.dtype, memory_format=get_memory_format(a))
+    
 
 class BatchMatMul(Operator):
     def __init__(self):
