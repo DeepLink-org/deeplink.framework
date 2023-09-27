@@ -26,7 +26,23 @@ class TestProd(TestCase):
             input_tensor = torch.tensor(input_array)
             out = torch.prod(input_tensor).item()
             out_cuda = torch.prod(input_tensor.cuda()).item()
-            self.assertTrue(out == out_cuda)
+            self.assertEqual(out, out_cuda)
+
+    def test_prod_dtype(self):
+        test_dtypes = [torch.float16, torch.float32]
+        for input_dtype in test_dtypes:
+            input_tensor = torch.tensor(
+                [[1, 2, 3], [4, 5, 6]], dtype=input_dtype, device='dipu')
+            for output_dtype in test_dtypes:
+                expected_output = torch.tensor(
+                    720, dtype=output_dtype, device='dipu')
+                out = torch.prod(input_tensor, dtype=output_dtype)
+                self.assertEqual(out, expected_output, exact_dtype=True)
+
+                expected_output = torch.tensor(
+                    [6, 120], dtype=output_dtype, device='dipu')
+                out = torch.prod(input_tensor, 1, dtype=output_dtype)
+                self.assertEqual(out, expected_output, exact_dtype=True)
 
 
 if __name__ == "__main__":
