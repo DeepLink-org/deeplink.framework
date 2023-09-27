@@ -37,9 +37,8 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex 
-          echo "下载pboot，放置在download下，传入参数env.分区等，开始执行脚本"
           mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh cuda --partition pat_rd --env 'pt2.0v1 dipu0.3.0' --gpu_num '1 2'  --mmcv 2.0.1 --run_accuracy OFF
+          sh DIPU_test/DIPU_benchmark/start.sh cuda --partition pat_rd --env 'pt2.0v1 dipu0.3.0' && rm -rf  ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}|| (rm -rf ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && exit 1)
           """
 
   RUN_ON_CAMB:
@@ -52,9 +51,8 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex 
-          echo "下载pboot，放置在download下，传入参数env.分区等，开始执行脚本"
           mkdir -p  ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh camb --partition camb_mlu370_m8 --env 'dipu0.3.0' --gpu_num '1 2'  --mmcv 2.0.1 --run_accuracy OFF
+          sh DIPU_test/DIPU_benchmark/start.sh camb --partition camb_mlu370_m8 --env 'dipu0.3.0' && rm -rf ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} || (rm -rf ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && exit 1)
           """    
 
     
