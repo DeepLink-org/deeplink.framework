@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.5)
 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
-set(DROPLET_INSTALL "/usr/local/tangrt-0.1")
+set(DROPLET_INSTALL "/usr/local/tangrt")
 include(cmake/FindDropletCompiler.cmake)
 
 set(VENDOR_INCLUDE_DIRS "${DROPLET_INSTALL}/include" PARENT_SCOPE)

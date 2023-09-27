@@ -1,7 +1,7 @@
 
 #pragma once
 #include <tang_runtime.h>
-
+#include <c10/util/Exception.h>
 #include <csrc_dipu/common.h>
 
 namespace dipu {
@@ -18,6 +18,11 @@ namespace dipu {
 using deviceStream_t = tangStream_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = tangEvent_t;
+using deviceHandle_t = tangContext_t*;
+class pcclComm_t {};
+using diclComm_t = pcclComm_t*;
+class pucclUniqueId {};
+using commUniqueId = pucclUniqueId;
 
 }
 
