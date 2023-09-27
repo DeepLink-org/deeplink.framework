@@ -92,7 +92,6 @@ def compile_fx_inner(
     gt = GraphTransformer(gm, backend)
     gt.transform()
     gt.infer_shape_dtype()
-    gt.get_output_shape()
     compiled_fn = gt.compile_to_fn()
 
     # TODO need align inputs?

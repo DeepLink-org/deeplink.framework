@@ -294,8 +294,7 @@ class AscendCodegen(torch.fx.Interpreter):
 
         return getattr(self, op)(name, target, args, kwargs) 
 
-    def codegen(self, output_shape):
-        self.output_shape = output_shape
+    def codegen(self):
         self.run()
         return self.generate_code()
 
@@ -359,34 +358,34 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args = [self.args_dict[x.name] for x in self.input_args]
 
         if len(self.dynamic_inputs) > 0:
-          args = ['_' if not arg in sym_to_inputs.values() else arg for arg in self.args]
-          call_body.writeline(f"({','.join(args)}) = args")
-          dim_len = 0
-          for shape in self.actual_shape:
-              dim_len += len(shape)
-          dims = f'''dims = {{'''
-          for idx, elem in enumerate(self.actual_shape):
-              if len(elem) == 0:
-                  continue
-              elem = [self.process_sym_name(dim) for dim in elem]
-              dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
-          dims = dims[:-1] + f'''}}'''
-          call_body.writeline(dims)
+            args = ['_' if not arg in sym_to_inputs.values() else arg for arg in self.args]
+            call_body.writeline(f"({','.join(args)}) = args")
+            dim_len = 0
+            for shape in self.actual_shape:
+                dim_len += len(shape)
+            dims = f'''dims = {{'''
+            for idx, elem in enumerate(self.actual_shape):
+                if len(elem) == 0:
+                    continue
+                elem = [self.process_sym_name(dim) for dim in elem]
+                dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
+            dims = dims[:-1] + f'''}}'''
+            call_body.writeline(dims)
 
-          if len(self.output_shape.keys()) > 0:
             shape_str = f'''output_shape = ['''
-            for elem in self.output_shape.values():
+            for elem in self.output_args:
+                if hasattr(elem, 'meta'):
+                    elem = elem.meta['val']
+                elem = list(elem.shape)
                 if len(elem) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                elem = [self.process_sym_name(dim) for dim in elem]
+                elem = [self.process_sym_name(str(dim)) for dim in elem]
                 shape_str += "[" + ','.join(map(str, elem)) + '],'
             shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
-          else:
-            call_body.writeline(f'''output_shape = None''')
         else:
-          call_body.writeline(f'''dims = None''')
-          call_body.writeline(f'''output_shape = None''')
+            call_body.writeline(f'''dims = None''')
+            call_body.writeline(f'''output_shape = None''')
 
         call_body.splice(f"""
                              for idx in range(len(args)):

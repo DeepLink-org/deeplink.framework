@@ -63,32 +63,7 @@ class GraphTransformer:
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
 
-    def get_output_shape(self):
-        nodes = list(self.gm.graph.nodes)
-        ret_state = []
-        self.output_shape = {}
-
-        for node in nodes:
-            if node.op == 'output':
-                ret_state = [str(arg) for arg in node.args[0]]
-                break
-
-        for ret in ret_state:
-            shape = None
-            for node in nodes:
-                if ret == str(node):
-                    if hasattr(node, 'meta'):
-                        node = node.meta['val']
-                    shape = list(node.shape)
-                    shape = [elem.node.str() if isinstance(elem, torch.SymInt) else str(elem) for elem in shape]
-                    self.output_shape.update({ret: shape})
-                    break
-            assert shape is not None
-
     def codegen(self):
-        from dicp.vendor.AscendGraph.codegen.ascend import AscendCodegen
-        if self.backend_codegen in [AscendCodegen]:
-            return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen(self.output_shape)
         return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen()
 
     @dynamo_timed
