@@ -37,8 +37,8 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex 
-          mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh cuda --partition pat_rd --env 'pt2.0v1 dipu0.3.0' && rm -rf  ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}|| (rm -rf ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && exit 1)
+          cd /mnt/cache/share/platform/download/DIPU_test && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
+          sh DIPU_test/DIPU_benchmark/start.sh cuda --partition pat_rd --env 'pt2.0v1 dipu0.3.0' --run_accuracy ON
           """
 
   RUN_ON_CAMB:
@@ -51,8 +51,8 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex 
-          mkdir -p  ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh camb --partition camb_mlu370_m8 --env 'dipu0.3.0' && rm -rf ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} || (rm -rf ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER} && exit 1)
+          cd /mnt/cache/share/platform/download/DIPU_test && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
+          sh DIPU_test/DIPU_benchmark/start.sh camb --partition camb_mlu370_m8 --env 'dipu0.3.0' --run_accuracy ON
           """    
 
     
