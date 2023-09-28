@@ -402,9 +402,11 @@ static void deleteBFContext(void* ptr);
 
 class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
-
+    using mutex_t = std::recursive_mutex;
+    mutable mutex_t mutex_;
 private:
   void restore() const{
+    std::lock_guard<mutex_t> lk(mutex_);
     while (async_mem_pool()->ready()) {
         const auto block = async_mem_pool()->get();
         void* ptr = std::get<0>(block);
@@ -498,6 +500,7 @@ public:
   }
 
   void empty_resource_pool() const {
+    std::lock_guard<mutex_t> lk(mutex_);
     while (async_mem_pool()->size() > 0) {
         if (!async_mem_pool()->ready()) {
             std::this_thread::yield();
