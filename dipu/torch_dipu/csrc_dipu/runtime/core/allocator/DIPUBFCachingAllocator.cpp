@@ -402,7 +402,7 @@ static void deleteBFContext(void* ptr);
 
 class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
-    using mutex_t = std::recursive_mutex;
+    using mutex_t = std::mutex;
     mutable mutex_t mutex_;
 private:
   void restore() const{
