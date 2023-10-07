@@ -10,21 +10,17 @@ function build_dipu_py() {
     # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-$(uname -m)-linux-gnu.so torch_dipu
+    cp build/python_ext/torch_dipu/_C.cpython-*.so torch_dipu
 }
 
 function config_dipu_cmake() {
     cd ./build && rm -rf ./*
-    PYTORCH_DIR="/you_pytorch/torch20/pytorch"
-    PYTHON_INCLUDE_DIR="/you_conda/envs/torch20/include/python3.8"
-
     # export NEUWARE_ROOT="/usr/local/neuware-2.4.1/"
 
     # export NCCL_ROOT="you nccl path when use cuda device"
 
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-     -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
-     -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
+     -DDEVICE=${DIPU_DEVICE}
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
     cd ../
