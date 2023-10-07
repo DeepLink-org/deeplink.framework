@@ -193,14 +193,14 @@ struct FromDipuCastPolicyHelper {
   static void MaybeLogError() {
     DIPU_LOGE("invalid cast policy, fallback to fp32.");
   }
-  static const CastPolicy kPolicy = CastPolicy::fp32;
+  static constexpr CastPolicy kPolicy = CastPolicy::fp32;
 };
 
 #define DIPU_DEFINE_CAST_POLICY_CONVERSION(DIPU_POLICY, POLICY)              \
   template <>                                                                \
   struct FromDipuCastPolicyHelper<dipu::autocast::CastPolicy::DIPU_POLICY> { \
     static void MaybeLogError() {}                                           \
-    static const CastPolicy kPolicy = CastPolicy::POLICY;                    \
+    static constexpr CastPolicy kPolicy = CastPolicy::POLICY;                \
   };
 
 DIPU_DEFINE_CAST_POLICY_CONVERSION(kLowerPrecisionFp, lower_precision_fp);
