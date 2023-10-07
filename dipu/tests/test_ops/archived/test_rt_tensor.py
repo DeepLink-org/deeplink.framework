@@ -180,6 +180,22 @@ def test_complex_type():
     zr = torch.view_as_real(z2)
     print(zr.cpu)
 
+#　env DIPU_PYTHON_DEVICE_AS_CUDA　is default true！
+def test_dipu_as_cuda_type():
+  import torch_dipu
+  d1 = torch.device("cuda", 0)
+  t1 = torch.ones((1024, 1), device = 0)
+  print(t1)
+  assert(d1.type == "cuda")
+  assert(t1.is_cuda == True)
+  assert(t1.device.type == "cuda")
+  s1 = t1.storage()
+  assert(s1.device.type == "cuda")
+
+  gen = torch.Generator("dipu")
+  gen.manual_seed(1)
+  assert gen.device.type == "cuda"
+
 if __name__ == '__main__':
     for i in range(1, 2):
         empty1()
@@ -191,6 +207,7 @@ if __name__ == '__main__':
         testevent()
         test_type()
         test_complex_type()
+        test_dipu_as_cuda_type()
 
         # need more 2 device to run
         # testDevice1()

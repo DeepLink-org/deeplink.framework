@@ -52,8 +52,11 @@ static void registerDIPUDeviceStatus(py::module& m) {
 }
 
 static void exportDevices(py::module& m) {
+  registerDIPUDeviceProperties(m);
+  registerDIPUDeviceStatus(m);
    // Device Management.
   m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dipu_cpp_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void {
@@ -297,10 +300,11 @@ static void exportGenerator(py::module& m) {
   });
 }
 
+extern void patchTorchCsrcDevice(PyObject* module);
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
-  registerDIPUDeviceProperties(m);
-  registerDIPUDeviceStatus(m);
+  patchTorchCsrcDevice(module);
   exportDevices(m);
   exportStream(m);
   exportEvent(m);

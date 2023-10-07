@@ -6,50 +6,58 @@ import torch
 
 from torch_dipu import mockcuda
 from torch_dipu import _C
+import os
 __dipu__ = 'dipu'
-__diputype__ = 'xpu'
+__dipu_internal_type__ = _C.dipu_cpp_type
+_C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda)
+__diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_internal_type__
+
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
 _C.init_resource()
 
 class _MetaDeviceType(type):
-    device_ = torch.device
-    def __instancecheck__(cls, instance):
-        if isinstance(instance, _MetaDeviceType.device_):
-            return True
-        return False
+    _torch_device = torch.device
+    def __instancecheck__(cls, inst):
+      if isinstance(inst, cls._torch_device):
+        return True
+      return False
 
-# torch.Device is a final class. cannot inherit
+
 # csrc/Device.cpp THPDevice_pynew:
 # "Device(Device device)" Device type can be Device, Long, String
 # "Device(c10::string_view type, int64_t? index=-1)"
 class _DIPUDevice(metaclass=_MetaDeviceType):
     @staticmethod
-    def __doreplace(arg):
+    def __replacedipu(arg):
         if (__dipu__ in arg):
-            arg = arg.replace(__dipu__, __diputype__)
+            arg = arg.replace(__dipu__, __dipu_internal_type__)
         if (mockcuda and "cuda" in arg):
-            arg = arg.replace("cuda", __diputype__)
+            arg = arg.replace("cuda", __dipu_internal_type__)
         return arg
 
     def __new__(cls, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], int) and mockcuda:
             # modify default int device type only when "mock cuda".
-            dev_name = __diputype__ + ":" + str(args[0])
-            return _MetaDeviceType.device_(dev_name)
+            dev_name = __dipu_internal_type__ + ":" + str(args[0])
+            _device = _MetaDeviceType._torch_device(dev_name)
+            return _device
         # handle device as str
         if len(args) >= 1 and isinstance(args[0], str):
             argList = list(args)
-            argList[0] = cls.__doreplace(args[0])
+            argList[0] = cls.__replacedipu(args[0])
             args = tuple(argList)
-        # handle device in type key, not support int type but str and device
+        # handle parameter type: str, not support int type but str and device
         deviceValue = kwargs.get("type", None)
         if deviceValue != None and isinstance(deviceValue, str):
-            kwargs["type"] = cls.__doreplace(deviceValue)
-        return _MetaDeviceType.device_(*args, **kwargs)
+            kwargs["type"] = cls.__replacedipu(deviceValue)
+        _device = _MetaDeviceType._torch_device(*args, **kwargs)
+        return _device
 
+# always patch
 torch.device = _DIPUDevice
 
+# todo: use device_ctx & torch_function to reduce processing logic?
 # wrap device related func
 def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
     def _replaceDevice(args, kwargs):

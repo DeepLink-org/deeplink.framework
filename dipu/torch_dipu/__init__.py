@@ -39,10 +39,10 @@ def apply_tensor_method_patch():
     # --- add other device func
     # legacy api
     torch.Tensor.new =  GetDeviceProxy(torch.Tensor.new,  pos = -1)
-
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
-    torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
-
+  
+    # funcs without device paramter 
+    torch.Tensor.is_dipu = property(_C.is_dipu)
     # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp 
     # THPVariable_record_stream() will loss. so we currently replace in the python layer.
     torch.Tensor.record_stream = _dipu_record_stream
@@ -87,8 +87,8 @@ def apply_torch_function_patch():
             if hasattr(torch.cuda, attr):
                 setattr(torch.cuda, attr, getattr(dipu, attr))
 
-            if attr in torch.cuda.random.__all__ and hasattr(torch.cuda.random, attr):
-                setattr(torch.cuda.random, attr, getattr(dipu, attr))
+            if attr in torch.cuda.random.__all__ and hasattr(dipu.random_dipu, attr):
+                setattr(torch.cuda.random, attr, getattr(dipu.random_dipu, attr))
 
 
 # temp solution, need redesign storage
