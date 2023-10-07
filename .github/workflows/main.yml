@@ -18,6 +18,9 @@ env:
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd -x SH-IDC1-10-198-8-60' }}
   CUDA_CLUSTER: SH1988
+  ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  ASCEND_CLUSTER: ASCEND
+  ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
   USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/20')) && 'ON' || 'OFF' }}
@@ -61,6 +64,9 @@ jobs:
           ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${ASCEND_CLUSTER} "mkdir -p ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           result=`ssh ${CAMB_CLUSTER} """
                   mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
                   cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
@@ -91,7 +97,6 @@ jobs:
           set -ex
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
@@ -184,7 +189,6 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
@@ -328,3 +332,110 @@ jobs:
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
+
+  Build-PyTorch-For-Ascend:
+    name: Build-dipu-pytorch-for-ascend
+    needs: [Rsync]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build PyTorch
+        run: |
+          set -ex
+          cd ${ASCEND_TORCH_DIR}
+          if [ "$(git rev-parse HEAD)" != "${PYTORCH_COMMIT}" ]; then
+            rm -rf build
+          fi
+          if [ ! -d "build" ]; then
+            source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
+            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py build_ext -i || (rm -rf build && exit 1)
+          fi
+
+  Build-Ascend:
+    name: Build-dipu-ascend
+    needs: [Build-PyTorch-For-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Ascend:
+    name: Test-dipu-ascend
+    needs: [Build-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash tests/run_ascend_tests.sh
+
+  Test-One-Iter-Ascend:
+    name: Test-one-iter-ascend
+    needs: [Build-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_ascend
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
+
+  Build-Ascend-Latest-Target:
+    name: Build-dipu-ascend-latest-target
+    needs: [Build-PyTorch-For-Ascend]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Ascend-Latest-Target:
+    name: Test-dipu-ascend-latest-target
+    needs: [Build-Ascend-Latest-Target]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash tests/run_ascend_tests.sh && cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
+          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
