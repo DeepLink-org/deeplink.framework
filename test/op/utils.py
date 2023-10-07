@@ -1,10 +1,12 @@
 import os
 import argparse
-import torch_dipu
 import torch
 import torch._dynamo as dynamo
 import pytest
+
+os.environ.setdefault("DIPU_MOCK_CUDA", "false")
 os.environ.setdefault("DICP_TOPS_DIPU", "True")
+import torch_dipu
 
 
 class CompiledModel():
@@ -31,10 +33,20 @@ def compile_model(model, backend, need_dynamic=False):
         return [CompiledModel(static_model, False), CompiledModel(dynamic_model, True)]
     return [CompiledModel(static_model, False)]
 
+def parse_bool_arg(arg):
+    if isinstance(arg, bool):
+        return arg
+    if arg.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif arg.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Bool value expected.')
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--need_dynamic", type=bool, default=False)
+    parser.add_argument("--need_dynamic", type=parse_bool_arg, default=False)
     parser.add_argument("--backend", type=str, default=None)
     args, _ = parser.parse_known_args()
-    assert args.backend is not None
+    # assert args.backend is not None
     return args
