@@ -1,137 +1,192 @@
+// Copyright (c) 2023, DeepLink.
+//
+// This file contains user-customizable autocast policies for Automatic Mixed
+// Precision (AMP).
+//
+// Each vendor should provide a "vendor_autocast.h" header containing
+// vendor-specified autocast policies that would override the default ones.
+//
+// Example:
+//   #pragma once
+//
+//   #include "csrc_dipu/aten/ops/DIPUAmp.hpp"
+//
+//   namespace dipu {
+//   namespace autocast {
+//
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(dot, kLowerPrecisionFp);
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv1d, kFp32);
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv2d, kFp32);
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(conv3d, kFp32);
+//   DIPU_CUSTOMIZE_OP_CAST_POLICY(mm, kPromote);
+//
+//   }  // namespace autocast
+//   }  // namespace dipu
+//
+// In this example,
+// - dot will run in lower precision (float16, bfloat16, etc.);
+// - conv1d, conv2d, conv3d will run in float32;
+// - mm will run in the widest dtype among args;
+// - the other ops will run in default policies.
+//
+// If no "vendor_autocast.h" or an empty one is provided, all ops will run in
+// default policies (just like CUDA).
+//
+// Go through this file for available cast policies, the list of customizable
+// ops and their default policies.
+//
+// See also: https://pytorch.org/docs/stable/amp.html
+
 #pragma once
 
-#include <ATen/ATen.h>
-#include <torch/library.h>
-#include <ATen/NativeFunctions.h>
-#include <ATen/autocast_mode.h>
-#include <ATen/Operators.h>
+#include <cstdint>
 
-#include <c10/util/intrusive_ptr.h>
-#include <c10/core/impl/LocalDispatchKeySet.h>
-
-#include <csrc_dipu/base/basedef.h>
-
-#include <iostream>
-#include <exception>
-#include <mutex>
-
-// Most of code from aten/src/ATen/autocast_mode.cpp
-
-namespace at {
+namespace dipu {
 namespace autocast {
 
-// KERNEL_DIPU registration for AutocastDIPU
-#define KERNEL_DIPU(OP, POLICY) \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP), \
-    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN(OP)), decltype(ATEN_FN(OP)), &ATEN_FN(OP)>::type::call);
-#define KERNEL_DIPU2(OP, OVERLOAD, POLICY) \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" #OP "." #OVERLOAD), \
-    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, decltype(ATEN_FN2(OP, OVERLOAD)), decltype(ATEN_FN2(OP, OVERLOAD)), &ATEN_FN2(OP, OVERLOAD)>::type::call);
-
-// Less-common but still useful case: redispatching to a function with a new signature (e.g. appending a dtype)
-#define KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(REDISPATCH_FUNC, REGISTER_NAME, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, POLICY) \
-  m.impl(TORCH_SELECTIVE_NAME("aten::" REGISTER_NAME), \
-    &WrapFunction<CastPolicy::POLICY, dipu::DIPU_DEVICE_TYPE, REGISTER_SIGNATURE, REDISPATCH_SIGNATURE, &REDISPATCH_FUNC>::type::call);
-
-
-Tensor cached_cast(at::ScalarType to_type, const Tensor& arg, DeviceType device_type);
-
-// Policies correspond to op categories that need code-divergent handling.
-// Wrapper templates below are specialized based on a policy template parameter.
-enum class CastPolicy : uint8_t {
-  lower_precision_fp = 0, // Cast all inputs to lower_precision_fp before running the op.
-                          // Currently, lower_precision_fp is fp16 for AutocastCUDA, and is defined by user(default bf16) for AutocastCPU.
-  fp32, // Cast all inputs to at::kFloat before running the op.
-  fp32_set_opt_dtype, // Treats functions (like softmax) that
-                      //   1. we'd like to run in fp32 and
-                      //   2. have a c10::optional<ScalarType> arg that controls the output type.
-                      // fp32_set_opt_dtype wrappers' policy is:  if the output type is already set,
-                      // don't touch it, otherwise, set it to at::kFloat.
-  fp32_append_dtype, // Treats functions (like norm) that
-                     //   1. we'd like to run in fp32 and
-                     //   2. have some overloads that accept an output type and other overloads that don't.
-                     // fp32_append_dtype wrappers wrap the overloads that don't have an output dtype.
-                     // The wrapper policy is:  append at::kFloat to the args, and redispatch to the
-                     // type-aware overload.
-  promote, // Run in the widest dtype among several args.
+// Cast policies of ops' input and output within autocast block.
+enum class CastPolicy : std::uint8_t {
+  kInvalid = 0,
+  kLowerPrecisionFp,  // cast into user-configurable lower precision
+                      // floating-point type (e.g. float16, bfloat16).
+  kFp32,              // cast into float32.
+  kPromote,           // run in the widest dtype among several args.
 };
 
-// Base template for WrapFunction_, which is specialized to contain a "call" method each CastPolicy
-template<CastPolicy policy, DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class ArgList> struct WrapFunction_ {};
+namespace details {
 
-// CastPolicy::lower_precision_fp General_DeviceType
-template<DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class... Args>
-struct WrapFunction_<CastPolicy::lower_precision_fp, device_type, Redispatch, F, Ret, guts::typelist::typelist<Args...>> {
-  static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(get_autocast_dispatch_key_from_device_type(device_type));
-    return (*F)(cached_cast(get_lower_precision_fp_from_device_type(device_type), args, device_type)...);
-  }
-};
+template <class Op, typename = void>
+struct OpCastPolicyHelper {};
 
-// CastPolicy::fp32 General_DeviceType
-template<DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class... Args>
-struct WrapFunction_<CastPolicy::fp32, device_type, Redispatch, F, Ret, guts::typelist::typelist<Args...>> {
-  static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(get_autocast_dispatch_key_from_device_type(device_type));
-    return (*F)(cached_cast(at::kFloat, args, device_type)...);
-  }
-};
+}  // namespace details
 
-// CastPolicy::fp32_set_opt_dtype General_DeviceType
-template<DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class... Args>
-struct WrapFunction_<CastPolicy::fp32_set_opt_dtype, device_type, Redispatch, F, Ret, guts::typelist::typelist<Args...>> {
-  static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::Autocast);
-    if (firstarg_is_eligible(args...)) {
-      return (*F)(set_opt_dtype(at::kFloat, args)...);
-    } else {
-      // If ineligible, calls F with unaltered args.  Does not set opt dtype, because setting
-      // opt dtype explicitly may interfere with internal implicit promotion decisions.
-      return (*F)(args...);
-    }
-  }
-};
+// Define OP as customizable, and set default policy.
+// MUST be used in namespace dipu::autocast
+#define DIPU_DEFAULT_OP_CAST_POLICY(OP, POLICY)           \
+  namespace ops {                                         \
+  struct OP {};                                           \
+  }                                                       \
+  template <typename _dummy>                              \
+  struct details::OpCastPolicyHelper<ops::OP, _dummy> {   \
+    static const CastPolicy kPolicy = CastPolicy::POLICY; \
+  };
 
-// CastPolicy::fp32_append_dtype General_DeviceType
-template<DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class... Args>
-struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F, Ret, guts::typelist::typelist<Args...>> {
-  static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::Autocast);
-    at::ScalarType out_type = type_from_firstarg(at::kFloat, args...);
-    return (*F)(args..., out_type);
-  }
-};
+// Set custom cast policy for OP.
+// MUST be used in namespace dipu::autocast
+#define DIPU_CUSTOMIZE_OP_CAST_POLICY(OP, POLICY)         \
+  template <>                                             \
+  struct details::OpCastPolicyHelper<ops::OP, void> {     \
+    static const CastPolicy kPolicy = CastPolicy::POLICY; \
+  };
 
-// CastPolicy::promote General_DeviceType
-template<DeviceType device_type, class Redispatch, Redispatch* F, class Ret, class... Args>
-struct WrapFunction_<CastPolicy::promote, device_type, Redispatch, F, Ret, guts::typelist::typelist<Args...>> {
-  static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(get_autocast_dispatch_key_from_device_type(device_type));
-    auto to_type = promote_type(get_lower_precision_fp_from_device_type(device_type), device_type, args...);
-    return (*F)(cached_cast(to_type, args, device_type)...);
-  }
-};
+// Query for the final cast policy of OP.
+// can be used anywhere
+#define DIPU_OP_CAST_POLICY(OP)                                            \
+  ::dipu::autocast::details::OpCastPolicyHelper<::dipu::autocast::ops::OP, \
+                                                void>::kPolicy
 
-// Wrapper to infer return_type and parameter_types for WrapFunction_ (imitating core/boxing/impl/WrapFunctionIntoFunctor.h)
-template<CastPolicy policy,
-         DeviceType device_type,
-         class Registered, // The signature for which we're registering.  The dispatcher's calling code invokes our
-                           // registered functions with arguments matching Registered, so we register
-                           // WrapFunction_::call methods with a matching signature to properly field those arguments.
-                           // guts::function_traits below extracts return_type and parameter_types from Registered,
-                           // which WrapFunction_ templates above use to declare their call methods.
-         class Redispatch, // The signature for the function we're redispatching to.  In most cases this is the same
-                           // as Registered, but for some ops (for example, ops where we append a dtype) it's useful
-                           // to redispatch to a function with a different signature.
-         Redispatch* F>    // The actual function we're redispatching to.
-struct WrapFunction final {
-  using type = WrapFunction_<policy,
-                             device_type,
-                             Redispatch,
-                             F,
-                             typename guts::function_traits<Registered>::return_type,
-                             typename guts::function_traits<Registered>::parameter_types>;
-};
+// ---------------------------------------------------------------------------
+// Default op policy settings begin from here.
+// ONLY listed ops are customizable via DIPU_CUSTOMIZE_OP_CAST_POLICY.
+// The other ops all run in fp32.
+// ---------------------------------------------------------------------------
 
-} // namespace autocast
-} // namespace at
+// lower_precision_fp
+DIPU_DEFAULT_OP_CAST_POLICY(_convolution, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv1d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv2d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv3d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv_tbc, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv_transpose1d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv_transpose2d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(conv_transpose3d, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(convolution, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(cudnn_convolution, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(cudnn_convolution_transpose, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(prelu, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(addmm, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(addmv, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(addr, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(matmul, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(einsum, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(mm, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(mv, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(linear, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(addbmm, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(baddbmm, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(bmm, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(chain_matmul, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(linalg_multi_dot, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(_thnn_fused_lstm_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(_thnn_fused_gru_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(lstm_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(gru_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(rnn_tanh_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(rnn_relu_cell, kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(_scaled_dot_product_flash_attention,
+                            kLowerPrecisionFp);
+DIPU_DEFAULT_OP_CAST_POLICY(scaled_dot_product_attention, kLowerPrecisionFp);
+
+// fp32
+DIPU_DEFAULT_OP_CAST_POLICY(acos, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(asin, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(cosh, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(erfinv, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(exp, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(expm1, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(log, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(log10, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(log2, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(log1p, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(reciprocal, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(rsqrt, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(sinh, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(tan, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(pow, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(softplus, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(layer_norm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(native_layer_norm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(group_norm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(frobenius_norm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(nuclear_norm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(cosine_similarity, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(poisson_nll_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(cosine_embedding_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(nll_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(nll_loss2d, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(hinge_embedding_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(kl_div, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(l1_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(smooth_l1_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(huber_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(mse_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(margin_ranking_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(multilabel_margin_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(soft_margin_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(triplet_margin_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(multi_margin_loss, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(binary_cross_entropy_with_logits, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(dist, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(pdist, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(cdist, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(renorm, kFp32);
+DIPU_DEFAULT_OP_CAST_POLICY(logsumexp, kFp32);
+
+// promote
+DIPU_DEFAULT_OP_CAST_POLICY(addcdiv, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(addcmul, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(atan2, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(bilinear, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(cross, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(dot, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(grid_sampler, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(index_put, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(tensordot, kPromote);
+DIPU_DEFAULT_OP_CAST_POLICY(scatter_add, kPromote);
+
+// ------------------------ DEFAULT POLICIES ENDED ---------------------------
+
+#undef DIPU_DEFAULT_OP_CAST_POLICY
+
+}  // namespace autocast
+}  // namespace dipu
