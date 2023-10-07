@@ -290,23 +290,6 @@ class AscendExecutor(object):
             ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def _check_output_shape(self):
-        for i in range(self.num_outputs):
-            out = acl.mdl.get_dataset_tensor_desc(self.output_dataset, i)
-            tsize = acl.get_tensor_desc_num_dims(out)
-            out_dim = []
-            tot_size = 1
-            for d in range(tsize):
-                out_dim.append(acl.get_tensor_desc_dim(out, d))
-                tot_size *= out_dim[-1]
-            dtype = acl.mdl.get_output_data_type(self.model_desc, i)
-            tot_size *= acl.data_type_size(dtype)
-
-            for idx, elem in enumerate(out_dim):
-                assert elem == self.output_dims[i][idx]
-            assert tot_size == self.output_size[i]
-            assert get_tensor_dtype(dtype) == self.output_dtypes[i]
-
     def run(self, images, dims=None, output_shape=None):
         self.output_shape = output_shape
         assert len(images) > 0
