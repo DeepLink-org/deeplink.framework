@@ -388,9 +388,11 @@ class AscendCodegen(torch.fx.Interpreter):
             call_body.writeline(f'''output_shape = None''')
 
         call_body.splice(f"""
+                             import torch_dipu
+                             dipu_device_str = torch_dipu.dipu.device.__diputype__
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
-                                     args[idx] = torch.tensor(args[idx], device='xpu', dtype=torch.int32)
+                                     args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_str = [f'output_tensor = kernel_cpp_0(args, dims, output_shape)']

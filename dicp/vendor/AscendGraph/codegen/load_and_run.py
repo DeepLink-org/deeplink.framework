@@ -3,7 +3,10 @@ import os
 import numpy as np
 import torch
 import atexit
+import torch_dipu
 
+
+dipu_device_str = torch_dipu.dipu.device.__diputype__
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -241,7 +244,7 @@ class AscendExecutor(object):
 
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
-        zero_tensor = torch.randn(1).xpu()
+        zero_tensor = torch.randn(1).to(dipu_device_str)
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():
@@ -271,7 +274,7 @@ class AscendExecutor(object):
 
     def _prepare_output(self, output_tensor):
         for i in range(self.num_outputs):
-            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
+            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
             output_tensor.append(item)
             ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
@@ -285,7 +288,7 @@ class AscendExecutor(object):
             tot_size *= acl.data_type_size(dtype)
             self.output_dims[i] = self.output_shape[i]
             self.output_size[i] = tot_size
-            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device='xpu')
+            item = torch.empty(self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
             output_tensor.append(item)
             ret = acl.update_data_buffer(self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
@@ -293,7 +296,7 @@ class AscendExecutor(object):
     def run(self, images, dims=None, output_shape=None):
         self.output_shape = output_shape
         assert len(images) > 0
-        input = list(map(lambda x: x.xpu(), images))
+        input = list(map(lambda x: x.to(dipu_device_str), images))
         self._prepare_input(input, dims)
         output = []
         if dims is not None:
