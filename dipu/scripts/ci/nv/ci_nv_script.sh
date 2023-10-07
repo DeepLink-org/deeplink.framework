@@ -20,7 +20,7 @@ function config_dipu_nv_cmake() {
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=cuda -DPYTORCH_DIR=${PYTORCH_DIR} \
-        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=${USE_COVERAGE}
+        -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
 }
 
@@ -50,7 +50,6 @@ function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     echo  "PYTORCH_DIR:${PYTORCH_DIR}"
-    echo  "PYTHON_INCLUDE_DIR:${PYTHON_INCLUDE_DIR}"
     export DIOPI_BUILD_TESTRT=1
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_nv_cmake 2>&1 | tee ./cmake_nv.log

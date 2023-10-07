@@ -27,6 +27,9 @@ endif()
 message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
 add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
+execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
+
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
