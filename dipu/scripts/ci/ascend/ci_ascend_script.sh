@@ -20,9 +20,8 @@ function build_dipu_py() {
 
 function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    echo "PYTORCH_DIR: ${PYTORCH_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-        -DDEVICE=ascend -DPYTORCH_DIR=${PYTORCH_DIR} 
+        -DDEVICE=ascend
     cd ../
 }
 

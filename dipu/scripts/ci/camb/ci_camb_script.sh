@@ -13,9 +13,8 @@ function build_dipu_py() {
 
 function config_dipu_camb_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    echo "PYTORCH_DIR: ${PYTORCH_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
-        -DDEVICE=camb -DPYTORCH_DIR=${PYTORCH_DIR} \
+        -DDEVICE=camb  \
         -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
 }
@@ -49,7 +48,6 @@ function build_diopi_lib() {
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    echo  "PYTORCH_DIR:${PYTORCH_DIR}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_camb_cmake 2>&1 | tee ./cmake_camb.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..

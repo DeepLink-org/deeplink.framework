@@ -12,12 +12,11 @@ function build_dipu_py() {
 
 function config_dipu_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    # PYTORCH_DIR="/you_pytorch/torch20/pytorch"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-     -DDEVICE=tops -DPYTORCH_DIR=${PYTORCH_DIR} \
+     -DDEVICE=tops \
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
-      
+
     cd ../
 }
 

@@ -30,6 +30,11 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
+execute_process(COMMAND  sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')" OUTPUT_VARIABLE PYTORCH_DIR)
+string (REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
+string (REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
+message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
+
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
