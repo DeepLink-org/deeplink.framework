@@ -105,11 +105,11 @@ def apply_profiler_patch():
 
 
 def apply_amp_patch():
-    torch.get_autocast_gpu_dtype = dipu.dipu.get_autocast_dipu_dtype
-    torch.set_autocast_gpu_dtype = dipu.dipu.set_autocast_dipu_dtype
-    torch.set_autocast_enabled = dipu.dipu.set_autocast_dipu_enabled
-    torch.is_autocast_enabled = dipu.dipu.is_autocast_dipu_enabled
-    torch.cuda.is_bf16_supported = dipu.dipu.is_bf16_supported
+    torch.get_autocast_gpu_dtype = dipu.amp.get_autocast_dipu_dtype
+    torch.set_autocast_gpu_dtype = dipu.amp.set_autocast_dipu_dtype
+    torch.set_autocast_enabled = dipu.amp.set_autocast_dipu_enabled
+    torch.is_autocast_enabled = dipu.amp.is_autocast_dipu_enabled
+    torch.cuda.is_bf16_supported = dipu.amp.is_bf16_supported
 
 
 def apply_patches():

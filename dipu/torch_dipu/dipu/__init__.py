@@ -8,7 +8,7 @@ from .memory import *
 from .streams import *
 from .tensor import *
 from .storages import *
-from . import dipu
+from . import amp
 import torch_dipu
 import torch
 

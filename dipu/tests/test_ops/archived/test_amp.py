@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.cuda.amp import autocast, GradScaler
 
 # 确定 CUDA 可用
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda")
 
 
 # 定义一个简单的模型

@@ -17,5 +17,7 @@ def set_autocast_dipu_dtype(dtype):
     return _C.set_autocast_dipu_dtype(dtype)
 
 
+# bf16 is not supported by default.
+# This function needs to be improved in the future and customized for different device.
 def is_bf16_supported():
-    return True
+    return False
