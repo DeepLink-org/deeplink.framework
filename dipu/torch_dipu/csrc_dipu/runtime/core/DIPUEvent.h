@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <atomic>
 #include "DIPUStream.h"
 #include "DIPUGuard.h"
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
@@ -17,7 +18,9 @@ class DIPU_API DIPUEvent {
 public:
   // Constructors
   // Default value for `flags` is specified below
-  DIPUEvent() {}
+  DIPUEvent() {
+    is_created_ = false;
+  }
 
   // add flags in future
   // DIPUEvent(unsigned int flags) : flags_{flags} {}
@@ -114,7 +117,7 @@ public:
 
 private:
   unsigned int flags_ = 0;
-  bool is_created_ = false;
+  std::atomic_bool is_created_;
   bool was_recorded_ = false;
   c10::DeviceIndex device_index_ = -1;
   deviceEvent_t event_ = nullptr;
@@ -128,7 +131,9 @@ private:
 
   void moveHelper(DIPUEvent&& other) {
     std::swap(flags_, other.flags_);
-    std::swap(is_created_, other.is_created_);
+    bool temp_created = is_created_;
+    is_created_.store(other.is_created_);
+    other.is_created_ = temp_created;
     std::swap(was_recorded_, other.was_recorded_);
     std::swap(device_index_, other.device_index_);
     std::swap(event_, other.event_);
