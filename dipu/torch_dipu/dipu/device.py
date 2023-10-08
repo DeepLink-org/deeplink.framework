@@ -93,7 +93,7 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
     # class __new__ always pass cls parameter to args
     def _proxyNewClass(cls, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
-        return rawfunc(*args, **kwargs)
+        return rawfunc(cls, *args, **kwargs)
 
     if caller == "static":
         return _proxyFuncStatic
