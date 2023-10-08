@@ -9,8 +9,14 @@ from torch_dipu import _C
 import os
 __dipu__ = 'dipu'
 __dipu_device_type__ = _C.dipu_device_type
-_C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda)
-__diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
+__diputype__ = __dipu_device_type__
+
+def init_dipu_device_type():
+  global __diputype__
+  _C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda)
+  __diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
+
+init_dipu_device_type()
 
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]

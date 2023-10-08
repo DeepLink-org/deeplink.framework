@@ -90,6 +90,8 @@ def apply_torch_function_patch():
                 setattr(torch.cuda.random, attr, getattr(dipu.random_dipu, attr))
             if attr in torch.cuda.memory.__all__ and hasattr(dipu.memory, attr):
                 setattr(torch.cuda.memory, attr, getattr(dipu.memory, attr))
+        # special case dipu ans cuda use different name
+        torch.cuda.device = dipu.devicectx
 
 
 # temp solution, need redesign storage
