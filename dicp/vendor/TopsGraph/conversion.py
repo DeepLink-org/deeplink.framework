@@ -4,18 +4,27 @@ from . import tops_op
 from abc import ABC, abstractmethod
 from torch.fx import Proxy
 import operator
+from dicp.dynamo_bridge.compile_fx import is_torch_210
 
 conversions = {}
 patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
+def args_kwargs_unchange(args, kwargs):
+    return args, kwargs
+
 def _register_conversion(
-    aten_fn, decomp_fn
+    aten_fn, decomp_fn, process_args_kwargs_fn=None
 ):
-    @functools.wraps(decomp_fn)
-    def wrapped(*args, **kwargs):
-        return decomp_fn(*args, **kwargs)
+    register_op_singleton_flag = isinstance(decomp_fn, type) and issubclass(decomp_fn, tops_op.Operator)
+    if register_op_singleton_flag:
+        wrapped = (decomp_fn.get_singleton(),
+                   args_kwargs_unchange if process_args_kwargs_fn is None else process_args_kwargs_fn)
+    else:
+        @functools.wraps(decomp_fn)
+        def wrapped(*args, **kwargs):
+            return decomp_fn(*args, **kwargs)
 
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
@@ -30,7 +39,10 @@ def _register_conversion(
                     aten_fn.append(other_fn)
 
     conversions.update({fn: wrapped for fn in aten_fn})
-    return wrapped
+    if register_op_singleton_flag:
+        return wrapped[0]
+    else:
+        return wrapped
 
 def register_conversion(aten_fn):
     """
@@ -135,9 +147,8 @@ def Squeeze(a, b):
 def Unsqueeze(a, b):
     return tops_op.Unsqueeze(a, b)
 
-@register_conversion(torch.ops.aten.permute)
-def Permute(a, b):
-    return tops_op.Transpose(a, b)
+Permute = register_conversion(torch.ops.aten.permute)(tops_op.Transpose)
+torch.fx.wrap("Permute")
 
 @register_conversion(torch.ops.aten.transpose)
 def Transpose(a, b, c):
@@ -180,9 +191,7 @@ def Neg(*args, **kwargs):
 def Mean(*args, **kwargs):
     return tops_op.ReduceMean(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.view)
-def View(a, b):
-    return tops_op.Reshape(a, b)
+Reshape = torch.fx.wrap(register_conversion(torch.ops.aten.view)(tops_op.Reshape))
 
 @register_conversion(torch.ops.aten.convolution)
 def Convolution(*args, **kwargs):
@@ -232,9 +241,8 @@ def Log(*args, **kwargs):
 def Max(*args, **kwargs):
     return tops_op.ReduceMax(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.mm)
-def Gemm(*args, **kwargs):
-    return tops_op.Gemm(*args, **kwargs)
+Gemm = torch.fx.wrap(register_conversion(torch.ops.aten.mm)(tops_op.Gemm))
+DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
 
 @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
 def Batchnorm(*args, **kwargs):
@@ -252,9 +260,7 @@ def Softmax(*args, **kwargs):
 def Range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.bmm.default)
-def Dotgeneral(*args, **kwargs):
-    return tops_op.Dotgeneral(*args, **kwargs)
+Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 
 @register_conversion(torch.ops.aten.dot.default)
 def Dot(*args, **kwargs):
@@ -280,9 +286,7 @@ def NewEmptyStrided(*args, **kwargs):
 def Euqal(*args, **kwargs):
     return tops_op.Euqal(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.expand.default)
-def Expand(*args, **kwargs):
-    return tops_op.Expand(*args, **kwargs)
+Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
 
 @register_conversion(torch.ops.aten.full.default)
 def Full(*args, **kwargs):
@@ -475,3 +479,44 @@ class ReplacePatternSiLU:
 
     def replacement(a):
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
+
+if is_torch_210:
+    import functools
+    from dicp.dynamo_bridge.op_transformer import (
+        BackendPatternBase,
+        PatternMatcherPass,
+        register_backend_patterns,
+    )
+
+    tops_patterns = PatternMatcherPass()
+    tops_patterns_cls_list = []
+    register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
+
+    @register_tops_patterns
+    class GemmTransposeRhsPattern(BackendPatternBase):
+        @staticmethod
+        def pattern(reshaped_input, weight):
+            transposed_weight = Permute(weight, [1, 0])
+            return Gemm(reshaped_input, transposed_weight)
+
+        @staticmethod
+        def replacement(reshaped_input, weight):
+            return DotGeneral(reshaped_input, weight, "{}, {}, {1}, {1}")
+
+    @register_tops_patterns
+    class LlamaMatmulTransposePattern(BackendPatternBase):
+        @staticmethod
+        def pattern(xq, keys, expanded_xq_size, reshaped_xq_size, expanded_keys_size, reshaped_keys_size):
+            xq_1 = Permute(xq, [0, 2, 1, 3])
+            keys_1 = Permute(keys, [0, 2, 1, 3])
+            keys_2 = Permute(keys_1, [0, 1, 3, 2])
+            expanded_xq = Expand(xq_1, expanded_xq_size)
+            reshaped_xq = Reshape(expanded_xq, reshaped_xq_size)
+            expanded_keys = Expand(keys_2, expanded_keys_size)
+            reshaped_keys = Reshape(expanded_keys, reshaped_keys_size)
+            bmm_res = Bmm(reshaped_xq, reshaped_keys)
+            return bmm_res
+
+        @staticmethod
+        def replacement(xq, keys):
+            return DotGeneral(xq, keys, "{0, 2}, {0, 2}, {3}, {3}")

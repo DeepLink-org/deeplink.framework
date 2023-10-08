@@ -3,74 +3,26 @@ import operator
 import _operator
 import torch
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
-from abc import ABC, abstractmethod
-from collections import defaultdict
+from dicp.dynamo_bridge.conversion import register_conversion_impl
+from dicp.dynamo_bridge.op_transformer import (
+        BackendPatternBase,
+        PatternMatcherPass,
+        register_backend_patterns,
+    )
 
-conversions = defaultdict(list)
-patterns = []
-backend_patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
-def args_kwargs_unchange(args, kwargs):
-    return args, kwargs
-
-def _registe_conversion(
-    aten_fn, decomp_fn, process_args_kwargs_fn=None
-):
-    register_op_singleton_flag = isinstance(decomp_fn, type) and issubclass(decomp_fn, ascend_op.Operator)
-    if register_op_singleton_flag:
-        wrapped = (decomp_fn.get_singleton(),
-                   args_kwargs_unchange if process_args_kwargs_fn is None else process_args_kwargs_fn)
-    else:
-        @functools.wraps(decomp_fn)
-        def wrapped(*args, **kwargs):
-            return decomp_fn(*args, **kwargs)
-    
-    if not isinstance(aten_fn, (list, tuple)):
-        aten_fn = [aten_fn]
-    else:
-        aten_fn = list(aten_fn)
-
-    for fn in list(aten_fn):
-        if isinstance(fn, torch._ops.OpOverloadPacket):
-            for overload in fn.overloads():
-                other_fn = getattr(fn, overload)
-                # if other_fn not in conversions:
-                aten_fn.append(other_fn)
-
-    for fn in aten_fn:
-        conversions[fn].append(wrapped)
-    return wrapped
-
-
+conversions = {}
 def registe_conversion(aten_fn):
     """
     Shim to support decorator syntax.
     """
     return functools.partial(
-        _registe_conversion,
+        register_conversion_impl,
+        conversions,
         aten_fn,
     )
-
-
-def registe_pattern(Pattern):
-    patterns.append(Pattern)
-    return Pattern
-
-# Backend Patterns
-def register_backend_pattern(pattern):
-    backend_patterns.append(pattern)
-    return pattern
-
-
-class BaseReplacePattern(ABC):
-    @abstractmethod
-    def pattern(*args, **kwargs):
-        pass
-    @abstractmethod
-    def replacement(*args, **kwargs):
-        pass
 
 @registe_conversion(torch.ops.aten.arange.default)
 def arange(end, start=0, step=1, device='cpu', pin_memory=False):
@@ -95,6 +47,10 @@ def rsub(a, b):
 @registe_conversion(torch.ops.aten.mul)
 def mul(a, b):
     return ascend_op.Mul(a, b)
+
+@registe_conversion(torch.ops.aten.mul.Tensor)
+def mul_tensor(a, b):
+    return ascend_op.MulTensor(a, b)
 
 @registe_conversion(torch.ops.aten.div)
 def div(a, b):
@@ -210,9 +166,8 @@ def permute(x, dims):
 def cumsum(x, dim, dtype=None):
     return ascend_op.CumSum(x, dim, dtype)
 
-@registe_conversion(torch.ops.aten.mm.default)
-def matmul(a, b):
-    return ascend_op.MatMul(a, b)
+mm = torch.fx.wrap(registe_conversion(torch.ops.aten.mm.default)(ascend_op.MatMul))
+
 
 @registe_conversion(torch.ops.aten.sort.default)
 def sort(x, dim=-1, descending=False):
@@ -293,7 +248,10 @@ def empty(size, dtype=torch.int64, layout=torch.strided, device='cpu'):
 
 @registe_conversion(torch.ops.aten.index.Tensor)
 def index(x, index):
-    return ascend_op.IndexSelect(x, 0, index, None)
+    return ascend_op.Index(x, 0, index, None)
+
+index_select = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.index_select.default)(ascend_op.IndexSelect))
 
 @registe_conversion(torch.ops.aten.index_select.default)
 def index_arg2_(x, index):
@@ -456,25 +414,18 @@ def Maximum(x, y):
 def Eq(x, y):
     return ascend_op.Eq(x, y)
 
-@registe_conversion(torch.ops.aten.t.default)
-def t(input):
-    return ascend_op.T(input)
+t = torch.fx.wrap(registe_conversion(torch.ops.aten.t.default)(ascend_op.T))
 
-@registe_conversion(torch.ops.aten.transpose.int)
-def transpose(input, dim0, dim1):
-    return ascend_op.Transpose(input, dim0, dim1)
+transpose = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.transpose.int)(ascend_op.Transpose))
 
-@registe_conversion(torch.ops.aten.expand.default)
-def expand(x, dims):
-    return ascend_op.ExpandD(x, dims)
+expand = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.expand.default)(ascend_op.ExpandD))
 
-@registe_conversion(torch.ops.aten.view.default)
-def view(x, shape):
-    return ascend_op.TranShape(x, shape)
+view = torch.fx.wrap(registe_conversion(torch.ops.aten.view.default)(ascend_op.TranShape))
 
-@registe_conversion(torch.ops.aten.bmm.default)
-def bmm(x1, x2, adj_x1=False, adj_x2=False):
-    return ascend_op.BatchMatMul(x1, x2, adj_x1, adj_x2)
+bmm = torch.fx.wrap(registe_conversion(
+    torch.ops.aten.bmm.default)(ascend_op.BatchMatMul))
 
 @registe_conversion(torch.ops.aten.bernoulli.p)
 def Bernoulli(x, p, generator=None):
@@ -485,26 +436,4 @@ def NewEmptyStrided(x, size, stride, dtype = torch.float32, layout = torch.strid
                       device = 'cpu', pin_memory = False):
     return ascend_op.NewEmptyStrided(x, size, stride, dtype, layout, device, pin_memory)
 
-@registe_pattern
-class ReplaceVarMean(BaseReplacePattern):
-    def pattern(input, dims):
-        return torch.ops.aten.var_mean.correction(input, dims, correction=0, keepdim=True)
 
-    def replacement(input, dims):
-        meanVal = torch.ops.aten.mean(input, dims, True)
-        varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
-        return ascend_op.ret_tuple(varVal, meanVal)
-
-'''
-@register_backend_pattern
-class FuseTransposeBmm(BaseReplacePattern):
-    def pattern(x1, x2):
-        transpose_3 = transpose(x2, 2, 3)
-        expand_1 = expand(transpose_3, [1, 32, 128, 32])
-        view_16 = view(expand_1, [32, 128, 32])
-        return bmm(x1, view_16)
-
-    def replacement(x1, x2):
-        view_16 = view(x2, [32, 32, 128])
-        return bmm(x1, view_16, adj_x1 = False, adj_x2 = True)
-'''

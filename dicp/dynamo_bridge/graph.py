@@ -6,13 +6,13 @@ import sys
 import time
 import torch
 import torch.fx
-
+from typing import Optional
 from torch._dynamo import config as dynamo_config
 from torch._dynamo.utils import dynamo_timed
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._inductor.codecache import cache_dir
-
 from dicp.dynamo_bridge.utils import save_cpu_gm
+from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
 
 log = logging.getLogger(__name__)
 
@@ -22,10 +22,10 @@ class GraphTransformer:
         gm: torch.fx.GraphModule,
         backend: str,
     ):
-        self.origin_gm = gm
+        self.gm = gm
         self.backend = backend
         self.folder = cache_dir()
-        self.graph_key = save_cpu_gm(gm, self.folder)
+        self.cpu_gm, self.graph_key = save_cpu_gm(gm, self.folder)
         if backend == 'topsgraph':
             from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
@@ -41,9 +41,16 @@ class GraphTransformer:
         self.gm = self.backend_opset_transform(self.gm)
 
     def infer_shape_dtype(self):
+        def make_tensor_meta(x) -> Optional[TensorMetadata]:
+            if isinstance(x, FakeTensor):
+                return _extract_tensor_metadata(x)
+            else:
+                return None
+
         for n in self.gm.graph.nodes:
             if n.op == 'call_function':
                 n.meta['val'] = (n.target(*n.args, **n.kwargs))
+                n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
             elif n.op == 'get_attr':
                 target_atoms = n.target.split('.')
                 attr_itr = self.gm
@@ -54,9 +61,10 @@ class GraphTransformer:
                     attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
                 with FakeTensorMode():
                     n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
+                n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
 
     def codegen(self):
-        return self.backend_codegen(self.gm, self.origin_gm, self.folder, self.graph_key).codegen()
+        return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen()
 
     @dynamo_timed
     def compile_to_module(self):

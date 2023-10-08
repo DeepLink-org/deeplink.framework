@@ -19,9 +19,9 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
              'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'mm', 'masked_fill',
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided', 'fill']
+             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -901,6 +901,10 @@ class AscendOverrides:
         id_op.set_dynamic_output("y", 2)
         ops = [a, b, c, d, ac, bd, ad, bc, ac_bd, ad_bc, id_op]
         return [op.to_node() for op in ops]
+
+    @staticmethod
+    def mul_tensor(name, node, x, y):
+        return getattr(AscendOverrides, 'mul')(name, node, x, y)
 
     @staticmethod
     def add(name, node, x, y):
@@ -1899,7 +1903,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def index_select(name, x, dim, index):
+    def _index(name, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
         if isinstance(index, list):
             assert len(index) == 1
@@ -1921,15 +1925,16 @@ class AscendOverrides:
 
     @staticmethod
     def index(name, x, index):
-        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
+        return getattr(AscendOverrides, "index_")(name, x, 0, index)
 
     @staticmethod
-    def index_arg2_(name, x, index):
-        return getattr(AscendOverrides, "index_select")(name, x, 0, index)
-    
-    @staticmethod
-    def index_arg3_(name, x, dim, index):
-        return getattr(AscendOverrides, "index_select")(name, x, dim, index)
+    def index_select(*args, **kwargs):
+        if len(args) == 3:
+            (name, x, index) = args
+            return getattr(AscendOverrides, "_index")(name, x, 0, index)
+        else:
+            (name, x, dim, index) = args
+            return getattr(AscendOverrides, "_index")(name, x, dim, index)
 
     @staticmethod
     def ones(name, shape, dtype=torch.int64, device='cpu', pin_memory=False):
@@ -2036,15 +2041,15 @@ class AscendOverrides:
         return ops
 
     @staticmethod
-    def mm(name, node, x, y):
-        if node.target.change_input:
+    def mm(name, x, y, trans_a=False, trans_b=False, change_input=False):
+        if change_input:
             (x, y) = (y, x)
         op = OP(name, "MatMul")
         op.set_input("x1", x)
         op.set_input("x2", y)
-        if node.target.trans_a:
+        if trans_a:
             op.set_attr_bool("transpose_x1", True)
-        if node.target.trans_b:
+        if trans_b:
             op.set_attr_bool("transpose_x2", True)
         return op.to_node()
 

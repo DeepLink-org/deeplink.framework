@@ -48,11 +48,11 @@ cxx_type_set = {"torch.float32": "float_t",
                 "torch.bool": "bool"}
 
 need_node = ['Scalar', 'Div', 'ReduceSum', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Dotgeneral', 'Slice', 'Select', 
+             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Bmm', 'Slice', 'Select', 
              'Viewasreal', 'Complexmul', 'Concatenate', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
              'ArangeDefault', 'SliceScatter']
 
-need_dict = ['Div', 'Dotgeneral', 'Slice', 'Select', 'Complex', 'Concatenate']
+need_dict = ['Div', 'Bmm', 'Slice', 'Select', 'Complex', 'Concatenate']
 
 not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Slice', 'Scatter', 
                  'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
@@ -557,6 +557,8 @@ class EnflameOverrides(OpOverrides):
                      args_str.append(nodelistarg)
                 else:
                     args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
+            elif isinstance(args[i], str):
+                args_str.append(args[i])
             else:
                 if "squeeze" in node.name:
                     src_code.writeline("")
@@ -685,7 +687,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Dotgeneral(op_var, node, args_dict):
+    def Bmm(op_var, node, args_dict):
         args = node.args
         args_str = []
         src_code = ""
@@ -709,7 +711,15 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var} = builder::Convert({op_var}_tmp, {op_var}_type);"
 
         return src_code
-    
+
+    @staticmethod
+    def DotGeneral(op_var, lhs, rhs, dot_dimension_numbers_str):
+        src_code = ""
+        src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({dot_dimension_numbers_str});\n"
+        src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        return src_code
+
     @staticmethod
     def Dot(op_var, x, y):
         return f"builder::Op {op_var} = builder::Dot({x}, {y});"

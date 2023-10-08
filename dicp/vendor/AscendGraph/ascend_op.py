@@ -7,6 +7,11 @@ from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 from torch.utils._pytree import tree_map, tree_flatten
+from abc import ABC, abstractmethod
+import torch.jit._shape_functions as shape_functions
+from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
+from dicp.dynamo_bridge.operator import Operator
+
 
 aten = torch.ops.aten
 
@@ -22,71 +27,7 @@ def negative_in_shape(shape):
             return True
     return False
 
-class Operator():
-    __name__: str
-    _singleton = None
-
-    def __init__(self, name_):
-        super().__init__()
-        self.__name__ = name_
-        if torch.__version__.startswith("2.0"):
-            self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
-            self.fake_mode = (
-                FakeTensorMode(shape_env=self.shape_env)
-                if config.use_fake_tensor
-                else nullcontext()
-            )
-        elif torch.__version__.startswith("2.1"):
-            self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
-            self.fake_mode = (
-                FakeTensorMode(shape_env=self.shape_env)
-                if config.fake_tensor_allow_meta
-                else nullcontext()
-            )
-        else:
-            raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
-    
-    @classmethod
-    def get_singleton(cls):
-        args = [None] * (cls.__init__.__code__.co_argcount - 1)
-        if cls._singleton is None:
-           cls._singleton = cls(*args)
-        return cls._singleton
-
-    def name(self):
-        return self.__name__
-
-    def __call__(self, *args, **kwargs):
-        def get_meta(x):
-            return x if not hasattr(x, 'meta') else x.meta['val']
-        new_args = tree_map(get_meta, args)
-        
-        fake_mode = None
-        tmp_args, _ = tree_flatten(new_args)
-        for arg in tmp_args:
-            if isinstance(arg, FakeTensor):
-                fake_mode = arg.fake_mode
-                break
-        fake_mode = self.fake_mode if fake_mode is None else fake_mode
-
-        def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) \
-                        and x.fake_mode == fake_mode):
-                return x
-            if isinstance(x, FakeTensor):
-                x.fake_mode = fake_mode
-                return x
-            return FakeTensor.from_tensor(x, fake_mode)
-        new_args = tree_map(make_faketensor, new_args)
-
-        def make_cpu(x):
-            if isinstance(x, torch.Tensor):
-                return x.to('cpu')
-            return x
-        new_args = tree_map(make_cpu, new_args)
-
-        with fake_mode:
-            return self.torch_op(*new_args, **kwargs)
+                
 
 
 class Add(Operator):
@@ -172,60 +113,37 @@ class CumSum(Operator):
 
 
 class MatMul(Operator):
-    def __init__(self, a, b, trans_a=False, trans_b=False, change_input=False):
+    def __init__(self):
         super().__init__("mm")
-        self.a = a
-        self.b = b
-        self.trans_a = trans_a
-        self.trans_b = trans_b
-        self.change_input = change_input
 
-    def __call__(self, *args, **kwargs):
-        trans_a = trans_b = change_input=False
-        if len(args) == 2:
-            (a, b) = args
-        elif len(args) == 4:
-            (a, b, trans_a, trans_b) = args
-        elif len(args) == 5:
-            (a, b, trans_a, trans_b, change_input) = args
-        else:
-            import pdb; pdb.set_trace()
-            assert False
-
+    def infer_result(self, a, b, trans_a=False, trans_b=False, change_input=False):
         if hasattr(a, 'meta'):
             a = a.meta['val']
         if hasattr(b, 'meta'):
             b = b.meta['val']
-
-        if len(args) > 4 and change_input:
+        if change_input:
             (a, b) = (b, a)
-
-        with a.fake_mode:
-            if len(args) > 2:
-                trans_b = b if not trans_b else aten.t(b)
-                trans_a = a if not trans_a else aten.t(a)
-                return aten.matmul(trans_a, trans_b)
-            return aten.matmul(a, b)
-
+        
+        trans_a_shape = shape_functions.t(a.shape) if trans_a else a.shape
+        trans_b_shape = shape_functions.t(b.shape) if trans_b else b.shape
+        mm_shape = shape_functions.matmul(trans_a_shape, trans_b_shape)
+        return TensorInfo(mm_shape, dtype=a.dtype, memory_format=get_memory_format(a))
+    
 
 class BatchMatMul(Operator):
-    def __init__(self, x1, x2, adj_x1=False, adj_x2=False):
+    def __init__(self):
         super().__init__("bmm")
-        self.x1 = x1
-        self.x2 = x2
-        self.adj_x1 = adj_x1
-        self.adj_x2 = adj_x2
+        
     
-    def __call__(self, x1, x2, adj_x1=False, adj_x2=False):
+    def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
         if hasattr(x1, 'meta'):
             x1 = x1.meta['val']
         if hasattr(x2, 'meta'):
             x2 = x2.meta['val']
-
-        with x1.fake_mode:
-            tensor_x1 = x1 if not adj_x1 else aten.transpose(x1, 1, 2)
-            tensor_x2 = x2 if not adj_x2 else aten.transpose(x2, 1, 2)
-            return aten.bmm(tensor_x1, tensor_x2)
+        trans_x1_shape = shape_functions.transpose(x1.shape, 1, 2) if adj_x1 else x1.shape
+        trans_x2_shape = shape_functions.transpose(x2.shape, 1, 2) if adj_x2 else x2.shape
+        bmm_shape = shape_functions.bmm(trans_x1_shape, trans_x2_shape)
+        return TensorInfo(bmm_shape, dtype=x1.dtype, memory_format=get_memory_format(x1))
 
 
 class Sub(Operator):
@@ -247,6 +165,13 @@ class Rsub(Operator):
 class Mul(Operator):
     def __init__(self, a, b):
         super().__init__("mul")
+        self.a = a
+        self.b = b
+        self.torch_op = aten.mul
+
+class MulTensor(Operator):
+    def __init__(self, a, b):
+        super().__init__("mul_tensor")
         self.a = a
         self.b = b
 
@@ -278,7 +203,6 @@ class Mul(Operator):
 
         with fake_mode:
             return aten.empty(shape, dtype=a.dtype)
-
 
 class Div(Operator):
     def __init__(self, a, b):
@@ -353,21 +277,15 @@ class Silu(Operator):
 
 
 class Transpose(Operator):
-    def __init__(self, input, dim0, dim1):
+    def __init__(self):
         super().__init__("transpose")
-        self.input = input
-        self.dim0 = dim0
-        self.dim1 = dim1
-        self.torch_op = aten.transpose
 
-    def __call__(self, input, dim0, dim1):
+    def infer_result(self, input, dim0, dim1):
         if hasattr(input, 'meta'):
             input = input.meta['val']
         shape = list(input.shape)
         (shape[dim1], shape[dim0]) = (shape[dim0], shape[dim1])
-
-        with input.fake_mode:
-            return aten.empty(shape, dtype=input.dtype)
+        return TensorInfo(shape, dtype=input.dtype, memory_format=get_memory_format(input))
 
 
 class ToCopy(Operator):
@@ -454,11 +372,8 @@ class Permute(Operator):
 
 
 class ExpandD(Operator):
-    def __init__(self, x, dims):
+    def __init__(self):
         super().__init__("expand")
-        self.x = x
-        self.dims = dims
-        self.torch_op = aten.expand
 
     def __call__(self, x, dims):
         if hasattr(x, 'meta'):
@@ -806,15 +721,44 @@ class Empty(Operator):
         self.torch_op = aten.empty
 
 
-class IndexSelect(Operator):
-    def __init__(self, x, dim, index, arg_num):
-        if arg_num is not None:
-            super().__init__("index_arg{}_".format(arg_num))
+class Index(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("index")
+    
+    def __call__(self, *args, **kwargs):
+        dim = 0
+        if len(args) == 2:
+            (x, index) = args
+        elif len(args) == 3:
+            (x, dim, index) = args
         else:
-            super().__init__("index")
-        self.x = x
-        self.dim = dim
-        self.index = index
+            assert False
+
+        if isinstance(index, list):
+            index = index[0]
+        if hasattr(index, 'meta'):
+            index = index.meta['val']
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+
+        fake_mode = None
+        for arg in [x, index]:
+            if isinstance(arg, FakeTensor):
+                fake_mode = arg.fake_mode
+                break
+        fake_mode = self.fake_mode if fake_mode is None else fake_mode
+
+        for arg in [x, index]:
+            if isinstance(arg, FakeTensor):
+                arg.fake_mode = fake_mode
+
+        with fake_mode:
+            return aten.index_select(x.to('cpu'), dim, index.to('cpu'))
+
+
+class IndexSelect(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("index_select")
     
     def __call__(self, *args, **kwargs):
         dim = 0
