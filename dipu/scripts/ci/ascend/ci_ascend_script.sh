@@ -12,10 +12,9 @@ function build_diopi_lib() {
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
     export CMAKE_BUILD_TYPE=debug
-    export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./build1.log
-    mv build/python_ext/torch_dipu/_C.cpython-38-$(uname -m)-linux-gnu.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
 }
 
 function config_dipu_ascend_cmake() {

@@ -2,7 +2,6 @@
 
 function build_dipu_py() {
     export CMAKE_BUILD_TYPE=debug
-    export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
