@@ -2097,3 +2097,14 @@
     }
     return out;
   interface: diopiNeg(ctx, out, self)
+
+- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  no_device_check_args: [self, src]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
+  interface: diopiCopyInp(ctx, src, self)
+  custom_code_before_return: |
+    if (!non_blocking) {
+      dipu::getCurrentDIPUStream().synchronize();
+    }
