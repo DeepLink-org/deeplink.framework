@@ -37,9 +37,16 @@ else()
     set(DIPU_COMPILED_WITH_CXX11_ABI 0)
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
-add_compile_options(-DDIPU_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
+
+execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
+
+execute_process(COMMAND  sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')" OUTPUT_VARIABLE PYTORCH_DIR)
+string (REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
+string (REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
+message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
 
 # config
 include(cmake/BaseFuncions.cmake)
