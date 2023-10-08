@@ -127,7 +127,7 @@ def mem_get_info(device: Union[Device, int] = None) -> Tuple[int, int]:
     total = get_device_properties(device).total_memory
     free = get_device_status(device).free_memory
     if free == 0:
-      estimated_buffer = 1500 * 1024 * 1024
+      estimated_buffer = 1800 * 1024 * 1024
       print("warnning!! seems _DIPUDeviceProperties not contain valid free mem size,"
               "we try to estimate free size which may be not an accurate value!")
       free = total - memory_allocated(device) - estimated_buffer

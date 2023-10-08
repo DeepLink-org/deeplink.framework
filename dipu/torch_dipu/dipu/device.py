@@ -8,9 +8,9 @@ from torch_dipu import mockcuda
 from torch_dipu import _C
 import os
 __dipu__ = 'dipu'
-__dipu_internal_type__ = _C.dipu_cpp_type
+__dipu_device_type__ = _C.dipu_device_type
 _C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda)
-__diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_internal_type__
+__diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
 
 __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
@@ -31,15 +31,15 @@ class _DIPUDevice(metaclass=_MetaDeviceType):
     @staticmethod
     def __replacedipu(arg):
         if (__dipu__ in arg):
-            arg = arg.replace(__dipu__, __dipu_internal_type__)
+            arg = arg.replace(__dipu__, __dipu_device_type__)
         if (mockcuda and "cuda" in arg):
-            arg = arg.replace("cuda", __dipu_internal_type__)
+            arg = arg.replace("cuda", __dipu_device_type__)
         return arg
 
     def __new__(cls, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], int) and mockcuda:
             # modify default int device type only when "mock cuda".
-            dev_name = __dipu_internal_type__ + ":" + str(args[0])
+            dev_name = __dipu_device_type__ + ":" + str(args[0])
             _device = _MetaDeviceType._torch_device(dev_name)
             return _device
         # handle device as str

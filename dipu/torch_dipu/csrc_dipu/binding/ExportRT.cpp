@@ -56,7 +56,7 @@ static void exportDevices(py::module& m) {
   registerDIPUDeviceStatus(m);
    // Device Management.
   m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
-  m.attr("dipu_cpp_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
+  m.attr("dipu_device_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void {
