@@ -2,7 +2,6 @@ import os
 import argparse
 import torch
 import torch._dynamo as dynamo
-import pytest
 
 os.environ.setdefault("DIPU_MOCK_CUDA", "false")
 os.environ.setdefault("DICP_TOPS_DIPU", "True")
@@ -24,7 +23,10 @@ def update_dynamo_config(dynamic=False):
         dynamo.config.assume_static_by_default = True
 
 def get_device():
-    return torch_dipu.dipu.device.__dipu__
+    device_name = torch_dipu.dipu.device.__dipu__
+    device_index = "0"
+    device = f"{device_name}:{device_index}"
+    return device
 
 def compile_model(model, backend, need_dynamic=False):
     static_model = torch.compile(model, backend=backend, dynamic=False)

@@ -5,7 +5,7 @@ import torch.nn as nn
 import os
 import os.path as osp
 import torch._dynamo as dynamo
-import model.utils as model_utils
+from common import utils
 os.environ.setdefault("DIPU_MOCK_CUDA", "false")
 os.environ.setdefault("DICP_TOPS_DIPU", "True")
 import torch_dipu
@@ -18,8 +18,8 @@ from pathlib import Path
 from model.llama.generation import Tokenizer, LLaMA
 from model.llama.model import Transformer, ModelArgs
 dynamo.config.cache_size_limit = 128
-model_utils.update_dynamo_config(False)
-device = model_utils.get_device()
+utils.update_dynamo_config(False)
+device = utils.get_device()
 torch_dipu.dipu.set_device(device)
 models_dir = os.environ.get("LLAMA_MODEL_DIR")
 assert models_dir != None
@@ -42,7 +42,6 @@ def load(
 ) -> LLaMA:
     checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
     ckpt_path = checkpoints[0]
-    print("Loading", flush=True)
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     with open(Path(ckpt_dir) / "params.json", "r") as f:
         params = json.loads(f.read())

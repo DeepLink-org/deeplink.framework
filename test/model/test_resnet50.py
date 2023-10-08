@@ -8,7 +8,7 @@ import torch._dynamo as dynamo
 import mmcls
 from mmcv import Config
 from mmcls.models import build_classifier
-import model.utils as model_utils
+from common import utils
 import torch_dipu
 
 
@@ -38,8 +38,8 @@ def gen_fake_train_loader(shape, num_batches=100, num_classes=1000):
 
 class TestResnet50():
     def test_forward_train(self, backend, dynamic, fake_batch_num=10, batch_size=32):
-        model_utils.update_dynamo_config(dynamic=dynamic)
-        device = model_utils.get_device()
+        utils.update_dynamo_config(dynamic=dynamic)
+        device = utils.get_device()
         torch_dipu.dipu.set_device(device)
         cpu_model = gen_mmcls_model()
         dicp_model = copy.deepcopy(cpu_model)

@@ -4,7 +4,7 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from model.utils import get_device
+from common.utils import get_device
 device = get_device()
 
 
@@ -228,7 +228,6 @@ class Transformer(nn.Module):
         # self.freqs_cis = self.freqs_cis.to(h.device)
         # freqs_cis = self.freqs_cis[start_pos: start_pos + seqlen]
 
-        # print("split")
         for layer_idx in range(len(self.layers)):
         # for layer_idx in range(1):
             h = self.layers[layer_idx](h, freqs_cis_real, mask, slice_size)

@@ -93,15 +93,10 @@ class LLaMA:
                     mask_list.append(final_mask_full)
                 mask = torch.cat(mask_list, dim=0)
             mask = mask.to(device)
-            print(f"input ids: {tokens[:, prev_pos:cur_pos]}")
-            print(f"slice_size: {slice_size}")
 
             logits = self.model.forward(tokens[:, prev_pos:cur_pos].clone(),
                                         torch.view_as_real(full_freqs_cis[prev_pos: cur_pos]).clone(),
                                         mask, slice_size)
-            if hasattr(self.model, "compile_profiler"):
-                print(f"model frame count: {self.model.compile_profiler.frame_count}", flush=True)
-            print(f"cur_pos: {cur_pos}", flush=True)
             if temperature > 0:
                 probs = torch.softmax(logits / temperature, dim=-1)
                 next_token = sample_top_p(probs, top_p)
@@ -116,8 +111,6 @@ class LLaMA:
             tokens[:, cur_pos] = next_token
             prev_pos = cur_pos
             max_cur_cache_len += 1
-        if hasattr(self.model, "compile_profiler"):
-            print(self.model.compile_profiler.report(), flush=True)
 
         decoded = []
         for i, t in enumerate(tokens.tolist()):

@@ -1,17 +1,18 @@
-# !/bin/bash
+#!/usr/bin/env bash
 
-WORK_DIR=$(dirname $(dirname $(dirname $(readlink -f $0))))
-export PYTHONPATH=$WORK_DIR:$PYTHONPATH
-CONFIG_DIR=$(dirname $(readlink -f $0))
-TEST_OP_DIR=${WORK_DIR}/op
+# TEST_DIR=$(dirname $(dirname $(dirname $(readlink -f $0))))
+if [ ! $TEST_DIR ]; then
+    echo "TEST_DIR is not defined!" >&2
+    exit 1
+fi
+CONFIG_DIR=${TEST_DIR}/ascend_scripts/ops
+TEST_OP_DIR=${TEST_DIR}/op
 
 BACKEND=ascendgraph
 NEED_DYNAMIC=$1
 
-PYTEST_CONFIG=${CONFIG_DIR}/${BACKEND}.ini
-PYTEST_CONFIG_DYNAMIC=${CONFIG_DIR}/${BACKEND}_dynamic.ini
+CONFIG_STATIC_ONLY=${CONFIG_DIR}/static_only.ini
+CONFIG_STATIC_DYNAMIC=${CONFIG_DIR}/static_dynamic.ini
 cd ${TEST_OP_DIR}
-if [ "$NEED_DYNAMIC" = "false" ]; then
-    pytest -c ${PYTEST_CONFIG} --backend ${BACKEND} --need_dynamic ${NEED_DYNAMIC}
-fi
-pytest -c ${PYTEST_CONFIG_DYNAMIC} --backend ${BACKEND} --need_dynamic ${NEED_DYNAMIC}
+pytest -c ${CONFIG_STATIC_ONLY} --backend ${BACKEND} --need_dynamic false
+pytest -c ${CONFIG_STATIC_DYNAMIC} --backend ${BACKEND} --need_dynamic ${NEED_DYNAMIC}
