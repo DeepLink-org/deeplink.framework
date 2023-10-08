@@ -90,7 +90,6 @@ class CPPLibBuild(build_clib, object):
             # '-DCMAKE_INSTALL_PREFIX=' + os.path.abspath(output_lib_path),
             # '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + os.path.abspath(output_lib_path),
             # '-DTORCHDIPU_INSTALL_LIBDIR=' + os.path.abspath(output_lib_path),
-            # '-DPYTHON_INCLUDE_DIR=' + get_paths()['include'],
             # '-DPYTORCH_INSTALL_DIR=' + get_pytorch_dir()
         ]
         build_args = ['-j', 12]

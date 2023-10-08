@@ -59,11 +59,7 @@ git clone git@github.com:DeepLink-org/dipu.git
 cd dipu
 git submodule update --init --recursive
 
-# 修改 template_build _sh 中 PYTORCH_DIR、PYTHON_INCLUDE_DIR
 # 示例
-# PYTORCH_DIR="/home/$USER/code/pytorch"
-# PYTHON_INCLUDE_DIR="/home/$USER/env/py3.8/include/python3.8"
-
 # DIPU_DEVICE设置成厂商在dipu的设备名，即 https://github.com/DeepLink-org/dipu/blob/main/CMakeLists.txt 中的DEVICE_CAMB、DEVICE_ASCEND对应的字符串
 # DIOPI_IMPL设置成厂商在DIOPI/impl的实现代号，即 https://github.com/DeepLink-org/DIOPI/blob/main/impl/CMakeLists.txt 中的IMPL_CAMB、IMPL_ASCEND等对应的字符串
 # 示例
@@ -78,7 +74,7 @@ sh template_build_sh builddp $DIPU_DEVICE $DIOPI_IMPL
 ``` bash
 export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/impl/lib
 export DIPU_ROOT=/home/$USER/code/dipu/torch_dipu
-export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH; 
+export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH;
 export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=/home/$USER/code/dipu:$PYTHONPATH
 

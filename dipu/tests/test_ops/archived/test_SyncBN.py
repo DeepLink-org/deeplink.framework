@@ -27,15 +27,15 @@ class TestSchema(unittest.TestCase):
     def test_batch_norm_gather_stats_with_counts(self):
         if (torch.cuda.is_available() is False):
             return
-        workpiece = 7
+        world_size = 7
         input = torch.rand(2, 8, 32, 56, 56)
-        mean_all = torch.rand(workpiece, 8)
-        invstd_all = torch.rand(workpiece, 8)
+        mean_all = torch.rand(world_size, 8)
+        invstd_all = torch.rand(world_size, 8)
         running_mean = torch.rand(8)
         running_var = torch.rand(8)
         momentum = 1e-4
         eps = 1e-5
-        count_all = torch.rand(workpiece * 8)
+        count_all = torch.rand(world_size)
         res1 = self._test_bng(input, mean_all, invstd_all, running_mean, running_var, momentum, eps, count_all, device_cuda)
         res2 = self._test_bng(input, mean_all, invstd_all, running_mean, running_var, momentum, eps, count_all, device_dipu)
         self._test_res(res1, res2)
