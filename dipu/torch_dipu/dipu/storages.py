@@ -82,16 +82,15 @@ def _resize(self, size: int):
 UntypedStorage.resize_ = _resize
 
 
-class _MetaDIPUStor(type):
+class _MetaDIPUStor(torch._C._StorageMeta):
   _raw_untyped_storage = torch.UntypedStorage
   def __instancecheck__(cls, inst):
     if isinstance(inst, _MetaDIPUStor._raw_untyped_storage):
       return True
     return False
 
-class DIPUUntypedStorage(metaclass=_MetaDIPUStor):
+class DIPUUntypedStorage(UntypedStorage, metaclass=_MetaDIPUStor):
   _constructor = GetDeviceProxy(_MetaDIPUStor._raw_untyped_storage, pos = -1, caller="class_new")
-
   def __new__(cls, *args, **kwargs):
     return cls._constructor(cls, *args, **kwargs)
 
