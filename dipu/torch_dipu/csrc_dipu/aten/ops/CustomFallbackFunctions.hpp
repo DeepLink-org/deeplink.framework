@@ -1,5 +1,7 @@
 #pragma once
+
 #include "OpUtils.hpp"
+#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
 namespace dipu::native {
 
@@ -254,9 +256,6 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_nativ
 
 static  at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    if (dumpOpArgLevel() > 0) {
-    	printf("--%-50s %-30s \n", "[copy_]:", "diopiCopyInp");
-    }
     static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
     dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
     if (non_blocking) {

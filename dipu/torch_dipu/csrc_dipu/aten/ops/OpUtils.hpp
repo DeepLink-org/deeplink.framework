@@ -123,7 +123,6 @@ std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
     return stream.str();
 }
 
-
 template<typename T1, typename T2 , template<typename elem1> class container1, template<typename elem2> class container2>
 static std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_shape, const container2<T2> & dims, bool keepdim) {
     if (dims.size() <= 0) {
@@ -157,7 +156,6 @@ static std::vector<int64_t> infer_reduce_op_shape(const container1<T1> & input_s
         return output_shape;
     }
 }
-
 
 static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
     if(a.defined() && b.defined()) {

@@ -14,7 +14,6 @@ diopi_wrapper_file_template_content = \
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
 #include <csrc_dipu/utils/Log.h>
-#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 #include "CustomFallbackFunctions.hpp"
 
 $header_include_code
