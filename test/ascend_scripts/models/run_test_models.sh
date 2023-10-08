@@ -18,10 +18,18 @@ TEST_MODEL_DIR=${TEST_DIR}/model
 BACKEND=ascendgraph
 DYNAMIC=$1
 
-CONFIG_STATIC_ONLY=${CONFIG_DIR}/static_only.ini
-CONFIG_DYNAMIC_ONLY=${CONFIG_DIR}/dynamic_only.ini
+CONFIG_STATIC=${CONFIG_DIR}/static.ini
+CONFIG_DYNAMIC=${CONFIG_DIR}/dynamic.ini
 cd ${TEST_MODEL_DIR}
-pytest -c ${CONFIG_STATIC_ONLY} --backend ${BACKEND} --dynamic false
-if [ "$DYNAMIC" = "true" ]; then
-    pytest -c ${CONFIG_DYNAMIC_ONLY} --backend ${BACKEND} --dynamic ${DYNAMIC}
+
+if [ ${DYNAMIC} == false ]; then
+    pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
+elif [ ${DYNAMIC} == true ]; then
+    pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
+elif [ ${DYNAMIC} == all ]; then
+    pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic false
+    pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic true
+else
+    echo "DYNAMIC should in (true, false, all)" >&2
+    exit 1
 fi

@@ -8,7 +8,15 @@ fi
 TEST_OP_DIR=${TEST_DIR}/op
 TEST_TORCH_OP=$1
 BACKEND=$2
-NEED_DYNAMIC=$3
+DYNAMIC=$3
 
 cd ${TEST_OP_DIR}
-pytest test_${TEST_TORCH_OP}.py --backend ${BACKEND} --need_dynamic ${NEED_DYNAMIC}
+if [ ${DYNAMIC} == false ] || [ ${DYNAMIC} == true ]; then
+    pytest test_${TEST_TORCH_OP}.py --backend ${BACKEND} --dynamic ${DYNAMIC}
+elif [ $DYNAMIC == all ]; then
+    pytest test_${TEST_TORCH_OP}.py --backend ${BACKEND} --dynamic false
+    pytest test_${TEST_TORCH_OP}.py --backend ${BACKEND} --dynamic true
+else
+    echo "DYNAMIC should in (true, false, all)" >&2
+    exit 1
+fi

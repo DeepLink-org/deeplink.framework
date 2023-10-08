@@ -6,7 +6,7 @@ import torch._dynamo as dynamo
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
-        res_default = torch.ops.aten.mm.default(a, b)
+        res_default = torch.ops.aten.bmm.default(a, b)
         return res_default
 
 model = OpModule()
@@ -14,11 +14,11 @@ args = parse_args()
 compiled_model = compile_model(model, args.backend, args.dynamic)
 
 
-class TestMm():
+class TestBmm():
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size(((5, 3), (3, 5)), ((5, 3), (3, 5))), Size(((5, 3), (3, 5)), ((5, 3), (3, 5)))])
+    @pytest.mark.parametrize("sizes", [Size(((5, 3, 4), (5, 4, 3)), ((5, 3, 4), (5, 4, 3))), Size(((3, 5, 2), (3, 2, 5)), ((3, 5, 2), (3, 2, 5)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
-    def test_torch_mm(self, sizes, dtype, compiled_model):
+    def test_torch_bmm(self, sizes, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size[0], dtype=dtype)

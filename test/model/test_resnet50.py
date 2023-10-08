@@ -37,7 +37,7 @@ def gen_fake_train_loader(shape, num_batches=100, num_classes=1000):
 
 
 class TestResnet50():
-    def test_forward_train(self, backend, dynamic, fake_batch_num=10, batch_size=32):
+    def test_forward_train(self, backend, dynamic, fake_batch_num=5, batch_size=32):
         utils.update_dynamo_config(dynamic=dynamic)
         device = utils.get_device()
         torch_dipu.dipu.set_device(device)

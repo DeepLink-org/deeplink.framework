@@ -19,4 +19,12 @@ BACKEND=$2
 DYNAMIC=$3
 
 cd ${TEST_MODEL_DIR}
-pytest -vs -rA test_${TEST_MODEL}.py --backend ${BACKEND} --dynamic ${DYNAMIC}
+if [ ${DYNAMIC} == false ] || [ ${DYNAMIC} == true ]; then
+    pytest test_${TEST_MODEL}.py --backend ${BACKEND} --dynamic ${DYNAMIC}
+elif [ $DYNAMIC == all ]; then
+    pytest test_${TEST_MODEL}.py --backend ${BACKEND} --dynamic false
+    pytest test_${TEST_MODEL}.py --backend ${BACKEND} --dynamic true
+else
+    echo "DYNAMIC should in (true, false, all)" >&2
+    exit 1
+fi
