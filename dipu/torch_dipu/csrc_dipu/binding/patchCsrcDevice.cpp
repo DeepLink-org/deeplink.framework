@@ -76,6 +76,15 @@ static struct PyGetSetDef DIPU_THPDevice_properties[] = {
     {"index", (getter)_THPDevice_index, nullptr, nullptr, nullptr},
     {nullptr}};
 
+
+/*
+why use this method to patch csrc.Device: because 
+1. csrc.Device is a final cpython class which not support attributes mock in python layer.
+2. rewrite a new DeviceType to replace THPDeviceType is not work because torch::PythonArgParser
+ will check the type of THPDeviceType when parse Device parameter(see csrc/utils/python_arg_parer.cpp
+  FunctionParameter::check() -> THPDevice_Check())
+so we replace some attributes of THPDeviceType class in c-python layer 
+*/ 
 void patchTorchCsrcDevice(PyObject* module) {
   // https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_dict
   THPDeviceType.tp_dict = nullptr;

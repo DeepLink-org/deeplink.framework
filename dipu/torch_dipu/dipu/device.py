@@ -11,10 +11,13 @@ __dipu__ = 'dipu'
 __dipu_device_type__ = _C.dipu_device_type
 __diputype__ = __dipu_device_type__
 
-def init_dipu_device_type():
+def init_dipu_device_type(forceUnset: bool = False):
   global __diputype__
-  _C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda)
+  _C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda and not forceUnset)
   __diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
+  if __diputype__ == "cuda":
+    print("dipu device will show as cuda device. if it's not expected behavior, please set env DIPU_PYTHON_DEVICE_AS_CUDA=false")
+    torch._C._set_cudnn_enabled(False)
 
 init_dipu_device_type()
 
