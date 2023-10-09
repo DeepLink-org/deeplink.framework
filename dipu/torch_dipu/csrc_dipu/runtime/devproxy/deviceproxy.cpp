@@ -6,13 +6,13 @@ namespace dipu {
 namespace devproxy {
 
 void initializeVendor() {
-  if (devapis::initializeVendor != nullptr) {
+  if (devapis::initializeVendor) {
     devapis::initializeVendor();
   }
 }
 
 void finalizeVendor() {
-  if (devapis::finalizeVendor != nullptr) {
+  if (devapis::finalizeVendor) {
     devapis::finalizeVendor();
   }
 }

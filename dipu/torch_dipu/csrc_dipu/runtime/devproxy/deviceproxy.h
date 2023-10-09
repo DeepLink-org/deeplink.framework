@@ -3,15 +3,15 @@
 
 #include "../device/deviceapis.h"
 
+namespace dipu {
+
+namespace devproxy {
+
 using dipu::devapis::deviceId_t;
 using dipu::devapis::DIPUDeviceProperties;
 using dipu::devapis::DIPUDeviceStatus;
 using dipu::devapis::EventStatus;
 using dipu::devapis::OpStatus;
-
-namespace dipu {
-
-namespace devproxy {
 
 DIPU_API void initializeVendor();
 

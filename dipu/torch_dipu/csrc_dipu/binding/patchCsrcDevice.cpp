@@ -23,10 +23,10 @@
 
 namespace dipu {
 
-static bool python_device_as_cuda = false;
+static bool PythonDeviceAsCuda = false;
 
 static at::DeviceType _get_dipu_python_type(const at::Device& device) {
-  if (device.type() == DIPU_DEVICE_TYPE && python_device_as_cuda) {
+  if (device.type() == DIPU_DEVICE_TYPE && PythonDeviceAsCuda) {
     return at::DeviceType::CUDA;
   }
   return device.type();
@@ -71,7 +71,7 @@ PyObject* DIPU_THPDevice_str(THPDevice* self) {
   return THPUtils_packString(oss.str().c_str());
 }
 
-static struct PyGetSetDef DIPU_THPDevice_properties[] = {
+static constexpr struct PyGetSetDef DIPU_THPDevice_properties[] = {
     {"type", (getter)_THPDevice_type, nullptr, nullptr, nullptr},
     {"index", (getter)_THPDevice_index, nullptr, nullptr, nullptr},
     {nullptr}};
@@ -105,11 +105,11 @@ void patchTorchCsrcDevice(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
 
   m.def("_get_python_device_as_cuda", []() -> bool {
-    return python_device_as_cuda;
+    return PythonDeviceAsCuda;
   });
 
   m.def ("_set_python_device_as_cuda", [](bool as_cuda) -> void {
-    python_device_as_cuda = as_cuda;
+    PythonDeviceAsCuda = as_cuda;
   });
 
   // not really 'export' new type but change original THPDeviceType is enough
