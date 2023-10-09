@@ -82,6 +82,10 @@ def apply_torch_function_patch():
     torch.randn = GetDeviceStaticProxy(torch.randn)
     torch.randn_like = GetDeviceStaticProxy(torch.randn_like)
     torch.randperm = GetDeviceStaticProxy(torch.randperm)
+
+    # todo: try to automaitc check & mock funcs
+    torch.linspace = GetDeviceStaticProxy(torch.linspace)
+
     if mockcuda:
         for attr in dipu.__all__:
             if hasattr(torch.cuda, attr):
