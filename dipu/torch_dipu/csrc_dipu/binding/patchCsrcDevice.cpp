@@ -71,7 +71,7 @@ PyObject* DIPU_THPDevice_str(THPDevice* self) {
   return THPUtils_packString(oss.str().c_str());
 }
 
-static constexpr struct PyGetSetDef DIPU_THPDevice_properties[] = {
+static struct PyGetSetDef DIPU_THPDevice_properties[] = {
     {"type", (getter)_THPDevice_type, nullptr, nullptr, nullptr},
     {"index", (getter)_THPDevice_index, nullptr, nullptr, nullptr},
     {nullptr}};
