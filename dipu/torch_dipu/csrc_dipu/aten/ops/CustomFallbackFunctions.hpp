@@ -72,7 +72,7 @@ static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_
     const c10::optional<at::Tensor> & running_var_opt,
     bool training, double momentum, double eps,
     at::Tensor & out, at::Tensor & save_mean, at::Tensor & save_invstd) {
-
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=native_batch_norm_out" << std::endl);
   at::Tensor input_cpu = input.cpu();
   at::Tensor out_cpu = out.cpu();
   at::Tensor save_mean_cpu = save_mean.cpu();
@@ -100,6 +100,7 @@ static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> custom_fallback_dipu_
 }
 
 static at::Tensor custom_fallback_dipu_convolution_overrideable(const at::Tensor& input, const at::Tensor& weight, const c10::optional<at::Tensor>& bias, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups) {
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=convolution_overrideable" << std::endl);
   auto input_cpu = input.cpu();
   auto weight_cpu = weight.cpu();
   auto bias_cpu = dipu_to_cpu(bias);
@@ -108,6 +109,7 @@ static at::Tensor custom_fallback_dipu_convolution_overrideable(const at::Tensor
 }
 
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convolution_backward_overrideable(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool, 3> output_mask) {
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=convolution_backward_overrideable" << std::endl);
   auto device = input.device();
   auto grad_output_cpu = grad_output.cpu();
   auto input_cpu = input.cpu();
@@ -145,7 +147,7 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_convo
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_native_batch_norm(const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt, const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training, double momentum, double eps) {
-  std::cout << "enter into fallback native_batch_norm" << std::endl;
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=dipu_native_batch_norm" << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::kFloat);
 
@@ -170,6 +172,7 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_nativ
 }
 
 static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_linear_backward(const at::Tensor& input, const at::Tensor& grad_output, const at::Tensor& weight, ::std::array<bool, 3> output_mask) {
+    DIPU_REGISTER_LOG("custom fallback to cpu, name=linear_backward" << std::endl);
     auto input_cpu = input.cpu();
     auto grad_output_cpu = grad_output.cpu();
     auto weight_cpu = weight.cpu();
@@ -215,7 +218,7 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_nativ
         const c10::optional<at::Tensor>& running_mean_opt, const c10::optional<at::Tensor>& running_var_opt,
         const c10::optional<at::Tensor>& save_mean_opt, const c10::optional<at::Tensor>& save_invstd_opt,
         bool train, double eps, ::std::array<bool, 3> output_mask) {
-    std::cout << "enter into fallback native_batch_norm backward" << std::endl;
+    DIPU_REGISTER_LOG("custom fallback to cpu, name=native_batch_norm_backward" << std::endl);
     int64_t dim_c = input.size(1);
     at::TensorOptions options = input.options().dtype(at::ScalarType::Float);
 
