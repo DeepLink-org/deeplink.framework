@@ -443,7 +443,7 @@
     outputs[0] = result;
     return outputs;
 
-- schema: "convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
+- schema: "convolution_overridable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor"
   custom_fallback: True
   size_attr: [stride, padding, dilation]
   custom_code_at_the_beginning: |
@@ -458,7 +458,7 @@
     at::Tensor out = at::empty(output_size, input.options());
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
-- schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
+- schema: "convolution_backward_overridable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   custom_fallback: True
   size_attr: [stride, padding, dilation, bias_sizes]
   custom_code_at_the_beginning: |
