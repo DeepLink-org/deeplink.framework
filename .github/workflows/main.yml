@@ -97,11 +97,11 @@ jobs:
           set -ex
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          echo "+++++++++++yangbo pytorch_dir: $PYTORCH_DIR"
-          echo "+++++++++++yangbo pythonpath: $PYTHONPATH"
+          echo "+++++++++++yangbo pytorch_dir: \$PYTORCH_DIR"
+          echo "+++++++++++yangbo pythonpath: \$PYTHONPATH"
           echo "++++++++++yangbo pytorch:"
           source scripts/ci/camb/ci_camb_env.sh
-          python3 -c 'import torch; print(torch.__path__);print('''++++++yangbo end''')'
+          python3 -c 'import torch; print(torch.__path__)'
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
