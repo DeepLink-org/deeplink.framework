@@ -86,6 +86,8 @@ custom_fallback_dipu_native_batch_norm_out(
     const c10::optional<at::Tensor>& running_var_opt, bool training,
     double momentum, double eps, at::Tensor& out, at::Tensor& save_mean,
     at::Tensor& save_invstd) {
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=native_batch_norm_out"
+                    << std::endl);
   at::Tensor input_cpu = input.cpu();
   at::Tensor out_cpu = out.cpu();
   at::Tensor save_mean_cpu = save_mean.cpu();
@@ -119,6 +121,8 @@ static at::Tensor custom_fallback_dipu_convolution_overrideable(
     const c10::optional<at::Tensor>& bias, at::IntArrayRef stride,
     at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed,
     at::IntArrayRef output_padding, int64_t groups) {
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=convolution_overrideable"
+                    << std::endl);
   auto input_cpu = input.cpu();
   auto weight_cpu = weight.cpu();
   auto bias_cpu = dipu_to_cpu(bias);
@@ -134,6 +138,9 @@ custom_fallback_dipu_convolution_backward_overrideable(
     const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding,
     at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding,
     int64_t groups, ::std::array<bool, 3> output_mask) {
+  DIPU_REGISTER_LOG(
+      "custom fallback to cpu, name=convolution_backward_overrideable"
+      << std::endl);
   auto device = input.device();
   auto grad_output_cpu = grad_output.cpu();
   auto input_cpu = input.cpu();
@@ -158,14 +165,14 @@ custom_fallback_dipu_convolution_backward_overrideable(
     at::Tensor grad_bias_cpu = at::empty(
         bias_sizes, grad_output.options().device(c10::DeviceType::CPU));
     grad_bias = at::empty(bias_sizes, grad_output.options());
-    at::Tensor atTmp = grad_output_cpu;
+    at::Tensor at_tmp = grad_output_cpu;
     int64_t size = grad_output_cpu.dim() - 1;
     while (grad_bias_cpu.dim() != size) {
-      atTmp = at::sum(atTmp, -1, false);
+      at_tmp = at::sum(at_tmp, -1, false);
       size -= 1;
     }
-    atTmp = at::sum(atTmp, 0, false);
-    grad_bias_cpu = atTmp;
+    at_tmp = at::sum(at_tmp, 0, false);
+    grad_bias_cpu = at_tmp;
     grad_bias = grad_bias_cpu.to(device);
   }
   return std::make_tuple(grad_input, grad_weight, grad_bias);
@@ -178,7 +185,8 @@ custom_fallback_dipu_native_batch_norm(
     const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training,
     double momentum, double eps) {
-  std::cout << "enter into fallback native_batch_norm" << std::endl;
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=dipu_native_batch_norm"
+                    << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::kFloat);
 
@@ -210,6 +218,8 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
                                      const at::Tensor& grad_output,
                                      const at::Tensor& weight,
                                      ::std::array<bool, 3> output_mask) {
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=linear_backward"
+                    << std::endl);
   auto input_cpu = input.cpu();
   auto grad_output_cpu = grad_output.cpu();
   auto weight_cpu = weight.cpu();
@@ -228,23 +238,25 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
         at::matmul(input_cpu.transpose(dims - 2, dims - 1), grad_output_cpu);
     grad_weight_cpu = grad_weight_cpu.transpose(dims - 2, dims - 1);
     if (dims > 2) {
-      std::vector<int64_t> sumDim;
+      std::vector<int64_t> sum_dim;
+      sum_dim.reserve(dims - 2);
       for (int i = 0; i < dims - 2; ++i) {
-        sumDim.push_back(i);
+        sum_dim.push_back(i);
       }
-      at::IntArrayRef atSumDim(sumDim.data(), sumDim.size());
-      grad_weight_cpu = at::sum(grad_weight_cpu, atSumDim);
+      at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
+      grad_weight_cpu = at::sum(grad_weight_cpu, at_sum_dim);
       grad_weight = grad_weight_cpu.to(device);
     }
   }
 
   if (output_mask[2]) {
-    std::vector<int64_t> sumDim;
+    std::vector<int64_t> sum_dim;
+    sum_dim.reserve(dims - 1);
     for (int i = 0; i < dims - 1; ++i) {
-      sumDim.push_back(i);
+      sum_dim.push_back(i);
     }
-    at::IntArrayRef atSumDim(sumDim.data(), sumDim.size());
-    grad_bias_cpu = at::sum(grad_output_cpu, atSumDim);
+    at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
+    grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
     grad_bias = grad_bias_cpu.to(device);
   }
 
@@ -260,7 +272,8 @@ custom_fallback_dipu_native_batch_norm_backward(
     const c10::optional<at::Tensor>& save_mean_opt,
     const c10::optional<at::Tensor>& save_invstd_opt, bool train, double eps,
     ::std::array<bool, 3> output_mask) {
-  std::cout << "enter into fallback native_batch_norm backward" << std::endl;
+  DIPU_REGISTER_LOG("custom fallback to cpu, name=native_batch_norm_backward"
+                    << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::ScalarType::Float);
 
@@ -290,13 +303,13 @@ custom_fallback_dipu_native_batch_norm_backward(
   c10::optional<at::Tensor> running_var_cpu = dipu_to_cpu(running_var_opt);
   c10::optional<at::Tensor> save_mean_cpu = dipu_to_cpu(save_mean_opt);
   c10::optional<at::Tensor> save_invstd_cpu = dipu_to_cpu(save_invstd_opt);
-  auto atOut = at::native_batch_norm_backward(
+  auto at_out = at::native_batch_norm_backward(
       grad_out_cpu, input_cpu, weight_cpu, running_mean_cpu, running_var_cpu,
       save_mean_cpu, save_invstd_cpu, train, eps, output_mask);
 
-  grad_input.copy_(std::get<0>(atOut));
-  grad_weight.copy_(std::get<1>(atOut));
-  grad_bias.copy_(std::get<2>(atOut));
+  grad_input.copy_(std::get<0>(at_out));
+  grad_weight.copy_(std::get<1>(at_out));
+  grad_bias.copy_(std::get<2>(at_out));
 
   return std::tie(grad_input, grad_weight, grad_bias);
 }
