@@ -29,7 +29,7 @@ function check_and_clone_repository() {
 function clone_needed_repo() {
     set -e
     # clone some repositories
-    MMCV_VERSION=ee93530acc675231014b92a58fd6e4a59e27cc13
+    MMCV_VERSION=ea53ed02d7bcd856a1de42c6b408244c4fed5fa1
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
@@ -65,27 +65,6 @@ function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
-    # cd ../mmdet 
-    # pip install -e . --no-deps
-    # cd ../mmyolo
-    # # Install albumentations
-    # pip install -r requirements/albu.txt --no-deps
-    # # Install MMYOLO
-    # pip install -e . --no-deps
-    # cd mmagic
-    # pip install -e . -v 
-    # cd ../mmpretrain
-    # pip install -e .
-    # cd ..
-    # cd DI-engine
-    # pip install -e .
-    # cd ..
-    # #安装强化学习需要用的包
-    # pip install lz4
-    # pip install readerwriterlock
-    # pip install Flask==2.1.0
-    # pip install transformers
-    # pip install accelerate
 }
 
 function build_needed_repo_camb() {
@@ -96,14 +75,7 @@ function build_needed_repo_camb() {
 
 function build_needed_repo_ascend() {
     cd mmcv
-    MMCV_VERSION_FOR_ONE_ITER=9b1209f
-    if [ "$(git rev-parse HEAD)" != "${MMCV_VERSION_FOR_ONE_ITER}" ]; then
-        git checkout ${MMCV_VERSION_FOR_ONE_ITER}
-        rm -rf build
-    fi
-    if [ ! -d "build" ]; then
-        MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
-    fi
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
     cd ..
 }
 
@@ -112,19 +84,16 @@ function export_repo_pythonpath(){
     basic_path="$2"
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in pythonpath..."
-        export PYTHONPATH=/mnt/cache/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
-        export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "ascend" ]; then
         echo "Executing ASCEND operation in pythonpath..."
-        export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
@@ -145,7 +114,7 @@ function export_repo_pythonpath(){
     export HF_HOME=${basic_path}/huggingface
     export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
 
-    # export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
     echo "python path: $PYTHONPATH"
 }
