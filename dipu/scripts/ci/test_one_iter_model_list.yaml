@@ -54,7 +54,7 @@ camb:
 cuda:
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
-    - model_cfg: "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin_transformer"
+    - model_cfg: "mmpretrain swin_transformer/swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
     - model_cfg: "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vision_transformer"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet"
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
@@ -70,7 +70,7 @@ cuda:
     - model_cfg: "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet"
     - model_cfg: "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask_rcnn"
     - model_cfg: "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster_rcnn"
-    - model_cfg: "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_dyhead"
+    - model_cfg: "mmdetection dyhead/atss_r50_fpn_dyhead_1x_coco.py workdirs_dyhead"
     # mmpose
     - model_cfg: "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_hrnet"
     # mmaction2
@@ -97,5 +97,5 @@ cuda:
 
 ascend:
     # mmdetection
-    - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr" 
+    - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
       fallback_op_list: "cat.out,nll_loss.out,nll_loss_forward.output,cross_entropy_loss,where.self,linear,linear_backward,convolution_overrideable"
