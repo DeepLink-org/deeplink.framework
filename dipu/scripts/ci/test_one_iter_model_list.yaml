@@ -2,7 +2,7 @@ camb:
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
     - model_cfg: "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin_transformer"
-    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vision_transformer"
+    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2 --no-pin-memory"
       precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
