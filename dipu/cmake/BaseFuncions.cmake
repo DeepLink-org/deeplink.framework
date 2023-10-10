@@ -7,8 +7,6 @@ function(_set_cpp_flags)
   set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
   set(CXX_STANDARD_REQUIRED ON PARENT_SCOPE)
-  set(GLIBCXX_USE_CXX11_ABI 1 PARENT_SCOPE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
 
   # open flags cause many prpblem, fix return-type err and re-close
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" PARENT_SCOPE)

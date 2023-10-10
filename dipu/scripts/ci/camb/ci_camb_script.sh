@@ -5,19 +5,16 @@ echo "pwd: $(pwd)"
 function build_dipu_py() {
     echo "building dipu_py:$(pwd)"
     export CMAKE_BUILD_TYPE=Release
-    export _GLIBCXX_USE_CXX11_ABI=1
     export MAX_JOBS=12
     python setup.py build_ext 2>&1 | tee ./setup.log
-    mv build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython-*.so torch_dipu
 }
 
 function config_dipu_camb_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    echo "PYTORCH_DIR: ${PYTORCH_DIR}"
-    echo "PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
-        -DDEVICE=camb -DPYTORCH_DIR=${PYTORCH_DIR} \
-        -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} -DENABLE_COVERAGE=${USE_COVERAGE}
+        -DDEVICE=camb  \
+        -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
 }
 
@@ -50,8 +47,6 @@ function build_diopi_lib() {
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    echo  "PYTORCH_DIR:${PYTORCH_DIR}"
-    echo  "PYTHON_INCLUDE_DIR:${PYTHON_INCLUDE_DIR}"
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_camb_cmake 2>&1 | tee ./cmake_camb.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..

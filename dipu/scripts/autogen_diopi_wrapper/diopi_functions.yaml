@@ -1683,10 +1683,10 @@
   interface: diopiCdistBackward(ctx, grad_input, grad, x1, x2, p, cdist)
 
 - schema: "erfinv.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiErf(ctx, out, self)
+  interface: diopiErfinv(ctx, out, self)
 
 - schema: "erfinv_(Tensor(a!) self) -> Tensor(a!)"
-  interface: diopiErfInp(ctx, self)
+  interface: diopiErfinvInp(ctx, self)
 
 - schema: "polar(Tensor abs, Tensor angle) -> Tensor"
   custom_code_at_the_beginning: |
