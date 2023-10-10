@@ -8,6 +8,9 @@
 #include "./DIPUDeviceInfo.h"
 namespace dipu {
 
+// anonymous ns
+namespace {
+
 using std::shared_ptr;
 using dipu::devapis::DIPUDeviceProperties;
 using c10::DeviceIndex;
@@ -35,6 +38,8 @@ static inline void checkDevice(int32_t device_index) {
   }
   AT_ASSERT(device_index >= 0 && device_index < num_gpus);
 }
+
+}  // end anonymous
 
 shared_ptr<DIPUDeviceProperties> getDevicePropertiesFromCache(int32_t device_index) {
   checkDevice(device_index);

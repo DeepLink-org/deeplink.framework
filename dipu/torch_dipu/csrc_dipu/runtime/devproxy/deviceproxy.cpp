@@ -26,7 +26,7 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 }
 
 DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
-  if (devapis::getDeviceStatus != nullptr) {
+  if (devapis::getDeviceStatus) {
     return devapis::getDeviceStatus(device_index);
   }
   return DIPUDeviceStatus();
