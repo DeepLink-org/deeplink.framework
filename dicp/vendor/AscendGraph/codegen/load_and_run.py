@@ -152,10 +152,10 @@ class AscendExecutor(object):
 
     def release_resource(self):
         print("Releasing resources stage:")
-        if self.model_id > -1:
+        if self.model_id:
             ret = acl.mdl.unload(self.model_id)
             check_ret("acl.mdl.unload", ret)
-            self.model_id = -1
+            self.model_id = None
         if self.model_desc:
             acl.mdl.destroy_desc(self.model_desc)
             self.model_desc = None

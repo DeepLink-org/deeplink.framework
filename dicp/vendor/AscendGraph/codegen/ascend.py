@@ -112,7 +112,9 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
 def symint_in_shape(shape):
     for elem in shape:
         if isinstance(elem, torch.SymInt):
-            return True
+            st = elem.node.str()
+            if not st.isdigit():
+                return True
     return False
 
 
@@ -1548,7 +1550,7 @@ class AscendOverrides:
                 ops.append(cast_op.to_node())
                 y_name = f'{name}_fp16_cast'
 
-            div_op = OP(name, "Div")
+            div_op = OP(name, "DivNoNan")
             div_op.set_input("x1", x)
             div_op.set_input("x2", y_name)
             ops.append(div_op.to_node())
