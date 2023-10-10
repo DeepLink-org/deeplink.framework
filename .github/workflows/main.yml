@@ -100,7 +100,7 @@ jobs:
           echo "+++++++++++yangbo pytorch_dir: ${PYTORCH_DIR}"
           echo "+++++++++++yangbo pythonpath: ${PYTHONPATH}"
           echo "++++++++++yangbo pytorch:"
-          python3 -c "import torch; print(torch.__path__)"
+          python3 -c 'import torch; print(torch.__path__)'
 
           source scripts/ci/camb/ci_camb_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
