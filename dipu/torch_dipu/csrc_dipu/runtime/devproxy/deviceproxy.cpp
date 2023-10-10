@@ -3,26 +3,18 @@
 #include "../core/DIPUEventPool.h"
 namespace dipu {
 
-namespace devapis{
-
-__attribute__((weak)) void initializeVendor() {
-  
-}
-
-__attribute__((weak)) void finalizeVendor() {
-
-}
-
-} // namespace devapis
-
 namespace devproxy {
 
 void initializeVendor() {
-  devapis::initializeVendor();
+  if (devapis::initializeVendor) {
+    devapis::initializeVendor();
+  }
 }
 
 void finalizeVendor() {
-  devapis::finalizeVendor();
+  if (devapis::finalizeVendor) {
+    devapis::finalizeVendor();
+  }
 }
 
 deviceId_t current_device() {
@@ -31,6 +23,13 @@ deviceId_t current_device() {
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return devapis::getDeviceProperties(device_index);
+}
+
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+  if (devapis::getDeviceStatus) {
+    return devapis::getDeviceStatus(device_index);
+  }
+  return DIPUDeviceStatus();
 }
 
 // set current device given device according to id

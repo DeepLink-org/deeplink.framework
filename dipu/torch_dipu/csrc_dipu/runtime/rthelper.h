@@ -2,7 +2,7 @@
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/devproxy/diclproxy.h>
-#include <csrc_dipu/runtime/core/device.h>
+#include <csrc_dipu/runtime/core/DIPUDeviceInfo.h>
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
