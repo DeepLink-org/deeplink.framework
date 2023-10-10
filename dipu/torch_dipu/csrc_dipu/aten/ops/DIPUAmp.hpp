@@ -45,7 +45,7 @@ namespace dipu {
 namespace autocast {
 
 // Cast policies of ops' input and output within autocast block.
-enum class CastPolicy : std::uint8_t {
+enum class DipuCastPolicy : std::uint8_t {
   kInvalid = 0,
   kLowerPrecisionFp,  // cast into user-configurable lower precision
                       // floating-point type (e.g. float16, bfloat16).
@@ -62,21 +62,21 @@ struct OpCastPolicyHelper {};
 
 // Define OP as customizable, and set default policy.
 // MUST be used in namespace dipu::autocast
-#define DIPU_DEFAULT_OP_CAST_POLICY(OP, POLICY)               \
-  namespace ops {                                             \
-  struct OP {};                                               \
-  }                                                           \
-  template <typename _dummy>                                  \
-  struct details::OpCastPolicyHelper<ops::OP, _dummy> {       \
-    static constexpr CastPolicy kPolicy = CastPolicy::POLICY; \
+#define DIPU_DEFAULT_OP_CAST_POLICY(OP, POLICY)                       \
+  namespace ops {                                                     \
+  struct OP {};                                                       \
+  }                                                                   \
+  template <typename _dummy>                                          \
+  struct details::OpCastPolicyHelper<ops::OP, _dummy> {               \
+    static constexpr DipuCastPolicy kPolicy = DipuCastPolicy::POLICY; \
   };
 
 // Set custom cast policy for OP.
 // MUST be used in namespace dipu::autocast
-#define DIPU_CUSTOMIZE_OP_CAST_POLICY(OP, POLICY)             \
-  template <>                                                 \
-  struct details::OpCastPolicyHelper<ops::OP, void> {         \
-    static constexpr CastPolicy kPolicy = CastPolicy::POLICY; \
+#define DIPU_CUSTOMIZE_OP_CAST_POLICY(OP, POLICY)                     \
+  template <>                                                         \
+  struct details::OpCastPolicyHelper<ops::OP, void> {                 \
+    static constexpr DipuCastPolicy kPolicy = DipuCastPolicy::POLICY; \
   };
 
 // Query for the final cast policy of OP.

@@ -6,6 +6,8 @@
 
 #include <ATen/ATen.h>
 
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
+
 namespace dipu {
 namespace native {
 
@@ -37,10 +39,15 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     at::TensorList scaled_grads, at::Tensor& found_inf,
     const at::Tensor& inv_scale) {
+  DIPU_REGISTER_LOG(
+      "custom fallback to separated ops, "
+      "name=_amp_foreach_non_finite_check_and_unscale_"
+      << std::endl);
   TORCH_CHECK(inv_scale.numel() == 1, "inv_scale must be a 1-element tensor.");
   TORCH_CHECK(found_inf.numel() == 1, "found_inf must be a 1-element tensor.");
   for (const at::Tensor& t : scaled_grads) {
-    // const_cast here is safe according to pytorch's source code
+    // NOLINTNEXTLINE: const_cast here is safe according to pytorch's source
+    // code
     _amp_non_finite_check_and_unscale_(const_cast<at::Tensor&>(t), found_inf,
                                        inv_scale);
   }
@@ -70,6 +77,8 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     double growth_factor,
                                                     double backoff_factor,
                                                     int64_t growth_interval) {
+  DIPU_REGISTER_LOG("custom fallback to separated ops, name=_amp_update_scale_"
+                    << std::endl);
   TORCH_CHECK(growth_tracker.scalar_type() == at::ScalarType::Int,
               "growth_tracker must be an int tensor.");
   TORCH_CHECK(current_scale.scalar_type() == at::ScalarType::Float,

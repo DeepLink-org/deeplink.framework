@@ -188,7 +188,7 @@ struct WrapFunction final {
 namespace {
 
 // Compile-time type conversion from dupu::autocast::CastPolicy
-template <dipu::autocast::CastPolicy>
+template <dipu::autocast::DipuCastPolicy>
 struct FromDipuCastPolicyHelper {
   static void MaybeLogError() {
     DIPU_LOGE("invalid cast policy, fallback to fp32.");
@@ -196,11 +196,12 @@ struct FromDipuCastPolicyHelper {
   static constexpr CastPolicy kPolicy = CastPolicy::fp32;
 };
 
-#define DIPU_DEFINE_CAST_POLICY_CONVERSION(DIPU_POLICY, POLICY)              \
-  template <>                                                                \
-  struct FromDipuCastPolicyHelper<dipu::autocast::CastPolicy::DIPU_POLICY> { \
-    static void MaybeLogError() {}                                           \
-    static constexpr CastPolicy kPolicy = CastPolicy::POLICY;                \
+#define DIPU_DEFINE_CAST_POLICY_CONVERSION(DIPU_POLICY, POLICY) \
+  template <>                                                   \
+  struct FromDipuCastPolicyHelper<                              \
+      dipu::autocast::DipuCastPolicy::DIPU_POLICY> {            \
+    static void MaybeLogError() {}                              \
+    static constexpr CastPolicy kPolicy = CastPolicy::POLICY;   \
   };
 
 DIPU_DEFINE_CAST_POLICY_CONVERSION(kLowerPrecisionFp, lower_precision_fp);
