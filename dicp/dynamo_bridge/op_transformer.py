@@ -28,6 +28,15 @@ class SingleOpTransformer(torch.fx.Transformer):
         proxy.node.meta = fx_traceback.get_current_meta()
         return proxy
 
+    def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]):
+        proxy = self.tracer.create_proxy('call_function', target, args, kwargs)
+        def get_meta(x):
+            return x.node if isinstance(x, torch.fx.proxy.Proxy) else x
+        from torch.utils._pytree import tree_map
+        new_args = tree_map(get_meta, args)
+        proxy.node.meta['val'] = (target(*new_args, **kwargs))
+        return proxy
+        
     def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
         if target in self._conversions:
             converted_target = self._conversions[target]
@@ -36,7 +45,9 @@ class SingleOpTransformer(torch.fx.Transformer):
                 out, process_fn = converted_target
                 args, kwargs = process_fn(args, kwargs)
             else:
-                out = self._conversions[target](*args, **kwargs)
+                out = self._conversions[target](self.get_proxy, *args, **kwargs)
+            if isinstance(out, Proxy):
+                return out
             proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
             proxy.node.meta = fx_traceback.get_current_meta()
             return proxy

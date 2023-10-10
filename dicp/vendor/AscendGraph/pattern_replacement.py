@@ -4,10 +4,8 @@ import dicp.vendor.AscendGraph.ascend_op as ascend_op
 import dicp.vendor.AscendGraph.conversion as conversion
 from dicp.dynamo_bridge.op_transformer import (
     BackendPatternBase,
-    PatternMatcherPass,
     register_backend_patterns,
 )
-
 
 aten_patterns_cls_list = []
 register_aten_pattern = functools.partial(register_backend_patterns, aten_patterns_cls_list)
