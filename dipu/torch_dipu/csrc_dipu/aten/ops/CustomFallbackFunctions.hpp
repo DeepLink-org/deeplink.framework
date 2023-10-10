@@ -258,6 +258,7 @@ static std::tuple<at::Tensor, at::Tensor, at::Tensor> custom_fallback_dipu_nativ
 }
 
 static  at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+    DIPU_REGISTER_LOG("custom fallback to cpu, name=copy_" << std::endl);
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
     dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());

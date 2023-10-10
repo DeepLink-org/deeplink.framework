@@ -2098,12 +2098,61 @@
     return out;
   interface: diopiNeg(ctx, out, self)
 
+- schema: "to.dtype(Tensor(a) self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor(a)"
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(self, self.options().dtype(dtype));
+  interface: diopiCastDtype(ctx, out, self);
+  custom_code_before_return: |
+    if (memory_format.has_value()) {
+      auto out1 = at::empty_like(out, out.options(), memory_format.value());
+      at::copy(out1, out, non_blocking);
+      out = out1;
+    }
+    if (!non_blocking) {
+        dipu::getCurrentDIPUStream().synchronize();
+    }
+
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
   no_device_check_args: [self, src]
+  ins: [srcTemp]
   custom_fallback: True
   custom_code_at_the_beginning: |
     dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
-  interface: diopiCopyInp(ctx, src, self)
+    auto stream = dipu::getCurrentDIPUStream();
+    auto srcTemp = self.dtype() == src.dtype() ? src : src.to(self.dtype());
+    if (non_blocking) {
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
+      if (self.is_cpu()) {
+        if (self.options().pinned_memory()) {
+          self.record_stream(stream);
+        }
+      } else if (!is_default_stream){
+        self.record_stream(stream);
+      }
+      if (srcTemp.is_cpu()) {
+        if (srcTemp.options().pinned_memory()) {
+          srcTemp.record_stream(stream);
+        }
+      } else if (!is_default_stream) {
+        srcTemp.record_stream(stream);
+      }
+    }
+    if (self.device().type() != srcTemp.device().type()) {
+      //srcTemp = srcTemp.is_contiguous(self.suggest_memory_format()) ? srcTemp : srcTemp.contiguous(self.suggest_memory_format());
+      if (srcTemp.is_cpu() && (!self.is_cpu())) {
+        // c2d
+        dipu::devproxy::memCopyH2DAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
+      } else if ((!srcTemp.is_cpu()) && self.is_cpu()) {
+        // d2c
+        dipu::devproxy::memCopyD2HAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
+      }
+      if (!non_blocking) {
+        dipu::getCurrentDIPUStream().synchronize();
+      }
+
+      return self;
+    }
+  interface: diopiCopyInp(ctx, srcTemp, self)
   custom_code_before_return: |
     if (!non_blocking) {
       dipu::getCurrentDIPUStream().synchronize();
