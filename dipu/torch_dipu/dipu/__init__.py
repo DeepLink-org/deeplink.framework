@@ -10,7 +10,6 @@ from .tensor import *
 from .storages import *
 from . import amp
 import torch_dipu
-import torch
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 
