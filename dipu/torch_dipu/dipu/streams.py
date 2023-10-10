@@ -6,6 +6,7 @@ from typing import Union, Optional, Any
 import torch
 from torch.types import _int
 
+import torch_dipu
 from torch_dipu import _C
 from .utils import _dummy_type
 from .device import _get_device_index, _lazy_init
@@ -154,6 +155,13 @@ def default_stream(device=None):
 
 def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
     pass
+
+def is_current_stream_capturing() -> bool:
+    # cuda.is_available is patched and we can't use it here
+    if torch_dipu.device.__vendor__ == 'CUDA':
+        return torch.cuda.is_current_stream_capturing()
+    return False
+
 
 class StreamContext:
     r"""Context-manager that selects a given stream.
