@@ -20,9 +20,10 @@ namespace dipu {
 
 static constexpr size_t kMega = 1024 * 1024;
 using dipu::devapis::DIPUDeviceProperties;
+using dipu::devapis::DIPUDeviceStatus;
 
 static void registerDIPUDeviceProperties(py::module& m) {
-  py::class_<DIPUDeviceProperties>(m, "_DIPUDeviceProperties")
+  py::class_<DIPUDeviceProperties, std::shared_ptr<DIPUDeviceProperties>>(m, "_DIPUDeviceProperties")
       .def_readonly("name", &DIPUDeviceProperties::name)
       .def_readonly("major", &DIPUDeviceProperties::major)
       .def_readonly("minor", &DIPUDeviceProperties::minor)
@@ -39,9 +40,23 @@ static void registerDIPUDeviceProperties(py::module& m) {
       });
 }
 
+static void registerDIPUDeviceStatus(py::module& m) {
+  py::class_<DIPUDeviceStatus, std::shared_ptr<DIPUDeviceStatus>>(m, "_DIPUDeviceStatus")
+      .def_readonly("free_memory", &DIPUDeviceStatus::freeGlobalMem)
+      .def("__repr__", [](const DIPUDeviceStatus& status) {
+        std::ostringstream stream;
+        stream << "DIPUDeviceStatus(used_memory=" << status.freeGlobalMem
+               << ")";
+        return stream.str();
+      });
+}
+
 static void exportDevices(py::module& m) {
+  registerDIPUDeviceProperties(m);
+  registerDIPUDeviceStatus(m);
    // Device Management.
   m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
+  m.attr("dipu_device_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
   m.def("_dipu_set_device", [](int idx) -> void {
@@ -58,9 +73,19 @@ static void exportDevices(py::module& m) {
     devproxy::syncDevice();
     return;
   });
-  m.def("_dipu_getDeviceProperties", [](int device) -> DIPUDeviceProperties* {
-        return dipu::device::getDevicePropertiesFromCache(device);
-      }, py::return_value_policy::reference);
+  m.def("_dipu_getDeviceProperties", [](int device) -> std::shared_ptr<DIPUDeviceProperties> {
+        return dipu::getDevicePropertiesFromCache(device);
+      },  py::arg("device"));
+
+  /* 
+    different with device properties, fill_status may cause creation of the device stub on the specified device, 
+    the sub will occupy mem, so caller should always fill status after set device()
+    and only fill status of current device, otherwise you will create stub an other device.
+  */
+   m.def("_dipu_getDeviceStatus", [](int device) -> std::shared_ptr<DIPUDeviceStatus> {
+        return dipu::getDeviceStatus(device);
+      },  py::arg("device"));
+
 }
 
 static void exportStream(py::module& m) {
@@ -275,9 +300,11 @@ static void exportGenerator(py::module& m) {
   });
 }
 
+extern void patchTorchCsrcDevice(PyObject* module);
+
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
-  registerDIPUDeviceProperties(m);
+  patchTorchCsrcDevice(module);
   exportDevices(m);
   exportStream(m);
   exportEvent(m);
