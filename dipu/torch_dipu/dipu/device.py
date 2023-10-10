@@ -89,7 +89,7 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
             argList[pos] = args[pos].type
             args = tuple(argList)
         deviceValue = kwargs.get(name, None)
-        if deviceValue != None and isinstance(args[pos], torch.device):
+        if isinstance(deviceValue, torch.device):
             kwargs[name] = deviceValue.type
         return args, kwargs
 
