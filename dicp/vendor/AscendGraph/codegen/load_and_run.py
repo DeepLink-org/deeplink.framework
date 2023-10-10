@@ -2,7 +2,6 @@ import acl
 import os
 import numpy as np
 import torch
-import atexit
 import torch_dipu
 
 
@@ -103,8 +102,10 @@ def check_ret(message, ret):
 class MemoryPool:
     def __init__(self):
         self.work_ptr = None
-        atexit.register(self.release_memory)
         self.init_work_weight_ptr()
+
+    def __del__(self):
+        self.release_memory()
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
@@ -114,6 +115,9 @@ class MemoryPool:
             check_ret("acl.rt.malloc", ret)
 
     def release_memory(self):
+        if not acl:
+            return
+
         print("Release bufferPtr from MemoryPool.")
         if self.work_ptr is not None:
             ret = acl.rt.free(self.work_ptr)
@@ -151,6 +155,9 @@ class AscendExecutor(object):
         self.release_resource()
 
     def release_resource(self):
+        if not acl:
+            return
+
         print("Releasing resources stage:")
         if self.model_id:
             ret = acl.mdl.unload(self.model_id)
@@ -323,8 +330,10 @@ class AscendExecutor(object):
 
 class AscendModel():
     def __init__(self, device_id, model_path) -> None:
-        atexit.register(self.cleanup)
         self.exe = AscendExecutor(device_id, model_path)
+
+    def __del__(self):
+        self.cleanup()
 
     def run(self, images, dims=None, output_shape=None):
         return self.exe.run(images, dims, output_shape)
