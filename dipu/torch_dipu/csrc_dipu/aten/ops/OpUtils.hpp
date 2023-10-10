@@ -1,3 +1,5 @@
+#pragma once
+
 namespace dipu::native {
 
 inline bool checkDiopiReturnValue() {
