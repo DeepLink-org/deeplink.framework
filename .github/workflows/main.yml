@@ -97,6 +97,7 @@ jobs:
           set -ex
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
@@ -189,6 +190,7 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
@@ -226,6 +228,7 @@ jobs:
           set -e
           export USE_COVERAGE=${USE_COVERAGE}
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
