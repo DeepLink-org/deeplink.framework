@@ -5,7 +5,8 @@ from torch_dipu import diputype
 
 def test_stor1():
   PATH1 = "./test_stor1.pth"
-
+  stor_shared1 = torch.UntypedStorage._new_shared(3, device="cpu")
+  print(stor_shared1)
   device = "cuda:0"
   # args is int8,
   args = [[1, 0, 0, 0, 4, 0, 0, 0, 12, 0, 0, 0]]

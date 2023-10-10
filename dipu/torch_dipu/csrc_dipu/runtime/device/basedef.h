@@ -77,6 +77,10 @@ typedef enum {
 
 } diclResult_t;
 
+struct DIPUDeviceStatus {
+  size_t freeGlobalMem = 0;
+};
+
 struct DIPUDeviceProperties {
   std::string name;
   size_t totalGlobalMem = 0;

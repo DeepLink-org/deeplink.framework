@@ -2,6 +2,7 @@
 from .utils import is_initialized
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type
+from .device import devicectx
 from .device import *
 from .random_dipu import *
 from .memory import *
@@ -25,7 +26,7 @@ __all__ = [
     'LongTensor', 'IntTensor', 'ShortTensor', 'ByteTensor', 'CharTensor', 'BoolTensor',
 
     # device
-    "can_device_access_peer",  "current_device",  "device", "device_count", "device_of", "synchronize",
+    "can_device_access_peer",  "current_device",  "devicectx", "device_count", "device_of", "synchronize",
     "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
     "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
 
@@ -39,7 +40,7 @@ __all__ = [
 
     # # mem manage
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
-    # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
+    "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now
 
