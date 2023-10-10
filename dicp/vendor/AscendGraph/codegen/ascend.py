@@ -1148,11 +1148,13 @@ class AscendOverrides:
         op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [1])
         op1 = OP(f"{name}_indices", "Const") 
         op1.set_attr_tensor("value", "INT32", "INT32", "ND", dim, [len(dim)])
-        op2 = OP(name, "GatherV2")
+        op2 = OP(f"{name}_shape", "Shape")
         op2.set_input("x", x)
-        op2.set_input("indices", f"{name}_indices")
-        op2.set_input("axis", f"{name}_axis")
-        return [op.to_node(), op1.to_node(), op2.to_node()]
+        op3 = OP(name, "GatherV2")
+        op3.set_input("x", f"{name}_shape")
+        op3.set_input("indices", f"{name}_indices")
+        op3.set_input("axis", f"{name}_axis")
+        return [op.to_node(), op1.to_node(), op2.to_node(), op3.to_node()]
 
     @staticmethod
     def inmul(name, node, x, y):
