@@ -62,8 +62,20 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def Add(get_proxy, a, b):
-    return tops_op.Add(a, b)
+def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
+    y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
+    out_dtype = fx_traceback.get_current_meta()['val'].dtype
+    if not isinstance(y_node, torch.fx.node.Node):
+        y = y * alpha
+        if out_dtype == torch.float or out_dtype == torch.float16:
+            return get_proxy(tops_op.Add.get_singleton(), (x, float(y)), {})
+        else:
+            raise ValueError(f"only support torch.add + alpha with float type")
+    else:
+        y = get_proxy(tops_op.Mul.get_singleton(), (y, alpha), {})
+    return get_proxy(tops_op.Add.get_singleton(), (x, y), {})
+
+
 
 @register_conversion(torch.ops.aten.add.default)
 def AddDefalut(a, b):
@@ -508,20 +520,6 @@ if is_torch_210:
     tops_patterns = PatternMatcherPass()
     tops_patterns_cls_list = []
     register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
-
-    @register_tops_patterns
-    class ReplacePatternAddAlpha(BackendPatternBase):
-        @staticmethod
-        def pattern(a, b, c):
-            return torch.ops.aten.add.Tensor(a, b, alpha = c)
-
-        @staticmethod
-        def replacement(a, b, c):
-            return torch.ops.aten.add.Tensor(a, torch.ops.aten.mul(b, c))
-
-        @staticmethod
-        def check_fn(match):
-            return match.kwargs['c'] != 1
 
     @register_tops_patterns
     class GemmTransposeRhsPattern(BackendPatternBase):
