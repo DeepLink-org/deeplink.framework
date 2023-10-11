@@ -82,13 +82,20 @@ def apply_torch_function_patch():
     torch.randn = GetDeviceStaticProxy(torch.randn)
     torch.randn_like = GetDeviceStaticProxy(torch.randn_like)
     torch.randperm = GetDeviceStaticProxy(torch.randperm)
+
+    # todo: try to automaitc check & mock funcs
+    torch.linspace = GetDeviceStaticProxy(torch.linspace)
+
     if mockcuda:
         for attr in dipu.__all__:
             if hasattr(torch.cuda, attr):
                 setattr(torch.cuda, attr, getattr(dipu, attr))
-
-            if attr in torch.cuda.random.__all__ and hasattr(torch.cuda.random, attr):
-                setattr(torch.cuda.random, attr, getattr(dipu, attr))
+            if attr in torch.cuda.random.__all__ and hasattr(dipu.random_dipu, attr):
+                setattr(torch.cuda.random, attr, getattr(dipu.random_dipu, attr))
+            if attr in torch.cuda.memory.__all__ and hasattr(dipu.memory, attr):
+                setattr(torch.cuda.memory, attr, getattr(dipu.memory, attr))
+        # special case dipu ans cuda use different name
+        torch.cuda.device = dipu.devicectx
 
 
 # temp solution, need redesign storage

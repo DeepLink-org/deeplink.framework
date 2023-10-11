@@ -1,6 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 import torch
 import torch_dipu
+from torch_dipu import diputype
 
 from torch_dipu.testing._internal.common_utils import create_common_tensor, TestCase, run_tests
 
@@ -35,13 +36,13 @@ class TestGenerator(TestCase):
         assert gen.device.type == 'cpu'
 
         gen = torch.Generator("cuda")
-        assert gen.device.type == 'xpu'
+        assert gen.device.type == diputype
 
         gen = torch.Generator("cuda:0")
-        assert gen.device == torch.device('xpu:0')
+        assert gen.device == torch.device(diputype + ':0')
 
         gen = torch.Generator("dipu")
-        assert gen.device.type == 'xpu'
+        assert gen.device.type == diputype
         gen.manual_seed(1)
         assert gen.initial_seed() == 1
 
