@@ -18,40 +18,6 @@ list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
 
-execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
-string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
-execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
-if (DIPU_MODIFY_LEN GREATER 0)
-    set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
-endif()
-message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
-add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
-
-# Automatically generate a list of supported diopi functions
-execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
-
-execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
-if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
-    set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-else()
-    set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
-add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
-message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
-
-execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
-message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
-
-execute_process(COMMAND  sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')" OUTPUT_VARIABLE PYTORCH_DIR)
-string (REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
-string (REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
-message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
-
-# config
-include(cmake/BaseFuncions.cmake)
-_set_cpp_flags()
-
 set(UsedVendor "")
 if (${DEVICE} IN_LIST DEVICE_CUDA)
     set(USE_CUDA ON)
@@ -75,6 +41,47 @@ else()
     message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
+
+execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
+string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
+execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
+if (DIPU_MODIFY_LEN GREATER 0)
+    set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
+endif()
+message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
+add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
+
+# Automatically generate a list of supported diopi functions
+execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
+
+execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
+    set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+else()
+    set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
+add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
+message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
+
+execute_process(COMMAND  sh -c "which python" OUTPUT_VARIABLE PYTHON_PATH)
+execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+
+
+message(STATUS "PATH:  " $ENV{PATH})
+message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
+
+execute_process(COMMAND  sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')" OUTPUT_VARIABLE PYTORCH_DIR)
+string (REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
+string (REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
+if(DEFINED ENV{PYTORCH_DIR})
+    set(PYTORCH_DIR $ENV{PYTORCH_DIR})
+endif()
+message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
+
+# config
+include(cmake/BaseFuncions.cmake)
+_set_cpp_flags()
 
 
 if (ENABLE_COVERAGE)
@@ -106,6 +113,7 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
 set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
+set(DIOPI_IMPL_LIB_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/lib")
 include_directories(${DIOPI_PROTO_PATH}/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
 

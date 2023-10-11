@@ -61,7 +61,7 @@ target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 if(DEFINED ENV{DIOPI_IMPL_LIB})
   find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ENV DIOPI_IMPL_LIB REQUIRED)
 else()
-  set(DIOPI_IMPL_LIB diopi_impl)
+  find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ${DIOPI_IMPL_LIB_PATH} REQUIRED)
 endif()
 
 # need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
@@ -74,6 +74,10 @@ add_custom_target(copy_include
     COMMAND mkdir -p ${VENDOR_DIST}
     COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
 )
+
+add_custom_command(TARGET copy_include PRE_BUILD    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'
+)
+
 add_dependencies(${DIPU_LIB} copy_include)
 
 
@@ -88,3 +92,21 @@ add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 # so temporarily use this target level setting. enhance in future. todo
 set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
+
+
+# -------- build _C.python extention --------
+set(DIPU_C_PYTHON_EXT_LIB _C.cpython)
+file(GLOB DIPU_C_PYTHON_EXT_SRC_FILES stub.cpp
+)
+set(DIPU_C_PYTHON_EXT_FILES
+    ${DIPU_C_PYTHON_EXT_SRC_FILES}
+)
+message(STATUS "dipu c python extention building " ${DIPU_C_PYTHON_EXT_FILES})
+add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED ${DIPU_C_PYTHON_EXT_FILES})
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_LIB})
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB})
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "c10")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_cpu")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_python")
+set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
