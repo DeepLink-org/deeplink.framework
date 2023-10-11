@@ -3,9 +3,16 @@ import functools
 from . import tops_op
 from abc import ABC, abstractmethod
 import numbers
+import torch.fx.traceback as fx_traceback
 from torch.fx import Proxy
 import operator
 from dicp.dynamo_bridge.compile_fx import is_torch_210
+from typing import (
+    Optional,
+)
+from torch.types import (
+    Number,
+)
 
 conversions = {}
 patterns = []
@@ -55,7 +62,7 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def Add(a, b):
+def Add(get_proxy, a, b):
     return tops_op.Add(a, b)
 
 @register_conversion(torch.ops.aten.add.default)
@@ -71,7 +78,7 @@ def Abs(a):
     return tops_op.Abs(a)
 
 @register_conversion(torch.ops.aten.mul)
-def Mul(a, b):
+def Mul(get_proxy, a, b):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta") and 'val' in a.node.meta:
             if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :

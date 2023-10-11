@@ -89,7 +89,6 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.override = EnflameOverrides
 
     def placeholder(self, name, target, args, kwargs):    
-        import pdb;pdb.set_trace()
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
@@ -129,7 +128,6 @@ class EnflameCodegen(torch.fx.Interpreter):
         if name not in self.args_dict.keys():
             varname = self.args_dict[name] = name + '_' + str(len(self.args_dict))
 
-        import pdb;pdb.set_trace()
         arg_code, args_list, kwargs_list = EnflameOverrides.gen_args(self.args_dict, args, kwargs)
         real_op = process_name(name, target)
         
@@ -502,6 +500,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen_args(args_dict, args, kwargs):
+        src_code = ""
         def convert_arg(arg):
             if isinstance(arg, Node):
                 return args_dict[arg.name]
@@ -516,7 +515,6 @@ class EnflameOverrides(OpOverrides):
             raise ValueError(f"unknown arg type({arg})")
 
 
-        src_code = IndentedBuffer()
         args_str = []
         kwargs_str = {}
         #name = process_name(node.name, node.target)
@@ -734,7 +732,6 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def make_const_if_scalar(varname, v, count):
-        import pdb;pdb.set_trace()
         src_code = ""
         if isinstance(v, numbers.Number):
             src_code = f"float {varname}_const_value{count} = static_cast<float>({v});\n"
