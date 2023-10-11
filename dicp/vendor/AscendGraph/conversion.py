@@ -39,18 +39,6 @@ def arange(end, start=0, step=1, device='cpu', pin_memory=False):
 def eq(a, b):
     return ascend_op.Eq(a, b)
 
-@registe_conversion(torch.ops.aten.rsub.Scalar)
-def rsub(a, b):
-    return ascend_op.Rsub(a, b)
-
-@registe_conversion(torch.ops.aten.mul)
-def mul(a, b):
-    return ascend_op.Mul(a, b)
-
-@registe_conversion(torch.ops.aten.mul.Tensor)
-def mul_tensor(a, b):
-    return ascend_op.MulTensor(a, b)
-
 @registe_conversion(torch.ops.aten.div)
 def div(a, b):
     return ascend_op.Div(a, b)
@@ -340,14 +328,6 @@ def zeros_like(x, dtype = torch.float32, layout = torch.strided,
              device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
     return ascend_op.ZerosLike(x)
 
-@registe_conversion(torch.ops.aten.view_as_complex.default)
-def view_as_complex(x):
-    return ascend_op.ViewAsComplex(x)
-
-@registe_conversion(torch.ops.aten.view_as_real.default)
-def view_as_real(x):
-    return ascend_op.ViewAsReal(x)
-
 @registe_conversion(torch.ops.aten.slice.Tensor)
 def slice(x, dim=0, start=None, end=None, step=1):
     return ascend_op.Slice(x, dim, start, end, step)
@@ -371,10 +351,6 @@ def lt(x, y):
 @registe_conversion(torch.ops.aten.masked_fill.Scalar)
 def masked_fill(x, y, value):
     return ascend_op.MaskedFill(x, y, value)
-  
-@registe_conversion(torch.ops.aten.rsub.Scalar)
-def rsub(x, value):
-    return ascend_op.Rsub(x, value)
 
 @registe_conversion(torch.ops.aten.index.Tensor)
 def index(*args, **kwargs):
@@ -427,12 +403,14 @@ bmm = torch.fx.wrap(registe_conversion(
     torch.ops.aten.bmm.default)(ascend_op.BatchMatMul))
 
 sub = torch.fx.wrap(registe_conversion(aten.sub)(ascend_op.Sub))
+rsub = torch.fx.wrap(registe_conversion(aten.rsub)(ascend_op.Rsub))
+view_as_complex = torch.fx.wrap(registe_conversion(aten.view_as_complex.default)(ascend_op.ViewAsComplex))
+view_as_real = torch.fx.wrap(registe_conversion(aten.view_as_real.default)(ascend_op.ViewAsReal))
 
 @registe_conversion(torch.ops.aten.add)
 def aten_add(get_proxy, x, y, alpha: Optional[Number] = 1):
-    y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
     out_dtype = fx_traceback.get_current_meta()['val'].dtype
-    if not isinstance(y_node, torch.fx.node.Node):
+    if not isinstance(y, torch.fx.proxy.Proxy):
         y = y * alpha
         if out_dtype == torch.float or out_dtype == torch.float16:
             return get_proxy(ascend_op.Adds.get_singleton(), (x, float(y)), {})
@@ -440,6 +418,27 @@ def aten_add(get_proxy, x, y, alpha: Optional[Number] = 1):
         y = get_proxy(ascend_op.Mul.get_singleton(), (y, alpha), {})
     return get_proxy(ascend_op.Add.get_singleton(), (x, y), {})
 
+@registe_conversion(torch.ops.aten.mul)
+def mul(get_proxy, x, y):
+    out_dtype = fx_traceback.get_current_meta()['val'].dtype
+    if out_dtype != torch.complex64:
+        return get_proxy(ascend_op.Mul.get_singleton(), (x, y), {})
+    # (a + bj)*(c + dj) = (ac - bd)+(ad + bc)j
+    a = get_proxy(ascend_op.SplitComplex.get_singleton(), (x, 0), {})
+    b = get_proxy(ascend_op.SplitComplex.get_singleton(), (x, 1), {})
+    c = get_proxy(ascend_op.SplitComplex.get_singleton(), (y, 0), {})
+    d = get_proxy(ascend_op.SplitComplex.get_singleton(), (y, 1), {})
+
+    ac = get_proxy(ascend_op.Mul.get_singleton(), (a, c), {})
+    bd = get_proxy(ascend_op.Mul.get_singleton(), (b, d), {})
+    ad = get_proxy(ascend_op.Mul.get_singleton(), (a, d), {})
+    bc = get_proxy(ascend_op.Mul.get_singleton(), (b, c), {})
+
+    ac_bd = get_proxy(ascend_op.Sub.get_singleton(), (ac, bd), {})
+    ad_bc = get_proxy(ascend_op.Add.get_singleton(), (ad, bc), {})
+
+    out = get_proxy(ascend_op.ConcatToComplex.get_singleton(), (ac_bd, ad_bc), {})
+    return out
 
 @registe_conversion(torch.ops.aten.bernoulli.p)
 def Bernoulli(x, p, generator=None):
