@@ -112,7 +112,6 @@ endif()
 add_custom_target(copy_include DEPENDS vendor_include)
 add_dependencies(${DIPU_LIB} copy_include)
 
-add_dependencies(${DIPU_LIB} ${DIPU_AUTOGENED_KERNELS})
 
 # ---------------------- build bind in python ----------------------------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp binding/patch*.cpp)
