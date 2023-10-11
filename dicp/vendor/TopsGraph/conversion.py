@@ -2,6 +2,7 @@ import torch
 import functools
 from . import tops_op
 from abc import ABC, abstractmethod
+import numbers
 from torch.fx import Proxy
 import operator
 from dicp.dynamo_bridge.compile_fx import is_torch_210
@@ -54,8 +55,8 @@ def register_conversion(aten_fn):
     )
 
 @register_conversion(torch.ops.aten.add.Tensor)
-def Add(a, b, **kwargs):
-    return tops_op.Add(a, b, **kwargs)
+def Add(a, b):
+    return tops_op.Add(a, b)
 
 @register_conversion(torch.ops.aten.add.default)
 def AddDefalut(a, b):
@@ -432,7 +433,7 @@ class ReplacePatternVar:
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return x_var
-    
+
 
 # %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
@@ -451,7 +452,7 @@ class ReplacePatternVarMean:
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return tops_op.ret_tuples(x_var, mean1)
-    
+
 
 @register_pattern
 class ReplacePatternT:
@@ -460,7 +461,6 @@ class ReplacePatternT:
 
     def replacement(inputs):
         return torch.ops.aten.transpose(inputs, 0, 1)
-
 
 @register_pattern
 class ReplacePatternRsub:
@@ -480,6 +480,16 @@ class ReplacePatternSiLU:
     def replacement(a):
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
 
+'''
+@register_pattern
+class ReplacePatternAddAlpha:
+    def pattern(a, b, c):
+        return torch.ops.aten.add.Tensor(a, b, alpha = c)
+
+    def replacement(a, b, c):
+        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mul.default(b, c))
+'''
+
 if is_torch_210:
     import functools
     from dicp.dynamo_bridge.op_transformer import (
@@ -491,6 +501,20 @@ if is_torch_210:
     tops_patterns = PatternMatcherPass()
     tops_patterns_cls_list = []
     register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
+
+    @register_tops_patterns
+    class ReplacePatternAddAlpha(BackendPatternBase):
+        @staticmethod
+        def pattern(a, b, c):
+            return torch.ops.aten.add.Tensor(a, b, alpha = c)
+
+        @staticmethod
+        def replacement(a, b, c):
+            return torch.ops.aten.add.Tensor(a, torch.ops.aten.mul(b, c))
+
+        @staticmethod
+        def check_fn(match):
+            return match.kwargs['c'] != 1
 
     @register_tops_patterns
     class GemmTransposeRhsPattern(BackendPatternBase):
@@ -520,3 +544,5 @@ if is_torch_210:
         @staticmethod
         def replacement(xq, keys):
             return DotGeneral(xq, keys, "{0, 2}, {0, 2}, {3}, {3}")
+
+

@@ -12,9 +12,18 @@ if is_torch_210:
 def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
 ):
-    gm = OpSetTransformer(patterns).transform(gm)
-    gm = SingleOpTransformer(gm, conversions).transform()
+
+    # TODO seperate backendPatterMatch
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
             tops_patterns, tops_patterns_cls_list).transform(gm)
+
+
+    gm = OpSetTransformer(patterns).transform(gm)
+    gm = SingleOpTransformer(gm, conversions).transform()
+
+    if is_torch_210:
+        gm = BackendPatternMatcherTransformer(
+            tops_patterns, tops_patterns_cls_list).transform(gm)
+
     return gm

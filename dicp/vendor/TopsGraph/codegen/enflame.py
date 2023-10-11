@@ -4,6 +4,7 @@ import functools
 import math
 import sys
 import os
+import numbers
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List
@@ -88,6 +89,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.override = EnflameOverrides
 
     def placeholder(self, name, target, args, kwargs):    
+        import pdb;pdb.set_trace()
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
@@ -125,9 +127,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
-            self.args_dict[name] = 'op' + str(len(self.args_dict))
+            varname = self.args_dict[name] = name + '_' + str(len(self.args_dict))
 
-        arg_code, args_list = EnflameOverrides.gen_args(self.args_dict[name], self.args_dict, self.cur_node, args, kwargs)
+        import pdb;pdb.set_trace()
+        arg_code, args_list, kwargs_list = EnflameOverrides.gen_args(self.args_dict, args, kwargs)
         real_op = process_name(name, target)
         
         if tops_debug:
@@ -140,10 +143,13 @@ class EnflameCodegen(torch.fx.Interpreter):
             print("args_list:", args_list)
             print("op_code:", getattr(self.override, real_op)(*args_list))
 
-        op_code = getattr(self.override, real_op)(*args_list)
+        #op_code = getattr(self.override, real_op)(*args_list)
+        node_shape = None if not hasattr(self.cur_node, 'meta') else self.cur_node.meta['val'].shape
+        node_dtype = None if not hasattr(self.cur_node, 'meta') else self.cur_node.meta['val'].dtype
+        op_code = getattr(self.override, real_op)(varname, node_shape, node_dtype, *args_list, **kwargs_list)
         
         self.build_graph_code.splice(arg_code)
-        self.build_graph_code.splice(f"{op_code}")
+        self.build_graph_code.splice(op_code)
         self.build_graph_code.writeline("")
         
         return
@@ -495,13 +501,105 @@ class EnflameCodegen(torch.fx.Interpreter):
 
 class EnflameOverrides(OpOverrides):
     @staticmethod
-    def gen_args(op_var, args_dict, node, args, kwargs):
-        gen_const_flag = True
+    def gen_args(args_dict, args, kwargs):
+        def convert_arg(arg):
+            if isinstance(arg, Node):
+                return args_dict[arg.name]
+            elif isinstance(arg, bool):
+                return str(arg).lower()
+            elif isinstance(arg, numbers.Number):
+                return arg
+            elif isinstance(arg, str):
+                return arg
+            elif isinstance(arg, torch.dtype):
+                args_str.append(arg)
+            raise ValueError(f"unknown arg type({arg})")
+
+
         src_code = IndentedBuffer()
-        args_str = [op_var]
-        count = 0
-        
-        name = process_name(node.name, node.target)
+        args_str = []
+        kwargs_str = {}
+        #name = process_name(node.name, node.target)
+        #op_var = node.name
+
+        for arg in args:
+            if isinstance(arg, type(None)):
+                continue
+            args_str.append(convert_arg(arg))
+        for k, v in kwargs.items():
+            v = convert_arg(v) 
+            kwargs_str[k] = v
+
+        return src_code, args_str, kwargs_str
+
+        '''
+                    for k, v in kwargs.items():
+                    if name == "Add" and k == "alpha":
+                        kwargs_flatten.append(v)
+                args += tuple(kwargs_flatten)
+
+
+                if True:
+                    if isinstance(node.meta['val'], list) or isinstance(node.meta['val'], tuple):
+                        val = node.meta['val'][0]
+                    else:
+                        val = node.meta['val']
+
+                    data_type = '' if isinstance(val, type(None)) else val.dtype.__str__()
+                    
+                    # handle mixed args(float and bool).
+                    # todo check
+                    #if data_type == "torch.bool":
+                    #    data_type = args[i -1].meta['val'].dtype.__str__() if i > 0 and isinstance(args[i -1], Node) else "torch.float32"
+                    
+                    src_code.writeline("")
+                    src_code.writeline(f"builder::Type {op_var}_const_value_type{count}({'{' + '1' + '}'}, {type_set[data_type]});")
+                    
+                    if data_type == 'torch.int64':
+                        src_code.writeline(f'int {op_var}_const_value{count} = static_cast<int64_t>({str(arg)});')
+                        build_type = "builder::Type({1}, s64_type)"
+                    else:
+                        src_code.writeline(f'float {op_var}_const_value{count} = static_cast<float>({str(arg)});')
+                        build_type = "builder::Type({1}, f32_type)"
+                    
+                    src_code.writeline(f"builder::Op {op_var}_const{count} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {build_type});")
+                    
+                    if data_type != "torch.int64" and data_type != "torch.float32":
+                        src_code.writeline(f"{op_var}_const{count} = builder::Convert({op_var}_const{count}, {op_var}_const_value_type{count});")
+                    
+                    args_str.append(f'{op_var}_const{count}')
+                    count += 1
+                shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+                data_type = node.meta['val'].dtype.__str__()
+                src_code.writeline("")
+                src_code.writeline(f"std::vector<int64_t> {op_var}_shape{count}{shape};")
+                src_code.writeline(f"builder::Type {op_var}_type{count} = builder::Type({op_var}_shape{count}, {type_set[data_type]});")
+                src_code.writeline("")
+                args_str.append(f"{op_var}_type{count}")
+                count += 1
+            elif isinstance(arg, torch.fx.immutable_collections.immutable_list):
+                pass
+                if "reduce" in node.name and len(args) != 1 and i == 1:
+                    tmp = args[1].copy()
+                    tmp.sort()
+                    for j in range(0, len(tmp)):
+                        tmp[j] = (tmp[j] + len(args[0].meta['val'].shape)) % len(args[0].meta['val'].shape)
+                    args_str.append(str(tmp).replace('[', '{').replace(']', '}'))
+                elif any(args[i]) and isinstance(args[i][0], Node):
+                     nodelistarg = '{'
+                     for i in args[i]:
+                        assert(isinstance(i, Node))
+                        nodelistarg += ' ' + str(args_dict[i.name]) + ','
+                     nodelistarg += '}'
+                     nodelistarg = nodelistarg.replace(",}", "}")
+                     args_str.append(nodelistarg)
+                else:
+                    args_str.append(str(args[i]).replace('[', '{').replace(']', '}'))
+        '''
+
+
+        # ---- not refact yet
+        '''
         if name == "Reshape" and "complex" in args[0].name:
             args_str.append(node)
             src_code.writeline(f"builder::Op {args_dict[args[0].name]}_0 = builder::GetTupleElement({args_dict[args[0].name]}, 0);")
@@ -616,6 +714,7 @@ class EnflameOverrides(OpOverrides):
                 else:
                     raise ValueError(f"Unsupported args type: {args[i]}!")
         return src_code, args_str
+        '''
 
     @staticmethod
     def Clone(op_var, x):
@@ -634,25 +733,32 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def Add(op_var, x, y, *args):
+    def make_const_if_scalar(varname, v, count):
+        import pdb;pdb.set_trace()
         src_code = ""
-        if args:
-            assert len(args) == 1, "The number of Add Operation args should be at most one."
-            scaled_y = f"{op_var}_scaled_y"
-            src_code += f"builder::Op {scaled_y} = builder::Mul({y}, {args[0]});"
-        else:
-            scaled_y = y
-        src_code += f"builder::Op {op_var} = builder::Add({x}, {scaled_y});"
+        if isinstance(v, numbers.Number):
+            src_code = f"float {varname}_const_value{count} = static_cast<float>({v});\n"
+            v = f"{varname}_const{count}"
+            src_code += f"builder::Op {v} = builder::Const(hlir_builder, static_cast<void *>(&{varname}_const_value{count}), builder::Type({'{'}1{'}'}, f32_type));\n"
+        return src_code, v
+
+    @staticmethod
+    # TODO mul + add scaled_y should handle in conversion
+    def Add(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, 0)
+        src_code += f"builder::Op {op_var} = builder::Add({x}, {y});"
         return src_code
 
     @staticmethod
     def Sub(op_var, x, y):
         return f"builder::Op {op_var} = builder::Sub({x}, {y});"
-    
+
     @staticmethod
-    def Mul(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Mul({x}, {y});"
-    
+    def Mul(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, 0)
+        src_code += f"builder::Op {op_var} = builder::Mul({x}, {y});"
+        return src_code
+
     @staticmethod
     def Div(op_var, node, args_dict):
         args = node.args
@@ -1206,6 +1312,7 @@ class EnflameOverrides(OpOverrides):
         
         return src_code
     
+
     # redispatch
     @staticmethod
     def AvgPool2D(op_var, *args_str):
