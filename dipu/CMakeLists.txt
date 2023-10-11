@@ -18,6 +18,30 @@ list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
 
+set(UsedVendor "")
+if (${DEVICE} IN_LIST DEVICE_CUDA)
+    set(USE_CUDA ON)
+    set(UsedVendor cuda)
+elseif (${DEVICE} IN_LIST DEVICE_CAMB)
+    set(USE_CAMB ON)
+    set(UsedVendor camb)
+elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
+    set(USE_ASCEND ON)
+    set(UsedVendor ascend)
+elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
+    set(USE_TOPSRIDER ON)
+    set(UsedVendor topsrider)
+elseif (${DEVICE} IN_LIST DEVICE_SUPA)
+    set(USE_SUPA ON)
+    set(UsedVendor supa)
+elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
+    set(USE_DROPLET ON)
+    set(UsedVendor droplet)
+else()
+    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
+endif()
+
+
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
@@ -45,41 +69,24 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
 
+execute_process(COMMAND  sh -c "which python" OUTPUT_VARIABLE PYTHON_PATH)
 execute_process(COMMAND  sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)" OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+
+
+message(STATUS "PATH:  " $ENV{PATH})
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
 execute_process(COMMAND  sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')" OUTPUT_VARIABLE PYTORCH_DIR)
 string (REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
 string (REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
+if(DEFINED ENV{PYTORCH_DIR})
+    set(PYTORCH_DIR $ENV{PYTORCH_DIR})
+endif()
 message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
 
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
-
-set(UsedVendor "")
-if (${DEVICE} IN_LIST DEVICE_CUDA)
-    set(USE_CUDA ON)
-    set(UsedVendor cuda)
-elseif (${DEVICE} IN_LIST DEVICE_CAMB)
-    set(USE_CAMB ON)
-    set(UsedVendor camb)
-elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
-    set(USE_ASCEND ON)
-    set(UsedVendor ascend)
-elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
-    set(USE_TOPSRIDER ON)
-    set(UsedVendor topsrider)
-elseif (${DEVICE} IN_LIST DEVICE_SUPA)
-    set(USE_SUPA ON)
-    set(UsedVendor supa)
-elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
-    set(USE_DROPLET ON)
-    set(UsedVendor droplet)
-else()
-    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
-endif()
-
 
 
 if (ENABLE_COVERAGE)
@@ -111,6 +118,7 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
 set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
+set(DIOPI_IMPL_LIB_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/lib")
 include_directories(${DIOPI_PROTO_PATH}/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
 
