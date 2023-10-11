@@ -179,6 +179,68 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
         raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
 
 
+def get_dtype_from_scalar(x):
+    ascend_dtype = None
+    cpp_dtype = None
+    if isinstance(x, int) and x <= 2**31 - 1:
+        ascend_dtype = "INT32"
+        cpp_dtype = "INT32"
+    elif isinstance(x, int):
+        ascend_dtype = "INT64"
+        cpp_dtype = "INT64"
+    elif isinstance(x, float):
+        ascend_dtype = "FLOAT"
+        cpp_dtype = "FLOAT"
+    else:
+        raise RuntimeError("unsupported python scalar type!")
+    return ascend_dtype, cpp_dtype
+
+
+def gen_const_node(name, x, dtype):
+    if not isinstance(x, list):
+        x = [x]
+    assert len(x) > 0
+    ascend_dtype = get_ascend_dtype(dtype)
+    cpp_dtype = get_cpp_dtype(dtype)
+    const_op = OP(name, "Const")
+    const_op.set_attr_tensor(
+        "value", ascend_dtype, cpp_dtype, "ND", x, [len(x)])
+    return const_op.to_node()
+
+
+def gen_cast_node(name, x, dtype):
+    ascend_dtype = get_ascend_dtype(dtype)
+    cast_op = OP(name, "Cast")
+    cast_op.set_input("x", x)
+    cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+    return cast_op.to_node()
+
+def gen_broadcast_node(name, x, shape):
+    broadcast_op = OP(name, "BroadcastTo")
+    broadcast_op.set_input("x", x)
+    broadcast_op.set_input("shape", shape)
+    return broadcast_op.to_node()
+
+def process_sub_scalar(name, x, y_name):
+    x_dtype = x.dtype
+    ops = []
+    cast_node = None
+    if x_dtype == torch.float16:
+        x_dtype = torch.float32
+        cast_node = gen_cast_node(f'{name}_cast', f'{name}_broadcast', torch.float16)
+    ops.append(gen_const_node(f'{name}_scalar', y_name, x_dtype))
+    y_shape = list(x.shape)
+    if symint_in_shape(y_shape):
+        ops.extend(process_dynamic_shape(y_shape, name))
+    else:
+        ops.append(gen_const_node(f"{name}_preprocess", y_shape, torch.int32))
+    ops.append(gen_broadcast_node(f"{name}_broadcast", f"{name}_scalar", f"{name}_preprocess"))
+    y_name = f'{name}_broadcast'
+    if cast_node is not None:
+        ops.append(cast_node)
+        y_name = f'{name}_cast'
+    return ops, y_name
+
 class AscendCodegen(torch.fx.Interpreter):
     def __init__(self, graph, aten_graph=None, folder=None, graph_key=None):
         self.graph = graph
@@ -907,6 +969,13 @@ class AscendOverrides:
         return getattr(AscendOverrides, 'mul')(name, node, x, y)
 
     @staticmethod
+    def adds(name, x, y):
+        adds_op = OP(name, "Adds")
+        adds_op.set_input("x", x)
+        adds_op.set_attr_float("value", float(y))
+        return adds_op.to_node()
+    
+    @staticmethod
     def add(name, node, x, y):
         (x_node, y_node) = node.args
         out_dtype = node.meta['val'].dtype
@@ -914,36 +983,15 @@ class AscendOverrides:
         x_name = x
         y_name = y
         if isinstance(y_node, torch.fx.node.Node):
-            x_dtype = x_node.meta['val'].dtype
-            y_dtype = y_node.meta['val'].dtype
-            if x_dtype != out_dtype:
-                ascend_dtype = get_ascend_dtype(out_dtype)
+            if x_node.meta['val'].dtype != out_dtype:
                 x_name = f'{name}_x_cast'
-                cast_op = OP(f'{name}_x_cast', "Cast")
-                cast_op.set_input("x", x)
-                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
-                ops.append(cast_op.to_node())
-            if y_dtype != out_dtype:
-                ascend_dtype = get_ascend_dtype(out_dtype)
+                ops.append(gen_cast_node(x_name, x, out_dtype))
+            if y_node.meta['val'].dtype != out_dtype:
                 y_name = f'{name}_y_cast'
-                cast_op = OP(f'{name}_y_cast', "Cast")
-                cast_op.set_input("x", x)
-                cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
-                ops.append(cast_op.to_node())
+                ops.append(gen_cast_node(y_name, y, out_dtype))
         else:
-            # y is scalar  
-            if out_dtype == torch.float or out_dtype == torch.float16:
-                adds_op = OP(name, "Adds")
-                adds_op.set_input("x", x_name)
-                adds_op.set_attr_float("value", float(y))
-                return adds_op.to_node()
-
-            ascend_dtype = get_ascend_dtype(out_dtype)
-            cpp_dtype = get_cpp_dtype(out_dtype)
-            scalar_op = OP(f'{name}_scalar', "Const")
-            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
             y_name = f"{name}_scalar"
-            ops.append(scalar_op.to_node())
+            ops.append(gen_const_node(y_name, y, out_dtype))
         add_op = OP(name, "Add")
         add_op.set_input("x1", x_name)
         add_op.set_input("x2", y_name)
@@ -951,55 +999,32 @@ class AscendOverrides:
         return ops
 
     @staticmethod
-    def sub(name, node, x, y, reverse=False):
+    def sub(name, node, x, y):
         (x_node, y_node) = node.args
-        x_dtype = node.args[0].meta['val'].dtype
         y_name = y
         ops = []
         if not isinstance(y_node, torch.fx.node.Node):
-            cast_op = None
-            if x_dtype == torch.float16:
-                x_dtype = torch.float32
-                cast_op = OP(f'{name}_cast', "Cast")
-                cast_op.set_input('x', f'{name}_broadcast')
-                cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
-
-            ascend_dtype = get_ascend_dtype(x_dtype)
-            cpp_dtype = get_cpp_dtype(x_dtype)
-            y_shape = list(x_node.meta['val'].shape)
-            scalar_op = OP(f'{name}_scalar', "Const")
-            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [1])
-            ops.append(scalar_op.to_node())
-
-            if symint_in_shape(y_shape):
-                ops.extend(process_dynamic_shape(y_shape, name))
-            else:
-                shape_op = OP(f"{name}_preprocess", "Const")
-                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
-                ops.append(shape_op.to_node())
-            broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
-            broadcast_op.set_input("x", f"{name}_scalar")
-            broadcast_op.set_input("shape", f"{name}_preprocess")
-            ops.append(broadcast_op.to_node())
-            y_name = f'{name}_broadcast'
-
-            if cast_op is not None:
-                ops.append(cast_op.to_node())
-                y_name = f'{name}_cast'
-            
+            y_ops, y_name = process_sub_scalar(name, x_node.meta['val'], y_name)
+            ops.extend(y_ops)
         sub_op = OP(name, "Sub")
-        if not reverse:
-            sub_op.set_input("x1", x)
-            sub_op.set_input("x2", y_name)
-        else:
-            sub_op.set_input("x1", y_name)
-            sub_op.set_input("x2", x)
+        sub_op.set_input("x1", x)
+        sub_op.set_input("x2", y_name)
         ops.append(sub_op.to_node())
         return ops
 
     @staticmethod
     def rsub(name, node, x, y):
-        return getattr(AscendOverrides, 'sub')(name, node, x, y, True)
+        (x_node, y_node) = node.args
+        y_name = y
+        ops = []
+        if not isinstance(y_node, torch.fx.node.Node):
+            y_ops, y_name = process_sub_scalar(name, x_node.meta['val'], y_name)
+            ops.extend(y_ops)
+        sub_op = OP(name, "Sub")
+        sub_op.set_input("x1", y_name)
+        sub_op.set_input("x2", x)
+        ops.append(sub_op.to_node())
+        return ops
 
     @staticmethod
     def relu(name, x):

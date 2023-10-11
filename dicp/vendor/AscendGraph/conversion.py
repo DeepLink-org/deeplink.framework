@@ -2,6 +2,13 @@ import functools
 import operator
 import _operator
 import torch
+from typing import (
+    Optional,
+)
+from torch.types import (
+    Number,
+)
+import torch.fx.traceback as fx_traceback
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.dynamo_bridge.conversion import register_conversion_impl
 from dicp.dynamo_bridge.op_transformer import (
@@ -31,14 +38,6 @@ def arange(end, start=0, step=1, device='cpu', pin_memory=False):
 @registe_conversion(torch.ops.aten.eq)
 def eq(a, b):
     return ascend_op.Eq(a, b)
-
-@registe_conversion(torch.ops.aten.add)
-def add(a, b):
-    return ascend_op.Add(a, b)
-
-@registe_conversion(torch.ops.aten.sub)
-def sub(a, b):
-    return ascend_op.Sub(a, b)
 
 @registe_conversion(torch.ops.aten.rsub.Scalar)
 def rsub(a, b):
@@ -426,6 +425,21 @@ view = torch.fx.wrap(registe_conversion(torch.ops.aten.view.default)(ascend_op.T
 
 bmm = torch.fx.wrap(registe_conversion(
     torch.ops.aten.bmm.default)(ascend_op.BatchMatMul))
+
+sub = torch.fx.wrap(registe_conversion(aten.sub)(ascend_op.Sub))
+
+@registe_conversion(torch.ops.aten.add)
+def aten_add(get_proxy, x, y, alpha: Optional[Number] = 1):
+    y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
+    out_dtype = fx_traceback.get_current_meta()['val'].dtype
+    if not isinstance(y_node, torch.fx.node.Node):
+        y = y * alpha
+        if out_dtype == torch.float or out_dtype == torch.float16:
+            return get_proxy(ascend_op.Adds.get_singleton(), (x, float(y)), {})
+    else:
+        y = get_proxy(ascend_op.Mul.get_singleton(), (y, alpha), {})
+    return get_proxy(ascend_op.Add.get_singleton(), (x, y), {})
+
 
 @registe_conversion(torch.ops.aten.bernoulli.p)
 def Bernoulli(x, p, generator=None):
