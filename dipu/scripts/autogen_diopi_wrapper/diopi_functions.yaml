@@ -2100,6 +2100,18 @@
     return out;
   interface: diopiNeg(ctx, out, self)
 
+- schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = at::empty(in.sizes(), in.options());
+      dipu_norm_out(in, ord, {}, false, out[i]);
+    }
+    return out;
+  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
 - schema: "to.dtype(Tensor(a) self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor(a)"
   custom_code_at_the_beginning: |
     auto out = at::empty_like(self, self.options().dtype(dtype));
@@ -2122,6 +2134,7 @@
     dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
     auto stream = dipu::getCurrentDIPUStream();
     auto srcTemp = self.dtype() == src.dtype() ? src : src.to(self.dtype());
+    srcTemp = (srcTemp.numel() == self.numel()) ? srcTemp : srcTemp.expand(self.sizes());
     if (non_blocking) {
       const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
       if (self.is_cpu()) {
@@ -2140,7 +2153,7 @@
       }
     }
     if (self.device().type() != srcTemp.device().type()) {
-      //srcTemp = srcTemp.is_contiguous(self.suggest_memory_format()) ? srcTemp : srcTemp.contiguous(self.suggest_memory_format());
+      srcTemp = srcTemp.is_contiguous(self.suggest_memory_format()) ? srcTemp : srcTemp.contiguous(self.suggest_memory_format());
       if (srcTemp.is_cpu() && (!self.is_cpu())) {
         // c2d
         dipu::devproxy::memCopyH2DAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
@@ -2154,6 +2167,7 @@
 
       return self;
     }
+
   interface: diopiCopyInp(ctx, srcTemp, self)
   custom_code_before_return: |
     if (!non_blocking) {
