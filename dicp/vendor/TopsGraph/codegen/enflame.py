@@ -1370,7 +1370,7 @@ class EnflameOverrides(OpOverrides):
                 continue
             args_str.append(args_dict[arg.name])
         
-        dim = (node.args[1] + len(node.meta["val"].shape)) % len(node.meta["val"].shape)
+        dim = (node.args[1] + len(node.meta["val"].shape)) % len(node.meta["val"].shape) if len(node.args) > 1 else 0
             
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(args_str) + '}'}, {dim});"
 

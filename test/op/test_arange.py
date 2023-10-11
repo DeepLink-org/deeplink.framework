@@ -1,8 +1,4 @@
-import torch
 from common.utils import *
-import torch_dipu
-import pytest
-import torch._dynamo as dynamo
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):

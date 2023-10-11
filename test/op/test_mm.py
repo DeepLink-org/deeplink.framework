@@ -1,8 +1,4 @@
-import torch
 from common.utils import *
-import torch_dipu
-import pytest
-import torch._dynamo as dynamo
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
@@ -16,7 +12,8 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 
 class TestMm():
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size(((5, 3), (3, 5)), ((5, 3), (3, 5))), Size(((5, 3), (3, 5)), ((5, 3), (3, 5)))])
+    @pytest.mark.parametrize("sizes", [Size(((5, 3), (3, 5)), ((5, 3), (3, 5))),
+                                       Size(((5, 3), (3, 5)), ((5, 3), (3, 5)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_mm(self, sizes, dtype, compiled_model):
         device = get_device()

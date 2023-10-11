@@ -81,7 +81,6 @@ class TestLlama():
             model_path.ckpt_dir, model_path.tokenizer_path, max_seq_len, max_batch_size, 
             max_prompt_size, backend, dynamic
         )
-        torch.manual_seed(1)
 
         prompts = [
             ["I'm "],
