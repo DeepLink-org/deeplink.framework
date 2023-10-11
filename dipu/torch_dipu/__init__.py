@@ -129,7 +129,7 @@ def apply_patches():
     apply_dataloader_patch()
     apply_generator_patch()
     apply_stream_patch()
-    # apply_amp_patch()
+    apply_amp_patch()
 
 
 apply_patches()
