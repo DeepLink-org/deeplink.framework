@@ -30,7 +30,7 @@ __all__ = [
     "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
 
     # stream
-    "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event",
+    "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event", "is_current_stream_capturing",
 
     # random
     "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
