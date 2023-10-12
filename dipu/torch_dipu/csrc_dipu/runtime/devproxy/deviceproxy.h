@@ -3,14 +3,15 @@
 
 #include "../device/deviceapis.h"
 
-using dipu::devapis::deviceId_t;
-using dipu::devapis::DIPUDeviceProperties;
-using dipu::devapis::EventStatus;
-using dipu::devapis::OpStatus;
-
 namespace dipu {
 
 namespace devproxy {
+
+using dipu::devapis::deviceId_t;
+using dipu::devapis::DIPUDeviceProperties;
+using dipu::devapis::DIPUDeviceStatus;
+using dipu::devapis::EventStatus;
+using dipu::devapis::OpStatus;
 
 DIPU_API void initializeVendor();
 
@@ -19,6 +20,7 @@ DIPU_API void finalizeVendor();
 DIPU_API deviceId_t current_device();
 
 DIPU_API DIPUDeviceProperties getDeviceProperties(int32_t device_index);
+DIPU_API DIPUDeviceStatus getDeviceStatus(int32_t device_index);
 
 // set current device given device according to id
 DIPU_API void setDevice(deviceId_t devId);
