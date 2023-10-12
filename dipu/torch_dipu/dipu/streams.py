@@ -155,10 +155,14 @@ def default_stream(device=None):
 def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
     pass
 
+
+original_is_current_stream_capturing = torch.cuda.is_current_stream_capturing
+
+
 def is_current_stream_capturing() -> bool:
     # cuda.is_available is patched and we can't use it here
     if dipu.vendor_type == 'CUDA':
-        return torch.cuda.is_current_stream_capturing()
+        return original_is_current_stream_capturing()
     return False
 
 
