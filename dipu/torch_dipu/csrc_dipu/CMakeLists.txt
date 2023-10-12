@@ -2,6 +2,9 @@ set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
 set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
 
+find_package(PythonInterp REQUIRED)
+message(STATUS "Python version: " "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}")
+
 # python path
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
 
@@ -77,6 +80,7 @@ set(SOURCE_FILES
     ${PROFILER_FILES})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+set_target_properties(${DIPU_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})

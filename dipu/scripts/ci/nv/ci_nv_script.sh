@@ -2,7 +2,10 @@
 set -e
 echo "pwd: $(pwd)"
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> simplify the job of ci_nv_script.sh
 function config_dipu_nv_cmake() {
     # export NCCL_ROOT="you nccl path should exist"
 
@@ -13,6 +16,10 @@ function config_dipu_nv_cmake() {
     cd ../
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> simplify the job of ci_nv_script.sh
 function build_diopi_lib() {
     cd third_party/DIOPI/
     cd impl
