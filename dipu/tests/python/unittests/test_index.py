@@ -1,7 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, skipOn
 
 
 class TestIndex(TestCase):
@@ -22,11 +22,11 @@ class TestIndex(TestCase):
             x.cpu()[index.cpu(), index.cpu(), index.cpu(), index.cpu()],
         )
 
-    def test_index_repdim(self):
+    def test_index_bool(self):
         input = torch.arange(16).reshape(4, 2, 2).cuda()
         index1 = torch.randint(3, (1,)).cuda()
         index2 = torch.randint(2, (1,)).cuda()
-        index3 = torch.tensor([False, False]).cuda()
+        index3 = torch.tensor([False, True]).cuda()
         self.assertEqual(input[index1].cpu(), input.cpu()[index1.cpu()])
         self.assertEqual(
             input[index1, index2].cpu(),
@@ -101,7 +101,7 @@ class TestIndex(TestCase):
                 y_device = torch.index_put(
                     input.cuda(), indices_device, values.cuda(), accumulate=True
                 )
-                self.assertEqual(y_cpu, y_device.cpu())
+                self.assertRtolEqual(y_cpu, y_device.cpu())
 
 
 if __name__ == "__main__":

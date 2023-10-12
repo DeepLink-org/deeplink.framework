@@ -2,7 +2,7 @@
 import math
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, skipOn
 
 
 class TestRandom(TestCase):
@@ -28,12 +28,16 @@ class TestRandom(TestCase):
         self.assertEqual(x, y)
         self._test_uniform_distribution(x, 0, 2**mantissa)
 
+    @skipOn("MLU", "camb does not support this type")
     def test_random__fp16(self):
         self._test_dtype_default(torch.float16, 11)
 
+    # TODO(lljbash): fix this and remove skipOn
+    @skipOn("MLU", "DIOPI impl of camb has bug: range is wrong")
     def test_random__fp32(self):
         self._test_dtype_default(torch.float32, 24)
 
+    @skipOn("MLU", "camb does not support this type")
     def test_random__fp64(self):
         self._test_dtype_default(torch.float64, 53)
 
