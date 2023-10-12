@@ -724,7 +724,7 @@ class Tile(Operator):
 
 
 # torch.ops.prims.convert_element_type.default
-class ConvertElementType(Operator):
+class Convert(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Convert")
         self.args = args

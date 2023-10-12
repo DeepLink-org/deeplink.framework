@@ -76,18 +76,16 @@ def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
     return get_proxy(tops_op.Add.get_singleton(), (x, y), {})
 
 
-
-@register_conversion(torch.ops.aten.add.default)
-def AddDefalut(a, b):
-    return tops_op.AddDefalut(a, b)
-
-@register_conversion(torch.ops.aten.add.Scalar)
-def AddScalar(a, b):
-    return tops_op.AddScalar(a, b)
+AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
+AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
 
 @register_conversion(torch.ops.aten.abs)
 def Abs(a):
     return tops_op.Abs(a)
+
+AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
+AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
+Add = torch.fx.wrap(register_conversion(torch.ops.aten.add.Tensor)(tops_op.Add))
 
 @register_conversion(torch.ops.aten.mul)
 def Mul(get_proxy, a, b):
@@ -97,21 +95,22 @@ def Mul(get_proxy, a, b):
                 return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
 
-@register_conversion(torch.ops.aten.mul.Scalar)
-def MulScalar(a, b):
-    return tops_op.MulScalar(a, b)
+MulScalar = torch.fx.wrap(register_conversion(torch.ops.aten.mul.Scalar)(tops_op.MulScalar))
 
-@register_conversion(torch.ops.aten.div.Tensor)
-def Div(a, b):
-    return tops_op.Div(a, b)
+@register_conversion(torch.ops.aten.div)
+def Div(get_proxy, a, b):
+    a_node = a.node if isinstance(a, torch.fx.proxy.Proxy) else a
+    in_dtype = a_node.meta["val"].dtype
+    out_dtype = fx_traceback.get_current_meta()['val'].dtype
+    if in_dtype is torch.float16 or out_dtype is torch.float16:
+        a = get_proxy(tops_op.Convert.get_singleton(), (a, torch.float32), {})
+        if not isinstance(b, numbers.Number):
+            b = get_proxy(tops_op.Convert.get_singleton(), (b, torch.float32), {})
+        res = get_proxy(tops_op.Div.get_singleton(), (a, b), {})
+        return get_proxy(tops_op.Convert.get_singleton(), (res, torch.float16), {})
+    return get_proxy(tops_op.Div.get_singleton(), (a, b), {})
 
-@register_conversion(torch.ops.aten.div.Scalar)
-def DivScalar(a, b):
-    return tops_op.DivScalar(a, b)
-
-@register_conversion(torch.ops.aten.sub)
-def Sub(a, b):
-    return tops_op.Sub(a, b)
+Sub = torch.fx.wrap(register_conversion(torch.ops.aten.sub)(tops_op.Sub))
 
 @register_conversion(torch.ops.aten.sqrt)
 def Sqrt(a):
@@ -376,9 +375,7 @@ def Eq(*args, **kwargs):
 def Tile(*args, **kwargs):
     return tops_op.Tile(*args, **kwargs)
 
-@register_conversion(torch.ops.prims.convert_element_type.default)
-def ConvertElementType(*args, **kwargs):
-    return tops_op.ConvertElementType(*args, **kwargs)
+Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
 
 @register_conversion(torch.ops.aten.view_as_complex)
 def ViewAsComplex(x):

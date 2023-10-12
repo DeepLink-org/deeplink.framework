@@ -21,32 +21,32 @@ from torch._inductor.codegen.common import OpOverrides
 from ..config import tops_debug, dipu_flag, tops_check_precision
 
 
-type_set = {"torch.float16": "builder::PrimitiveType::F16()",
-            "torch.half": "builder::PrimitiveType::F16()",
-            "torch.float32": "builder::PrimitiveType::F32()",
-            "torch.float": "builder::PrimitiveType::F32()",
-            "torch.float64": "builder::PrimitiveType::F64()",
-            "torch.double": "builder::PrimitiveType::F64()",
-            "torch.int8": "builder::PrimitiveType::S8()",
-            "torch.int16": "builder::PrimitiveType::S16()",
-            "torch.short": "builder::PrimitiveType::S16()",
-            "torch.int32": "builder::PrimitiveType::S32()",
-            "torch.int": "builder::PrimitiveType::S32()",
-            "torch.int64": "builder::PrimitiveType::S64()",
-            "torch.long": "builder::PrimitiveType::S64()",
-            "torch.uint8": "builder::PrimitiveType::U8()",
-            "torch.bool": "builder::PrimitiveType::PRED()",
-            "torch.complex64": "builder::PrimitiveType::F32()"}
+type_set = {torch.float16: "builder::PrimitiveType::F16()",
+            torch.half: "builder::PrimitiveType::F16()",
+            torch.float32: "builder::PrimitiveType::F32()",
+            torch.float: "builder::PrimitiveType::F32()",
+            torch.float64: "builder::PrimitiveType::F64()",
+            torch.double: "builder::PrimitiveType::F64()",
+            torch.int8: "builder::PrimitiveType::S8()",
+            torch.int16: "builder::PrimitiveType::S16()",
+            torch.short: "builder::PrimitiveType::S16()",
+            torch.int32: "builder::PrimitiveType::S32()",
+            torch.int: "builder::PrimitiveType::S32()",
+            torch.int64: "builder::PrimitiveType::S64()",
+            torch.long: "builder::PrimitiveType::S64()",
+            torch.uint8: "builder::PrimitiveType::U8()",
+            torch.bool: "builder::PrimitiveType::PRED()",
+            torch.complex64: "builder::PrimitiveType::F32()"}
 
-cxx_type_set = {"torch.float32": "float_t",
-                "torch.float": "float_t",
-                "torch.float64": "double_t",
-                "torch.double": "double_t",
-                "torch.int32": "int32_t",
-                "torch.int": "int32_t",
-                "torch.int64": "int64_t",
-                "torch.long": "int64_t",
-                "torch.bool": "bool"}
+cxx_type_set = {torch.float32: "float_t",
+                torch.float: "float_t",
+                torch.float64: "double_t",
+                torch.double: "double_t",
+                torch.int32: "int32_t",
+                torch.int: "int32_t",
+                torch.int64: "int64_t",
+                torch.long: "int64_t",
+                torch.bool: "bool"}
 
 need_node = ['Scalar', 'Div', 'ReduceSum', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Bmm', 'Slice', 'Select', 
@@ -95,7 +95,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         if dipu_flag:
             self.device_id = self.cur_node.meta['val'].device.index
             
-        data_type = self.cur_node.meta['val'].dtype.__str__()
+        data_type = self.cur_node.meta['val'].dtype
         if data_type not in type_set.keys():
             print("data_type:", data_type, flush=True)
             raise ValueError("Type error!")
@@ -139,7 +139,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             print("args:", args)
             print("arg_code:", arg_code.getvalue())
             print("args_list:", args_list)
-            print("op_code:", getattr(self.override, real_op)(*args_list))
+            print("kwargs_list:", kwargs_list)
 
         #op_code = getattr(self.override, real_op)(*args_list)
         node_shape = None if not hasattr(self.cur_node, 'meta') else self.cur_node.meta['val'].shape
@@ -500,7 +500,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen_args(args_dict, args, kwargs):
-        src_code = ""
+        src_code = IndentedBuffer()
         def convert_arg(arg):
             if isinstance(arg, Node):
                 return args_dict[arg.name]
@@ -511,7 +511,7 @@ class EnflameOverrides(OpOverrides):
             elif isinstance(arg, str):
                 return arg
             elif isinstance(arg, torch.dtype):
-                args_str.append(arg)
+                return type_set[arg]
             raise ValueError(f"unknown arg type({arg})")
 
 
@@ -731,62 +731,50 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def make_const_if_scalar(varname, v, count):
+    def make_const_if_scalar(varname, v, count=0):
         src_code = ""
         if isinstance(v, numbers.Number):
             src_code = f"float {varname}_const_value{count} = static_cast<float>({v});\n"
             v = f"{varname}_const{count}"
             src_code += f"builder::Op {v} = builder::Const(hlir_builder, static_cast<void *>(&{varname}_const_value{count}), builder::Type({'{'}1{'}'}, f32_type));\n"
         return src_code, v
+    
+    @staticmethod
+    def make_type(varname, t, shape=[1], count=0):
+        shape = f"{{{str(shape).split('[')[-1].split(']')[0]}}}"
+        src_code = f"std::vector<int64_t> {varname}_shape{count}{shape};\n"
+        src_code += f"builder::Type {varname}_type{count}({shape}, {t});\n"
+        return src_code, f"{varname}_type{count}"
 
     @staticmethod
     # TODO mul + add scaled_y should handle in conversion
-    def Add(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, 0)
-        src_code += f"builder::Op {op_var} = builder::Add({x}, {y});"
+    def Add(varname, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code += f"builder::Op {varname} = builder::Add({x}, {y});"
+        return src_code
+    
+    @staticmethod
+    def Convert(varname, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_type(varname, y, shape)     
+        src_code += f"builder::Op {varname} = builder::Convert({x}, {y});"
+        return src_code
+    
+    @staticmethod
+    def Div(varname, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code += f"builder::Op {varname} = builder::Div({x}, {y});"
+        return src_code
+    
+    @staticmethod
+    def Sub(varname, shape, dtype, x,  y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code += f"builder::Op {varname} = builder::Sub({x}, {y});"
         return src_code
 
     @staticmethod
-    def Sub(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Sub({x}, {y});"
-
-    @staticmethod
-    def Mul(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, 0)
-        src_code += f"builder::Op {op_var} = builder::Mul({x}, {y});"
-        return src_code
-
-    @staticmethod
-    def Div(op_var, node, args_dict):
-        args = node.args
-        args_str = [args_dict[args[0].name]]
-        src_code = "\n"
-        
-        if isinstance(args[1], Node):
-            args_str.append(args_dict[args[1].name])
-            src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
-            return src_code
-
-        input_type = args[0].meta['val'].dtype.__str__()
-        out_type = node.meta['val'].dtype.__str__()
-
-        input_shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-
-        # convert to torch.float32 for div precision temporarily
-        if input_type == "torch.float16":
-            src_code += f"{args_dict[args[0].name]} = builder::Convert({args_dict[args[0].name]}, builder::Type({input_shape}, builder::PrimitiveType::F32()));\n"
-
-        src_code += f"float {op_var}_const_value = static_cast<float>({str(args[1])});\n"
-        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n"
-
-        args_str.append(f"{op_var}_const")
-
-        src_code += f"builder::Op {op_var} = builder::Div({','.join(args_str)});\n"
-
-        if out_type == "torch.float16":
-            src_code += f"{op_var} = builder::Convert({op_var}, builder::Type({out_shape}, builder::PrimitiveType::F16()));"
-
+    def Mul(varname, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, 0)
+        src_code += f"builder::Op {varname} = builder::Mul({x}, {y});"
         return src_code
     
     @staticmethod
@@ -878,10 +866,6 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Sigmoid(op_var, x):
         return f"builder::Op {op_var} = builder::Sigmoid({x});"
-    
-    @staticmethod
-    def Convert(op_var, *args):
-        return f"builder::Op {op_var} = builder::Convert({', '.join(args)});"
     
     @staticmethod
     def Reciprocal(op_var, *args):
