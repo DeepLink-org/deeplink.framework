@@ -160,7 +160,7 @@ if __name__ == '__main__':
     with open(yamlPath, 'r', encoding='utf-8') as f:
         original_list = yaml.safe_load(f.read()).get(device, None)
         if not original_list:
-            logging.warnings(f"Device type: {device} is not supported!")
+            logging.warning(f"Device type: {device} is not supported!")
             exit(0)
 
         if len(original_list) > max_model_num:
