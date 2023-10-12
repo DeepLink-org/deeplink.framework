@@ -158,7 +158,7 @@ def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
 
 def is_current_stream_capturing() -> bool:
     # cuda.is_available is patched and we can't use it here
-    if torch_dipu.device.__vendor__ == 'CUDA':
+    if torch_dipu.vendor_type == 'CUDA':
         return torch.cuda.is_current_stream_capturing()
     return False
 
