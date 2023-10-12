@@ -147,6 +147,7 @@ class TestAddmm(TestCase):
             self.assertRtolEqual(cpu_output, dipu_output1)
             self.assertRtolEqual(cpu_output, dipu_output2)
 
+    @skipOn("MLU", "insufficient precision on camb")
     def test_addmm_shape_format_fp16(self, device=dipu):
         format_list = [0]
         shape_list = [(3, 3), (3, 5), (5, 3)]
