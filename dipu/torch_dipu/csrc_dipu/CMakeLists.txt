@@ -1,6 +1,9 @@
 set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
 
+find_package(PythonInterp REQUIRED)
+message(STATUS "Python version: " "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}")
+
 # python path
 include_directories(${PYTHON_INCLUDE_DIR})
 
@@ -54,6 +57,7 @@ set(SOURCE_FILES
 )
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+set_target_properties(${DIPU_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
@@ -88,6 +92,7 @@ set(BIND_FILES
     ${BIND_SRC_FILES}
 )
 add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 # default hidden setting scope is incorrect and cannot open now because it cause diopirt hidden,
 # so temporarily use this target level setting. enhance in future. todo
 set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
@@ -95,7 +100,10 @@ target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 
 
 # -------- build _C.python extention --------
-set(DIPU_C_PYTHON_EXT_LIB _C.cpython)
+execute_process(COMMAND  sh -c "uname -m" OUTPUT_VARIABLE DIPU_C_PYTHON_EXT_ARCH)
+string (REPLACE "\n" "" DIPU_C_PYTHON_EXT_ARCH "${DIPU_C_PYTHON_EXT_ARCH}")
+string (REPLACE "\r" "" DIPU_C_PYTHON_EXT_ARCH "${DIPU_C_PYTHON_EXT_ARCH}")
+set(DIPU_C_PYTHON_EXT_LIB "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
 file(GLOB DIPU_C_PYTHON_EXT_SRC_FILES stub.cpp
 )
 set(DIPU_C_PYTHON_EXT_FILES
@@ -103,10 +111,16 @@ set(DIPU_C_PYTHON_EXT_FILES
 )
 message(STATUS "dipu c python extention building " ${DIPU_C_PYTHON_EXT_FILES})
 add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED ${DIPU_C_PYTHON_EXT_FILES})
+set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_LIB})
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB})
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "c10")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_cpu")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_python")
+target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
+
+
+# --------- install libs --------------------
+message(STATUS "CMake install direcotry:   " ${PROJECT_SOURCE_DIR}/torch_dipu)
