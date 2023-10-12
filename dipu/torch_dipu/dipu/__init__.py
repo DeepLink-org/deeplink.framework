@@ -9,6 +9,7 @@ from .memory import *
 from .streams import *
 from .tensor import *
 from .storages import *
+from . import amp
 import torch_dipu
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
@@ -42,6 +43,7 @@ __all__ = [
     "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now
+
 ]
 
 import atexit

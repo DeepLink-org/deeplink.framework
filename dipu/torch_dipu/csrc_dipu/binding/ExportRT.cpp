@@ -5,12 +5,14 @@
 #include <torch/csrc/Device.h>
 #include <torch/csrc/utils/pybind.h>
 #include <pybind11/chrono.h>
+#include <ATen/autocast_mode.h>
 
 #include "exportapi.h"
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/base/DIPUGlobals.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
+#include "DIPUpybind.h"
 using dipu::getDIPUStreamFromPool;
 using dipu::DIPUStream;
 using dipu::DIPUEvent;
@@ -300,7 +302,24 @@ static void exportGenerator(py::module& m) {
   });
 }
 
+
+static void exportAutocast(py::module& m) {
+  m.def("get_autocast_dipu_dtype", []()->at::ScalarType {
+    return at::autocast::get_autocast_xpu_dtype();
+  });
+  m.def("is_autocast_dipu_enabled", []()->bool {
+    return at::autocast::is_xpu_enabled();
+  });
+  m.def("set_autocast_dipu_enabled", [](bool enabled) {
+    at::autocast::set_xpu_enabled(enabled);
+  });
+  m.def("set_autocast_dipu_dtype", [](at::ScalarType dtype) {
+    at::autocast::set_autocast_xpu_dtype(dtype);
+  });
+}
+
 extern void patchTorchCsrcDevice(PyObject* module);
+
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
@@ -313,5 +332,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   patchStorage(m);
   patchTensor(m);
   exportGenerator(m);
+  exportAutocast(m);
 }
 }  // end ns dipu
