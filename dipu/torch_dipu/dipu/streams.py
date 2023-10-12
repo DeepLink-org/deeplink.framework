@@ -6,8 +6,7 @@ from typing import Union, Optional, Any
 import torch
 from torch.types import _int
 
-import torch_dipu
-from torch_dipu import _C
+from torch_dipu import _C, dipu
 from .utils import _dummy_type
 from .device import _get_device_index, _lazy_init
 from .device import devicectx
@@ -158,7 +157,7 @@ def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
 
 def is_current_stream_capturing() -> bool:
     # cuda.is_available is patched and we can't use it here
-    if torch_dipu.vendor_type == 'CUDA':
+    if dipu.vendor_type == 'CUDA':
         return torch.cuda.is_current_stream_capturing()
     return False
 
