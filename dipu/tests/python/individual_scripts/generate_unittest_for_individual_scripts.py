@@ -8,7 +8,7 @@ def generate_unittest_for_individual_scripts():
 # Copyright (c) 2023, DeepLink.
 import os
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests
-from tests.utils.stdout_redirector import stdout_redirector, DevNull
+from tests.python.utils.stdout_redirector import stdout_redirector, DevNull
 
 
 class TestIndividualScripts(TestCase):
