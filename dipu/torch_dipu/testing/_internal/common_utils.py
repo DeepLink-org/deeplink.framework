@@ -223,8 +223,8 @@ class TestCase(expecttest.TestCase):
             result_rtol = np.less_equal(result / np.add(deno, minimum), pre)
             if not result_rtol.all() and not result_atol.all():
                 if (
-                    np.sum(not result_rtol) > size * pre
-                    and np.sum(not result_atol) > size * pre
+                    np.sum(np.logical_not(result_rtol)) > size * pre
+                    and np.sum(np.logical_not(result_atol)) > size * pre
                 ):
                     self.fail("result error")
 
