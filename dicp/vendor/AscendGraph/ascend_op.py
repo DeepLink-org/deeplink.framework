@@ -609,7 +609,52 @@ class Identity(Operator):
         
         with x.fake_mode:
             return aten.clone(x)
+        
+class SplitComplex(Operator):
+    def __init__(self):
+        super().__init__("getitem")
 
+    def __call__(self, x, idx):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        assert idx < 2
+        with x.fake_mode:
+            if x.dtype == torch.complex32:
+                return aten.empty(x.shape, dtype=torch.float16)
+            elif x.dtype == torch.complex64:
+                return aten.empty(x.shape, dtype=torch.float32)
+            elif x.dtype == torch.complex128:
+                return aten.empty(x.shape, dtype=torch.float64)
+            else:
+                raise RuntimeError(f"unsupported dicp torch dtype: {x.dtype}")
+
+class ConcatToComplex(Operator):
+    def __init__(self):
+        super().__init__("identity_n")
+    
+    def __call__(self, *args, **kwargs):
+        def get_meta(x):
+            return x if not hasattr(x, 'meta') else x.meta['val']
+        new_args = tree_map(get_meta, args)
+        assert len(new_args) == 2
+        with new_args[0].fake_mode:
+            return torch.complex(new_args[0], new_args[1])
+
+class IdentityN(Operator):
+    def __init__(self, x, idx):
+        super().__init__("identity_n")
+        self.x = x
+        self.idx = idx
+
+    def __call__(self, *args, **kwargs):
+        def get_meta(x):
+            return x if not hasattr(x, 'meta') else x.meta['val']
+        new_args = tree_map(get_meta, args)
+        res = []
+        for item in new_args:
+            with item.fake_mode:
+                res.append(aten.clone(item))
+        return res
 
 class Pad(Operator):
     def __init__(self, x, padding):
@@ -1063,14 +1108,6 @@ class MaskedFill(Operator):
         self.y = y
         self.value = value
         self.torch_op = aten.masked_fill
-
-
-class Rsub(Operator):
-    def __init__(self, x, value):
-        super().__init__("rsub")
-        self.x = x
-        self.value = value
-        self.torch_op = aten.rsub
 
 
 class Index(Operator):

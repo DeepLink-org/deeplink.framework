@@ -932,41 +932,16 @@ class AscendOverrides:
             ops.append(op.to_node())
             return ops
 
-        assert x_node.meta["val"].dtype == torch.complex64
-        assert y_node.meta["val"].dtype == torch.complex64
-        
-        def gen_op(op_type, name, x1, x2):
-            op = OP(name, op_type)
-            op.set_input("x1", x1)
-            op.set_input("x2", x2)
-            return op
-
-        # (a + bj)*(c + dj) = (ac - bd)+(ad + bc)j
-        a = OP(f"{name}_a", "Identity")
-        a.set_input_with_index("x", x, 0)
-        b = OP(f"{name}_b", "Identity")
-        b.set_input_with_index("x", x, 1)
-        c = OP(f"{name}_c", "Identity")
-        c.set_input_with_index("x", y, 0)
-        d = OP(f"{name}_d", "Identity")
-        d.set_input_with_index("x", y, 1)
-
-        ac = gen_op("Mul", f"{name}_ac", f"{name}_a", f"{name}_c")
-        bd = gen_op("Mul", f"{name}_bd", f"{name}_b", f"{name}_d")
-        ad = gen_op("Mul", f"{name}_ad", f"{name}_a", f"{name}_d")
-        bc = gen_op("Mul", f"{name}_bc", f"{name}_b", f"{name}_c")
-        ac_bd = gen_op("Sub", f"{name}_ac_bd", f"{name}_ac", f"{name}_bd")
-        ad_bc = gen_op("Add", f"{name}_ad_bc", f"{name}_ad", f"{name}_bc")
-
-        id_op = OP(name, "IdentityN")
-        id_op.set_dynamic_input("x", 2, [f"{name}_ac_bd", f"{name}_ad_bc"])
-        id_op.set_dynamic_output("y", 2)
-        ops = [a, b, c, d, ac, bd, ad, bc, ac_bd, ad_bc, id_op]
-        return [op.to_node() for op in ops]
-
     @staticmethod
     def mul_tensor(name, node, x, y):
         return getattr(AscendOverrides, 'mul')(name, node, x, y)
+
+    @staticmethod
+    def identity_n(name, *args, **kwargs):
+        id_op = OP(name, "IdentityN")
+        id_op.set_dynamic_input("x", len(args), args)
+        id_op.set_dynamic_output("y", len(args))
+        return id_op.to_node()
 
     @staticmethod
     def adds(name, x, y):
@@ -2541,10 +2516,10 @@ class AscendOverrides:
 
     @staticmethod
     def view_as_complex(name, node, x):
-        x_shape = list(node.target.x.node.meta['val'].shape)
-        x_dtype = node.target.x.node.meta['val'].dtype
+        x_val = node.args[0].meta['val']
+        x_shape = list(x_val.shape)
 
-        assert x_dtype == torch.float32
+        assert x_val.dtype == torch.float32
         assert x_shape[-1] == 2
 
         dim = len(x_shape) - 1
@@ -2558,7 +2533,7 @@ class AscendOverrides:
     @staticmethod
     def view_as_real(name, node, x):
         assert node.meta['val'].dtype == torch.float32
-        x_shape = list(node.target.x.node.meta['val'].shape)
+        x_shape = list(node.args[0].meta['val'].shape)
         dim = len(x_shape)
         
         op1 = OP(f"{name}_getitem_1", "Identity")
@@ -2708,27 +2683,6 @@ class AscendOverrides:
         ops.append(op3.to_node())        
         ops.append(op5.to_node())
         return ops
-      
-    @staticmethod
-    def rsub(name, node, x, value):
-        # this is rsub.scalar
-        dtype = node.target.x.node.meta['val'].dtype
-        if dtype != torch.float16:
-            value_op = OP(f"{name}_value", "Const")
-            value_op.set_attr_tensor("value", get_ascend_dtype(dtype), get_cpp_dtype(dtype), "ND", [value], [])
-            op = OP(name, "Sub")
-            op.set_input("x1", x)
-            op.set_input("x2", f"{name}_value")
-            return [value_op.to_node(), op.to_node()]
-        value_op = OP(f"{name}_value_fp32", "Const")
-        value_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [value], [])
-        cast_op = OP(f"{name}_value", "Cast")
-        cast_op.set_input("x", f"{name}_value_fp32")
-        cast_op.set_attr_int("dst_type", get_ascend_dtype_num("FLOAT16"))
-        op = OP(name, "Sub")
-        op.set_input("x1", x)
-        op.set_input("x2", f"{name}_value")
-        return [value_op.to_node(), cast_op.to_node(), op.to_node()]
       
     @staticmethod
     def index(name, node, x, index):
