@@ -78,10 +78,7 @@ def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
 
 AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
 AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
-
-@register_conversion(torch.ops.aten.abs)
-def Abs(a):
-    return tops_op.Abs(a)
+Abs = torch.fx.wrap(register_conversion(torch.ops.aten.abs)(tops_op.Abs))
 
 AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
 AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
@@ -181,24 +178,11 @@ def Hardswish(a):
 def hardswishbackward(a, b):
     return tops_op.HardswishBackward(a, b)
 
-@register_conversion(torch.ops.aten.clone)
-def Clone(*args, **kargs):
-    return tops_op.Clone(*args, **kargs)
-
-@register_conversion(torch.ops.aten.copy.default)
-def Copy(*args, **kwargs):
-    return tops_op.Copy(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.copy_.default)
-def Copy(*args, **kwargs):
-    return tops_op.Copy(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.lift_fresh_copy.default)
-def LiftFreshCopy(*args, **kwargs):
-    return tops_op.LiftFreshCopy(*args, **kwargs)
-
-Alias = register_conversion(torch.ops.aten.alias)(tops_op.Alias)
-torch.fx.wrap("Alias")
+Clone = torch.fx.wrap(register_conversion(torch.ops.aten.clone)(tops_op.Clone))
+Copy = torch.fx.wrap(register_conversion(torch.ops.aten.copy.default)(tops_op.Copy))
+Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.Copy))
+LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
+Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
 
 @register_conversion(torch.ops.aten.neg)
 def Neg(*args, **kwargs):

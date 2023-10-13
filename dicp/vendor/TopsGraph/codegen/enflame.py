@@ -88,7 +88,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         super().__init__(graph)
         self.override = EnflameOverrides
 
-    def placeholder(self, name, target, args, kwargs):    
+    def placeholder(self, name, target, args, kwargs):
         self.args_dict[name] = 'op' + str(len(self.args_dict))
         self.input_args.append(self.cur_node)
         
@@ -111,18 +111,18 @@ class EnflameCodegen(torch.fx.Interpreter):
     def get_attr(self, name, target, args, kwargs):
         assert isinstance(target, str)
         if name not in self.args_dict.keys():
-            self.args_dict[name] = 'op' + str(len(self.args_dict))
+            varname = self.args_dict[name] = name + '_' + str(len(self.args_dict))
         attr = self.fetch_attr(target)
         assert(isinstance(attr, torch.Tensor))
         if attr.size():
             data = str(attr)[str(attr).find('(') + 1 : -1].replace('[', '{').replace(']', '}')
             shape = '{' + str(attr.shape).split('[')[-1].split(']')[0] + '}'
-            self.build_graph_code.writeline(f"builder::Type {self.args_dict[name]}_type({shape}, {type_set[str(attr.dtype)]});")
-            self.build_graph_code.writeline(f"std::vector<{cxx_type_set[str(attr.dtype)]}> {self.args_dict[name]}_data{data};")
-            self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = builder::Const(hlir_builder, {self.args_dict[name]}_data.data(), {self.args_dict[name]}_type);")
+            self.build_graph_code.writeline(f"builder::Type {varname}_type({shape}, {type_set[attr.dtype]});")
+            self.build_graph_code.writeline(f"std::vector<{cxx_type_set[attr.dtype]}> {varname}_data{data};")
+            self.build_graph_code.writeline(f"builder::Op {varname} = builder::Const(hlir_builder, {varname}_data.data(), {varname}_type);")
         else:
-            self.build_graph_code.writeline(f"builder::Type {self.args_dict[name]}_type({{1}}, {type_set[str(attr.dtype)]});")
-            self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = builder::Const(hlir_builder, {attr}, {self.args_dict[name]}_type);")
+            self.build_graph_code.writeline(f"builder::Type {varname}_type({{1}}, {type_set[attr.dtype]});")
+            self.build_graph_code.writeline(f"builder::Op {varname} = builder::Const(hlir_builder, {attr}, {varname}_type);")
         
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
@@ -717,20 +717,20 @@ class EnflameOverrides(OpOverrides):
         '''
 
     @staticmethod
-    def Clone(op_var, x):
-        return f"builder::Op {op_var} = {x};"
+    def Clone(varname, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {varname} = {x};"
 
     @staticmethod
-    def Copy(op_var, *args):
-        return f"builder::Op {op_var} = {args[1]};"
+    def Copy(varname, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {varname} = {y};"
     
     @staticmethod
-    def LiftFreshCopy(op_var, x):
-        return f"builder::Op {op_var} = {x};"
+    def LiftFreshCopy(varname, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {varname} = {x};"
 
     @staticmethod
-    def Abs(op_var, x):
-        return f"builder::Op {op_var} = builder::Abs({x});"
+    def Abs(varname, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {varname} = builder::Abs({x});"
 
     @staticmethod
     def make_const_if_scalar(varname, v, t=torch.float32, count=0):
