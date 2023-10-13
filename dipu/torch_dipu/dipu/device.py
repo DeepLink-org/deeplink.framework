@@ -63,8 +63,10 @@ class _DIPUDevice(metaclass=_MetaDeviceType):
         _device = _MetaDeviceType._torch_device(*args, **kwargs)
         return _device
 
+
 # always patch
 torch.device = _DIPUDevice
+
 
 # todo: use device_ctx & torch_function to reduce processing logic?
 # wrap device related func
@@ -82,6 +84,17 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
             kwargs[name] = torch.device(deviceValue)
         return args, kwargs
 
+    def _deviceToStr(args, kwargs):
+        # pos device
+        if pos >= 0 and pos < len(args) and isinstance(args[pos], torch.device):
+            argList = list(args)
+            argList[pos] = args[pos].type
+            args = tuple(argList)
+        deviceValue = kwargs.get(name, None)
+        if isinstance(deviceValue, torch.device):
+            kwargs[name] = deviceValue.type
+        return args, kwargs
+
     def _proxyFuncInst(self, *args, **kwargs):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(self, *args, **kwargs)
@@ -95,22 +108,34 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
         args, kwargs = _replaceDevice(args, kwargs)
         return rawfunc(cls, *args, **kwargs)
 
+    # return device in string
+    def _proxyFuncStaticStr(self, *args, **kwargs):
+        args, kwargs = _replaceDevice(args, kwargs)
+        args, kwargs = _deviceToStr(args, kwargs)
+        return rawfunc(self, *args, **kwargs)
+
     if caller == "static":
         return _proxyFuncStatic
     elif caller == "class_new":
         return _proxyNewClass
+    elif caller == "str_static":
+        return _proxyFuncStaticStr
     else:
         return _proxyFuncInst
 
+
 GetDeviceStaticProxy = partial(GetDeviceProxy, pos = -1, name = "device", caller = "static")
+
 
 def _lazy_init():
     pass
 
 # dipu device Interface
 
+
 def device_count():
     return _C._dipu_get_device_count()
+
 
 def set_device(device):
     _lazy_init()
@@ -121,9 +146,11 @@ def set_device(device):
     else :
         raise AssertionError("input can not convert to torch.device")
 
+
 def current_device():
     _lazy_init()
     return _C._dipu_current_device()
+
 
 def _get_device_index(device, optional=False) -> int:
     r"""Gets the device index from :attr:`device`, which can be a torch.device
@@ -157,6 +184,7 @@ def _get_device_index(device, optional=False) -> int:
             raise ValueError('Expected a dipu device with a specified index '
                              'or an integer, but got: '.format(device))
     return device_idx
+
 
 def synchronize(_device=None):
     r"""Waits for all kernels in all streams on a DIPU device to complete.
@@ -220,6 +248,7 @@ class device_of(devicectx):
 def can_device_access_peer():
     return False
 
+
 def get_device_name(device: Optional[_device_t] = None) -> str:
     return get_device_properties(device).name
 
@@ -227,6 +256,7 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
 def get_device_capability(device: Optional[_device_t] = None) -> Tuple[int, int]:
     prop = get_device_properties(device)
     return prop.major, prop.minor
+
 
 def get_device_properties(device: _device_t) -> _C._DIPUDeviceProperties:
     _lazy_init()

@@ -111,6 +111,14 @@ def apply_profiler_patch():
     torch.profiler.profile = dipu_profiler
 
 
+def apply_amp_patch():
+    torch.get_autocast_gpu_dtype = dipu.amp.get_autocast_dipu_dtype
+    torch.set_autocast_gpu_dtype = dipu.amp.set_autocast_dipu_dtype
+    torch.set_autocast_enabled = dipu.amp.set_autocast_dipu_enabled
+    torch.is_autocast_enabled = dipu.amp.is_autocast_dipu_enabled
+    torch.cuda.is_bf16_supported = dipu.amp.is_bf16_supported
+
+
 def apply_patches():
     apply_tensor_method_patch()
     apply_torch_function_patch()
@@ -121,5 +129,7 @@ def apply_patches():
     apply_dataloader_patch()
     apply_generator_patch()
     apply_stream_patch()
+    apply_amp_patch()
+
 
 apply_patches()
