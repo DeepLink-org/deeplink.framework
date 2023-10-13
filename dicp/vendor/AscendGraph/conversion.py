@@ -11,11 +11,6 @@ from torch.types import (
 import torch.fx.traceback as fx_traceback
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.dynamo_bridge.conversion import register_conversion_impl
-from dicp.dynamo_bridge.op_transformer import (
-        BackendPatternBase,
-        PatternMatcherPass,
-        register_backend_patterns,
-    )
 
 aten = torch.ops.aten
 prims = torch.ops.prims
@@ -31,31 +26,6 @@ def registe_conversion(aten_fn):
         aten_fn,
     )
 
-@registe_conversion(torch.ops.aten.arange.default)
-def arange(end, start=0, step=1, device='cpu', pin_memory=False):
-    return ascend_op.Arange(start, end, step)
-
-@registe_conversion(torch.ops.aten.eq)
-def eq(a, b):
-    return ascend_op.Eq(a, b)
-
-@registe_conversion(torch.ops.aten.div)
-def div(a, b):
-    return ascend_op.Div(a, b)
-
-@registe_conversion(torch.ops.aten.maximum.default)
-def maximum(a, b):
-    return ascend_op.Max(a, b)
-
-@registe_conversion(torch.ops.aten.convolution)
-def convolution(input, weight, bias, stride, padding,
-                dilation, transposed, output_padding, groups):
-    return ascend_op.Conv2D(input, weight, bias, stride, padding,
-                dilation, transposed, output_padding, groups)
-
-@registe_conversion(torch.ops.aten.abs)
-def abs(a):
-    return ascend_op.Abs(a)
 
 @registe_conversion(torch.ops.aten.rsqrt)
 def rsqrt(a):
@@ -389,24 +359,6 @@ def Maximum(x, y):
 def Eq(x, y):
     return ascend_op.Eq(x, y)
 
-t = torch.fx.wrap(registe_conversion(torch.ops.aten.t.default)(ascend_op.T))
-
-transpose = torch.fx.wrap(registe_conversion(
-    torch.ops.aten.transpose.int)(ascend_op.Transpose))
-
-expand = torch.fx.wrap(registe_conversion(
-    torch.ops.aten.expand.default)(ascend_op.ExpandD))
-
-view = torch.fx.wrap(registe_conversion(torch.ops.aten.view.default)(ascend_op.TranShape))
-
-bmm = torch.fx.wrap(registe_conversion(
-    torch.ops.aten.bmm.default)(ascend_op.BatchMatMul))
-
-sub = torch.fx.wrap(registe_conversion(aten.sub)(ascend_op.Sub))
-rsub = torch.fx.wrap(registe_conversion(aten.rsub)(ascend_op.Rsub))
-view_as_complex = torch.fx.wrap(registe_conversion(aten.view_as_complex.default)(ascend_op.ViewAsComplex))
-view_as_real = torch.fx.wrap(registe_conversion(aten.view_as_real.default)(ascend_op.ViewAsReal))
-
 @registe_conversion(torch.ops.aten.add)
 def aten_add(get_proxy, x, y, alpha: Optional[Number] = 1):
     out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -449,4 +401,18 @@ def NewEmptyStrided(x, size, stride, dtype = torch.float32, layout = torch.strid
                       device = 'cpu', pin_memory = False):
     return ascend_op.NewEmptyStrided(x, size, stride, dtype, layout, device, pin_memory)
 
-
+arange = torch.fx.wrap(registe_conversion(aten.arange.default)(ascend_op.Arange))
+eq = torch.fx.wrap(registe_conversion(aten.eq)(ascend_op.Eq))
+div = torch.fx.wrap(registe_conversion(aten.div)(ascend_op.Div))
+maximum = torch.fx.wrap(registe_conversion(aten.maximum.default)(ascend_op.Max))
+convolution = torch.fx.wrap(registe_conversion(aten.convolution)(ascend_op.Conv2D))
+abs = torch.fx.wrap(registe_conversion(aten.abs)(ascend_op.Abs))
+t = torch.fx.wrap(registe_conversion(aten.t.default)(ascend_op.T))
+transpose = torch.fx.wrap(registe_conversion(aten.transpose.int)(ascend_op.Transpose))
+expand = torch.fx.wrap(registe_conversion(aten.expand.default)(ascend_op.ExpandD))
+view = torch.fx.wrap(registe_conversion(aten.view.default)(ascend_op.TranShape))
+bmm = torch.fx.wrap(registe_conversion(aten.bmm.default)(ascend_op.BatchMatMul))
+sub = torch.fx.wrap(registe_conversion(aten.sub)(ascend_op.Sub))
+rsub = torch.fx.wrap(registe_conversion(aten.rsub)(ascend_op.Rsub))
+view_as_complex = torch.fx.wrap(registe_conversion(aten.view_as_complex.default)(ascend_op.ViewAsComplex))
+view_as_real = torch.fx.wrap(registe_conversion(aten.view_as_real.default)(ascend_op.ViewAsReal))
