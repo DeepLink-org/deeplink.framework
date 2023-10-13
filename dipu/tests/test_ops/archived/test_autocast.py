@@ -7,6 +7,9 @@ from torch.cuda.amp import autocast as autocast
 a_float32 = torch.rand((8, 8), device="cuda")
 b_float32 = torch.rand((8, 8), device="cuda")
 
+# Autocast does not need to pass in torch.dtype, 
+# in which case the default data type will be used.
+# (We changed the default data type to fp16 in dipu/torch_dipu/dipu/amp.py)
 with torch.autocast("cuda"):
     pass
 
