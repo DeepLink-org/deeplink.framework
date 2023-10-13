@@ -113,9 +113,10 @@ jobs:
       - name: increment coverage check
         if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
         run: |
-          ssh ${CLUSTER_CAMB} """
+          ssh ${CAMB_CLUSTER} """
           set -e
-          source /mnt/cache/share/platform/env/camb_ci_diopi_impl && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
+          source scripts/ci/camb/ci_camb_env.sh
           bash scripts/ci/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
@@ -251,9 +252,10 @@ jobs:
       - name: increment coverage check
         if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
         run: |
-          ssh ${CLUSTER_1988} """
+          ssh ${CUDA_CLUSTER} """
           set -e
-          source /mnt/cache/share/platform/env/${ENV_NAME} && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu
+          source scripts/ci/nv/ci_nv_env.sh
           bash scripts/ci/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
