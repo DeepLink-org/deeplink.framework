@@ -23,6 +23,7 @@ from .profiler.profiler import dipu_profiler, dipu_kineto_available
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.generator import apply_generator_patch
 from .dipu.streams import apply_stream_patch, _dipu_record_stream
+from .dipu.amp import apply_amp_patch
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -110,13 +111,6 @@ def apply_profiler_patch():
     setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
     torch.profiler.profile = dipu_profiler
 
-
-def apply_amp_patch():
-    torch.get_autocast_gpu_dtype = dipu.amp.get_autocast_dipu_dtype
-    torch.set_autocast_gpu_dtype = dipu.amp.set_autocast_dipu_dtype
-    torch.set_autocast_enabled = dipu.amp.set_autocast_dipu_enabled
-    torch.is_autocast_enabled = dipu.amp.is_autocast_dipu_enabled
-    torch.cuda.is_bf16_supported = dipu.amp.is_bf16_supported
 
 
 def apply_patches():
