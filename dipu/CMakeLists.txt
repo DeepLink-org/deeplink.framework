@@ -30,6 +30,11 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 # Automatically generate a list of supported diopi functions
 execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
 
+execute_process(COMMAND sh -x -c "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
+        if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'" OUTPUT_VARIABLE DIPU_ABI_V)
+add_definitions(-fabi-version=${DIPU_ABI_V})
+message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
+
 execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
 if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
     set(DIPU_COMPILED_WITH_CXX11_ABI 1)
