@@ -116,7 +116,11 @@ def apply_amp_patch():
     torch.set_autocast_gpu_dtype = dipu.amp.set_autocast_dipu_dtype
     torch.set_autocast_enabled = dipu.amp.set_autocast_dipu_enabled
     torch.is_autocast_enabled = dipu.amp.is_autocast_dipu_enabled
-    torch.cuda.is_bf16_supported = dipu.amp.is_bf16_supported
+    # If vendor is cuda, its ability to support bf16 remains the same as the default.
+    # (which depends on the Compute Capability)
+    if (dipu.vendor_type != "CUDA"):
+        torch.cuda.is_bf16_supported = dipu.amp.is_bf16_supported
+
 
 
 def apply_patches():
