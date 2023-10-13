@@ -80,7 +80,7 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
@@ -222,7 +222,7 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
