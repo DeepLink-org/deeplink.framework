@@ -32,4 +32,8 @@ def apply_amp_patch():
     # (which depends on the Compute Capability)
     if (dipu.vendor_type != "CUDA"):
         torch.cuda.is_bf16_supported = is_bf16_supported
+
+    # autocast_xpu_dtype is defined in ATen/autocast_mode.cpp with default value kBFloat16.
+    # it is a thread local so this set only change default value in main thread.
+    # ** need enhance to let all threads has same default type.
     set_autocast_dipu_dtype(torch.float16)

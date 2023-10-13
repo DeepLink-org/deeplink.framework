@@ -7,6 +7,9 @@ from torch.cuda.amp import autocast as autocast
 a_float32 = torch.rand((8, 8), device="cuda")
 b_float32 = torch.rand((8, 8), device="cuda")
 
+with torch.autocast("cuda"):
+    pass
+
 with torch.autocast("cuda", torch.float16):
     c_float16 = torch.mm(a_float32, b_float32)
     with torch.autocast("cuda", enabled=False):
