@@ -271,9 +271,7 @@ def Batchnorm(*args, **kwargs):
 def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
-@register_conversion(torch.ops.aten._softmax.default)
-def Softmax(*args, **kwargs):
-    return tops_op.Softmax(*args, **kwargs)
+Softmax = torch.fx.wraph(register_conversion(torch.ops._softmax.default)(tops_op.Softmax))
 
 @register_conversion(torch.ops.aten.arange.start)
 def Range(*args, **kwargs):
@@ -389,17 +387,19 @@ def ViewAsReal(*args, **kwargs):
 def UnsafeView(a, b):
     return tops_op.UnsafeView(a, b)
 
-@register_conversion(torch.ops.aten._log_softmax.default)
-def Logsoftmax(*args, **kwargs):
-    return tops_op.Logsoftmax(*args, **kwargs)
+Logsoftmax = torch.fx.wraph(register_conversion(torch.ops._log_softmax.default)(tops_op.Logsoftmax))
 
 @register_conversion(torch.ops.aten.gelu.default)
-def Gelu(*args, **kwargs):
-    return tops_op.Gelu(*args, **kwargs)
+def Gelu(get_proxy, *args, **kwargs):
+    approximate = 'true' if ('approximate' in kwargs 
+        and kwargs["approximate"] == 'tanh') else 'false'
+    return get_proxy(tops_op.Gelu.get_singleton(), (args[0], approximate), {})
 
 @register_conversion(torch.ops.aten.gelu_backward.default)
-def gelubackward(*args, **kwargs):
-    return tops_op.GeluBackward(*args, **kwargs)
+def gelubackward(get_proxy, *args, **kwargs):
+    approximate = 'true' if ('approximate' in kwargs 
+        and kwargs["approximate"] == 'tanh') else 'false'
+    return get_proxy(tops_op.GeluBackward.get_singleton(), (args[0], approximate), {})
 
 @register_conversion(torch.ops.prims.iota.default)
 def Iota(get_proxy, length, **kwargs):

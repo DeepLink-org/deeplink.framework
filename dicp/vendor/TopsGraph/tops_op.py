@@ -8,6 +8,9 @@ from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
+from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
+from dicp.dynamo_bridge.operator import Operator
+
 
 def binary_dtype_check(name, lhs_t, rhs_t):
     assert lhs_t.dtype == rhs_t.dtype, \
@@ -80,7 +83,7 @@ class Operator():
         new_args = tuple(new_args)
 
         fake_mode = self.get_fake_mode_from_args(new_args)
-            
+
         tmp_args = []
         for arg in new_args:
             if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
@@ -452,8 +455,6 @@ class BatchNormBackward(Operator):
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
-        self.args = args
-        self.kwargs = kwargs
         self.torch_op = aten._softmax.default
 
 
@@ -758,25 +759,27 @@ class UnsafeView(Operator):
 class Logsoftmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Logsoftmax")
-        self.args = args
-        self.kwargs = kwargs
         self.torch_op = aten._log_softmax.default
 
 
 class Gelu(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Gelu")
-        self.args = args
-        self.kwarg = kwargs
         self.torch_op = aten.gelu.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = (args[0],)
+        return super().__call__(*new_args, **kwargs)
 
 
 class GeluBackward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Gelu_Grad")
-        self.args = args
-        self.kwarg = kwargs
+        super().__init__("GeluBackward")
         self.torch_op = aten.gelu_backward.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = (args[0], args[1])
+        return super().__call__(*new_args, **kwargs)
 
 
 class Iota(Operator):

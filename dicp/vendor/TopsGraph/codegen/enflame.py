@@ -1475,18 +1475,12 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z}, true);"
 
     @staticmethod
-    def Gelu(op_var, node, x):
-        y = "true"
-        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
-            y = "false"
-        return f"builder::Op {op_var} = builder::Gelu({x}, {y});"
+    def Gelu(op_var, shape, dtype, x, approximate, **kwargs):
+        return f"builder::Op {op_var} = builder::Gelu({x}, {approximate});"
 
     @staticmethod
-    def Gelu_Grad(op_var, node, x, y):
-        z = "true"
-        if not node.kwargs or ("approximate" in node.kwargs and node.kwargs["approximate"] == "none"):
-            z = "false"
-        return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"
+    def Gelu_Grad(op_var, shape, dtype, x, y, approximate):
+        return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {approximate});"
 
     @staticmethod
     def Iota(varname, node_shape, node_dtype, length, **kwargs_list):
