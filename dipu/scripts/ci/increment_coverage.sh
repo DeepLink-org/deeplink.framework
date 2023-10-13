@@ -1,7 +1,7 @@
 # !/bin/bash
 set -e
 export LANG=en_US.UTF-8
-ROOT_DIR=$(dirname "$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)")
+ROOT_DIR=$(dirname "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")")
 cd $ROOT_DIR && rm -rf coverage && mkdir coverage
 echo "entering "$ROOT_DIR
 require_coverage=$1
