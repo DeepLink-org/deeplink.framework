@@ -1,4 +1,5 @@
-from torch_dipu import _C
+from torch_dipu import _C, dipu
+import torch
 
 
 def get_autocast_dipu_dtype():
@@ -21,3 +22,14 @@ def set_autocast_dipu_dtype(dtype):
 # This function needs to be improved in the future and customized for different device.
 def is_bf16_supported():
     return False
+
+def apply_amp_patch():
+    torch.get_autocast_gpu_dtype = get_autocast_dipu_dtype
+    torch.set_autocast_gpu_dtype = set_autocast_dipu_dtype
+    torch.set_autocast_enabled = set_autocast_dipu_enabled
+    torch.is_autocast_enabled = is_autocast_dipu_enabled
+    # If vendor is cuda, its ability to support bf16 remains the same as the default.
+    # (which depends on the Compute Capability)
+    if (dipu.vendor_type != "CUDA"):
+        torch.cuda.is_bf16_supported = is_bf16_supported
+    set_autocast_dipu_dtype(torch.float16)
