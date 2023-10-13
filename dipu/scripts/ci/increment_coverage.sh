@@ -6,7 +6,6 @@ cd $ROOT_DIR && rm -rf coverage && mkdir coverage
 echo "entering "$ROOT_DIR
 require_coverage=$1
 
-echo "==============C================"
 lcov -c -d . --include "*/${ROOT_DIR#/mnt/*/}/torch_dipu/csrc_dipu/*" -o coverage/coverage.info
 newcommit=`git rev-parse --short HEAD`
 oldcommit=`git ls-remote origin main | cut -c 1-7`
@@ -37,7 +36,7 @@ if [ -f coverage/increment.info ];then
     lcov --list coverage/increment.info
     lcov --list coverage/increment.info > coverage/increment.txt
 else
-    echo "C无增量代码，或测试未覆盖到"
+    echo "No C/C++ in incremental code"
 fi
 python scripts/ci/increment_coverage.py $ROOT_DIR/coverage/ $require_coverage
 source coverage/IS_cover.txt
