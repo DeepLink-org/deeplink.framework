@@ -402,8 +402,12 @@ def gelubackward(*args, **kwargs):
     return tops_op.GeluBackward(*args, **kwargs)
 
 @register_conversion(torch.ops.prims.iota.default)
-def Iota(*args, **kwargs):
-    return tops_op.Iota(*args, **kwargs)
+def Iota(get_proxy, length, **kwargs):
+    iota = get_proxy(tops_op.Iota.get_singleton(), (length,), kwargs)
+    if kwargs["start"] != 0 or kwargs["step"] != 1:
+        offset = get_proxy(tops_op.Mul.get_singleton(), (iota, kwargs["step"]), {})
+        return get_proxy(tops_op.Add.get_singleton(), (offset, kwargs["start"]), {})
+    return iota 
 
 # Patterns
 def register_pattern(Pattern):

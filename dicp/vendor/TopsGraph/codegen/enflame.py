@@ -512,6 +512,8 @@ class EnflameOverrides(OpOverrides):
                 return arg
             elif isinstance(arg, torch.dtype):
                 return type_set[arg]
+            elif isinstance(arg, torch.device):
+                return str(arg)
             raise ValueError(f"unknown arg type({arg})")
 
 
@@ -731,16 +733,18 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def make_const_if_scalar(varname, v, count=0):
+    def make_const_if_scalar(varname, v, t=torch.float32, count=0):
         src_code = ""
         if isinstance(v, numbers.Number):
-            src_code = f"float {varname}_const_value{count} = static_cast<float>({v});\n"
+            src_code = f"{cxx_type_set[t]} {varname}_const_value{count} = static_cast<{cxx_type_set[t]}>({v});\n"
             v = f"{varname}_const{count}"
-            src_code += f"builder::Op {v} = builder::Const(hlir_builder, static_cast<void *>(&{varname}_const_value{count}), builder::Type({'{'}1{'}'}, f32_type));\n"
+            src_code += f"builder::Type {varname}_const_type{count}({{1}}, {type_set[t]});\n"
+            src_code += f"builder::Op {v} = builder::Const(hlir_builder, static_cast<void *>(&{varname}_const_value{count}), {varname}_const_type{count});\n"
         return src_code, v
     
     @staticmethod
     def make_type(varname, t, shape=[1], count=0):
+        t = type_set[t] if isinstance(t, torch.dtype) else t
         shape = f"{{{str(shape).split('[')[-1].split(']')[0]}}}"
         src_code = f"std::vector<int64_t> {varname}_shape{count}{shape};\n"
         src_code += f"builder::Type {varname}_type{count}({shape}, {t});\n"
@@ -749,7 +753,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     # TODO mul + add scaled_y should handle in conversion
     def Add(varname, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, dtype)
         src_code += f"builder::Op {varname} = builder::Add({x}, {y});"
         return src_code
     
@@ -761,19 +765,19 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def Div(varname, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, dtype)
         src_code += f"builder::Op {varname} = builder::Div({x}, {y});"
         return src_code
     
     @staticmethod
     def Sub(varname, shape, dtype, x,  y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y)
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, dtype)
         src_code += f"builder::Op {varname} = builder::Sub({x}, {y});"
         return src_code
 
     @staticmethod
     def Mul(varname, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, 0)
+        src_code, y = EnflameOverrides.make_const_if_scalar(varname, y, dtype)
         src_code += f"builder::Op {varname} = builder::Mul({x}, {y});"
         return src_code
     
@@ -1485,13 +1489,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {z});"
 
     @staticmethod
-    def Iota(op_var, node, *args):
-        src_code = f"builder::Type {op_var}_iota_type = builder::Type({'{' + str(node.args[0]) + '}'}, {type_set[str(node.kwargs['dtype'])]});\n"
-        src_code += f"builder::Op {op_var}_iota = builder::Iota(hlir_builder, 0, {op_var}_iota_type);\n"
-        gap = [node.kwargs['start'] + (node.kwargs['step'] - 1) * i for i in range(node.args[0])]
-        src_code += f"std::vector<{str(node.kwargs['dtype']).split('.')[-1]}_t> {op_var}_gap_data = {'{' + ', '.join(map(str, gap)) + '}'};\n"
-        src_code += f"std::vector<int64_t> {op_var}_gap_shape{'{' + str(node.args[0]) + '}'};\n"
-        src_code += f"builder::Type {op_var}_gap_type = builder::Type({op_var}_gap_shape, {type_set[str(node.kwargs['dtype'])]});\n"
-        src_code += f"builder::Op {op_var}_gap = builder::Const(hlir_builder, ({op_var}_gap_data.data()), {op_var}_gap_type);\n"
-        src_code += f"builder::Op {op_var} = builder::Add({op_var}_iota, {op_var}_gap);"
+    def Iota(varname, node_shape, node_dtype, length, **kwargs_list):
+        src_code, var_type = EnflameOverrides.make_type(varname, node_dtype, node_shape)
+        src_code += f"builder::Op {varname} = builder::Iota(hlir_builder, 0, {var_type});\n"
         return src_code
