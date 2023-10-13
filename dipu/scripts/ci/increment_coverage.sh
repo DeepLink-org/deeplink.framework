@@ -8,8 +8,8 @@ require_coverage=$1
 
 lcov -c -d . --include "*/${ROOT_DIR#/mnt/*/}/torch_dipu/csrc_dipu/*" -o coverage/coverage.info
 newcommit=`git rev-parse --short HEAD`
-oldcommit=`git ls-remote origin main | cut -c 1-7`
-if [ -z $oldcommit ];then echo "can not get main commit" && exit 1;fi
+oldcommit=`git reflog | grep 'checkout: moving from main to' | awk '{print $1}'`
+if [ -z $oldcommit ];then echo "is not Pull request" && exit 0;fi
 cd ${ROOT_DIR}/../ && git diff $oldcommit $newcommit --name-only | xargs -I {} realpath {} > dipu/coverage/gitdiff.txt 2>/dev/null || echo "error can be ignored"
 cd $ROOT_DIR
 for dir in `cat coverage/gitdiff.txt`;do
