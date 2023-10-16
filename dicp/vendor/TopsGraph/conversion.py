@@ -262,10 +262,7 @@ def Range(*args, **kwargs):
     return tops_op.Range(*args, **kwargs)
 
 Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
-
-@register_conversion(torch.ops.aten.dot.default)
-def Dot(*args, **kwargs):
-    return tops_op.Dot(*args, **kwargs)
+Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
 
 @register_conversion(torch.ops.aten.cat.default)
 def Concatenate(*args, **kwargs):
@@ -300,6 +297,7 @@ def FullLike(*args, **kwargs):
 @register_conversion(torch.ops.aten.maximum.default)
 def Maximum(*args, **kwargs):
     return tops_op.Max(*args, **kwargs)
+Maximum = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
 
 @register_conversion(torch.ops.aten.pow.Tensor_Scalar)
 def Pow(*args, **kwargs):
