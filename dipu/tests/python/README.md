@@ -5,10 +5,9 @@
 - `unittests/`
   - `test_*.py`：所有简单测例。
   - `unittest_autogened_for_individual_scripts.py`：为独立测例自动生成的单元测试。
-- `individual_scipts/`
+- `individual_scripts/`
   - `test_*.py`：所有独立测例脚本。
   - `generate_unittest_for_individual_scripts.py`：为独立测例自动生成单元测试代码的脚本。
-- `special/`：并非自动化测例的测试脚本。
 - `utils/`：测试用的辅助小工具。
 - `fix_needed/`：[#319](https://github.com/DeepLink-org/DIPU/pull/319) 中暂未整合的测例，后续将消除这个目录。
 - `run_tests.sh`：运行所有自动化测例
