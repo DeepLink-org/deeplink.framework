@@ -1,3 +1,4 @@
+import traceback
 import torch
 from abc import ABC
 
@@ -81,5 +82,11 @@ class Operator(ABC):
             if hasattr(self, "infer_result"):
                 info: TensorInfo = self.infer_result(*new_args, **kwargs)
                 return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
-            else:
-                return self.torch_op(*new_args, **kwargs)
+            elif hasattr(self, "torch_op"):
+                try:
+                    return self.torch_op(*new_args, **kwargs)
+                except Exception as e:
+                    print(self.torch_op, new_args, kwargs)
+                    print(e.args)
+                    print(traceback.format_exc())
+                    raise RuntimeError("infer shape and dtype failed")

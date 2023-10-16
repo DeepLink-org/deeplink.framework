@@ -1,7 +1,7 @@
 import torch
 from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer, SingleOpTransformer
 from dicp.vendor.AscendGraph.ascend_op import MatMul
-from dicp.vendor.AscendGraph.conversion import conversions
+from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
 from dicp.dynamo_bridge.op_transformer import PatternMatcherPass
 from dicp.vendor.AscendGraph.pattern_replacement import (
     aten_patterns_cls_list, 
@@ -27,7 +27,7 @@ def ascendgraph_opset_convert(
 ):
     gm = BackendPatternMatcherTransformer(
             PatternMatcherPass(), aten_patterns_cls_list).transform(gm)
-    gm = SingleOpTransformer(gm, conversions).transform()
+    gm = AtenToAscendTransformer(gm).transform()
     gm = BackendPatternMatcherTransformer(
             PatternMatcherPass(), ascend_patterns_cls_list).transform(gm)
     # gm = ArgsTransDataPass().transform(gm)

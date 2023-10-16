@@ -8,7 +8,6 @@ from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 from torch.utils._pytree import tree_map, tree_flatten
 from abc import ABC, abstractmethod
-import torch.jit._shape_functions as shape_functions
 from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 from dicp.dynamo_bridge.operator import Operator
 
@@ -31,14 +30,14 @@ def negative_in_shape(shape):
 class Adds(Operator):
     def __init__(self):
         super().__init__("adds")
-        self.torch_op = aten.add
+        # self.torch_op = aten.add
 
 class Add(Operator):
     def __init__(self, a, b):
         super().__init__("add")
         self.a = a
         self.b = b
-        self.torch_op = aten.add
+        # self.torch_op = aten.add
 
     # def __call__(self, a, b):
     #     if hasattr(a, 'meta'):
@@ -119,35 +118,37 @@ class CumSum(Operator):
 class MatMul(Operator):
     def __init__(self):
         super().__init__("mm")
+        self.torch_op = aten.mm
 
-    def infer_result(self, a, b, trans_a=False, trans_b=False, change_input=False):
-        if hasattr(a, 'meta'):
-            a = a.meta['val']
-        if hasattr(b, 'meta'):
-            b = b.meta['val']
-        if change_input:
-            (a, b) = (b, a)
+    # def infer_result(self, a, b, trans_a=False, trans_b=False, change_input=False):
+    #     if hasattr(a, 'meta'):
+    #         a = a.meta['val']
+    #     if hasattr(b, 'meta'):
+    #         b = b.meta['val']
+    #     if change_input:
+    #         (a, b) = (b, a)
         
-        trans_a_shape = shape_functions.t(a.shape) if trans_a else a.shape
-        trans_b_shape = shape_functions.t(b.shape) if trans_b else b.shape
-        mm_shape = shape_functions.matmul(trans_a_shape, trans_b_shape)
-        return TensorInfo(mm_shape, dtype=a.dtype, memory_format=get_memory_format(a))
+    #     trans_a_shape = shape_functions.t(a.shape) if trans_a else a.shape
+    #     trans_b_shape = shape_functions.t(b.shape) if trans_b else b.shape
+    #     mm_shape = shape_functions.matmul(trans_a_shape, trans_b_shape)
+    #     return TensorInfo(mm_shape, dtype=a.dtype, memory_format=get_memory_format(a))
     
 
 class BatchMatMul(Operator):
     def __init__(self):
         super().__init__("bmm")
+        self.torch_op = aten.bmm
         
     
-    def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
-        if hasattr(x1, 'meta'):
-            x1 = x1.meta['val']
-        if hasattr(x2, 'meta'):
-            x2 = x2.meta['val']
-        trans_x1_shape = shape_functions.transpose(x1.shape, 1, 2) if adj_x1 else x1.shape
-        trans_x2_shape = shape_functions.transpose(x2.shape, 1, 2) if adj_x2 else x2.shape
-        bmm_shape = shape_functions.bmm(trans_x1_shape, trans_x2_shape)
-        return TensorInfo(bmm_shape, dtype=x1.dtype, memory_format=get_memory_format(x1))
+    # def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
+    #     if hasattr(x1, 'meta'):
+    #         x1 = x1.meta['val']
+    #     if hasattr(x2, 'meta'):
+    #         x2 = x2.meta['val']
+    #     trans_x1_shape = shape_functions.transpose(x1.shape, 1, 2) if adj_x1 else x1.shape
+    #     trans_x2_shape = shape_functions.transpose(x2.shape, 1, 2) if adj_x2 else x2.shape
+    #     bmm_shape = shape_functions.bmm(trans_x1_shape, trans_x2_shape)
+    #     return TensorInfo(bmm_shape, dtype=x1.dtype, memory_format=get_memory_format(x1))
 
 
 class Sub(Operator):
@@ -155,7 +156,7 @@ class Sub(Operator):
         super().__init__("sub")
         self.a = a
         self.b = b
-        self.torch_op = aten.sub
+        # self.torch_op = aten.sub
 
 
 class Rsub(Operator):
@@ -167,46 +168,9 @@ class Rsub(Operator):
 
 
 class Mul(Operator):
-    def __init__(self, a, b):
+    def __init__(self):
         super().__init__("mul")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.mul
-
-class MulTensor(Operator):
-    def __init__(self, a, b):
-        super().__init__("mul_tensor")
-        self.a = a
-        self.b = b
-
-    def __call__(self, a, b):
-        if hasattr(a, 'meta'):
-            a = a.meta['val']
-            a_shape = a.shape
-        else:
-            a_shape = [1]
-        if hasattr(b, 'meta'):
-            b = b.meta['val']
-            b_shape = b.shape
-        else:
-            b_shape = [1]
-
-        fake_mode = None
-        for arg in [a, b]:
-            if isinstance(arg, FakeTensor):
-                fake_mode = arg.fake_mode
-                break
-        fake_mode = self.fake_mode if fake_mode is None else fake_mode
-
-        # TODO! better to check
-        # whether satisfy broadcast
-        if np.prod(a_shape) > np.prod(b_shape):
-            shape = a_shape
-        else:
-            shape = b_shape
-
-        with fake_mode:
-            return aten.empty(shape, dtype=a.dtype)
+       
 
 class Div(Operator):
     def __init__(self, a, b):
@@ -364,8 +328,11 @@ class Squeeze(Operator):
         super().__init__("squeeze")
         self.x = x
         self.dims = dims
-        self.torch_op = aten.squeeze
+        # self.torch_op = aten.squeeze
 
+class Pack(Operator):
+    def __init__(self):
+        super().__init__("Pack")
 
 class Permute(Operator):
     def __init__(self, x, dims):
@@ -488,6 +455,9 @@ class Convert(Operator):
         self.dtype = dtype
         self.torch_op = torch.ops.prims.convert_element_type
 
+class Const(Operator):
+    def __init__(self):
+        super().__init__("Const")
 
 class Embedding(Operator):
     def __init__(self, weight, indices, padding_idx):
@@ -593,52 +563,14 @@ class SymSize(Operator):
         self.dim = dim
         self.torch_op = aten.sym_size
 
+class Cast(Operator):
+    def __init__(self):
+        super().__init__("Cast")
 
 class Identity(Operator):
-    def __init__(self, x, idx):
-        super().__init__("getitem")
-        self.x = x
-        self.idx = idx
-
-    def __call__(self, x, idx):
-        if hasattr(x, 'meta'):
-            x = x.meta['val']
-        x = x[idx]
-        if hasattr(x, 'meta'):
-            x = x.meta['val']
-        
-        with x.fake_mode:
-            return aten.clone(x)
-        
-class SplitComplex(Operator):
     def __init__(self):
-        super().__init__("getitem")
+        super().__init__("Identity")
 
-    def __call__(self, x, idx):
-        if hasattr(x, 'meta'):
-            x = x.meta['val']
-        assert idx < 2
-        with x.fake_mode:
-            if x.dtype == torch.complex32:
-                return aten.empty(x.shape, dtype=torch.float16)
-            elif x.dtype == torch.complex64:
-                return aten.empty(x.shape, dtype=torch.float32)
-            elif x.dtype == torch.complex128:
-                return aten.empty(x.shape, dtype=torch.float64)
-            else:
-                raise RuntimeError(f"unsupported dicp torch dtype: {x.dtype}")
-
-class ConcatToComplex(Operator):
-    def __init__(self):
-        super().__init__("identity_n")
-    
-    def __call__(self, *args, **kwargs):
-        def get_meta(x):
-            return x if not hasattr(x, 'meta') else x.meta['val']
-        new_args = tree_map(get_meta, args)
-        assert len(new_args) == 2
-        with new_args[0].fake_mode:
-            return torch.complex(new_args[0], new_args[1])
 
 class IdentityN(Operator):
     def __init__(self, x, idx):
@@ -1043,20 +975,18 @@ class ZerosLike(Operator):
         self.torch_op = aten.zeros_like
 
 
+class SplitD(Operator):
+    def __init__(self):
+        super().__init__("SplitD")
+
+
 class ViewAsComplex(Operator):
     def __init__(self, x):
         super().__init__("view_as_complex")
         self.x = x
         self.torch_op = aten.view_as_complex
         
-
-class ViewAsReal(Operator):
-    def __init__(self, x):
-        super().__init__("view_as_real")
-        self.x = x
-        self.torch_op = aten.view_as_real
         
-
 class Slice(Operator):
     def __init__(self, x, dim, start, end, step):
         super().__init__("slice")

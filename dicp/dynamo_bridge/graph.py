@@ -48,7 +48,7 @@ class GraphTransformer:
                 return None
 
         for n in self.gm.graph.nodes:
-            if n.op == 'call_function':
+            if n.op == 'call_function' and 'val' not in n.meta:
                 n.meta['val'] = (n.target(*n.args, **n.kwargs))
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
             elif n.op == 'get_attr':

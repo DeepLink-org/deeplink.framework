@@ -14,14 +14,14 @@ graph_id = 0
 
 precision_check = bool(os.environ.get("DICP_ASCEND_PRECISION_CHECK", False))
 
-need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
+need_node = ['div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              'where', 'convolution', 'le', 'scalar_tensor', 'maximum', 'inadd',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
              'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor']
+             'bernoulli', 'new_empty_strided', 'fill']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -794,61 +794,11 @@ class AscendOverrides:
         return src_code, args_str
 
     @staticmethod
-    def mul(name, node, x, y):
-        (x_node, y_node) = node.args
-        ops = []
-        dtype = node.meta['val'].dtype
-        assert dtype != torch.complex64
-        y_name = y
-        if not isinstance(y_node, torch.fx.node.Node):
-            # y is scalar
-            ops.append(gen_const_node(f"{name}_scalar", y_name, torch.float32 if dtype == torch.float16 else dtype))
-            y_name = f"{name}_scalar"
-            y_shape = list(x_node.meta['val'].shape)
-            if symint_in_shape(y_shape):
-                ops.extend(process_dynamic_shape(y_shape, name))
-                ops.append(gen_broadcast_node(f"{name}_broadcast", y_name, f"{name}_preprocess"))
-                y_name = f"{name}_broadcast"
-            if dtype == torch.float16:
-                ops.append(gen_cast_node(f'{name}_fp16_cast', y_name, torch.float16))
-                y_name = f'{name}_fp16_cast'
-            mul_op = OP(name, "Mul")
-            mul_op.set_input("x1", x)
-            mul_op.set_input("x2", y_name)
-            ops.append(mul_op.to_node())
-            return ops
-        else:
-            x_name = x
-            x_shape = list(x_node.meta['val'].shape)
-            y_shape = list(y_node.meta['val'].shape)
-            x_dtype = x_node.meta['val'].dtype
-            y_dtype = y_node.meta['val'].dtype
-            # handling with broadcasting cases
-            if np.prod(x_shape) < np.prod(y_shape):
-                if symint_in_shape(y_shape):
-                    ops.extend(process_dynamic_shape(y_shape, name, 'preprocess_x'))
-                    ops.append(gen_broadcast_node(f"{name}_x_broadcast_to", x_name, f"{name}_preprocess_x"))
-                    x_name = f"{name}_x_broadcast_to"
-            elif np.prod(x_shape) > np.prod(y_shape):
-                if symint_in_shape(x_shape):
-                    ops.extend(process_dynamic_shape(x_shape, name, 'preprocess_y'))
-                    ops.append(gen_broadcast_node(f"{name}_y_broadcast_to", y_name, f"{name}_preprocess_y"))
-                    y_name = f"{name}_y_broadcast_to"
-            if x_dtype != dtype:
-                ops.append(gen_cast_node(f"{name}_x1_cast", x_name, dtype))
-                x_name = f"{name}_x1_cast"
-            if y_dtype != dtype:
-                ops.append(gen_cast_node(f"{name}_x2_cast", y_name, dtype))
-                y_name = f"{name}_x2_cast"
-            op = OP(name, "Mul")
-            op.set_input("x1", x_name)
-            op.set_input("x2", y_name)
-            ops.append(op.to_node())
-            return ops
-
-    @staticmethod
-    def mul_tensor(name, node, x, y):
-        return getattr(AscendOverrides, 'mul')(name, node, x, y)
+    def mul(name, x, y):
+        op = OP(name, "Mul")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
+        return op.to_node()
 
     @staticmethod
     def identity_n(name, *args, **kwargs):
@@ -865,27 +815,11 @@ class AscendOverrides:
         return adds_op.to_node()
     
     @staticmethod
-    def add(name, node, x, y):
-        (x_node, y_node) = node.args
-        out_dtype = node.meta['val'].dtype
-        ops = []
-        x_name = x
-        y_name = y
-        if isinstance(y_node, torch.fx.node.Node):
-            if x_node.meta['val'].dtype != out_dtype:
-                x_name = f'{name}_x_cast'
-                ops.append(gen_cast_node(x_name, x, out_dtype))
-            if y_node.meta['val'].dtype != out_dtype:
-                y_name = f'{name}_y_cast'
-                ops.append(gen_cast_node(y_name, y, out_dtype))
-        else:
-            y_name = f"{name}_scalar"
-            ops.append(gen_const_node(y_name, y, out_dtype))
+    def add(name, x, y):
         add_op = OP(name, "Add")
-        add_op.set_input("x1", x_name)
-        add_op.set_input("x2", y_name)
-        ops.append(add_op.to_node())
-        return ops
+        add_op.set_input("x1", x)
+        add_op.set_input("x2", y)
+        return add_op.to_node()
 
     @staticmethod
     def sub(name, node, x, y):
@@ -1223,19 +1157,6 @@ class AscendOverrides:
     @staticmethod
     def copy(name, dst, src):
         return getattr(AscendOverrides, "clone")(name, src)
-      
-    @staticmethod
-    def _to_copy(name, x, dtype=None, layout=None, device=None):
-        if dtype:
-            ascend_dtype = get_ascend_dtype(dtype)
-            op = OP(name, "Cast")
-            op.set_input("x", x)
-            op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
-            return op.to_node()
-        else:
-            op = OP(name, "Identity")
-            op.set_input("x", x)
-            return op.to_node()
 
     @staticmethod
     def lt(name, node, a, b):
@@ -1352,9 +1273,12 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def getitem(name, input, index):
+    def Identity(name, input, index=None):
         op = OP(name, "Identity")
-        op.set_input_with_index("x", input, index)
+        if index != None:
+            op.set_input_with_index("x", input, index)
+        else:
+            op.set_input("x", input)
         return op.to_node()
 
     @staticmethod
@@ -1750,6 +1674,18 @@ class AscendOverrides:
         ops.extend([val_op.to_node(), op.to_node()])
 
         return ops
+
+    @staticmethod
+    def Cast(name, x, dtype):
+        return gen_cast_node(name, x, dtype)
+    
+    @staticmethod
+    def Const(name, x, dtype):
+        return gen_const_node(name, x, dtype)
+    
+    @staticmethod
+    def BroadcastTo(name, x, shape):
+        return gen_broadcast_node(name, x, shape)
 
     @staticmethod
     def empty(name, size, dtype, layout, device):
@@ -2441,27 +2377,16 @@ class AscendOverrides:
         split_op.set_attr_int("num_split", 2)
         split_op.set_dynamic_output("y", 2)
         return [split_op.to_node()]      
-      
+    
     @staticmethod
-    def view_as_real(name, node, x):
-        assert node.meta['val'].dtype == torch.float32
-        x_shape = list(node.args[0].meta['val'].shape)
-        dim = len(x_shape)
-        
-        op1 = OP(f"{name}_getitem_1", "Identity")
-        op1.set_input_with_index("x", x, 0)
-        op2 = OP(f"{name}_getitem_2", "Identity")
-        op2.set_input_with_index("x", x, 1)
-        op3 = OP(f"{name}_pack", "Pack")
-        op3.set_dynamic_input("x", 2, [f"{name}_getitem_1", f"{name}_getitem_2"])
-        op3.set_attr_int("axis", dim)
-        op3.set_attr_int("N", 2)
-        
-        op4 = OP(name, "Squeeze")
-        op4.set_input("x", f"{name}_pack")
-        op4.set_attr_list_int("x", [-1])
-        
-        return [op1.to_node(), op2.to_node(), op3.to_node(), op4.to_node()]
+    def Pack(name, x, axis):
+        x = [elem.name for elem in x]
+        op = OP(f"{name}", "Pack")
+        op.set_dynamic_input("x", len(x), x)
+        op.set_attr_int("axis", axis)
+        op.set_attr_int("N", len(x))
+        return op.to_node()
+
 
     @staticmethod
     def stack(name, x, dim):
