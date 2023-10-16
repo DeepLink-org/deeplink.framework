@@ -130,7 +130,7 @@ class Abs(Operator):
         self.a = a
         self.torch_op = aten.abs
 
-class LtTensor(Operator):
+class Less(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Less")
         self.args = args
@@ -572,7 +572,7 @@ class NewEmptyStrided(Operator):
         self.torch_op = aten.new_empty_strided.default
 
 
-class Euqal(Operator):
+class Equal(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args
@@ -708,7 +708,7 @@ class Embedding(Operator):
         self.kargs = kwargs
         self.torch_op = aten.embedding.default
 
-class Equal(Operator):
+class EqualScalar(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args

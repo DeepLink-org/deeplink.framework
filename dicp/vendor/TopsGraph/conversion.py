@@ -204,17 +204,11 @@ def Convolution(*args, **kwargs):
 def ConvolutionBackward(*args, **kwargs):
     return tops_op.ConvolutionBackward(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.lt.Tensor)
-def LtTensor(*args, **kwargs):
-    return tops_op.LtTensor(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.le.Scalar)
-def Le(*args, **kwargs):
-    return tops_op.LessEqual(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.ne.Scalar)
-def NeScalar(*args, **kwargs):
-    return tops_op.NeScalar(*args, **kwargs)
+Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
+LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
+Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
+EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
+NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NeScalar))
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
 def Max_pool2d_with_indices(*args, **kwargs):
@@ -255,7 +249,7 @@ def Batchnorm(*args, **kwargs):
 def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
-Softmax = torch.fx.wraph(register_conversion(torch.ops._softmax.default)(tops_op.Softmax))
+Softmax = torch.fx.wrap(register_conversion(torch.ops.aten._softmax.default)(tops_op.Softmax))
 
 @register_conversion(torch.ops.aten.arange.start)
 def Range(*args, **kwargs):
@@ -280,10 +274,6 @@ def Bernoulli(*args, **kwargs):
 def NewEmptyStrided(*args, **kwargs):
     return tops_op.NewEmptyStrided(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.eq.Tensor)
-def Euqal(*args, **kwargs):
-    return tops_op.Euqal(*args, **kwargs)
-
 Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
 
 @register_conversion(torch.ops.aten.full.default)
@@ -294,9 +284,6 @@ def Full(*args, **kwargs):
 def FullLike(*args, **kwargs):
     return tops_op.FullLike(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.maximum.default)
-def Maximum(*args, **kwargs):
-    return tops_op.Max(*args, **kwargs)
 Maximum = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
 
 @register_conversion(torch.ops.aten.pow.Tensor_Scalar)
@@ -347,10 +334,6 @@ def Scalar(*args, **kwargs):
 def Embedding(*args, **kwargs):
     return tops_op.Embedding(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.eq.Scalar)
-def Eq(*args, **kwargs):
-    return tops_op.Equal(*args, **kwargs)
-
 @register_conversion(torch.ops.aten.repeat.default)
 def Tile(*args, **kwargs):
     return tops_op.Tile(*args, **kwargs)
@@ -369,7 +352,7 @@ def ViewAsReal(*args, **kwargs):
 def UnsafeView(a, b):
     return tops_op.UnsafeView(a, b)
 
-Logsoftmax = torch.fx.wraph(register_conversion(torch.ops._log_softmax.default)(tops_op.Logsoftmax))
+Logsoftmax = torch.fx.wrap(register_conversion(torch.ops.aten._log_softmax.default)(tops_op.Logsoftmax))
 
 @register_conversion(torch.ops.aten.gelu.default)
 def Gelu(get_proxy, *args, **kwargs):

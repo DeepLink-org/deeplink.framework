@@ -824,24 +824,30 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Gemm({{{x}, {y}}});"
     
     @staticmethod
-    def Max(op_var, x, y):
+    def Max(op_var, shape, dtype, x, y, **kwargs_list):
         return f"builder::Op {op_var} = builder::Max({x}, {y});"
     
     @staticmethod
-    def Less(op_var, x, y):
-        return f'builder::Op {op_var} = builder::Less({x}, {y});'
+    def Less(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Less({x}, {y});"
     
     @staticmethod
-    def Equal(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Equal({x}, {y});"
+    def Equal(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code += f"builder::Op {op_var} = builder::Equal({x}, {y});"
+        return src_code
         
     @staticmethod
-    def LessEqual(op_var, x, y):
-        return f'builder::Op {op_var} = builder::LessEqual({x}, {y});'
+    def LessEqual(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code += f"builder::Op {op_var} = builder::LessEqual({x}, {y});"
+        return src_code
     
     @staticmethod
-    def NotEqual(op_var, x, y):
-        return f'builder::Op {op_var} = builder::NotEqual({x}, {y});'
+    def NotEqual(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code += f"builder::Op {op_var} = builder::NotEqual({x}, {y});"
+        return src_code
     
     @staticmethod
     def Log(op_var, x):
