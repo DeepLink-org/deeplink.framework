@@ -113,7 +113,26 @@ if(EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h"
 else()
   target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
 endif()
+<<<<<<< HEAD
 add_custom_target(copy_include DEPENDS vendor_include)
+=======
+
+
+# need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
+target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
+target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
+
+## copy vendor header file
+set(VENDOR_DIST  "${DIST_DIR}/csrc_dipu/vendor/")
+add_custom_target(copy_include
+    COMMAND mkdir -p ${VENDOR_DIST}
+    COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
+)
+
+add_custom_command(TARGET copy_include PRE_BUILD    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'
+)
+
+>>>>>>> fix a bug with the ENV DIPU_COMPILED_WITH_CXX11
 add_dependencies(${DIPU_LIB} copy_include)
 
 
@@ -161,3 +180,4 @@ set_target_properties(
 #  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
 # ~~~
 # ------------------------------------------------------------------------------
+
