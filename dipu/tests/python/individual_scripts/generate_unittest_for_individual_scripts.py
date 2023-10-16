@@ -6,20 +6,26 @@ import os
 def generate_unittest_for_individual_scripts():
     main_sketch = """
 # Copyright (c) 2023, DeepLink.
+import io
 import os
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
-from tests.python.utils.stdout_redirector import stdout_redirector, DevNull
+import unittest
+from tests.python.utils.stdout_redirector import stdout_redirector
 
 
-class TestIndividualScripts(TestCase):
+class TestIndividualScripts(unittest.TestCase):
     def _test_individual_script(self, script_path: str):
-        with stdout_redirector(DevNull):
+        captured = io.BytesIO()
+        with stdout_redirector(captured):
             retcode = os.system(f"python {script_path}")
-        self.assertEqual(retcode, 0)
+        self.assertEqual(
+            retcode,
+            0,
+            msg=f"\\n\\n*** CAPTURED STDOUT ***\\n{captured.getvalue().decode()}"
+        )
 
 ${CASES}
 if __name__ == "__main__":
-    run_tests()
+    unittest.main()
 """
 
     case_sketch = """

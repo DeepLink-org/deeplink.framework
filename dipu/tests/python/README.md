@@ -29,6 +29,7 @@
     - 可以考虑不使用 assertion，只检测 error 不检测 failure（加上注释说明）。
   - `torch.allclose` **不**检测 shape、dtype 等，请谨慎使用。
   - 如果需要检查 C++ 库内部的输出，可以使用 `test.python.utils.stdout_redirector.stdout_redirector` 来捕获。
+  - 如果需要使用输出辅助 debug，可以考虑在使用 unittest 的 assertion 函数时传入 [`msg` 参数](https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertEqual)。
 - **请勿**做对全局空间有影响的事，例如：
   - 修改 import 库的内容；
   - 在全局空间中定义其他函数和变量（考虑挪至 class 内）；
@@ -47,4 +48,4 @@
 
 如果需要自动化检测 C++ 库内部的输出，可以使用 `test.python.utils.stdout_redirector.stdout_redirector` 来捕获。
 
-独立测例可以包含 print，但是在单元测试中，独立测例中的输出会被消除。如果需要 debug，请手动调用脚本查看输出。
+独立测例可以包含 print。不过，在自动生成的单元测试中，独立测例中的输出会在测试通过的情况下被消除。

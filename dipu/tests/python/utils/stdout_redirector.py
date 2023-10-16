@@ -8,7 +8,7 @@ Usage:
         print(12)
         libc.puts(b'this comes from C')
         os.system('echo and this is from echo')
-    print('Got stdout: "{0}"'.format(f.getvalue().decode('utf-8')))
+    print('Got stdout: "{0}"'.format(captured.getvalue().decode("utf-8")))
 
 See https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/.
 """
@@ -59,6 +59,7 @@ def stdout_redirector(stream):
 
 
 class DevNull(object):
-    '''useful helper class when you only want to slience the stdout'''
+    """useful helper class when you only want to slience the stdout"""
+
     def write(self, *_):
         pass
