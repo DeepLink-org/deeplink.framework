@@ -514,6 +514,8 @@ class EnflameOverrides(OpOverrides):
                 return type_set[arg]
             elif isinstance(arg, torch.device):
                 return str(arg)
+            elif isinstance(arg, list):
+                return arg
             raise ValueError(f"unknown arg type({arg})")
 
 
@@ -888,27 +890,14 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Rsqrt({x});"
     
     @staticmethod
-    def Scalar(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        src_code = f"builder::Type {op_var}_scalar_type({'{' + '1' +'}'}, {type_set[data_type]});\n"
-
-        if data_type == "torch.int64":
-            src_code += f'int {op_var}_const_value = static_cast<int64_t>({node.args[0]});'
-            src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), {op_var}_scalar_type);\n"
-        else:
-            src_code += f"float {op_var}_const_value = static_cast<float>({node.args[0]});\n"
-            if data_type == "torch.float32":
-                src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), {op_var}_scalar_type);\n"
-            else:
-                src_code += f"builder::Op {op_var}_t = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, builder::PrimitiveType::F32()));\n"
-                src_code += f"builder::Op {op_var} = builder::Convert({op_var}_t, {op_var}_scalar_type);\n"
-
+    def Scalar(op_var, node_shape, node_dtype, x, **kwargs_list):
+        src_code = f"{cxx_type_set[node_dtype]} {op_var}_value = static_cast<{cxx_type_set[node_dtype]}>({x});\n"
+        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value), builder::Type({type_set[node_dtype]}));"
         return src_code
     
     @staticmethod
-    def Getitem(op_var, node, *args_str):
-        src_code = f"builder::Op {op_var} = builder::GetTupleElement({args_str[0]}, {int(node.args[1])});"
-        return src_code
+    def Getitem(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = builder::GetTupleElement({x}, {y});"
     
     @staticmethod
     def NativeDropout(op_var, node, *args):
@@ -924,40 +913,29 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Where(op_var, *args):
-        return f"builder::Op {op_var} = builder::Select({', '.join(args)});"
+    def Where(op_var, shape, dtype, condition, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Select({condition}, {x}, {y});"
 
     @staticmethod
-    def ZerosLike(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()            
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f"builder::Op {op_var} = builder::ZerosLike({args_str[0]}, {type_set[data_type]}, {shape});"
-        return src_code
+    def ZerosLike(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::ZerosLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
 
     @staticmethod
-    def EmptyLike(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__() 
-        src_code = f"builder::Op {op_var} = builder::EmptyLike({args_str[0]}, {type_set[data_type]}, {{0}});"
-        return src_code
+    def EmptyLike(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::EmptyLike({x}, {type_set[dtype]}, {{0}});"
     
-    # temporary fake implementation.
+    # TODO temporary fake implementation.
     @staticmethod
-    def Bernoulli(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]}, {type_set[data_type]}, {shape});"
-        return src_code
+    def Bernoulli(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
 
     @staticmethod
-    def NewEmptyStrided(op_var, *args_str):
-        return f"builder::Op {op_var} = builder::EmptyLike({args_str[0]});"
+    def NewEmptyStrided(op_var, shape, dtype, x, size, stride, **kwargs_list):
+        return f"builder::Op {op_var} = builder::EmptyLike({x});"
 
     @staticmethod
-    def OnesLike(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f"builder::Op {op_var} = builder::OnesLike({args_str[0]}, {type_set[data_type]}, {shape});"
-        return src_code
+    def OnesLike(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
     
     @staticmethod
     def Full(op_var, node, *args_str):

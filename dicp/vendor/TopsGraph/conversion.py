@@ -127,9 +127,7 @@ def Sum(*args, **kwargs):
 def Sumdim(*args, **kwargs):
     return tops_op.ReduceSum(*args, **kwargs)
 
-@register_conversion(operator.getitem)
-def Getitem(x, idx):
-    return tops_op.Getitem(x, idx)
+Getitem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.Getitem))
 
 @register_conversion(torch.ops.aten.index.Tensor)
 def Index(*args, **kwargs):
@@ -243,18 +241,9 @@ Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot)
 def Concatenate(*args, **kwargs):
     return tops_op.Concatenate(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.empty_like.default)
-def EmptyLike(*args, **kwargs):
-    return tops_op.EmptyLike(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.bernoulli.p)
-def Bernoulli(*args, **kwargs):
-    return tops_op.Bernoulli(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.new_empty_strided.default)
-def NewEmptyStrided(*args, **kwargs):
-    return tops_op.NewEmptyStrided(*args, **kwargs)
-
+EmptyLike = torch.fx.wrap(register_conversion(torch.ops.aten.empty_like.default)(tops_op.EmptyLike))
+Bernoulli = torch.fx.wrap(register_conversion(torch.ops.aten.bernoulli.p)(tops_op.Bernoulli))
+NewEmptyStrided = torch.fx.wrap(register_conversion(torch.ops.aten.new_empty_strided.default)(tops_op.NewEmptyStrided))
 Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
 
 @register_conversion(torch.ops.aten.full.default)
@@ -281,9 +270,7 @@ def SliceScatter(*args, **kwargs):
 def Index(*args, **kwargs):
     return tops_op.Index(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.where.self)
-def Where(*args, **kwargs):
-    return tops_op.Where(*args, **kwargs)
+Where = torch.fx.wrap(register_conversion(torch.ops.aten.where.self)(tops_op.Where))
 
 @register_conversion(torch.ops.aten.select.int)
 def Select(*args, **kwargs):
@@ -293,17 +280,18 @@ def Select(*args, **kwargs):
 def Scatter(*args, **kwargs):
     return tops_op.Scatter(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.zeros_like)
-def zeroslike(*args, **kwargs):
-    return tops_op.ZerosLike(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.ones_like)
-def oneslike(*args, **kwargs):
-    return tops_op.OnesLike(*args, **kwargs)
+ZerosLike = torch.fx.wrap(register_conversion(torch.ops.aten.zeros_like)(tops_op.ZerosLike))
+OnesLike = torch.fx.wrap(register_conversion(torch.ops.aten.ones_like)(tops_op.OnesLike))
 
 @register_conversion(torch.ops.aten.scalar_tensor.default)
-def Scalar(*args, **kwargs):
-    return tops_op.Scalar(*args, **kwargs)
+def Scalar(get_proxy, a, **kwargs):
+    if "dtype" in kwargs:
+        real_dtype = kwargs["dtype"]
+        if not real_dtype in (torch.int64, torch.float32):
+            kwargs["dtype"] = torch.float32
+            scalar = get_proxy(tops_op.Scalar.get_singleton(), (a,), kwargs)
+            return get_proxy(tops_op.Convert(), (scalar, real_dtype), {})
+    return get_proxy(tops_op.Scalar.get_singleton(), (a,), kwargs)
 
 @register_conversion(torch.ops.aten.embedding)
 def Embedding(*args, **kwargs):
