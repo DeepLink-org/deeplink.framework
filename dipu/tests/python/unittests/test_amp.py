@@ -29,6 +29,12 @@ class TestAmp(TestCase):
         self.assertEqual(d_float16.dtype, torch.float16)
         self.assertEqual(d_float32.dtype, torch.float32)
 
+        # Autocast does not need to pass in torch.dtype,
+        # in which case the default data type will be used.
+        # (We changed the default data type to fp16 in dipu/torch_dipu/dipu/amp.py)
+        with torch.autocast("cuda"):
+            pass
+
         if torch.cuda.is_bf16_supported():
             with torch.autocast("cuda", torch.bfloat16):
                 c_bfloat16 = torch.mm(a_float32, b_float32)
