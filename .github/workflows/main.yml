@@ -115,9 +115,11 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -e
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb
+          rm -rf scripts
+          ln -s ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source /mnt/cache/share/platform/env/camb_ci_diopi_impl
-          bash scripts/ci/increment_coverage.sh ${REQUIRE_COVERAGE}
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
   Test-One-Iter-Camb:
@@ -254,9 +256,11 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
+          rm -rf scripts
+          ln -s ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source /mnt/cache/share/platform/env/pt2.0_diopi
-          bash scripts/ci/increment_coverage.sh ${REQUIRE_COVERAGE}
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
   Test-One-Iter_Cuda:
