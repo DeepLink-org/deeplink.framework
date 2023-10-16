@@ -21,7 +21,7 @@ class AscendCompileJob(DeviceCompileJob):
         print('output_path: ', self._output_graph_path)
         self._model_path = [f'{self._output_graph_path}.om', f'{self._output_graph_path}_linux_x86_64.om']
         
-        self._lib_path = "/tmp/dicp_ascend/graph_compile.so"
+        self._lib_path = "/tmp/dicp_ascend/graph_compile"
         from dicp.vendor.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         source_path = graph_util_path + '/graph_compile.cpp'
@@ -29,7 +29,6 @@ class AscendCompileJob(DeviceCompileJob):
         self._cmd = ['/usr/bin/c++',
                     '-D_GLIBCXX_USE_CXX11_ABI=0',
                     '-fPIC',
-                    '-shared',
                     '-std=c++11',
                     '-O3',
                     '-Wall',
@@ -38,13 +37,13 @@ class AscendCompileJob(DeviceCompileJob):
                     '-I/usr/local/Ascend/ascend-toolkit/latest/include/ge',
                     '-I/usr/local/Ascend/ascend-toolkit/latest/parser',
                     '-I/usr/local/Ascend/ascend-toolkit/latest/compiler/include',
-                    '-I{}'.format(graph_util_path),
-                    '-I{}'.format(json_util_path),
+                    f'-I{graph_util_path}',
+                    f'-I{json_util_path}',
                     '-L/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                     '-lgraph',
                     '-lge_runner',
-                    '-o' + self._lib_path,
                     source_path,
+                    '-o' + self._lib_path,
                     '-Wl,-rpath,/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                     '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libgraph.so',
                     '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libge_runner.so',
@@ -62,12 +61,18 @@ class AscendCompileJob(DeviceCompileJob):
 
     def get_key(self):
         return self._key
+    
+    def build_graph(self, output_path, graph_path):
+        self._compile()
+        cmd = [self._lib_path, output_path, graph_path]
+        try:
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            raise exc.CppCompileError(cmd, e.output) from e
 
     def get_compile_result(self):
         if (not os.path.exists(self._model_path[0]) and not os.path.exists(self._model_path[1])):
-            self._compile()
-            loaded = cdll.LoadLibrary(self._lib_path)
-            loaded.compile(self._output_graph_path.encode(), self._input_path.encode())
+            self.build_graph(self._output_graph_path, self._input_path)
         if not os.path.exists(self._output_graph_path + '.om'):
             self._output_graph_path += '_linux_x86_64'
         assert(os.path.exists(self._output_graph_path + '.om'))
