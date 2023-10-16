@@ -38,13 +38,21 @@ jobs:
       - name: clone repo
         run: |
           set -ex
-          cd ${GITHUB_WORKSPACE} && rm -rf DIPU DIPU_DIOPI ${REPO} && git clone https://github.com/DeepLink-org/${REPO}.git && cd ${REPO}
-          if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
-            echo "${{ github.base_ref }} "
-            git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
+          cd ${GITHUB_WORKSPACE} && rm -rf DIPU DIPU_DIOPI ${REPO} 
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == *DeepLink-org* ]]; then
+            git clone ${{ github.event.pull_request.head.repo.ssh_url }}
+            cd ${GITHUB_WORKSPACE}/${{ github.event.repository.name }} && git checkout ${{ github.event.pull_request.head.sha }}
+            git remote add mainrepo git@github.com:${GITHUB_REPOSITORY}.git
+            git fetch  mainrepo && git merge --no-edit mainrepo/${{ github.base_ref }}
           else
-            echo $GITHUB_EVENT_NAME
-            git checkout ${{ github.sha }}
+            git clone https://github.com/DeepLink-org/${REPO}.git && cd ${REPO}
+            if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+              echo "${{ github.base_ref }} "
+              git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
+            else
+              echo $GITHUB_EVENT_NAME
+            g  it checkout ${{ github.sha }}
+            fi
           fi
           cd ${GITHUB_WORKSPACE} && cp -R ${REPO} ${REPO}_DIOPI
           cd ${REPO}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
