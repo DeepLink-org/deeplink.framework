@@ -850,39 +850,41 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Log(op_var, x):
+    def Log(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Log({x});"
     
     @staticmethod
-    def Neg(op_var, x):
+    def Neg(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Neg({x});"
     
     @staticmethod
-    def Pow(op_var, x, y):
-        return f"builder::Op {op_var} = builder::Pow({x}, {y});"
+    def Pow(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code += f"builder::Op {op_var} = builder::Pow({x}, {y});"
+        return src_code
     
     @staticmethod
-    def Exp(op_var, x):
+    def Exp(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Exp({x});"
 
     @staticmethod
-    def Sqrt(op_var, x):
+    def Sqrt(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Sqrt({x});"
      
     @staticmethod
-    def Relu(op_var, x):
+    def Relu(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Relu({x});"
     
     @staticmethod
-    def Sigmoid(op_var, x):
+    def Sigmoid(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Sigmoid({x});"
     
     @staticmethod
-    def Reciprocal(op_var, *args):
-        return f"builder::Op {op_var} = builder::Reciprocal({', '.join(args)});"
+    def Reciprocal(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Reciprocal({x});"
     
     @staticmethod
-    def Rsqrt(op_var, x):
+    def Rsqrt(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Rsqrt({x});"
     
     @staticmethod

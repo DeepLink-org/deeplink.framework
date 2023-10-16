@@ -108,30 +108,16 @@ def Div(get_proxy, a, b):
     return get_proxy(tops_op.Div.get_singleton(), (a, b), {})
 
 Sub = torch.fx.wrap(register_conversion(torch.ops.aten.sub)(tops_op.Sub))
-
-@register_conversion(torch.ops.aten.sqrt)
-def Sqrt(a):
-    return tops_op.Sqrt(a)
+Sqrt = torch.fx.wrap(register_conversion(torch.ops.aten.sqrt)(tops_op.Sqrt))
 
 @register_conversion(torch.ops.aten.square)
 def Square(*args, **kwargs):
     return tops_op.Square(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.reciprocal)
-def Reciprocal(a):
-    return tops_op.Reciprocal(a)
-
-@register_conversion(torch.ops.aten.rsqrt)
-def Rsqrt(a):
-    return tops_op.Rsqrt(a)
-
-@register_conversion(torch.ops.aten.exp)
-def Exp(a):
-    return tops_op.Exp(a)
-
-@register_conversion(torch.ops.aten.relu)
-def Relu(a):
-    return tops_op.Relu(a)
+Reciprocal = torch.fx.wrap(register_conversion(torch.ops.aten.reciprocal)(tops_op.Reciprocal))
+Rsqrt = torch.fx.wrap(register_conversion(torch.ops.aten.rsqrt)(tops_op.Rsqrt))
+Exp = torch.fx.wrap(register_conversion(torch.ops.aten.exp)(tops_op.Exp))
+Relu = torch.fx.wrap(register_conversion(torch.ops.aten.relu)(tops_op.Relu))
 
 @register_conversion(torch.ops.aten.sum)
 def Sum(*args, **kwargs):
@@ -183,10 +169,7 @@ Copy = torch.fx.wrap(register_conversion(torch.ops.aten.copy.default)(tops_op.Co
 Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.Copy))
 LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
 Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
-
-@register_conversion(torch.ops.aten.neg)
-def Neg(*args, **kwargs):
-    return tops_op.Neg(*args, **kwargs)
+Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
 
 # %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
 #                          (args = (%relu_16, [-1, -2], True), kwargs = {})
@@ -230,9 +213,7 @@ def Adaptive_avg_pool2d_backward(*args, **kwargs):
 def Gather(*args, **kwargs):
     return tops_op.Gather(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.log)
-def Log(*args, **kwargs):
-    return tops_op.Log(*args, **kwargs)
+Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
 
 @register_conversion(torch.ops.aten.amax)
 def Max(*args, **kwargs):
@@ -285,14 +266,8 @@ def FullLike(*args, **kwargs):
     return tops_op.FullLike(*args, **kwargs)
 
 Maximum = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
-
-@register_conversion(torch.ops.aten.pow.Tensor_Scalar)
-def Pow(*args, **kwargs):
-    return tops_op.Pow(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.sigmoid.default)
-def Sigmoid(*args, **kwargs):
-    return tops_op.Sigmoid(*args, **kwargs)
+Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_op.Pow))
+Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))
 
 @register_conversion(torch.ops.aten.slice.Tensor)
 def Slice(*args, **kwargs):
