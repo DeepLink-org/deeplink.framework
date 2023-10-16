@@ -108,7 +108,7 @@ class MemoryPool:
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 13 * 1024 * 1024 * 1024
+            self.work_size = 15 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                                 ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
