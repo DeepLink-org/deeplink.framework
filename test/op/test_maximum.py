@@ -29,7 +29,4 @@ class TestMaximum():
         dicp_output = compiled_model.model(dicp_input1, dicp_input2)
 
         for i, item in enumerate(output):
-            if isinstance(item, torch.Tensor):
-                assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
-            else:
-                assert item == dicp_output[i]
+            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)

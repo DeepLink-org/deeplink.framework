@@ -35,7 +35,5 @@ class TestConvolutionBackward():
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_inputs, dicp_weights, dicp_outputs, device)
-        print("**************************", flush=True)
-        print(inputs.size(), weights.size(), output.size(), flush=True)
 
         assert torch.allclose(output.detach(), dicp_output.cpu().detach(), atol=1e-02, equal_nan=True)

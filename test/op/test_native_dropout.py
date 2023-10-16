@@ -28,5 +28,4 @@ class TestNativeDropout():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, value, option)
 
-        for i, item in enumerate(output):
-            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
+        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

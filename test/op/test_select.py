@@ -27,7 +27,5 @@ class TestSelect():
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dim, index)
-        print(output)
-        print(dicp_output)
 
         assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
