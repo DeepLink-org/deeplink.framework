@@ -41,7 +41,12 @@ else()
     message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
-
+#--------------- build_DIOPI----------
+if(${BUILD_DIOPI})
+    execute_process(COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR}/third_party/DIOPI/impl/; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh torch || exit -1; cd ../../../;")
+    message(STATUS "Built DIOPI LIB finished")
+endif()
+#---------------------------------------
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
@@ -54,12 +59,24 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 # Automatically generate a list of supported diopi functions
 execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
 
-execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
-if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
-    set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-else()
-    set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+if (SKBUILD)
+    if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
+    #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
+        if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
+            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+        else()
+            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+        endif()
+    else()
+        execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+        if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
+            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+        else()
+            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+        endif()
+    endif()
 endif()
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
