@@ -51,7 +51,7 @@ jobs:
               git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
             else
               echo $GITHUB_EVENT_NAME
-            g  it checkout ${{ github.sha }}
+              git checkout ${{ github.sha }}
             fi
           fi
           cd ${GITHUB_WORKSPACE} && cp -R ${REPO} ${REPO}_DIOPI
