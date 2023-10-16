@@ -1475,19 +1475,19 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(args_str) + '}'}, {dim});"
 
     @staticmethod
-    def Softmax(op_var, x, y, z):
+    def Softmax(op_var, out_shape, out_dtype, x, y, z):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
 
     @staticmethod
-    def Logsoftmax(op_var, x, y, z):
+    def Logsoftmax(op_var, out_shape, out_dtype, x, y, z):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z}, true);"
 
     @staticmethod
-    def Gelu(op_var, shape, dtype, x, approximate, **kwargs):
+    def Gelu(op_var, out_shape, out_dtype, x, approximate, **kwargs):
         return f"builder::Op {op_var} = builder::Gelu({x}, {approximate});"
 
     @staticmethod
-    def Gelu_Grad(op_var, shape, dtype, x, y, approximate):
+    def GeluBackward(op_var, out_shape, out_dtype, x, y, approximate):
         return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {approximate});"
 
     @staticmethod

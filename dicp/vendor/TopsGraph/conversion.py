@@ -339,7 +339,7 @@ def Gelu(get_proxy, *args, **kwargs):
 def gelubackward(get_proxy, *args, **kwargs):
     approximate = 'true' if ('approximate' in kwargs 
         and kwargs["approximate"] == 'tanh') else 'false'
-    return get_proxy(tops_op.GeluBackward.get_singleton(), (args[0], approximate), {})
+    return get_proxy(tops_op.GeluBackward.get_singleton(), (args[0], args[1], approximate), {})
 
 @register_conversion(torch.ops.prims.iota.default)
 def Iota(get_proxy, length, **kwargs):
