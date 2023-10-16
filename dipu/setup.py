@@ -10,13 +10,7 @@ import sys
 import platform
 import setuptools
 
-import distutils.ccompiler
-import distutils.command.clean
 from skbuild import setup
-from setuptools.command.build_ext import build_ext
-from setuptools.command.install import install
-from setuptools import distutils, Extension
-from setuptools.command.egg_info import egg_info
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VERSION = '0.1'
@@ -45,8 +39,11 @@ def start_debug():
 
 def customized_cmake_args():
     cmake_args = list()
+    cmake_device = "cuda"
+    if(os.getenv("DIPU_DEVICE")):
+        cmake_device = os.getenv("DIPU_DEVICE")
     cmake_args.append("-DCMAKE_BUILD_TYPE=Release")
-    cmake_args.append("-DDEVICE=cuda")
+    cmake_args.append("-DDEVICE="+cmake_device)
     cmake_args.append("-DENABLE_COVERAGE=${USE_COVERAGE}")
     cmake_args.append("-DBUILD_DIOPI=TRUE")
     return cmake_args
