@@ -2098,6 +2098,18 @@
     return out;
   interface: diopiNeg(ctx, out, self)
 
+- schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = at::empty({}, in.options());
+      dipu_norm_out(in, ord, {}, false, out[i]);
+    }
+    return out;
+  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
 #- schema: _amp_foreach_non_finite_check_and_unscale_(Tensor(a!)[] self, Tensor(b!) found_inf, Tensor inv_scale) -> void
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
   custom_fallback: True
