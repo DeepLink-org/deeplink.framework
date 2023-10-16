@@ -68,17 +68,17 @@ execute_process(
 )
 
 
+execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
+    set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+else()
+    set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+endif()
+
 if (SKBUILD)
     if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
     #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
         if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
-            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-        else()
-            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-        endif()
-    else()
-        execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
-        if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
             set(DIPU_COMPILED_WITH_CXX11_ABI 1)
         else()
             set(DIPU_COMPILED_WITH_CXX11_ABI 0)

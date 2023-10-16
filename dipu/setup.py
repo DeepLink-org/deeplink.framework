@@ -21,8 +21,11 @@ def get_pytorch_dir():
 
 def customized_cmake_args():
     cmake_args = list()
+    cmake_device = "cuda"
+    if(os.getenv("DIPU_DEVICE")):
+        cmake_device = os.getenv("DIPU_DEVICE")
     cmake_args.append("-DCMAKE_BUILD_TYPE=Release")
-    cmake_args.append("-DDEVICE=cuda")
+    cmake_args.append("-DDEVICE="+cmake_device)
     cmake_args.append("-DENABLE_COVERAGE=${USE_COVERAGE}")
     cmake_args.append("-DBUILD_DIOPI=TRUE")
     return cmake_args
