@@ -4,7 +4,11 @@ set -ex
 source tests/common.sh
 
 function run_dipu_tests {
-  # export DIPU_DUMP_OP_ARGS=2
+  unset DIPU_DUMP_OP_ARGS
+  export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
+
+  ${CDIR}/python/run_tests.sh
+
   echo "fill_.Scalar" >> .dipu_force_fallback_op_list.config
   run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v -f TestTensorCreationDIPU # --locals -f
   echo "" >  .dipu_force_fallback_op_list.config
@@ -35,11 +39,6 @@ function run_dipu_tests {
   run_test "${PYTORCH_DIR}/test/test_ops_gradients.py" "$@" -v -f TestBwdGradientsDIPU
   #run_test "${PYTORCH_DIR}/test/test_ops.py" "$@" -v
   run_test "${PYTORCH_DIR}/test/test_shape_ops.py" "$@" -v -f TestShapeOpsDIPU
-  run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
-  run_test "$CDIR/test_ops/test_addmm.py"
-  run_test "$CDIR/test_ops/test_log_softmax_backward.py"
-  run_test "$CDIR/test_ops/test_log_softmax.py"
-  ls $CDIR/test_ops/archived/test*.py | xargs --verbose  -I {} sh -c "python {}"
 }
 
 if [ "$LOGFILE" != "" ]; then

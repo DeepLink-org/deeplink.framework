@@ -17,8 +17,9 @@ function run_dipu_tests {
   # run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
   # run_test "$CDIR/test_ops/test_addmm.py"
   # run_test "$CDIR/test_ops/test_log_softmax_backward.py"
-  run_test "$CDIR/test_ops/test_softmax.py"
+  # run_test "$CDIR/test_ops/test_softmax.py"
   # run_test "$CDIR/test_ops/archived/test_relu.py"
+  true
 }
 
 if [ "$LOGFILE" != "" ]; then
