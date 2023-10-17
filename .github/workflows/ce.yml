@@ -5,15 +5,7 @@ on:
 #    - cron: '30 11 * * 6'
 
 env:
-  CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
-  CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
-  CAMB_CLUSTER: CAMB
-  CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
-  CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
-  CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd -x SH-IDC1-10-198-8-60' }}
-  CUDA_CLUSTER: SH1988
-  ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
-  ASCEND_CLUSTER: ASCEND
+  artifacts_path: /data/platform_ci/nginxweb/parrots/train/artifacts
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
@@ -24,11 +16,21 @@ jobs:
     name: archive train results
     runs-on: github-poc-ci
     steps:
+      - name: start to check
+        run: |
+          cd ${artifacts_path} 
+          if [ ! -f train_flag ]; then
+            echo "have been collected"
+            exit 1
+          fi
       - name: start to archive
         uses: actions/upload-artifact@v3
         with:
           name: train-results
-          path: /data/platform_ci/nginxweb/parrots/train/artifact/*.*
+          path: ${artifacts_path}/*.*
+      - name: start to clean
+        run: |
+          cd ${artifacts_path} && rm -rf train_flag
 
 
     
