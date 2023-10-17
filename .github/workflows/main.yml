@@ -23,7 +23,8 @@ env:
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
-  USE_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/20')) && 'ON' || 'OFF' }}
+  ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
+  REQUIRE_COVERAGE: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '40' }}
   REPO: ${{ github.event.repository.name }}
 
 concurrency:
@@ -66,7 +67,7 @@ jobs:
           fi
       - name: Rsync to Server
         run: |
-          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" 
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
@@ -75,22 +76,6 @@ jobs:
           ssh ${ASCEND_CLUSTER} "mkdir -p ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          result=`ssh ${CAMB_CLUSTER} """
-                  mkdir -p ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  cd ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-                  if [ ! -f ${CI_BUILD_FLAG} ]; then
-                    touch ${CI_BUILD_FLAG}
-                  fi
-                  cat ${CI_BUILD_FLAG}
-                  """`
-          echo "result:${result}"
-          if [ "${result}x" = "${PYTORCH_COMMIT}"x ]; then
-            echo "pytorch:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT} exist."
-          else
-            echo "pytorch not exist, copy pytorch to ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            ssh ${CAMB_CLUSTER} "rm -rf ${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}"
-            rsync -a --delete /home/autolink/rsync/sourcecode/pytorch/* ${CAMB_CLUSTER}:${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}/
-          fi
 
   Build-Camb:
     name: Build-dipu-camb
@@ -103,7 +88,7 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
@@ -124,12 +109,25 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb/dipu
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
+          if [ "${ALL_COVERAGE}" = "ON" ]; then
           sh /mnt/lustre/share/platform/dep/sonar/coverage_DIPU_camb.sh ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
+          fi
+          """
+      - name: increment coverage check
+        if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -e
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb
+          rm -rf scripts
+          ln -s ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
+          source /mnt/cache/share/platform/env/camb_ci_diopi_impl
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
   Test-One-Iter-Camb:
@@ -234,7 +232,7 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
@@ -253,11 +251,24 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex
-          export USE_COVERAGE=${USE_COVERAGE}
+          export USE_COVERAGE=ON
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
+          if [ "${ALL_COVERAGE}" = "ON" ]; then
           bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
+          fi
+          """
+      - name: increment coverage check
+        if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -e
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
+          rm -rf scripts
+          ln -s ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
+          source /mnt/cache/share/platform/env/pt2.0_diopi
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
   Test-One-Iter_Cuda:
