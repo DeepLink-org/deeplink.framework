@@ -132,16 +132,8 @@ def Index(*args, **kwargs):
 def NativeDropout(*args, **kwargs):
     return tops_op.NativeDropout(*args, **kwargs)
 
-# torch.ops.aten.squeeze.dim(,[])
-# torch.ops.aten.squeeze.dims(,)
-@register_conversion(torch.ops.aten.squeeze)
-def Squeeze(a, b):
-    return tops_op.Squeeze(a, b)
-
-@register_conversion(torch.ops.aten.unsqueeze)
-def Unsqueeze(a, b):
-    return tops_op.Unsqueeze(a, b)
-
+Squeeze = torch.fx.wrap(register_conversion(torch.ops.aten.squeeze)(tops_op.Squeeze))
+Unsqueeze = torch.fx.wrap(register_conversion(torch.ops.aten.unsqueeze)(tops_op.Unsqueeze))
 Permute = torch.fx.wrap(register_conversion(torch.ops.aten.permute)(tops_op.Transpose))
 Transpose = torch.fx.wrap(register_conversion(torch.ops.aten.transpose)(tops_op.Transpose1))
 Hardswish = torch.fx.wrap(register_conversion(torch.ops.aten.hardswish)(tops_op.Hardswish))

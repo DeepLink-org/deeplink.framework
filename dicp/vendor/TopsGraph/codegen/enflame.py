@@ -975,25 +975,23 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Expand(op_var, node, *args_str):
-        dims = []
-        for i in range(0, len(node.meta['val'].shape)):
-            dims.append(str(i))
-        broadcast_dims = '{' + ', '.join(dims) + '}'
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        data_type = node.meta['val'].dtype.__str__()
-        src_code = f"builder::Type {op_var}_expand_type({shape}, {type_set[data_type]});\n"
-        src_code += f"auto {op_var} = BroadcastInDim({args_str[0]}, {broadcast_dims}, {op_var}_expand_type);"
+    def Expand(op_var, shape, dtype, x, new_shape, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, new_shape)
+        src_code += f"builder::Op {op_var} = builder::BroadcastInDim({x}, {{{', '.join(map(str, range(len(shape))))}}}, {op_type});"
         return src_code
     
     @staticmethod
-    def Squeeze(op_var, *args):
-        return f"builder::Op {op_var} = builder::Squeeze({', '.join(args)});"
+    def Squeeze(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, torch.int64)
+        src_code += f"builder::Op {op_var} = builder::Squeeze({x}, {y});"
+        return src_code
     
     @staticmethod
-    def Unsqueeze(op_var, *args):
-        return f"builder::Op {op_var} = builder::Unsqueeze({', '.join(args)});"
-
+    def Unsqueeze(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, torch.int64)
+        src_code += f"builder::Op {op_var} = builder::Unsqueeze({x}, {y});"
+        return src_code
+    
     @staticmethod
     def ReduceMean(op_var, *args):
         src_code = ''
