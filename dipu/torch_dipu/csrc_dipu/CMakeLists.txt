@@ -80,8 +80,14 @@ add_custom_target(copy_include
     COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
 )
 
-add_custom_command(TARGET copy_include PRE_BUILD    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'
+if(${UsedVendor} STREQUAL "camb")
+    add_custom_command(TARGET copy_include PRE_BUILD    
+        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'
+        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py  --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/custom_diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/CustomAutoGenedKernels.cpp  --use_diopi_adapter False  
 )
+else()
+    add_custom_command(TARGET copy_include PRE_BUILD    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}')
+endif()
 
 add_dependencies(${DIPU_LIB} copy_include)
 
