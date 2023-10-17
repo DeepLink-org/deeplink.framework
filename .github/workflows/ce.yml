@@ -20,7 +20,7 @@ jobs:
         run: |
           cd ${artifacts_path} 
           if [ ! -f train_flag ]; then
-            echo "have been collected"
+            echo "Results have been collected"
             exit 1
           fi
       - name: start to archive
