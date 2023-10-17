@@ -91,9 +91,9 @@ class TestForeach(TestCase):
         res_cpu = torch._foreach_norm(inputs_cpu, scalar)
         res_dipu = torch._foreach_norm(inputs_dipu, scalar)
         for i in range(len(res_cpu)):
-            print(res_cpu[i])
-            print(res_dipu[i].cpu())
-            assert torch.allclose(res_cpu[i], res_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3)
+            self.assertTrue(torch.allclose(
+                res_cpu[i], res_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3
+            ))
         
     def test_foreach_mul_(self):
         weights_cpu = []
