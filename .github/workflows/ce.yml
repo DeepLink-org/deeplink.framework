@@ -1,11 +1,8 @@
 name: diopi ce
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'wgs/**'
-  schedule:
-    - cron: '30 11 * * 6'
+#  schedule:
+#    - cron: '30 11 * * 6'
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
@@ -17,44 +14,21 @@ env:
   CUDA_CLUSTER: SH1988
   ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
-  ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
-  CI_BUILD_FLAG: "ci_build_flag"
-  PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
-  REPO: ${{ github.event.repository.name }}
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  RUN_ON_NV:
-    name: run on nv
+  Archive_Results:
+    name: archive train results
     runs-on: github-poc-ci
-    env:
-      ENV_NAME: pt2.0 diopi
     steps:
-      - name: start to train
-        run: |
-          ssh ${CUDA_CLUSTER} """
-          set -ex 
-          cd /mnt/cache/share/platform/download/DIPU_test && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh cuda --partition pat_rd --env 'pt2.0v1 dipu0.3.0' --run_accuracy ON
-          """
-        timeout-minutes: 50400
+      - name: start to archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: train-results
+          path: /data/platform_ci/nginxweb/parrots/train/artifact/*.*
 
-  RUN_ON_CAMB:
-    name: run on camb
-    runs-on: github-poc-ci
-    env:
-      ENV_NAME: pt2.0 diopi
-    steps:
-      - name: start to train
-        run: |
-          ssh ${CAMB_CLUSTER} """
-          set -ex 
-          cd /mnt/cache/share/platform/download/DIPU_test && rm -rf pboot && git clone git@gitlab.bj.sensetime.com:wugeshui/pboot.git && cd pboot && git checkout deps
-          sh DIPU_test/DIPU_benchmark/start.sh camb --partition camb_mlu370_m8 --env 'dipu0.3.0' --run_accuracy ON
-          """
-        timeout-minutes: 50400
 
     
