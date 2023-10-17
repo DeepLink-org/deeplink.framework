@@ -516,6 +516,8 @@ class EnflameOverrides(OpOverrides):
                 return str(arg)
             elif isinstance(arg, list):
                 return arg
+            elif isinstance(arg, torch.layout):
+                return
             raise ValueError(f"unknown arg type({arg})")
 
 
@@ -938,8 +940,8 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
     
     @staticmethod
-    def Full(op_var, shape, dtype, size, value, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
+    def Full(op_var, node_shape, node_dtype, size, value, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, node_dtype, node_shape)
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {value}, {op_type});"
         return src_code
     
@@ -993,32 +995,12 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def ReduceMean(op_var, *args):
-        src_code = ''
-        if len(args) == 3:
-            src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {args[2]}, {args[1]});"
-        elif len(args) == 2:
-            keepdim = 'false'
-            src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]}, {keepdim}, {args[1]});"
-        elif len(args) == 1:
-            src_code = f"builder::Op {op_var} = builder::ReduceMean({args[0]});"
-        else:   
-            ValueError("Reducemean args num error!")
-        return src_code
-
+    def ReduceMean(op_var, shape, dtype, x, axis="[]", keepdims="false", **kwargs_list):
+        return f"builder::Op {op_var} = builder::ReduceMean({x}, {keepdims}, {{{str(axis).strip('[]')}}});"
+    
     @staticmethod
-    def ReduceMax(op_var, *args):
-        src_code = ''
-        if len(args) == 3:
-            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {args[2]}, {args[1]});"
-        elif len(args) == 2:
-            keepdim = 'false'
-            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]}, {keepdim}, {args[1]});"
-        elif len(args) == 1:
-            src_code = f"builder::Op {op_var} = builder::ReduceMax({args[0]});"
-        else:
-            ValueError("ReduceMax args num error!")
-        return src_code
+    def ReduceMax(op_var, shape, dtype, x, axis="[]", keepdims="false", **kwargs_list):
+        return f"builder::Op {op_var} = builder::ReduceMax({x}, {keepdims}, {{{str(axis).strip('[]')}}});"
 
     @staticmethod
     def ReduceSum(op_var, node, *args):

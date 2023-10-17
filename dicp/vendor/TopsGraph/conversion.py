@@ -104,11 +104,6 @@ def Div(get_proxy, a, b):
 
 Sub = torch.fx.wrap(register_conversion(torch.ops.aten.sub)(tops_op.Sub))
 Sqrt = torch.fx.wrap(register_conversion(torch.ops.aten.sqrt)(tops_op.Sqrt))
-
-@register_conversion(torch.ops.aten.square)
-def Square(*args, **kwargs):
-    return tops_op.Square(*args, **kwargs)
-
 Reciprocal = torch.fx.wrap(register_conversion(torch.ops.aten.reciprocal)(tops_op.Reciprocal))
 Rsqrt = torch.fx.wrap(register_conversion(torch.ops.aten.rsqrt)(tops_op.Rsqrt))
 Exp = torch.fx.wrap(register_conversion(torch.ops.aten.exp)(tops_op.Exp))
@@ -144,13 +139,7 @@ Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.
 LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
 Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
 Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
-
-# %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
-#                          (args = (%relu_16, [-1, -2], True), kwargs = {})
-@register_conversion(torch.ops.aten.mean)
-def Mean(*args, **kwargs):
-    return tops_op.ReduceMean(*args, **kwargs)
-
+ReduceMean = torch.fx.wrap(register_conversion(torch.ops.aten.mean)(tops_op.ReduceMean))
 Reshape = torch.fx.wrap(register_conversion(torch.ops.aten.view)(tops_op.Reshape))
 
 @register_conversion(torch.ops.aten.convolution)
@@ -188,11 +177,7 @@ def Gather(*args, **kwargs):
     return tops_op.Gather(*args, **kwargs)
 
 Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
-
-@register_conversion(torch.ops.aten.amax)
-def Max(*args, **kwargs):
-    return tops_op.ReduceMax(*args, **kwargs)
-
+ReduceMax = torch.fx.wrap(register_conversion(torch.ops.aten.amax)(tops_op.ReduceMax))
 Gemm = torch.fx.wrap(register_conversion(torch.ops.aten.mm)(tops_op.Gemm))
 DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
 
@@ -205,11 +190,6 @@ def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
 Softmax = torch.fx.wrap(register_conversion(torch.ops.aten._softmax.default)(tops_op.Softmax))
-
-@register_conversion(torch.ops.aten.arange.start)
-def Range(*args, **kwargs):
-    return tops_op.Range(*args, **kwargs)
-
 Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
 
@@ -223,7 +203,7 @@ NewEmptyStrided = torch.fx.wrap(register_conversion(torch.ops.aten.new_empty_str
 Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
 Full = torch.fx.wrap(register_conversion(torch.ops.aten.full.default)(tops_op.Full))
 FullLike = torch.fx.wrap(register_conversion(torch.ops.aten.full_like.default)(tops_op.FullLike))
-Maximum = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
+Max = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
 Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_op.Pow))
 Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))
 

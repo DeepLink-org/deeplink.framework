@@ -202,13 +202,6 @@ class Sqrt(Operator):
         self.a = a
         self.torch_op = aten.sqrt
 
-class Square(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Square")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.square
-
 
 class Exp(Operator):
     def __init__(self, a):
@@ -456,14 +449,6 @@ class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
         self.torch_op = aten._softmax.default
-
-
-class Range(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Range")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.arange.start
 
 
 class Bmm(Operator):
