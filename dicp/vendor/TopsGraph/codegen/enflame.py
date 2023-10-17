@@ -938,34 +938,26 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
     
     @staticmethod
-    def Full(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        src_code = f"std::vector<int64_t> {op_var}_in_shape{args_str[0]};\n"
-        src_code += f"builder::Type {op_var}_type({op_var}_in_shape, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {node.args[1]}, {op_var}_type);"
+    def Full(op_var, shape, dtype, size, value, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
+        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {value}, {op_type});"
         return src_code
     
     @staticmethod
-    def FullLike(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code = f"  builder::Op {op_var} = builder::FullLike({args_str[0]}, {str(node.args[1])}, {type_set[data_type]}, {shape});"
-        return src_code
+    def FullLike(op_var, shape, dtype, input, value, **kwargs_list):
+        return f"builder::Op {op_var} = builder::FullLike({input}, {value});"
+
+    @staticmethod
+    def Transpose(op_var, shape, dtype, x, permution=[0, 1], **kwargs_list):
+        return f"builder::Op {op_var} = builder::Transpose({x}, {{{str(permution).strip('[]')}}});"
     
     @staticmethod
-    def Transpose(op_var, *args):
-        if len(args) == 1:
-            list(args).append('{1, 0}')
-        return f"builder::Op {op_var} = builder::Transpose({', '.join(args)});"
-    
-    @staticmethod
-    def Hardswish(op_var, x):
+    def Hardswish(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::HardSwish({x});"
 
     @staticmethod
-    def Hardswish_Grad(op_var, x, y):
-        a, b, c = 3.0, 6.0, 6.0
-        return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, {a}, {b}, {c});"
+    def HardswishBackward(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, 3.0, 6.0, 6.0);"
 
     @staticmethod
     def Reshape(op_var, node, *args_str):
@@ -1470,6 +1462,6 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Iota(op_var, node_shape, node_dtype, length, **kwargs_list):
-        src_code, var_type = EnflameOverrides.make_type(op_var, node_dtype, node_shape)
-        src_code += f"builder::Op {op_var} = builder::Iota(hlir_builder, 0, {var_type});\n"
+        src_code, op_type = EnflameOverrides.make_type(op_var, node_dtype, node_shape)
+        src_code += f"builder::Op {op_var} = builder::Iota(hlir_builder, 0, {op_type});\n"
         return src_code

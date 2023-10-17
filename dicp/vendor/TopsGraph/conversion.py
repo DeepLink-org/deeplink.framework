@@ -75,14 +75,9 @@ def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
         y = get_proxy(tops_op.Mul.get_singleton(), (y, alpha), {})
     return get_proxy(tops_op.Add.get_singleton(), (x, y), {})
 
-
-AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
-AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
 Abs = torch.fx.wrap(register_conversion(torch.ops.aten.abs)(tops_op.Abs))
-
 AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
 AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
-Add = torch.fx.wrap(register_conversion(torch.ops.aten.add.Tensor)(tops_op.Add))
 
 @register_conversion(torch.ops.aten.mul)
 def Mul(get_proxy, a, b):
@@ -147,21 +142,10 @@ def Squeeze(a, b):
 def Unsqueeze(a, b):
     return tops_op.Unsqueeze(a, b)
 
-Permute = register_conversion(torch.ops.aten.permute)(tops_op.Transpose)
-torch.fx.wrap("Permute")
-
-@register_conversion(torch.ops.aten.transpose)
-def Transpose(a, b, c):
-    return tops_op.Transpose1(a, b, c)
-
-@register_conversion(torch.ops.aten.hardswish)
-def Hardswish(a):
-    return tops_op.Hardswish(a)
-
-@register_conversion(torch.ops.aten.hardswish_backward)
-def hardswishbackward(a, b):
-    return tops_op.HardswishBackward(a, b)
-
+Permute = torch.fx.wrap(register_conversion(torch.ops.aten.permute)(tops_op.Transpose))
+Transpose = torch.fx.wrap(register_conversion(torch.ops.aten.transpose)(tops_op.Transpose1))
+Hardswish = torch.fx.wrap(register_conversion(torch.ops.aten.hardswish)(tops_op.Hardswish))
+HardswishBackward = torch.fx.wrap(register_conversion(torch.ops.aten.hardswish_backward)(tops_op.HardswishBackward))
 Clone = torch.fx.wrap(register_conversion(torch.ops.aten.clone)(tops_op.Clone))
 Copy = torch.fx.wrap(register_conversion(torch.ops.aten.copy.default)(tops_op.Copy))
 Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.Copy))
@@ -245,15 +229,8 @@ EmptyLike = torch.fx.wrap(register_conversion(torch.ops.aten.empty_like.default)
 Bernoulli = torch.fx.wrap(register_conversion(torch.ops.aten.bernoulli.p)(tops_op.Bernoulli))
 NewEmptyStrided = torch.fx.wrap(register_conversion(torch.ops.aten.new_empty_strided.default)(tops_op.NewEmptyStrided))
 Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
-
-@register_conversion(torch.ops.aten.full.default)
-def Full(*args, **kwargs):
-    return tops_op.Full(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.full_like.default)
-def FullLike(*args, **kwargs):
-    return tops_op.FullLike(*args, **kwargs)
-
+Full = torch.fx.wrap(register_conversion(torch.ops.aten.full.default)(tops_op.Full))
+FullLike = torch.fx.wrap(register_conversion(torch.ops.aten.full_like.default)(tops_op.FullLike))
 Maximum = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
 Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_op.Pow))
 Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))

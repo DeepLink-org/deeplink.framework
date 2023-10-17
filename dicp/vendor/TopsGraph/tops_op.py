@@ -290,7 +290,7 @@ class Hardswish(Operator):
 
 class HardswishBackward(Operator):
     def __init__(self, a, b):
-        super().__init__("Hardswish_Grad")
+        super().__init__("HardswishBackward")
         self.a = a
         self.b = b
         self.torch_op = aten.hardswish_backward
