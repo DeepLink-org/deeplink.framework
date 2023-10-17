@@ -31,3 +31,5 @@ print(opt_res.shape)
 
 res = apply_rotary_emb(a, c)
 print(res.shape)
+print(torch.allclose(opt_res.to('cpu'), res))
+

@@ -22,19 +22,18 @@ class SingleOpTransformer(torch.fx.Transformer):
     def __init__(self, module, conversions):
         super().__init__(module)
         self._conversions = conversions
+        self.sym_to_inputs = {}
 
     def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
         proxy = super().placeholder(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
+        fake_tensor = proxy.node.meta['val']
+        if isinstance(fake_tensor, torch.SymInt):
+            self.sym_to_inputs[fake_tensor.node.str()] = proxy
         return proxy
 
     def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]):
-        proxy = self.tracer.create_proxy('call_function', target, args, kwargs)
-        def get_meta(x):
-            return x.node if isinstance(x, torch.fx.proxy.Proxy) else x
-        from torch.utils._pytree import tree_map
-        new_args = tree_map(get_meta, args)
-        proxy.node.meta['val'] = (target(*new_args, **kwargs))
+        proxy = self.tracer.create_proxy('call_function', target.get_singleton(), args, kwargs)
         return proxy
         
     def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
@@ -45,8 +44,9 @@ class SingleOpTransformer(torch.fx.Transformer):
                 out, process_fn = converted_target
                 args, kwargs = process_fn(args, kwargs)
             else:
-                out = self._conversions[target](self.get_proxy, *args, **kwargs)
+                out = self._conversions[target](self, *args, **kwargs)
             if isinstance(out, Proxy):
+                out.node.meta = fx_traceback.get_current_meta()
                 return out
             proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
             proxy.node.meta = fx_traceback.get_current_meta()
