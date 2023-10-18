@@ -1,13 +1,13 @@
 #include "graph_utils.h"
 
-extern "C" int compile(char *graph_path, char *graph_json_file) {
-  std::map<AscendString, AscendString> options;
+static void compile(const std::string& graph_path, const std::string& graph_json_file) {
   std::string graph_name = "BuildGraph";
   Graph graph(graph_name.c_str());
   std::ifstream f(graph_json_file);
   json graph_json = json::parse(f);
   buildGraph(graph, graph_json);
 
+  std::map<AscendString, AscendString> options;
   bool has_dynamic_shape = graph_json["has_dynamic_shape"].get<bool>();
   if (has_dynamic_shape) {
     for (const auto &item : graph_json["build_options"]) {
@@ -19,5 +19,11 @@ extern "C" int compile(char *graph_path, char *graph_json_file) {
 
   AclgraphBuilder builder;
   builder.saveGraph(graph_path, graph, options);
-  return SUCCESS;
+}
+
+int main(int argc, char* argv[]) {
+  std::string graph_path{argv[1]};
+  std::string graph_json_file{argv[2]};
+  compile(graph_path, graph_json_file);
+  return 0;
 }
