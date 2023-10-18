@@ -1285,7 +1285,7 @@
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  # register_op: False
+  register_op: False
   custom_code_at_the_beginning: |
     const auto shapeA = self.sizes();
     const auto shapeB = other.sizes();
