@@ -24,6 +24,14 @@ namespace autocast {
 // ----------------------------------------------------------------------------
 namespace {
 
+template <typename... Args>
+inline bool firstarg_is_eligible(
+    DeviceType device_type,
+    const Tensor& arg,
+    Args... args) {
+  return is_eligible(arg, device_type);
+}
+
 // Policies correspond to op categories that need code-divergent handling.
 // Wrapper templates below are specialized based on a policy template parameter.
 enum class CastPolicy : uint8_t {
@@ -88,8 +96,11 @@ template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
 struct WrapFunction_<CastPolicy::fp32_set_opt_dtype, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
-    c10::impl::ExcludeDispatchKeyGuard no_autocast(DispatchKey::Autocast);
-    if (firstarg_is_eligible(args...)) {
+    // DispatchKey::Autocast is not the alias key of all AutocastType as Autograd, 
+    // it's just alias of AutocastCUDA (see c10/core/DispatchKey.h)
+    c10::impl::ExcludeDispatchKeyGuard no_autocast(
+        get_autocast_dispatch_key_from_device_type(device_type));
+    if (firstarg_is_eligible(device_type, args...)) {
       return (*F)(set_opt_dtype(at::kFloat, args)...);
     } else {
       // If ineligible, calls F with unaltered args.  Does not set opt dtype,
