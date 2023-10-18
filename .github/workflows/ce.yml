@@ -8,8 +8,6 @@ on:
 #  schedule:
 #    - cron: '30 11 * * 6'
 
-env:
-  artifacts_path: /data/platform_ci/nginxweb/parrots/train/artifacts
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
@@ -22,7 +20,7 @@ jobs:
     steps:
       - name: start to check
         run: |
-          cd ${artifacts_path} 
+          cd /artifacts
           if [ ! -f train_flag ]; then
             echo "Results have been collected"
             exit 1
@@ -31,10 +29,10 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: train-results
-          path: ${artifacts_path}/*.*
+          path: /artifacts/*.*
       - name: start to clean
         run: |
-          cd ${artifacts_path} && rm -rf train_flag
+          cd /artifacts && rm -rf train_flag
 
 
     
