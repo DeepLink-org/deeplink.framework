@@ -969,20 +969,11 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def HardswishBackward(op_var, shape, dtype, x, y, **kwargs_list):
         return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, 3.0, 6.0, 6.0);"
-
+    
     @staticmethod
-    def Reshape(op_var, node, *args_str):
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        data_type = node.meta['val'].dtype.__str__()
-        src_code = f"builder::Type {op_var}_reshape_shape({shape}, {type_set[data_type]});\n"
-        tmp = f'{op_var}_reshape_shape'
-        if len(args_str) == 2:
-            src_code += f"builder::Op {op_var} = builder::Reshape({args_str[0]}, {tmp});"
-        else:
-            src_code += f"builder::Op {op_var}_0 = builder::Reshape({args_str[0]}, {tmp});\n"
-            src_code += f"builder::Op {op_var}_1 = builder::Reshape({args_str[1]}, {tmp});\n"
-            src_code += f"std::vector<builder::Op> {op_var}_outputs = {'{' + op_var +'_0, ' + op_var + '_1' + '}'};\n"
-            src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);"
+    def Reshape(op_var, shape, dtype, x, y=None, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
+        src_code += f"builder::Op {op_var} = builder::Reshape({x}, {op_type});"
         return src_code
     
     @staticmethod
@@ -1012,45 +1003,13 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::ReduceMax({x}, {keepdims}, {{{str(axis).strip('[]')}}});"
 
     @staticmethod
-    def ReduceSum(op_var, node, *args):
-        input_shape = '{' + ', '.join(map(str, node.args[0].meta['val'].shape)) + '}'
-        input_type = node.args[0].meta['val'].dtype.__str__()
-        output_type =  node.meta['val'].dtype.__str__()
-
-        src_code = ''
-        if input_type != output_type:
-            src_code += f"{args[0]} = builder::Convert({args[0]}, builder::Type({input_shape}, {type_set[output_type]}));"
-
-        if len(args) == 3:
-            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {args[2]}, {args[1]});"
-        elif len(args) == 2:
-            keepdim = 'false'
-            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]}, {keepdim}, {args[1]});"
-        elif len(args) == 1:
-            src_code += f"builder::Op {op_var} = builder::ReduceSum({args[0]});"
-        else:
-            ValueError("ReduceSum args num error!")
-
-        return src_code
-
-    @staticmethod
-    def Scatter(op_var, node, *args_str):
-        new_args_str = []
-        new_args_str.append(args_str[0])
-        new_args_str.append(args_str[1])
-        new_args_str.append(args_str[2])
-        
-        if isinstance(node.args[3], float):
-            src_code = f"const float {op_var}_value = {str(node.args[3])};\n"
-        else:
-            src_code = f"const int {op_var}_value = {str(node.args[3])};\n"
-        
-        new_args_str.append(f'{op_var}_value')
-
-        src_code += f"auto {op_var} = enflame::Scatter(hlir_builder, {', '.join(new_args_str)});"
-
-        return src_code
+    def ReduceSum(op_var, shape, dtype, x, axis="[]", keepdims="false", **kwargs_list):
+        return f"builder::Op {op_var} = builder::ReduceSum({x}, {keepdims}, {{{str(axis).strip('[]')}}});"
     
+    @staticmethod
+    def Scatter(op_var, shape, dtype, x, dim, index, value, **kwargs_list):
+        return f"auto {op_var} = enflame::Scatter(hlir_builder, {x}, {dim}, {index}, {value});"
+      
     @staticmethod
     def Gather(op_var, node, *args_str):
         data_type = node.meta['val'].dtype.__str__()

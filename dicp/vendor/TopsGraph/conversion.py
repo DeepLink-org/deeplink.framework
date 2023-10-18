@@ -110,12 +110,14 @@ Exp = torch.fx.wrap(register_conversion(torch.ops.aten.exp)(tops_op.Exp))
 Relu = torch.fx.wrap(register_conversion(torch.ops.aten.relu)(tops_op.Relu))
 
 @register_conversion(torch.ops.aten.sum)
-def Sum(*args, **kwargs):
-    return tops_op.ReduceSum(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.sum.dim_IntList)
-def Sumdim(*args, **kwargs):
-    return tops_op.ReduceSum(*args, **kwargs)
+def ReduceSum(get_proxy, a, *args, **kwargs):
+    if isinstance(a, Proxy):
+        if hasattr(a.node, "meta"):
+            in_dtype = a.node.meta["val"].dtype
+            out_dtype = fx_traceback.get_current_meta()['val'].dtype
+            if in_dtype != out_dtype:
+                a = get_proxy(tops_op.Convert.get_singleton(), (a, out_dtype), {})
+    return get_proxy(tops_op.ReduceSum.get_singleton(), (a, *args), kwargs)
 
 GetItem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetItem))
 
@@ -142,15 +144,21 @@ Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.
 LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
 Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
 Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
-# %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
-#                          (args = (%relu_16, [-1, -2], True), kwargs = {})
 ReduceMean = torch.fx.wrap(register_conversion(torch.ops.aten.mean)(tops_op.ReduceMean))
 Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
 LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
 Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
 EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
 NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NotEqual))
-Reshape = torch.fx.wrap(register_conversion(torch.ops.aten.view)(tops_op.Reshape))
+
+@register_conversion(torch.ops.aten.view)
+def Reshape(get_proxy, x, y, *args, **kwargs_list):
+    if len(args) == 0:
+        return get_proxy(tops_op.Reshape.get_singleton(), (x, y), kwargs_list)
+    else:
+        x = get_proxy(tops_op.Reshape.get_singleton(), (x, *args), kwargs_list)
+        y = get_proxy(tops_op.Reshape.get_singleton(), (y, *args), kwargs_list)
+        return get_proxy(tops_op.MakeTuple.get_singleton(), (x, y), {})
 
 @register_conversion(torch.ops.aten.convolution)
 def Convolution(*args, **kwargs):
@@ -237,10 +245,7 @@ Where = torch.fx.wrap(register_conversion(torch.ops.aten.where.self)(tops_op.Whe
 def Select(*args, **kwargs):
     return tops_op.Select(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.scatter.value)
-def Scatter(*args, **kwargs):
-    return tops_op.Scatter(*args, **kwargs)
-
+Scatter = torch.fx.wrap(register_conversion(torch.ops.aten.scatter.value)(tops_op.Scatter))
 ZerosLike = torch.fx.wrap(register_conversion(torch.ops.aten.zeros_like)(tops_op.ZerosLike))
 OnesLike = torch.fx.wrap(register_conversion(torch.ops.aten.ones_like)(tops_op.OnesLike))
 
@@ -265,11 +270,7 @@ def Tile(*args, **kwargs):
 Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
 ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
 ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
-
-@register_conversion(torch.ops.aten._unsafe_view.default)
-def UnsafeView(a, b):
-    return tops_op.UnsafeView(a, b)
-
+UnsafeView = torch.fx.wrap(register_conversion(torch.ops.aten._unsafe_view.default)(tops_op.UnsafeView))
 Logsoftmax = torch.fx.wrap(register_conversion(torch.ops.aten._log_softmax.default)(tops_op.Logsoftmax))
 ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
 ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
