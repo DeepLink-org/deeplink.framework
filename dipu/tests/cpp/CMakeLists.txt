@@ -1,7 +1,4 @@
-
-FILE(GLOB test1
-testrt.cpp
-)
+file(GLOB test1 testrt.cpp)
 
 # temporarily: enhance to use the same configuration as lib
 set(DIPU_PATH ${PROJECT_SOURCE_DIR}/torch_dipu/)
@@ -13,9 +10,8 @@ link_directories(${VENDOR_LIB_DIRS})
 
 # to use gtest
 set(ALL_TESTS test_tensor_add test_relu testrt)
-set(DIPU_LIB "torch_dipu")
-foreach (tname ${ALL_TESTS})
-    add_executable(${tname} ${tname}.cpp)
-    target_link_libraries(${tname} ${DIPU_LIB})
-    target_link_libraries(${tname} c10 torch torch_cpu)
-endforeach (tname)
+foreach(tname ${ALL_TESTS})
+  add_executable(${tname} ${tname}.cpp)
+  target_link_libraries(${tname} torch_dipu)
+  target_link_libraries(${tname} c10 torch torch_cpu)
+endforeach(tname)
