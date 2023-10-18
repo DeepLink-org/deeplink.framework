@@ -43,6 +43,7 @@ else()
     message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
+
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
@@ -86,6 +87,23 @@ else()
     endif()
 endif()
 
+<<<<<<< HEAD
+=======
+if (SKBUILD)
+    if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
+    #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
+        if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
+            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+        else()
+            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+        endif()
+    else()
+    #As the normal libtorch.so is built with CXX11 ABI, we set the default value as 1
+        set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+    endif()
+endif()
+
+>>>>>>> ea84a291f7f7fde0750a4432a53e415e43fc2026
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
