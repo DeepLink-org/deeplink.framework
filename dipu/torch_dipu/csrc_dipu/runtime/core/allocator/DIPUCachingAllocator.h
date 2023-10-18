@@ -196,8 +196,9 @@ struct RawAllocator<at::DeviceType::CPU> {
 template<typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>
 c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
     // Construct when really needed
-    static AllocatorImpl cache_allocator;
+    // async_mem_pool is used when cache_allocator being destructed so it should be destructed after cache_allocator
     static AsyncMemPoolImpl async_mem_pool;
+    static AllocatorImpl cache_allocator;
     static int n = [&](){
       cache_allocator.set_raw_allocator(raw_allocator);
       cache_allocator.set_async_mem_pool(&async_mem_pool);
