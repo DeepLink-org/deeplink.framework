@@ -37,6 +37,7 @@ file(GLOB UTILS_FILES utils/*.cpp)
 file(GLOB DIOPI_RT_FILES diopirt/*.cpp)
 file(GLOB PROFILER_FILES profiler/*.cpp)
 
+
 # vendor src
 add_subdirectory(vendor/${UsedVendor})
 include_directories(SYSTEM ${VENDOR_INCLUDE_DIRS})
@@ -88,8 +89,7 @@ else()
     target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
 endif()
 add_custom_target(copy_include DEPENDS vendor_include)
-    COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
-)
+add_dependencies(copy_include DIOPI_LIB)
 
 if(${UsedVendor} STREQUAL "camb")
     add_custom_command(TARGET copy_include PRE_BUILD    
@@ -101,7 +101,6 @@ else()
 endif()
 
 add_dependencies(${DIPU_LIB} copy_include)
-
 
 # --------build bind in python --------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp

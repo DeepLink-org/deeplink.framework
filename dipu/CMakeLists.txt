@@ -43,12 +43,6 @@ else()
     message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
-#--------------- build_DIOPI----------
-if(${BUILD_DIOPI})
-    execute_process(COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR}/third_party/DIOPI/impl/; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1; cd ../../../;")
-    message(STATUS "Built DIOPI LIB finished")
-endif()
-#---------------------------------------
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND  sh -c "git status --porcelain | egrep '^(M| M)' | wc -l" OUTPUT_VARIABLE DIPU_MODIFY_LEN)
@@ -61,13 +55,18 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 # Automatically generate a list of supported diopi functions
 execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
 
-execute_process(COMMAND sh -x -c "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
+if(SKBUILD)
+    #set ABI VERSION with a default value 11, should find a way to fix this later.
+    set(DIPU_ABI_V 11)
+else()
+    execute_process(COMMAND sh -x -c "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
         if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'" OUTPUT_VARIABLE DIPU_ABI_V)
+endif()
 add_definitions(-fabi-version=${DIPU_ABI_V})
 message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
 
 if (SKBUILD)
-    if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
+    if (DEFINED ENV{DIPU_COMPILED_WITH_CXX11_ABI})
     #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
         if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
             set(DIPU_COMPILED_WITH_CXX11_ABI 1)
@@ -77,6 +76,13 @@ if (SKBUILD)
     else()
     #As the normal libtorch.so is built with CXX11 ABI, we set the default value as 1
         set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+    endif()
+else()
+    execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+    if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
+        set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+    else()
+        set(DIPU_COMPILED_WITH_CXX11_ABI 0)
     endif()
 endif()
 
@@ -138,8 +144,23 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 # diopi
 set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
 set(DIOPI_IMPL_LIB_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/lib")
+set(DIOPI_IMPL_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/")
 include_directories(${DIOPI_PROTO_PATH}/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
+
+add_custom_target(DIOPI_LIB ALL)
+#--------------- build_DIOPI----------
+if(${BUILD_DIOPI})
+    #add_custom_command(TARGET DIOPI_LIB PRE_BUILD
+    #    COMMAND sh -c "cd ${DIOPI_IMPL_PATH} && sh scripts/build_impl.sh clean"
+    #    COMMAND sh -c "cd ${DIOPI_IMPL_PATH} && sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1;"
+    #    COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR};"
+    #)
+    #There is something wrong "Make tools can not find the build_impl.sh" when use the code above
+    execute_process(COMMAND sh -c "cd ${DIOPI_IMPL_PATH}; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1; cd ../../../;")
+    message(STATUS "DIOPI LIB BUILT")
+endif()
+#---------------------------------------
 
 if (LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)
