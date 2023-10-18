@@ -1266,52 +1266,13 @@ class EnflameOverrides(OpOverrides):
     # tops.tuple(a, bi)====>[a,b]
     @staticmethod
     def ViewAsReal(op_var, out_shape, out_dtype, x):
-        src_code = f"builder::Op {op_var}_real = builder::GetTupleElement({x}, 0);\n"
-        src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, 1);\n"
-        
-        output_shape = '{' + str(list(out_shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
-        data_type = out_dtype
-        
-        src_code += f"builder::Type {op_var}_reshape_type({output_shape}, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_real, {op_var}_reshape_type);\n"
-        src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_imag, {op_var}_reshape_type);\n"
-        
-        t = '{'
-        t += f"{op_var}_tmp0, {op_var}_tmp1"
-        t += '}'
-
-        src_code += f"std::vector<builder::Op> {op_var}_real_imag = {t};\n"
-        dimension = len(out_shape)-1
-        src_code += f'builder::Op {op_var} = builder::Concatenate({op_var}_real_imag, {dimension});'
-
-        return src_code
+        shape = '{' + str(out_shape).split('[')[-1].split(']')[0] + '}'
+        return f"builder::Op {op_var} = enflame::ViewAsReal(hlir_builder, {x}, {shape});"
 
     #(a + bi)(c + di) = (ac -bd) + (ad + bd)i
     @staticmethod
     def ComplexMul(op_var, out_shape, out_dtype, x, y):
-        src_code = f"builder::Op {op_var}_xreal = builder::GetTupleElement({x}, 0);\n"
-        src_code += f"builder::Op {op_var}_ximag = builder::GetTupleElement({x}, 1);\n"
-
-        src_code += f"builder::Op {op_var}_yreal = builder::GetTupleElement({y}, 0);\n"
-        src_code += f"builder::Op {op_var}_yimag = builder::GetTupleElement({y}, 1);\n"
-
-        src_code += f"builder::Op {op_var}_xreal_yreal = builder::Mul({op_var}_xreal, {op_var}_yreal);\n"
-        src_code += f"builder::Op {op_var}_ximag_yimag = builder::Mul({op_var}_ximag, {op_var}_yimag);\n"
-
-        src_code += f"builder::Op {op_var}_xreal_yimag = builder::Mul({op_var}_xreal, {op_var}_yimag);\n"
-        src_code += f"builder::Op {op_var}_ximag_yreal = builder::Mul({op_var}_ximag, {op_var}_yreal);\n"
-
-        src_code += f"builder::Op {op_var}_mul_real = builder::Sub({op_var}_xreal_yreal, {op_var}_ximag_yimag);\n"
-        src_code += f"builder::Op {op_var}_mul_imag = builder::Add({op_var}_xreal_yimag, {op_var}_ximag_yreal);\n"
-
-        t = '{'
-        t += f"{op_var}_mul_real, {op_var}_mul_imag"
-        t += '}'
-
-        src_code += f"std::vector<builder::Op> {op_var}_outputs {t};\n"
-        src_code += f"builder::Op {op_var} = builder::Tuple( {op_var}_outputs);"
-        
-        return src_code
+        return f"builder::Op {op_var} = enflame::ComplexMul(hlir_builder, {x}, {y});"
 
     @staticmethod
     def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
