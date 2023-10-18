@@ -117,7 +117,7 @@ def Sum(*args, **kwargs):
 def Sumdim(*args, **kwargs):
     return tops_op.ReduceSum(*args, **kwargs)
 
-Getitem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.Getitem))
+GetItem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetItem))
 
 @register_conversion(torch.ops.aten.index.Tensor)
 def Index(*args, **kwargs):

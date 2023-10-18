@@ -904,9 +904,9 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Rsqrt({x});"
     
     @staticmethod
-    def Scalar(op_var, node_shape, node_dtype, x, **kwargs_list):
-        src_code = f"{cxx_type_set[node_dtype]} {op_var}_value = static_cast<{cxx_type_set[node_dtype]}>({x});\n"
-        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value), builder::Type({type_set[node_dtype]}));"
+    def Scalar(op_var, out_shape, out_dtype, x, **kwargs_list):
+        src_code = f"{cxx_type_set[out_dtype]} {op_var}_value = static_cast<{cxx_type_set[out_dtype]}>({x});\n"
+        src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_value), builder::Type({type_set[out_dtype]}));"
         return src_code
     
     @staticmethod
@@ -945,12 +945,12 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::EmptyLike({x});"
 
     @staticmethod
-    def OnesLike(op_var, shape, dtype, x, **kwargs_list):
-        return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
+    def OnesLike(op_var, out_shape, out_dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::OnesLike({x}, {type_set[out_dtype]}, {{{str(out_shape).split('[')[-1].split(']')[0]}}});"
     
     @staticmethod
-    def Full(op_var, node_shape, node_dtype, size, value, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, node_dtype, node_shape)
+    def Full(op_var, out_shape, out_dtype, size, value, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {value}, {op_type});"
         return src_code
     
@@ -1407,7 +1407,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::GeluGrad({x}, {y}, {approximate});"
 
     @staticmethod
-    def Iota(op_var, node_shape, node_dtype, length, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, node_dtype, node_shape)
+    def Iota(op_var, out_shape, out_dtype, length, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
         src_code += f"builder::Op {op_var} = builder::Iota(hlir_builder, 0, {op_type});\n"
         return src_code
