@@ -26,7 +26,7 @@ jobs:
         id: step1
         run: |
           diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export results=0 || export results=1
-          if [ $result -eq 0 ]; then
+          if [ $results -eq 0 ]; then
             echo "The file content is the same,results have been collected"
             echo $results
             echo "results=$results" >> "$GITHUB_OUTPUT"
