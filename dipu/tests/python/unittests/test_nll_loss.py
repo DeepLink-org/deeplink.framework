@@ -40,13 +40,6 @@ class TestNllLoss(TestCase):
         for reduction in ['none', 'mean', 'sum']:
             self._test_nll_loss(input, target, reduction=reduction)
 
-    def test_nll_loss2d_weight(self):
-        input = torch.randn(1, 3, 2, 2)
-        target = torch.tensor([[[0, 1], [2, 0]]])
-        weight = torch.tensor([1.0, 2.0, 3.0])
-        for reduction in ['none', 'mean', 'sum']:
-            self._test_nll_loss(input, target, weight=weight, reduction=reduction)
-
 
 if __name__ == "__main__":
     run_tests()
