@@ -45,7 +45,7 @@ namespace devapis {
     return DICL_SUCCESS;
   }
 
-  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, at::ScalarType dataType, 
+  DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount, at::ScalarType dataType, 
                                   const ReduceOp& op, diclComm_t comm, deviceStream_t stream) {
     throw std::runtime_error("mlu Not implement diclReduceScatter");
   }
