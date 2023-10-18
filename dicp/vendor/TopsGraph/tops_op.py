@@ -632,6 +632,14 @@ class Slice(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
+
+        
+class SliceInDim(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("SliceInDim")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.slice.Tensor
         
         
 class SliceScatter(Operator):

@@ -184,10 +184,7 @@ def Adaptive_avg_pool2d(*args, **kwargs):
 def Adaptive_avg_pool2d_backward(*args, **kwargs):
     return tops_op.Adaptive_avg_pool2d_backward(*args, **kwargs)
 
-@register_conversion(torch.ops.aten.gather)
-def Gather(*args, **kwargs):
-    return tops_op.Gather(*args, **kwargs)
-
+Gather = torch.fx.wrap(register_conversion(torch.ops.aten.gather)(tops_op.Gather))
 Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
 ReduceMax = torch.fx.wrap(register_conversion(torch.ops.aten.amax)(tops_op.ReduceMax))
 Gemm = torch.fx.wrap(register_conversion(torch.ops.aten.mm)(tops_op.Gemm))
@@ -228,8 +225,14 @@ Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_o
 Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))
 
 @register_conversion(torch.ops.aten.slice.Tensor)
-def Slice(*args, **kwargs):
-    return tops_op.Slice(*args, **kwargs)
+def Slice(get_proxy, a, *args, **kwargs):
+    if isinstance(a, Proxy):
+        if hasattr(a.node, "meta"):
+            in_shape = a.node.meta["val"].shape
+            out_shape = fx_traceback.get_current_meta()['val'].shape
+            if in_shape != out_shape:
+                return get_proxy(tops_op.SliceInDim.get_singleton(), (a, *args), kwargs)
+    return get_proxy(tops_op.Slice.get_singleton(), (a, *args), kwargs)
 
 @register_conversion(torch.ops.aten.slice_scatter.default)
 def SliceScatter(*args, **kwargs):

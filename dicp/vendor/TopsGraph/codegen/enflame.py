@@ -749,21 +749,20 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def make_const_if_scalar(op_var, v, t=torch.float32, count=0):
+    def make_const_if_scalar(op_var, value, dtype=torch.float32, count=0):
         src_code = ""
-        if isinstance(v, numbers.Number):
-            src_code = f"{cxx_type_set[t]} {op_var}_const_value{count} = static_cast<{cxx_type_set[t]}>({v});\n"
-            v = f"{op_var}_const{count}"
-            src_code += f"builder::Type {op_var}_const_type{count}({{1}}, {type_set[t]});\n"
-            src_code += f"builder::Op {v} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_type{count});\n"
-        return src_code, v
+        if isinstance(value, numbers.Number):
+            src_code = f"{cxx_type_set[dtype]} {op_var}_const_value{count} = static_cast<{cxx_type_set[dtype]}>({value});\n"
+            value = f"{op_var}_const{count}"
+            src_code += f"builder::Type {op_var}_const_type{count}({{1}}, {type_set[dtype]});\n"
+            src_code += f"builder::Op {value} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_type{count});\n"
+        return src_code, value
     
     @staticmethod
-    def make_type(op_var, t, shape=[1], count=0):
-        t = type_set[t] if isinstance(t, torch.dtype) else t
+    def make_type(op_var, dtype, shape=[1], count=0):
+        dtype = type_set[dtype] if isinstance(dtype, torch.dtype) else dtype
         shape = f"{{{str(shape).split('[')[-1].split(']')[0]}}}"
-        src_code = f"std::vector<int64_t> {op_var}_shape{count}{shape};\n"
-        src_code += f"builder::Type {op_var}_type{count}({shape}, {t});\n"
+        src_code = f"builder::Type {op_var}_type{count}({shape}, {dtype});\n"
         return src_code, f"{op_var}_type{count}"
 
     @staticmethod
@@ -1009,50 +1008,19 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Scatter(op_var, shape, dtype, x, dim, index, value, **kwargs_list):
         return f"auto {op_var} = enflame::Scatter(hlir_builder, {x}, {dim}, {index}, {value});"
-      
+    
     @staticmethod
-    def Gather(op_var, node, *args_str):
-        data_type = node.meta['val'].dtype.__str__()
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        
-        new_args_str = []
-        new_args_str.append(args_str[0])
-        new_args_str.append(args_str[2])
-        new_args_str.append(args_str[1])
-        
-        src_code = f"builder::Type {op_var}_gather_type({shape}, {type_set[data_type]});\n"
-        new_args_str.append(f"{op_var}_gather_type")
-        
-        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {', '.join(new_args_str)});"
-
+    def Gather(op_var, shape, dtype, input, dim, index, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
+        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {input}, {index}, {dim}, {op_type});"
         return src_code
     
     @staticmethod
-    def Slice(op_var, node, args_dict):
-        args = node.args
-        in_shape = '{' + ', '.join(map(str, args[0].meta['val'].shape)) + '}'
-        out_shape = '{' + ', '.join(map(str, node.meta['val'].shape)) + '}'
-        
-        shape = args[0].meta['val'].shape
-        rank = len(shape)
-        dim = int(args[1])
-        
-        src_code = "\n"
-        if in_shape != out_shape:
-            start_indice = (int(args[2]) + shape[dim]) % shape[dim]
-            limit_indice = (int(args[3]) + shape[dim]) % shape[dim] if int(args[3]) < shape[dim] else shape[dim]
-            
-            src_code += f"auto {op_var} = builder::SliceInDim({args_dict[args[0].name]}, {start_indice}, {limit_indice}, {1}, {dim});"
-            
-        else:
-            start_indices = [0 for x in range(0, rank)]    
-            start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-            limit_indices = in_shape
-            stride = [1 for x in range(0, rank)]
-            stride = '{' + ', '.join(map(str, stride)) + '}'   
-            src_code += f"auto {op_var} = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});"
-        
-        return src_code
+    def Slice(op_var, shape, dtype, x, dim=0, start=0, end=pow(2, 32), step=1, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Slice({x}, {{{', '.join(map(str, [0] * len(shape)))}}}, {x}.GetType().GetShape(), {{{', '.join(map(str, [1] * len(shape)))}}});"
+    
+    def SliceInDim(op_var, shape, dtype, x, dim=0, start=0, end=pow(2, 32), step=1, **kwargs_list):
+        return f"builder::Op {op_var} = builder::SliceInDim({x}, {(start + shape[dim]) % shape[dim]}, {(end + shape[dim]) % shape[dim] if end < shape[dim] else shape[dim]}, 1, {dim});"
 
     @staticmethod
     def SliceScatter(op_var, node, *args_str):
