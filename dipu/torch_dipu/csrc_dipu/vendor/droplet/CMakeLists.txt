@@ -17,12 +17,12 @@ if (DIST)
     set(VENDOR_INCLUDE_DIRS ${VENDOR_INCLUDE_DIRS} ${PCCL_INCLUDE_DIR})
 
 else()
-    message(STATUS "do not use PCCL to implement communicator, i.e. not support distributed on stpu")
+    message(STATUS "do not use PCCL to implement communicator, i.e. not support distributed on droplet")
 endif()
 
 
-set(VENDOR_INCLUDE_DIRS ${VENDOR_INCLUDE_DIRS} ${STPU_INSTALL}/include PARENT_SCOPE)
-set(VENDOR_LIB_DIRS ${VENDOR_LIB_DIRS} ${STPU_INSTALL}/lib/linux-x86_64 PARENT_SCOPE)
+set(VENDOR_INCLUDE_DIRS ${VENDOR_INCLUDE_DIRS} ${DROPLET_INSTALL}/include PARENT_SCOPE)
+set(VENDOR_LIB_DIRS ${VENDOR_LIB_DIRS} ${DROPLET_INSTALL}/lib/linux-x86_64 PARENT_SCOPE)
 set(DIPU_VENDOR_LIB ${DIPU_VENDOR_LIB} tangrt_shared PARENT_SCOPE)
 
 file(GLOB SRC_FILES  *.cpp)

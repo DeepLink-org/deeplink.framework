@@ -12,14 +12,13 @@ function build_dipu_py() {
     # PYTORCH_INSTALL_DIR is /you_pytorch/torch20/pytorch/torch
     # python  setup.py build_clib 2>&1 | tee ./build1.log
     python setup.py build_ext 2>&1 | tee ./build1.log
-    cp build/python_ext/torch_dipu/_C.cpython-38-x86_64-linux-gnu.so torch_dipu
+    mv build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
 }
 
 function config_dipu_droplet_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     echo "config_dipu_nv_cmake PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-    # export NEUWARE_ROOT="/usr/local/neuware-2.4.1/"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
      -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
      -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
@@ -57,8 +56,8 @@ function build_dipu_lib() {
     export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_droplet_cmake 2>&1 | tee ./cmake_droplet.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
-    cp ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
+    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
 }
 
 case $1 in
