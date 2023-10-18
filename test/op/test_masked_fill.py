@@ -13,12 +13,13 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 class TestMaskedFill():
     @pytest.mark.parametrize("dtype", [torch.float32])
     @pytest.mark.parametrize("sizes", [Size((5,), (5, 3)), Size((3, 5), (5, 3)), Size((2, 3, 4), (2, 4))])
+    @pytest.mark.parametrize("mask", [False, True])
     @pytest.mark.parametrize("compiled_model", compiled_model)
-    def test_torch_masked_fill(self, sizes, dtype, compiled_model):
+    def test_torch_masked_fill(self, sizes, mask, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input = torch.randn(size, dtype=dtype)
-        mask = torch.tensor(random.choices([False, True]))
+        mask = torch.tensor(mask)
         value = round(random.random(), 4)
 
         dicp_input = input.to(device)

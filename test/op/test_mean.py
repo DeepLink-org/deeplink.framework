@@ -1,9 +1,10 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, a, b, c):
+    def forward(self, a, b, c, d):
         res_dim = torch.ops.aten.mean.dim(a, b, c)
-        return res_dim
+        res_default = torch.ops.aten.mean.default(d)
+        return res_dim, res_default
 
 model = OpModule()
 args = parse_args()
@@ -21,12 +22,15 @@ class TestMean():
         input1 = torch.randn(size, dtype=dtype)
         dim = [0] if len(size) < 2 else [0, 1]
         keepdim = True if len(size) <= 2 else keepdim
+        scalar = torch.randn((), dtype=dtype)
 
         dicp_input1 = input1.to(device)
+        dicp_scalar = scalar.to(device)
 
-        output = model(input1, dim, keepdim)
+        output = model(input1, dim, keepdim, scalar)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_input1, dim, keepdim)
+        dicp_output = compiled_model.model(dicp_input1, dim, keepdim, dicp_scalar)
 
-        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
+        for i, item in enumerate(output):
+            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
