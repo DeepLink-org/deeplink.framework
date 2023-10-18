@@ -19,21 +19,25 @@ jobs:
   Archive_Results:
     name: archive train results
     runs-on: github-tps-ce
+    outputs:
+      results: ${{ steps.step1.outputs.results }}
     steps:
       - name: Check if collected
+        id: step1
         run: |
           diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
           if [ $result -eq 0 ]; then
             echo "The file content is the same,results have been collected"
-            echo "::error::Your error message here"
-            exit 1
+            echo "results=$result" >> "$GITHUB_OUTPUT"
           fi
-      - name: Archive results
-        uses: actions/upload-artifact@v3
-        with:
-          name: train-results
-          path: /artifacts/**
+#      - name: Archive results
+#       if: ${{ needs.Archive_Results.outputs.results == 1 }}"
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: train-results
+#          path: /artifacts/**
       - name: Flag override
+        if: ${{ needs.Archive_Results.outputs.results == 1 }}"
         run: |
           cp -r ${source_file} ${target_file}
 
