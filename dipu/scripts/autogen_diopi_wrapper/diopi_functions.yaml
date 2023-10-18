@@ -1620,6 +1620,11 @@
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
+- schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
+
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
 
