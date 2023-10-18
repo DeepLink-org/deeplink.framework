@@ -436,4 +436,19 @@ def NewEmptyStrided(x, size, stride, dtype = torch.float32, layout = torch.strid
                       device = 'cpu', pin_memory = False):
     return ascend_op.NewEmptyStrided(x, size, stride, dtype, layout, device, pin_memory)
 
+@registe_conversion(torch.ops.aten.rand_like.default)
+def RandLike(x, dtype = torch.float32, layout = torch.strided,
+             device = 'cpu', pin_memory = False, memory_format = torch.preserve_format):
+    return ascend_op.RandLike(x, dtype, layout, device, pin_memory, memory_format)
 
+@registe_conversion(torch.ops.aten.gt.Scalar)
+def GtScalar(x, y):
+    return ascend_op.GtScalar(x, y)
+
+@registe_conversion(torch.ops.aten.addcmul.default)
+def AddCMul(a, b, c, value=1):
+    return ascend_op.AddCMul(a, b, c, value)
+
+@registe_conversion(torch.ops.aten.reciprocal.default)
+def Reciprocal(x):
+    return ascend_op.Reciprocal(x)

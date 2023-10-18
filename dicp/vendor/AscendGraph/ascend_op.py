@@ -27,8 +27,6 @@ def negative_in_shape(shape):
             return True
     return False
 
-                
-
 
 class Add(Operator):
     def __init__(self, a, b):
@@ -1174,6 +1172,43 @@ class NewEmptyStrided(Operator):
         self.device = device
         self.pin_memory = pin_memory
         self.torch_op = aten.new_empty_strided.default
+
+
+class RandLike(Operator):
+    def __init__(self, x, dtype, layout, device, pin_memory, memory_format):
+        super().__init__("rand_like")
+        self.x = x
+        self.dtype = dtype
+        self.layout = layout
+        self.device = device
+        self.pin_memory = pin_memory
+        self.memory_format = memory_format
+        self.torch_op = aten.rand_like.default
+
+
+class GtScalar(Operator):
+    def __init__(self, x, y):
+        super().__init__("gt_scalar")
+        self.x = x
+        self.y = y
+        self.torch_op = aten.gt.Scalar
+
+
+class AddCMul(Operator):
+    def __init__(self, a, b, c, value=1):
+        super().__init__("addcmul")
+        self.a = a
+        self.b = b
+        self.c = c
+        self.value = value
+        self.torch_op = aten.addcmul.default
+
+
+class Reciprocal(Operator):
+    def __init__(self, x):
+        super().__init__("reciprocal")
+        self.x = x
+        self.torch_op = aten.reciprocal.default
 
 
 @torch.fx.wrap

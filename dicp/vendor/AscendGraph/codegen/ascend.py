@@ -21,7 +21,8 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
              'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor']
+             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor', 'rand_like',
+             'gt_scalar', 'addcmul']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -131,8 +132,6 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "INT32"
     elif dtype == torch.complex64:
         return "COMPLEX64"
-    elif dtype == torch.bool:
-        return "BOOL"
     else:
         raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
 
@@ -173,8 +172,6 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
         return "INT64"
     elif dtype == torch.float32:
         return "FLOAT"
-    elif dtype == torch.float16:
-        return "FLOAT16"
     elif dtype == torch.int32:
         return "INT32"
     else:
@@ -2814,3 +2811,92 @@ class AscendOverrides:
         empty_op.set_input("shape", f"{name}_shape")
         empty_op.set_attr_int("dtype", get_ascend_dtype_num(dtype))
         return [shape_op.to_node(), empty_op.to_node()]
+
+    @staticmethod
+    def rand_like(name, node, x, dtype=None, device=None, layout=None,
+                   pin_memory=False, memory_format=None):
+        dtype = get_ascend_dtype(node.args[0].meta['val'].dtype)
+        key_op = OP(f"{name}_key", "Const")
+        key_op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [1])
+        key_cast_op = OP(f"{name}_key_cast", "Cast")
+        key_cast_op.set_input("x", f"{name}_key")
+        key_cast_op.set_attr_int("dst_type", get_ascend_dtype_num("UINT64")) 
+        
+        counter_op = OP(f"{name}_counter", "Const")
+        counter_op.set_attr_tensor("value", "INT32", "INT32", "ND", [0, 0], [2])
+        counter_cast_op = OP(f"{name}_counter_cast", "Cast")
+        counter_cast_op.set_input("x", f"{name}_counter")
+        counter_cast_op.set_attr_int("dst_type", get_ascend_dtype_num("UINT64"))
+
+        alg_op = OP(f"{name}_alg", "Const")
+        alg_op.set_attr_tensor("value", "INT32", "INT32", "ND", [1], [])
+
+        shape_op = OP(f"{name}_shape", "Shape")
+        shape_op.set_input("x", x)
+
+        rand_op = OP(name, "StatelessRandomUniformV2")
+        rand_op.set_input("shape", f"{name}_shape")
+        rand_op.set_input("key", f"{name}_key_cast")
+        rand_op.set_input("counter", f"{name}_counter_cast")
+        rand_op.set_input("alg", f"{name}_alg")
+        rand_op.set_attr_dtype_str("dtype", dtype)
+
+        ops = [key_op, key_cast_op, counter_op, counter_cast_op, alg_op, shape_op, rand_op]
+        return [o.to_node() for o in ops]
+
+    @staticmethod
+    def gt_scalar(name, node, x, y):
+        dtype = get_ascend_dtype(node.args[0].meta['val'].dtype)
+        scalar_op = OP(f"{name}_scalar", "Const")
+        scalar_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [float(y)], [])
+        cast_op = OP(f"{name}_cast", "Cast")
+        cast_op.set_input("x", f"{name}_scalar")
+        cast_op.set_attr_int("dst_type", get_ascend_dtype_num(dtype))
+        
+        op = OP(name, "Greater")
+        op.set_input("x1", x)
+        op.set_input("x2", f"{name}_cast")
+        return [scalar_op.to_node(), cast_op.to_node(), op.to_node()]
+
+    @staticmethod
+    def addcmul(name, node, a, b, c, value=1):
+        dtype = node.args[0].meta['val'].dtype
+        not_support_type = False
+
+        ops = []
+        orig_ascend_dtype = get_ascend_dtype(dtype)
+        ascend_dtype = orig_ascend_dtype
+        try:
+            cpp_dtype = get_cpp_dtype(dtype)
+        except:
+            cpp_dtype = "FLOAT"
+            ascend_dtype = "FLOAT"
+            not_support_type = True
+        
+        value_name = None
+        if not_support_type:
+            value_op = OP(f"{name}_value", "Const")
+            value_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [float(value)], [])
+            cast_op = OP(f"{name}_value_cast", "Cast")
+            cast_op.set_input("x", f"{name}_value")
+            cast_op.set_attr_int("dst_type", get_ascend_dtype_num(orig_ascend_dtype))
+            ops.extend([value_op.to_node(), cast_op.to_node()])
+            value_name = f"{name}_value_cast"
+        else:
+            value_name = f"{name}_value"
+            value_op = OP(f"{name}_value", "Const")
+            value_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [value], [])
+            ops.append(value_op.to_node())
+        op = OP(name, "Addcmul")
+        op.set_input("input_data", a)
+        op.set_input("x1", a)
+        op.set_input("x2", b)
+        op.set_input("value", value_name)
+        ops.append(op.to_node())
+        return ops
+
+    @staticmethod
+    def reciprocal(name, x):
+        op = OP(name, "Reciprocal")
+        op.set_input("x", x)
+        return op.to_node()
