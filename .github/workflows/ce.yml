@@ -25,11 +25,11 @@ jobs:
       - name: Check if collected
         id: step1
         run: |
-          diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
+          diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export results=0 || export results=1
           if [ $result -eq 0 ]; then
             echo "The file content is the same,results have been collected"
             echo $results
-            echo "results=$result" >> "$GITHUB_OUTPUT"
+            echo "results=$results" >> "$GITHUB_OUTPUT"
           fi
 #      - name: Archive results
 #       if: ${{ needs.Archive_Results.outputs.results == 1 }}
