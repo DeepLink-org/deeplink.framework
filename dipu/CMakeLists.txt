@@ -113,6 +113,7 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 # set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
 set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
 include_directories($ENV{DIOPI_PATH}/include)
+echo DIOPI_PROTO_PATH
 echo DIOPI_PATH=$DIOPI_PROTO_PATH
 add_definitions(-DDIOPI_ATTR_WEAK)
 
