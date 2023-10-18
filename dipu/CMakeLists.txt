@@ -111,7 +111,7 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
 if (EXISTS $ENV{DIOPI_PATH})
-    message("Using Specified DIOPI_PATH")
+    message(STATUS "DIOPI_PATH: $ENV{DIOPI_PATH}")
     set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
     include_directories($ENV{DIOPI_PATH}/include)
 else()
