@@ -145,7 +145,7 @@ class LessEqual(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.le.Scalar
 
-class NeScalar(Operator):
+class NotEqual(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("NotEqual")
         self.args = args
@@ -162,7 +162,7 @@ class Mul(Operator):
 
 class ComplexMul(Operator):
     def __init__(self, a, b):
-        super().__init__("Complexmul")
+        super().__init__("ComplexMul")
         self.a = a
         self.b = b
         self.torch_op = aten.mul
@@ -413,12 +413,23 @@ class Log(Operator):
         self.torch_op = aten.log
 
 
-class Getitem(Operator):
+class GetItem(Operator):
     def __init__(self, x, idx):
-        super().__init__("Getitem")
+        super().__init__("GetItem")
         self.x = x
         self.idx = idx
         self.torch_op = operator.getitem
+
+    def __call__(self, x, idx):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        x = x[idx]
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        
+        with x.fake_mode:
+            return aten.clone(x)
+
 
 
 class NativeDropout(Operator):
@@ -428,6 +439,8 @@ class NativeDropout(Operator):
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.native_dropout.default
 
+    def __call__(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)[0]
 
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
@@ -720,7 +733,7 @@ class Convert(Operator):
 
 class ViewAsComplex(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Complex")
+        super().__init__("ViewAsComplex")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_complex
@@ -728,7 +741,7 @@ class ViewAsComplex(Operator):
 
 class ViewAsReal(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Viewasreal")
+        super().__init__("ViewAsReal")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_real
@@ -773,6 +786,26 @@ class Iota(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.prims.iota.default
+
+class GetTupleElement(Operator):
+    def __init__(self, t, idx):
+        super().__init__("GetTupleElement")
+
+class MakeTuple(Operator):
+    def __init__(self, a, b):
+        super().__init__("MakeTuple")
+        self.torch_op = torch.empty_like
+
+    def __call__(self, a, b):
+        if hasattr(a, 'meta'):
+            a = a.meta['val']
+        if hasattr(b, 'meta'):
+            b = b.meta['val']
+        
+        with a.fake_mode:
+            return aten.clone(a), aten.clone(b)
+
+
 
 # TODO check if we need this wrap
 @torch.fx.wrap

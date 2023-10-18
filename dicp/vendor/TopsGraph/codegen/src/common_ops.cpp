@@ -144,3 +144,83 @@ builder::Op enflame::BatchNorm(
 
   return result;
 }
+
+builder::Op enflame::ViewAsComplex(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape) {
+
+    auto out_shape = shape;
+    out_shape.push_back(2);
+    int out_shape_size = out_shape.size();
+
+    std::vector<int64_t> view_as_complex_2_part0_start_indices(out_shape_size, 0);
+    auto view_as_complex_2_part0_limit_indices =  out_shape;
+    view_as_complex_2_part0_limit_indices[out_shape_size - 1]--;
+    std::vector<int64_t> view_as_complex_2_part1_start_indices(out_shape_size, 0);
+    view_as_complex_2_part1_start_indices[out_shape_size - 1] = 1;
+    std::vector<int64_t> view_as_complex_2_stride(out_shape_size, 1);
+
+    builder::Op view_as_complex_2_split0 = builder::Slice(input, view_as_complex_2_part0_start_indices, view_as_complex_2_part0_limit_indices, view_as_complex_2_stride);
+    builder::Op view_as_complex_2_split1 = builder::Slice(input, view_as_complex_2_part1_start_indices, out_shape, view_as_complex_2_stride);
+    builder::Type view_as_complex_2_reshape_type(shape, builder::PrimitiveType::F32());
+    builder::Op view_as_complex_2_tmp0 = builder::Reshape(view_as_complex_2_split0, view_as_complex_2_reshape_type);
+    builder::Op view_as_complex_2_tmp1 = builder::Reshape(view_as_complex_2_split1, view_as_complex_2_reshape_type);
+    std::vector<builder::Op> view_as_complex_2_outputs{view_as_complex_2_tmp0, view_as_complex_2_tmp1};
+    builder::Op view_as_complex_2 = builder::Tuple(view_as_complex_2_outputs);
+    return view_as_complex_2;
+}
+
+/*
+builder::Op enflame::ViewAsReal(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape) {
+
+    auto out_shape = shape;
+    out_shape.insert(2);
+    int out_shape_size = out_shape.size();
+
+    std::vector<int64_t> view_as_complex_2_part0_start_indices(out_shape_size, 0);
+    auto view_as_complex_2_part0_limit_indices =  out_shape;
+    view_as_complex_2_part0_limit_indices[out_shape_size - 1]--;
+    std::vector<int64_t> view_as_complex_2_part1_start_indices(out_shape_size, 0);
+    view_as_complex_2_part1_start_indices[out_shape_size - 1] = 1;
+    std::vector<int64_t> view_as_complex_2_stride(out_shape_size, 1);
+
+    builder::Op view_as_complex_2_split0 = builder::Slice(x, view_as_complex_2_part0_start_indices, view_as_complex_2_part0_limit_indices, view_as_complex_2_stride);
+    builder::Op view_as_complex_2_split1 = builder::Slice(x, view_as_complex_2_part1_start_indices, out_shape, view_as_complex_2_stride);
+    builder::Type view_as_complex_2_reshape_type(shape, builder::PrimitiveType::F32());
+    builder::Op view_as_complex_2_tmp0 = builder::Reshape(view_as_complex_2_split0, view_as_complex_2_reshape_type);
+    builder::Op view_as_complex_2_tmp1 = builder::Reshape(view_as_complex_2_split1, view_as_complex_2_reshape_type);
+    std::vector<builder::Op> view_as_complex_2_outputs{view_as_complex_2_tmp0, view_as_complex_2_tmp1};
+    builder::Op view_as_complex_2 = builder::Tuple(view_as_complex_2_outputs);
+    return view_as_complex_2;
+}
+
+builder::Op enflame::ComplexMul(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape) {
+
+    auto out_shape = shape;
+    out_shape.insert(2);
+    int out_shape_size = out_shape.size();
+
+    std::vector<int64_t> view_as_complex_2_part0_start_indices(out_shape_size, 0);
+    auto view_as_complex_2_part0_limit_indices =  out_shape;
+    view_as_complex_2_part0_limit_indices[out_shape_size - 1]--;
+    std::vector<int64_t> view_as_complex_2_part1_start_indices(out_shape_size, 0);
+    view_as_complex_2_part1_start_indices[out_shape_size - 1] = 1;
+    std::vector<int64_t> view_as_complex_2_stride(out_shape_size, 1);
+
+    builder::Op view_as_complex_2_split0 = builder::Slice(x, view_as_complex_2_part0_start_indices, view_as_complex_2_part0_limit_indices, view_as_complex_2_stride);
+    builder::Op view_as_complex_2_split1 = builder::Slice(x, view_as_complex_2_part1_start_indices, out_shape, view_as_complex_2_stride);
+    builder::Type view_as_complex_2_reshape_type(shape, builder::PrimitiveType::F32());
+    builder::Op view_as_complex_2_tmp0 = builder::Reshape(view_as_complex_2_split0, view_as_complex_2_reshape_type);
+    builder::Op view_as_complex_2_tmp1 = builder::Reshape(view_as_complex_2_split1, view_as_complex_2_reshape_type);
+    std::vector<builder::Op> view_as_complex_2_outputs{view_as_complex_2_tmp0, view_as_complex_2_tmp1};
+    builder::Op view_as_complex_2 = builder::Tuple(view_as_complex_2_outputs);
+    return view_as_complex_2;
+}
+*/

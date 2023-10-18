@@ -127,7 +127,6 @@ class EnflameCodegen(torch.fx.Interpreter):
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             op_var = self.args_dict[name] = name + '_' + str(len(self.args_dict))
-
         arg_code, args_list, kwargs_list = EnflameOverrides.gen_args(self.args_dict, args, kwargs)
         real_op = process_name(name, target)
         
@@ -141,9 +140,16 @@ class EnflameCodegen(torch.fx.Interpreter):
             print("args_list:", args_list)
             print("kwargs_list:", kwargs_list)
 
-        #op_code = getattr(self.override, real_op)(*args_list)
-        node_shape = None if not hasattr(self.cur_node, 'meta') else self.cur_node.meta['val'].shape
-        node_dtype = None if not hasattr(self.cur_node, 'meta') else self.cur_node.meta['val'].dtype
+        # some of the nodes have a list/tuple of faketensor in meta['val']
+        try:
+            node_shape = self.cur_node.meta['val'].shape
+        except:
+            node_shape = None
+        try:
+            node_dtype = self.cur_node.meta['val'].dtype
+        except:
+            node_dtype = None
+
         op_code = getattr(self.override, real_op)(op_var, node_shape, node_dtype, *args_list, **kwargs_list)
         
         self.build_graph_code.splice(arg_code)
@@ -529,7 +535,13 @@ class EnflameOverrides(OpOverrides):
         for arg in args:
             if isinstance(arg, type(None)):
                 continue
-            args_str.append(convert_arg(arg))
+            if isinstance(arg, (list, tuple)):
+                arg_list_str = []
+                for elem in arg:
+                    arg_list_str.append(convert_arg(elem))
+                args_str.append(arg_list_str)
+            else:
+                args_str.append(convert_arg(arg))
         for k, v in kwargs.items():
             v = convert_arg(v) 
             kwargs_str[k] = v
@@ -898,19 +910,16 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Getitem(op_var, shape, dtype, x, y, **kwargs_list):
-        return f"builder::Op {op_var} = builder::GetTupleElement({x}, {y});"
+    def GetItem(op_var, out_shape, out_dtype, t, idx):
+        return f"builder::Op {op_var} = builder::GetTupleElement({t}, {int(idx)});"
     
     @staticmethod
-    def NativeDropout(op_var, node, *args):
-        src_code = f"builder::Op {op_var}_dropout = builder::Dropout({', '.join(args)});\n"
-        data_type = node.meta['val'][0].dtype.__str__()            
-        shape = '{' + str(node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
-        src_code += f"std::vector<int64_t> {op_var}_const_shape{shape};\n"
-        src_code += f"builder::Type {op_var}_const_type({op_var}_const_shape, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, 0, {op_var}_const_type);\n"
-        src_code += f"builder::Op {op_var}_notequal = builder::NotEqual({op_var}_dropout, {op_var}_const);\n"
-        src_code += f"std::vector<builder::Op> {op_var}_outputs = {'{' + op_var + '_dropout, ' + op_var + '_notequal' + '}'};\n"
+    def NativeDropout(op_var, out_shape, out_dtype, *args):
+        return f"builder::Op {op_var} = builder::Dropout({args[0]}, {args[1]}, {args[2]});\n"
+
+    @staticmethod
+    def MakeTuple(op_var, out_shape, out_dtype, *args):
+        src_code = f"std::vector<builder::Op> {op_var}_outputs = {'{'} {', '.join(args)} {'}'};\n"
         src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);\n"
         return src_code
 
@@ -1322,53 +1331,21 @@ class EnflameOverrides(OpOverrides):
     
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod
-    def Complex(op_var, node, args_dict):
-        args = node.args
-        shape = '{' + str(args[0].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        
-        src_code = f"std::vector<int64_t> {op_var}_in_shape{shape};\n"
-        
-        src_code += f"int {op_var}_in_shape_size = {op_var}_in_shape.size();\n\n"
-        
-        src_code += f"std::vector<int64_t> {op_var}_part0_start_indices({op_var}_in_shape_size, 0);\n"
-        src_code += f"auto {op_var}_part0_limit_indices =  {op_var}_in_shape;\n"
-        src_code += f"{op_var}_part0_limit_indices[{op_var}_in_shape_size - 1]--;\n"
-        
-        src_code += f"std::vector<int64_t> {op_var}_part1_start_indices({op_var}_in_shape_size, 0);\n"
-        src_code += f"{op_var}_part1_start_indices[{op_var}_in_shape_size - 1] = 1;\n"
-        
-        src_code += f"std::vector<int64_t> {op_var}_stride({op_var}_in_shape_size, 1);\n\n"
-
-        src_code += f"builder::Op {op_var}_split0 = builder::Slice({args_dict[args[0].name]}, {op_var}_part0_start_indices, {op_var}_part0_limit_indices, {op_var}_stride);\n"
-        src_code += f"builder::Op {op_var}_split1 = builder::Slice({args_dict[args[0].name]}, {op_var}_part1_start_indices, {op_var}_in_shape, {op_var}_stride);\n"
-        
-        out_shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        data_type = args[0].meta['val'].dtype.__str__()
-        
-        src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_split0, {op_var}_reshape_type);\n"
-        src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_split1, {op_var}_reshape_type);\n"
-
-        t = '{'
-        t += f"{op_var}_tmp0, {op_var}_tmp1"
-        t += '}'
-        
-        src_code += f"std::vector<builder::Op> {op_var}_outputs{t};\n"
-
-        src_code += f"builder::Op {op_var} = builder::Tuple({op_var}_outputs);"
-        
+    def ViewAsComplex(op_var, out_shape, out_dtype, x):
+        shape = '{' + str(out_shape).split('[')[-1].split(']')[0] + '}'
+        src_code = f"builder::Op {op_var} = enflame::ViewAsComplex(hlir_builder, {x}, {shape});"
         return src_code
 
     # tops.tuple(a, bi)====>[a,b]
     @staticmethod
-    def Viewasreal(op_var, node, x):
+    def ViewAsReal(op_var, out_shape, out_dtype, x):
         src_code = f"builder::Op {op_var}_real = builder::GetTupleElement({x}, 0);\n"
         src_code += f"builder::Op {op_var}_imag = builder::GetTupleElement({x}, 1);\n"
         
-        out_shape = '{' + str(list(node.meta['val'].shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
-        data_type = node.meta['val'].dtype.__str__()
+        output_shape = '{' + str(list(out_shape)[:-1] + [1]).split('[')[-1].split(']')[0] + '}'
+        data_type = out_dtype
         
-        src_code += f"builder::Type {op_var}_reshape_type({out_shape}, {type_set[data_type]});\n"
+        src_code += f"builder::Type {op_var}_reshape_type({output_shape}, {type_set[data_type]});\n"
         src_code += f"builder::Op {op_var}_tmp0 = builder::Reshape({op_var}_real, {op_var}_reshape_type);\n"
         src_code += f"builder::Op {op_var}_tmp1 = builder::Reshape({op_var}_imag, {op_var}_reshape_type);\n"
         
@@ -1377,14 +1354,14 @@ class EnflameOverrides(OpOverrides):
         t += '}'
 
         src_code += f"std::vector<builder::Op> {op_var}_real_imag = {t};\n"
-        dimension = len(node.meta['val'].shape)-1
+        dimension = len(out_shape)-1
         src_code += f'builder::Op {op_var} = builder::Concatenate({op_var}_real_imag, {dimension});'
 
         return src_code
 
     #(a + bi)(c + di) = (ac -bd) + (ad + bd)i
     @staticmethod
-    def Complexmul(op_var, node, x, y):
+    def ComplexMul(op_var, out_shape, out_dtype, x, y):
         src_code = f"builder::Op {op_var}_xreal = builder::GetTupleElement({x}, 0);\n"
         src_code += f"builder::Op {op_var}_ximag = builder::GetTupleElement({x}, 1);\n"
 
@@ -1410,19 +1387,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Concatenate(op_var, node, args_dict):
-        args = node.args
-        args_str = []
-
-        for arg in args[0]:
-            arg_shape = arg.meta['val'].shape
-            if 0 in arg_shape:
-                continue
-            args_str.append(args_dict[arg.name])
-        
-        dim = (node.args[1] + len(node.meta["val"].shape)) % len(node.meta["val"].shape)
-            
-        return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(args_str) + '}'}, {dim});"
+    def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
+        return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(tensors) + '}'}, {dim});"
 
     @staticmethod
     def Softmax(op_var, out_shape, out_dtype, x, y, z):

@@ -83,7 +83,7 @@ AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op
 def Mul(get_proxy, a, b):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta") and 'val' in a.node.meta:
-            if (str(a.node.meta['val'].dtype) == "torch.complex64") or (str(a.node.meta['val'].dtype) == "torch.cfloat") :
+            if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat) :
                 return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
 
@@ -123,9 +123,12 @@ Getitem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.Getitem))
 def Index(*args, **kwargs):
     return tops_op.Index(*args, **kwargs)
 
+# tops_dropout only returns a tensor, not a tuple of tensor
 @register_conversion(torch.ops.aten.native_dropout.default)
-def NativeDropout(*args, **kwargs):
-    return tops_op.NativeDropout(*args, **kwargs)
+def NativeDropout(get_proxy, *args, **kwargs):
+    dropout = get_proxy(tops_op.NativeDropout.get_singleton(), args, {})
+    ne = get_proxy(tops_op.NotEqual.get_singleton(), (dropout, 0), {})
+    return get_proxy(tops_op.MakeTuple.get_singleton(), (dropout, ne), {})
 
 Squeeze = torch.fx.wrap(register_conversion(torch.ops.aten.squeeze)(tops_op.Squeeze))
 Unsqueeze = torch.fx.wrap(register_conversion(torch.ops.aten.unsqueeze)(tops_op.Unsqueeze))
@@ -139,7 +142,14 @@ Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.
 LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
 Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
 Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
+# %mean_dim : [#users=2] = call_function[target=torch.ops.aten.mean.dim]
+#                          (args = (%relu_16, [-1, -2], True), kwargs = {})
 ReduceMean = torch.fx.wrap(register_conversion(torch.ops.aten.mean)(tops_op.ReduceMean))
+Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
+LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
+Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
+EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
+NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NotEqual))
 Reshape = torch.fx.wrap(register_conversion(torch.ops.aten.view)(tops_op.Reshape))
 
 @register_conversion(torch.ops.aten.convolution)
@@ -149,12 +159,6 @@ def Convolution(*args, **kwargs):
 @register_conversion(torch.ops.aten.convolution_backward.default)
 def ConvolutionBackward(*args, **kwargs):
     return tops_op.ConvolutionBackward(*args, **kwargs)
-
-Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
-LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
-Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
-EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
-NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NeScalar))
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
 def Max_pool2d_with_indices(*args, **kwargs):
@@ -194,8 +198,16 @@ Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm)
 Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
 
 @register_conversion(torch.ops.aten.cat.default)
-def Concatenate(*args, **kwargs):
-    return tops_op.Concatenate(*args, **kwargs)
+def Concatenate(get_proxy, *args, **kwargs):
+    new_args = []
+    tensors = []
+    for arg in args[0]:
+        if torch.numel(arg.node.meta['val']):
+            tensors.append(arg)
+    dim = 0 if len(args) < 2 else args[1] 
+    dim = dim % len(args[0][0].node.meta["val"].shape)
+    new_args = (tensors, dim)
+    return get_proxy(tops_op.Concatenate.get_singleton(), (args[0], dim), {})
 
 EmptyLike = torch.fx.wrap(register_conversion(torch.ops.aten.empty_like.default)(tops_op.EmptyLike))
 Bernoulli = torch.fx.wrap(register_conversion(torch.ops.aten.bernoulli.p)(tops_op.Bernoulli))
@@ -251,20 +263,16 @@ def Tile(*args, **kwargs):
     return tops_op.Tile(*args, **kwargs)
 
 Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
-
-@register_conversion(torch.ops.aten.view_as_complex)
-def ViewAsComplex(x):
-    return tops_op.ViewAsComplex(x)
-
-@register_conversion(torch.ops.aten.view_as_real)
-def ViewAsReal(*args, **kwargs):
-    return tops_op.ViewAsReal(*args, **kwargs)
+ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
+ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
 
 @register_conversion(torch.ops.aten._unsafe_view.default)
 def UnsafeView(a, b):
     return tops_op.UnsafeView(a, b)
 
 Logsoftmax = torch.fx.wrap(register_conversion(torch.ops.aten._log_softmax.default)(tops_op.Logsoftmax))
+ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
+ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
 
 @register_conversion(torch.ops.aten.gelu.default)
 def Gelu(get_proxy, *args, **kwargs):
