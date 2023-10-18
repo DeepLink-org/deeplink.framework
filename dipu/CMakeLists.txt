@@ -4,6 +4,8 @@ project(TorchDIPU)
 
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS  "Whether to build dipu lib, default on" ON)
+set(DIPU_COMPILED_WITH_CXX11_ABI_DEFAULT 1)
+set(DIPU_ABI_V_DEFAULT "11")
 
 # use gcover
 OPTION (ENABLE_COVERAGE "Use gcov" OFF)
@@ -56,35 +58,24 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 # Automatically generate a list of supported diopi functions
 execute_process(COMMAND  sh -x -c "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt")
 
-if(SKBUILD)
-    #set ABI VERSION with a default value 11, should find a way to fix this later.
-    set(DIPU_ABI_V 11)
-else()
+if(NOT SKBUILD)
     execute_process(COMMAND sh -x -c "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
         if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'" OUTPUT_VARIABLE DIPU_ABI_V)
+elseif(NOT DEFINED DIPU_ABI_V)
+    set(DIPU_ABI_V ${DIPU_ABI_V_DEFAULT})
 endif()
 add_definitions(-fabi-version=${DIPU_ABI_V})
 message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
 
-if (SKBUILD)
-    if (DEFINED ENV{DIPU_COMPILED_WITH_CXX11_ABI})
-    #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
-        if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
-            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-        else()
-            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-        endif()
-    else()
-    #As the normal libtorch.so is built with CXX11 ABI, we set the default value as 1
-        set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-    endif()
-else()
+if (NOT SKBUILD)
     execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
     if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
         set(DIPU_COMPILED_WITH_CXX11_ABI 1)
     else()
         set(DIPU_COMPILED_WITH_CXX11_ABI 0)
     endif()
+elseif (NOT DEFINED DIPU_COMPILED_WITH_CXX11_ABI)
+    set(DIPU_COMPILED_WITH_CXX11_ABI ${DIPU_COMPILED_WITH_CXX11_ABI})
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")

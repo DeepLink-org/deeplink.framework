@@ -80,7 +80,6 @@ set(VENDOR_DIST "${DIST_DIR}/csrc_dipu/vendor/")
 set(VENDOR_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
 add_custom_command(OUTPUT vendor_include
     COMMAND mkdir -p ${VENDOR_DIST}
-<<<<<<< HEAD
     COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendorapi.h ${VENDOR_DIST}/vendorapi.h)
 if (EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h" AND
         NOT IS_DIRECTORY "${VENDOR_HEADER_DIR}/vendor_autocast.h")
