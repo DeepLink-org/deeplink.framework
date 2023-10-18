@@ -7,7 +7,9 @@ on:
   
 #  schedule:
 #    - cron: '30 11 * * 6'
-
+env:
+  target_file: "/home/autolink/rsync/train_flag"
+  source_file: "/artifacts/train_flag"
 
 concurrency:
   group: ${{ github.head_ref || github.ref }}
@@ -20,19 +22,19 @@ jobs:
     steps:
       - name: start to check
         run: |
-          cd /artifacts
-          if [ ! -f train_flag ]; then
-            echo "Results have been collected"
+          diff_output=$(diff "$target_file" "$source_file")
+          if [ -z "$diff_output" ]; then
+            echo "The file content is the same,results have been collected"
             exit 1
           fi
       - name: start to archive
         uses: actions/upload-artifact@v3
         with:
           name: train-results
-          path: /artifacts/*.*
+          path: /artifacts/**
       - name: start to clean
         run: |
-          cd /artifacts && rm -rf train_flag
+          cp -r ${source_file} ${target_file}
 
 
     
