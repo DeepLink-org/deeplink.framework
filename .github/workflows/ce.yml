@@ -28,17 +28,19 @@ jobs:
           diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
           if [ $result -eq 0 ]; then
             echo "The file content is the same,results have been collected"
+            echo $results
             echo "results=$result" >> "$GITHUB_OUTPUT"
           fi
 #      - name: Archive results
-#       if: ${{ needs.Archive_Results.outputs.results == 1 }}"
+#       if: ${{ needs.Archive_Results.outputs.results == 1 }}
 #        uses: actions/upload-artifact@v3
 #        with:
 #          name: train-results
 #          path: /artifacts/**
       - name: Flag override
-        if: ${{ needs.Archive_Results.outputs.results == 1 }}"
+        if: ${{ needs.Archive_Results.outputs.results == 1 }}
         run: |
+          echo ${{ needs.Archive_Results.outputs.results }}
           cp -r ${source_file} ${target_file}
 
 
