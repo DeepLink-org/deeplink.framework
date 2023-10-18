@@ -25,6 +25,7 @@ jobs:
           diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
           if [ $result -eq 0 ]; then
             echo "The file content is the same,results have been collected"
+            echo "::error::Your error message here"
             exit 1
           fi
       - name: Archive results
