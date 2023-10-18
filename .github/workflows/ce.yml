@@ -20,19 +20,19 @@ jobs:
     name: archive train results
     runs-on: github-tps-ce
     steps:
-      - name: start to check
+      - name: Check if collected
         run: |
           diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
           if [ $result -eq 0 ]; then
             echo "The file content is the same,results have been collected"
             exit 1
           fi
-      - name: start to archive
+      - name: Archive results
         uses: actions/upload-artifact@v3
         with:
           name: train-results
           path: /artifacts/**
-      - name: start to clean
+      - name: Flag override
         run: |
           cp -r ${source_file} ${target_file}
 
