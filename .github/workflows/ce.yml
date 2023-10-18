@@ -1,6 +1,10 @@
 name: diopi ce
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "wgs/**"
+  
 #  schedule:
 #    - cron: '30 11 * * 6'
 
