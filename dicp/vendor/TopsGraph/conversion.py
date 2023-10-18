@@ -225,14 +225,16 @@ Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_o
 Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))
 
 @register_conversion(torch.ops.aten.slice.Tensor)
-def Slice(get_proxy, a, *args, **kwargs):
+def Slice(get_proxy, a, dim=0, start=0, end=-1, step=1, **kwargs):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
             in_shape = a.node.meta["val"].shape
             out_shape = fx_traceback.get_current_meta()['val'].shape
             if in_shape != out_shape:
-                return get_proxy(tops_op.SliceInDim.get_singleton(), (a, *args), kwargs)
-    return get_proxy(tops_op.Slice.get_singleton(), (a, *args), kwargs)
+                start = start % in_shape[dim]
+                end = end % in_shape[dim]
+                return get_proxy(tops_op.SliceInDim.get_singleton(), (a, dim, start, end, step), kwargs)
+    return get_proxy(tops_op.Slice.get_singleton(), (a, dim, start, end, step), kwargs)
 
 @register_conversion(torch.ops.aten.slice_scatter.default)
 def SliceScatter(*args, **kwargs):

@@ -1016,11 +1016,11 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Slice(op_var, shape, dtype, x, dim=0, start=0, end=pow(2, 32), step=1, **kwargs_list):
+    def Slice(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
         return f"builder::Op {op_var} = builder::Slice({x}, {{{', '.join(map(str, [0] * len(shape)))}}}, {x}.GetType().GetShape(), {{{', '.join(map(str, [1] * len(shape)))}}});"
     
-    def SliceInDim(op_var, shape, dtype, x, dim=0, start=0, end=pow(2, 32), step=1, **kwargs_list):
-        return f"builder::Op {op_var} = builder::SliceInDim({x}, {(start + shape[dim]) % shape[dim]}, {(end + shape[dim]) % shape[dim] if end < shape[dim] else shape[dim]}, 1, {dim});"
+    def SliceInDim(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
+        return f"builder::Op {op_var} = builder::SliceInDim({x}, {start}, {end}, 1, {dim});"
 
     @staticmethod
     def SliceScatter(op_var, node, *args_str):
