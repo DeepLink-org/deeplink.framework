@@ -14,7 +14,7 @@ concurrency:
 jobs:
   Archive_Results:
     name: archive train results
-    runs-on: github-poc-ci
+    runs-on: github-tps-ce
     steps:
       - name: start to check
         run: |
