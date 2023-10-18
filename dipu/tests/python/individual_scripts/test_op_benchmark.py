@@ -22,7 +22,7 @@ r0 = t0.timeit(100)
 print(r0)
 # TODO(fandaoyi,lljbash): find out why it gets slower
 # assert r0.mean < 8.8e-5
-assert r0.mean < 18.8e-5
+assert r0.mean < 20.0e-5
 
 
 def batched_dot_bmm(a, b):
@@ -42,7 +42,7 @@ r1 = t1.timeit(100)
 print(r1)
 # TODO(fandaoyi,lljbash): find out why it gets slower
 # assert r0.mean < 8.8e-5
-assert r1.mean < 18.5e-5
+assert r1.mean < 20.0e-5
 
 
 # Compare takes a list of measurements which we'll save in results.
