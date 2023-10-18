@@ -109,7 +109,8 @@ if(ENABLE_COVERAGE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
-# findTorch encounter some error, need check
+# TODO(lljbash): findTorch encounter some error, need check
+# ~~~
 # set(Torch_DIR ${PYTORCH_DIR}/share/cmake/Torch)
 # find_package(Torch REQUIRED)
 # if (NOT Torch_FOUND)
@@ -120,6 +121,7 @@ endif()
 #     message(STATUS "Found Torch Version: ${Torch_VERSION}")
 #     message(STATUS "Torch TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
 # endif()
+# ~~~
 
 set(TORCH_LIBRARY_DIR "${PYTORCH_DIR}/torch/lib")
 link_directories(${TORCH_LIBRARY_DIR})
