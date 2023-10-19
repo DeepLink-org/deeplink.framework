@@ -70,6 +70,8 @@ template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
 struct WrapFunction_<CastPolicy::lower_precision_fp, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
+    // DispatchKey::Autocast is not the alias key of all AutocastType as Autograd, 
+    // it's just alias of AutocastCUDA (see c10/core/DispatchKey.h)
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
     return (*F)(
@@ -96,8 +98,6 @@ template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
 struct WrapFunction_<CastPolicy::fp32_set_opt_dtype, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
-    // DispatchKey::Autocast is not the alias key of all AutocastType as Autograd, 
-    // it's just alias of AutocastCUDA (see c10/core/DispatchKey.h)
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
     if (firstarg_is_eligible(device_type, args...)) {
