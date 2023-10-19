@@ -8,7 +8,7 @@ from torch_dipu import _C
 
 class Generator:
 
-    def __new__(cls, device: Union[_device, str, None] = None) -> None:
+    def __new__(cls, device: Union[_device, str, None] = None):
         if device is None:
             device = torch.device('cpu')
             generator = torch._C.Generator(device)
