@@ -42,6 +42,7 @@ diopiBitwiseOrInp
 diopiBitwiseOrInpScalar
 diopiBitwiseOrScalar
 diopiBmm
+diopiCastDtype
 diopiCat
 diopiCdist
 diopiCdistBackward
@@ -62,6 +63,7 @@ diopiConvolution2d
 diopiConvolution2dBackward
 diopiConvTranspose2d
 diopiConvTranspose2dBackward
+diopiCopyInp
 diopiCos
 diopiCosInp
 diopiCrossEntropyLoss

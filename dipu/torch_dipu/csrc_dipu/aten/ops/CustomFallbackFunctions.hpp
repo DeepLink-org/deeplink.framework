@@ -1,11 +1,9 @@
 #pragma once
 
-#include <ATen/ATen.h>
+#include "OpUtils.hpp"
+#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
-#include "csrc_dipu/aten/RegisterDIPU.hpp"
-
-namespace dipu {
-namespace native {
+namespace dipu::native {
 
 static c10::optional<at::Tensor> dipu_to_cpu(
     const c10::optional<at::Tensor>& device_tensor) {
@@ -311,8 +309,38 @@ custom_fallback_dipu_native_batch_norm_backward(
   grad_weight.copy_(std::get<1>(at_out));
   grad_bias.copy_(std::get<2>(at_out));
 
-  return std::tie(grad_input, grad_weight, grad_bias);
+    return std::tie(grad_input, grad_weight, grad_bias);
 }
+
+static  at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+    DIPU_REGISTER_LOG("custom fallback to cpu, name=copy_" << std::endl);
+    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+    static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
+    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
+    if (non_blocking) {
+      auto stream = dipu::getCurrentDIPUStream();
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
+      if (self.is_cpu()) {
+        if (self.options().pinned_memory()) {
+          self.record_stream(stream);
+        }
+      } else if (!is_default_stream){
+        self.record_stream(stream);
+      }
+      if (src.is_cpu()) {
+        if (src.options().pinned_memory()) {
+          src.record_stream(stream);
+        }
+      } else if (!is_default_stream) {
+        src.record_stream(stream);
+      }
+    }
+    if (use_slow_copy) {
+      return dipu::native::DIPUATenFunctions::copy_(self, src, non_blocking);
+    } else {
+      return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
+    }
+  }
 
 /********* fallback functions for AMP GradScalar start *********/
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
@@ -327,4 +355,3 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     int64_t growth_interval);
 /*********  fallback functions for AMP GradScalar end  *********/
 }  // namespace native
-}  // namespace dipu
