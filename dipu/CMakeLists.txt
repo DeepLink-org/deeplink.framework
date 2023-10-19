@@ -149,13 +149,11 @@ add_definitions(-DDIOPI_ATTR_WEAK)
 add_custom_target(DIOPI_LIB ALL)
 #--------------- build_DIOPI----------
 if(${BUILD_DIOPI})
-    #add_custom_command(TARGET DIOPI_LIB PRE_BUILD
-    #    COMMAND sh -c "cd ${DIOPI_IMPL_PATH} && sh scripts/build_impl.sh clean"
-    #    COMMAND sh -c "cd ${DIOPI_IMPL_PATH} && sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1;"
-    #    COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR};"
-    #)
-    #There is something wrong "Make tools can not find the build_impl.sh" when use the code above
-    execute_process(COMMAND sh -c "cd ${DIOPI_IMPL_PATH}; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1; cd ../../../;")
+    add_custom_command(TARGET DIOPI_LIB PRE_BUILD
+        COMMAND sh -c "sh scripts/build_impl.sh clean"
+        COMMAND sh -c "sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1;"
+        WORKING_DIRECTORY ${DIOPI_IMPL_PATH}
+    )
     message(STATUS "DIOPI LIB BUILT")
 endif()
 #---------------------------------------

@@ -119,9 +119,7 @@ target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 
 
 # -------- build _C.python extention --------
-execute_process(COMMAND  sh -c "uname -m" OUTPUT_VARIABLE DIPU_C_PYTHON_EXT_ARCH)
-string (REPLACE "\n" "" DIPU_C_PYTHON_EXT_ARCH "${DIPU_C_PYTHON_EXT_ARCH}")
-string (REPLACE "\r" "" DIPU_C_PYTHON_EXT_ARCH "${DIPU_C_PYTHON_EXT_ARCH}")
+execute_process(COMMAND  sh -c "uname -m" OUTPUT_VARIABLE DIPU_C_PYTHON_EXT_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
 set(DIPU_C_PYTHON_EXT_LIB "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
 file(GLOB DIPU_C_PYTHON_EXT_SRC_FILES stub.cpp
 )
