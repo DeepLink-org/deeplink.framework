@@ -76,6 +76,25 @@ class TestForeach(TestCase):
                 result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
             ))
 
+    def test_foreach_norm_scalar(self):
+        inputs_cpu = []
+        inputs_dipu = []
+        for i in range(100):
+            x = torch.rand(3, 5)
+            inputs_cpu.append(x)
+            inputs_dipu.append(x.cuda())
+        # MLU: only 1-norm and 2-norm is supported
+        if torch_dipu.dipu.vendor_type == 'MLU':
+            scalar = torch.randint(1, 3, ()).item()
+        else:
+            scalar = torch.randn(1).item()
+        res_cpu = torch._foreach_norm(inputs_cpu, scalar)
+        res_dipu = torch._foreach_norm(inputs_dipu, scalar)
+        for i in range(len(res_cpu)):
+            self.assertTrue(torch.allclose(
+                res_cpu[i], res_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3
+            ))
+        
     def test_foreach_mul_(self):
         weights_cpu = []
         grads_cpu = []

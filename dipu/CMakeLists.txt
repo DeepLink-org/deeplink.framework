@@ -134,10 +134,16 @@ include_directories(${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
-set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
+if (EXISTS $ENV{DIOPI_PATH})
+    message(STATUS "DIOPI_PATH: $ENV{DIOPI_PATH}")
+    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
+    include_directories($ENV{DIOPI_PATH}/include)
+else()
+    set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
+    include_directories(${DIOPI_PROTO_PATH}/include)
+endif()
 set(DIOPI_IMPL_LIB_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/lib")
 set(DIOPI_IMPL_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/")
-include_directories(${DIOPI_PROTO_PATH}/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
 
 add_custom_target(DIOPI_LIB ALL)
