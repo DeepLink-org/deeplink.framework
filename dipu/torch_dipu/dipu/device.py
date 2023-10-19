@@ -64,7 +64,7 @@ class _DIPUDevice(metaclass=_MetaDeviceType):
         return _device
 
 
-# always patch
+# always patch: device class is immutable, cannot directly patch __new__ method on python layer.
 torch.device = _DIPUDevice
 
 

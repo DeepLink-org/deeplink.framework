@@ -81,7 +81,5 @@ def _resize(self, size: int):
   
 UntypedStorage.resize_ = _resize
 
-_raw_untyped_storage_new =  GetDeviceProxy(torch.UntypedStorage.__new__, pos = -1, caller="class_new") 
-UntypedStorage.__new__ = lambda cls, *args, **kwargs : \
-                                _raw_untyped_storage_new(cls, *args, **kwargs)
+UntypedStorage.__new__ = GetDeviceProxy(torch.UntypedStorage.__new__, pos = -1, caller="class_new") 
 
