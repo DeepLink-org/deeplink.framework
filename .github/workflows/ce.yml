@@ -19,21 +19,27 @@ jobs:
   Archive_Results:
     name: archive train results
     runs-on: github-tps-ce
+    outputs:
+      results: ${{ steps.step1.outputs.results }}
     steps:
-      - name: start to check
+      - name: Check if collected
+        id: step1
         run: |
-          diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export result=0 || export result=1
-          if [ $result -eq 0 ]; then
+          diff_output=$(diff -q --ignore-all-space  "$target_file" "$source_file" ) && export to_archive=false || export to_archive=true
+          echo "to_archive=$to_archive" >> "$GITHUB_ENV"
+          if [ $to_archive == "false" ]; then
             echo "The file content is the same,results have been collected"
-            exit 1
           fi
-      - name: start to archive
+      - name: Archive results
+        if: ${{ env.is_archive == 'true' }}
         uses: actions/upload-artifact@v3
         with:
           name: train-results
           path: /artifacts/**
-      - name: start to clean
+      - name: Flag override
+        if: ${{ env.is_archive == 'true' }}
         run: |
+          echo "strat to override target_file"
           cp -r ${source_file} ${target_file}
 
 
