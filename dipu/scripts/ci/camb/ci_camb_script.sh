@@ -47,7 +47,6 @@ function build_diopi_lib() {
 function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_camb_cmake 2>&1 | tee ./cmake_camb.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
     mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
