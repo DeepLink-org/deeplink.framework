@@ -32,7 +32,7 @@ class SingleOpTransformer(torch.fx.Transformer):
             self.sym_to_inputs[fake_tensor.node.str()] = proxy
         return proxy
 
-    def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]):
+    def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any] = {}):
         proxy = self.tracer.create_proxy('call_function', target.get_singleton(), args, kwargs)
         return proxy
         
