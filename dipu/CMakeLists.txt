@@ -131,12 +131,27 @@ include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # diopi
-set(WITH_DIOPI "${CMAKE_SOURCE_DIR}/third_party/DIOPI")
+set(WITH_DIOPI
+    "${PROJECT_SOURCE_DIR}/third_party/DIOPI"
+    CACHE STRING "DIOPI project root path")
+# TODO(lljbash): use cache variable instead of env
+if(EXISTS $ENV{DIOPI_PATH})
+  set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
+else()
+  set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
+endif()
+if(EXISTS $ENV{DIOPI_ROOT})
+  set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
+else()
+  set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
+endif()
+message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
+message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
 add_library(diopi_impl SHARED IMPORTED)
 set_target_properties(
   diopi_impl PROPERTIES IMPORTED_LOCATION
-                        "${WITH_DIOPI}/impl/lib/libdiopi_impl.so")
-target_include_directories(diopi_impl INTERFACE "${WITH_DIOPI}/proto/include")
+                        "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+target_include_directories(diopi_impl INTERFACE "${DIOPI_PROTO_PATH}/include")
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
 if(LIBS)
