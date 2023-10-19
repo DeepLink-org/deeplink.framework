@@ -31,13 +31,13 @@ jobs:
             echo "The file content is the same,results have been collected"
           fi
       - name: Archive results
-        if: ${{ env.is_archive == 'true' }}
+        if: ${{ env.to_archive == 'true' }}
         uses: actions/upload-artifact@v3
         with:
           name: train-results
           path: /artifacts/**
       - name: Flag override
-        if: ${{ env.is_archive == 'true' }}
+        if: ${{ env.to_archive == 'true' }}
         run: |
           echo "strat to override target_file"
           cp -r ${source_file} ${target_file}
