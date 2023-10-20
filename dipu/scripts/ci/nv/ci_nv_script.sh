@@ -12,7 +12,6 @@ function config_dipu_nv_cmake() {
     cd ../
 }
 
-
 function build_diopi_lib() {
     cd third_party/DIOPI/
     cd impl
@@ -28,7 +27,6 @@ function build_dipu_lib() {
     echo "building dipu_lib:$(pwd)"
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     export DIOPI_BUILD_TESTRT=1
-    export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
     config_dipu_nv_cmake 2>&1 | tee ./cmake_nv.log
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
 }

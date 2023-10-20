@@ -19,24 +19,6 @@ def get_pytorch_dir():
     import torch
     return os.path.dirname(os.path.abspath(torch.__file__))
 
-def start_debug():
-    rank = 0
-    pid1 = os.getpid()
-    print("-------------------------print rank,:", rank, "pid1:", pid1)
-    if rank == 0:
-        #  time.sleep(15)
-        import ptvsd
-        host = "127.0.0.1" # or "localhost"
-        port = 12345
-        print("Waiting for debugger attach at %s:%s ......" % (host, port), flush=True)
-        ptvsd.enable_attach(address=(host, port), redirect_output=True)
-        ptvsd.wait_for_attach()
-
-# start_debug()
-
-# placeholder: autogen design.....
-# generate_bindings_code()
-
 def customized_cmake_args():
     cmake_args = list()
     cmake_device = "cuda"
