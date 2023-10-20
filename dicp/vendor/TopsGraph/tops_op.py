@@ -382,11 +382,15 @@ class Max_pool2d_with_indices(Operator):
         super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
 
 
 class Max_pool2d_with_indices_backward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("MaxPool2D_Grad")
+        super().__init__("MaxPool2DBackward")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.max_pool2d_with_indices_backward

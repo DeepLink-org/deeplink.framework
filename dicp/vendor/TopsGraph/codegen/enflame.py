@@ -1059,43 +1059,14 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Conv2DBackward(op_var, shape, dtype, inputs, *args, **kwargs_list):
         return f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {', '.join(inputs[0])}, {', '.join(inputs[1:])});"
-
-    @staticmethod
-    def MaxPool2D(op_var, node, *args_str):
-        args = node.args
-        
-        ksize = str(args[1]).replace('[','{').replace(']','}')
-        stride = '{1, 1}'
-        padding = '{0, 0, 0, 0}'
-        
-        shape = '{' + str(node.meta['val'][0].shape).split('[')[-1].split(']')[0] + '}'
-        
-        if len(args) >= 3:
-            stride = str(args[2]).replace('[','{').replace(']','}')
-        
-        if len(args) >= 4:  
-            if len(args[3]) == 1:
-                row_padding, col_padding = args[3][0]
-            else:
-                row_padding = args[3][0]
-                col_padding = args[3][1]
-            padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-                       
-        src_code = f"builder::Op {op_var} = enflame::MaxPool2D(hlir_builder, {args_str[0]}, {ksize}, {stride}, {padding}, {shape});"
-
-        return src_code
     
     @staticmethod
-    def MaxPool2D_Grad(op_var, node, *args_str):
-        args = node.args    
-        
-        ksize = str(args[2]).replace('[','{').replace(']','}')
-        strides = str(args[3]).replace('[','{').replace(']','}')
-        padding = str(args[4]).replace('[','{').replace(']','}')
-        
-        src_code = f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args_str[0]}, {args_str[1]}, {ksize}, {strides}, {padding});"
-        
-        return src_code
+    def MaxPool2D(op_var, shape, dtype, inputs, x, *args, **kwargs_list):
+        return f"auto {op_var} = enflame::MaxPool2D(hlir_builder, {x}, {', '.join(inputs)});"
+    
+    @staticmethod
+    def MaxPool2DBackward(op_var, shape, dtype, grad_output, input, ksize, stride, padding):
+        return f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {grad_output}, {input}, {{{', '.join(map(str, ksize))}}}, {{{', '.join(map(str, stride))}}}, {{{', '.join(map(str, padding))}}});"
     
     @staticmethod
     def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):

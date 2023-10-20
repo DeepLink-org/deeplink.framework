@@ -176,14 +176,17 @@ def ConvolutionBackward(get_proxy, grad_output, input, weight, bias_size, stride
     return get_proxy(tops_op.ConvolutionBackward.get_singleton(), (inputs, grad_output, input, weight, bias_size, 
                                                                    stride, padding, dilation, *args), kwargs)
 
-
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
-def Max_pool2d_with_indices(*args, **kwargs):
-    return tops_op.Max_pool2d_with_indices(*args, **kwargs)
+def Max_pool2d_with_indices(get_proxy, x, kernel_size, stride=[], padding=[0, 0], dilation=[1, 1], ceil_mode=False):
+    ksize = f"{{{', '.join(map(str, kernel_size))}}}"
+    enflame_stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{1, 1}}"
+    padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
+    enflame_padding = f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}"
+    out_shape = fx_traceback.get_current_meta()["val"][0].shape
+    inputs = [ksize, enflame_stride, enflame_padding, f"{{{', '.join(map(str, out_shape))}}}"]
+    return get_proxy(tops_op.Max_pool2d_with_indices.get_singleton(), (inputs, x, kernel_size, stride, padding, dilation, ceil_mode), {})
 
-@register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
-def Max_pool2d_with_indices_backward(*args, **kwargs):
-    return tops_op.Max_pool2d_with_indices_backward(*args, **kwargs)
+MaxPool2DBackward = torch.fx.wrap(register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)(tops_op.Max_pool2d_with_indices_backward))
 
 @register_conversion(torch.ops.aten._adaptive_avg_pool2d.default)
 def Adaptive_avg_pool2d(get_proxy, *args, **kwargs):
