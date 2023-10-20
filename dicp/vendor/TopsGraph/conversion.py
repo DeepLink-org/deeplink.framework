@@ -151,12 +151,12 @@ EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_o
 NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NotEqual))
 
 @register_conversion(torch.ops.aten.view)
-def Reshape(get_proxy, x, y, *args, **kwargs_list):
-    if len(args) == 0:
-        return get_proxy(tops_op.Reshape.get_singleton(), (x, y), kwargs_list)
+def Reshape(get_proxy, *args, **kwargs):
+    if len(args) == 2:
+        return get_proxy(tops_op.Reshape.get_singleton(), args, kwargs)
     else:
-        x = get_proxy(tops_op.Reshape.get_singleton(), (x, *args), kwargs_list)
-        y = get_proxy(tops_op.Reshape.get_singleton(), (y, *args), kwargs_list)
+        x = get_proxy(tops_op.Reshape.get_singleton(), (args[0], *args[2:]), kwargs)
+        y = get_proxy(tops_op.Reshape.get_singleton(), (args[1], *args[2:]), kwargs)
         return get_proxy(tops_op.MakeTuple.get_singleton(), (x, y), {})
 
 @register_conversion(torch.ops.aten.convolution)
