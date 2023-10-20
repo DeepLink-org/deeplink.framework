@@ -19,6 +19,8 @@ diopiAny
 diopiArange
 diopiArgmax
 diopiAtan
+diopiAvgPool2d
+diopiAvgPool2dBackward
 diopiBaddbmm
 diopiBaddbmmInp
 diopiBatchNorm
