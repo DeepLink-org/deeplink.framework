@@ -118,6 +118,10 @@ else()
     set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
     include_directories(${DIOPI_PROTO_PATH}/include)
 endif()
+
+set(DIOPI_IMPL_LIB_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/lib")
+set(DIOPI_IMPL_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/")
+
 add_definitions(-DDIOPI_ATTR_WEAK)
 
 if (LIBS)

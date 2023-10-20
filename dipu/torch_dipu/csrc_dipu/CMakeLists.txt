@@ -1,5 +1,6 @@
 set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
+set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
 
 # python path
 include_directories(${PYTHON_INCLUDE_DIR})
@@ -60,9 +61,9 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
 if(DEFINED ENV{DIOPI_IMPL_LIB})
-  find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ENV DIOPI_IMPL_LIB REQUIRED)
+    find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ENV DIOPI_IMPL_LIB REQUIRED)
 else()
-  set(DIOPI_IMPL_LIB diopi_impl)
+    find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ${DIOPI_IMPL_LIB_PATH} REQUIRED)
 endif()
 
 # need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
@@ -85,6 +86,31 @@ endif()
 add_custom_target(copy_include DEPENDS vendor_include)
 add_dependencies(${DIPU_LIB} copy_include)
 
+add_custom_target(${DIPU_AUTOGENED_KERNELS})
+add_dependencies(${DIPU_LIB} ${DIPU_AUTOGENED_KERNELS})
+
+set(DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py" )
+set(DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml" )
+set(DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/custom_diopi_functions.yaml" )
+set(DIPU_AUTOGENED_KERNELS_CPP "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
+set(DIPU_CUSTOM_AUTOGENED_KERNELS_CPP "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/CustomAutoGenedKernels.cpp")
+
+if(${UsedVendor} STREQUAL "camb")
+    add_custom_command(OUTPUT ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP}   
+        COMMAND python ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}  --config ${DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG}  --out ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP}  --use_diopi_adapter False 
+        DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT} 
+                ${DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG}
+    )
+    add_custom_target(autogen_diopi_custom_kernels_cpp DEPENDS ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP})
+    add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_custom_kernels_cpp)
+
+endif()
+
+add_custom_command(OUTPUT "${DIPU_AUTOGENED_KERNELS_CPP}"
+    COMMAND python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}"  --out "${DIPU_AUTOGENED_KERNELS_CPP}"  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'  DEPENDS "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}"
+    )
+add_custom_target(autogen_diopi_kernels_cpp DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
+add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
 
 # --------build bind in python --------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp
@@ -98,3 +124,30 @@ add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 # so temporarily use this target level setting. enhance in future. todo
 set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
+
+# -------- build _C.python extention --------
+execute_process(COMMAND  sh -c "uname -m" OUTPUT_VARIABLE DIPU_C_PYTHON_EXT_ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(PythonInterp REQUIRED)
+
+set(DIPU_C_PYTHON_EXT_LIB "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
+file(GLOB DIPU_C_PYTHON_EXT_SRC_FILES stub.cpp
+)
+set(DIPU_C_PYTHON_EXT_FILES
+    ${DIPU_C_PYTHON_EXT_SRC_FILES}
+)
+message(STATUS "dipu c python extention building " ${DIPU_C_PYTHON_EXT_FILES})
+add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED ${DIPU_C_PYTHON_EXT_FILES})
+set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_LIB})
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB})
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "c10")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_cpu")
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_python")
+target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
+set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
+
+
+# --------- install DIOPI impl libs --------------------
+file(COPY ${DIOPI_IMPL_LIB} DESTINATION ${PROJECT_SOURCE_DIR}/torch_dipu)
+message(STATUS "CMake install direcotry:   " ${PROJECT_SOURCE_DIR}/torch_dipu)

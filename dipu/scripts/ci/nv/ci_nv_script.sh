@@ -2,13 +2,6 @@
 set -e
 echo "pwd: $(pwd)"
 
-function build_dipu_py() {
-    echo "building dipu_py:$(pwd)"
-    export CMAKE_BUILD_TYPE=Release
-    export MAX_JOBS=12
-    python setup.py build_ext 2>&1 | tee ./setup.log
-    mv build/python_ext/torch_dipu/_C.cpython-*.so torch_dipu
-}
 
 function config_dipu_nv_cmake() {
     # export NCCL_ROOT="you nccl path should exist"
@@ -18,17 +11,6 @@ function config_dipu_nv_cmake() {
         -DDEVICE=cuda \
         -DENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
-}
-
-function autogen_diopi_wrapper() {
-    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                   \
-        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                 \
-        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                    \
-        --use_diopi_adapter False                                                   \
-        --autocompare False                                                         \
-        --print_func_call_info True                                                 \
-        --print_op_arg True                                                         \
-        --fun_config_dict '{"current_device": "cuda"}'
 }
 
 function build_diopi_lib() {
@@ -57,16 +39,12 @@ case $1 in
     build_dipu)
         (
             build_diopi_lib
-            autogen_diopi_wrapper
             build_dipu_lib
-            build_dipu_py
         ) \
         || exit -1;;
     build_dipu_only)
         (
-            autogen_diopi_wrapper
             build_dipu_lib
-            build_dipu_py
         ) \
         || exit -1;;
     *)
