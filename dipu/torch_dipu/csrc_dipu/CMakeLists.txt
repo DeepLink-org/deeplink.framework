@@ -3,7 +3,7 @@ set(DIPU_PYTHON_LIB torch_dipu_python)
 set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
 
 # python path
-include_directories(${PYTHON_INCLUDE_DIR})
+include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
 
 # dipu include path
 set(DIPU_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../)
@@ -13,22 +13,25 @@ set(DIST_DIR ${DIPU_PATH}/dist/include)
 include_directories(${DIST_DIR})
 
 # src
-file(GLOB RT_SRC_FILES
-    runtime/core/guardimpl/*.cpp
-    runtime/core/allocator/*.cpp
-    runtime/core/DIPU*.cpp
-    runtime/core/MemChecker.cpp
-    runtime/distributed/*.cpp
-    runtime/devproxy/*.cpp
-)
+file(
+  GLOB
+  RT_SRC_FILES
+  runtime/core/guardimpl/*.cpp
+  runtime/core/allocator/*.cpp
+  runtime/core/DIPU*.cpp
+  runtime/core/MemChecker.cpp
+  runtime/distributed/*.cpp
+  runtime/devproxy/*.cpp)
 
-file(GLOB OP_SRC_FILES aten/RegisterDIPU.cpp
-    aten/CPUFallback.cpp
-    aten/util/*.cpp
-    aten/ops/*Kernel*.cpp
-    aten/ops/DIPUAmp.cpp
-    aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
-)
+file(
+  GLOB
+  OP_SRC_FILES
+  aten/RegisterDIPU.cpp
+  aten/CPUFallback.cpp
+  aten/util/*.cpp
+  aten/ops/*Kernel*.cpp
+  aten/ops/DIPUAmp.cpp
+  aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp)
 
 file(GLOB BASE_FILES base/*.cpp)
 file(GLOB UTILS_FILES utils/*.cpp)
@@ -40,11 +43,6 @@ add_subdirectory(vendor/${UsedVendor})
 include_directories(SYSTEM ${VENDOR_INCLUDE_DIRS})
 link_directories(${VENDOR_LIB_DIRS})
 
-
-# if (${UsedVendor} STREQUAL ${VendorMLU})
-#     message(STATUS "---- vendor specific (but shouldn't exist)----")
-# endif()
-
 set(SOURCE_FILES
     ${RT_SRC_FILES}
     ${OP_SRC_FILES}
@@ -52,36 +50,38 @@ set(SOURCE_FILES
     ${BASE_FILES}
     ${UTILS_FILES}
     ${VENDOR_FILES}
-    ${PROFILER_FILES}
-)
+    ${PROFILER_FILES})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+set_target_properties(${DIPU_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
+target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
+target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
 
-if(DEFINED ENV{DIOPI_IMPL_LIB})
-    find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ENV DIOPI_IMPL_LIB REQUIRED)
-else()
-    find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ${DIOPI_IMPL_LIB_PATH} REQUIRED)
-endif()
+set(CMAKE_THREAD_PREFER_PTHREAD ON)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(${DIPU_LIB} Threads::Threads)
 
-# need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
-target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
-
-## copy vendor header file
+# copy vendor header file
 set(VENDOR_DIST "${DIST_DIR}/csrc_dipu/vendor/")
 set(VENDOR_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
-add_custom_command(OUTPUT vendor_include
-    COMMAND mkdir -p ${VENDOR_DIST}
-    COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendorapi.h ${VENDOR_DIST}/vendorapi.h)
-if (EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h" AND
-        NOT IS_DIRECTORY "${VENDOR_HEADER_DIR}/vendor_autocast.h")
-    add_custom_command(OUTPUT vendor_include APPEND
-        COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendor_autocast.h ${VENDOR_DIST}/vendor_autocast.h)
+add_custom_command(
+  OUTPUT vendor_include
+  COMMAND mkdir -p ${VENDOR_DIST}
+  COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendorapi.h
+          ${VENDOR_DIST}/vendorapi.h)
+if(EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h"
+   AND NOT IS_DIRECTORY "${VENDOR_HEADER_DIR}/vendor_autocast.h")
+  add_custom_command(
+    OUTPUT vendor_include
+    APPEND
+    COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendor_autocast.h
+            ${VENDOR_DIST}/vendor_autocast.h)
 else()
-    target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
+  target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
 endif()
 add_custom_target(copy_include DEPENDS vendor_include)
 add_dependencies(${DIPU_LIB} copy_include)
@@ -113,16 +113,15 @@ add_custom_target(autogen_diopi_kernels_cpp DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
 
 # --------build bind in python --------------
-file(GLOB BIND_SRC_FILES binding/Export*.cpp
-  binding/patch*.cpp
-)
-set(BIND_FILES
-    ${BIND_SRC_FILES}
-)
+file(GLOB BIND_SRC_FILES binding/Export*.cpp binding/patch*.cpp)
+set(BIND_FILES ${BIND_SRC_FILES})
 add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
-# default hidden setting scope is incorrect and cannot open now because it cause diopirt hidden,
-# so temporarily use this target level setting. enhance in future. todo
-set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+# TODO: default hidden setting scope is incorrect and cannot open now because it
+# cause diopirt hidden, so temporarily use this target level setting. enhance in
+# future.
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET
+                                                    hidden)
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 
 # -------- build _C.python extention --------
@@ -149,5 +148,6 @@ set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
 
 
 # --------- install DIOPI impl libs --------------------
+find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ${DIOPI_IMPL_LIB_PATH} REQUIRED)
 file(COPY ${DIOPI_IMPL_LIB} DESTINATION ${PROJECT_SOURCE_DIR}/torch_dipu)
 message(STATUS "CMake install direcotry:   " ${PROJECT_SOURCE_DIR}/torch_dipu)

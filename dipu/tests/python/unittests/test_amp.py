@@ -21,6 +21,12 @@ class TestAmp(TestCase):
         self.assertEqual(c_float16.dtype, torch.float16)
         self.assertEqual(c_float32.dtype, torch.float32)
 
+        infp16 = torch.arange(0, 8, dtype=torch.float16, device = "cuda").reshape(2, 4)
+        with torch.autocast("cuda"):
+          # amp will convert fp16 to fp32
+          res = nn.functional.softmax(infp16, dim=0)
+          self.assertEqual(res.dtype, torch.float32)
+
         with autocast(dtype=torch.float16):
             d_float16 = torch.mm(a_float32, b_float32)
             with autocast(enabled=False):
