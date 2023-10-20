@@ -110,25 +110,6 @@ add_custom_command(
 add_custom_target(autogen_diopi_kernels_cpp
                   DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
-
-# custom diopi functions (now only for camb)
-if(${UsedVendor} STREQUAL "camb")
-  set(DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG
-      "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/custom_diopi_functions.yaml")
-  set(DIPU_CUSTOM_AUTOGENED_KERNELS_CPP
-      "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/CustomAutoGenedKernels.cpp")
-  add_custom_command(
-    OUTPUT ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP}
-    COMMAND
-      python ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT} --config
-      ${DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG} --out
-      ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP} --use_diopi_adapter False
-    DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
-            ${DIPU_AUTOGEN_DIOPI_WRAPPER_CUSTOM_CONFIG})
-  add_custom_target(autogen_diopi_custom_kernels_cpp
-                    DEPENDS ${DIPU_CUSTOM_AUTOGENED_KERNELS_CPP})
-  add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_custom_kernels_cpp)
-endif()
 # ------------------------------------------------------------------------------
 
 # ---------------------- build bind in python ----------------------------------
