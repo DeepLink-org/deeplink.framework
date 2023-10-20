@@ -145,9 +145,3 @@ target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_cpu")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} "torch_python")
 target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
-
-
-# --------- install DIOPI impl libs --------------------
-find_library(DIOPI_IMPL_LIB NAMES diopi_impl HINTS ${DIOPI_IMPL_LIB_PATH} REQUIRED)
-file(COPY ${DIOPI_IMPL_LIB} DESTINATION ${PROJECT_SOURCE_DIR}/torch_dipu)
-message(STATUS "CMake install direcotry:   " ${PROJECT_SOURCE_DIR}/torch_dipu)
