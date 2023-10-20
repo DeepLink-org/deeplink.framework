@@ -521,7 +521,7 @@ class EnflameOverrides(OpOverrides):
             elif isinstance(arg, torch.device):
                 return str(arg)
             elif isinstance(arg, list):
-                return arg
+                return [convert_arg(item) for item in arg]
             elif isinstance(arg, torch.layout):
                 return
             raise ValueError(f"unknown arg type({arg})")
@@ -1016,41 +1016,20 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Slice(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
-        return f"builder::Op {op_var} = builder::Slice({x}, {{{', '.join(map(str, [0] * len(shape)))}}}, {x}.GetType().GetShape(), {{{', '.join(map(str, [1] * len(shape)))}}});"
+    def Slice(op_var, shape, dtype, start_indices, limit_indices, strides, x, *args, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Slice({x}, {start_indices}, {limit_indices}, {strides});"
     
     def SliceInDim(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
-        return f"builder::Op {op_var} = builder::SliceInDim({x}, {start}, {end}, 1, {dim});"
-
+        return f"builder::Op {op_var} = builder::SliceInDim({x}, {start}, {end}, {step}, {dim});"
+    
     @staticmethod
-    def SliceScatter(op_var, node, *args_str):
-        operand_shape = node.args[0].meta['val'].shape
-        dim = node.args[2] if len(node.args) > 2 else 0
-        start = node.args[3] if len(node.args) > 3 else 0
-        end = (node.args[4] + operand_shape[dim]) % operand_shape[dim] if len(node.args) > 4 and node.args[4] < operand_shape[dim] else operand_shape[dim]
-        step = node.args[5] if len(node.args) > 5 else 1
-        
-        if end != operand_shape[dim]:
-            print(f"Warning: EnflameOverrides.SliceScatter encounter unsupported end value: {end},  this will affect precision!")
-            
-        if step != 1:
-            print(f"Warning: EnflameOverrides.SliceScatter encounter unsupported step value: {step}, this will affect precision!")
-        
-        const_shape = "{1}"
-        const_value = "{0}"
-        src_code = f"builder::Type {op_var}_index_type({const_shape}, builder::PrimitiveType::S64());\n"
-        src_code += f"int64_t {op_var}_start_index_data = {const_value};\n"
-        src_code += f"builder::Op {op_var}_start_index = builder::Const(hlir_builder, &{op_var}_start_index_data, {op_var}_index_type);\n"
-        src_code += f"int64_t {op_var}_start_index_data_{dim} = {start};\n"
-        src_code += f"builder::Op {op_var}_start_index_{dim} = builder::Const(hlir_builder, &{op_var}_start_index_data_{dim}, {op_var}_index_type);\n"
-        
-        start_indices = [f"{op_var}_start_index" for i in range(len(operand_shape))]
-        start_indices[dim] = f"{op_var}_start_index_{dim}"
-        
-        src_code += f"builder::Op {op_var} = builder::DynamicUpdateSlice({args_str[0]}, {args_str[1]}, {{{', '.join(start_indices)}}});"
-        
+    def SliceScatter(op_var, shape, dtype, x, y, dim, start, end, step, **kwargs_list):
+        src_code_index, op_start_index = EnflameOverrides.make_const_if_scalar(op_var, 0, torch.int64, 0)
+        src_code_index_dim, op_start_index_dim = EnflameOverrides.make_const_if_scalar(op_var, start, torch.int64, 1)
+        src_code = src_code_index + src_code_index_dim
+        src_code += f"builder::Op {op_var} = builder::DynamicUpdateSlice({x}, {y}, {{{', '.join([op_start_index_dim if i == dim else op_start_index for i in range(len(shape))])}}});"
         return src_code
-
+    
     @staticmethod
     def Index(op_var, node, *args):
         src_code = ""
@@ -1069,90 +1048,17 @@ class EnflameOverrides(OpOverrides):
                     f"{op_var}_slice_sizes[0] = 1;\n" \
                     f"builder::Op {op_var} = builder::Gather({args[0]}, {indices}, {op_var}_dimension_numbers, {op_var}_slice_sizes);\n"
         return src_code
-
-    @staticmethod
-    def Select(op_var, node, args_dict):
-        args = node.args
-        shape = args[0].meta['val'].shape
-        rank = len(shape)
-        dim = int(args[1])
-        
-        index = (int(args[2]) + shape[dim]) % shape[dim]
-        
-        start_indices = [0 for i in range(0, rank)]  
-          
-        start_indices[dim] = index
-        start_indices = '{' + ', '.join(map(str, start_indices)) + '}'   
-        
-        limit_indices = [x for x in shape]
-        limit_indices[dim] = index + 1
-        limit_indices = '{' + ', '.join(map(str, limit_indices)) + '}'
-        
-        stride = [1 for x in range(0, rank)]
-        stride = '{' + ', '.join(map(str, stride)) + '}' 
-        
-        src_code = f"auto {op_var}_t = builder::Slice({args_dict[args[0].name]}, {start_indices}, {limit_indices}, {stride});\n"
-
-        src_code += f"builder::Type {op_var}_axes_type({'{1}'}, s64_type);\n"
-        src_code += f"std::vector<int64_t> {op_var}_axes_data = {'{' + str(dim) + '}'};\n"
-        src_code += f"builder::Op {op_var}_axes = builder::Const(hlir_builder, ({op_var}_axes_data.data()), {op_var}_axes_type);\n"
-        src_code += f"auto {op_var} = builder::Squeeze({op_var}_t, {op_var}_axes);"
-        
-        return src_code
     
     @staticmethod
-    def Batch_Norm(op_var, node, *args_str):
-        args_str_tmp = args_str[:5]
-        src_code = f"auto {op_var} = enflame::BatchNorm(hlir_builder, {', '.join(args_str_tmp)}, 1, true, {str(node.args[6])}, {str(node.args[7])});"     
-        return src_code
+    def BatchNorm(op_var, shape, dtype, input, weight, bias, running_mean, running_var, training, momentum, eps, **kwargs_list):
+        return f"auto {op_var} = enflame::BatchNorm(hlir_builder, {input}, {weight}, {bias}, {running_mean}, {running_var}, 1, {training}, {momentum}, {eps});"
 
+    def Conv2D(op_var, shape, dtype, inputs, *args, **kwargs_list):
+        return f'builder::Op {op_var} = builder::Conv2D({{{", ".join(inputs[0])}}}, 1, "NOTSET", "NCHW", {", ".join(inputs[1:])});'
+    
     @staticmethod
-    def Convolution(op_var, node, *args_str):
-        tmp_str =[]
-        index = 3
-        for i in range(0, 3):
-            if isinstance(node.args[i], type(None)):
-                index -= 1
-                continue
-            tmp_str.append(args_str[i])
-        
-        stride = args_str[index]
-        
-        if len(node.args[4]) == 1:
-            row_padding, col_padding = node.args[4][0]
-        else:
-            row_padding = node.args[4][0]
-            col_padding = node.args[4][1]
-
-        padding = f"{'{' + str(row_padding)}, {str(row_padding)}, {str(col_padding)}, {str(col_padding) + '}'}"
-        
-        dilation = args_str[index + 2]
-        
-        group = '1'
-        src_code = f"std::vector<builder::Op> {op_var}_inputs = {'{' + ', '.join(tmp_str) + '}'};\n"
-        src_code += f'builder::Op {op_var} = builder::Conv2D({op_var}_inputs, {group}, "NOTSET", "NCHW", {stride}, {padding}, {dilation});'
-
-        return src_code
-
-    @staticmethod
-    def Conv2D_Grad(op_var, node, *args_str):
-        new_args_str = []
-        index = 3
-        for i in range(0, 3):
-            if isinstance(node.args[i], type(None)):
-                index -= 1
-                continue
-            else:
-                new_args_str.append(args_str[i])
-
-        bias = args_str[index]
-        stride = args_str[index + 1]
-        padding = args_str[index + 2]
-        dilation = args_str[index + 3]
-        
-        src_code = f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {','.join(new_args_str)}, {bias}, {stride}, {padding}, {dilation});"
-
-        return src_code
+    def Conv2DBackward(op_var, shape, dtype, inputs, *args, **kwargs_list):
+        return f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {', '.join(inputs[0])}, {', '.join(inputs[1:])});"
 
     @staticmethod
     def MaxPool2D(op_var, node, *args_str):

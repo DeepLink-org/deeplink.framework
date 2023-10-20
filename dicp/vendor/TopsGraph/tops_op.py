@@ -355,17 +355,27 @@ class Rsqrt(Operator):
 
 class Convolution(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Convolution")
+        super().__init__("Conv2D")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.convolution
 
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+    
+
 class ConvolutionBackward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Conv2D_Grad")
+        super().__init__("Conv2DBackward")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.convolution_backward.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args, **kwargs):
@@ -444,7 +454,7 @@ class NativeDropout(Operator):
 
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Batch_Norm")
+        super().__init__("BatchNorm")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
@@ -632,6 +642,10 @@ class Slice(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[3:]
+        return super().__call__(*new_args, **kwargs)
 
         
 class SliceInDim(Operator):
@@ -720,14 +734,6 @@ class EqualScalar(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.eq.Scalar
-
-
-class Tile(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Tile")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.repeat.default
 
 
 # torch.ops.prims.convert_element_type.default

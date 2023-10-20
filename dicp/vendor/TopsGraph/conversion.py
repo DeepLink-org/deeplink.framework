@@ -64,13 +64,12 @@ def register_conversion(aten_fn):
 @register_conversion(torch.ops.aten.add.Tensor)
 def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
     y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
+    in_dtype = x.node.meta["val"].dtype
     out_dtype = fx_traceback.get_current_meta()['val'].dtype
+    if in_dtype != out_dtype:
+        x = get_proxy(tops_op.Convert.get_singleton(), (x, out_dtype), {})
     if not isinstance(y_node, torch.fx.node.Node):
         y = y * alpha
-        if out_dtype == torch.float or out_dtype == torch.float16:
-            return get_proxy(tops_op.Add.get_singleton(), (x, float(y)), {})
-        else:
-            raise ValueError(f"only support torch.add + alpha with float type")
     else:
         y = get_proxy(tops_op.Mul.get_singleton(), (y, alpha), {})
     return get_proxy(tops_op.Add.get_singleton(), (x, y), {})
@@ -161,12 +160,22 @@ def Reshape(get_proxy, x, y, *args, **kwargs_list):
         return get_proxy(tops_op.MakeTuple.get_singleton(), (x, y), {})
 
 @register_conversion(torch.ops.aten.convolution)
-def Convolution(*args, **kwargs):
-    return tops_op.Convolution(*args, **kwargs)
+def Convolution(get_proxy, input, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
+    inputs = [item for item in (input, weight, bias) if item is not None]
+    padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
+    inputs = [inputs, f"{{{', '.join(map(str,stride))}}}", f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}",
+              f"{{{', '.join(map(str,  dilation))}}}"]
+    return get_proxy(tops_op.Convolution.get_singleton(), (inputs, input, weight, bias, stride, padding, dilation,
+                                                           transposed, output_padding, groups), {})
 
 @register_conversion(torch.ops.aten.convolution_backward.default)
-def ConvolutionBackward(*args, **kwargs):
-    return tops_op.ConvolutionBackward(*args, **kwargs)
+def ConvolutionBackward(get_proxy, grad_output, input, weight, bias_size, stride, padding, dilation, *args, **kwargs):
+    inputs = [item for item in (grad_output, input, weight)]
+    inputs = [inputs, f"{{{', '.join(map(str, bias_size))}}}", f"{{{', '.join(map(str, stride))}}}",
+              f"{{{', '.join(map(str, padding))}}}", f"{{{', '.join(map(str, dilation))}}}"]
+    return get_proxy(tops_op.ConvolutionBackward.get_singleton(), (inputs, grad_output, input, weight, bias_size, 
+                                                                   stride, padding, dilation, *args), kwargs)
+
 
 @register_conversion(torch.ops.aten.max_pool2d_with_indices)
 def Max_pool2d_with_indices(*args, **kwargs):
@@ -189,10 +198,7 @@ Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
 ReduceMax = torch.fx.wrap(register_conversion(torch.ops.aten.amax)(tops_op.ReduceMax))
 Gemm = torch.fx.wrap(register_conversion(torch.ops.aten.mm)(tops_op.Gemm))
 DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
-
-@register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
-def Batchnorm(*args, **kwargs):
-    return tops_op.BatchNorm(*args, **kwargs)
+BatchNorm = torch.fx.wrap(register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)(tops_op.BatchNorm))
 
 @register_conversion(torch.ops.aten.native_batch_norm_backward.default)
 def BatchNormBackward(*args, **kwargs):
@@ -229,27 +235,35 @@ def Slice(get_proxy, a, dim=0, start=0, end=-1, step=1, **kwargs):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
             in_shape = a.node.meta["val"].shape
-            out_shape = fx_traceback.get_current_meta()['val'].shape
+            out_shape = fx_traceback.get_current_meta()["val"].shape
             if in_shape != out_shape:
                 start = start % in_shape[dim]
                 end = end % in_shape[dim]
                 return get_proxy(tops_op.SliceInDim.get_singleton(), (a, dim, start, end, step), kwargs)
-    return get_proxy(tops_op.Slice.get_singleton(), (a, dim, start, end, step), kwargs)
+            start_indices = f"{{{', '.join(map(str, [0] * len(out_shape)))}}}"
+            limit_indices = f"{{{str(in_shape).split('[')[-1].split(']')[0]}}}"
+            strides = f"{{{', '.join(map(str, [1] * len(out_shape)))}}}"
+    return get_proxy(tops_op.Slice.get_singleton(), (start_indices, limit_indices, strides, a, dim, start, end, step), kwargs)
 
 @register_conversion(torch.ops.aten.slice_scatter.default)
-def SliceScatter(*args, **kwargs):
-    return tops_op.SliceScatter(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.index.Tensor)
-def Index(*args, **kwargs):
-    return tops_op.Index(*args, **kwargs)
-
-Where = torch.fx.wrap(register_conversion(torch.ops.aten.where.self)(tops_op.Where))
+def SliceScatter(get_proxy, a, b, dim=0, start=0, end=-1, step=1):
+    if isinstance(a, Proxy):
+        if hasattr(a.node, "meta"):
+            operand_shape = a.node.meta["val"].shape
+            end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
+            assert end == operand_shape[dim] and step == 1, "limited support"
+            return get_proxy(tops_op.SliceScatter.get_singleton(), (a, b, dim, start, end, step), {})
 
 @register_conversion(torch.ops.aten.select.int)
-def Select(*args, **kwargs):
-    return tops_op.Select(*args, **kwargs)
+def Select(get_proxy, a, dim, index):
+    if isinstance(a, Proxy):
+        if hasattr(a.node, "meta"):
+            in_shape = a.node.meta["val"].shape
+            index = index % in_shape[dim]
+            slice = get_proxy(tops_op.SliceInDim.get_singleton(), (a, dim, index, index + 1, 1), {})
+            return get_proxy(tops_op.Squeeze.get_singleton(), (slice, dim), {})
 
+Where = torch.fx.wrap(register_conversion(torch.ops.aten.where.self)(tops_op.Where))
 Scatter = torch.fx.wrap(register_conversion(torch.ops.aten.scatter.value)(tops_op.Scatter))
 ZerosLike = torch.fx.wrap(register_conversion(torch.ops.aten.zeros_like)(tops_op.ZerosLike))
 OnesLike = torch.fx.wrap(register_conversion(torch.ops.aten.ones_like)(tops_op.OnesLike))
@@ -267,10 +281,6 @@ def Scalar(get_proxy, a, **kwargs):
 @register_conversion(torch.ops.aten.embedding)
 def Embedding(*args, **kwargs):
     return tops_op.Embedding(*args, **kwargs)
-
-@register_conversion(torch.ops.aten.repeat.default)
-def Tile(*args, **kwargs):
-    return tops_op.Tile(*args, **kwargs)
 
 Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
 ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
