@@ -186,12 +186,19 @@ def Max_pool2d_with_indices_backward(*args, **kwargs):
     return tops_op.Max_pool2d_with_indices_backward(*args, **kwargs)
 
 @register_conversion(torch.ops.aten._adaptive_avg_pool2d.default)
-def Adaptive_avg_pool2d(*args, **kwargs):
-    return tops_op.Adaptive_avg_pool2d(*args, **kwargs)
+def Adaptive_avg_pool2d(get_proxy, *args, **kwargs):
+    assert len(args) == 2 and args[1] == [1, 1], "limited support"
+    reudce_dim = f"{{2, 3}}"
+    return get_proxy(tops_op.Adaptive_avg_pool2d.get_singleton(), (reudce_dim, *args), kwargs)
 
 @register_conversion(torch.ops.aten._adaptive_avg_pool2d_backward.default)
-def Adaptive_avg_pool2d_backward(*args, **kwargs):
-    return tops_op.Adaptive_avg_pool2d_backward(*args, **kwargs)
+def Adaptive_avg_pool2d_backward(get_proxy, grad_output, intpu):
+    out_shape = fx_traceback.get_current_meta()["val"].shape
+    out_dtype = fx_traceback.get_current_meta()["val"].dtype
+    expand = get_proxy(tops_op.Expand.get_singleton(), (grad_output, out_shape), {})
+    value = out_shape[2] * out_shape[3]
+    scalar = get_proxy(tops_op.Scalar.get_singleton(), (value, out_dtype), {})
+    return get_proxy(tops_op.Div.get_singleton(), (expand, scalar), {})
 
 Gather = torch.fx.wrap(register_conversion(torch.ops.aten.gather)(tops_op.Gather))
 Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))

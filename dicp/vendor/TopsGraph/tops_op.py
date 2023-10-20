@@ -398,15 +398,11 @@ class Adaptive_avg_pool2d(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten._adaptive_avg_pool2d.default
-       
-        
-class Adaptive_avg_pool2d_backward(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("AvgPool2D_Grad")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten._adaptive_avg_pool2d_backward.default
 
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+    
 
 class Gather(Operator):
     def __init__(self, *args, **kwargs):

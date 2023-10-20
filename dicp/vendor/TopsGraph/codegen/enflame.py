@@ -1097,40 +1097,10 @@ class EnflameOverrides(OpOverrides):
         
         return src_code
     
-
-    # redispatch
     @staticmethod
-    def AvgPool2D(op_var, *args_str):
-        if len(args_str) != 2 or args_str[1] != "{1, 1}":
-            raise ValueError(f"Op AvgPool2D error: {args_str}.")
-        axis = "{2, 3}"
-        src_code = f"builder::Op {op_var} = builder::ReduceMean({args_str[0]}, true, {axis});"
-        
-        return src_code
+    def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):
+        return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {reduce_dim});"
     
-    # redispatch
-    @staticmethod
-    def AvgPool2D_Grad(op_var, node, *args_str):
-        dims = []
-        for i in range(0, len(node.meta['val'].shape)):
-            dims.append(str(i))
-        broadcast_dims = '{' + ', '.join(dims) + '}'
-        
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        data_type = node.meta['val'].dtype.__str__()
-        
-        value = node.meta['val'].shape[2] * node.meta['val'].shape[3]
-                
-        src_code = f"builder::Type {op_var}_expand_type({shape}, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var}_tmp = BroadcastInDim({args_str[0]}, {broadcast_dims}, {op_var}_expand_type);\n"
-        
-        src_code += f"float {op_var}_const_value = static_cast<float>({str(value)});\n"
-        src_code += f"builder::Op {op_var}_const = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value), builder::Type({'{' + '1' +'}'}, f32_type));\n"
-        
-        src_code += f"builder::Op {op_var} = builder::Div({op_var}_tmp, {op_var}_const);\n"
-        
-        return src_code
-
     @staticmethod
     def Embedding(op_var, weight, indices, *args_str):
         if args_str:
