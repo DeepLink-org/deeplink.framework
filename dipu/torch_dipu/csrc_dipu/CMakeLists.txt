@@ -75,7 +75,8 @@ set(SOURCE_FILES
     ${BASE_FILES}
     ${UTILS_FILES}
     ${VENDOR_FILES}
-    ${PROFILER_FILES})
+    ${PROFILER_FILES}
+    ${DIPU_AUTOGENED_KERNELS_CPP})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 
@@ -139,6 +140,6 @@ set_target_properties(
   ${DIPU_C_PYTHON_EXT_LIB}
   PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu PREFIX
                                                                        "")
-target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB} c10 torch torch_cpu torch_python)
+target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB} torch_python)
 target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 # -----------------------------------------------------------------------------
