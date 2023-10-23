@@ -482,34 +482,17 @@ class Bmm(Operator):
         self.torch_op = aten.bmm.default
 
 class DotGeneral(Operator):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         super().__init__("DotGeneral")
 
-    def __call__(self, lhs, rhs, dot_dimension_numbers_str):
+    def __call__(self, lhs, rhs, lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims):
         lhs_tensor = lhs.meta['val']
         rhs_tensor = rhs.meta['val']
         res_device = binary_device_check(self.name(), lhs_tensor, rhs_tensor)
         res_dtype = binary_dtype_check(self.name(), lhs_tensor, rhs_tensor)
 
-        def str_to_int_list(string):
-            if string:
-                return list(map(lambda x: int(x.strip()), string.split(",")))
-            else:
-                return []
-
-        dot_dim_list= []
-        str_idx = 0
-        start_pos = str_idx
-        while(str_idx < len(dot_dimension_numbers_str)):
-            if dot_dimension_numbers_str[str_idx] == "{":
-                start_pos = str_idx
-            elif dot_dimension_numbers_str[str_idx] == "}":
-                dot_dim_list.append(str_to_int_list(dot_dimension_numbers_str[start_pos+1:str_idx]))
-            str_idx += 1
-
         lhs_shape = lhs_tensor.shape
         rhs_shape = rhs_tensor.shape
-        lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims  = dot_dim_list
         lhs_shape_set = set(range(len(lhs_tensor.shape)))
         rhs_shape_set = set(range(len(rhs_tensor.shape)))
         assert lhs_shape_set | set(lhs_batch_dims) | set(lhs_contract_dims) == lhs_shape_set, \
@@ -818,6 +801,18 @@ class MakeTuple(Operator):
         
         with a.fake_mode:
             return aten.clone(a), aten.clone(b)
+
+class XlaGather(Operator):
+    def __init__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+                 start_index_map, index_vector_dim, slice_size):
+        super().__init__("XlaGather")
+
+    def __call__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+                 start_index_map, index_vector_dim, slice_size):
+        out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
+
+        with operand.meta['val'].fake_mode:
+            return aten.empty(out_shape)
 
 
 

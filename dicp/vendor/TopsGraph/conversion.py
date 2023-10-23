@@ -121,8 +121,13 @@ def ReduceSum(get_proxy, a, *args, **kwargs):
 GetItem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetItem))
 
 @register_conversion(torch.ops.aten.index.Tensor)
-def Index(*args, **kwargs):
-    return tops_op.Index(*args, **kwargs)
+def Index(get_proxy, *args, **kwargs):
+    assert len(args[1]) == 1, f"Only support aten.index with one index arg" 
+    idx_rank = len(args[1][0].node.meta['val'].shape)
+    slice_size = list(args[0].node.meta['val'].shape)
+    slice_size[0] = 1
+    return get_proxy(tops_op.XlaGather.get_singleton(), (args[0], args[1][0], 
+           [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]), {})
 
 # tops_dropout only returns a tensor, not a tuple of tensor
 @register_conversion(torch.ops.aten.native_dropout.default)
@@ -218,6 +223,11 @@ Softmax = torch.fx.wrap(register_conversion(torch.ops.aten._softmax.default)(top
 Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
 
+@register_conversion(torch.ops.aten.bmm.default)
+def Bmm(get_proxy, *args, **kwargs):
+    return get_proxy(tops_op.DotGeneral.get_singleton(), (*args, 
+          [0,], [0,], [2,], [1,]), {})
+
 @register_conversion(torch.ops.aten.cat.default)
 def Concatenate(get_proxy, *args, **kwargs):
     new_args = []
@@ -289,8 +299,10 @@ def Scalar(get_proxy, a, **kwargs):
     return get_proxy(tops_op.Scalar.get_singleton(), (a,), kwargs)
 
 @register_conversion(torch.ops.aten.embedding)
-def Embedding(*args, **kwargs):
-    return tops_op.Embedding(*args, **kwargs)
+def Embedding(get_proxy, *args, **kwargs):
+    idx_rank = len(args[1].node.meta['val'].shape)
+    return get_proxy(tops_op.XlaGather.get_singleton(), (*args, 
+           [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]), {})
 
 Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
 ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
@@ -411,15 +423,6 @@ class ReplacePatternSiLU:
     def replacement(a):
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
 
-'''
-@register_pattern
-class ReplacePatternAddAlpha:
-    def pattern(a, b, c):
-        return torch.ops.aten.add.Tensor(a, b, alpha = c)
-
-    def replacement(a, b, c):
-        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mul.default(b, c))
-'''
 
 if is_torch_210:
     import functools
@@ -442,7 +445,7 @@ if is_torch_210:
 
         @staticmethod
         def replacement(reshaped_input, weight):
-            return DotGeneral(reshaped_input, weight, "{}, {}, {1}, {1}")
+            return DotGeneral(reshaped_input, weight, [], [], [1,], [1,])
 
     @register_tops_patterns
     class LlamaMatmulTransposePattern(BackendPatternBase):
@@ -460,6 +463,6 @@ if is_torch_210:
 
         @staticmethod
         def replacement(xq, keys):
-            return DotGeneral(xq, keys, "{0, 2}, {0, 2}, {3}, {3}")
+            return DotGeneral(xq, keys, [0, 2], [0, 2], [3,], [3,])
 
 

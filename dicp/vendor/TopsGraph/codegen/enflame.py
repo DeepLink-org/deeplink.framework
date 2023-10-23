@@ -797,35 +797,13 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Bmm(op_var, node, args_dict):
-        args = node.args
-        args_str = []
-        src_code = ""
-
-        for i in range(0, len(args)):
-            tmp_data_type = args[i].meta['val'].dtype.__str__()
-            if tmp_data_type != 'torch.float32':
-                tmp_shape = '{' + str(args[i].meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-                src_code += f"builder::Type {args_dict[args[i].name]}_dot_type({tmp_shape}, f32_type);\n"
-                src_code += f"builder::Op {args_dict[args[i].name]}_tmp = builder::Convert({args_dict[args[i].name]}, {args_dict[args[i].name]}_dot_type);\n"
-                args_str.append(f"{args_dict[args[i].name]}_tmp")
-            else:
-                args_str.append(f"{args_dict[args[i].name]}")
-
-        src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({'{0}'}, {'{0}'}, {'{2}'}, {'{1}'});\n"
-        src_code += f"builder::Op {op_var}_tmp = builder::DotGeneral({', '.join(args_str)}, {op_var}_dims_attr);\n"
-
-        data_type = node.meta['val'].dtype.__str__()            
-        shape = '{' + str(node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
-        src_code += f"builder::Type {op_var}_type({shape}, {type_set[data_type]});\n"
-        src_code += f"builder::Op {op_var} = builder::Convert({op_var}_tmp, {op_var}_type);"
-
-        return src_code
-
-    @staticmethod
-    def DotGeneral(op_var, lhs, rhs, dot_dimension_numbers_str):
-        src_code = ""
-        src_code += f"builder::DotDimensionNumbers {op_var}_dims_attr({dot_dimension_numbers_str});\n"
+    def DotGeneral(op_var, out_shape, out_dtype, lhs, rhs, lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims):
+        lbd = '{' + ','.join([str(x) for x in lhs_batch_dims]) + '}'
+        rbd = '{' + ','.join([str(x) for x in rhs_batch_dims]) + '}'
+        lcd = '{' + ','.join([str(x) for x in lhs_contract_dims]) + '}'
+        rcd = '{' + ','.join([str(x) for x in rhs_contract_dims]) + '}'
+        dot_dimension_numbers_str = f"{lbd}, {rbd}, {lcd}, {rcd}"
+        src_code = f"builder::DotDimensionNumbers {op_var}_dims_attr({dot_dimension_numbers_str});\n"
         src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
         src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
         return src_code
@@ -1031,25 +1009,6 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def Index(op_var, node, *args):
-        src_code = ""
-        indices_list = args[-1].strip("{ }").split(", ")   
-        if len(indices_list) == 1:
-            indices = indices_list[0]
-        else:
-            src_code += f"builder::Op {op_var}_indices = builder::Concatenate({{{', '.join(indices_list)}}}, 0);\n"
-            indices = f"{op_var}_indices"
-        src_code += f"std::vector<int64_t> {op_var}_offset_dims = {{{indices}.GetType().GetRank()}};\n" \
-                    f"std::vector<int64_t> {op_var}_collapsed_slice_dims = {{0}};\n" \
-                    f"std::vector<int64_t> {op_var}_start_index_map = {{0}};\n" \
-                    f"int64_t {op_var}_index_vector_dim = {indices}.GetType().GetRank();\n" \
-                    f"auto {op_var}_dimension_numbers = builder::GatherDimensionNumbers({op_var}_offset_dims, {op_var}_collapsed_slice_dims, {op_var}_start_index_map, {op_var}_index_vector_dim);\n" \
-                    f"std::vector<int64_t> {op_var}_slice_sizes = {args[0]}.GetType().GetShape();\n" \
-                    f"{op_var}_slice_sizes[0] = 1;\n" \
-                    f"builder::Op {op_var} = builder::Gather({args[0]}, {indices}, {op_var}_dimension_numbers, {op_var}_slice_sizes);\n"
-        return src_code
-    
-    @staticmethod
     def BatchNorm(op_var, shape, dtype, input, weight, bias, running_mean, running_var, training, momentum, eps, **kwargs_list):
         return f"auto {op_var} = enflame::BatchNorm(hlir_builder, {input}, {weight}, {bias}, {running_mean}, {running_var}, 1, {training}, {momentum}, {eps});"
 
@@ -1071,37 +1030,6 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):
         return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {reduce_dim});"
-    
-    @staticmethod
-    def Embedding(op_var, weight, indices, *args_str):
-        if args_str:
-            print(f"Warning: EnflameOverrides.Embedding encounter unknown args: {args_str}, ignore it")
-
-        collapsed_slice_dim = f"{op_var}_collapsed_slice_dim"
-        embedding_dim_size = f"{op_var}_embedding_dim_size"
-        slice_sizes = f"{op_var}_slice_sizes"
-        offset_dims = f"{op_var}_offset_dims"
-        indices_rank = f"{op_var}_indices_rank"
-        collapsed_slice_dims = f"{op_var}_collapsed_slice_dims"
-        start_index_map = f"{op_var}_start_index_map"
-        index_vector_dim = f"{op_var}_index_vector_dim"
-        gather_dim_params = f"{op_var}_gather_dim_params"
-        src_code = f"int64_t {collapsed_slice_dim} = 0;\n" \
-                   f"int64_t {embedding_dim_size} = {weight}.GetType().GetDimSize(1);\n" \
-                   f"std::vector<int64_t> {slice_sizes} = {{1, {embedding_dim_size}}};\n" \
-                   f"int64_t {indices_rank} = {indices}.GetType().GetRank();\n" \
-                   f"std::vector<int64_t> {offset_dims} = {{{indices_rank}}};\n" \
-                   f"std::vector<int64_t> {collapsed_slice_dims} = {{{collapsed_slice_dim}}};\n" \
-                   f"std::vector<int64_t> {start_index_map} = {{0}};\n" \
-                   f"int64_t {index_vector_dim} = {indices_rank};\n" \
-                   f"auto {gather_dim_params} = builder::GatherDimensionNumbers(\n" \
-                   f"    {offset_dims}, {collapsed_slice_dims}, {start_index_map}, {index_vector_dim}\n" \
-                   f");\n" \
-                   f"builder::Op {op_var} = builder::Gather(\n" \
-                   f"    {weight}, {indices}, {gather_dim_params}, {slice_sizes}\n" \
-                   f");"
-
-        return src_code
     
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod
@@ -1145,4 +1073,18 @@ class EnflameOverrides(OpOverrides):
     def Iota(op_var, out_shape, out_dtype, length, **kwargs_list):
         src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
         src_code += f"builder::Op {op_var} = builder::Iota(hlir_builder, 0, {op_type});\n"
+        return src_code
+
+    @staticmethod
+    def XlaGather(op_var, out_shape, out_dtype, operand, indices, offset_dims, collapsed_slice_dims, 
+                 start_index_map, index_vector_dim, slice_size):
+        gather_dim_params = f"{op_var}_gather_dim_params"
+        src_code = f"auto {gather_dim_params} = builder::GatherDimensionNumbers(\n" \
+                   f"{'{'}{str(offset_dims)[1:-1]}{'}'}, {'{'}{str(collapsed_slice_dims)[1:-1]}{'}'}," \
+                   f"{'{'}{str(start_index_map)[1:-1]}{'}'}, {index_vector_dim}\n" \
+                   f");\n" \
+                   f"builder::Op {op_var} = builder::Gather(\n" \
+                   f"{operand}, {indices}, {gather_dim_params}, {'{'}{str(slice_size)[1:-1]}{'}'}\n" \
+                   f");"
+
         return src_code
