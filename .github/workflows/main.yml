@@ -52,9 +52,10 @@ jobs:
               git checkout ${{ github.sha }}
             fi
           fi
+          cd ${GITHUB_WORKSPACE}/${REPO}/dipu
+          rm -rf third_party/DIOPI && git submodule update --init --recursive
           cd ${GITHUB_WORKSPACE} && cp -R ${REPO} ${REPO}_DIOPI
-          cd ${REPO}/dipu && rm -rf third_party/DIOPI && git submodule update --init --recursive
-          bash /home/autolink/rsync/sourcecode/update_code.sh
+          cd ${REPO}/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
           #  dipu_diopi depend on latest target diopi branch, not diopi in submodule. here assume diopi and dipu use same  'target branch' " github.base_ref "
