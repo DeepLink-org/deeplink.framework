@@ -11,7 +11,7 @@ from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 class TestInitAMPDtypeMultiThread(TestCase):
     NUM_THREADS = 10
     TIMEOUT = 5
-    DTYPES = [torch.int32, torch.int64, torch.float6, torch.float32]
+    DTYPES = [torch.int32, torch.int64, torch.float16, torch.float32]
 
     def _run_multithread_test(self, f, args=(), kwargs={}):
         threads = [Thread(target=f, args=args, kwargs=kwargs) for _ in range(self.NUM_THREADS)]
