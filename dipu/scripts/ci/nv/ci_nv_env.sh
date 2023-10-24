@@ -7,9 +7,9 @@ CONDA_ROOT=${PLATFORM}/env/miniconda3.8
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
-export CUDA_PATH=${PLATFORM}/dep/cuda11.2-cudnn8.5
-export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.2
-export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.2
+export CUDA_PATH=${PLATFORM}/dep/cuda11.7-cudnn8.5
+export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.7
+export NCCL_ROOT=${PLATFORM}/dep/nccl-2.13.4-cuda11.7
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
 
