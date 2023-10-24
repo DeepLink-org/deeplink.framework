@@ -136,17 +136,22 @@ string(CONCAT DIPU_C_PYTHON_EXT_LIB
               "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-"
               "${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
 add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED stub.cpp)
+set_target_properties(
+  ${DIPU_C_PYTHON_EXT_LIB}
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu PREFIX
+                                                                       "")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB} torch_python)
 target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 # ------------------------------------------------------------------------------
 
+#Followings are to do in the future to set the lib output dir like pytorch
 # ----------------- setup library output directory -----------------------------
 # Directories are organized like PyTorch.
-set_target_properties(
-  ${DIPU_LIB} ${DIPU_PYTHON_LIB}
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/lib")
-set_target_properties(
-  ${DIPU_C_PYTHON_EXT_LIB}
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu" PREFIX
+#set_target_properties(
+#  ${DIPU_LIB} ${DIPU_PYTHON_LIB}
+#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/lib")
+#set_target_properties(
+#  ${DIPU_C_PYTHON_EXT_LIB}
+#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu" PREFIX
                                                                          "")
 # ------------------------------------------------------------------------------
