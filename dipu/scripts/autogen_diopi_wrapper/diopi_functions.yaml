@@ -180,7 +180,7 @@
   custom_code_at_the_beginning: |
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
-    at::Tensor out0 = at::empty(input.sizes(), input.options());
+    at::Tensor out0 = at::empty_like(input);
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
@@ -242,6 +242,14 @@
   custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
   interface: diopiAdaptiveAvgPool2dBackward(ctx, out, grad_output, self);
+
+- schema: "avg_pool2d.out(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, bool ceil_mode=False, bool count_include_pad=True, int? divisor_override=None, *, Tensor(a!) out) -> Tensor(a!)"
+  size_attr: [kernel_size, stride, padding]
+  interface: "diopiAvgPool2d(ctx, out, self, kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override.has_value() ? &divisor_override.value() : nullptr)"
+
+- schema: aten::avg_pool2d_backward.grad_input(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, bool ceil_mode, bool count_include_pad, int? divisor_override, *, Tensor(a!) grad_input) -> Tensor(a!)
+  size_attr: [kernel_size, stride, padding]
+  interface: "diopiAvgPool2dBackward(ctx, grad_input, grad_output, self, kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override.has_value() ? &divisor_override.value() : nullptr)"
 
 - schema: "eq.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiEqScalar(ctx, out, self, other)
@@ -727,8 +735,31 @@
 - schema: nll_loss_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
+- schema: nll_loss2d_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
+  interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+
+- schema: nll_loss2d_forward(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index) -> (Tensor output, Tensor total_weight)
+  interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+  custom_code_at_the_beginning: |
+    at::Tensor output;
+    at::Tensor total_weight = at::scalar_tensor(target.numel(), self.options());
+
+    if (reduction != 0) {
+        output = torch::tensor(0.0, self.options());
+    } else {
+        output = at::empty(target.sizes(), self.options());
+    }
+
 - schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+
+- schema: nll_loss2d_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
+  interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+
+- schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
+  interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+  custom_code_at_the_beginning: |
+    auto grad_input = at::empty(self.sizes(), self.options());
 
 - schema: "threshold_backward.grad_input(Tensor grad_output, Tensor self, Scalar threshold, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
@@ -1620,6 +1651,11 @@
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
+- schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
+
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface:  diopiFloor(ctx, out,self);
 
@@ -2097,3 +2133,29 @@
     }
     return out;
   interface: diopiNeg(ctx, out, self)
+
+- schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = at::empty({}, in.options());
+      dipu_norm_out(in, ord, {}, false, out[i]);
+    }
+    return out;
+  interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
+#- schema: _amp_foreach_non_finite_check_and_unscale_(Tensor(a!)[] self, Tensor(b!) found_inf, Tensor inv_scale) -> void
+- schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
+    std::transform(self.begin(), self.end(), diopiTensorHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+    });
+  interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), self.size(), found_inf, inv_scale)
+
+- schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
+  custom_fallback: True
+  interface: diopiAmpUpdateScaleInp(ctx, self, growth_tracker, found_inf, scale_growth_factor, scale_backoff_factor, growth_interval)

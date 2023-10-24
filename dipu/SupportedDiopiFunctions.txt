@@ -13,10 +13,14 @@ diopiAddmm
 diopiAddScalar
 diopiAll
 diopiAmax
+diopiAmpForeachNonFiniteCheckAndUnscaleInp
+diopiAmpUpdateScaleInp
 diopiAny
 diopiArange
 diopiArgmax
 diopiAtan
+diopiAvgPool2d
+diopiAvgPool2dBackward
 diopiBaddbmm
 diopiBaddbmmInp
 diopiBatchNorm
@@ -77,8 +81,8 @@ diopiEq
 diopiEqInp
 diopiEqInpScalar
 diopiEqScalar
-diopiErf
-diopiErfInp
+diopiErfinv
+diopiErfinvInp
 diopiExp
 diopiExpInp
 diopiFill

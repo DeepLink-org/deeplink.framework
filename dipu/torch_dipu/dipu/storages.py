@@ -35,7 +35,7 @@ def _dipu_deserialize(obj, location):
       else:
           return obj.dipu(device_idx)
 
-# this obj is storage, so it's device.type is real diputype (xpu), not 'cuda' or 'dipu'
+# this obj is storage, so it's device.type is real diputype (may be cuda or xpu depend on if set DIPU_PYTHON_DEVICE_AS_CUDA)
 def _dipu_tag(obj):
   if obj.device.type == __diputype__:
       return __diputype__ + str(obj.device.index)
@@ -66,8 +66,11 @@ def _is_dipu_storage(self):
     return self.device.type == __diputype__
 
 setattr(UntypedStorage, 'is_dipu', _is_dipu_storage)
-
 UntypedStorage.dipu = _dipu_storage
+
+if mockcuda:
+  UntypedStorage.is_cuda = UntypedStorage.is_dipu
+  UntypedStorage.cuda = UntypedStorage.dipu 
 
 _raw_storage_resize = UntypedStorage.resize_
 def _resize(self, size: int):
@@ -78,23 +81,5 @@ def _resize(self, size: int):
   
 UntypedStorage.resize_ = _resize
 
+UntypedStorage.__new__ = GetDeviceProxy(torch.UntypedStorage.__new__, pos = -1, caller="class_new") 
 
-# should we mock cuda/dipu in storage api which is a low level api or should we ensure all 
-# upper layer cuda api are mocked so low level are always dipu storage?  
-
-# _StorageBase.cuda/is_cuda = 
-
-# class _MetaDIPUStor(type):
-#   _raw_storage = torch.UntypedStorage
-#   _do_stor = GetDeviceProxy(torch.UntypedStorage, pos = -1, caller="class_new")
-
-#   def __instancecheck__(cls, inst):
-#     if isinstance(inst, _MetaDIPUStor._raw_storage):
-#       return True
-#     return False
-
-# class DIPUUntypedStorage(metaclass=_MetaDIPUStor):
-#   def __new__(cls, *args, **kwargs):
-#     return DIPUUntypedStorage._do_stor(*args, **kwargs)
-
-# torch.UntypedStorage = DIPUUntypedStorage

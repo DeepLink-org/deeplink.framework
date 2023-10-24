@@ -7,9 +7,9 @@ CONDA_ROOT=${PLATFORM}/env/miniconda3.8
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
-export CUDA_PATH=${PLATFORM}/dep/cuda11.2-cudnn8.5
-export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.2
-export NCCL_ROOT=${PLATFORM}/dep/nccl-2.9.8-cuda11.2
+export CUDA_PATH=${PLATFORM}/dep/cuda11.7-cudnn8.5
+export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.7
+export NCCL_ROOT=${PLATFORM}/dep/nccl-2.13.4-cuda11.7
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
 
@@ -25,7 +25,7 @@ export DIPU_ROOT=$(pwd)/torch_dipu
 export DIOPI_PATH=$(pwd)/third_party/DIOPI/proto
 export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
-export LIBRARY_PATH=$DIPU_ROOT:${DIOPI_ROOT}:${LIBRARY_PATH}; LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
 export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
