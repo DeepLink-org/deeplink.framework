@@ -153,5 +153,5 @@ target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 #set_target_properties(
 #  ${DIPU_C_PYTHON_EXT_LIB}
 #  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu" PREFIX
-                                                                         "")
+#                                                                         "")
 # ------------------------------------------------------------------------------
