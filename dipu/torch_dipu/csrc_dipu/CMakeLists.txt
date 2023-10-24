@@ -56,6 +56,8 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 
+target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/fmt/libfmt.a)
+target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/libkineto.a)
 target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
 

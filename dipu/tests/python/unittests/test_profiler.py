@@ -27,9 +27,10 @@ class TestProfiler(TestCase):
         profile_output = prof.key_averages(group_by_input_shape=True).table(
             sort_by="self_cuda_time_total", row_limit=1000
         )
-
-        self.assertIn("::diopiConvolution2dBackward", profile_output)
+        self.assertIn("diopiConvolution2dBackward", profile_output)
         self.assertIn("dipu_convolution_", profile_output)
+        self.assertIn("LaunchKernel_dipu", profile_output)
+        self.assertIn("LaunchKernel_diopi", profile_output)
         self.assertIn("Self CPU time total", profile_output)
         self.assertIn("Self CUDA time total", profile_output)
         self.assertIn("5, 3, 224, 224", profile_output)
@@ -37,14 +38,17 @@ class TestProfiler(TestCase):
         profile_stack_output = prof.key_averages(group_by_stack_n=15).table(
             sort_by="cuda_time_total", row_limit=1000)
         self.assertIn("Source Location", profile_stack_output)
-        self.assertIn("torchvision/models/resnet.py", profile_stack_output)
-        self.assertIn("tests/test_ops/archived/test_profiler.py", profile_stack_output)
+        self.assertIn("resnet.py", profile_stack_output)
+        self.assertIn("test_profiler.py", profile_stack_output)
 
         profile_memory_output = prof.key_averages().table(
             sort_by="self_cuda_memory_usage", row_limit=1000)
         self.assertIn("Self CPU Mem", profile_memory_output)
         self.assertIn("Self CUDA Mem", profile_memory_output)
+        self.assertIn("Mb", profile_memory_output)
+        self.assertIn("Kb", profile_memory_output)
 
+        prof.export_chrome_trace("./dipu_resnet18_profiler.json")
 
 if __name__ == "__main__":
     run_tests()
