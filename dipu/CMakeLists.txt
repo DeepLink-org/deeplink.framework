@@ -107,7 +107,11 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 # diopi
 set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
 include_directories(${DIOPI_PROTO_PATH}/include)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/include)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/src)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/third_party/fmt/include)
 add_definitions(-DDIOPI_ATTR_WEAK)
+add_definitions(-DUSE_KINETO)
 
 if (LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)

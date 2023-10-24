@@ -65,6 +65,8 @@ else()
 endif()
 
 # need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
+target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/fmt/libfmt.a)
+target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/libkineto.a)
 target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
 

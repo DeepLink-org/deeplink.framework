@@ -3,4 +3,4 @@
 	url = https://github.com/DeepLink-org/DIOPI.git
 [submodule "dipu/third_party/kineto"]
 	path = dipu/third_party/kineto
-	url = https://github.com/caikun-pjlab/kineto.git
+	url = https://github.com/DeepLink-org/kineto.git
