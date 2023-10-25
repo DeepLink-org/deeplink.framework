@@ -92,7 +92,8 @@ class Operator():
                 tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
         new_args = tuple(tmp_args)
 
-        return self.torch_op(*new_args, **kwargs)
+        ret = self.torch_op(*new_args, **kwargs)
+        return ret
 
 class Add(Operator):
     def __init__(self, a, b, **kwargs):
@@ -123,6 +124,8 @@ class Gemm(Operator):
         self.b = b
         self.torch_op = aten.mm
 
+    def __call__(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)
 
 class Abs(Operator):
     def __init__(self, a):
@@ -438,9 +441,8 @@ class GetItem(Operator):
             x = x.meta['val']
         
         with x.fake_mode:
+            #import pdb;pdb.set_trace()
             return aten.clone(x)
-
-
 
 class NativeDropout(Operator):
     def __init__(self, *args, **kwargs):
@@ -800,6 +802,7 @@ class MakeTuple(Operator):
             b = b.meta['val']
         
         with a.fake_mode:
+            import pdb;pdb.set_trace()
             return aten.clone(a), aten.clone(b)
 
 class XlaGather(Operator):
@@ -812,6 +815,7 @@ class XlaGather(Operator):
         out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
 
         with operand.meta['val'].fake_mode:
+            import pdb;pdb.set_trace()
             return aten.empty(out_shape)
 
 

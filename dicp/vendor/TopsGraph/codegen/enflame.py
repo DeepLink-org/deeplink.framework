@@ -40,6 +40,7 @@ type_set = {torch.float16: "builder::PrimitiveType::F16()",
 
 cxx_type_set = {torch.float32: "float_t",
                 torch.float: "float_t",
+                torch.float16: "float_t",
                 torch.float64: "double_t",
                 torch.double: "double_t",
                 torch.int32: "int32_t",
@@ -47,6 +48,10 @@ cxx_type_set = {torch.float32: "float_t",
                 torch.int64: "int64_t",
                 torch.long: "int64_t",
                 torch.bool: "bool"}
+
+scalar_type_set = {int: torch.int32,
+                   float: torch.float,
+                   bool: torch.bool}
 
 need_node = ['Scalar', 'Div', 'ReduceSum', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
              'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Bmm', 'Slice', 'Select', 
@@ -838,7 +843,7 @@ class EnflameOverrides(OpOverrides):
     
     @staticmethod
     def NotEqual(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, scalar_type_set[type(y)])
         src_code += f"builder::Op {op_var} = builder::NotEqual({x}, {y});"
         return src_code
     
@@ -1024,8 +1029,8 @@ class EnflameOverrides(OpOverrides):
         return f"auto {op_var} = enflame::MaxPool2D(hlir_builder, {x}, {', '.join(inputs)});"
     
     @staticmethod
-    def MaxPool2DBackward(op_var, shape, dtype, grad_output, input, ksize, stride, padding):
-        return f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {grad_output}, {input}, {{{', '.join(map(str, ksize))}}}, {{{', '.join(map(str, stride))}}}, {{{', '.join(map(str, padding))}}});"
+    def MaxPool2DBackward(op_var, shape, dtype, *args):
+        return f"auto {op_var} = enflame::MaxPool2D_Grad(hlir_builder, {args[0]}, {args[1]}, {{{', '.join(map(str, args[2]))}}}, {{{', '.join(map(str, args[3]))}}}, {{{', '.join(map(str, args[4]))}}});"
     
     @staticmethod
     def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):

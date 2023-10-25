@@ -64,13 +64,16 @@ def register_conversion(aten_fn):
 @register_conversion(torch.ops.aten.add.Tensor)
 def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
     y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
-    in_dtype = x.node.meta["val"].dtype
-    out_dtype = fx_traceback.get_current_meta()['val'].dtype
-    if in_dtype != out_dtype:
-        x = get_proxy(tops_op.Convert.get_singleton(), (x, out_dtype), {})
+    try:
+        in_dtype = x.node.meta["val"].dtype
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        if in_dtype != out_dtype:
+            x = get_proxy(tops_op.Convert.get_singleton(), (x, out_dtype), {})
+    except:
+        pass
     if not isinstance(y_node, torch.fx.node.Node):
         y = y * alpha
-    else:
+    elif alpha != 1:
         y = get_proxy(tops_op.Mul.get_singleton(), (y, alpha), {})
     return get_proxy(tops_op.Add.get_singleton(), (x, y), {})
 
@@ -205,13 +208,12 @@ def Adaptive_avg_pool2d_backward(get_proxy, grad_output, intpu):
     out_dtype = fx_traceback.get_current_meta()["val"].dtype
     expand = get_proxy(tops_op.Expand.get_singleton(), (grad_output, out_shape), {})
     value = out_shape[2] * out_shape[3]
-    scalar = get_proxy(tops_op.Scalar.get_singleton(), (value, out_dtype), {})
+    scalar = get_proxy(tops_op.Scalar.get_singleton(), (value, ), {})
     return get_proxy(tops_op.Div.get_singleton(), (expand, scalar), {})
 
 Gather = torch.fx.wrap(register_conversion(torch.ops.aten.gather)(tops_op.Gather))
 Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
 ReduceMax = torch.fx.wrap(register_conversion(torch.ops.aten.amax)(tops_op.ReduceMax))
-Gemm = torch.fx.wrap(register_conversion(torch.ops.aten.mm)(tops_op.Gemm))
 DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
 BatchNorm = torch.fx.wrap(register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)(tops_op.BatchNorm))
 
@@ -222,6 +224,14 @@ def BatchNormBackward(*args, **kwargs):
 Softmax = torch.fx.wrap(register_conversion(torch.ops.aten._softmax.default)(tops_op.Softmax))
 Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
+
+@register_conversion(torch.ops.aten.mm)
+def Gemm(get_proxy, *args, **kwargs):
+    return get_proxy(tops_op.Gemm.get_singleton(), args, {})
+    #return get_proxy(tops_op.DotGeneral.get_singleton(), (*args, 
+    #      [], [], [1,], [0,]), {})
+Gemm = torch.fx.wrap(tops_op.Gemm.get_singleton())
+
 
 @register_conversion(torch.ops.aten.bmm.default)
 def Bmm(get_proxy, *args, **kwargs):
