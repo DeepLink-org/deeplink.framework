@@ -297,7 +297,6 @@ class Const(Operator):
         super().__init__("Const")
 
 
-
 class Sigmoid(Operator):
     def __init__(self):
         super().__init__("Sigmoid")
@@ -534,10 +533,29 @@ class AddV2(Operator):
         super().__init__("AddV2")
 
 
+class StatelessRandomUniformV2(Operator):
+    def __init__(self):
+        super().__init__("StatelessRandomUniformV2")
+
+
+class Greater(Operator):
+    def __init__(self):
+        super().__init__("Greater")
+
+
+class Addcmul(Operator):
+    def __init__(self):
+        super().__init__("Addcmul")
+
+
+class Reciprocal(Operator):
+    def __init__(self):
+        super().__init__("Reciprocal")
+        self.torch_op = aten.reciprocal.default
+
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
-
 
 
 def ret_tuple(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
