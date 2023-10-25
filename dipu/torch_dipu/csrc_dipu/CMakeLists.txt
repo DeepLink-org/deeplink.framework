@@ -54,9 +54,7 @@ file(
   aten/RegisterDIPU.cpp
   aten/CPUFallback.cpp
   aten/util/*.cpp
-  aten/ops/*Kernel*.cpp
-  aten/ops/DIPUAmp.cpp
-  aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp)
+  aten/ops/*.cpp)
 
 file(GLOB BASE_FILES base/*.cpp)
 file(GLOB UTILS_FILES utils/*.cpp)
@@ -71,17 +69,14 @@ link_directories(${VENDOR_LIB_DIRS})
 set(SOURCE_FILES
     ${RT_SRC_FILES}
     ${OP_SRC_FILES}
+    ${DIPU_AUTOGENED_KERNELS_CPP}
     ${DIOPI_RT_FILES}
     ${BASE_FILES}
     ${UTILS_FILES}
     ${VENDOR_FILES}
-    ${PROFILER_FILES}
-    ${DIPU_AUTOGENED_KERNELS_CPP})
+    ${PROFILER_FILES})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
-set_target_properties(
-  ${DIPU_LIB}
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/")
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
@@ -123,10 +118,8 @@ add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 # TODO: default hidden setting scope is incorrect and cannot open now because it
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
-set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
-set_target_properties(
-  ${DIPU_PYTHON_LIB}
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/")
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET
+                                                    hidden)
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 # ------------------------------------------------------------------------------
 
@@ -141,22 +134,24 @@ string(CONCAT DIPU_C_PYTHON_EXT_LIB
               "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-"
               "${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
 add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED stub.cpp)
-set_target_properties(
-  ${DIPU_C_PYTHON_EXT_LIB}
-  PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu PREFIX
-                                                                       "")
+set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
 target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB} torch_python)
 target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 # ------------------------------------------------------------------------------
 
-#Followings are to do in the future to set the lib output dir like pytorch
 # ----------------- setup library output directory -----------------------------
+set_target_properties(
+  ${DIPU_LIB} ${DIPU_PYTHON_LIB} ${DIPU_C_PYTHON_EXT_LIB}
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
+
+# TODO(lljbash,lihuayi): set the lib output dir like pytorch
+# ~~~
 # Directories are organized like PyTorch.
-#set_target_properties(
+# set_target_properties(
 #  ${DIPU_LIB} ${DIPU_PYTHON_LIB}
 #  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/lib")
-#set_target_properties(
+# set_target_properties(
 #  ${DIPU_C_PYTHON_EXT_LIB}
-#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu" PREFIX
-#                                                                         "")
+#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
+# ~~~
 # ------------------------------------------------------------------------------
