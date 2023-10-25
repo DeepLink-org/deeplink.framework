@@ -55,12 +55,14 @@ if [[ "$1" == "builddl" ]]; then
 elif [[ "$1" == "builddp" ]]; then
     build_dipu_py
 elif [[ "$1" == "build_dipu" ]]; then
+    bash scripts/ci/ci_build_third_party.sh
     build_dipu_lib
     build_dipu_py
 elif [[ "$1" == "build_diopi" ]]; then
     build_diopi_lib
 elif [[ "$1" == "build" ]]; then
     build_diopi_lib
+    bash scripts/ci/ci_build_third_party.sh
     build_dipu_lib
     build_dipu_py
 elif [[ "$1" == "clean" ]]; then

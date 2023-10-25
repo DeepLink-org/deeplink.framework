@@ -505,6 +505,7 @@ public:
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes, id), deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << nbytes << ",requires " << size << " nbytes, ptr:" << ptr << ",device:" << device());
+    c10::reportMemoryUsageToProfiler(ptr, static_cast<int64_t>(nbytes), memory_allocated(), memory_reserved(), c10::Device(c10::DeviceType::CUDA, device().index()));
     return data_ptr;
   }
 
@@ -536,6 +537,8 @@ public:
 
 static void deleteBFContext(void* ptr) {
   auto ctx = static_cast<BFCachingAllocator::Context*>(ptr);
+  c10::reportMemoryUsageToProfiler(ctx->ptr(), -static_cast<int64_t>(ctx->nbytes_), ctx->allocator()->memory_allocated(),
+    ctx->allocator()->memory_reserved(), c10::Device(c10::DeviceType::CUDA, ctx->allocator()->device().index()));
   delete ctx;
 }
 
