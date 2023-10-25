@@ -4,12 +4,12 @@ import torch
 
 from torch_dipu import _C, dipu
 
-thread_local = threading.local()
+_thread_local = threading.local()
 
 
 def init_autocast_dtype():
-    if not hasattr(thread_local, "inited"):
-        thread_local.inited = 1
+    if not hasattr(_thread_local, "inited"):
+        _thread_local.inited = 1
         set_autocast_dipu_dtype(torch.float16)
 
 
@@ -31,7 +31,7 @@ def set_autocast_dipu_enabled(enabled):
 
 def set_autocast_dipu_dtype(dtype):
     # if user have set autocast dtype, there is no need to change its default value anymore
-    thread_local.inited = 1
+    _thread_local.inited = 1
     return _C.set_autocast_dipu_dtype(dtype)
 
 
