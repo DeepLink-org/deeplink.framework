@@ -68,6 +68,7 @@ case $1 in
         || exit -1;;
     build_dipu)
         (
+            bash scripts/ci/ci_build_third_party.sh
             build_diopi_lib
             autogen_diopi_wrapper
             build_dipu_lib
@@ -76,6 +77,7 @@ case $1 in
         || exit -1;;
     build_dipu_only)
         (
+            bash scripts/ci/ci_build_third_party.sh
             autogen_diopi_wrapper
             build_dipu_lib
             build_dipu_py
