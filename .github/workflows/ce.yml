@@ -1,4 +1,4 @@
-name: diopi ce
+name: dipu ce
 on:
   workflow_dispatch:
   push:
