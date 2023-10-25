@@ -79,6 +79,9 @@ set(SOURCE_FILES
     ${DIPU_AUTOGENED_KERNELS_CPP})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+set_target_properties(
+  ${DIPU_LIB}
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/")
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
@@ -120,8 +123,10 @@ add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 # TODO: default hidden setting scope is incorrect and cannot open now because it
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
-set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET
-                                                    hidden)
+set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties(
+  ${DIPU_PYTHON_LIB}
+  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/")
 target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
 # ------------------------------------------------------------------------------
 
