@@ -158,6 +158,10 @@ class NotEqual(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.ne.Scalar
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
 
 class Mul(Operator):
     def __init__(self, a, b):

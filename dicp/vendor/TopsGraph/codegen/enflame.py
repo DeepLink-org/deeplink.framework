@@ -522,7 +522,7 @@ class EnflameOverrides(OpOverrides):
             elif isinstance(arg, str):
                 return arg
             elif isinstance(arg, torch.dtype):
-                return type_set[arg]
+                return arg
             elif isinstance(arg, torch.device):
                 return str(arg)
             elif isinstance(arg, list):
@@ -845,8 +845,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def NotEqual(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, scalar_type_set[type(y)])
+    def NotEqual(op_var, shape, dtype, data_type, x, y, **kwargs_list):
+        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, data_type)
         src_code += f"builder::Op {op_var} = builder::NotEqual({x}, {y});"
         return src_code
     

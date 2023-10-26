@@ -162,7 +162,11 @@ Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less)
 LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
 Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
 EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
-NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.NotEqual))
+
+@register_conversion(torch.ops.aten.ne.Scalar)
+def NotEqual(get_proxy, a, b):
+    data_type = a.node.meta["val"].dtype
+    return get_proxy(tops_op.NotEqual.get_singleton(), (data_type, a, b), {})
 
 @register_conversion(torch.ops.aten.view)
 def Reshape(get_proxy, *args, **kwargs):
@@ -239,8 +243,6 @@ Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot)
 @register_conversion(torch.ops.aten.mm)
 def Gemm(get_proxy, *args, **kwargs):
     return get_proxy(tops_op.Gemm.get_singleton(), args, {})
-    #return get_proxy(tops_op.DotGeneral.get_singleton(), (*args, 
-    #      [], [], [1,], [0,]), {})
 Gemm = torch.fx.wrap(tops_op.Gemm.get_singleton())
 
 
