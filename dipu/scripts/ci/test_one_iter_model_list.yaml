@@ -97,7 +97,7 @@ cuda:
 
 ascend:
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
-      fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList"
+      fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward"
 #     # mmdetection
 #     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
 #       fallback_op_list: "cat.out,nll_loss.out,nll_loss_forward.output,cross_entropy_loss,where.self,linear,linear_backward,convolution_overrideable"
