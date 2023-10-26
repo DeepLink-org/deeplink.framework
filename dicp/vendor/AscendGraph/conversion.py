@@ -11,6 +11,11 @@ from torch.types import (
 import numpy as np
 import torch.fx.traceback as fx_traceback
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
+from dicp.vendor.AscendGraph.codegen.utils import (
+    symint_in_shape,
+    get_ascend_dtype,
+    get_cpp_dtype
+)
 from dicp.dynamo_bridge.conversion import register_conversion_impl
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 
@@ -18,13 +23,6 @@ from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 aten = torch.ops.aten
 prims = torch.ops.prims
 conversions = {}
-
-
-def symint_in_shape(shape):
-    for elem in shape:
-        if isinstance(elem, torch.SymInt):
-            return True
-    return False
 
 
 def get_reduction_str(r):
@@ -106,7 +104,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y_shape_op = self.process_dynamic_shape(y_shape)
             y_op = self.get_proxy(ascend_op.BroadcastTo, (y_op, y_shape_op))
         if out_dtype == torch.float16:
-            y_op = self.get_proxy(ascend_op.Cast, (y_op, torch.float16))
+            y_op = self.get_proxy(ascend_op.Cast, (y_op, "FLOAT16"))
         return self.get_proxy(ascend_op.Mul, (x, y_op))
 
     def mul_complex64(self, x, y):
@@ -150,9 +148,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 x_shape_op = self.process_dynamic_shape(x_shape)
                 y = self.get_proxy(ascend_op.BroadcastTo, (y, x_shape_op))
         if x_dtype != out_dtype:
-            x = self.get_proxy(ascend_op.Cast, (x, out_dtype), {})
+            x = self.get_proxy(
+                ascend_op.Cast, (x, get_ascend_dtype(out_dtype)), {})
         if y_dtype != out_dtype:
-            y = self.get_proxy(ascend_op.Cast, (y, out_dtype), {})
+            y = self.get_proxy(
+                ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Mul, (x, y), {})
 
     @register_conversion(torch.ops.aten.add.Tensor)
@@ -169,15 +169,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y_dtype = y.node.meta['val'].dtype
             y = self.mul(y, alpha)
             if x_dtype != out_dtype:
-                x = self.get_proxy(ascend_op.Cast, (x, out_dtype), {})
+                x = self.get_proxy(
+                    ascend_op.Cast, (x, get_ascend_dtype(out_dtype)), {})
             if y_dtype != out_dtype:
-                y = self.get_proxy(ascend_op.Cast, (y, out_dtype), {})
+                y = self.get_proxy(
+                    ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Add, (x, y), {})
 
     @register_conversion(torch.ops.aten._to_copy.default)
     def _to_copy(self, x, dtype=None, layout=torch.strided, device='cpu'):
         if dtype:
-            return self.get_proxy(ascend_op.Cast, (x, dtype))
+            return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
         else:
             return self.get_proxy(ascend_op.Identity, (x, None))
 
@@ -187,7 +189,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.LessEqual, (a, b), {})
         x2 = self.get_proxy(ascend_op.Const, ([b], torch.float32, []))
         if a.node.meta['val'].dtype == torch.float16:
-            x2 = self.get_proxy(ascend_op.Cast, (x2, torch.float16), {})
+            x2 = self.get_proxy(ascend_op.Cast, (x2, "FLOAT16"), {})
         return self.get_proxy(ascend_op.LessEqual, (a, x2), {})
 
     @register_conversion(aten.view_as_real)
@@ -237,7 +239,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y_shape_op = self.process_dynamic_shape(y_shape)
             y_op = self.get_proxy(ascend_op.BroadcastTo, (y_op, y_shape_op))
         if out_dtype == torch.float16:
-            y_op = self.get_proxy(ascend_op.Cast, (y_op, torch.float16), {})
+            y_op = self.get_proxy(ascend_op.Cast, (y_op, "FLOAT16"), {})
         return self.get_proxy(ascend_op.Div, (x, y_op), {})
 
     @register_conversion(aten.slice.Tensor)
@@ -446,7 +448,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     ascend_op.Const, (y_shape, torch.int32))
             y = self.get_proxy(ascend_op.BroadcastTo, (scalar_op, y_shape_op))
             if x_dtype == torch.float16:
-                y = self.get_proxy(ascend_op.Cast, (y, torch.float16))
+                y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
         return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
@@ -463,7 +465,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             value = self.get_proxy(ascend_op.Const, (mask_shape, torch.int32))
         value = self.get_proxy(ascend_op.BroadcastTo, (scalar_op, value))
         if x_dtype == torch.float16:
-            value = self.get_proxy(ascend_op.Cast, (value, torch.float16))
+            value = self.get_proxy(ascend_op.Cast, (value, "FLOAT16"))
         return self.get_proxy(ascend_op.MaskedFill, (x, mask, value))
 
     @register_conversion(torch.ops.aten.scatter.src)
@@ -491,7 +493,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
-        target = self.get_proxy(ascend_op.Cast, (target, torch.int32))
+        target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
         weight = self.get_proxy(ascend_op.FillV2D, (1.0, csize))
         return self.get_proxy(ascend_op.NLLLoss, (x, target, weight, reduction_str, ignore_index))
 
@@ -501,7 +503,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
-        target = self.get_proxy(ascend_op.Cast, (target, torch.int32))
+        target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
         weight = self.get_proxy(ascend_op.FillV2D, (1.0, csize))
         return self.get_proxy(ascend_op.NLLLossGrad, (x, grad_output, target,
                                                       weight, total_weight,
@@ -517,7 +519,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 x_list.append(x[i])
                 continue
             # cast to y_dtype
-            x_list.append(self.get_proxy(ascend_op.Cast, (x[i], out_dtype)))
+            x_list.append(self.get_proxy(ascend_op.Cast,
+                          (x[i], get_ascend_dtype(out_dtype))))
         return self.get_proxy(ascend_op.ConcatD, (x_list, dim))
 
     @register_conversion(torch.ops.aten.threshold_backward.default)
@@ -651,7 +654,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.prims.convert_element_type)
     def convert_element_type(self, x, dtype):
-        return self.get_proxy(ascend_op.Cast, (x, dtype))
+        return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
 
     @register_conversion(torch.ops.aten.convolution_backward)
     def convolution_backward(self, grad, input, weight, bias,
@@ -736,7 +739,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if x_shape == y_shape:
             return self.get_proxy(ascend_op.Identity, (x, None))
         if x.node.meta['val'].dtype == torch.int64:
-            x = self.get_proxy(ascend_op.Cast, (x, torch.int32))
+            x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
         shape = [dim.meta['val'] if hasattr(
             dim, 'meta') else dim for dim in shape]
         if isinstance(shape, list) and symint_in_shape(shape):
@@ -802,7 +805,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     ascend_op.Const, (a_shape, torch.int32, [len(a_shape)]))
             b = self.get_proxy(ascend_op.BroadcastTo, (b, a_shape))
         if a.node.meta['val'].dtype == torch.float16:
-            b = self.get_proxy(ascend_op.Cast, (b, torch.float16))
+            b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
         return self.get_proxy(ascend_op.Maximum, (a, b))
 
     def common_process_scalar(self, x, y):
@@ -820,7 +823,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 ascend_op.Const, (y_shape, torch.int32))
         y = self.get_proxy(ascend_op.BroadcastTo, (y, shape_preprocess))
         if need_cast:
-            y = self.get_proxy(ascend_op.Cast, (y, torch.float16))
+            y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
         return y
 
     @register_conversion(aten.sub)
@@ -1055,3 +1058,50 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def zeros_like(self, x, dtype=torch.float32, layout=torch.strided,
                    device='cpu', pin_memory=False, memory_format=torch.preserve_format):
         return self.get_proxy(ascend_op.ZerosLike, (x,))
+
+    @register_conversion(torch.ops.aten.rand_like.default)
+    def RandLike(self, x, dtype=torch.float32, layout=torch.strided,
+                 device='cpu', pin_memory=False, memory_format=torch.preserve_format):
+        ascend_dtype = get_ascend_dtype(x.node.meta['val'].dtype)
+        key_op = self.get_proxy(ascend_op.Const, ([0], torch.int32, [1]))
+        key_cast_op = self.get_proxy(ascend_op.Cast, (key_op, "UINT64"))
+        counter_op = self.get_proxy(
+            ascend_op.Const, ([0, 0], torch.int32, [2]))
+        counter_cast_op = self.get_proxy(
+            ascend_op.Cast, (counter_op, "UINT64"))
+        alg_op = self.get_proxy(ascend_op.Const, ([1], torch.int32, []))
+        shape_op = self.get_proxy(ascend_op.Shape, (x,))
+        return self.get_proxy(ascend_op.StatelessRandomUniformV2, (shape_op, key_cast_op,
+                                                                   counter_cast_op, alg_op,
+                                                                   ascend_dtype))
+
+    @register_conversion(torch.ops.aten.gt.Scalar)
+    def GtScalar(self, x, y):
+        dtype = get_ascend_dtype(x.node.meta['val'].dtype)
+        scalar_op = self.get_proxy(
+            ascend_op.Const, ([float(y)], torch.float, []))
+        cast_op = self.get_proxy(ascend_op.Cast, (scalar_op, dtype))
+        return self.get_proxy(ascend_op.Greater, (x, cast_op))
+
+    @register_conversion(torch.ops.aten.addcmul.default)
+    def AddCMul(self, a, b, c, value=1):
+        dtype = a.node.meta['val'].dtype
+        not_support_type = False
+        orig_ascend_dtype = get_ascend_dtype(dtype)
+        try:
+            cpp_dtype = get_cpp_dtype(dtype)
+        except:
+            not_support_type = True
+        value_op = None
+        if not_support_type:
+            const_op = self.get_proxy(
+                ascend_op.Const, ([float(value)], torch.float32, []))
+            value_op = self.get_proxy(
+                ascend_op.Cast, (const_op, orig_ascend_dtype))
+        else:
+            value_op = self.get_proxy(ascend_op.Const, ([value], dtype, []))
+        return self.get_proxy(ascend_op.Addcmul, (a, b, c, value_op))
+
+    @register_conversion(torch.ops.aten.reciprocal.default)
+    def Reciprocal(self, x):
+        return self.get_proxy(ascend_op.Reciprocal, (x,))

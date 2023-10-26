@@ -9,6 +9,12 @@ import torch
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
+from dicp.vendor.AscendGraph.codegen.utils import (
+    symint_in_shape,
+    get_ascend_dtype,
+    get_cpp_dtype,
+    get_ascend_dtype_num
+)
 
 graph_id = 0
 
@@ -31,76 +37,6 @@ def process_name(name, target):
     else:
         real_op = name.rsplit('_', 1)[0] if name[-1].isdigit() else name
     return real_op
-
-
-def symint_in_shape(shape):
-    for elem in shape:
-        if isinstance(elem, torch.SymInt):
-            return True
-    return False
-
-
-def get_np_dtype(dtype):
-    if dtype == torch.float32:
-        return np.float32
-    elif dtype == torch.int64:
-        return np.int64
-    elif dtype == torch.int32:
-        return np.int32
-    elif dtype == torch.bool:
-        return np.bool_
-    elif dtype == torch.float16:
-        return np.float16
-    raise RuntimeError("unsupported np dtype!")
-
-
-def get_ascend_dtype_num(dtype: str):
-    if dtype == "FLOAT":
-        return 0
-    elif dtype == "FLOAT16":
-        return 1
-    elif dtype == "INT32":
-        return 3
-    elif dtype == "INT64":
-        return 9
-    elif dtype == "BOOL":
-        return 12
-    elif dtype == "COMPLEX64":
-        return 16
-    else:
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
-
-
-def get_ascend_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.bool:
-        return "BOOL"
-    elif dtype == torch.int64:
-        return "INT64"
-    elif dtype == torch.float32:
-        return "FLOAT"
-    elif dtype == torch.float16:
-        return "FLOAT16"
-    elif dtype == torch.int32:
-        return "INT32"
-    elif dtype == torch.complex64:
-        return "COMPLEX64"
-    elif dtype == torch.bool:
-        return "BOOL"
-    else:
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
-
-
-def get_cpp_dtype(dtype: torch.dtype) -> str:
-    if dtype == torch.int64:
-        return "INT64"
-    elif dtype == torch.float32:
-        return "FLOAT"
-    elif dtype == torch.float16:
-        return "FLOAT16"
-    elif dtype == torch.int32:
-        return "INT32"
-    else:
-        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
 
 
 class AscendCodegen(torch.fx.Interpreter):
@@ -961,8 +897,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Cast(name, x, dtype):
-        ascend_dtype = get_ascend_dtype(dtype)
+    def Cast(name, x, ascend_dtype):
         cast_op = OP(name, "Cast")
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
@@ -1358,3 +1293,35 @@ class AscendOverrides:
         shape_op = OP(name, "Shape")
         shape_op.set_input("x", x)
         return shape_op.to_node()
+
+    @staticmethod
+    def StatelessRandomUniformV2(name, shape, key, counter, alg, ascend_dtype):
+        rand_op = OP(name, "StatelessRandomUniformV2")
+        rand_op.set_input("shape", shape)
+        rand_op.set_input("key", key)
+        rand_op.set_input("counter", counter)
+        rand_op.set_input("alg", alg)
+        rand_op.set_attr_dtype_str("dtype", ascend_dtype)
+        return rand_op.to_node()
+
+    @staticmethod
+    def Greater(name, x1, x2):
+        op = OP(name, "Greater")
+        op.set_input("x1", x1)
+        op.set_input("x2", x2)
+        return op.to_node()
+
+    @staticmethod
+    def Addcmul(name, input_data, x1, x2, value):
+        op = OP(name, "Addcmul")
+        op.set_input("input_data", input_data)
+        op.set_input("x1", x1)
+        op.set_input("x2", x2)
+        op.set_input("value", value)
+        return op.to_node()
+
+    @staticmethod
+    def Reciprocal(name, x):
+        op = OP(name, "Reciprocal")
+        op.set_input("x", x)
+        return op.to_node()
