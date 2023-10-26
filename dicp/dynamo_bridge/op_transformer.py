@@ -44,7 +44,7 @@ class SingleOpTransformer(torch.fx.Transformer):
                 out, process_fn = converted_target
                 args, kwargs = process_fn(args, kwargs)
             else:
-                out = self._conversions[target](self, *args, **kwargs)
+                out = self._conversions[target](self.get_proxy, *args, **kwargs)
             if isinstance(out, Proxy):
                 out.node.meta = fx_traceback.get_current_meta()
                 return out
