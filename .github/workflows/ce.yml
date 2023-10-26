@@ -1,12 +1,11 @@
 name: dipu ce
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "wgs/**"
-  
-#  schedule:
-#    - cron: '30 11 * * 6'
+#  push:
+#    branches:
+#      - "wgs/**"  
+  schedule:
+    - cron: '30 11 * * 6'
 env:
   target_file: "/home/autolink/rsync/train_flag"
   source_file: "/artifacts/train_flag"
