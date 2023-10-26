@@ -92,8 +92,12 @@ class Operator():
                 tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
         new_args = tuple(tmp_args)
 
-        ret = self.torch_op(*new_args, **kwargs)
+        try:
+            ret = self.torch_op(*new_args, **kwargs)
+        except:
+            ret = None
         return ret
+
 
 class Add(Operator):
     def __init__(self, a, b, **kwargs):
@@ -426,24 +430,6 @@ class Log(Operator):
         self.torch_op = aten.log
 
 
-class GetItem(Operator):
-    def __init__(self, x, idx):
-        super().__init__("GetItem")
-        self.x = x
-        self.idx = idx
-        self.torch_op = operator.getitem
-
-    def __call__(self, x, idx):
-        if hasattr(x, 'meta'):
-            x = x.meta['val']
-        x = x[idx]
-        if hasattr(x, 'meta'):
-            x = x.meta['val']
-        
-        with x.fake_mode:
-            #import pdb;pdb.set_trace()
-            return aten.clone(x)
-
 class NativeDropout(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("NativeDropout")
@@ -721,7 +707,6 @@ class EqualScalar(Operator):
         self.torch_op = aten.eq.Scalar
 
 
-# torch.ops.prims.convert_element_type.default
 class Convert(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Convert")
@@ -787,8 +772,26 @@ class Iota(Operator):
         self.torch_op = torch.ops.prims.iota.default
 
 class GetTupleElement(Operator):
-    def __init__(self, t, idx):
+    def __init__(self, x, idx):
+        self.x = x
+        self.idx = idx
+        self.torch_op = operator.getitem
         super().__init__("GetTupleElement")
+
+    def __call__(self, x, idx):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        
+        if x.dtype in (torch.cfloat, torch.cdouble):
+            data_type = torch.double if x.dtype == torch.cdouble else torch.float
+            data_size = x.size()
+            return torch.empty(data_size, dtype=data_type)
+        
+        x = x[idx]
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        return x
+
 
 class MakeTuple(Operator):
     def __init__(self, a, b):
@@ -800,10 +803,8 @@ class MakeTuple(Operator):
             a = a.meta['val']
         if hasattr(b, 'meta'):
             b = b.meta['val']
-        
-        with a.fake_mode:
-            import pdb;pdb.set_trace()
-            return aten.clone(a), aten.clone(b)
+        return a, b
+
 
 class XlaGather(Operator):
     def __init__(self, operand, indices, offset_dims, collapsed_slice_dims, 
@@ -815,9 +816,7 @@ class XlaGather(Operator):
         out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
 
         with operand.meta['val'].fake_mode:
-            import pdb;pdb.set_trace()
-            return aten.empty(out_shape)
-
+            return aten.empty(out_shape, device=operand.meta["val"].device)
 
 
 # TODO check if we need this wrap

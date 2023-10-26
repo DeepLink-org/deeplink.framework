@@ -529,6 +529,9 @@ class EnflameOverrides(OpOverrides):
                 return [convert_arg(item) for item in arg]
             elif isinstance(arg, torch.layout):
                 return
+            elif isinstance(arg, torch.memory_format):
+                return
+            print(arg, type(arg))
             raise ValueError(f"unknown arg type({arg})")
 
 
@@ -892,7 +895,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
     
     @staticmethod
-    def GetItem(op_var, out_shape, out_dtype, t, idx):
+    def GetTupleElement(op_var, out_shape, out_dtype, t, idx):
         return f"builder::Op {op_var} = builder::GetTupleElement({t}, {int(idx)});"
     
     @staticmethod
@@ -953,7 +956,7 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::HardSwishGrad({x}, {y}, 3.0, 6.0, 6.0);"
     
     @staticmethod
-    def Reshape(op_var, shape, dtype, x, y=None, **kwargs_list):
+    def Reshape(op_var, shape, dtype, x, new_size, **kwargs_list):
         src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
         src_code += f"builder::Op {op_var} = builder::Reshape({x}, {op_type});"
         return src_code

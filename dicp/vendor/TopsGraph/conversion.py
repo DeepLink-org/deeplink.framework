@@ -121,7 +121,7 @@ def ReduceSum(get_proxy, a, *args, **kwargs):
                 a = get_proxy(tops_op.Convert.get_singleton(), (a, out_dtype), {})
     return get_proxy(tops_op.ReduceSum.get_singleton(), (a, *args), kwargs)
 
-GetItem = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetItem))
+GetTupleElement = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetTupleElement))
 
 @register_conversion(torch.ops.aten.index.Tensor)
 def Index(get_proxy, *args, **kwargs):
@@ -151,7 +151,13 @@ Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.
 LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
 Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
 Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
-ReduceMean = torch.fx.wrap(register_conversion(torch.ops.aten.mean)(tops_op.ReduceMean))
+
+@register_conversion(torch.ops.aten.mean)
+def ReduceMean(get_proxy, a, dim, keepdim=False, **kwargs):
+    in_shape = a.node.meta["val"].shape
+    dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
+    return get_proxy(tops_op.ReduceMean.get_singleton(), (a, dim, keepdim), {})
+
 Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
 LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
 Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
@@ -160,12 +166,13 @@ NotEqual = torch.fx.wrap(register_conversion(torch.ops.aten.ne.Scalar)(tops_op.N
 
 @register_conversion(torch.ops.aten.view)
 def Reshape(get_proxy, *args, **kwargs):
-    if len(args) == 2:
-        return get_proxy(tops_op.Reshape.get_singleton(), args, kwargs)
-    else:
-        x = get_proxy(tops_op.Reshape.get_singleton(), (args[0], *args[2:]), kwargs)
-        y = get_proxy(tops_op.Reshape.get_singleton(), (args[1], *args[2:]), kwargs)
+    if  args[0].node.meta["val"].dtype in (torch.cfloat, torch.cdouble):
+        x = get_proxy(tops_op.GetTupleElement.get_singleton(), (args[0], 0), {})
+        x = get_proxy(tops_op.Reshape.get_singleton(), (x, *args[1:]), kwargs)
+        y = get_proxy(tops_op.GetTupleElement.get_singleton(), (args[0], 1), {})
+        y = get_proxy(tops_op.Reshape.get_singleton(), (y, *args[1:]), kwargs)
         return get_proxy(tops_op.MakeTuple.get_singleton(), (x, y), {})
+    return get_proxy(tops_op.Reshape.get_singleton(), args, kwargs)
 
 @register_conversion(torch.ops.aten.convolution)
 def Convolution(get_proxy, input, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
@@ -203,9 +210,8 @@ def Adaptive_avg_pool2d(get_proxy, *args, **kwargs):
     return get_proxy(tops_op.Adaptive_avg_pool2d.get_singleton(), (reudce_dim, *args), kwargs)
 
 @register_conversion(torch.ops.aten._adaptive_avg_pool2d_backward.default)
-def Adaptive_avg_pool2d_backward(get_proxy, grad_output, intpu):
+def Adaptive_avg_pool2d_backward(get_proxy, grad_output, input):
     out_shape = fx_traceback.get_current_meta()["val"].shape
-    out_dtype = fx_traceback.get_current_meta()["val"].dtype
     expand = get_proxy(tops_op.Expand.get_singleton(), (grad_output, out_shape), {})
     value = out_shape[2] * out_shape[3]
     scalar = get_proxy(tops_op.Scalar.get_singleton(), (value, ), {})
@@ -221,7 +227,12 @@ BatchNorm = torch.fx.wrap(register_conversion(torch.ops.aten._native_batch_norm_
 def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
-Softmax = torch.fx.wrap(register_conversion(torch.ops.aten._softmax.default)(tops_op.Softmax))
+@register_conversion(torch.ops.aten._softmax)
+def Softmax(get_prxy, a, dim, half_to_float):
+    out_shape = fx_traceback.get_current_meta()["val"].shape
+    dim = dim + len(out_shape) if dim < 0 else dim
+    return get_prxy(tops_op.Softmax.get_singleton(), (a, dim, half_to_float), {})
+
 Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
 Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
 
@@ -240,14 +251,12 @@ def Bmm(get_proxy, *args, **kwargs):
 
 @register_conversion(torch.ops.aten.cat.default)
 def Concatenate(get_proxy, *args, **kwargs):
-    new_args = []
     tensors = []
     for arg in args[0]:
         if torch.numel(arg.node.meta['val']):
             tensors.append(arg)
     dim = 0 if len(args) < 2 else args[1] 
     dim = dim % len(args[0][0].node.meta["val"].shape)
-    new_args = (tensors, dim)
     return get_proxy(tops_op.Concatenate.get_singleton(), (args[0], dim), {})
 
 EmptyLike = torch.fx.wrap(register_conversion(torch.ops.aten.empty_like.default)(tops_op.EmptyLike))
@@ -268,7 +277,8 @@ def Slice(get_proxy, a, dim=0, start=0, end=-1, step=1, **kwargs):
             out_shape = fx_traceback.get_current_meta()["val"].shape
             if in_shape != out_shape:
                 start = start % in_shape[dim]
-                end = end % in_shape[dim]
+                end = end + in_shape[dim] if end < 0 else end
+                end = in_shape[dim] if end > in_shape[dim] else end
                 return get_proxy(tops_op.SliceInDim.get_singleton(), (a, dim, start, end, step), kwargs)
             start_indices = f"{{{', '.join(map(str, [0] * len(out_shape)))}}}"
             limit_indices = f"{{{str(in_shape).split('[')[-1].split(']')[0]}}}"
