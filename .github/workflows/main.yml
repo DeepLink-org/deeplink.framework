@@ -52,8 +52,9 @@ jobs:
               git checkout ${{ github.sha }}
             fi
           fi
-          cd ${GITHUB_WORKSPACE}/${REPO}/dipu
-          rm -rf third_party/DIOPI && git submodule update --init --recursive
+          cd ${GITHUB_WORKSPACE}/${REPO}/dipu && rm -rf third_party/kineto
+          git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git third_party/kineto
+          git submodule update --init && cd third_party/kineto && git submodule update --init 
           cd ${GITHUB_WORKSPACE} && cp -R ${REPO} ${REPO}_DIOPI
           cd ${REPO}/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
