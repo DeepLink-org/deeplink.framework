@@ -1,10 +1,18 @@
 
 // Copyright (c) 2023, DeepLink.
+
+#include <set>
+#include <unordered_set>
+
 #include <torch/csrc/utils/pybind.h>
+#include <torch/csrc/profiler/orchestration/observer.h>
 #include <pybind11/chrono.h>
 
 #include "exportapi.h"
-#include <csrc_dipu/profiler/profiler.h>
+#include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/profiler/profiler_kineto.h"
+#include "csrc_dipu/profiler/profiler_python.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace py = pybind11;
 
@@ -13,16 +21,20 @@ namespace dipu {
 void exportProfiler(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
 
-  m.def("profile_start", &dipu::profile::startProfile);
-  m.def("profile_end", &dipu::profile::endProfile);
-  m.def("profiler_flush", &dipu::profile::FlushAllRecords);
-  py::class_<dipu::profile::Record>(m, "_DIPUProfilerRecord")
-      .def_readonly("name", &dipu::profile::Record::name)
-      .def_readonly("opid", &dipu::profile::Record::opId)
-      .def_readonly("begin", &dipu::profile::Record::begin)
-      .def_readonly("end", &dipu::profile::Record::end)
-      .def_readonly("thread_idx", &dipu::profile::Record::threadIdx);
-  m.def("get_record", &dipu::profile::getRecordList);
+  m.def("_prepare_profiler", profile::prepareProfiler);
+  m.def("_enable_profiler", profile::enableProfiler, py::arg("config"),
+        py::arg("activities"), py::arg("scopes") = std::unordered_set<at::RecordScope>());
+  m.def("_disable_profiler", profile::disableProfiler);
+  m.def("_add_metadata_json", profile::addMetadataJson);
+  m.def("_kineto_step", profile::profilerStep);
+  m.def("_supported_activities", []() {
+    std::set<torch::profiler::impl::ActivityType> activities{torch::profiler::impl::ActivityType::CPU};
+    if (devproxy::getDeviceCount() > 0) {
+      activities.insert(torch::profiler::impl::ActivityType::CUDA);
+    }
+    return activities;
+  });
+  profile::init();
 }
 
 }  // namespace dipu

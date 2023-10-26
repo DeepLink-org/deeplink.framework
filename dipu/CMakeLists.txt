@@ -154,6 +154,11 @@ set_target_properties(
 target_include_directories(diopi_impl INTERFACE "${DIOPI_PROTO_PATH}/include")
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/third_party/fmt/include)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/include)
+include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/src)
+add_definitions(-DUSE_KINETO)
+
 if(LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)
 endif()

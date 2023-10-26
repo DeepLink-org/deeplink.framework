@@ -27,7 +27,12 @@ deviceId_t current_device() {
   return static_cast<deviceId_t>(devId_);
 }
 
-// in tang_runtime_api.h
+DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+ 
+  DIPUDeviceProperties prop;
+  return prop;
+}
+
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
     DROPLET_deviceId devId_ = static_cast<deviceId_t>(devId);
@@ -175,6 +180,10 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
 
 void freeDevice(void* p) {
     DIPU_CALLDROPLET(::tangFree(p))
+}
+
+bool isPinnedPtr(const void *p) {
+    return true;
 }
 
 void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {

@@ -29,13 +29,17 @@ function build_dipu_lib() {
 case $1 in
     build_dipu)
         (
+            bash scripts/ci/ci_build_third_party.sh
             build_diopi_lib
             build_dipu_lib
         ) || exit -1;;
     build_diopi)
         build_diopi_lib || exit -1;;
     build_dipu_only)
-         build_dipu_lib || exit -1;;
+        (
+            bash scripts/ci/ci_build_third_party.sh
+            build_dipu_lib
+        ) || exit -1;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac

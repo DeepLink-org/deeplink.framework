@@ -26,6 +26,7 @@ function build_dipu_lib() {
 case $1 in
     build_dipu)
         (
+            bash scripts/ci/ci_build_third_party.sh
             build_diopi_lib
             build_dipu_lib
         ) \
