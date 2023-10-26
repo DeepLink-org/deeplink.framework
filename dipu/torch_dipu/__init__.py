@@ -19,7 +19,7 @@ from torch_dipu import dipu
 from torch_dipu.dipu import *
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
-from .profiler.profiler import dipu_kineto_available
+from .profiler.profiler import apply_profiler_patch
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.generator import apply_generator_patch
 from .dipu.streams import apply_stream_patch, _dipu_record_stream
@@ -104,19 +104,6 @@ def apply_temp_patch():
     def script_wrapper(*args, **kwargs):
         pass
     torch.jit.script = script_wrapper
-
-
-def apply_profiler_patch():
-    setattr(torch.profiler.profiler, 'kineto_available', dipu_kineto_available)
-    setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
-    setattr(torch.autograd.profiler, '_prepare_profiler', _C._prepare_profiler)
-    setattr(torch.autograd.profiler, '_enable_profiler', _C._enable_profiler)
-    setattr(torch.autograd.profiler, '_disable_profiler', _C._disable_profiler)
-    setattr(torch.autograd.profiler, '_kineto_step', _C._kineto_step)
-    setattr(torch.autograd.profiler, '_supported_activities', _C._supported_activities)
-    setattr(torch.autograd, '_supported_activities', _C._supported_activities)
-    setattr(torch.autograd, '_add_metadata_json', _C._add_metadata_json)
-
 
 
 def apply_patches():
