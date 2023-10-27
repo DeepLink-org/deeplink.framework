@@ -10,18 +10,6 @@ from torch.types import (
 )
 import numpy as np
 import torch.fx.traceback as fx_traceback
-from torch.fx.node import (
-    Argument,
-    Target
-)
-from torch.fx import (
-    Proxy,
-)
-from typing import (
-    Any,
-    Dict,
-    Tuple
-)
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.vendor.AscendGraph.codegen.utils import (
     symint_in_shape,
@@ -62,23 +50,6 @@ def register_conversion(aten_fn):
 class AtenToAscendTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
-
-    def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
-        if target in self._conversions:
-            converted_target = self._conversions[target]
-            if isinstance(converted_target, tuple):
-                # converted_target: (Operation, process_args_kwargs_fn)
-                out, process_fn = converted_target
-                args, kwargs = process_fn(args, kwargs)
-            else:
-                out = self._conversions[target](self, *args, **kwargs)
-            if isinstance(out, Proxy):
-                out.node.meta = fx_traceback.get_current_meta()
-                return out
-            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
-            proxy.node.meta = fx_traceback.get_current_meta()
-            return proxy
-        return super().call_function(target, args, kwargs)
 
     def process_dynamic_shape(self, shape):
         x_names = []

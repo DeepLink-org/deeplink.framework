@@ -2,7 +2,7 @@ import torch
 import torch.fx
 
 from dicp.dynamo_bridge.op_transformer import OpSetTransformer
-from dicp.vendor.TopsGraph.conversion import AtenToTopsTrasformer
+from dicp.vendor.TopsGraph.conversion import AtenToTopsTransformer
 from dicp.vendor.TopsGraph.conversion import patterns, conversions
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 
@@ -21,7 +21,7 @@ def topsgraph_opset_transform(
 
 
     gm = OpSetTransformer(patterns).transform(gm)
-    gm = AtenToTopsTrasformer(gm).transform()
+    gm = AtenToTopsTransformer(gm).transform()
 
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
