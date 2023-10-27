@@ -35,24 +35,7 @@ class SingleOpTransformer(torch.fx.Transformer):
     def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any] = {}):
         proxy = self.tracer.create_proxy('call_function', target.get_singleton(), args, kwargs)
         return proxy
-        
-    def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
-        if target in self._conversions:
-            converted_target = self._conversions[target]
-            if isinstance(converted_target, tuple):
-                # converted_target: (Operation, process_args_kwargs_fn)
-                out, process_fn = converted_target
-                args, kwargs = process_fn(args, kwargs)
-            else:
-                out = self._conversions[target](self.get_proxy, *args, **kwargs)
-            if isinstance(out, Proxy):
-                out.node.meta = fx_traceback.get_current_meta()
-                return out
-            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
-            proxy.node.meta = fx_traceback.get_current_meta()
-            return proxy
-        return super().call_function(target, args, kwargs)
-
+    
     def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
         proxy = super().get_attr(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()

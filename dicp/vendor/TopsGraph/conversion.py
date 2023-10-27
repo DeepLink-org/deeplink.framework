@@ -5,7 +5,10 @@ from abc import ABC, abstractmethod
 import numbers
 import torch.fx.traceback as fx_traceback
 from torch.fx import Proxy
+from torch.fx.node import Argument, Target
 import operator
+from typing import Any, Dict, Tuple
+from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from typing import (
     Optional,
@@ -61,7 +64,29 @@ def register_conversion(aten_fn):
         aten_fn,
     )
 
-@register_conversion(torch.ops.aten.add.Tensor)
+class AtenToTopsTrasformer(SingleOpTransformer):
+    def __init__(self, gm):
+        super().__init__(gm, conversions)
+
+    def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+        if target in self._conversions:
+            converted_target = self._conversions[target]
+            if isinstance(converted_target, tuple):
+                # converted_target: (Operation, process_args_kwargs_fn)
+                out, process_fn = converted_target
+                args, kwargs = process_fn(args, kwargs)
+            else:
+                out = self._conversions[target](self.get_proxy, *args, **kwargs)
+            if isinstance(out, Proxy):
+                out.node.meta = fx_traceback.get_current_meta()
+                return out
+            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
+            proxy.node.meta = fx_traceback.get_current_meta()
+            return proxy
+        return super().call_function(target, args, kwargs)
+
+
+@register_conversion(aten.add.Tensor)
 def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
     y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
     try:
@@ -77,11 +102,11 @@ def Add(get_proxy, x, y, alpha: Optional[Number] = 1):
         y = get_proxy(tops_op.Mul, (y, alpha))
     return get_proxy(tops_op.Add, (x, y))
 
-Abs = torch.fx.wrap(register_conversion(torch.ops.aten.abs)(tops_op.Abs))
-AddDefalut = torch.fx.wrap(register_conversion(torch.ops.aten.add.default)(tops_op.AddDefalut))
-AddScalar = torch.fx.wrap(register_conversion(torch.ops.aten.add.Scalar)(tops_op.AddScalar))
+Abs = torch.fx.wrap(register_conversion(aten.abs)(tops_op.Abs))
+AddDefalut = torch.fx.wrap(register_conversion(aten.add.default)(tops_op.AddDefalut))
+AddScalar = torch.fx.wrap(register_conversion(aten.add.Scalar)(tops_op.AddScalar))
 
-@register_conversion(torch.ops.aten.mul)
+@register_conversion(aten.mul)
 def Mul(get_proxy, a, b):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta") and 'val' in a.node.meta:
@@ -89,9 +114,9 @@ def Mul(get_proxy, a, b):
                 return tops_op.ComplexMul(a, b)
     return tops_op.Mul(a, b)
 
-MulScalar = torch.fx.wrap(register_conversion(torch.ops.aten.mul.Scalar)(tops_op.MulScalar))
+MulScalar = torch.fx.wrap(register_conversion(aten.mul.Scalar)(tops_op.MulScalar))
 
-@register_conversion(torch.ops.aten.div)
+@register_conversion(aten.div)
 def Div(get_proxy, a, b):
     a_node = a.node if isinstance(a, torch.fx.proxy.Proxy) else a
     in_dtype = a_node.meta["val"].dtype
@@ -104,14 +129,14 @@ def Div(get_proxy, a, b):
         return get_proxy(tops_op.Convert, (res, torch.float16))
     return get_proxy(tops_op.Div, (a, b))
 
-Sub = torch.fx.wrap(register_conversion(torch.ops.aten.sub)(tops_op.Sub))
-Sqrt = torch.fx.wrap(register_conversion(torch.ops.aten.sqrt)(tops_op.Sqrt))
-Reciprocal = torch.fx.wrap(register_conversion(torch.ops.aten.reciprocal)(tops_op.Reciprocal))
-Rsqrt = torch.fx.wrap(register_conversion(torch.ops.aten.rsqrt)(tops_op.Rsqrt))
-Exp = torch.fx.wrap(register_conversion(torch.ops.aten.exp)(tops_op.Exp))
-Relu = torch.fx.wrap(register_conversion(torch.ops.aten.relu)(tops_op.Relu))
+Sub = torch.fx.wrap(register_conversion(aten.sub)(tops_op.Sub))
+Sqrt = torch.fx.wrap(register_conversion(aten.sqrt)(tops_op.Sqrt))
+Reciprocal = torch.fx.wrap(register_conversion(aten.reciprocal)(tops_op.Reciprocal))
+Rsqrt = torch.fx.wrap(register_conversion(aten.rsqrt)(tops_op.Rsqrt))
+Exp = torch.fx.wrap(register_conversion(aten.exp)(tops_op.Exp))
+Relu = torch.fx.wrap(register_conversion(aten.relu)(tops_op.Relu))
 
-@register_conversion(torch.ops.aten.sum)
+@register_conversion(aten.sum)
 def ReduceSum(get_proxy, a, *args, **kwargs):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
@@ -123,7 +148,7 @@ def ReduceSum(get_proxy, a, *args, **kwargs):
 
 GetTupleElement = torch.fx.wrap(register_conversion(operator.getitem)(tops_op.GetTupleElement))
 
-@register_conversion(torch.ops.aten.index.Tensor)
+@register_conversion(aten.index.Tensor)
 def Index(get_proxy, *args, **kwargs):
     assert len(args[1]) == 1, f"Only support aten.index with one index arg" 
     idx_rank = len(args[1][0].node.meta['val'].shape)
@@ -133,42 +158,42 @@ def Index(get_proxy, *args, **kwargs):
            [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]))
 
 # tops_dropout only returns a tensor, not a tuple of tensor
-@register_conversion(torch.ops.aten.native_dropout.default)
+@register_conversion(aten.native_dropout.default)
 def NativeDropout(get_proxy, *args, **kwargs):
     dropout = get_proxy(tops_op.NativeDropout, args)
     ne = get_proxy(tops_op.NotEqual, (dropout, 0))
     return get_proxy(tops_op.MakeTuple, (dropout, ne))
 
-Squeeze = torch.fx.wrap(register_conversion(torch.ops.aten.squeeze)(tops_op.Squeeze))
-Unsqueeze = torch.fx.wrap(register_conversion(torch.ops.aten.unsqueeze)(tops_op.Unsqueeze))
-Permute = torch.fx.wrap(register_conversion(torch.ops.aten.permute)(tops_op.Transpose))
-Transpose = torch.fx.wrap(register_conversion(torch.ops.aten.transpose)(tops_op.Transpose1))
-Hardswish = torch.fx.wrap(register_conversion(torch.ops.aten.hardswish)(tops_op.Hardswish))
-HardswishBackward = torch.fx.wrap(register_conversion(torch.ops.aten.hardswish_backward)(tops_op.HardswishBackward))
-Clone = torch.fx.wrap(register_conversion(torch.ops.aten.clone)(tops_op.Clone))
-Copy = torch.fx.wrap(register_conversion(torch.ops.aten.copy.default)(tops_op.Copy))
-Copy_ = torch.fx.wrap(register_conversion(torch.ops.aten.copy_.default)(tops_op.Copy))
-LiftFreshCopy = torch.fx.wrap(register_conversion(torch.ops.aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
-Alias = torch.fx.wrap(register_conversion(torch.ops.aten.alias)(tops_op.Alias))
-Neg = torch.fx.wrap(register_conversion(torch.ops.aten.neg)(tops_op.Neg))
+Squeeze = torch.fx.wrap(register_conversion(aten.squeeze)(tops_op.Squeeze))
+Unsqueeze = torch.fx.wrap(register_conversion(aten.unsqueeze)(tops_op.Unsqueeze))
+Permute = torch.fx.wrap(register_conversion(aten.permute)(tops_op.Transpose))
+Transpose = torch.fx.wrap(register_conversion(aten.transpose)(tops_op.Transpose1))
+Hardswish = torch.fx.wrap(register_conversion(aten.hardswish)(tops_op.Hardswish))
+HardswishBackward = torch.fx.wrap(register_conversion(aten.hardswish_backward)(tops_op.HardswishBackward))
+Clone = torch.fx.wrap(register_conversion(aten.clone)(tops_op.Clone))
+Copy = torch.fx.wrap(register_conversion(aten.copy.default)(tops_op.Copy))
+Copy_ = torch.fx.wrap(register_conversion(aten.copy_.default)(tops_op.Copy))
+LiftFreshCopy = torch.fx.wrap(register_conversion(aten.lift_fresh_copy.default)(tops_op.LiftFreshCopy))
+Alias = torch.fx.wrap(register_conversion(aten.alias)(tops_op.Alias))
+Neg = torch.fx.wrap(register_conversion(aten.neg)(tops_op.Neg))
 
-@register_conversion(torch.ops.aten.mean)
+@register_conversion(aten.mean)
 def ReduceMean(get_proxy, a, dim, keepdim=False, **kwargs):
     in_shape = a.node.meta["val"].shape
     dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
     return get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
-Less = torch.fx.wrap(register_conversion(torch.ops.aten.lt.Tensor)(tops_op.Less))
-LessEqual = torch.fx.wrap(register_conversion(torch.ops.aten.le.Scalar)(tops_op.LessEqual))
-Equal = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Tensor)(tops_op.Equal))
-EqualScalar = torch.fx.wrap(register_conversion(torch.ops.aten.eq.Scalar)(tops_op.EqualScalar))
+Less = torch.fx.wrap(register_conversion(aten.lt.Tensor)(tops_op.Less))
+LessEqual = torch.fx.wrap(register_conversion(aten.le.Scalar)(tops_op.LessEqual))
+Equal = torch.fx.wrap(register_conversion(aten.eq.Tensor)(tops_op.Equal))
+EqualScalar = torch.fx.wrap(register_conversion(aten.eq.Scalar)(tops_op.EqualScalar))
 
-@register_conversion(torch.ops.aten.ne.Scalar)
+@register_conversion(aten.ne.Scalar)
 def NotEqual(get_proxy, a, b):
     data_type = a.node.meta["val"].dtype
     return get_proxy(tops_op.NotEqual, (data_type, a, b))
 
-@register_conversion(torch.ops.aten.view)
+@register_conversion(aten.view)
 def Reshape(get_proxy, *args, **kwargs):
     if  args[0].node.meta["val"].dtype in (torch.cfloat, torch.cdouble):
         x = get_proxy(tops_op.GetTupleElement, (args[0], 0))
@@ -178,7 +203,7 @@ def Reshape(get_proxy, *args, **kwargs):
         return get_proxy(tops_op.MakeTuple, (x, y))
     return get_proxy(tops_op.Reshape, args, kwargs)
 
-@register_conversion(torch.ops.aten.convolution)
+@register_conversion(aten.convolution)
 def Convolution(get_proxy, input, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
     inputs = [item for item in (input, weight, bias) if item is not None]
     padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
@@ -187,7 +212,7 @@ def Convolution(get_proxy, input, weight, bias, stride, padding, dilation, trans
     return get_proxy(tops_op.Convolution, (inputs, input, weight, bias, stride, padding, dilation,
                                                            transposed, output_padding, groups))
 
-@register_conversion(torch.ops.aten.convolution_backward.default)
+@register_conversion(aten.convolution_backward.default)
 def ConvolutionBackward(get_proxy, grad_output, input, weight, bias_size, stride, padding, dilation, *args, **kwargs):
     inputs = [item for item in (grad_output, input, weight)]
     inputs = [inputs, f"{{{', '.join(map(str, bias_size))}}}", f"{{{', '.join(map(str, stride))}}}",
@@ -195,7 +220,7 @@ def ConvolutionBackward(get_proxy, grad_output, input, weight, bias_size, stride
     return get_proxy(tops_op.ConvolutionBackward, (inputs, grad_output, input, weight, bias_size, 
                                                                    stride, padding, dilation, *args), kwargs)
 
-@register_conversion(torch.ops.aten.max_pool2d_with_indices)
+@register_conversion(aten.max_pool2d_with_indices)
 def Max_pool2d_with_indices(get_proxy, x, kernel_size, stride=[], padding=[0, 0], dilation=[1, 1], ceil_mode=False):
     ksize = f"{{{', '.join(map(str, kernel_size))}}}"
     enflame_stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{1, 1}}"
@@ -205,15 +230,15 @@ def Max_pool2d_with_indices(get_proxy, x, kernel_size, stride=[], padding=[0, 0]
     inputs = [ksize, enflame_stride, enflame_padding, f"{{{', '.join(map(str, out_shape))}}}"]
     return get_proxy(tops_op.Max_pool2d_with_indices, (inputs, x, kernel_size, stride, padding, dilation, ceil_mode))
 
-MaxPool2DBackward = torch.fx.wrap(register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)(tops_op.Max_pool2d_with_indices_backward))
+MaxPool2DBackward = torch.fx.wrap(register_conversion(aten.max_pool2d_with_indices_backward)(tops_op.Max_pool2d_with_indices_backward))
 
-@register_conversion(torch.ops.aten._adaptive_avg_pool2d.default)
+@register_conversion(aten._adaptive_avg_pool2d.default)
 def Adaptive_avg_pool2d(get_proxy, *args, **kwargs):
     assert len(args) == 2 and args[1] == [1, 1], "limited support"
     reudce_dim = f"{{2, 3}}"
     return get_proxy(tops_op.Adaptive_avg_pool2d, (reudce_dim, *args), kwargs)
 
-@register_conversion(torch.ops.aten._adaptive_avg_pool2d_backward.default)
+@register_conversion(aten._adaptive_avg_pool2d_backward.default)
 def Adaptive_avg_pool2d_backward(get_proxy, grad_output, input):
     out_shape = fx_traceback.get_current_meta()["val"].shape
     expand = get_proxy(tops_op.Expand, (grad_output, out_shape))
@@ -221,36 +246,36 @@ def Adaptive_avg_pool2d_backward(get_proxy, grad_output, input):
     scalar = get_proxy(tops_op.Scalar, (value, ))
     return get_proxy(tops_op.Div, (expand, scalar))
 
-Gather = torch.fx.wrap(register_conversion(torch.ops.aten.gather)(tops_op.Gather))
-Log = torch.fx.wrap(register_conversion(torch.ops.aten.log)(tops_op.Log))
-ReduceMax = torch.fx.wrap(register_conversion(torch.ops.aten.amax)(tops_op.ReduceMax))
+Gather = torch.fx.wrap(register_conversion(aten.gather)(tops_op.Gather))
+Log = torch.fx.wrap(register_conversion(aten.log)(tops_op.Log))
+ReduceMax = torch.fx.wrap(register_conversion(aten.amax)(tops_op.ReduceMax))
 DotGeneral = torch.fx.wrap(tops_op.DotGeneral)
-BatchNorm = torch.fx.wrap(register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)(tops_op.BatchNorm))
+BatchNorm = torch.fx.wrap(register_conversion(aten._native_batch_norm_legit_functional.default)(tops_op.BatchNorm))
 
-@register_conversion(torch.ops.aten.native_batch_norm_backward.default)
+@register_conversion(aten.native_batch_norm_backward.default)
 def BatchNormBackward(*args, **kwargs):
     return tops_op.BatchNormBackward(*args, **kwargs)
 
-@register_conversion(torch.ops.aten._softmax)
+@register_conversion(aten._softmax)
 def Softmax(get_prxy, a, dim, half_to_float):
     out_shape = fx_traceback.get_current_meta()["val"].shape
     dim = dim + len(out_shape) if dim < 0 else dim
     return get_prxy(tops_op.Softmax, (a, dim, half_to_float))
 
-Bmm = torch.fx.wrap(register_conversion(torch.ops.aten.bmm.default)(tops_op.Bmm))
-Dot = torch.fx.wrap(register_conversion(torch.ops.aten.dot.default)(tops_op.Dot))
+Bmm = torch.fx.wrap(register_conversion(aten.bmm.default)(tops_op.Bmm))
+Dot = torch.fx.wrap(register_conversion(aten.dot.default)(tops_op.Dot))
 
-@register_conversion(torch.ops.aten.mm)
+@register_conversion(aten.mm)
 def Gemm(get_proxy, *args, **kwargs):
     return get_proxy(tops_op.Gemm, args)
 Gemm = torch.fx.wrap(tops_op.Gemm)
 
-@register_conversion(torch.ops.aten.bmm.default)
+@register_conversion(aten.bmm.default)
 def Bmm(get_proxy, *args, **kwargs):
     return get_proxy(tops_op.DotGeneral, (*args, 
           [0,], [0,], [2,], [1,]))
 
-@register_conversion(torch.ops.aten.cat.default)
+@register_conversion(aten.cat.default)
 def Concatenate(get_proxy, *args, **kwargs):
     tensors = []
     for arg in args[0]:
@@ -260,17 +285,17 @@ def Concatenate(get_proxy, *args, **kwargs):
     dim = dim % len(args[0][0].node.meta["val"].shape)
     return get_proxy(tops_op.Concatenate, (args[0], dim))
 
-EmptyLike = torch.fx.wrap(register_conversion(torch.ops.aten.empty_like.default)(tops_op.EmptyLike))
-Bernoulli = torch.fx.wrap(register_conversion(torch.ops.aten.bernoulli.p)(tops_op.Bernoulli))
-NewEmptyStrided = torch.fx.wrap(register_conversion(torch.ops.aten.new_empty_strided.default)(tops_op.NewEmptyStrided))
-Expand = torch.fx.wrap(register_conversion(torch.ops.aten.expand.default)(tops_op.Expand))
-Full = torch.fx.wrap(register_conversion(torch.ops.aten.full.default)(tops_op.Full))
-FullLike = torch.fx.wrap(register_conversion(torch.ops.aten.full_like.default)(tops_op.FullLike))
-Max = torch.fx.wrap(register_conversion(torch.ops.aten.maximum.default)(tops_op.Max))
-Pow = torch.fx.wrap(register_conversion(torch.ops.aten.pow.Tensor_Scalar)(tops_op.Pow))
-Sigmoid = torch.fx.wrap(register_conversion(torch.ops.aten.sigmoid.default)(tops_op.Sigmoid))
+EmptyLike = torch.fx.wrap(register_conversion(aten.empty_like.default)(tops_op.EmptyLike))
+Bernoulli = torch.fx.wrap(register_conversion(aten.bernoulli.p)(tops_op.Bernoulli))
+NewEmptyStrided = torch.fx.wrap(register_conversion(aten.new_empty_strided.default)(tops_op.NewEmptyStrided))
+Expand = torch.fx.wrap(register_conversion(aten.expand.default)(tops_op.Expand))
+Full = torch.fx.wrap(register_conversion(aten.full.default)(tops_op.Full))
+FullLike = torch.fx.wrap(register_conversion(aten.full_like.default)(tops_op.FullLike))
+Max = torch.fx.wrap(register_conversion(aten.maximum.default)(tops_op.Max))
+Pow = torch.fx.wrap(register_conversion(aten.pow.Tensor_Scalar)(tops_op.Pow))
+Sigmoid = torch.fx.wrap(register_conversion(aten.sigmoid.default)(tops_op.Sigmoid))
 
-@register_conversion(torch.ops.aten.slice.Tensor)
+@register_conversion(aten.slice.Tensor)
 def Slice(get_proxy, a, dim=0, start=0, end=-1, step=1, **kwargs):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
@@ -286,7 +311,7 @@ def Slice(get_proxy, a, dim=0, start=0, end=-1, step=1, **kwargs):
             strides = f"{{{', '.join(map(str, [1] * len(out_shape)))}}}"
     return get_proxy(tops_op.Slice, (start_indices, limit_indices, strides, a, dim, start, end, step), kwargs)
 
-@register_conversion(torch.ops.aten.slice_scatter.default)
+@register_conversion(aten.slice_scatter.default)
 def SliceScatter(get_proxy, a, b, dim=0, start=0, end=-1, step=1):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
@@ -295,7 +320,7 @@ def SliceScatter(get_proxy, a, b, dim=0, start=0, end=-1, step=1):
             assert end == operand_shape[dim] and step == 1, "limited support"
             return get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
 
-@register_conversion(torch.ops.aten.select.int)
+@register_conversion(aten.select.int)
 def Select(get_proxy, a, dim, index):
     if isinstance(a, Proxy):
         if hasattr(a.node, "meta"):
@@ -304,12 +329,12 @@ def Select(get_proxy, a, dim, index):
             slice = get_proxy(tops_op.SliceInDim, (a, dim, index, index + 1, 1))
             return get_proxy(tops_op.Squeeze, (slice, dim))
 
-Where = torch.fx.wrap(register_conversion(torch.ops.aten.where.self)(tops_op.Where))
-Scatter = torch.fx.wrap(register_conversion(torch.ops.aten.scatter.value)(tops_op.Scatter))
-ZerosLike = torch.fx.wrap(register_conversion(torch.ops.aten.zeros_like)(tops_op.ZerosLike))
-OnesLike = torch.fx.wrap(register_conversion(torch.ops.aten.ones_like)(tops_op.OnesLike))
+Where = torch.fx.wrap(register_conversion(aten.where.self)(tops_op.Where))
+Scatter = torch.fx.wrap(register_conversion(aten.scatter.value)(tops_op.Scatter))
+ZerosLike = torch.fx.wrap(register_conversion(aten.zeros_like)(tops_op.ZerosLike))
+OnesLike = torch.fx.wrap(register_conversion(aten.ones_like)(tops_op.OnesLike))
 
-@register_conversion(torch.ops.aten.scalar_tensor.default)
+@register_conversion(aten.scalar_tensor.default)
 def Scalar(get_proxy, a, **kwargs):
     if "dtype" in kwargs:
         real_dtype = kwargs["dtype"]
@@ -319,33 +344,33 @@ def Scalar(get_proxy, a, **kwargs):
             return get_proxy(tops_op.Convert(), (scalar, real_dtype))
     return get_proxy(tops_op.Scalar, (a,), kwargs)
 
-@register_conversion(torch.ops.aten.embedding)
+@register_conversion(aten.embedding)
 def Embedding(get_proxy, *args, **kwargs):
     idx_rank = len(args[1].node.meta['val'].shape)
     return get_proxy(tops_op.XlaGather, (*args, 
            [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]))
 
-Convert = torch.fx.wrap(register_conversion(torch.ops.prims.convert_element_type)(tops_op.Convert))
-ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
-ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
-UnsafeView = torch.fx.wrap(register_conversion(torch.ops.aten._unsafe_view.default)(tops_op.UnsafeView))
-Logsoftmax = torch.fx.wrap(register_conversion(torch.ops.aten._log_softmax.default)(tops_op.Logsoftmax))
-ViewAsComplex = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_complex)(tops_op.ViewAsComplex))
-ViewAsReal = torch.fx.wrap(register_conversion(torch.ops.aten.view_as_real)(tops_op.ViewAsReal))
+Convert = torch.fx.wrap(register_conversion(prims.convert_element_type)(tops_op.Convert))
+ViewAsComplex = torch.fx.wrap(register_conversion(aten.view_as_complex)(tops_op.ViewAsComplex))
+ViewAsReal = torch.fx.wrap(register_conversion(aten.view_as_real)(tops_op.ViewAsReal))
+UnsafeView = torch.fx.wrap(register_conversion(aten._unsafe_view.default)(tops_op.UnsafeView))
+Logsoftmax = torch.fx.wrap(register_conversion(aten._log_softmax.default)(tops_op.Logsoftmax))
+ViewAsComplex = torch.fx.wrap(register_conversion(aten.view_as_complex)(tops_op.ViewAsComplex))
+ViewAsReal = torch.fx.wrap(register_conversion(aten.view_as_real)(tops_op.ViewAsReal))
 
-@register_conversion(torch.ops.aten.gelu.default)
+@register_conversion(aten.gelu.default)
 def Gelu(get_proxy, *args, **kwargs):
     approximate = 'true' if ('approximate' in kwargs 
         and kwargs["approximate"] == 'tanh') else 'false'
     return get_proxy(tops_op.Gelu, (args[0], approximate))
 
-@register_conversion(torch.ops.aten.gelu_backward.default)
+@register_conversion(aten.gelu_backward.default)
 def gelubackward(get_proxy, *args, **kwargs):
     approximate = 'true' if ('approximate' in kwargs 
         and kwargs["approximate"] == 'tanh') else 'false'
     return get_proxy(tops_op.GeluBackward, (args[0], args[1], approximate))
 
-@register_conversion(torch.ops.prims.iota.default)
+@register_conversion(prims.iota.default)
 def Iota(get_proxy, length, **kwargs):
     iota = get_proxy(tops_op.Iota, (length,), kwargs)
     if kwargs["start"] != 0 or kwargs["step"] != 1:
