@@ -38,36 +38,6 @@ class Adds(Operator):
 class Add(Operator):
     def __init__(self):
         super().__init__("add")
-        # self.torch_op = aten.add
-
-    # def __call__(self, a, b):
-    #     if hasattr(a, 'meta'):
-    #         a = a.meta['val']
-    #         a_shape = a.shape
-    #     else:
-    #         a_shape = [1]
-    #     if hasattr(b, 'meta'):
-    #         b = b.meta['val']
-    #         b_shape = b.shape
-    #     else:
-    #         b_shape = [1]
-
-    #     fake_mode = None
-    #     for arg in [a, b]:
-    #         if isinstance(arg, FakeTensor):
-    #             fake_mode = arg.fake_mode
-    #             break
-    #     fake_mode = self.fake_mode if fake_mode is None else fake_mode
-
-    #     # TODO! better to check
-    #     # whether satisfy broadcast
-    #     if np.prod(a_shape) > np.prod(b_shape):
-    #         shape = a_shape
-    #     else:
-    #         shape = b_shape
-    #     with fake_mode:
-    #         return aten.empty(shape, dtype=a.dtype)
-
 
 class BroadcastTo(Operator):
     def __init__(self):
@@ -90,40 +60,14 @@ class MatMul(Operator):
         super().__init__("MatMul")
         self.torch_op = aten.mm
 
-    # def infer_result(self, a, b, trans_a=False, trans_b=False, change_input=False):
-    #     if hasattr(a, 'meta'):
-    #         a = a.meta['val']
-    #     if hasattr(b, 'meta'):
-    #         b = b.meta['val']
-    #     if change_input:
-    #         (a, b) = (b, a)
-
-    #     trans_a_shape = shape_functions.t(a.shape) if trans_a else a.shape
-    #     trans_b_shape = shape_functions.t(b.shape) if trans_b else b.shape
-    #     mm_shape = shape_functions.matmul(trans_a_shape, trans_b_shape)
-    #     return TensorInfo(mm_shape, dtype=a.dtype, memory_format=get_memory_format(a))
-
-
 class BatchMatMul(Operator):
     def __init__(self):
         super().__init__("BatchMatMul")
         self.torch_op = aten.bmm
 
-    # def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
-    #     if hasattr(x1, 'meta'):
-    #         x1 = x1.meta['val']
-    #     if hasattr(x2, 'meta'):
-    #         x2 = x2.meta['val']
-    #     trans_x1_shape = shape_functions.transpose(x1.shape, 1, 2) if adj_x1 else x1.shape
-    #     trans_x2_shape = shape_functions.transpose(x2.shape, 1, 2) if adj_x2 else x2.shape
-    #     bmm_shape = shape_functions.bmm(trans_x1_shape, trans_x2_shape)
-    #     return TensorInfo(bmm_shape, dtype=x1.dtype, memory_format=get_memory_format(x1))
-
-
 class Sub(Operator):
     def __init__(self):
         super().__init__("Sub")
-        # self.torch_op = aten.sub
 
 
 class Mul(Operator):

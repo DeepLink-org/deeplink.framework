@@ -49,17 +49,6 @@ cxx_type_set = {torch.float32: "float_t",
                 torch.long: "int64_t",
                 torch.bool: "bool"}
 
-need_node = ['Scalar', 'Div', 'ReduceSum', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Scatter',
-             'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'AvgPool2D_Grad', 'Complex', 'Bmm', 'Slice', 'Select', 
-             'Viewasreal', 'Complexmul', 'Concatenate', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'Index', 
-             'ArangeDefault', 'SliceScatter']
-
-need_dict = ['Div', 'Bmm', 'Slice', 'Select', 'Complex', 'Concatenate']
-
-not_gen_const = ['Scalar', 'Reshape', 'Expand', 'ZerosLike', 'EmptyLike', 'Bernoulli', 'OnesLike', 'Full', 'FullLike', 'Getitem', 'Gather', 'Slice', 'Scatter', 
-                 'Batch_Norm', 'Convolution', 'Conv2D_Grad', 'MaxPool2D', 'MaxPool2D_Grad', 'Complex', 'Viewasreal', 'Complexmul', 
-                 'Concatenate', 'Softmax', 'Logsoftmax', 'Gelu', 'Gelu_Grad', 'Iota', 'NativeDropout', 'ArangeDefault', 'SliceScatter']
-
 def process_name(name, target):
     if hasattr(target, "name"):
         real_op = target.name().split('::')[-1]

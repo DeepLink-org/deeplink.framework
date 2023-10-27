@@ -5,5 +5,3 @@
 
 ## 精度对齐
 开启精度检测: `DICP_ASCEND_PRECISION_CHECK=1`
-
-## 算子单测
