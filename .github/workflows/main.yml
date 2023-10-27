@@ -410,6 +410,7 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
+          export PYTHONPATH=\${basic_path}/mmpretrain:\$PYTHONPATH
           export PYTHONPATH=\${pwd}:\$PYTHONPATH
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend
