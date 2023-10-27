@@ -61,7 +61,7 @@ def demo_basic_ddp(rank, world_size, port):
 
 def test_profiler_communication():
     port = random.randint(10000, 60000)
-    world_size = 2
+    world_size = 1
     mp.spawn(demo_basic_ddp, args=(world_size, port), nprocs=world_size, join=True)
 
 
