@@ -144,3 +144,70 @@ builder::Op enflame::BatchNorm(
 
   return result;
 }
+
+builder::Op enflame::ViewAsComplex(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape) {
+
+    auto out_shape = shape;
+    out_shape.push_back(2);
+    int out_shape_size = out_shape.size();
+
+    std::vector<int64_t> view_as_complex_2_part0_start_indices(out_shape_size, 0);
+    auto view_as_complex_2_part0_limit_indices =  out_shape;
+    view_as_complex_2_part0_limit_indices[out_shape_size - 1]--;
+    std::vector<int64_t> view_as_complex_2_part1_start_indices(out_shape_size, 0);
+    view_as_complex_2_part1_start_indices[out_shape_size - 1] = 1;
+    std::vector<int64_t> view_as_complex_2_stride(out_shape_size, 1);
+
+    builder::Op view_as_complex_2_split0 = builder::Slice(input, view_as_complex_2_part0_start_indices, view_as_complex_2_part0_limit_indices, view_as_complex_2_stride);
+    builder::Op view_as_complex_2_split1 = builder::Slice(input, view_as_complex_2_part1_start_indices, out_shape, view_as_complex_2_stride);
+    builder::Type view_as_complex_2_reshape_type(shape, builder::PrimitiveType::F32());
+    builder::Op view_as_complex_2_tmp0 = builder::Reshape(view_as_complex_2_split0, view_as_complex_2_reshape_type);
+    builder::Op view_as_complex_2_tmp1 = builder::Reshape(view_as_complex_2_split1, view_as_complex_2_reshape_type);
+    std::vector<builder::Op> view_as_complex_2_outputs{view_as_complex_2_tmp0, view_as_complex_2_tmp1};
+    builder::Op view_as_complex_2 = builder::Tuple(view_as_complex_2_outputs);
+    return view_as_complex_2;
+}
+
+builder::Op enflame::ViewAsReal(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape) {
+    std::vector<int64_t> real_shape = shape;
+    real_shape.pop_back();
+    real_shape.push_back(1);
+    int cat_dim = real_shape.size() - 1;
+
+    builder::Op view_as_real_5_real = builder::GetTupleElement(input, 0);
+    builder::Op view_as_real_5_imag = builder::GetTupleElement(input, 1);
+    builder::Type view_as_real_5_reshape_type(real_shape, builder::PrimitiveType::F32());
+    builder::Op view_as_real_5_tmp0 = builder::Reshape(view_as_real_5_real, view_as_real_5_reshape_type);
+    builder::Op view_as_real_5_tmp1 = builder::Reshape(view_as_real_5_imag, view_as_real_5_reshape_type);
+    std::vector<builder::Op> view_as_real_5_real_imag = {view_as_real_5_tmp0, view_as_real_5_tmp1};
+    builder::Op view_as_real_5 = builder::Concatenate(view_as_real_5_real_imag, cat_dim);
+
+    return view_as_real_5;
+}
+
+builder::Op enflame::ComplexMul(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op lhs,
+    builder::Op rhs) {
+
+    builder::Op xreal = builder::GetTupleElement(lhs, 0);
+    builder::Op ximag = builder::GetTupleElement(lhs, 1);
+    builder::Op yreal = builder::GetTupleElement(rhs, 0);
+    builder::Op yimag = builder::GetTupleElement(rhs, 1);
+    builder::Op xreal_yreal = builder::Mul(xreal, yreal);
+    builder::Op ximag_yimag = builder::Mul(ximag, yimag);
+    builder::Op xreal_yimag = builder::Mul(xreal, yimag);
+    builder::Op ximag_yreal = builder::Mul(ximag, yreal);
+    builder::Op mul_real = builder::Sub(xreal_yreal, ximag_yimag);
+    builder::Op mul_imag = builder::Add(xreal_yimag, ximag_yreal);
+    std::vector<builder::Op> complex_mul_outputs {mul_real, mul_imag};
+    builder::Op complex_mul = builder::Tuple( complex_mul_outputs);
+
+    return complex_mul; 
+}

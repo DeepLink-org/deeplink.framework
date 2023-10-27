@@ -35,7 +35,7 @@ class SingleOpTransformer(torch.fx.Transformer):
     def get_proxy(self, target, args : Tuple[Argument, ...], kwargs : Dict[str, Any] = {}):
         proxy = self.tracer.create_proxy('call_function', target.get_singleton(), args, kwargs)
         return proxy
-        
+
     def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
         if target in self._conversions:
             converted_target = self._conversions[target]
