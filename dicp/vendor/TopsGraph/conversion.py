@@ -14,6 +14,12 @@ from typing import (
 from torch.types import (
     Number,
 )
+import functools
+from dicp.dynamo_bridge.op_transformer import (
+    BackendPatternBase,
+    PatternMatcherPass,
+    register_backend_patterns,
+)
 
 conversions = {}
 patterns = []
@@ -507,40 +513,34 @@ class AtenToTopsTransformer(SingleOpTransformer):
             return self.get_proxy(tops_op.Add, (offset, kwargs["start"]))
         return iota 
 
+
 # Patterns
-def register_pattern(Pattern):
-    # TODO OpOverloadPacket
-    patterns.append(Pattern)
-    return Pattern
+tops_patterns = PatternMatcherPass()
+aten_patterns_cls_list = []
+register_aten_patterns = functools.partial(register_backend_patterns, aten_patterns_cls_list)
+tops_patterns_cls_list = []
+register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
 
-
-class BaseReplacePattern(ABC):
-    @abstractmethod
-    def pattern(*args, **kwargs):
-        pass
-
-    @abstractmethod
-    def replacement(*args, **kwargs):
-        pass
-    
-
-@register_pattern
-class ReplacePatternAddmm:
+@register_aten_patterns
+class ReplacePatternAddmm(BackendPatternBase):
+    @staticmethod
     def pattern(a, b, c):
         return torch.ops.aten.addmm.default(a, b, c)
 
+    @staticmethod
     def replacement(a, b, c):
-        
         return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
     
 
 # %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_pattern
-class ReplacePatternVar:
+@register_aten_patterns
+class ReplacePatternVar(BackendPatternBase):
+    @staticmethod
     def pattern(a, b):
         return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
 
+    @staticmethod
     def replacement(inputs, dims):
         keepdim = True
         correction = 0
@@ -555,11 +555,13 @@ class ReplacePatternVar:
 
 # %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_pattern
-class ReplacePatternVarMean:
+@register_aten_patterns
+class ReplacePatternVarMean(BackendPatternBase):
+    @staticmethod
     def pattern(a, b):
         return torch.ops.aten.var_mean.correction(a, b, correction=0, keepdim=True)
 
+    @staticmethod
     def replacement(inputs, dims):
         keepdim = True
         correction = 0
@@ -572,45 +574,41 @@ class ReplacePatternVarMean:
         return tops_op.ret_tuples(x_var, mean1)
 
 
-@register_pattern
-class ReplacePatternT:
+@register_aten_patterns
+class ReplacePatternT(BackendPatternBase):
+    @staticmethod
     def pattern(a):
         return torch.ops.aten.t.default(a)
 
+    @staticmethod
     def replacement(inputs):
         return torch.ops.aten.transpose(inputs, 0, 1)
 
-@register_pattern
-class ReplacePatternRsub:
+
+@register_aten_patterns
+class ReplacePatternRsub(BackendPatternBase):
+    @staticmethod
     def pattern(a, b):
         return torch.ops.aten.rsub.Scalar(a, b)
 
+    @staticmethod
     def replacement(a, b):
         return torch.ops.aten.sub.Scalar(b, a)
 
 
-@register_pattern
-class ReplacePatternSiLU:
+@register_aten_patterns
+class ReplacePatternSiLU(BackendPatternBase):
     # silu(x) = x / (1+exp(-x)) = x*sigmoid(x)
+    @staticmethod
     def pattern(a):
         return torch.ops.aten.silu.default(a)
 
+    @staticmethod
     def replacement(a):
         return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
 
 
 if is_torch_210:
-    import functools
-    from dicp.dynamo_bridge.op_transformer import (
-        BackendPatternBase,
-        PatternMatcherPass,
-        register_backend_patterns,
-    )
-
-    tops_patterns = PatternMatcherPass()
-    tops_patterns_cls_list = []
-    register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
-
     Gemm = torch.fx.wrap(tops_op.Gemm.get_singleton())
     DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
     Permute = torch.fx.wrap(tops_op.Transpose.get_singleton())
@@ -647,5 +645,4 @@ if is_torch_210:
         @staticmethod
         def replacement(xq, keys):
             return DotGeneral(xq, keys, [0, 2], [0, 2], [3,], [3,])
-
 
