@@ -13,13 +13,15 @@ def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
 ):
 
-    # TODO seperate backendPatterMatch
+    # 1aten to Naten
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
             tops_patterns, aten_patterns_cls_list).transform(gm)
 
+    # 1aten to Ntops
     gm = AtenToTopsTransformer(gm).transform()
 
+    # Ntops to Mtops
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
             tops_patterns, tops_patterns_cls_list).transform(gm)

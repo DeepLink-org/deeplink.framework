@@ -52,7 +52,7 @@ class SingleOpTransformer(torch.fx.Transformer):
             proxy.node.meta = fx_traceback.get_current_meta()
             return proxy
         return super().call_function(target, args, kwargs)
-    
+
     def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
         proxy = super().get_attr(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
