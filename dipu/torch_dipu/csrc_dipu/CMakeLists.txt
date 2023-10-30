@@ -2,9 +2,6 @@ set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
 set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
 
-find_package(PythonInterp REQUIRED)
-message(STATUS "Python version: " "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}")
-
 # python path
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
 
@@ -39,6 +36,51 @@ add_custom_target(autogen_diopi_kernels_cpp
                   DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
 # ------------------------------------------------------------------------------
+
+#-------------------------add kineto as an external project ------------------------------------
+set(KINETO kineto)
+set(KINETO_PREFIX "third_party/kineto/")
+set(KINETO_SUBDIR "libkineto")
+#-------------------------download from git-----------------------------------------------------
+#set(KINETO_BUILD_TARGET "${KINETO}-build")
+#set(KINETO_PATH "${CMAKE_BINARY_DIR}/${KINETO_PREFIX}")
+#set(KINETO_SRC_PATH "${KINETO_PATH}/src/${KINETO}")
+#set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/${KINETO_BUILD_TARGET}")
+#message(STATUS "KINETO_PATH: " ${KINETO_PATH})
+#ExternalProject_Add(${KINETO}
+#                    PREFIX ${KINETO_PREFIX}
+#                    GIT_REPOSITORY https://github.com/DeepLink-org/kineto.git
+#                    GIT_TAG caikun/support_extensibility_v2
+#                    GIT_PROGRESS TRUE
+#                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF -DKINETO_USE_DEVICE_ACTIVITY=ON"
+#                    SOURCE_SUBDIR ${KINETO_SUBDIR}
+#                    INSTALL_COMMAND cmake -E echo "Skipping install step for ${KINETO}."
+#)
+
+#-------------------------use the local submodule(without download)-----------------------------
+set(KINETO_BUILD_TARGET "${KINETO}-build")
+set(KINETO_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
+set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/${KINETO}")
+set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
+ExternalProject_Add(${KINETO}
+                    PREFIX ${KINETO_PREFIX}
+                    DOWNLOAD_DIR ${KINETO_DOWNLOAD_PATH}
+                    SOURCE_DIR ${KINETO_SRC_PATH}
+                    SOURCE_SUBDIR ${KINETO_SUBDIR}
+                    BINARY_DIR ${KINETO_BUILD_PATH}
+                    DOWNLOAD_COMMAND ""
+                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF -DKINETO_USE_DEVICE_ACTIVITY=ON"
+                    INSTALL_COMMAND cmake -E echo "Skipping install step for ${KINETO}."
+)
+## makefile is foolish, the following code is a work around to avoid make file to run multiple kineto-build when using make -j N
+ExternalProject_Add_StepTargets(${KINETO} configure build)
+ExternalProject_Add_StepDependencies(${KINETO} build ${KINETO}-configure)
+#-----------------------------------------------------------------------------------------------
+include_directories(${KINETO_SRC_PATH}/libkineto/third_party/fmt/include)
+include_directories(${KINETO_SRC_PATH}/libkineto/include)
+include_directories(${KINETO_SRC_PATH}/libkineto/src)
+add_definitions(-DUSE_KINETO)
+#-----------------------------------------------------------------------------------------------
 
 # src
 file(
@@ -80,12 +122,11 @@ set(SOURCE_FILES
     ${PROFILER_FILES})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
-set_target_properties(${DIPU_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/torch_dipu )
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
-target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/fmt/libfmt.a)
-target_link_libraries(${DIPU_LIB} ${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/build/libkineto.a)
+target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/fmt/libfmt.a)
+target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/libkineto.a)
 
 target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
 target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
@@ -113,29 +154,10 @@ if(EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h"
 else()
   target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
 endif()
-<<<<<<< HEAD
 add_custom_target(copy_include DEPENDS vendor_include)
-=======
-
-
-# need export LIBRARY_PATH=$DIOPI_ROOT:$LIBRARY_PATH;
-target_link_libraries(${DIPU_LIB}  -Wl,--no-as-needed ${DIOPI_IMPL_LIB} -Wl,--as-needed)
-target_link_libraries(${DIPU_LIB}  c10 torch torch_cpu)
-
-## copy vendor header file
-set(VENDOR_DIST  "${DIST_DIR}/csrc_dipu/vendor/")
-add_custom_target(copy_include
-    COMMAND mkdir -p ${VENDOR_DIST}
-    COMMAND cmake -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}/vendorapi.h  ${VENDOR_DIST}/vendorapi.h
-)
-
-add_custom_command(TARGET copy_include PRE_BUILD    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py --config ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/autogen_diopi_wrapper/diopi_functions.yaml  --out ${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp  --use_diopi_adapter False  --autocompare False --print_func_call_info True  --print_op_arg True  --fun_config_dict '{\"current_device\": \"${UsedVendor}\"}'
-)
-
->>>>>>> fix a bug with the ENV DIPU_COMPILED_WITH_CXX11
 add_dependencies(${DIPU_LIB} copy_include)
-
-
+add_dependencies(${DIPU_LIB} ${DIPU_AUTOGENED_KERNELS})
+add_dependencies(${DIPU_LIB} ${KINETO_BUILD_TARGET})
 # ---------------------- build bind in python ----------------------------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp binding/patch*.cpp)
 set(BIND_FILES ${BIND_SRC_FILES})

@@ -4,6 +4,10 @@ project(TorchDIPU)
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
 
+#require the external project to build as target
+include(ExternalProject)
+set_property(DIRECTORY PROPERTY EP_STEP_TARGETS build)
+
 # use gcover
 option(ENABLE_COVERAGE "Use gcov" OFF)
 message(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
@@ -19,13 +23,18 @@ list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
 
+execute_process(COMMAND git rev-parse --short HEAD
+                OUTPUT_VARIABLE DIPU_GIT_HASH)
+
 set(UsedVendor "")
+set(Build_DIOPI_Target "torch")
 if (${DEVICE} IN_LIST DEVICE_CUDA)
     set(USE_CUDA ON)
     set(UsedVendor cuda)
 elseif (${DEVICE} IN_LIST DEVICE_CAMB)
     set(USE_CAMB ON)
     set(UsedVendor camb)
+    set(Build_DIOPI_Target "camb")
 elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
     set(USE_ASCEND ON)
     set(UsedVendor ascend)
@@ -44,12 +53,11 @@ endif()
 
 #--------------- build_DIOPI----------
 if(${BUILD_DIOPI})
-    execute_process(COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR}/third_party/DIOPI/impl/; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh torch || exit -1; cd ../../../;")
+    execute_process(COMMAND sh -c "cd ${CMAKE_CURRENT_SOURCE_DIR}/third_party/DIOPI/impl/; sh scripts/build_impl.sh clean; sh scripts/build_impl.sh ${Build_DIOPI_Target} || exit -1; cd ../../../;")
     message(STATUS "Built DIOPI LIB finished")
 endif()
 #---------------------------------------
 
-execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND sh -c "git status --porcelain | egrep '^(M| M)' | wc -l"
@@ -67,14 +75,6 @@ execute_process(
     "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
 )
 
-
-execute_process(COMMAND  sh -x -c "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'" OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
-if (DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
-    set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-else()
-    set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-endif()
-
 if (SKBUILD)
     if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
     #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
@@ -83,7 +83,11 @@ if (SKBUILD)
         else()
             set(DIPU_COMPILED_WITH_CXX11_ABI 0)
         endif()
+    else()
+    #As the normal libtorch.so is built with CXX11 ABI, we set the default value as 1
+        set(DIPU_COMPILED_WITH_CXX11_ABI 1)
     endif()
+    set(DIPU_ABI_V 11)
 else()
     execute_process(
       COMMAND
@@ -91,15 +95,22 @@ else()
         "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
             if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'"
       OUTPUT_VARIABLE DIPU_ABI_V)
-    add_definitions(-fabi-version=${DIPU_ABI_V})
-    message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
-
+    
+    execute_process(
+      COMMAND
+        sh -x -c
+        "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'"
+      OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+    
     if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
       set(DIPU_COMPILED_WITH_CXX11_ABI 1)
     else()
       set(DIPU_COMPILED_WITH_CXX11_ABI 0)
     endif()
 endif()
+
+add_definitions(-fabi-version=${DIPU_ABI_V})
+message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
 
 set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
@@ -117,9 +128,12 @@ execute_process(
   OUTPUT_VARIABLE PYTORCH_DIR)
 string(REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
 string(REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
-
-if(DEFINED ENV{PYTORCH_DIR})
-    set(PYTORCH_DIR $ENV{PYTORCH_DIR})
+if(SKBUILD)
+    if(DEFINED ENV{PYTORCH_DIR})
+        set(PYTORCH_DIR $ENV{PYTORCH_DIR})
+    elseif(NOT PYTORCH_DIR)
+        message(FATAL_ERROR "YOU MUST SET ENVIROMENT VARIABLE \"PYTORCH_DIR\" to pytorch directory")
+    endif()
 endif()
 
 message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
@@ -129,9 +143,9 @@ include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
 
 
-if (ENABLE_COVERAGE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+if(ENABLE_COVERAGE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
 # TODO(lljbash): findTorch encounter some error, need check
@@ -167,9 +181,12 @@ else()
 endif()
 if(EXISTS $ENV{DIOPI_ROOT})
   set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
+  set(DIOPI_IMPL_PATH "$ENV{DIOPI_ROOT}/../")
 else()
   set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
+  set(DIOPI_IMPL_PATH "${WITH_DIOPI}/impl/")
 endif()
+
 message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
 message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
 add_library(diopi_impl SHARED IMPORTED)
@@ -178,11 +195,6 @@ set_target_properties(
                         "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
 target_include_directories(diopi_impl INTERFACE "${DIOPI_PROTO_PATH}/include")
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
-
-include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/third_party/fmt/include)
-include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/include)
-include_directories(${PROJECT_SOURCE_DIR}/third_party/kineto/libkineto/src)
-add_definitions(-DUSE_KINETO)
 
 if(LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)
