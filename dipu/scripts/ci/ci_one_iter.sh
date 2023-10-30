@@ -59,6 +59,8 @@ function clone_needed_repo() {
     check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
     cd ..
+
+    pip install datasets
 }
 
 function build_needed_repo_cuda() {
@@ -93,6 +95,9 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "ascend" ]; then
+        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
+        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
         echo "Executing ASCEND operation in pythonpath..."
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
