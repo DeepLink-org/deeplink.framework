@@ -424,7 +424,7 @@ jobs:
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
           export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
-          export PYTHONPATH=${pwd}:$PYTHONPATH
+          export PYTHONPATH=$PWD:$PYTHONPATH
           echo $PYTHONPATH
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
