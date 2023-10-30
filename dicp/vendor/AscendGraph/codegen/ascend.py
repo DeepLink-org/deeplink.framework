@@ -1,11 +1,7 @@
 import json
 import os
-import random
 import uuid
-
-import numpy as np
 import torch
-
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
@@ -176,7 +172,7 @@ class AscendCodegen(torch.fx.Interpreter):
 
     def gen_import_code(self):
         self.import_code.splice(
-            f"""
+            """
                 from ctypes import c_void_p, c_long
                 import torch
                 import torch_dipu
@@ -184,10 +180,10 @@ class AscendCodegen(torch.fx.Interpreter):
                 from torch import empty_strided, as_strided, device
                 from dicp.dynamo_bridge.compile import AsyncCompileKernel
                 from dicp.vendor.AscendGraph.compile_job import AscendCompileJob
-                
+
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
-                
+
                 def check_tensor(a, b, atol=5e-2, rtol=1e-2):
                     if not torch.allclose(a, b, atol=atol, rtol=rtol, equal_nan=True):
                         import pdb;pdb.set_trace()
@@ -218,7 +214,7 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args = [self.args_dict[x.name] for x in self.input_args]
 
         if len(self.dynamic_inputs) > 0:
-            args = ['_' if not arg in sym_to_inputs.values()
+            args = ['_' if arg not in sym_to_inputs.values()
                     else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
             dim_len = 0
@@ -229,11 +225,12 @@ class AscendCodegen(torch.fx.Interpreter):
                 if len(elem) == 0:
                     continue
                 elem = [self.process_sym_name(dim) for dim in elem]
-                dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
+                dims += str(self.dynamic_index[idx]) + \
+                    ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + f'''}}'''
             call_body.writeline(dims)
 
-            shape_str = f'''output_shape = ['''
+            shape_str = '''output_shape = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
@@ -242,13 +239,13 @@ class AscendCodegen(torch.fx.Interpreter):
                     raise RuntimeError("Error handling empty output_shape")
                 elem = [self.process_sym_name(str(dim)) for dim in elem]
                 shape_str += "[" + ','.join(map(str, elem)) + '],'
-            shape_str = shape_str[:-1] + f''']'''
+            shape_str = shape_str[:-1] + ''']'''
             call_body.writeline(shape_str)
         else:
-            call_body.writeline(f'''dims = None''')
-            call_body.writeline(f'''output_shape = None''')
+            call_body.writeline('''dims = None''')
+            call_body.writeline('''output_shape = None''')
 
-        call_body.splice(f"""
+        call_body.splice("""
                              import torch_dipu
                              dipu_device_str = torch_dipu.dipu.device.__diputype__
                              for idx in range(len(args)):
@@ -256,8 +253,8 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims, output_shape)']
-        
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape)']
+
         if precision_check and self.aten_graph is not None:
             # 1. export aten graph to disk
             def get_unique_str():
@@ -274,7 +271,7 @@ class AscendCodegen(torch.fx.Interpreter):
             call_str.append('aten_output = aten_call(*args)')
 
         for i, name in enumerate(self.graph_output_names):
-            if not name in self.symint_outputs:
+            if name not in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
             else:
                 call_str.extend([f'del {name}',
@@ -287,13 +284,13 @@ class AscendCodegen(torch.fx.Interpreter):
         call_body.writelines(call_str)
 
         del_args = [
-            f'del ' + x for x in self.args if x not in self.py_output_names]
+            'del ' + x for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
-        call_body.writeline(f"args.clear()")
+        call_body.writeline("args.clear()")
         call_body.writeline(f"return ({', '.join(self.py_output_names)})")
 
         call_func = IndentedBuffer()
-        call_func.writeline(f"def call(args):")
+        call_func.writeline("def call(args):")
         with call_func.indent():
             call_func.splice(call_body)
 
@@ -302,7 +299,7 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_main_func(self):
         main_body = IndentedBuffer()
         main_body.splice(
-            f"""
+            """
                 from torch._dynamo.testing import rand_strided
                 from torch._inductor.utils import print_performance
             """, strip=True
@@ -327,7 +324,7 @@ class AscendCodegen(torch.fx.Interpreter):
             f"print_performance(lambda: call([{', '.join(self.args)}]))")
 
         main_func = IndentedBuffer()
-        main_func.writeline(f"""if __name__ == "__main__":""")
+        main_func.writeline("""if __name__ == "__main__":""")
         with main_func.indent():
             main_func.splice(main_body)
         return main_func.getvalue()
@@ -441,20 +438,6 @@ class AscendOperator:
             "index": index,
         })
 
-    def set_dynamic_input(self, name, num, value):
-        assert len(value) == num
-        dy_inputs = {
-            "name": name,
-            "num": num,
-            "value": [],
-        }
-        for i in range(num):
-            dy_inputs["value"].append({
-                "index": i,
-                "value": value[i],
-            })
-        self.dynamic_inputs.append(dy_inputs)
-
     def set_dynamic_output(self, name, num):
         self.dynamic_outputs.append({
             "name": name,
@@ -473,13 +456,6 @@ class AscendOperator:
             }
         })
 
-    def set_input_with_index(self, name, value, index):
-        self.inputs.append({
-            "name": name,
-            "value": value,
-            "index": index,
-        })
-
     def set_dynamic_input(self, name, num, value, set_input_with_name=False):
         assert len(value) == num
         dy_inputs = {
@@ -487,7 +463,7 @@ class AscendOperator:
             "num": num,
             "value": [],
         }
-        if set_input_with_name == False:
+        if set_input_with_name is False:
             for i in range(num):
                 dy_inputs["value"].append({
                     "index": i,
@@ -501,12 +477,6 @@ class AscendOperator:
                     "edge": value[i]["edge_name"]
                 })
         self.dynamic_inputs.append(dy_inputs)
-
-    def set_dynamic_output(self, name, num):
-        self.dynamic_outputs.append({
-            "name": name,
-            "num": num
-        })
 
     def set_attr_list_int(self, name: str, value: List[int]):
         self.attrs.append({
@@ -673,12 +643,6 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def ZerosLike(name, x):
-        zero_op = OP(f"{name}_zero", "ZerosLike")
-        zero_op.set_input("x", x)
-        return zero_op.to_node()
-
-    @staticmethod
     def Div(name, x1, x2):
         op = OP(name, "Div")
         op.set_input("x1", x1)
@@ -717,7 +681,7 @@ class AscendOverrides:
         op.set_attr_list_int("dilations", dilation)
         op.set_attr_int("groups", groups)
         op.set_attr_str("data_format", format)
-        if bias != None:
+        if bias is not None:
             op.set_input("bias", bias)
         return op.to_node()
 
@@ -787,7 +751,7 @@ class AscendOverrides:
     @staticmethod
     def Identity(name, input, index):
         op = OP(name, "Identity")
-        if index != None:
+        if index is not None:
             op.set_input_with_index("x", input, index)
         else:
             op.set_input("x", input)
@@ -915,7 +879,7 @@ class AscendOverrides:
         cpp_dtype = get_cpp_dtype(dtype)
         const_op = OP(name, "Const")
         const_op.set_attr_tensor(
-            "value", ascend_dtype, cpp_dtype, format, x, [len(x)] if dims == None else dims)
+            "value", ascend_dtype, cpp_dtype, format, x, [len(x)] if dims is None else dims)
         return const_op.to_node()
 
     @staticmethod

@@ -1,15 +1,15 @@
+from dicp.dynamo_bridge.operator import Operator
+from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 import torch
 import torch.fx
 from typing import Tuple
 import operator
- 
+
 from contextlib import nullcontext
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
-from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
-from dicp.dynamo_bridge.operator import Operator
 
 
 def binary_dtype_check(name, lhs_t, rhs_t):
@@ -17,10 +17,12 @@ def binary_dtype_check(name, lhs_t, rhs_t):
         f"{name}: dtype of lhs - {lhs_t.dtype}, dtype of rhs - {rhs_t.dtype}"
     return lhs_t.dtype
 
+
 def binary_device_check(name, lhs_t, rhs_t):
     assert lhs_t.device == rhs_t.device, \
         f"{name}: device of lhs - {lhs_t.device}, device of rhs - {rhs_t.device}"
     return lhs_t.device
+
 
 class Operator():
     __name__: str
@@ -44,13 +46,14 @@ class Operator():
                 else nullcontext()
             )
         else:
-            raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
+            raise ValueError(
+                f"unsupported dicp torch version: {torch.__version__}")
 
     @classmethod
     def get_singleton(cls):
         args = [None] * (cls.__init__.__code__.co_argcount - 1)
         if cls._singleton is None:
-           cls._singleton = cls(*args)
+            cls._singleton = cls(*args)
         return cls._singleton
 
     def name(self):
@@ -77,9 +80,11 @@ class Operator():
         new_args = []
         for arg in args:
             if isinstance(arg, list):
-                new_args.append([x if not hasattr(x, 'meta') else x.meta['val'] for x in arg])
+                new_args.append([x if not hasattr(x, 'meta')
+                                else x.meta['val'] for x in arg])
             else:
-                new_args.append(arg if not hasattr(arg, 'meta') else arg.meta['val'])
+                new_args.append(arg if not hasattr(
+                    arg, 'meta') else arg.meta['val'])
         new_args = tuple(new_args)
 
         fake_mode = self.get_fake_mode_from_args(new_args)
@@ -164,7 +169,7 @@ class NotEqual(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.ne.Scalar
-    
+
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
@@ -371,6 +376,7 @@ class Reciprocal(Operator):
         self.a = a
         self.torch_op = aten.reciprocal
 
+
 class Rsqrt(Operator):
     def __init__(self, a):
         super().__init__("Rsqrt")
@@ -388,7 +394,7 @@ class Convolution(Operator):
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
-    
+
 
 class ConvolutionBackward(Operator):
     def __init__(self, *args, **kwargs):
@@ -407,7 +413,7 @@ class Max_pool2d_with_indices(Operator):
         super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
-    
+
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
@@ -419,8 +425,8 @@ class Max_pool2d_with_indices_backward(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.max_pool2d_with_indices_backward
-        
-        
+
+
 class Adaptive_avg_pool2d(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("AvgPool2D")
@@ -431,7 +437,7 @@ class Adaptive_avg_pool2d(Operator):
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
-    
+
 
 class Gather(Operator):
     def __init__(self, *args, **kwargs):
@@ -520,10 +526,14 @@ class DotGeneral(Operator):
             and lhs_shape[lhs_contract_dims[0]] == rhs_shape[rhs_contract_dims[0]], \
             f"{self.name()}: contract_dims mistmatch, lhs_contract_dims: {lhs_contract_dims}, rhs_contract_dims: {rhs_contract_dims}; " + \
             f"lhs_shape: {lhs_shape}, rhs_shape: {rhs_shape}"
-        lhs_remain_dim = lhs_shape_set - set(lhs_batch_dims) - set(lhs_contract_dims)
-        assert len(lhs_remain_dim) == 1, f"{self.name()}: lhs_remain_dim mismatch, lhs_remain_dim: {lhs_remain_dim}"
-        rhs_remain_dim = rhs_shape_set - set(rhs_batch_dims) - set(rhs_contract_dims)
-        assert len(rhs_remain_dim) == 1, f"{self.name()}: rhs_remain_dim mismatch, rhs_remain_dim: {rhs_remain_dim}"
+        lhs_remain_dim = lhs_shape_set - \
+            set(lhs_batch_dims) - set(lhs_contract_dims)
+        assert len(
+            lhs_remain_dim) == 1, f"{self.name()}: lhs_remain_dim mismatch, lhs_remain_dim: {lhs_remain_dim}"
+        rhs_remain_dim = rhs_shape_set - \
+            set(rhs_batch_dims) - set(rhs_contract_dims)
+        assert len(
+            rhs_remain_dim) == 1, f"{self.name()}: rhs_remain_dim mismatch, rhs_remain_dim: {rhs_remain_dim}"
 
         res_shape = []
         for i in lhs_batch_dims:
@@ -531,7 +541,8 @@ class DotGeneral(Operator):
         res_shape.append(lhs_shape[lhs_remain_dim.pop()])
         res_shape.append(rhs_shape[rhs_remain_dim.pop()])
         with self.get_fake_mode_from_args([lhs_tensor, rhs_tensor]):
-            fake_t = torch.empty(size=res_shape, dtype=res_dtype, device=res_device)
+            fake_t = torch.empty(
+                size=res_shape, dtype=res_dtype, device=res_device)
         return fake_t
 
 
@@ -637,20 +648,20 @@ class Slice(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
-    
+
     def __call__(self, *args, **kwargs):
         new_args = args[3:]
         return super().__call__(*new_args, **kwargs)
 
-        
+
 class SliceInDim(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("SliceInDim")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
-        
-        
+
+
 class SliceScatter(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("SliceScatter")
@@ -714,7 +725,7 @@ class Scalar(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.scalar_tensor.default
-        
+
 
 class Embedding(Operator):
     def __init__(self, *args, **kwargs):
@@ -808,12 +819,12 @@ class GetTupleElement(Operator):
     def __call__(self, x, idx):
         if hasattr(x, 'meta'):
             x = x.meta['val']
-        
+
         if x.dtype in (torch.cfloat, torch.cdouble):
             data_type = torch.double if x.dtype == torch.cdouble else torch.float
             data_size = x.size()
             return torch.empty(data_size, dtype=data_type)
-        
+
         x = x[idx]
         if hasattr(x, 'meta'):
             x = x.meta['val']
@@ -834,11 +845,11 @@ class MakeTuple(Operator):
 
 
 class XlaGather(Operator):
-    def __init__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+    def __init__(self, operand, indices, offset_dims, collapsed_slice_dims,
                  start_index_map, index_vector_dim, slice_size):
         super().__init__("XlaGather")
 
-    def __call__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+    def __call__(self, operand, indices, offset_dims, collapsed_slice_dims,
                  start_index_map, index_vector_dim, slice_size):
         out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
 

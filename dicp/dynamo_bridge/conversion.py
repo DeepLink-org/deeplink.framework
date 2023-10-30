@@ -6,8 +6,9 @@ from dicp.dynamo_bridge.operator import Operator
 def args_kwargs_unchange(args, kwargs):
     return args, kwargs
 
+
 def register_conversion_impl(
-    conversions:list, aten_fn, decomp_fn, process_args_kwargs_fn=None
+    conversions: list, aten_fn, decomp_fn, process_args_kwargs_fn=None
 ):
     register_op_singleton_flag = isinstance(
         decomp_fn, type) and issubclass(decomp_fn, Operator)
@@ -36,5 +37,3 @@ def register_conversion_impl(
         return wrapped[0]
     else:
         return wrapped
-
-

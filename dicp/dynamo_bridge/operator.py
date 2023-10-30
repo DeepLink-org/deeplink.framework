@@ -63,8 +63,7 @@ class Operator(ABC):
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor)
-                                                   and x.fake_mode == fake_mode):
+            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) and x.fake_mode == fake_mode):
                 return x
             if isinstance(x, FakeTensor):
                 x.fake_mode = fake_mode

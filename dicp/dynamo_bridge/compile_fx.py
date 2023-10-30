@@ -1,4 +1,6 @@
-import dataclasses
+from torch._dynamo.backends.common import aot_autograd
+from torch._functorch.aot_autograd import make_boxed_func
+from .graph import GraphTransformer
 import functools
 import itertools
 import logging
@@ -21,17 +23,13 @@ elif torch.__version__.startswith("2.1"):
 else:
     raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
 
-from .graph import GraphTransformer
 
 log = logging.getLogger(__name__)
 
-dynamo_logging = import_module(f"torch._dynamo.logging")
-dynamo_utils = import_module(f"torch._dynamo.utils")
+dynamo_logging = import_module("torch._dynamo.logging")
+dynamo_utils = import_module("torch._dynamo.utils")
 
 count_calls = dynamo_utils.count_calls
-
-from torch._functorch.aot_autograd import make_boxed_func
-from torch._dynamo.backends.common import aot_autograd
 
 
 def get_fake_mode_from_tensors(input_tensors):
@@ -42,12 +40,13 @@ def get_fake_mode_from_tensors(input_tensors):
         from torch._dynamo.utils import detect_fake_mode
         return detect_fake_mode(input_tensors)
     else:
-        raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
+        raise ValueError(
+            f"unsupported dicp torch version: {torch.__version__}")
 
 
 def used_nodes_all_symint(nodes):
     for node in nodes:
-        if node.op =='placeholder' and len(node.users) > 0:
+        if node.op == 'placeholder' and len(node.users) > 0:
             if hasattr(node, 'meta'):
                 node = node.meta['val']
             if not isinstance(node, torch.SymInt):
@@ -58,6 +57,7 @@ def used_nodes_all_symint(nodes):
 @functools.lru_cache(None)
 def _step_logger():
     return dynamo_logging.get_step_logger(log)
+
 
 @torch.utils._python_dispatch._disable_current_modes()
 def compile_fx_inner(
@@ -107,7 +107,9 @@ def compile_fx_inner(
     compiled_fn._boxed_call = True
     return compiled_fn
 
+
 _graph_counter = itertools.count(0)
+
 
 def compile_fx(
     model_: torch.fx.GraphModule,
@@ -120,7 +122,8 @@ def compile_fx(
     elif torch.__version__.startswith("2.1"):
         return compile_fx_210(model_, example_inputs_, backend, inner_compile)
     else:
-        raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
+        raise ValueError(
+            f"unsupported dicp torch version: {torch.__version__}")
 
 
 def compile_fx_200(
@@ -293,6 +296,7 @@ def count_tangents(fx_g: torch.fx.GraphModule):
     assert static_arg_idxs == list(range(len(static_arg_idxs)))
     return len(static_arg_idxs)
 
+
 def _shape_env_from_inputs(inputs):
     shape_env = None
     fake_mode = get_fake_mode_from_tensors(inputs)
@@ -308,13 +312,16 @@ def _shape_env_from_inputs(inputs):
     # TODO(voz): Should we always have one anyway?
     return None
 
+
 def get_decompositions(backend):
     decompositions = {}
-    folder_list = os.listdir(os.path.dirname(os.path.dirname(__file__)) + '/vendor')
+    folder_list = os.listdir(os.path.dirname(
+        os.path.dirname(__file__)) + '/vendor')
     found_decomp = False
     for folder in folder_list:
         if backend.lower() == folder.lower():
-            config = importlib.import_module("dicp.vendor." + folder + ".config")
+            config = importlib.import_module(
+                "dicp.vendor." + folder + ".config")
             decompositions = config.decomp
             found_decomp = True
     assert found_decomp, "Not found decomp table!"

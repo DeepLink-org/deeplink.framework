@@ -1,21 +1,12 @@
-import contextlib
-import dataclasses
-import functools
-import math
-import sys
 import os
 import numbers
 from copy import deepcopy
-from pathlib import Path
-from typing import Dict, List
-from io import StringIO
-import textwrap
 from torch._inductor.utils import IndentedBuffer
 
 import torch
 
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
-from torch.fx.node import Argument, Node, Target, map_arg, map_aggregate
+from typing import Any
+from torch.fx.node import Node, map_arg, map_aggregate
 
 from torch._inductor.codegen.common import OpOverrides
 from ..config import tops_debug, dipu_flag, tops_check_precision
@@ -49,6 +40,7 @@ cxx_type_set = {torch.float32: "float_t",
                 torch.long: "int64_t",
                 torch.bool: "bool"}
 
+
 def process_name(name, target):
     if hasattr(target, "name"):
         real_op = target.name().split('::')[-1]
@@ -59,6 +51,7 @@ def process_name(name, target):
 
     return real_op
 
+
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph, origin_graph=None, folder=None, graph_key=None):
         self.name = 'topsgraph'
@@ -67,7 +60,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         self.import_code = IndentedBuffer()
 
         self.args_dict = {}
-        self.input_args =[]
+        self.input_args = []
         self.output_args = []
         self.build_graph_code = IndentedBuffer(initial_indent=1)
 
@@ -93,31 +86,43 @@ class EnflameCodegen(torch.fx.Interpreter):
         in_shape = self.get_shape()
         if in_shape == '{}':
             in_shape = '{1}'
-        self.build_graph_code.writeline(f"std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};")
-        self.build_graph_code.writeline(f"builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});")
-        self.build_graph_code.writeline(f"builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);")
+        self.build_graph_code.writeline(
+            f"std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};")
+        self.build_graph_code.writeline(
+            f"builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});")
+        self.build_graph_code.writeline(
+            f"builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);")
         self.build_graph_code.writeline("")
 
     def get_attr(self, name, target, args, kwargs):
         assert isinstance(target, str)
         if name not in self.args_dict.keys():
-            op_var = self.args_dict[name] = name + '_' + str(len(self.args_dict))
+            op_var = self.args_dict[name] = name + \
+                '_' + str(len(self.args_dict))
         attr = self.fetch_attr(target)
-        assert(isinstance(attr, torch.Tensor))
+        assert (isinstance(attr, torch.Tensor))
         if attr.size():
-            data = str(attr)[str(attr).find('(') + 1 : -1].replace('[', '{').replace(']', '}')
+            data = str(attr)[str(attr).find(
+                '(') + 1: -1].replace('[', '{').replace(']', '}')
             shape = '{' + str(attr.shape).split('[')[-1].split(']')[0] + '}'
-            self.build_graph_code.writeline(f"builder::Type {op_var}_type({shape}, {type_set[attr.dtype]});")
-            self.build_graph_code.writeline(f"std::vector<{cxx_type_set[attr.dtype]}> {op_var}_data{data};")
-            self.build_graph_code.writeline(f"builder::Op {op_var} = builder::Const(hlir_builder, {op_var}_data.data(), {op_var}_type);")
+            self.build_graph_code.writeline(
+                f"builder::Type {op_var}_type({shape}, {type_set[attr.dtype]});")
+            self.build_graph_code.writeline(
+                f"std::vector<{cxx_type_set[attr.dtype]}> {op_var}_data{data};")
+            self.build_graph_code.writeline(
+                f"builder::Op {op_var} = builder::Const(hlir_builder, {op_var}_data.data(), {op_var}_type);")
         else:
-            self.build_graph_code.writeline(f"builder::Type {op_var}_type({{1}}, {type_set[attr.dtype]});")
-            self.build_graph_code.writeline(f"builder::Op {op_var} = builder::Const(hlir_builder, {attr}, {op_var}_type);")
+            self.build_graph_code.writeline(
+                f"builder::Type {op_var}_type({{1}}, {type_set[attr.dtype]});")
+            self.build_graph_code.writeline(
+                f"builder::Op {op_var} = builder::Const(hlir_builder, {attr}, {op_var}_type);")
 
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
-            op_var = self.args_dict[name] = name + '_' + str(len(self.args_dict))
-        arg_code, args_list, kwargs_list = EnflameOverrides.gen_args(self.args_dict, args, kwargs)
+            op_var = self.args_dict[name] = name + \
+                '_' + str(len(self.args_dict))
+        arg_code, args_list, kwargs_list = EnflameOverrides.gen_args(
+            self.args_dict, args, kwargs)
         real_op = process_name(name, target)
 
         if tops_debug:
@@ -140,7 +145,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         except:
             node_dtype = None
 
-        op_code = getattr(self.override, real_op)(op_var, node_shape, node_dtype, *args_list, **kwargs_list)
+        op_code = getattr(self.override, real_op)(
+            op_var, node_shape, node_dtype, *args_list, **kwargs_list)
 
         self.build_graph_code.splice(arg_code)
         self.build_graph_code.splice(op_code)
@@ -150,9 +156,9 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def output(self, name, target, args, kwargs):
         for i in range(0, len(args[0])):
-            self.output_args.append(args[0][i])   
+            self.output_args.append(args[0][i])
 
-    def run_node(self, n : Node) -> Any:
+    def run_node(self, n: Node) -> Any:
         self.cur_node = n
         op = n.op
         name = n.name
@@ -163,7 +169,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         assert isinstance(args, tuple)
         assert isinstance(kwargs, dict)
 
-        return getattr(self, op)(name, target, args, kwargs) 
+        return getattr(self, op)(name, target, args, kwargs)
 
     def codegen(self):
         self.run()
@@ -177,7 +183,9 @@ class EnflameCodegen(torch.fx.Interpreter):
         return test
 
     def get_shape(self):
-        shape = '{' + str(self.cur_node.meta['val'].shape).split('[')[-1].split(']')[0] + '}'
+        shape = '{' + \
+            str(self.cur_node.meta['val'].shape).split(
+                '[')[-1].split(']')[0] + '}'
         return shape
 
     def gen_import_code(self):
@@ -190,8 +198,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 from torch import empty_strided, as_strided, device
                 from dicp.dynamo_bridge.compile import AsyncCompileKernel
                 from dicp.vendor.TopsGraph.compile_job import TopsCompileJob
-            """
-            , strip=True
+            """, strip=True
         )
         return self.import_code.getvalue()
 
@@ -199,11 +206,11 @@ class EnflameCodegen(torch.fx.Interpreter):
         graph_code = IndentedBuffer()
         graph_code.writelines(
             [
-                f'auto hlir_builder = std::make_shared<builder::Builder>();',
-                f'hlir_builder->SetShapeInference(true);',
-                f'auto f16_type = builder::PrimitiveType::F16();',
-                f'auto f32_type = builder::PrimitiveType::F32();',
-                f'auto s64_type = builder::PrimitiveType::S64();'
+                'auto hlir_builder = std::make_shared<builder::Builder>();',
+                'hlir_builder->SetShapeInference(true);',
+                'auto f16_type = builder::PrimitiveType::F16();',
+                'auto f32_type = builder::PrimitiveType::F32();',
+                'auto s64_type = builder::PrimitiveType::S64();'
             ]
         )
         graph_code.writelines("")
@@ -217,25 +224,25 @@ class EnflameCodegen(torch.fx.Interpreter):
                 output_str.append(self.args_dict[self.output_args[i].name])
 
         graph_code.writeline("")
-        graph_code.writeline(f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"});')
+        graph_code.writeline(
+            f'hlir_builder->SetOutput({"{" + ", ".join(output_str) + "}"});')
         graph_code.writeline("")
-        graph_code.writeline(f'return hlir_builder;')
+        graph_code.writeline('return hlir_builder;')
         return graph_code
 
     def gen_compile_func_code(self):
         compile_func_body = IndentedBuffer()
         with compile_func_body.indent():
             compile_func_body.splice(
-                f"""
+                """
                     auto hlir_builder = build_sample();
                     compile(hlir_builder, &exe_ptr, compile_bin_path);
-                """
-                , strip=True
+                """, strip=True
             )
         compile_func = IndentedBuffer()
         compile_func.writelines(
             [
-                f'topsExecutable_t exe_ptr;\n',
+                'topsExecutable_t exe_ptr;\n',
                 f'extern "C" void compile_out(const wchar_t *compile_bin_path){"{"}'
             ]
         )
@@ -248,18 +255,21 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_run_func_code(self):
         func_body = IndentedBuffer()
-        func_body.writeline(f'std::vector<void *> input_ptrs;')
+        func_body.writeline('std::vector<void *> input_ptrs;')
         for i in range(0, len(self.input_args)):
-            func_body.writeline(f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
+            func_body.writeline(
+                f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
 
         func_body.writeline("")
         func_body.writeline(f'std::vector<void *> output_ptrs;')
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                func_body.writeline(f'output_ptrs.emplace_back(output_ptr{str(i)});')
+                func_body.writeline(
+                    f'output_ptrs.emplace_back(output_ptr{str(i)});')
 
         func_body.writeline("")
-        func_body.writeline(f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
+        func_body.writeline(
+            f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
         input_paras = ''
         for i in range(0, len(self.input_args)):
@@ -271,7 +281,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         output_paras = ', '.join(output_paras)
 
         run_func_code = IndentedBuffer()
-        run_func_code.writeline(f'extern "C" void run(void *dipu_stream, {input_paras} {output_paras}) {"{"}')
+        run_func_code.writeline(
+            f'extern "C" void run(void *dipu_stream, {input_paras} {output_paras}) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
@@ -282,7 +293,8 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body.writeline(f'load(&exe_ptr, compile_bin_path);')
 
         run_func_code = IndentedBuffer()
-        run_func_code.writeline(f'extern "C" void load(const wchar_t *compile_bin_path){"{"}')
+        run_func_code.writeline(
+            f'extern "C" void load(const wchar_t *compile_bin_path){"{"}')
 
         with run_func_code.indent():
             run_func_code.splice(func_body)
@@ -291,7 +303,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return run_func_code
 
     def get_kernel_header(self):
-            return f"""
+        return f"""
                     #include <cmath>
                     #include <fstream>
                     #include <iostream>
@@ -353,13 +365,13 @@ class EnflameCodegen(torch.fx.Interpreter):
                             print(f"cpu test type error!({'{graph_name}'})")
                             print(type(a), type(b))
                         return
-                """
-                , strip=True
+                """, strip=True
             )
         compile_graph_code.writeline(f"source_code = '''")
         compile_graph_code.splice(self.get_kernel_header(), strip=True)
         compile_graph_code.writeline("")
-        compile_graph_code.writeline(f'std::shared_ptr<builder::Builder> build_sample() {"{"}')
+        compile_graph_code.writeline(
+            f'std::shared_ptr<builder::Builder> build_sample() {"{"}')
         with compile_graph_code.indent():
             compile_graph_code.splice(self.gen_build_graph_code())
         compile_graph_code.writeline('}')
@@ -377,17 +389,16 @@ class EnflameCodegen(torch.fx.Interpreter):
                 kernel_cpp_0 = async_compile.compile_kernel(compile_job)
                 async_compile.wait(globals())
                 del async_compile
-            """
-            , strip=True
+            """, strip=True
         )
         return compile_graph_code.getvalue()
 
     def gen_tensor(self, prefix, tensor):
         if dipu_flag:
-            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
+            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
         else:
-            res =  f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
-        # makes a copy of the tensor for view ops 
+            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
+        # makes a copy of the tensor for view ops
         if tops_check_precision and prefix == "empty_strided":
             res += ".contiguous()"
         return res
@@ -415,14 +426,17 @@ class EnflameCodegen(torch.fx.Interpreter):
             bufs.append("buf" + str(i))
             if not isinstance(self.output_args[i], type(None)):
                 otensor = self.output_args[i].meta['val']
-                call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
+                call_body.writeline(
+                    bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
                 none_bufs.append("buf" + str(i))
-                call_body.writeline(bufs[-1] + " = " + (f"empty_strided((), ())"))
+                call_body.writeline(
+                    bufs[-1] + " = " + (f"empty_strided((), ())"))
 
         call_body.writeline("")
         if dipu_flag:
-            call_body.writeline(f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
+            call_body.writeline(
+                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
 
         arg_ptrs = []
         for i in range(len(args)):
@@ -446,10 +460,13 @@ class EnflameCodegen(torch.fx.Interpreter):
             call_body.writeline(f"if '{self.folder}' not in sys.path:")
             with call_body.indent():
                 call_body.writeline(f"sys.path.insert(0, '{self.folder}')")
-            call_body.writeline(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_body.writeline(
+                f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
             call_body.writeline(f"cpu_module = graph_module()")
-            call_body.writeline(f"cpu_res = cpu_module({', '.join(map(lambda s: s + '.cpu()', args))})")
-            call_body.writeline(f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
+            call_body.writeline(
+                f"cpu_res = cpu_module({', '.join(map(lambda s: s + '.cpu()', args))})")
+            call_body.writeline(
+                f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
 
         for arg in args:
             call_body.writeline(f'del {arg}')
@@ -457,7 +474,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         call_body.writeline(f"return ({', '.join(bufs)})")
 
-        call_func =IndentedBuffer()
+        call_func = IndentedBuffer()
         call_func.writeline(f"def call(args):")
         with call_func.indent():
             call_func.splice(call_body)
@@ -469,14 +486,14 @@ class EnflameCodegen(torch.fx.Interpreter):
             f"""
             from torch._dynamo.testing import rand_strided
             from torch._inductor.utils import print_performance
-            """
-            , strip=True
+            """, strip=True
         )
 
         main_body.writeline("")
         for i in range(0, len(self.input_args)):
             itensor = self.input_args[i].meta['val']
-            main_body.writeline('arg' + str(i) + ' = ' + self.gen_random_tensor(itensor))
+            main_body.writeline('arg' + str(i) + ' = ' +
+                                self.gen_random_tensor(itensor))
 
         args = []
         for i in range(len(self.input_args)):
@@ -491,12 +508,14 @@ class EnflameCodegen(torch.fx.Interpreter):
         return main_func.getvalue()
 
     def generate_code(self):
-        return (self.gen_import_code() + self.gen_compile_graph_code()+ self.gen_call_func() + self.gen_main_func())
+        return (self.gen_import_code() + self.gen_compile_graph_code() + self.gen_call_func() + self.gen_main_func())
+
 
 class EnflameOverrides(OpOverrides):
     @staticmethod
     def gen_args(args_dict, args, kwargs):
         src_code = IndentedBuffer()
+
         def convert_arg(arg):
             if isinstance(arg, Node):
                 return args_dict[arg.name]
@@ -519,11 +538,10 @@ class EnflameOverrides(OpOverrides):
             print(arg, type(arg))
             raise ValueError(f"unknown arg type({arg})")
 
-
         args_str = []
         kwargs_str = {}
-        #name = process_name(node.name, node.target)
-        #op_var = node.name
+        # name = process_name(node.name, node.target)
+        # op_var = node.name
 
         for arg in args:
             if isinstance(arg, type(None)):
@@ -536,7 +554,7 @@ class EnflameOverrides(OpOverrides):
             else:
                 args_str.append(convert_arg(arg))
         for k, v in kwargs.items():
-            v = convert_arg(v) 
+            v = convert_arg(v)
             kwargs_str[k] = v
 
         return src_code, args_str, kwargs_str
@@ -583,7 +601,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Convert(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_type(op_var, y, shape)     
+        src_code, y = EnflameOverrides.make_type(op_var, y, shape)
         src_code += f"builder::Op {op_var} = builder::Convert({x}, {y});"
         return src_code
 
@@ -647,7 +665,8 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def NotEqual(op_var, shape, dtype, data_type, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, data_type)
+        src_code, y = EnflameOverrides.make_const_if_scalar(
+            op_var, y, data_type)
         src_code += f"builder::Op {op_var} = builder::NotEqual({x}, {y});"
         return src_code
 
@@ -736,7 +755,8 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Full(op_var, out_shape, out_dtype, size, value, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
+        src_code, op_type = EnflameOverrides.make_type(
+            op_var, out_dtype, out_shape)
         src_code += f"builder::Op {op_var} = builder::Const(hlir_builder, {value}, {op_type});"
         return src_code
 
@@ -764,19 +784,22 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Expand(op_var, shape, dtype, x, new_shape, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, dtype, new_shape)
+        src_code, op_type = EnflameOverrides.make_type(
+            op_var, dtype, new_shape)
         src_code += f"builder::Op {op_var} = builder::BroadcastInDim({x}, {{{', '.join(map(str, range(len(shape))))}}}, {op_type});"
         return src_code
 
     @staticmethod
     def Squeeze(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, torch.int64)
+        src_code, y = EnflameOverrides.make_const_if_scalar(
+            op_var, y, torch.int64)
         src_code += f"builder::Op {op_var} = builder::Squeeze({x}, {y});"
         return src_code
 
     @staticmethod
     def Unsqueeze(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, torch.int64)
+        src_code, y = EnflameOverrides.make_const_if_scalar(
+            op_var, y, torch.int64)
         src_code += f"builder::Op {op_var} = builder::Unsqueeze({x}, {y});"
         return src_code
 
@@ -811,8 +834,10 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def SliceScatter(op_var, shape, dtype, x, y, dim, start, end, step, **kwargs_list):
-        src_code_index, op_start_index = EnflameOverrides.make_const_if_scalar(op_var, 0, torch.int64, 0)
-        src_code_index_dim, op_start_index_dim = EnflameOverrides.make_const_if_scalar(op_var, start, torch.int64, 1)
+        src_code_index, op_start_index = EnflameOverrides.make_const_if_scalar(
+            op_var, 0, torch.int64, 0)
+        src_code_index_dim, op_start_index_dim = EnflameOverrides.make_const_if_scalar(
+            op_var, start, torch.int64, 1)
         src_code = src_code_index + src_code_index_dim
         src_code += f"builder::Op {op_var} = builder::DynamicUpdateSlice({x}, {y}, {{{', '.join([op_start_index_dim if i == dim else op_start_index for i in range(len(shape))])}}});"
         return src_code
@@ -853,7 +878,7 @@ class EnflameOverrides(OpOverrides):
         shape = '{' + str(out_shape).split('[')[-1].split(']')[0] + '}'
         return f"builder::Op {op_var} = enflame::ViewAsReal(hlir_builder, {x}, {shape});"
 
-    #(a + bi)(c + di) = (ac -bd) + (ad + bd)i
+    # (a + bi)(c + di) = (ac -bd) + (ad + bd)i
     @staticmethod
     def ComplexMul(op_var, out_shape, out_dtype, x, y):
         return f"builder::Op {op_var} = enflame::ComplexMul(hlir_builder, {x}, {y});"
@@ -880,13 +905,14 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Iota(op_var, out_shape, out_dtype, length, **kwargs_list):
-        src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
+        src_code, op_type = EnflameOverrides.make_type(
+            op_var, out_dtype, out_shape)
         src_code += f"builder::Op {op_var} = builder::Iota(hlir_builder, 0, {op_type});\n"
         return src_code
 
     @staticmethod
-    def XlaGather(op_var, out_shape, out_dtype, operand, indices, offset_dims, collapsed_slice_dims, 
-                 start_index_map, index_vector_dim, slice_size):
+    def XlaGather(op_var, out_shape, out_dtype, operand, indices, offset_dims, collapsed_slice_dims,
+                  start_index_map, index_vector_dim, slice_size):
         gather_dim_params = f"{op_var}_gather_dim_params"
         src_code = f"auto {gather_dim_params} = builder::GatherDimensionNumbers(\n" \
                    f"{'{'}{str(offset_dims)[1:-1]}{'}'}, {'{'}{str(collapsed_slice_dims)[1:-1]}{'}'}," \

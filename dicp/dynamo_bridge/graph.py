@@ -1,13 +1,7 @@
 import logging
-import operator
-import os
-import re
-import sys
-import time
 import torch
 import torch.fx
 from typing import Optional
-from torch._dynamo import config as dynamo_config
 from torch._dynamo.utils import dynamo_timed
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._inductor.codecache import cache_dir
@@ -15,6 +9,7 @@ from dicp.dynamo_bridge.utils import save_cpu_gm
 from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
 
 log = logging.getLogger(__name__)
+
 
 class GraphTransformer:
     def __init__(
@@ -56,7 +51,8 @@ class GraphTransformer:
                 attr_itr = self.gm
                 for i, atom in enumerate(target_atoms):
                     if not hasattr(attr_itr, atom):
-                        raise RuntimeError(f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
+                        raise RuntimeError(
+                            f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
                     attr_itr = getattr(attr_itr, atom)
                     attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
                 with FakeTensorMode():
