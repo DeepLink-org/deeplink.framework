@@ -9,6 +9,7 @@ if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
     from dicp.vendor.TopsGraph.conversion import tops_patterns, aten_patterns_cls_list, tops_patterns_cls_list
 
+
 def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
 ):

@@ -1,13 +1,7 @@
 import torch
-import numpy as np
 import _operator
 from typing import Tuple
-from contextlib import nullcontext
-from torch.fx.experimental.symbolic_shapes import ShapeEnv
-from torch._subclasses import FakeTensor, FakeTensorMode
-from torch._functorch import config
-from torch.utils._pytree import tree_map, tree_flatten
-from abc import ABC, abstractmethod
+from torch.utils._pytree import tree_map
 from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 from dicp.dynamo_bridge.operator import Operator
 
@@ -34,10 +28,11 @@ class Adds(Operator):
         super().__init__("adds")
         # self.torch_op = aten.add
 
-      
+
 class Add(Operator):
     def __init__(self):
         super().__init__("add")
+
 
 class BroadcastTo(Operator):
     def __init__(self):
@@ -60,10 +55,12 @@ class MatMul(Operator):
         super().__init__("MatMul")
         self.torch_op = aten.mm
 
+
 class BatchMatMul(Operator):
     def __init__(self):
         super().__init__("BatchMatMul")
         self.torch_op = aten.bmm
+
 
 class Sub(Operator):
     def __init__(self):
@@ -314,12 +311,6 @@ class IdentityN(Operator):
             with item.fake_mode:
                 res.append(aten.clone(item))
         return res
-
-
-class ZerosLike(Operator):
-    def __init__(self):
-        super().__init__("ZerosLike")
-        self.torch_op = aten.full_like
 
 
 class Empty(Operator):

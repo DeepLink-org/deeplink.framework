@@ -489,7 +489,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.nll_loss_forward.default)
     def nll_loss_forward(self, x, target, weight, reduction, ignore_index):
-        assert weight == None
+        assert weight is None
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
@@ -499,7 +499,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.nll_loss_backward.default)
     def nll_loss_backward(self, grad_output, x, target, weight, reduction, ignore_index, total_weight):
-        assert weight == None
+        assert weight is None
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
@@ -615,7 +615,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
     def _native_batch_norm_legit_functional(self, x, weight, bias, running_mean, running_var,
                                             train, momentum, eps):
-        if train != True:
+        if train is False:
             raise RuntimeError("not supported yet!")
         x_shape = list(x.node.meta['val'].shape)
         x_dtype = x.node.meta['val'].dtype
@@ -647,7 +647,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                      (grad_out, x, update_grad, 0, update_grad, 1,
                                       weight, save_mean, save_invstd, eps))
         for mask in grad_input_mask:
-            assert mask == True
+            assert mask is True
         edges = {reduce_grad.node.name: ["y"],
                  update_grad.node.name: ["diff_scale", "diff_offset"]}
         return self.get_proxy(ascend_op.IdentityN, (reduce_grad, update_grad), edges)
@@ -660,24 +660,24 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def convolution_backward(self, grad, input, weight, bias,
                              stride, padding, dilation, transposed,
                              output_padding, groups, grad_input_mask):
-        assert transposed == False
+        assert transposed is False
         assert output_padding == [0, 0]
         stride = [1, 1, stride[0], stride[1]]
         padding = [padding[0], padding[0], padding[1], padding[1]]
         dilation = [1, 1, dilation[0], dilation[1]]
         data_format = "NCHW"
-        if grad_input_mask[0] == True:
+        if grad_input_mask[0] is True:
             input_shape = self.get_proxy(ascend_op.Shape, (input,))
             input_op = self.get_proxy(ascend_op.Conv2DBackpropInput,
                                       (input_shape, weight, grad, stride, padding,
                                        dilation, groups, data_format))
-        if grad_input_mask[1] == True:
+        if grad_input_mask[1] is True:
             filter_shape = self.get_proxy(ascend_op.Shape, (weight,))
             filter_op = self.get_proxy(ascend_op.Conv2DBackpropFilter,
                                        (input, filter_shape, grad, stride, padding,
                                         dilation, data_format))
         # TODO(tangzhiyi): bias is not supported yet
-        assert grad_input_mask[2] == False
+        assert grad_input_mask[2] is False
         outputs = []
         outputs.append(input_op if grad_input_mask[0] else filter_op)
         outputs.append(filter_op if grad_input_mask[1] else input_op)
@@ -715,7 +715,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                   (x, fwd_out, grad, kernel_size, stride, "VALID", "NCHW"))
 
     @register_conversion(torch.ops.aten.max_pool2d_with_indices)
-    def maxpool2d(self, x, ksize, stride, padding=[0, 0]):
+    def maxpool2d(self, x, ksize, strides, padding=[0, 0]):
         assert len(ksize) == 2
         assert len(strides) == 2
         ksize = [1, 1, ksize[0], ksize[1]]
@@ -857,7 +857,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.convolution)
     def convolution(self, input, weight, bias, stride, padding,
                     dilation, transposed, output_padding, groups):
-        assert transposed == False
+        assert transposed is False
         assert output_padding == [0, 0]
 
         if len(stride) == 2:
@@ -917,7 +917,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten._log_softmax.default)
     def log_softmax(self, x, dim, half_to_float):
-        assert half_to_float == False
+        assert half_to_float is False
         dim = [dim] if not isinstance(dim, list) else dim
         return self.get_proxy(ascend_op.LogSoftmaxV2, (x, dim))
 
@@ -997,7 +997,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def _softmax(self, x, dim=-1, half_to_float=False):
         if isinstance(dim, int):
             dim = [dim]
-        assert (half_to_float == False)
+        assert (half_to_float is False)
         return self.get_proxy(ascend_op.SoftmaxV2, (x, dim))
 
     @register_conversion(torch.ops.aten.sum.default)
@@ -1090,7 +1090,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         orig_ascend_dtype = get_ascend_dtype(dtype)
         try:
             cpp_dtype = get_cpp_dtype(dtype)
-        except:
+        except Exception:
             not_support_type = True
         value_op = None
         if not_support_type:

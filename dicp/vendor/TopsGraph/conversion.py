@@ -26,13 +26,16 @@ patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
 
+
 def args_kwargs_unchange(args, kwargs):
     return args, kwargs
+
 
 def _register_conversion(
     aten_fn, decomp_fn, process_args_kwargs_fn=None
 ):
-    register_op_singleton_flag = isinstance(decomp_fn, type) and issubclass(decomp_fn, tops_op.Operator)
+    register_op_singleton_flag = isinstance(
+        decomp_fn, type) and issubclass(decomp_fn, tops_op.Operator)
     if register_op_singleton_flag:
         wrapped = (decomp_fn.get_singleton(),
                    args_kwargs_unchange if process_args_kwargs_fn is None else process_args_kwargs_fn)
@@ -58,6 +61,7 @@ def _register_conversion(
         return wrapped[0]
     else:
         return wrapped
+
 
 def register_conversion(aten_fn):
     """
@@ -105,7 +109,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Mul(self, a, b):
         if isinstance(a, Proxy):
             if hasattr(a.node, "meta") and 'val' in a.node.meta:
-                if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat) :
+                if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat):
                     return tops_op.ComplexMul(a, b)
         return tops_op.Mul(a, b)
 
@@ -166,12 +170,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.index.Tensor)
     def Index(self, *args, **kwargs):
-        assert len(args[1]) == 1, f"Only support aten.index with one index arg" 
+        assert len(args[1]) == 1, "Only support aten.index with one index arg"
         idx_rank = len(args[1][0].node.meta['val'].shape)
         slice_size = list(args[0].node.meta['val'].shape)
         slice_size[0] = 1
         return self.get_proxy(tops_op.XlaGather, (args[0], args[1][0], 
-            [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+                                                  [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
 
     # tops_dropout only returns a tensor, not a tuple of tensor
     @register_conversion(aten.native_dropout.default)
@@ -257,7 +261,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.view)
     def Reshape(self, *args, **kwargs):
-        if  args[0].node.meta["val"].dtype in (torch.cfloat, torch.cdouble):
+        if args[0].node.meta["val"].dtype in (torch.cfloat, torch.cdouble):
             x = self.get_proxy(tops_op.GetTupleElement, (args[0], 0))
             x = self.get_proxy(tops_op.Reshape, (x, *args[1:]), kwargs)
             y = self.get_proxy(tops_op.GetTupleElement, (args[0], 1))
@@ -312,7 +316,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.amax)
     def ReduceMax(self, *args, **kwargs):
         return self.get_proxy(tops_op.ReduceMax, args, kwargs)
-    
+
     @register_conversion(aten._native_batch_norm_legit_functional.default)
     def BatchNorm(self, *args, **kwargs):
         return self.get_proxy(tops_op.BatchNorm, args, kwargs)
@@ -341,8 +345,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.bmm.default)
     def Bmm(self, *args, **kwargs):
-        return self.get_proxy(tops_op.DotGeneral, (*args, 
-            [0,], [0,], [2,], [1,]))
+        return self.get_proxy(tops_op.DotGeneral, (*args,
+                                                   [0,], [0,], [2,], [1,]))
 
     @register_conversion(aten.cat.default)
     def Concatenate(self, *args, **kwargs):
@@ -350,7 +354,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         for arg in args[0]:
             if torch.numel(arg.node.meta['val']):
                 tensors.append(arg)
-        dim = 0 if len(args) < 2 else args[1] 
+        dim = 0 if len(args) < 2 else args[1]
         dim = dim % len(args[0][0].node.meta["val"].shape)
         return self.get_proxy(tops_op.Concatenate, (args[0], dim))
 
@@ -421,7 +425,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
             if hasattr(a.node, "meta"):
                 in_shape = a.node.meta["val"].shape
                 index = index % in_shape[dim]
-                slice = self.get_proxy(tops_op.SliceInDim, (a, dim, index, index + 1, 1))
+                slice = self.get_proxy(
+                    tops_op.SliceInDim, (a, dim, index, index + 1, 1))
                 return self.get_proxy(tops_op.Squeeze, (slice, dim))
 
     @register_conversion(aten.where.self)
@@ -453,8 +458,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
         idx_rank = len(args[1].node.meta['val'].shape)
-        return self.get_proxy(tops_op.XlaGather, (*args, 
-            [idx_rank,], [0,], [0,] , idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+        return self.get_proxy(tops_op.XlaGather, (*args,
+                                                  [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
 
     @register_conversion(prims.convert_element_type)
     def Convert(self, *args, **kwargs):
@@ -486,14 +491,14 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.gelu.default)
     def Gelu(self, *args, **kwargs):
-        approximate = 'true' if ('approximate' in kwargs 
-            and kwargs["approximate"] == 'tanh') else 'false'
+        approximate = 'true' if ('approximate' in kwargs
+                                 and kwargs["approximate"] == 'tanh') else 'false'
         return self.get_proxy(tops_op.Gelu, (args[0], approximate))
 
     @register_conversion(aten.gelu_backward.default)
     def gelubackward(self, *args, **kwargs):
-        approximate = 'true' if ('approximate' in kwargs 
-            and kwargs["approximate"] == 'tanh') else 'false'
+        approximate = 'true' if ('approximate' in kwargs
+                                 and kwargs["approximate"] == 'tanh') else 'false'
         return self.get_proxy(tops_op.GeluBackward, (args[0], args[1], approximate))
 
     @register_conversion(prims.iota.default)
@@ -502,15 +507,18 @@ class AtenToTopsTransformer(SingleOpTransformer):
         if kwargs["start"] != 0 or kwargs["step"] != 1:
             offset = self.get_proxy(tops_op.Mul, (iota, kwargs["step"]))
             return self.get_proxy(tops_op.Add, (offset, kwargs["start"]))
-        return iota 
+        return iota
 
 
 # Patterns
 tops_patterns = PatternMatcherPass()
 aten_patterns_cls_list = []
-register_aten_patterns = functools.partial(register_backend_patterns, aten_patterns_cls_list)
+register_aten_patterns = functools.partial(
+    register_backend_patterns, aten_patterns_cls_list)
 tops_patterns_cls_list = []
-register_tops_patterns = functools.partial(register_backend_patterns, tops_patterns_cls_list)
+register_tops_patterns = functools.partial(
+    register_backend_patterns, tops_patterns_cls_list)
+
 
 @register_aten_patterns
 class ReplacePatternAddmm(BackendPatternBase):
@@ -521,7 +529,7 @@ class ReplacePatternAddmm(BackendPatternBase):
     @staticmethod
     def replacement(a, b, c):
         return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
-    
+
 
 # %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
 #                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
@@ -538,7 +546,8 @@ class ReplacePatternVar(BackendPatternBase):
         denom = 64
         denom = denom - correction
         mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(torch.ops.aten.sub.Tensor(inputs, mean1))
+        diffs = torch.ops.aten.square.default(
+            torch.ops.aten.sub.Tensor(inputs, mean1))
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return x_var
@@ -559,7 +568,8 @@ class ReplacePatternVarMean(BackendPatternBase):
         denom = 64
         denom = denom - correction
         mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(torch.ops.aten.sub.Tensor(inputs, mean1))
+        diffs = torch.ops.aten.square.default(
+            torch.ops.aten.sub.Tensor(inputs, mean1))
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return tops_op.ret_tuples(x_var, mean1)
@@ -607,7 +617,7 @@ if is_torch_210:
     Expand = torch.fx.wrap(tops_op.Expand.get_singleton())
     Reshape = torch.fx.wrap(tops_op.Reshape.get_singleton())
     Bmm = torch.fx.wrap(tops_op.Bmm.get_singleton())
-    
+
     @register_tops_patterns
     class GemmTransposeRhsPattern(BackendPatternBase):
         @staticmethod
@@ -636,4 +646,3 @@ if is_torch_210:
         @staticmethod
         def replacement(xq, keys):
             return DotGeneral(xq, keys, [0, 2], [0, 2], [3,], [3,])
-
