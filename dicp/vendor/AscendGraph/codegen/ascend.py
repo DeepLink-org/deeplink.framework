@@ -19,7 +19,7 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
              'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill', 'sort',
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
              'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor', 'indiv']
 
@@ -2113,7 +2113,7 @@ class AscendOverrides:
         return getattr(AscendOverrides, "ones")(name, shape, dtype, device, pin_memory)
 
     @staticmethod
-    def sort(name, node, x, dim=-1, descending=False):
+    def sort(name, x, dim=-1, descending=False):
         op = OP(name, "Sort")
         op.set_input("x", x)
         op.set_attr_int("axis", dim)
