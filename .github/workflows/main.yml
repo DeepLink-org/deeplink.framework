@@ -420,6 +420,10 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
+          export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
+          export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
+          export PYTHONPATH=\${basic_path}/mmpretrain:\$PYTHONPATH
+          export PYTHONPATH=\${pwd}:\$PYTHONPATH
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
       - name: Perform cleanup one iter data
