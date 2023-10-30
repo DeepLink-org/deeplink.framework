@@ -8,6 +8,9 @@ from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._functorch import config
 aten = torch.ops.aten
+from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
+from dicp.dynamo_bridge.operator import Operator
+
 
 def binary_dtype_check(name, lhs_t, rhs_t):
     assert lhs_t.dtype == rhs_t.dtype, \
@@ -80,7 +83,7 @@ class Operator():
         new_args = tuple(new_args)
 
         fake_mode = self.get_fake_mode_from_args(new_args)
-            
+
         tmp_args = []
         for arg in new_args:
             if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
@@ -89,7 +92,12 @@ class Operator():
                 tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
         new_args = tuple(tmp_args)
 
-        return self.torch_op(*new_args, **kwargs)
+        try:
+            ret = self.torch_op(*new_args, **kwargs)
+        except:
+            ret = None
+        return ret
+
 
 class Add(Operator):
     def __init__(self, a, b, **kwargs):
@@ -99,12 +107,14 @@ class Add(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.add.Tensor
 
+
 class AddDefalut(Operator):
     def __init__(self, a, b):
         super().__init__("Add")
         self.a = a
         self.b = b
         self.torch_op = aten.add.default
+
 
 class AddScalar(Operator):
     def __init__(self, a, b):
@@ -113,12 +123,16 @@ class AddScalar(Operator):
         self.b = b
         self.torch_op = aten.add.Scalar
 
+
 class Gemm(Operator):
     def __init__(self, a, b):
         super().__init__("Gemm")
         self.a = a
         self.b = b
         self.torch_op = aten.mm
+
+    def __call__(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)
 
 
 class Abs(Operator):
@@ -127,7 +141,8 @@ class Abs(Operator):
         self.a = a
         self.torch_op = aten.abs
 
-class LtTensor(Operator):
+
+class Less(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Less")
         self.args = args
@@ -142,12 +157,18 @@ class LessEqual(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.le.Scalar
 
-class NeScalar(Operator):
+
+class NotEqual(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("NotEqual")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.ne.Scalar
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+
 
 class Mul(Operator):
     def __init__(self, a, b):
@@ -159,10 +180,11 @@ class Mul(Operator):
 
 class ComplexMul(Operator):
     def __init__(self, a, b):
-        super().__init__("Complexmul")
+        super().__init__("ComplexMul")
         self.a = a
         self.b = b
         self.torch_op = aten.mul
+
 
 class MulScalar(Operator):
     def __init__(self, a, b):
@@ -171,6 +193,7 @@ class MulScalar(Operator):
         self.b = b
         self.torch_op = aten.mul.Scalar
 
+
 class Div(Operator):
     def __init__(self, a, b):
         super().__init__("Div")
@@ -178,12 +201,14 @@ class Div(Operator):
         self.b = b
         self.torch_op = aten.div
 
+
 class DivScalar(Operator):
     def __init__(self, a, b):
         super().__init__("Div")
         self.a = a
         self.b = b
         self.torch_op = aten.div.Scalar
+
 
 class Sub(Operator):
     def __init__(self, a, b):
@@ -198,13 +223,6 @@ class Sqrt(Operator):
         super().__init__("Sqrt")
         self.a = a
         self.torch_op = aten.sqrt
-
-class Square(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Square")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.square
 
 
 class Exp(Operator):
@@ -287,7 +305,7 @@ class Hardswish(Operator):
 
 class HardswishBackward(Operator):
     def __init__(self, a, b):
-        super().__init__("Hardswish_Grad")
+        super().__init__("HardswishBackward")
         self.a = a
         self.b = b
         self.torch_op = aten.hardswish_backward
@@ -299,12 +317,14 @@ class Clone(Operator):
         self.args = args
         self.torch_op = aten.clone
 
+
 class Alias(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Clone")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.alias
+
 
 class Copy(Operator):
     def __init__(self, *args, **kwargs):
@@ -357,30 +377,45 @@ class Rsqrt(Operator):
         self.a = a
         self.torch_op = aten.rsqrt
 
+
 class Convolution(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Convolution")
+        super().__init__("Conv2D")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.convolution
 
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+    
+
 class ConvolutionBackward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Conv2D_Grad")
+        super().__init__("Conv2DBackward")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.convolution_backward.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+
 
 class Max_pool2d_with_indices(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("MaxPool2D")
         self.args = args
         self.torch_op = aten.max_pool2d_with_indices
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
 
 
 class Max_pool2d_with_indices_backward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("MaxPool2D_Grad")
+        super().__init__("MaxPool2DBackward")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.max_pool2d_with_indices_backward
@@ -392,15 +427,11 @@ class Adaptive_avg_pool2d(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten._adaptive_avg_pool2d.default
-       
-        
-class Adaptive_avg_pool2d_backward(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("AvgPool2D_Grad")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten._adaptive_avg_pool2d_backward.default
 
+    def __call__(self, *args, **kwargs):
+        new_args = args[1:]
+        return super().__call__(*new_args, **kwargs)
+    
 
 class Gather(Operator):
     def __init__(self, *args, **kwargs):
@@ -417,14 +448,6 @@ class Log(Operator):
         self.torch_op = aten.log
 
 
-class Getitem(Operator):
-    def __init__(self, x, idx):
-        super().__init__("Getitem")
-        self.x = x
-        self.idx = idx
-        self.torch_op = operator.getitem
-
-
 class NativeDropout(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("NativeDropout")
@@ -432,10 +455,13 @@ class NativeDropout(Operator):
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.native_dropout.default
 
+    def __call__(self, *args, **kwargs):
+        return super().__call__(*args, **kwargs)[0]
+
 
 class BatchNorm(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Batch_Norm")
+        super().__init__("BatchNorm")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten._native_batch_norm_legit_functional.default
@@ -452,17 +478,7 @@ class BatchNormBackward(Operator):
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
-        self.args = args
-        self.kwargs = kwargs
         self.torch_op = aten._softmax.default
-
-
-class Range(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Range")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.arange.start
 
 
 class Bmm(Operator):
@@ -472,35 +488,19 @@ class Bmm(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.bmm.default
 
+
 class DotGeneral(Operator):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         super().__init__("DotGeneral")
 
-    def __call__(self, lhs, rhs, dot_dimension_numbers_str):
+    def __call__(self, lhs, rhs, lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims):
         lhs_tensor = lhs.meta['val']
         rhs_tensor = rhs.meta['val']
         res_device = binary_device_check(self.name(), lhs_tensor, rhs_tensor)
         res_dtype = binary_dtype_check(self.name(), lhs_tensor, rhs_tensor)
 
-        def str_to_int_list(string):
-            if string:
-                return list(map(lambda x: int(x.strip()), string.split(",")))
-            else:
-                return []
-
-        dot_dim_list= []
-        str_idx = 0
-        start_pos = str_idx
-        while(str_idx < len(dot_dimension_numbers_str)):
-            if dot_dimension_numbers_str[str_idx] == "{":
-                start_pos = str_idx
-            elif dot_dimension_numbers_str[str_idx] == "}":
-                dot_dim_list.append(str_to_int_list(dot_dimension_numbers_str[start_pos+1:str_idx]))
-            str_idx += 1
-
         lhs_shape = lhs_tensor.shape
         rhs_shape = rhs_tensor.shape
-        lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims  = dot_dim_list
         lhs_shape_set = set(range(len(lhs_tensor.shape)))
         rhs_shape_set = set(range(len(rhs_tensor.shape)))
         assert lhs_shape_set | set(lhs_batch_dims) | set(lhs_contract_dims) == lhs_shape_set, \
@@ -534,12 +534,14 @@ class DotGeneral(Operator):
             fake_t = torch.empty(size=res_shape, dtype=res_dtype, device=res_device)
         return fake_t
 
+
 class Dot(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Dot")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.dot.default
+
 
 class Concatenate(Operator):
     def __init__(self, *args, **kwargs):
@@ -556,12 +558,14 @@ class EmptyLike(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.empty_like.default
 
+
 class Bernoulli(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Bernoulli")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.bernoulli.p
+
 
 class NewEmptyStrided(Operator):
     def __init__(self, *args, **kwargs):
@@ -571,7 +575,7 @@ class NewEmptyStrided(Operator):
         self.torch_op = aten.new_empty_strided.default
 
 
-class Euqal(Operator):
+class Equal(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args
@@ -630,6 +634,18 @@ class Sigmoid(Operator):
 class Slice(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Slice")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.slice.Tensor
+    
+    def __call__(self, *args, **kwargs):
+        new_args = args[3:]
+        return super().__call__(*new_args, **kwargs)
+
+        
+class SliceInDim(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("SliceInDim")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.slice.Tensor
@@ -707,7 +723,8 @@ class Embedding(Operator):
         self.kargs = kwargs
         self.torch_op = aten.embedding.default
 
-class Equal(Operator):
+
+class EqualScalar(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Equal")
         self.args = args
@@ -715,16 +732,7 @@ class Equal(Operator):
         self.torch_op = aten.eq.Scalar
 
 
-class Tile(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Tile")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.repeat.default
-
-
-# torch.ops.prims.convert_element_type.default
-class ConvertElementType(Operator):
+class Convert(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Convert")
         self.args = args
@@ -734,7 +742,7 @@ class ConvertElementType(Operator):
 
 class ViewAsComplex(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Complex")
+        super().__init__("ViewAsComplex")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_complex
@@ -742,10 +750,11 @@ class ViewAsComplex(Operator):
 
 class ViewAsReal(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Viewasreal")
+        super().__init__("ViewAsReal")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.view_as_real
+
 
 class UnsafeView(Operator):
     def __init__(self, a, b):
@@ -758,25 +767,27 @@ class UnsafeView(Operator):
 class Logsoftmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Logsoftmax")
-        self.args = args
-        self.kwargs = kwargs
         self.torch_op = aten._log_softmax.default
 
 
 class Gelu(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Gelu")
-        self.args = args
-        self.kwarg = kwargs
         self.torch_op = aten.gelu.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = (args[0],)
+        return super().__call__(*new_args, **kwargs)
 
 
 class GeluBackward(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Gelu_Grad")
-        self.args = args
-        self.kwarg = kwargs
+        super().__init__("GeluBackward")
         self.torch_op = aten.gelu_backward.default
+
+    def __call__(self, *args, **kwargs):
+        new_args = (args[0], args[1])
+        return super().__call__(*new_args, **kwargs)
 
 
 class Iota(Operator):
@@ -785,6 +796,55 @@ class Iota(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.prims.iota.default
+
+
+class GetTupleElement(Operator):
+    def __init__(self, x, idx):
+        self.x = x
+        self.idx = idx
+        self.torch_op = operator.getitem
+        super().__init__("GetTupleElement")
+
+    def __call__(self, x, idx):
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        
+        if x.dtype in (torch.cfloat, torch.cdouble):
+            data_type = torch.double if x.dtype == torch.cdouble else torch.float
+            data_size = x.size()
+            return torch.empty(data_size, dtype=data_type)
+        
+        x = x[idx]
+        if hasattr(x, 'meta'):
+            x = x.meta['val']
+        return x
+
+
+class MakeTuple(Operator):
+    def __init__(self, a, b):
+        super().__init__("MakeTuple")
+        self.torch_op = torch.empty_like
+
+    def __call__(self, a, b):
+        if hasattr(a, 'meta'):
+            a = a.meta['val']
+        if hasattr(b, 'meta'):
+            b = b.meta['val']
+        return a, b
+
+
+class XlaGather(Operator):
+    def __init__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+                 start_index_map, index_vector_dim, slice_size):
+        super().__init__("XlaGather")
+
+    def __call__(self, operand, indices, offset_dims, collapsed_slice_dims, 
+                 start_index_map, index_vector_dim, slice_size):
+        out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
+
+        with operand.meta['val'].fake_mode:
+            return aten.empty(out_shape, device=operand.meta["val"].device)
+
 
 # TODO check if we need this wrap
 @torch.fx.wrap
