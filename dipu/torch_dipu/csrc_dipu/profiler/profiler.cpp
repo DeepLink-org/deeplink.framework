@@ -309,8 +309,9 @@ RecordCreator::~RecordCreator() {
 void RecordCreator::end() {
     if (!end_) {
         RecordsImpl::get().addRecord(
-            Record{name_, opId_, begin_, torch::profiler::impl::getTime(), libkineto::processId(),
-                   libkineto::systemThreadId(), false, linkCorrelationId_, extraInfo_});
+            Record{name_, opId_, begin_, static_cast<size_t>(torch::profiler::impl::getTime()),
+                   static_cast<size_t>(libkineto::processId()), static_cast<size_t>(libkineto::systemThreadId()),
+                   false, linkCorrelationId_, extraInfo_});
     }
     end_ = true;
 }
@@ -345,7 +346,8 @@ void DeviceRecordCreator::end() {
         auto deviceId = dipu::devproxy::current_device();
         DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
                 pStart_, pStop_, static_cast<size_t>(deviceId),
-                streamId_, name_, opId_, linkCorrelationId_, extraInfo_});
+                static_cast<size_t>(streamId_), name_, opId_,
+                linkCorrelationId_, extraInfo_});
         RecordsImpl::get().recordStream(deviceId, streamId_);
     }
     end_ = true;
