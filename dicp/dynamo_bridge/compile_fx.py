@@ -45,6 +45,16 @@ def get_fake_mode_from_tensors(input_tensors):
         raise ValueError(f"unsupported dicp torch version: {torch.__version__}")
 
 
+def used_nodes_all_symint(nodes):
+    for node in nodes:
+        if node.op =='placeholder' and len(node.users) > 0:
+            if hasattr(node, 'meta'):
+                node = node.meta['val']
+            if not isinstance(node, torch.SymInt):
+                return False
+    return True
+
+
 @functools.lru_cache(None)
 def _step_logger():
     return dynamo_logging.get_step_logger(log)
@@ -60,6 +70,10 @@ def compile_fx_inner(
 ):
     if dynamo_utils.count_calls(gm.graph) == 0:
         return make_boxed_func(gm.forward)
+
+    # all symint inputs fallback to eager mode
+    if used_nodes_all_symint(list(gm.graph.nodes)):
+        return gm
 
     # lift the maximum depth of the Python interpreter stack
     # to adapt large/deep models

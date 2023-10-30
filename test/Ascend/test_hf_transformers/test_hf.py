@@ -1,3 +1,4 @@
+import torch.jit._shape_functions as shape_functions
 from transformers import LlamaTokenizer, LlamaForCausalLM
 import torch
 import torch_dipu

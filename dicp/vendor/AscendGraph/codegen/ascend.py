@@ -224,37 +224,40 @@ class AscendCodegen(torch.fx.Interpreter):
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
-            call_body.writeline(f'''max_range = 0''')
             dims = f'''dims = {{'''
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
                 elem = [self.process_sym_name(dim) for dim in elem]
-                dims += str(self.dynamic_index[idx]) + \
-                    ":[" + ','.join(map(str, elem)) + '],'
+                dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + f'''}}'''
             call_body.writeline(dims)
-            unique_elem = []
-            for elem in self.actual_shape:
-                for dim in elem:
-                    st = self.process_sym_name(dim)
-                    if not st in unique_elem:
-                        unique_elem.append(st)
-                        if not st.isdigit():
-                            call_body.writeline(f'''if max_range < {st}:''')
-                            call_body.writeline(f'''    max_range = {st}''')
+
+            shape_str = f'''output_shape = ['''
+            for elem in self.output_args:
+                if hasattr(elem, 'meta'):
+                    elem = elem.meta['val']
+                elem = list(elem.shape)
+                if len(elem) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                elem = [self.process_sym_name(str(dim)) for dim in elem]
+                shape_str += "[" + ','.join(map(str, elem)) + '],'
+            shape_str = shape_str[:-1] + f''']'''
+            call_body.writeline(shape_str)
         else:
             call_body.writeline(f'''dims = None''')
-            call_body.writeline(f'''max_range = 0''')
+            call_body.writeline(f'''output_shape = None''')
 
         call_body.splice(f"""
+                             import torch_dipu
+                             dipu_device_str = torch_dipu.dipu.device.__diputype__
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
-                                     args[idx] = torch.tensor(args[idx], device='xpu', dtype=torch.int32)
+                                     args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims, max_range)']
-
+        call_str = [f'output_tensor = kernel_cpp_0(args, dims, output_shape)']
+        
         if precision_check and self.aten_graph is not None:
             # 1. export aten graph to disk
             def get_unique_str():
