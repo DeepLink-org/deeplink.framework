@@ -96,5 +96,9 @@ cuda:
     - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 ascend:
+    # mmdetection
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
       fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
+    # mmagic
+    - model_cfg: "mmagic stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable_diffusion"
+      fallback_op_list: "fill_.Scalar,linear,convolution_overrideable"
