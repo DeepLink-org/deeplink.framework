@@ -74,6 +74,7 @@ function build_needed_repo_camb() {
 }
 
 function build_needed_repo_ascend() {
+    echo "3python path: $PYTHONPATH"
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
     cd ..
@@ -189,6 +190,7 @@ case $1 in
         build_needed_repo_camb
         build_dataset camb;;
     build_ascend)
+        echo "2python path: $PYTHONPATH"
         build_needed_repo_ascend
         build_dataset ascend;;
     export_pythonpath_camb)
