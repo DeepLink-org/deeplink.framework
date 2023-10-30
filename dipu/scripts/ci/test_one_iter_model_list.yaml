@@ -98,4 +98,4 @@ cuda:
 ascend:
     # # mmsegmentation
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2 --no-pin-memory"
-      fallback_op_list: "convolution_overrideable,native_batch_norm_backward,native_batch_norm,nll_loss_backward.grad_input"
+      fallback_op_list: "convolution_overrideable,native_batch_norm_backward,native_batch_norm,nll_loss_backward.grad_input,linear_backward,linear"
