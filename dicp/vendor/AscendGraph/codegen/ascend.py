@@ -19,9 +19,9 @@ need_node = ['add', 'mul', 'div', 'view', 'scatter', 'full', 'lt', 'inge', 'eq',
              't', 'nll_loss_forward', 'native_batch_norm_legit_functional', 'gather',
              'nll_loss_backward', 'native_batch_norm_backward', 'repeat_interleave',
              'view_as_complex', 'view_as_real', 'slice', 'select', 'topk', 'sub',
-             'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill',
+             'pow', 'cat', 'expand', 'transpose', 'inmul', 'masked_fill', 'sort',
              'rsub', 'index', 'slice_backward', 'empty_like', 'fill_scalar',
-             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor']
+             'bernoulli', 'new_empty_strided', 'fill', 'mul_tensor', 'indiv']
 
 sym_to_inputs = {}
 def get_graph_id():
@@ -62,26 +62,80 @@ def process_dynamic_shape(shape, name, suffix = "preprocess"):
         ops.append(op.to_node())
         x_names.append(f"{name}_dim_{suffix}{count}")
 
+    def get_arg_name(sym_str, sub_suffix=''):
+        count = len(x_names)
+        if sym_str in sym_in_args:
+            arg, idx = sym_in_args[sym_str]
+            shape_op = OP(f"{name}_dim_{suffix}{sub_suffix}{count}_arg_shape", "Shape")
+            shape_op.set_input("x", arg)
+
+            axis_op = OP(f"{name}_dim_{suffix}{sub_suffix}{count}_axis", "Const")
+            axis_op.set_attr_tensor("value", "INT32", "INT32", "ND", [0], [1])
+            indice_op = OP(f"{name}_dim_{suffix}{sub_suffix}{count}_indices", "Const") 
+            indice_op.set_attr_tensor("value", "INT32", "INT32", "ND", [idx], [1])
+
+            arg_op = OP(f"{name}_dim_{suffix}{sub_suffix}{count}_arg", "GatherV2")
+            arg_op.set_input("x", f"{name}_dim_{suffix}{sub_suffix}{count}_arg_shape")
+            arg_op.set_input("indices", f"{name}_dim_{suffix}{sub_suffix}{count}_indices")
+            arg_op.set_input("axis", f"{name}_dim_{suffix}{sub_suffix}{count}_axis")
+
+            ops.extend([shape_op.to_node(), axis_op.to_node(), indice_op.to_node(), arg_op.to_node()])
+            arg_name = f"{name}_dim_{suffix}{sub_suffix}{count}_arg"
+        else:
+            arg_name = sym_to_inputs[sym_str]
+        return arg_name
+
     def generate_sym_int(elem):
         count = len(x_names)
         elem = elem.node.str()
-        elems = elem.strip().split(' ')
+        elem = elem.replace(' ', '')
+        elem = elem.replace('(', '')
+        elem = elem.replace(')', '')
+        if '+' in elem:
+            elems = elem.strip().split('+')
+            op_type1 = 'Add'
+        elif '-' in elem:
+            elems = elem.strip().split('-')
+            op_type1 = 'Sub'
+        elif '//' in elem:
+            elems = elem.strip().split('//')
+            op_type1 = 'FloorDiv'
+        else:
+            elems = [elem.strip()]
+        arg_name_1 = get_arg_name(elems[0], '1_')
 
         if len(elems) > 1:
-            assert len(elems) == 3
-            assert elems[2].isdigit()
-            assert elems[1] == '+' or elems[1] == '-'
-            op_type = "Add" if elems[1] == '+' else "Sub"
-            op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
-            op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(elems[2])], [1])
-            op2 = OP(f"{name}_dim_{suffix}{count}", op_type)
-            op2.set_input("x1", sym_to_inputs[elems[0]])
-            op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
-            ops.extend([op1.to_node(), op2.to_node()])
-            x_names.append(f"{name}_dim_{suffix}{count}")
+            assert len(elems) == 2
+            if elems[1].isdigit():
+                assert op_type1 == 'Add' or op_type1 == 'Sub' or op_type1 == 'FloorDiv'
+                op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
+                op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(elems[1])], [1])
+                op2 = OP(f"{name}_dim_{suffix}{count}", op_type1)
+                op2.set_input("x1", arg_name_1)
+                op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
+                ops.extend([op1.to_node(), op2.to_node()])
+                x_names.append(f"{name}_dim_{suffix}{count}")
+            else:
+                level2 = elems[1]
+                if '//' in level2:
+                    level2 = level2.strip().split('//')
+                    arg_name_2 = get_arg_name(level2[0], '2_')
+                    op_type2 = 'FloorDiv'
+                    op1 = OP(f"{name}_dim_{suffix}{count}_const", "Const")
+                    op1.set_attr_tensor("value", "INT32", "INT32", "ND", [int(level2[1])], [1])
+                    op2 = OP(f"{name}_dim_{suffix}{count}_level1", op_type2)
+                    op2.set_input("x1", arg_name_2)
+                    op2.set_input("x2", f"{name}_dim_{suffix}{count}_const")
+                    op3 = OP(f"{name}_dim_{suffix}{count}", op_type1)
+                    op3.set_input("x1", arg_name_1)
+                    op3.set_input("x2", f"{name}_dim_{suffix}{count}_level1")
+                    ops.extend([op1.to_node(), op2.to_node(), op3.to_node()])
+                    x_names.append(f"{name}_dim_{suffix}{count}")
+                else:
+                    # Not supported now!
+                    raise RuntimeError("Complicated symint conversion not supported now!")
         else:
-            x_names.append(sym_to_inputs[elems[0]])
-
+            x_names.append(arg_name_1)
 
     dims = []
     for elem in shape:
@@ -208,14 +262,28 @@ class AscendCodegen(torch.fx.Interpreter):
         self.graph_output_names = []
         self.build_options = []
 
+        self.folder = folder
+        self.graph_key = graph_key
+
         global sym_to_inputs
         sym_to_inputs = {}
+        global sym_in_args
+        sym_in_args = {}
+        global arg_names
+        arg_names = []
+
+        # for modified args return
+        global assign_args
+        assign_args = []
 
         super().__init__(graph)
 
     def placeholder(self, name, target, args, kwargs):
         self.args_dict[name] = name 
         self.input_args.append(self.cur_node)
+
+        global arg_names
+        arg_names = [arg.name for arg in self.input_args]
         fake_tensor = self.cur_node.meta['val']
 
         format = "NCHW"
@@ -227,6 +295,13 @@ class AscendCodegen(torch.fx.Interpreter):
             format = "ND"
             sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
+            # mention symint position in args
+            for idx, dim in enumerate(fake_tensor.shape):
+                if isinstance(dim, torch.SymInt):
+                    st = dim.node.str()
+                    if not st in sym_in_args:
+                        sym_in_args[st] = (name, idx)
+
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt) else elem for elem in fake_tensor.shape]
             actual_shape = [elem.node.str() if isinstance(elem, torch.SymInt) else str(elem) for elem in fake_tensor.shape]
@@ -315,6 +390,9 @@ class AscendCodegen(torch.fx.Interpreter):
             else:
                 self.py_output_names.append(str(node))
 
+        if len(assign_args) > 0:
+            self.graph_output_names.extend(list(zip(*assign_args))[0])
+
     def gen_import_code(self):
         self.import_code.splice(
             f"""
@@ -329,7 +407,14 @@ class AscendCodegen(torch.fx.Interpreter):
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
                 
-                def check_tensor(a, b, atol=5e-2, rtol=1e-2):
+                def check_tensor(a, b, atol=5e-4, rtol=1e-4):
+                    if a.dtype == torch.float32:
+                        a[abs(a + 3.4028234663852886e+38) < 1e-6] = float("-inf")
+                    if b.dtype == torch.float32:
+                        b[abs(b + 3.4028234663852886e+38) < 1e-6] = float("-inf")
+                    if not a.storage().size() == b.storage().size():
+                        import pdb;pdb.set_trace()
+                        pass
                     if not torch.allclose(a, b, atol=atol, rtol=rtol, equal_nan=True):
                         import pdb;pdb.set_trace()
                         pass
@@ -345,23 +430,36 @@ class AscendCodegen(torch.fx.Interpreter):
             sp = st.split('+')
             assert(len(sp) == 2)
             sp = [elem.strip() for elem in sp]
+            if sp[0] in sym_in_args:
+                arg, idx = sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
             return sym_to_inputs[sp[0]] + '+' + sp[1]
         elif '-' in st:
             sp = st.split('-')
             assert(len(sp) == 2)
             sp = [elem.strip() for elem in sp]
+            if sp[0] in sym_in_args:
+                arg, idx = sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
             return sym_to_inputs[sp[0]] + '-' + sp[1]
         else:
+            if st in sym_in_args:
+                arg, idx = sym_in_args[st]
+                return "{}.shape[{}]".format(arg, idx)
             return sym_to_inputs[st]
 
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
+        shape_symint = [value[0] for value in sym_in_args.values()]
 
-        if len(self.dynamic_inputs) > 0:
-            args = ['_' if not arg in sym_to_inputs.values() else arg for arg in self.args]
+        if len(sym_in_args) > 0 or len(sym_to_inputs) > 0:
+            args = ['_' if not arg in shape_symint and not arg in sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
+
+        # generate input dims
+        if len(self.dynamic_inputs) > 0:
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
@@ -373,63 +471,99 @@ class AscendCodegen(torch.fx.Interpreter):
                 dims += str(self.dynamic_index[idx]) + ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + f'''}}'''
             call_body.writeline(dims)
+        else:
+            call_body.writeline(f'''dims = None''')
 
+        # generate output shapes
+        if len(sym_in_args) > 0 or len(sym_to_inputs) > 0:
             shape_str = f'''output_shape = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
-                elem = list(elem.shape)
-                if len(elem) == 0:
+                if isinstance(elem, torch.SymInt):
+                    shape_str += '[1],'
+                    continue
+                shape = list(elem.shape)
+                if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                elem = [self.process_sym_name(str(dim)) for dim in elem]
-                shape_str += "[" + ','.join(map(str, elem)) + '],'
+                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
+
+            # process output_shape with modified args
+            for elem in assign_args:
+                shape = list(self.input_args[elem[1]].meta['val'].shape)
+                if len(shape) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
             shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
         else:
-            call_body.writeline(f'''dims = None''')
             call_body.writeline(f'''output_shape = None''')
+
+        if precision_check:
+            call_body.splice(f"""
+                             modified = []
+                             for idx in range(len(args)):
+                                 if isinstance(args[idx], int):
+                                     modified.append(idx)
+                         """, strip = True)
 
         call_body.splice(f"""
                              import torch_dipu
                              dipu_device_str = torch_dipu.dipu.device.__diputype__
+                             args_new = []
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
+                                 if isinstance(args[idx], torch.Tensor):
+                                     args_new.append(args[idx].clone())
+                                     if not args_new[idx].is_contiguous():
+                                         args_new[idx] = args_new[idx].contiguous()
+                                     if args_new[idx].isnan().any() or args_new[idx].isinf().any() or args_new[idx].isneginf().any():
+                                         args_new[idx] = torch.nan_to_num(args_new[idx])
                          """, strip=True)
+        args_new = [f"{arg}_new" for arg in self.args]
+        call_body.writeline(f"({','.join(args_new)}) = args_new")
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = [f'output_tensor = kernel_cpp_0(args, dims, output_shape)']
-        
+        call_str = [f'output_tensor = kernel_cpp_0(args_new, dims, output_shape)']
+
         if precision_check and self.aten_graph is not None:
-            # 1. export aten graph to disk
-            def get_unique_str():
-                uuid_str = str(uuid.uuid1())
-                return 'm' + str(uuid.uuid3(uuid.NAMESPACE_DNS, uuid_str + str(os.getpid())))
-            module_path = get_unique_str().replace('-', '')
-            folder_path = "/tmp/dicp_debug/aten_modules/" + module_path
-            os.system(f"mkdir -p {folder_path}")
-            self.aten_graph.to_folder(folder_path)
-          
-            # 2. import aten graph
-            call_str.append(f'from aten_modules.{module_path} import FxModule')
-            call_str.append('aten_call = FxModule()')
-            call_str.append('aten_output = aten_call(*args)')
+            # import aten graph
+            call_str.append(f"import sys")
+            call_str.append(f"if '{self.folder}' not in sys.path:")
+            call_str.append(f"    sys.path.insert(0, '{self.folder}')")
+            call_str.append(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_str.append(f"aten_call = graph_module()")
+
+            call_str.append('aten_args = list(map(lambda x: x.to("cpu"), args))')
+            call_str.append('for idx in modified:')
+            call_str.append('    aten_args[idx] = aten_args[idx].item()')
+            call_str.append('aten_output = aten_call(*aten_args)')
 
         for i, name in enumerate(self.graph_output_names):
             if not name in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
             else:
-                call_str.extend([f'del {name}',
-                                 f'{name} = int(output_tensor[{i}])'])
+                call_str.extend(f'del {name}',
+                                 f'{name} = int(output_tensor[{i}])')
+
+        # dealing with modified args passing back
+        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in assign_args]
+        del_args_new = [f'del ' + x for x in args_new]
+        call_str.extend(del_args_new)
+        call_str.append(f"args_new.clear()")
+        call_str.extend(output_convert)
+        del_args = [f'del ' + x for x in self.args if x not in self.py_output_names]
+        call_str.extend(del_args)
+        call_str.append(f"args.clear()")
+
         if precision_check:
             for i, name in enumerate(self.py_output_names):
                 if name != 'None' and name not in self.args and name not in self.symint_outputs:
                     call_str.append(f"{name}_cpu = aten_output[{i}]")
-                    call_str.append(f"check_tensor({name}, {name}_cpu)")
+                    call_str.append(f"check_tensor({name}.cpu(), {name}_cpu)")
         call_body.writelines(call_str)
-
-        del_args = [f'del ' + x for x in self.args if x not in self.py_output_names]
-        call_body.writelines(del_args)
-        call_body.writeline(f"args.clear()")
         call_body.writeline(f"return ({', '.join(self.py_output_names)})")
 
         call_func = IndentedBuffer()
@@ -512,7 +646,7 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_graph_json(self):
         self.parse_outputs()
         self.gen_build_options()
-        has_dynamic_shape = False if len(sym_to_inputs) == 0 else True
+        has_dynamic_shape = False if len(sym_in_args) == 0 and len(sym_to_inputs) == 0 else True
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
@@ -1066,10 +1200,10 @@ class AscendOverrides:
         cond_op.set_input("x2", f"{name}_zero")
 
         # 3. post process result
-        res_op = OP(name, "Select")
+        res_op = OP(name, "SelectV2")
         res_op.set_input("condition", f"{name}_cond")
-        res_op.set_input("x1", f"{name}_nan")
-        res_op.set_input("x2", f"{name}_sqrt")
+        res_op.set_input("then", f"{name}_nan")
+        res_op.set_input("else", f"{name}_sqrt")
 
         ops = [op, zero_op, cond_op, nan_op, res_op]
         return [n.to_node() for n in ops]
@@ -1092,10 +1226,10 @@ class AscendOverrides:
         cond_op.set_input("x2", f"{name}_zero")
 
         # 3. post process result
-        res_op = OP(name, "Select")
+        res_op = OP(name, "SelectV2")
         res_op.set_input("condition", f"{name}_cond")
-        res_op.set_input("x1", f"{name}_nan")
-        res_op.set_input("x2", f"{name}_rsqrt")
+        res_op.set_input("then", f"{name}_nan")
+        res_op.set_input("else", f"{name}_rsqrt")
         
         ops = [op, zero_op, cond_op, nan_op, res_op]
         return [n.to_node() for n in ops]
@@ -1172,6 +1306,19 @@ class AscendOverrides:
         mul_op.set_input("x1", x)
         mul_op.set_input("x2", f"{name}_scalar")
         return [const_op.to_node(), mul_op.to_node()]
+
+    @staticmethod
+    def indiv(name, node, x, y):
+        (x_node, y_node) = node.args
+        assert(not isinstance(y_node, torch.fx.node.Node))
+        cpp_dtype = "INT32"
+        ascend_dtype = "INT32"
+        const_op = OP(f"{name}_scalar", "Const")
+        const_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [y], [])
+        div_op = OP(name, "FloorDiv")
+        div_op.set_input("x1", x)
+        div_op.set_input("x2", f"{name}_scalar")
+        return [const_op.to_node(), div_op.to_node()]
 
     @staticmethod
     def inge(name, node, x, y):
@@ -1318,7 +1465,12 @@ class AscendOverrides:
 
     @staticmethod
     def copy(name, dst, src):
-        return getattr(AscendOverrides, "clone")(name, src)
+        op = OP(name, "Identity")
+        op.set_input("x", src)
+
+        if dst in arg_names:
+            assign_args.append((name, arg_names.index(dst)))
+        return op.to_node()
       
     @staticmethod
     def _to_copy(name, x, dtype=None, layout=None, device=None):
@@ -1337,31 +1489,35 @@ class AscendOverrides:
     def lt(name, node, a, b):
         (x_node, y_node) = node.args
         x_dtype = x_node.meta['val'].dtype
+        x_shape = list(x_node.meta['val'].shape)
+        y_shape = [1]
+        if isinstance(y_node, torch.fx.node.Node):
+            y_shape = list(y_node.meta['val'].shape)
+        x_name = a
         y_name = b
+
         ops = []
-        if not isinstance(y_node, torch.fx.node.Node):
+        if np.prod(x_shape) > np.prod(y_shape):
             cast_op = None
             if x_dtype == torch.float16:
-                x_dtype = torch.float32
                 cast_op = OP(f'{name}_cast', "Cast")
                 cast_op.set_input('x', f'{name}_broadcast')
                 cast_op.set_attr_int('dst_type', get_ascend_dtype_num("FLOAT16"))
 
-            ascend_dtype = get_ascend_dtype(x_dtype)
-            cpp_dtype = get_cpp_dtype(x_dtype)
-            y_shape = list(x_node.meta['val'].shape)
+            if not isinstance(y_node, torch.fx.node.Node):
+                scalar_op = OP(f'{name}_scalar', "Const")
+                scalar_op.set_attr_tensor("value", "FLOAT", "FLOAT", "ND", [b], [1])
+                ops.append(scalar_op.to_node())
+                y_name = f'{name}_scalar'
 
-            scalar_op = OP(f'{name}_scalar', "Const")
-            scalar_op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [b], [1])
-            ops.append(scalar_op.to_node())
-            if symint_in_shape(y_shape):
-                ops.extend(process_dynamic_shape(y_shape, name))
+            if symint_in_shape(x_shape):
+                ops.extend(process_dynamic_shape(x_shape, name))
             else:
                 shape_op = OP(f"{name}_preprocess", "Const")
-                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", y_shape, [len(y_shape)])
+                shape_op.set_attr_tensor("value", "INT32", "INT32", "ND", x_shape, [len(x_shape)])
                 ops.append(shape_op.to_node())
             broadcast_op = OP(f"{name}_broadcast", "BroadcastTo")
-            broadcast_op.set_input("x", f"{name}_scalar")
+            broadcast_op.set_input("x", y_name)
             broadcast_op.set_input("shape", f"{name}_preprocess")
             ops.append(broadcast_op.to_node())
             y_name = f'{name}_broadcast'
@@ -1371,7 +1527,7 @@ class AscendOverrides:
                 y_name = f'{name}_cast'
 
         op = OP(name, "Less")
-        op.set_input("x1", a)
+        op.set_input("x1", x_name)
         op.set_input("x2", y_name)
         ops.append(op.to_node())
         return ops
@@ -1391,7 +1547,7 @@ class AscendOverrides:
         ascend_dtype = get_ascend_dtype(torch_dtype)
 
         if str(value) == "-inf":
-            value = -3.4028235e38
+            value = -3.4028234663852886e+38
 
         op = OP(f"{name}_value", "Const")
         op.set_attr_tensor("value", ascend_dtype, cpp_dtype, "ND", [value], [1])
@@ -1517,7 +1673,7 @@ class AscendOverrides:
     def div(name, node, x, y):
         (x_node, y_node) = node.args
         if isinstance(y_node, torch.fx.node.Node):
-            op = OP(name, "DivNoNan")
+            op = OP(name, "Div")
             op.set_input("x1", x)
             op.set_input("x2", y)
             return op.to_node()
@@ -1556,7 +1712,7 @@ class AscendOverrides:
                 ops.append(cast_op.to_node())
                 y_name = f'{name}_fp16_cast'
 
-            div_op = OP(name, "DivNoNan")
+            div_op = OP(name, "Div")
             div_op.set_input("x1", x)
             div_op.set_input("x2", y_name)
             ops.append(div_op.to_node())
@@ -1964,16 +2120,17 @@ class AscendOverrides:
         return getattr(AscendOverrides, "ones")(name, shape, dtype, device, pin_memory)
 
     @staticmethod
-    def sort(name, x, dim=-1, descending=False):
+    def sort(name, node, x, dim=-1, descending=False):
         op = OP(name, "Sort")
         op.set_input("x", x)
         op.set_attr_int("axis", dim)
         op.set_attr_bool("descending", descending)
-
+        op.set_attr_int("_keep_dtype", 1)
         return op.to_node()
 
     @staticmethod
     def topk(name, node, x, k, dim=-1, largest=True, sorted=True):
+        x_node = node.args[0]
         k_node = node.args[1]
         k_name = k
         ops = []
@@ -1989,6 +2146,7 @@ class AscendOverrides:
         op1.set_attr_int("dim", dim)
         op1.set_attr_bool("largest", largest)
         op1.set_attr_bool("sorted", sorted)
+        op1.set_attr_int("_keep_dtype", 1)
         ops.append(op1.to_node())
 
         return ops
@@ -2052,19 +2210,37 @@ class AscendOverrides:
     def mm(name, x, y, trans_a=False, trans_b=False, change_input=False):
         if change_input:
             (x, y) = (y, x)
-        op = OP(name, "MatMul")
-        op.set_input("x1", x)
-        op.set_input("x2", y)
+        # TODO! for MatMul only support fp16 inputs
+        # lose precision in some cases
+        cast_op1 = OP(f'{name}_x1_cast', "Unsqueeze")
+        cast_op1.set_input('x', x)
+        cast_op1.set_attr_list_int("axes", [0])
+
+        cast_op2 = OP(f'{name}_x2_cast', "Unsqueeze")
+        cast_op2.set_input('x', y)
+        cast_op2.set_attr_list_int("axes", [0])
+
+        mm_op = OP(f'{name}_matmul', "BatchMatMul")
+        mm_op.set_input("x1", f'{name}_x1_cast')
+        mm_op.set_input("x2", f'{name}_x2_cast')
+        mm_op.set_attr_int("_keep_dtype", 1)
+
+        res_op = OP(name, "Squeeze")
+        res_op.set_input("x", f'{name}_matmul')
+        res_op.set_attr_list_int("axis", [0])
+
         if trans_a:
-            op.set_attr_bool("transpose_x1", True)
+            mm_op.set_attr_bool("adj_x1", True)
         if trans_b:
-            op.set_attr_bool("transpose_x2", True)
-        return op.to_node()
+            mm_op.set_attr_bool("adj_x2", True)
+
+        return [cast_op1.to_node(), cast_op2.to_node(), mm_op.to_node(), res_op.to_node()]
 
     @staticmethod
     def bmm(name, x1, x2, adj_x1=False, adj_x2=False):
         op = OP(name, "BatchMatMul")
         op.set_input("x1", x1)
+        op.set_attr_int("_keep_dtype", 1)
         if adj_x1:
             op.set_attr_bool("adj_x1", True)
         op.set_input("x2", x2)
@@ -2208,10 +2384,10 @@ class AscendOverrides:
         x2_bcast.set_input("x", x2)
         x2_bcast.set_input("shape", f"{name}_cond_shape")
 
-        op = OP(name, "Select")
+        op = OP(name, "SelectV2")
         op.set_input("condition", cond)
-        op.set_input("x1", f"{name}_x1_bcast")
-        op.set_input("x2", f"{name}_x2_bcast")
+        op.set_input("then", f"{name}_x1_bcast")
+        op.set_input("else", f"{name}_x2_bcast")
 
         ops.append(shape_op.to_node())
         ops.append(x1_bcast.to_node())
@@ -2577,12 +2753,15 @@ class AscendOverrides:
         y_shape = list(node.meta['val'].shape)
 
         dim = int(dim)
-        start = int(start)
-        start = start if start >= 0 else x_shape[dim] + start
-        
+        if isinstance(node.target.start, int):
+            start = int(start)
+            start = start if start >= 0 else x_shape[dim] + start
+            assert start >=0 and start < x_shape[dim]
+        else:
+            assert isinstance(node.target.start.node, torch.fx.node.Node)
+            start = node.target.start.node.meta['val']
+
         assert dim >= 0 and dim < len(x_shape)
-        assert start >=0 and start < x_shape[dim]
-        
         offset = [0] * len(x_shape)
         offset[dim] = start
         

@@ -209,6 +209,10 @@ def unsafe_view(x, shape):
 def inmul(a, b):
     return ascend_op.InMul(a, b)
 
+@registe_conversion(_operator.floordiv)
+def indiv(a, b):
+    return ascend_op.InDiv(a, b)
+
 @registe_conversion(_operator.ge)
 def inge(a, b):
     return ascend_op.InGe(a, b)

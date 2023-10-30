@@ -7,6 +7,7 @@ import torch_dipu
 
 
 dipu_device_str = torch_dipu.dipu.device.__diputype__
+aten = torch.ops.aten
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
@@ -299,8 +300,7 @@ class AscendExecutor(object):
         input = list(map(lambda x: x.to(dipu_device_str), images))
         self._prepare_input(input, dims)
         output = []
-        if dims is not None:
-            assert self.output_shape is not None
+        if self.output_shape:
             self._prepare_dynamic_output(output)
         else:
             self._prepare_output(output)

@@ -566,6 +566,14 @@ class InMul(Operator):
         self.torch_op = _operator.mul
 
 
+class InDiv(Operator):
+    def __init__(self, a, b):
+        super().__init__("indiv")
+        self.a = a
+        self.b = b
+        self.torch_op = _operator.floordiv
+
+
 class InGe(Operator):
     def __init__(self, a, b):
         super().__init__("inge")
@@ -1050,15 +1058,6 @@ class Lt(Operator):
         self.x = x
         self.y = y
         self.torch_op = aten.lt
-
-
-class MaskedFill(Operator):
-    def __init__(self, x, y, value):
-        super().__init__("masked_fill")
-        self.x = x
-        self.y = y
-        self.value = value
-        self.torch_op = aten.masked_fill
 
 
 class Rsub(Operator):
