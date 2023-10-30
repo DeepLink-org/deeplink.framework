@@ -420,9 +420,10 @@ jobs:
           basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
+          pip install -U openmim
           rm -rf one_iter_data
           cd mmpretrain
-          pip install -U openmim && mim install -e .
+          mim install -e .
           cd ..
           export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
           export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
