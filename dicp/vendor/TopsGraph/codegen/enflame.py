@@ -827,8 +827,10 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Slice(op_var, shape, dtype, start_indices, limit_indices, strides, x, *args, **kwargs_list):
-        return f"builder::Op {op_var} = builder::Slice({x}, {start_indices}, {limit_indices}, {strides});"
+        return f"builder::Op {op_var} = builder::Slice({x}, {{{', '.join(map(str, start_indices))}}}, "\
+                                        f"{{{', '.join(map(str, limit_indices))}}}, {{{', '.join(map(str, strides))}}});"
 
+    @staticmethod
     def SliceInDim(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
         return f"builder::Op {op_var} = builder::SliceInDim({x}, {start}, {end}, {step}, {dim});"
 
@@ -846,16 +848,28 @@ class EnflameOverrides(OpOverrides):
     def BatchNorm(op_var, shape, dtype, input, weight, bias, running_mean, running_var, training, momentum, eps, **kwargs_list):
         return f"auto {op_var} = enflame::BatchNorm(hlir_builder, {input}, {weight}, {bias}, {running_mean}, {running_var}, 1, {training}, {momentum}, {eps});"
 
+    @staticmethod
     def Conv2D(op_var, shape, dtype, inputs, *args, **kwargs_list):
-        return f'builder::Op {op_var} = builder::Conv2D({{{", ".join(inputs[0])}}}, 1, "NOTSET", "NCHW", {", ".join(inputs[1:])});'
+        stride = f"{{{', '.join(map(str, args[len(inputs)]))}}}"
+        padding = f"{{{args[len(inputs) + 1][0]}, {args[len(inputs) + 1][0]}, {args[len(inputs) + 1][1]}, {args[len(inputs) + 1][1]}}}"
+        dilation = f"{{{', '.join(map(str, args[len(inputs) + 2]))}}}"
+        return f'builder::Op {op_var} = builder::Conv2D({{{", ".join(inputs)}}}, 1, "NOTSET", "NCHW", {stride}, {padding}, {dilation});'
 
     @staticmethod
     def Conv2DBackward(op_var, shape, dtype, inputs, *args, **kwargs_list):
-        return f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {', '.join(inputs[0])}, {', '.join(inputs[1:])});"
+        bias_size = f"{{{', '.join(map(str, args[len(inputs)]))}}}"
+        stride = f"{{{', '.join(map(str, args[len(inputs) + 1]))}}}"
+        padding = f"{{{', '.join(map(str, args[len(inputs) + 2]))}}}"
+        dilation =  f"{{{', '.join(map(str,  args[len(inputs) + 3]))}}}"        
+        return f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {', '.join(inputs)}, {bias_size}, {stride}, {padding}, {dilation});"
 
     @staticmethod
-    def MaxPool2D(op_var, shape, dtype, inputs, x, *args, **kwargs_list):
-        return f"auto {op_var} = enflame::MaxPool2D(hlir_builder, {x}, {', '.join(inputs)});"
+    def MaxPool2D(op_var, out_shape, out_dtype, shape, x, kernel_size, stride=[], padding=[0, 0], dilation=[1, 1], ceil_mode=False, **kwargs_list):
+        ksize = f"{{{', '.join(map(str, kernel_size))}}}"
+        stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{1, 1}}"
+        padding = f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}"
+        shape = f"{{{', '.join(map(str, shape))}}}"
+        return f"auto {op_var} = enflame::MaxPool2D(hlir_builder, {x}, {ksize}, {stride}, {padding}, {shape});"
 
     @staticmethod
     def MaxPool2DBackward(op_var, shape, dtype, *args):

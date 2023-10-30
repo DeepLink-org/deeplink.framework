@@ -270,34 +270,22 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Reshape, args, kwargs)
 
     @register_conversion(aten.convolution)
-    def Convolution(self, input, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
-        inputs = [item for item in (input, weight, bias) if item is not None]
-        padding = [padding[0], padding[0]] if len(
-            padding) == 1 else list(padding)
-        inputs = [inputs, f"{{{', '.join(map(str,stride))}}}", f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}",
-                  f"{{{', '.join(map(str,  dilation))}}}"]
-        return self.get_proxy(tops_op.Convolution, (inputs, input, weight, bias, stride, padding, dilation,
-                                                    transposed, output_padding, groups))
+    def Convolution(self, x, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
+        inputs = [item for item in (x, weight, bias) if item is not None]
+        padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
+        return self.get_proxy(tops_op.Convolution, (inputs, x, weight, bias, stride, padding, dilation,
+                                                            transposed, output_padding, groups))
 
     @register_conversion(aten.convolution_backward.default)
-    def ConvolutionBackward(self, grad_output, input, weight, bias_size, stride, padding, dilation, *args, **kwargs):
-        inputs = [item for item in (grad_output, input, weight)]
-        inputs = [inputs, f"{{{', '.join(map(str, bias_size))}}}", f"{{{', '.join(map(str, stride))}}}",
-                  f"{{{', '.join(map(str, padding))}}}", f"{{{', '.join(map(str, dilation))}}}"]
-        return self.get_proxy(tops_op.ConvolutionBackward, (inputs, grad_output, input, weight, bias_size,
+    def ConvolutionBackward(self, grad_output, a, weight, bias_size, stride, padding, dilation, *args, **kwargs):
+        inputs = [item for item in (grad_output, a, weight)]
+        return self.get_proxy(tops_op.ConvolutionBackward, (inputs, grad_output, a, weight, bias_size, 
                                                             stride, padding, dilation, *args), kwargs)
 
     @register_conversion(aten.max_pool2d_with_indices)
     def Max_pool2d_with_indices(self, x, kernel_size, stride=[], padding=[0, 0], dilation=[1, 1], ceil_mode=False):
-        ksize = f"{{{', '.join(map(str, kernel_size))}}}"
-        enflame_stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{1, 1}}"
-        padding = [padding[0], padding[0]] if len(
-            padding) == 1 else list(padding)
-        enflame_padding = f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}"
         out_shape = fx_traceback.get_current_meta()["val"][0].shape
-        inputs = [ksize, enflame_stride, enflame_padding,
-                  f"{{{', '.join(map(str, out_shape))}}}"]
-        return self.get_proxy(tops_op.Max_pool2d_with_indices, (inputs, x, kernel_size, stride, padding, dilation, ceil_mode))
+        return self.get_proxy(tops_op.Max_pool2d_with_indices, (out_shape, x, kernel_size, stride, padding, dilation, ceil_mode))
 
     @register_conversion(aten.max_pool2d_with_indices_backward)
     def MaxPool2DBackward(self, *args, **kwargs):
@@ -417,9 +405,9 @@ class AtenToTopsTransformer(SingleOpTransformer):
                     end = end + in_shape[dim] if end < 0 else end
                     end = in_shape[dim] if end > in_shape[dim] else end
                     return self.get_proxy(tops_op.SliceInDim, (a, dim, start, end, step), kwargs)
-                start_indices = f"{{{', '.join(map(str, [0] * len(out_shape)))}}}"
-                limit_indices = f"{{{str(in_shape).split('[')[-1].split(']')[0]}}}"
-                strides = f"{{{', '.join(map(str, [1] * len(out_shape)))}}}"
+                start_indices = [0 for _ in range(len(out_shape))]
+                limit_indices = in_shape
+                strides = [1 for _ in range(len(out_shape))]
         return self.get_proxy(tops_op.Slice, (start_indices, limit_indices, strides, a, dim, start, end, step), kwargs)
 
     @register_conversion(aten.slice_scatter.default)
