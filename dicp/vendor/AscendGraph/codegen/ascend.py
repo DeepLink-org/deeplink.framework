@@ -408,13 +408,6 @@ class AscendCodegen(torch.fx.Interpreter):
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
                 
                 def check_tensor(a, b, atol=5e-4, rtol=1e-4):
-                    if a.dtype == torch.float32:
-                        a[abs(a + 3.4028234663852886e+38) < 1e-6] = float("-inf")
-                    if b.dtype == torch.float32:
-                        b[abs(b + 3.4028234663852886e+38) < 1e-6] = float("-inf")
-                    if not a.storage().size() == b.storage().size():
-                        import pdb;pdb.set_trace()
-                        pass
                     if not torch.allclose(a, b, atol=atol, rtol=rtol, equal_nan=True):
                         import pdb;pdb.set_trace()
                         pass

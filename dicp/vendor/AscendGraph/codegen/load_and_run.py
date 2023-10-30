@@ -7,7 +7,6 @@ import torch_dipu
 
 
 dipu_device_str = torch_dipu.dipu.device.__diputype__
-aten = torch.ops.aten
 
 # rule for mem
 ACL_MEM_MALLOC_HUGE_FIRST = 0
