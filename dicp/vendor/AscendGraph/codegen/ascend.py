@@ -882,7 +882,7 @@ class AscendOverrides:
     def ExpandD(name, x, shape):
         op = OP(name, "ExpandD")
         op.set_input("x", x)
-        op.set_input("shape", shape)
+        op.set_attr_list_int("shape", shape)
         return op.to_node()
 
     @staticmethod
