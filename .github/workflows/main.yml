@@ -408,6 +408,7 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          echo "1python path: $PYTHONPATH"
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend
 

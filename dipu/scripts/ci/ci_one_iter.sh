@@ -122,6 +122,7 @@ function export_repo_pythonpath(){
 
 
 function build_dataset(){
+    echo "4python path: $PYTHONPATH"
     # link dataset
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in build dataset..."
