@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(TorchDIPU)
 
 option(TESTS "Whether to build unit tests" OFF)
@@ -6,7 +6,6 @@ option(LIBS "Whether to build dipu lib, default on" ON)
 
 #require the external project to build as target
 include(ExternalProject)
-set_property(DIRECTORY PROPERTY EP_STEP_TARGETS build)
 
 # use gcover
 option(ENABLE_COVERAGE "Use gcov" OFF)
@@ -69,46 +68,36 @@ execute_process(
     "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
 )
 
-if (SKBUILD)
-    if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI})
-    #under some enviroment, it failed to detect the CXX11_ABI, while the libtorch_python.so use CXX11_ABI, so we use ENV variable instead.
-        if ($ENV{DIPU_COMPILED_WITH_CXX11_ABI} GREATER 0)
-            set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-        else()
-            set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-        endif()
-    else()
-    #As the normal libtorch.so is built with CXX11 ABI, we set the default value as 1
-        set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-    endif()
-    set(DIPU_ABI_V 11)
-else()
+if(NOT DEFINED DIPU_ABI_V)
     execute_process(
       COMMAND
         sh -x -c
         "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
             if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'"
       OUTPUT_VARIABLE DIPU_ABI_V)
-    
+endif()
+
+if(NOT DEFINED DIPU_COMPILED_WITH_CXX11_ABI)    
     execute_process(
       COMMAND
         sh -x -c
         "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'"
       OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+endif()
     
-    if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
-      set(DIPU_COMPILED_WITH_CXX11_ABI 1)
-    else()
-      set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-    endif()
-    
+if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
+  set(DIPU_COMPILED_WITH_CXX11_ABI 1)
+else()
+  set(DIPU_COMPILED_WITH_CXX11_ABI 0)
+endif()
+
+if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)    
     execute_process(
       COMMAND
         sh -x -c
         "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
       OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-
 endif()
 
 add_definitions(-fabi-version=${DIPU_ABI_V})
@@ -125,17 +114,11 @@ execute_process(
   OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
-execute_process(
-  COMMAND sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')"
-  OUTPUT_VARIABLE PYTORCH_DIR)
-string(REPLACE "\n" "" PYTORCH_DIR "${PYTORCH_DIR}")
-string(REPLACE "\r" "" PYTORCH_DIR "${PYTORCH_DIR}")
-if(SKBUILD)
-    if(DEFINED ENV{PYTORCH_DIR})
-        set(PYTORCH_DIR $ENV{PYTORCH_DIR})
-    elseif(NOT PYTORCH_DIR)
-        message(FATAL_ERROR "YOU MUST SET ENVIROMENT VARIABLE \"PYTORCH_DIR\" to pytorch directory")
-    endif()
+if(NOT DEFINED PYTORCH_DIR)
+    execute_process(
+      COMMAND sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')"
+      OUTPUT_VARIABLE PYTORCH_DIR
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
 message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
@@ -146,8 +129,8 @@ _set_cpp_flags()
 
 
 if(ENABLE_COVERAGE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
 # TODO(lljbash): findTorch encounter some error, need check
@@ -181,40 +164,38 @@ if(WITH_DIOPI STREQUAL "INTERNAL")
   set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
   set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
   set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
+  set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
+  set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
+  set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
   ExternalProject_Add(${DIOPI_INTERNAL}
                       DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
                       SOURCE_DIR ${DIOPI_SRC_PATH}
                       SOURCE_SUBDIR ${DIOPI_SUBDIR}
                       BINARY_DIR ${DIOPI_BUILD_PATH}
                       DOWNLOAD_COMMAND ""
-                      CMAKE_ARGS "-DIMPL_OPT=${Build_DIOPI_Target} -DENABLE_COVERAGE=${USE_COVERAGE} -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
+                      CMAKE_ARGS -DIMPL_OPT=${Build_DIOPI_Target}
+                                 -DENABLE_COVERAGE=${USE_COVERAGE} 
+                                 -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
+                      BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
                       INSTALL_COMMAND cmake -E echo "Skipping install step for ${DIOPI_INTERNAL}."
   )
-  set(WITH_DIOPI
-    "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
   ExternalProject_Add_StepTargets(${DIOPI_INTERNAL} configure build)
   ExternalProject_Add_StepDependencies(${DIOPI_INTERNAL} build ${DIOPI_INTERNAL}-configure)
   add_dependencies(diopi_impl ${DIOPI_BUILD_TARGET})
 #--------------------------------------------------------------------------------------------------
-endif()
-
-
-# diopi
-set(WITH_DIOPI
-    "${PROJECT_SOURCE_DIR}/third_party/DIOPI"
-    CACHE STRING "DIOPI project root path")
-# TODO(lljbash): use cache variable instead of env
-if(EXISTS $ENV{DIOPI_PATH})
-  set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
 else()
-  set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
-endif()
-if(EXISTS $ENV{DIOPI_ROOT})
-  set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
-  set(DIOPI_IMPL_PATH "$ENV{DIOPI_ROOT}/../")
-else()
-  set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
-  set(DIOPI_IMPL_PATH "${WITH_DIOPI}/impl/")
+    if(EXISTS $ENV{DIOPI_PATH})
+      set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
+    else()
+      set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
+    endif()
+    if(EXISTS $ENV{DIOPI_ROOT})
+      set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
+      set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+    else()
+      set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
+      set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+    endif()
 endif()
 
 message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
@@ -222,7 +203,7 @@ message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
 
 set_target_properties(
   diopi_impl PROPERTIES IMPORTED_LOCATION
-                        "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+                        ${DIOPI_IMPL_LIB})
 target_include_directories(diopi_impl INTERFACE "${DIOPI_PROTO_PATH}/include")
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 

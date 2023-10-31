@@ -69,7 +69,10 @@ ExternalProject_Add(${KINETO}
                     SOURCE_SUBDIR ${KINETO_SUBDIR}
                     BINARY_DIR ${KINETO_BUILD_PATH}
                     DOWNLOAD_COMMAND ""
-                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF -DKINETO_USE_DEVICE_ACTIVITY=ON"
+                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
+                               "-DKINETO_USE_DEVICE_ACTIVITY=ON"
+                    BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
+                                     "${KINETO_BUILD_PATH}/libkineto.a"
                     INSTALL_COMMAND cmake -E echo "Skipping install step for ${KINETO}."
 )
 ## makefile is foolish, the following code is a work around to avoid make file to run multiple kineto-build when using make -j N
@@ -128,7 +131,7 @@ target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
 target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/fmt/libfmt.a)
 target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/libkineto.a)
 
-target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
+target_link_libraries(${DIPU_LIB} diopi_impl)
 target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
