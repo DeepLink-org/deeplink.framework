@@ -102,6 +102,8 @@ ascend:
     # mmdetection
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
       fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
+    - model_cfg: "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster_rcnn"
+      fallback_op_list: "uniform_,any.all_out,fill_.Scalar,all.all_out,linear,convolution_overrideable,sort,linear_backward"
     # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet --no-pin-memory"
       fallback_op_list: "native_batch_norm,native_batch_norm_backward,nll_loss_backward.grad_input"
