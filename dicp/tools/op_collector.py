@@ -28,6 +28,7 @@ class OpCollector(Interpreter):
             fake_args = [mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
             return super().run(*fake_args)
 
+
 # Purpose:
 # op collector context for inner compiler of dynamo backends
 #

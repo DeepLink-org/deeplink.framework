@@ -1,7 +1,6 @@
 import torch
 import torch.fx
 
-from dicp.dynamo_bridge.op_transformer import OpSetTransformer
 from dicp.vendor.TopsGraph.conversion import AtenToTopsTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 
