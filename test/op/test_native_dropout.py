@@ -1,8 +1,8 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, a, b, option):
-        res_default = torch.ops.aten.native_dropout.default(a, b, option)
+    def forward(self, a, b, train):
+        res_default = torch.ops.aten.native_dropout.default(a, b, train)
         return res_default
 
 model = OpModule()

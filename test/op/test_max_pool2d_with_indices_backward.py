@@ -1,14 +1,11 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, inputs, outputs, device="cpu"):
-        pool = torch.nn.MaxPool2d(2, stride=2, return_indices=True)
-        pool.to(device)
-        res_default, indices = pool(inputs)
-        loss = torch.nn.MSELoss()
-        res_loss = loss(res_default, outputs)
-        res_loss.backward()
-        return res_default, indices
+    def forward(self, grad_output, x):
+        res_default, indices = torch.ops.aten.max_pool2d_with_indices.default(x, [3, 3], [2, 2], [1, 1])
+        res_default = torch.ops.aten.max_pool2d_with_indices_backward(grad_output, x, kernel_size=[3, 3],
+                      stride=[2, 2], padding=[1, 1], dilation=[1, 1], ceil_mode=False, indices=indices)
+        return res_default
 
 model = OpModule()
 args = parse_args()
@@ -17,21 +14,22 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 
 class TestMaxPool2dWithIndicesBackward():
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size(((20, 16, 50, 100), (20, 16, 25, 50)), ((20, 16, 50, 100), (20, 16, 25, 50)))])
+    @pytest.mark.parametrize("sizes", [Size(((32, 64, 56, 56), (32, 64, 112, 112)), ((32, 64, 56, 56), (32, 64, 112, 112)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_max_pool2d_with_indices_backward(self, sizes, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
-        inputs = torch.randn(size[0], dtype=dtype)
-        outputs = torch.randn(size[1], dtype=dtype, requires_grad=True)
+        grad_output = torch.randn(size[0], dtype=dtype)
+        inputs = torch.randn(size[1], dtype=dtype)
+        indices = torch.ones(size[0], dtype=torch.int64)
 
+        dicp_grad_output = grad_output.to(device)
         dicp_inputs = inputs.to(device)
-        dicp_outputs = outputs.to(device)
+        dicp_indices = indices.to(device)
 
-        output = model(inputs, outputs)
+        output = model(grad_output, inputs)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_inputs, dicp_outputs, device)
-
-        for i, item in enumerate(output):
-            assert torch.allclose(item.detach(), dicp_output[i].cpu().detach(), atol=1e-02, equal_nan=True)
+        dicp_output = compiled_model.model(dicp_grad_output, dicp_inputs)
+        
+        assert torch.allclose(output.detach(), dicp_output.cpu().detach(), atol=1e-02, equal_nan=True)

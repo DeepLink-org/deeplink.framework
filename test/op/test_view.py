@@ -14,6 +14,8 @@ class TestView():
     @pytest.mark.parametrize("dtype", [torch.float32])
     @pytest.mark.parametrize("sizes", [Size(((5,), (5, 1)), ((5, 3), (3, 5))),
                                        Size(((5, 3), (3, 5)), ((5, 3), (3, 5))),
+                                       Size(((5, 3), (-1, 5)), ((5, 3), (-1, 5))),
+                                       Size(((5, 3), (3, -1)), ((5, 3), (3, -1))),
                                        Size(((2, 8), (16,)), ((2, 8), (16,))),
                                        Size(((2, 8), (2, 4, 2)), ((2, 8), (2, 4, 2)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)

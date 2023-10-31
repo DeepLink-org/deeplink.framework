@@ -21,6 +21,7 @@ class TestSqueeze():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
+        dim = -1 if len(size) == 2 else dim
 
         dicp_input1 = input1.to(device)
 

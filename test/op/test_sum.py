@@ -20,7 +20,7 @@ class TestSum():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
-        dim = [0] if len(size) < 2 else [0, 1]
+        dim = [0] if len(size) < 2 else [0, -1]
         keepdim = True if len(size) <= 2 else keepdim
 
         dicp_input1 = input1.to(device)

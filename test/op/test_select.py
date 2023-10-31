@@ -1,8 +1,9 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, dim, index):
-        res_int = torch.ops.aten.select.int(input, dim, index)
+    def forward(self, x, dim, index):
+        res_int = torch.ops.aten.select.int(x, dim, index)
+        res_int = res_int + 1.0
         return res_int
 
 model = OpModule()

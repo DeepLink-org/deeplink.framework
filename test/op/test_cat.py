@@ -15,7 +15,7 @@ class TestCat():
     @pytest.mark.parametrize("sizes", [Size(((5,), (3)), ((3, 5), (2, 5))),
                                        Size(((3, 5), (2, 5)), ((3, 4), (2, 4))),
                                        Size(((2, 3, 4), (2, 3, 4)), ((4, 2), (5, 2)))])
-    @pytest.mark.parametrize("dim", [0, 1, 2])
+    @pytest.mark.parametrize("dim", [0, 1, 2, -1])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_cat(self, sizes, dim, dtype, compiled_model):
         device = get_device()

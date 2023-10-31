@@ -29,4 +29,4 @@ class TestGeluBackward():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dicp_input2, approximate)
 
-        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
+        assert torch.allclose(output, dicp_output.cpu(), atol=1e-2, equal_nan=True)

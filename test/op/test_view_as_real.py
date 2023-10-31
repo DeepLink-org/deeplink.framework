@@ -2,7 +2,8 @@ from common.utils import *
 
 class OpModule(torch.nn.Module):
     def forward(self, a):
-        res_default = torch.ops.aten.view_as_real.default(a)
+        res_default = torch.ops.aten.view_as_complex.default(a)
+        res_default = torch.ops.aten.view_as_real.default(res_default)
         return res_default
 
 model = OpModule()
@@ -11,7 +12,7 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 
 
 class TestViewAsReal():
-    @pytest.mark.parametrize("dtype", [torch.cfloat])
+    @pytest.mark.parametrize("dtype", [torch.float])
     @pytest.mark.parametrize("sizes", [Size((2), (5, 2)), Size((3, 2), (3, 2)), Size((3, 4, 2), (4, 2))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_view_as_real(self, sizes, dtype, compiled_model):

@@ -5,7 +5,6 @@ class OpModule(torch.nn.Module):
         m = torch.nn.Softmax(dim=0)
         m.to(device)
         res_default = m(a)
-        # res_default = torch.ops.aten.abs.default(a)
         return res_default
 
 model = OpModule()

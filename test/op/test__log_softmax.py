@@ -1,8 +1,8 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, dim,):
-        res_default = torch.ops.aten._log_softmax.default(input, dim, False)
+    def forward(self, x, dim,):
+        res_default = torch.ops.aten._log_softmax.default(x, dim, False)
         return res_default
 
 model = OpModule()

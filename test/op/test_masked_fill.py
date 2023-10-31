@@ -1,8 +1,8 @@
 from common.utils import *
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, mask, value):
-        res_Scalar = torch.ops.aten.masked_fill.Scalar(input, mask, value)
+    def forward(self, x, mask, value):
+        res_Scalar = torch.ops.aten.masked_fill.Scalar(x, mask, value)
         return res_Scalar
 
 model = OpModule()
@@ -18,16 +18,16 @@ class TestMaskedFill():
     def test_torch_masked_fill(self, sizes, mask, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
-        input = torch.randn(size, dtype=dtype)
+        inputs = torch.randn(size, dtype=dtype)
         mask = torch.tensor(mask)
         value = round(random.random(), 4)
 
-        dicp_input = input.to(device)
+        dicp_inputs = inputs.to(device)
         dicp_mask = mask.to(device)
 
-        output = model(input, mask, value)
+        output = model(inputs, mask, value)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_input, dicp_mask, value)
+        dicp_output = compiled_model.model(dicp_inputs, dicp_mask, value)
 
         assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
