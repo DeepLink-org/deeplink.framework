@@ -761,8 +761,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def FullLike(op_var, shape, dtype, input, value, **kwargs_list):
-        return f"builder::Op {op_var} = builder::FullLike({input}, {value});"
+    def FullLike(op_var, shape, dtype, x, value, **kwargs_list):
+        return f"builder::Op {op_var} = builder::FullLike({x}, {value});"
 
     @staticmethod
     def Transpose(op_var, shape, dtype, x, permution=[0, 1], **kwargs_list):
@@ -820,9 +820,9 @@ class EnflameOverrides(OpOverrides):
         return f"auto {op_var} = enflame::Scatter(hlir_builder, {x}, {dim}, {index}, {value});"
 
     @staticmethod
-    def Gather(op_var, shape, dtype, input, dim, index, **kwargs_list):
+    def Gather(op_var, shape, dtype, x, dim, index, **kwargs_list):
         src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
-        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {input}, {index}, {dim}, {op_type});"
+        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {x}, {index}, {dim}, {op_type});"
         return src_code
 
     @staticmethod

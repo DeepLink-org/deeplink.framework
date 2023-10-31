@@ -165,8 +165,9 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.ReduceSum, (a, *args), kwargs)
 
     @register_conversion(operator.getitem)
-    def GetTupleElement(self, *args, **kwargs):
-        return self.get_proxy(tops_op.GetTupleElement, args, kwargs)
+    def GetTupleElement(self, a, dim, **kwargs):
+        dim = dim % len(a.node.meta["val"])
+        return self.get_proxy(tops_op.GetTupleElement, (a, dim), kwargs)
 
     @register_conversion(aten.index.Tensor)
     def Index(self, *args, **kwargs):
@@ -309,8 +310,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Div, (expand, scalar))
 
     @register_conversion(aten.gather)
-    def Gather(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Gather, args, kwargs)
+    def Gather(self, a, dim, index, *args, **kwargs):
+        in_shape = a.node.meta["val"].shape
+        dim = dim % len(in_shape)
+        return self.get_proxy(tops_op.Gather, (a, dim, index, *args), kwargs)
 
     @register_conversion(aten.log)
     def Log(self, *args, **kwargs):
