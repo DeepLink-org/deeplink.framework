@@ -18,6 +18,7 @@ def run_cmd(cmd: str) -> None:
         raise Exception(error)
 
 def find_idle_npu_card():
+    time.sleep(60)
     for card_id in range(8):
         command = f'npu-smi info -t common -i {card_id}'
         output = sp.check_output(command, shell=True, text=True)
