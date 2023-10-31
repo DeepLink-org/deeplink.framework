@@ -98,8 +98,8 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
-        cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        cmd_run_one_iter = f"ASCEND_VISIBLE_DEVICES={partition} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"ASCEND_VISIBLE_DEVICES={partition} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
@@ -138,12 +138,7 @@ if __name__ == '__main__':
     logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
-    if device == 'cuda':
-        logging.info("we use cuda!")
-    elif device == "camb":
-        logging.info("we use camb!")
-    elif device == "ascend":
-        logging.info("we use ascend!")
+    logging.info(f"we use {device}!")
 
     logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 
