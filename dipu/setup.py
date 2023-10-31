@@ -9,6 +9,7 @@ import subprocess
 import sys
 import platform
 import setuptools
+import torch
 from skbuild import setup
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ def customized_cmake_args():
     cmake_args.append("-DDEVICE="+cmake_device)
     cmake_args.append("-DENABLE_COVERAGE=${USE_COVERAGE}")
     cmake_args.append("-DBUILD_DIOPI=TRUE")
+    cmake_args.append("-DWITH_DIOPI=INTERNAL")
     return cmake_args
 
 def torch_dipu_headers():
