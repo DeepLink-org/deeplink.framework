@@ -17,6 +17,23 @@ def run_cmd(cmd: str) -> None:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
+def find_idle_npu_card():
+    for card_id in range(8):
+        command = f'npu-smi info -t common -i {card_id}'
+        output = sp.check_output(command, shell=True, text=True)
+
+        hbm_usage = None
+        for line in output.split('\n'):
+            if "HBM Usage Rate(%)" in line:
+                hbm_usage = line.split(':')[1].strip()
+                break
+
+        if hbm_usage == "0":
+            print(f'NPU卡 {card_id} is idle')
+            return card_id
+
+    print('no idle npu card')
+    return random.randint(0, 7)
 
 def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     begin_time = time.time()
@@ -98,8 +115,10 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
-        cmd_run_one_iter = f"ASCEND_DEVICE_ID={partition} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"ASCEND_DEVICE_ID={partition} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        idle_card_id = int(find_idle_npu_card())
+        logging.info('idle npu card id: {idle_card_id}')
+        cmd_run_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
