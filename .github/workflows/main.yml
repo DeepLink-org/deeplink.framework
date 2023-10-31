@@ -423,7 +423,8 @@ jobs:
           cd mmpretrain
           pip install -e .
           cd ..
-          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          ASCEND_CORE_ID=$((${GITHUB_RUN_NUMBER} % 8))
+          ASCEND_VISIBLE_DEVICES=$ASCEND_CORE_ID python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
       - name: Perform cleanup one iter data
         if: always()
