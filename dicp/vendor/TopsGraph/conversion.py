@@ -181,7 +181,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.native_dropout.default)
     def NativeDropout(self, *args, **kwargs):
         dropout = self.get_proxy(tops_op.NativeDropout, args)
-        ne = self.get_proxy(tops_op.NotEqual, (dropout, 0))
+        data_type = args[0].node.meta["val"].dtype
+        ne = self.get_proxy(tops_op.NotEqual, (data_type, dropout, 0))
         return self.get_proxy(tops_op.MakeTuple, (dropout, ne))
 
     @register_conversion(aten.squeeze)
@@ -233,8 +234,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Neg, args, kwargs)
 
     @register_conversion(aten.mean)
-    def ReduceMean(self, a, dim, keepdim=False, **kwargs):
+    def ReduceMean(self, a, dim=None, keepdim=False, **kwargs):
         in_shape = a.node.meta["val"].shape
+        if dim == None:
+            return self.get_proxy(tops_op.ReduceMean, (a,))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
@@ -298,7 +301,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Adaptive_avg_pool2d, (reudce_dim, *args), kwargs)
 
     @register_conversion(aten._adaptive_avg_pool2d_backward.default)
-    def Adaptive_avg_pool2d_backward(self, grad_output, input):
+    def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
         expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape))
         value = out_shape[2] * out_shape[3]

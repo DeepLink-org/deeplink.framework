@@ -51,6 +51,11 @@ def used_nodes_all_symint(nodes):
                 node = node.meta['val']
             if not isinstance(node, torch.SymInt):
                 return False
+        elif node.op == 'output':
+            if hasattr(node, 'meta') and 'val' in node.meta:
+                node = node.meta['val']
+            if not isinstance(node, torch.SymInt):
+                return False
     return True
 
 
