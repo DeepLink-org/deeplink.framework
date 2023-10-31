@@ -28,11 +28,12 @@ def find_idle_npu_card():
                 hbm_usage = line.split(':')[1].strip()
                 break
 
-        if hbm_usage == "0":
-            print(f'NPU卡 {card_id} is idle')
+        if int(hbm_usage) < 1000:
+            logging.info('NPU卡 card {card_id} is idle')
             return card_id
 
-    print('no idle npu card')
+    logging.info('no idle npu card')
+    random.seed(time.time())
     return random.randint(0, 7)
 
 def process_one_iter(log_file, clear_log, model_info: dict) -> None:
