@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_default = torch.ops.aten.gelu_backward.default(a, b, approximate=c)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

@@ -1,10 +1,12 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, x, dim, index):
         res_int = torch.ops.aten.select.int(x, dim, index)
         res_int = res_int + 1.0
         return res_int
+
 
 model = OpModule()
 args = parse_args()

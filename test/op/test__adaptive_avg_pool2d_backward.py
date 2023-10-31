@@ -1,5 +1,6 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, inputs, outputs, device="cpu"):
         pool = torch.nn.AdaptiveAvgPool2d((1, 1))
@@ -9,6 +10,7 @@ class OpModule(torch.nn.Module):
         res_loss = loss(res_default, outputs)
         res_loss.backward()
         return res_default
+
 
 model = OpModule()
 args = parse_args()

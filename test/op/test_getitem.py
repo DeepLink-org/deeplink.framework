@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res = operator.getitem(a, b)
         return res
+
 
 model = OpModule()
 args = parse_args()

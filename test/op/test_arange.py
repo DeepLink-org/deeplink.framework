@@ -1,10 +1,12 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_default = torch.ops.aten.arange.default(b)
         res_start = torch.ops.aten.arange.start(a, b)
         return res_default, res_start
+
 
 model = OpModule()
 args = parse_args()

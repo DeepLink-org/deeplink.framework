@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, inputs):
         res_default, indices = torch.ops.aten.max_pool2d_with_indices.default(inputs, [3, 3], [2, 2], [1, 1])
         return res_default, indices
+
 
 model = OpModule()
 args = parse_args()
@@ -31,4 +33,3 @@ class TestMaxPool2dWithIndices():
                 assert item.size() == dicp_output[i].size()
             else:
                 assert torch.allclose(item.detach(), dicp_output[i].cpu().detach(), atol=1e-02, equal_nan=True)
-            

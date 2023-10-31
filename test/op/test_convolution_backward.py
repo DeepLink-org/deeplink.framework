@@ -1,11 +1,14 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, grad_output, x, weight):
         res_default = torch.ops.aten.convolution_backward.default(grad_output, x, weight, bias_sizes=[0],
-                      stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0],
-                      groups=1, output_mask=[True, True, False])
+                                                                  stride=[1, 1], padding=[0, 0], dilation=[1, 1],
+                                                                  transposed=False, output_padding=[0, 0],
+                                                                  groups=1, output_mask=[True, True, False])
         return res_default
+
 
 model = OpModule()
 args = parse_args()

@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, size, stride):
         res_default = torch.ops.aten.new_empty_strided.default(a, size, stride)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

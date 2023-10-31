@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a):
         res = torch.ops.aten.square(a)
         return res
+
 
 model = OpModule()
 args = parse_args()

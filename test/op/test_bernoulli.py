@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, x, p):
         res_p = torch.ops.aten.bernoulli.p(x, p)
         return res_p
+
 
 model = OpModule()
 args = parse_args()

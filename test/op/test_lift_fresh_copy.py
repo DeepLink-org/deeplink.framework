@@ -1,10 +1,12 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_default1 = torch.tensor(torch.finfo(a.dtype).min)
         res_default2 = torch.tensor([b, c])
         return res_default1, res_default2
+
 
 model = OpModule()
 args = parse_args()

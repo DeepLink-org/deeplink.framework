@@ -1,4 +1,3 @@
-import time
 from typing import List
 
 import torch
@@ -70,7 +69,7 @@ class LLaMA:
                                                    float("-inf"), device=tokens.device)
                     right_corner_mask = torch.triu(right_corner_mask, diagonal=prev_pos + 1).to(torch.float16)
                     final_mask_full = origin_mask_full.clone()
-                    left_corner_mask = torch.full((1, 1, origin_prompt_size, slice_size - origin_prompt_size),float("-inf"), device=tokens.device).to(torch.float16)
+                    left_corner_mask = torch.full((1, 1, origin_prompt_size, slice_size - origin_prompt_size), float("-inf"), device=tokens.device).to(torch.float16)
                     final_mask_full[:, :, -origin_prompt_size:, -origin_prompt_size:] = right_corner_mask
                     final_mask_full[:, :, -origin_prompt_size:, :-origin_prompt_size] = left_corner_mask
                     mask_list.append(final_mask_full)

@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b, train):
         res_default = torch.ops.aten.native_dropout.default(a, b, train)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

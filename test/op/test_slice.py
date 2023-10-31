@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a):
-        res_Tensor =torch.ops.aten.slice.Tensor(a, dim=0, start=0, end=2)
+        res_Tensor = torch.ops.aten.slice.Tensor(a, dim=0, start=0, end=2)
         return res_Tensor
+
 
 model = OpModule()
 args = parse_args()

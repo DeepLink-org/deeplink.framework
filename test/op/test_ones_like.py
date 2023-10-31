@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a):
         res_default = torch.ops.aten.ones_like.default(a)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, length, start, step, device="cpu"):
         res_default = torch.ops.prims.iota.default(length, start=start, step=step, dtype=torch.int64, device=device, requires_grad=False)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

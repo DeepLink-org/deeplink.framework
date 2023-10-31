@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, dims):
         res_default = torch.ops.aten.permute.default(a, dims)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

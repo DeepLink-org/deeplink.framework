@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, dtype):
         res_default = torch.ops.aten.scalar_tensor.default(a, dtype=dtype)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

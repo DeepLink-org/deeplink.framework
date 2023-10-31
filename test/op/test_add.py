@@ -1,11 +1,13 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_default = torch.ops.aten.add.default(1.0, 2.0)
         res_Tensor = torch.ops.aten.add.Tensor(a, b)
         res_Scalar = torch.ops.aten.add.Scalar(a, 1.0)
         return res_default, res_Tensor, res_Scalar
+
 
 model = OpModule()
 args = parse_args()

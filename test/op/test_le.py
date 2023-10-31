@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_Scalar = torch.ops.aten.le.Scalar(a, b)
         return res_Scalar
+
 
 model = OpModule()
 args = parse_args()

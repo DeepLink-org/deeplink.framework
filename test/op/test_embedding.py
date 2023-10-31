@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, weight, indices):
         res_default = torch.ops.aten.embedding.default(weight, indices)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

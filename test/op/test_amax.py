@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, dim, keepdim):
         res_default = torch.ops.aten.amax.default(a, dim, keepdim)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

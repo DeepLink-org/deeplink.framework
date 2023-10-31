@@ -1,11 +1,13 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, device="cpu"):
         m = torch.nn.Softmax(dim=0)
         m.to(device)
         res_default = m(a)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

@@ -1,11 +1,13 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, inputs, device="cpu"):
         pool = torch.nn.AdaptiveAvgPool2d((1, 1))
         pool.to(device)
         res_default = pool(inputs)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

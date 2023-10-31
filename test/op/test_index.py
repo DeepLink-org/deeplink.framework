@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_Tensor = torch.ops.aten.index.Tensor(a, b)
         return res_Tensor
+
 
 model = OpModule()
 args = parse_args()

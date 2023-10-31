@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, dims):
         res = torch.ops.aten.transpose(a, *dims)
         return res
+
 
 model = OpModule()
 args = parse_args()

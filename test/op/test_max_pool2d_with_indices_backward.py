@@ -1,11 +1,14 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, grad_output, x):
         res_default, indices = torch.ops.aten.max_pool2d_with_indices.default(x, [3, 3], [2, 2], [1, 1])
         res_default = torch.ops.aten.max_pool2d_with_indices_backward(grad_output, x, kernel_size=[3, 3],
-                      stride=[2, 2], padding=[1, 1], dilation=[1, 1], ceil_mode=False, indices=indices)
+                                                                      stride=[2, 2], padding=[1, 1], dilation=[1, 1],
+                                                                      ceil_mode=False, indices=indices)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -31,5 +34,5 @@ class TestMaxPool2dWithIndicesBackward():
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_grad_output, dicp_inputs)
-        
+
         assert torch.allclose(output.detach(), dicp_output.cpu().detach(), atol=1e-02, equal_nan=True)

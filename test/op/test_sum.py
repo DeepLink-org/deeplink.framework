@@ -1,10 +1,12 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_default = torch.ops.aten.sum.default(a)
         res_dim_IntList = torch.ops.aten.sum.dim_IntList(a, b, c)
         return res_default, res_dim_IntList
+
 
 model = OpModule()
 args = parse_args()

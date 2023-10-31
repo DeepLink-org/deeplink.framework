@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, x, slice, dim):
         res_default = torch.ops.aten.slice_scatter.default(x, slice, dim=dim, start=2, end=16, step=1)
-        return  res_default
+        return res_default
+
 
 model = OpModule()
 args = parse_args()

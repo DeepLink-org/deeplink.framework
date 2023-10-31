@@ -1,9 +1,11 @@
 from common.utils import *
 
+
 class OpModule(torch.nn.Module):
     def forward(self, condition, a, b):
         res_self = torch.ops.aten.where.self(condition, a, b)
         return res_self
+
 
 model = OpModule()
 args = parse_args()
