@@ -17,6 +17,25 @@ def run_cmd(cmd: str) -> None:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
+def find_idle_npu_card():
+    time.sleep(60)
+    for card_id in range(8):
+        command = f'npu-smi info -t common -i {card_id}'
+        output = sp.check_output(command, shell=True, text=True)
+
+        hbm_usage = None
+        for line in output.split('\n'):
+            if "HBM Usage Rate(%)" in line:
+                hbm_usage = line.split(':')[1].strip()
+                break
+
+        if int(hbm_usage) < 1000:
+            logging.info(f'NPU card {card_id} is idle')
+            return card_id
+
+    logging.info(f'no idle npu card')
+    random.seed(time.time())
+    return random.randint(0, 7)
 
 def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     begin_time = time.time()
@@ -98,8 +117,10 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
-        cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        idle_card_id = str(find_idle_npu_card())
+        logging.info(f'idle npu card id: {idle_card_id}')
+        cmd_run_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
@@ -138,12 +159,7 @@ if __name__ == '__main__':
     logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
-    if device == 'cuda':
-        logging.info("we use cuda!")
-    elif device == "camb":
-        logging.info("we use camb!")
-    elif device == "ascend":
-        logging.info("we use ascend!")
+    logging.info(f"we use {device}!")
 
     logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 
