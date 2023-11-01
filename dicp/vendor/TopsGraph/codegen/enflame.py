@@ -876,7 +876,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):
-        return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {reduce_dim});"
+        return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {{{', '.join(map(str, reduce_dim))}}});"
 
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod

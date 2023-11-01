@@ -236,7 +236,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def ReduceMean(self, a, dim=None, keepdim=False, **kwargs):
         in_shape = a.node.meta["val"].shape
         if dim is None:
-            return self.get_proxy(tops_op.ReduceMean, (a,))
+            dim = list(range(len(in_shape)))
+            return self.get_proxy(tops_op.ReduceMean, (a, dim))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
@@ -296,7 +297,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten._adaptive_avg_pool2d.default)
     def Adaptive_avg_pool2d(self, *args, **kwargs):
         assert len(args) == 2 and args[1] == [1, 1], "limited support"
-        reudce_dim = f"{{{2, 3}}}"
+        reudce_dim = [2, 3]
         return self.get_proxy(tops_op.Adaptive_avg_pool2d, (reudce_dim, *args), kwargs)
 
     @register_conversion(aten._adaptive_avg_pool2d_backward.default)
