@@ -34,7 +34,7 @@ add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
 execute_process(
   COMMAND
     sh -x -c
-    "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -u > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
+    "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
 )
 
 execute_process(
