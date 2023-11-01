@@ -28,7 +28,7 @@ def find_idle_npu_card():
                 hbm_usage = line.split(':')[1].strip()
                 break
 
-        if int(hbm_usage) < 1000:
+        if int(hbm_usage) < 10:
             logging.info(f'NPU card {card_id} is idle')
             return card_id
 
@@ -116,11 +116,11 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
-        # idle_card_id = str(find_idle_npu_card())
+        idle_card_id = str(find_idle_npu_card())
         idle_card_id = '3'
         logging.info(f'idle npu card id: {idle_card_id}')
-        cmd_run_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        cmd_run_one_iter = f"ASCEND_RT_VISIBLE_DEVICES={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"ASCEND_RT_VISIBLE_DEVICES={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
