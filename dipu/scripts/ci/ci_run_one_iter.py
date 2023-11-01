@@ -119,8 +119,8 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         idle_card_id = str(find_idle_npu_card())
         idle_card_id = '3'
         logging.info(f'idle npu card id: {idle_card_id}')
-        cmd_run_one_iter = f"ASCEND_RT_VISIBLE_DEVICES={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"ASCEND_RT_VISIBLE_DEVICES={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
