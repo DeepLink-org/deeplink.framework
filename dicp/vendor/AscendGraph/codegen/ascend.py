@@ -220,14 +220,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
-            dims = f'''dims = {{'''
+            dims = 'dims = {'
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
                 elem = [self.process_sym_name(dim) for dim in elem]
                 dims += str(self.dynamic_index[idx]) + \
                     ":[" + ','.join(map(str, elem)) + '],'
-            dims = dims[:-1] + f'''}}'''
+            dims = dims[:-1] + '}'
             call_body.writeline(dims)
 
             shape_str = '''output_shape = ['''
@@ -354,8 +354,7 @@ class AscendCodegen(torch.fx.Interpreter):
             if d[k].node.str().isdigit():
                 d[k] = d[k].node.hint
             else:
-                import pdb
-                pdb.set_trace()
+                raise RuntimeError("expand_symint failed!")
 
     def remove_symint(self, cur):
         if isinstance(cur, list):
@@ -895,7 +894,7 @@ class AscendOverrides:
         op = OP(f"{name}", "Empty")
         op.set_input("shape", shape)
         op.set_attr_int("dtype", dtype)
-        op.to_node()
+        return op.to_node()
 
     @staticmethod
     def OnesLike(name, x):
