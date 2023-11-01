@@ -18,7 +18,6 @@ def run_cmd(cmd: str) -> None:
         raise Exception(error)
 
 def find_idle_npu_card():
-    time.sleep(60)
     for card_id in range(8):
         command = f'npu-smi info -t common -i {card_id}'
         output = sp.check_output(command, shell=True, text=True)
@@ -117,7 +116,8 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
-        idle_card_id = str(find_idle_npu_card())
+        # idle_card_id = str(find_idle_npu_card())
+        idle_card_id = '3'
         logging.info(f'idle npu card id: {idle_card_id}')
         cmd_run_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"ASCEND_DEVICE_ID={idle_card_id} bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
