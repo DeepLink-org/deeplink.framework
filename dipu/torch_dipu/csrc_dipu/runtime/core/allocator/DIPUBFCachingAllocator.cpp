@@ -522,6 +522,7 @@ public:
     }
     DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: release_all_memory, allocator:" << this << ", device:" << device());
     empty_cache();
+    impl.reset();
   }
 
   BFCachingAllocator() {
