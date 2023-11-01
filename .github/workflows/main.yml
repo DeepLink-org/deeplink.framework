@@ -381,6 +381,7 @@ jobs:
           set -ex
           cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
+          rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
