@@ -422,7 +422,7 @@ jobs:
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
-        - name: Perform cleanup one iter data
+      - name: Perform cleanup one iter data
         if: always()
         run: |
           set -ex
