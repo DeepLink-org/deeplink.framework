@@ -117,7 +117,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.div)
     def Div(self, a, b):
-        a_node = a.node if isinstance(a, torch.fx.proxy.Proxy) else a
+        a_node = a.node if isinstance(a, Proxy) else a
         in_dtype = a_node.meta["val"].dtype
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         if in_dtype is torch.float16 or out_dtype is torch.float16:
@@ -154,12 +154,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.sum)
     def ReduceSum(self, a, *args, **kwargs):
-        if isinstance(a, Proxy):
-            if hasattr(a.node, "meta"):
-                in_dtype = a.node.meta["val"].dtype
-                out_dtype = fx_traceback.get_current_meta()['val'].dtype
-                if in_dtype != out_dtype:
-                    a = self.get_proxy(tops_op.Convert, (a, out_dtype))
+        in_dtype = a.node.meta["val"].dtype
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        if in_dtype != out_dtype:
+            a = self.get_proxy(tops_op.Convert, (a, out_dtype))
         return self.get_proxy(tops_op.ReduceSum, (a, *args), kwargs)
 
     @register_conversion(operator.getitem)
@@ -396,38 +394,39 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.slice.Tensor)
     def Slice(self, a, dim=0, start=0, end=-1, step=1, **kwargs):
-        if isinstance(a, Proxy):
-            if hasattr(a.node, "meta"):
-                in_shape = a.node.meta["val"].shape
-                out_shape = fx_traceback.get_current_meta()["val"].shape
-                if in_shape != out_shape:
-                    start = start % in_shape[dim]
-                    end = end + in_shape[dim] if end < 0 else end
-                    end = in_shape[dim] if end > in_shape[dim] else end
-                    return self.get_proxy(tops_op.SliceInDim, (a, dim, start, end, step), kwargs)
-                start_indices = [0 for _ in range(len(out_shape))]
-                limit_indices = in_shape
-                strides = [1 for _ in range(len(out_shape))]
-        return self.get_proxy(tops_op.Slice, (start_indices, limit_indices, strides, a, dim, start, end, step), kwargs)
+        in_shape = a.node.meta["val"].shape
+        out_shape = fx_traceback.get_current_meta()["val"].shape
+        dim = dim % len(in_shape)
+        start = 0 if start is None else start
+        end = in_shape[dim] if end == -1 or end is None else end
+        if in_shape != out_shape:
+            start = start % in_shape[dim]
+            end = end + in_shape[dim] if end < 0 else end
+            end = in_shape[dim] if end > in_shape[dim] else end
+            return self.get_proxy(tops_op.SliceInDim, (a, dim, start, end, step), kwargs)
+        else:
+            start_indices = [0 for _ in range(len(out_shape))]
+            limit_indices = in_shape
+            strides = [1 for _ in range(len(out_shape))]
+            return self.get_proxy(tops_op.Slice, (start_indices, limit_indices, strides,
+                                                  a, dim, start, end, step), kwargs)
 
     @register_conversion(aten.slice_scatter.default)
     def SliceScatter(self, a, b, dim=0, start=0, end=-1, step=1):
-        if isinstance(a, Proxy):
-            if hasattr(a.node, "meta"):
-                operand_shape = a.node.meta["val"].shape
-                end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
-                assert end == operand_shape[dim] and step == 1, "limited support"
-                return self.get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
+        operand_shape = a.node.meta["val"].shape
+        dim = dim % len(operand_shape)
+        start = 0 if start is None else start
+        end = operand_shape[dim] if end is None else end
+        end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
+        assert end == operand_shape[dim] and step == 1, "limited support"
+        return self.get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
 
     @register_conversion(aten.select.int)
     def Select(self, a, dim, index):
-        if isinstance(a, Proxy):
-            if hasattr(a.node, "meta"):
-                in_shape = a.node.meta["val"].shape
-                index = index % in_shape[dim]
-                slice = self.get_proxy(
-                    tops_op.SliceInDim, (a, dim, index, index + 1, 1))
-                return self.get_proxy(tops_op.Squeeze, (slice, dim))
+        in_shape = a.node.meta["val"].shape
+        index = index % in_shape[dim]
+        slice_in_dim = self.get_proxy(tops_op.SliceInDim, (a, dim, index, index + 1, 1))
+        return self.get_proxy(tops_op.Squeeze, (slice_in_dim, dim))
 
     @register_conversion(aten.where.self)
     def Where(self, *args, **kwargs):
@@ -458,8 +457,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
         idx_rank = len(args[1].node.meta['val'].shape)
-        return self.get_proxy(tops_op.XlaGather, (*args,
-                                                  [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+        return self.get_proxy(tops_op.XlaGather, (*args, [idx_rank,], [0,], [0,], idx_rank,
+                                                  [1, args[0].node.meta['val'].shape[1]]))
 
     @register_conversion(prims.convert_element_type)
     def Convert(self, *args, **kwargs):
