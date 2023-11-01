@@ -103,3 +103,4 @@ ascend:
     # fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
     - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
       fallback_op_list: "native_layer_norm,native_layer_norm_backward,linear,linear_backward,bmm.out,gelu.out,gelu_backward.grad_input,nll_loss_forward.output,nll_loss_backward.grad_input"
+
