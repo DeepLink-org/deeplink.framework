@@ -2,9 +2,6 @@ import argparse
 import torch
 import random
 import torch._dynamo as dynamo
-
-# os.environ.setdefault("DIPU_MOCK_CUDA", "false")
-# os.environ.setdefault("DICP_TOPS_DIPU", "True")
 import torch_dipu
 torch.manual_seed(1)
 random.seed(1)
