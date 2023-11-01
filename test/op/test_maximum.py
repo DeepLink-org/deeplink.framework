@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_default = torch.ops.aten.maximum.default(a, b)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -29,7 +40,4 @@ class TestMaximum():
         dicp_output = compiled_model.model(dicp_input1, dicp_input2)
 
         for i, item in enumerate(output):
-            if isinstance(item, torch.Tensor):
-                assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
-            else:
-                assert item == dicp_output[i]
+            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)

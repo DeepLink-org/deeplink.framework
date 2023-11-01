@@ -1,10 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_default = torch.ops.aten.sum.default(a)
         res_dim_IntList = torch.ops.aten.sum.dim_IntList(a, b, c)
         return res_default, res_dim_IntList
+
 
 model = OpModule()
 args = parse_args()
@@ -20,7 +31,7 @@ class TestSum():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
-        dim = [0] if len(size) < 2 else [0, 1]
+        dim = [0] if len(size) < 2 else [0, -1]
         keepdim = True if len(size) <= 2 else keepdim
 
         dicp_input1 = input1.to(device)

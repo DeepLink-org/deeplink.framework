@@ -12,7 +12,6 @@ def xyxy2xywh(boxes):
     return cx, cy, w, h
 
 
-
 with InnerCompilerOpCollectorContext(
     inner_commpiler_func="torch._inductor.compile_fx.compile_fx_inner",
     compile_fx_func="torch._inductor.compile_fx.compile_fx",

@@ -1,9 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, dim, index):
-        res_int = torch.ops.aten.select.int(input, dim, index)
+    def forward(self, x, dim, index):
+        res_int = torch.ops.aten.select.int(x, dim, index)
+        res_int = res_int + 1.0
         return res_int
+
 
 model = OpModule()
 args = parse_args()
@@ -27,7 +39,5 @@ class TestSelect():
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dim, index)
-        print(output)
-        print(dicp_output)
 
         assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

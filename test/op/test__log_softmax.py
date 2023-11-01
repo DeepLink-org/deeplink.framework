@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, dim,):
-        res_default = torch.ops.aten._log_softmax.default(input, dim, False)
+    def forward(self, x, dim,):
+        res_default = torch.ops.aten._log_softmax.default(x, dim, False)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

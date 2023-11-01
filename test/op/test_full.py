@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    random,
+    parse_args,
+    compile_model,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, size, value):
         res_default = torch.ops.aten.full.default(size, value)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

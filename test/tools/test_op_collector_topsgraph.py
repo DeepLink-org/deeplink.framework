@@ -1,12 +1,14 @@
 import torch
 from dicp.tools.op_collector import InnerCompilerOpCollectorContext
 
+
 def bar(a, b):
     x = torch.abs(a)
     x = x + 1
     if x.sum() > 0:
         x = torch.rsqrt(x)
     return x * b
+
 
 with InnerCompilerOpCollectorContext(
     inner_commpiler_func="dicp.dynamo_bridge.compile_fx.compile_fx_inner",

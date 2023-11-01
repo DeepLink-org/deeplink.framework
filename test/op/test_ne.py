@@ -1,9 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    random,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_Scalar = torch.ops.aten.ne.Scalar(a, b)
         return res_Scalar
+
 
 model = OpModule()
 args = parse_args()

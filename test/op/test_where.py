@@ -1,10 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, condition, a, b):
-        res_self1 = torch.ops.aten.where(condition, a, b)
-        res_self2 = torch.ops.aten.where(condition, a, b)
-        return res_self1, res_self2
+        res_self = torch.ops.aten.where.self(condition, a, b)
+        return res_self
+
 
 model = OpModule()
 args = parse_args()
@@ -31,5 +41,4 @@ class TestWhere():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_condition, dicp_input1, dicp_input2)
 
-        for i, item in enumerate(output):
-            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
+        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

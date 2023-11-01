@@ -1,9 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
-        res_default = torch.ops.aten.copy_.default(a, b)
+        torch.ops.aten.copy_.default(a, b)
+        res_default = torch.ops.aten.add.Scalar(a, 1)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -18,7 +30,7 @@ class TestCopy():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
-        input2 = torch.randn(size, dtype=dtype)
+        input2 = torch.randn(size, dtype=dtype) * 2.0
 
         dicp_input1 = input1.to(device)
         dicp_input2 = input2.to(device)
@@ -28,8 +40,4 @@ class TestCopy():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dicp_input2)
 
-        for i, item in enumerate(output):
-            if isinstance(item, torch.Tensor):
-                assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
-            else:
-                assert item == dicp_output[i]
+        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

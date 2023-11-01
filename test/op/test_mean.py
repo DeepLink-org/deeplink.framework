@@ -1,9 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_dim = torch.ops.aten.mean.dim(a, b, c)
-        return res_dim
+        res_default = torch.ops.aten.mean.default(a)
+        return res_dim, res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -19,7 +31,7 @@ class TestMean():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
-        dim = [0] if len(size) < 2 else [0, 1]
+        dim = [0] if len(size) < 2 else [0, -1]
         keepdim = True if len(size) <= 2 else keepdim
 
         dicp_input1 = input1.to(device)
@@ -29,4 +41,5 @@ class TestMean():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dim, keepdim)
 
-        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
+        for i, item in enumerate(output):
+            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
