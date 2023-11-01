@@ -10,9 +10,6 @@ public:
   TopsGeneratorImpl(at::DeviceIndex device_index): dipu::DIPUGeneratorImpl(device_index) {
   }
 
-  void init_state() const override {
-  }
-
   void set_state(const c10::TensorImpl& state) override {
   }
 
