@@ -857,7 +857,7 @@ class AscendOverrides:
 
     @staticmethod
     def Fill(name, dims, value):
-        op = OP(f"{name}", "Fill")
+        op = OP(name, "Fill")
         op.set_input("dims", dims)
         op.set_input("value", value)
         return op.to_node()
@@ -891,7 +891,7 @@ class AscendOverrides:
     @staticmethod
     def Empty(name, shape, dtype, layout, device):
         dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
-        op = OP(f"{name}", "Empty")
+        op = OP(name, "Empty")
         op.set_input("shape", shape)
         op.set_attr_int("dtype", dtype)
         return op.to_node()
@@ -986,6 +986,7 @@ class AscendOverrides:
         pad_grad = OP(name, "PadV3Grad")
         pad_grad.set_input("x", x)
         pad_grad.set_input("paddings", paddings)
+        return pad_grad.to_node()
 
     @staticmethod
     def MaxPool(name, x, ksize, strdes, padding, data_format):
@@ -1054,10 +1055,10 @@ class AscendOverrides:
 
     @staticmethod
     def Cumsum(name, x, dim):
-        op1 = OP(name, "Cumsum")
-        op1.set_input("x", x)
-        op1.set_input("axis", dim)
-        return op1.to_node()
+        op = OP(name, "Cumsum")
+        op.set_input("x", x)
+        op.set_input("axis", dim)
+        return op.to_node()
 
     @staticmethod
     def LogSoftmaxV2(name, x, dim):
@@ -1181,7 +1182,7 @@ class AscendOverrides:
     @staticmethod
     def Pack(name, x, axis):
         x = [elem.name for elem in x]
-        op = OP(f"{name}", "Pack")
+        op = OP(name, "Pack")
         op.set_dynamic_input("x", len(x), x)
         op.set_attr_int("axis", axis)
         op.set_attr_int("N", len(x))

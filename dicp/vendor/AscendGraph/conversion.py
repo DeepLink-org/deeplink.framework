@@ -291,7 +291,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def empty(self, size, dtype=torch.int64, layout=torch.strided, device='cpu'):
         shape_op = self.get_proxy(
             ascend_op.Const, (size, torch.int32, [len(size)]))
-        return ascend_op.Empty(shape_op, dtype, layout, device)
+        return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device))
 
     @register_conversion(aten.empty_like.default)
     def empty_like(self, x, dtype=torch.float32, layout=torch.strided,
