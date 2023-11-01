@@ -42,7 +42,6 @@ namespace at {
             DIPU_REGISTER_LOG("force fallback has been set, ");                                                         \
         }                                                                                                               \
         DIPU_REGISTER_LOG(opname << " will be fallback to cpu" << std::endl);                                           \
-        m.impl(opname, torch::CppFunction::makeFromBoxedFunction<&dipu_fallback>());                                    \
     }                                                                                                                   \
 } while (false);
 
