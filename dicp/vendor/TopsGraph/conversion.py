@@ -1,7 +1,6 @@
 import torch
 import functools
 from . import tops_op
-from abc import ABC, abstractmethod
 import numbers
 import torch.fx.traceback as fx_traceback
 from torch.fx import Proxy
@@ -14,7 +13,6 @@ from typing import (
 from torch.types import (
     Number,
 )
-import functools
 from dicp.dynamo_bridge.op_transformer import (
     BackendPatternBase,
     PatternMatcherPass,
@@ -85,7 +83,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
             out_dtype = fx_traceback.get_current_meta()['val'].dtype
             if in_dtype != out_dtype:
                 x = self.get_proxy(tops_op.Convert, (x, out_dtype))
-        except:
+        except Exception:
             pass
         if not isinstance(y_node, torch.fx.node.Node):
             y = y * alpha
@@ -165,8 +163,9 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.ReduceSum, (a, *args), kwargs)
 
     @register_conversion(operator.getitem)
-    def GetTupleElement(self, *args, **kwargs):
-        return self.get_proxy(tops_op.GetTupleElement, args, kwargs)
+    def GetTupleElement(self, a, dim, **kwargs):
+        dim = dim % len(a.node.meta["val"])
+        return self.get_proxy(tops_op.GetTupleElement, (a, dim), kwargs)
 
     @register_conversion(aten.index.Tensor)
     def Index(self, *args, **kwargs):
@@ -174,14 +173,15 @@ class AtenToTopsTransformer(SingleOpTransformer):
         idx_rank = len(args[1][0].node.meta['val'].shape)
         slice_size = list(args[0].node.meta['val'].shape)
         slice_size[0] = 1
-        return self.get_proxy(tops_op.XlaGather, (args[0], args[1][0], 
-                                                  [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+        return self.get_proxy(tops_op.XlaGather, (args[0], args[1][0],
+                              [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
 
     # tops_dropout only returns a tensor, not a tuple of tensor
     @register_conversion(aten.native_dropout.default)
     def NativeDropout(self, *args, **kwargs):
         dropout = self.get_proxy(tops_op.NativeDropout, args)
-        ne = self.get_proxy(tops_op.NotEqual, (dropout, 0))
+        data_type = args[0].node.meta["val"].dtype
+        ne = self.get_proxy(tops_op.NotEqual, (data_type, dropout, 0))
         return self.get_proxy(tops_op.MakeTuple, (dropout, ne))
 
     @register_conversion(aten.squeeze)
@@ -233,8 +233,11 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Neg, args, kwargs)
 
     @register_conversion(aten.mean)
-    def ReduceMean(self, a, dim, keepdim=False, **kwargs):
+    def ReduceMean(self, a, dim=None, keepdim=False, **kwargs):
         in_shape = a.node.meta["val"].shape
+        if dim is None:
+            dim = list(range(len(in_shape)))
+            return self.get_proxy(tops_op.ReduceMean, (a, dim))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
@@ -274,12 +277,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
         inputs = [item for item in (x, weight, bias) if item is not None]
         padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
         return self.get_proxy(tops_op.Convolution, (inputs, x, weight, bias, stride, padding, dilation,
-                                                            transposed, output_padding, groups))
+                                                    transposed, output_padding, groups))
 
     @register_conversion(aten.convolution_backward.default)
     def ConvolutionBackward(self, grad_output, a, weight, bias_size, stride, padding, dilation, *args, **kwargs):
         inputs = [item for item in (grad_output, a, weight)]
-        return self.get_proxy(tops_op.ConvolutionBackward, (inputs, grad_output, a, weight, bias_size, 
+        return self.get_proxy(tops_op.ConvolutionBackward, (inputs, grad_output, a, weight, bias_size,
                                                             stride, padding, dilation, *args), kwargs)
 
     @register_conversion(aten.max_pool2d_with_indices)
@@ -294,11 +297,11 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten._adaptive_avg_pool2d.default)
     def Adaptive_avg_pool2d(self, *args, **kwargs):
         assert len(args) == 2 and args[1] == [1, 1], "limited support"
-        reudce_dim = f"{{2, 3}}"
+        reudce_dim = [2, 3]
         return self.get_proxy(tops_op.Adaptive_avg_pool2d, (reudce_dim, *args), kwargs)
 
     @register_conversion(aten._adaptive_avg_pool2d_backward.default)
-    def Adaptive_avg_pool2d_backward(self, grad_output, input):
+    def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
         expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape))
         value = out_shape[2] * out_shape[3]
@@ -306,8 +309,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Div, (expand, scalar))
 
     @register_conversion(aten.gather)
-    def Gather(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Gather, args, kwargs)
+    def Gather(self, a, dim, index, *args, **kwargs):
+        in_shape = a.node.meta["val"].shape
+        dim = dim % len(in_shape)
+        return self.get_proxy(tops_op.Gather, (a, dim, index, *args), kwargs)
 
     @register_conversion(aten.log)
     def Log(self, *args, **kwargs):
@@ -331,10 +336,6 @@ class AtenToTopsTransformer(SingleOpTransformer):
         dim = dim + len(out_shape) if dim < 0 else dim
         return self.get_proxy(tops_op.Softmax, (a, dim, half_to_float))
 
-    @register_conversion(aten.bmm.default)
-    def Bmm(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Bmm, args, kwargs)
-
     @register_conversion(aten.dot.default)
     def Dot(self, *args, **kwargs):
         return self.get_proxy(tops_op.Dot, args, kwargs)
@@ -345,8 +346,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.bmm.default)
     def Bmm(self, *args, **kwargs):
-        return self.get_proxy(tops_op.DotGeneral, (*args,
-                                                   [0,], [0,], [2,], [1,]))
+        return self.get_proxy(tops_op.DotGeneral, (*args, [0,], [0,], [2,], [1,]))
 
     @register_conversion(aten.cat.default)
     def Concatenate(self, *args, **kwargs):
@@ -449,7 +449,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Scalar(self, a, **kwargs):
         if "dtype" in kwargs:
             real_dtype = kwargs["dtype"]
-            if not real_dtype in (torch.int64, torch.float32):
+            if real_dtype not in (torch.int64, torch.float32):
                 kwargs["dtype"] = torch.float32
                 scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
                 return self.get_proxy(tops_op.Convert(), (scalar, real_dtype))
@@ -480,14 +480,6 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten._log_softmax.default)
     def Logsoftmax(self, *args, **kwargs):
         return self.get_proxy(tops_op.Logsoftmax, args, kwargs)
-
-    @register_conversion(aten.view_as_complex)
-    def ViewAsComplex(self, *args, **kwargs):
-        return self.get_proxy(tops_op.ViewAsComplex, args, kwargs)
-
-    @register_conversion(aten.view_as_real)
-    def ViewAsReal(self, *args, **kwargs):
-        return self.get_proxy(tops_op.ViewAsReal, args, kwargs)
 
     @register_conversion(aten.gelu.default)
     def Gelu(self, *args, **kwargs):

@@ -1,5 +1,3 @@
-from dicp.dynamo_bridge.operator import Operator
-from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 import torch
 import torch.fx
 from typing import Tuple
@@ -99,7 +97,7 @@ class Operator():
 
         try:
             ret = self.torch_op(*new_args, **kwargs)
-        except:
+        except Exception:
             ret = None
         return ret
 
