@@ -2,7 +2,7 @@ from typing import List
 
 import torch
 from model.llama.tokenizer import Tokenizer
-from model.llama.model import Transformer, WORLD_SIZE, precompute_freqs_cis
+from model.llama.model import Transformer, precompute_freqs_cis
 
 
 class LLaMA:
@@ -81,10 +81,10 @@ class LLaMA:
                 for pad_size in left_pad_size_list:
                     origin_prompt_size = max_prompt_size - pad_size
                     real_cache_size = origin_prompt_size + cur_pos - start_pos
-                     # add a if condition due to tops dipu can't fill tensor with shape (1, 1, 1, 0)
+                    # add a if condition due to tops dipu can't fill tensor with shape (1, 1, 1, 0)
                     if slice_size - real_cache_size > 0:
                         left_corner_mask = torch.full((1, 1, seqlen, slice_size - real_cache_size),
-                                                       float("-inf"), device=tokens.device).to(torch.float16)
+                                                      float("-inf"), device=tokens.device).to(torch.float16)
                         final_mask_full = origin_mask_full.clone()
                         final_mask_full[:, :, :, :-real_cache_size] = left_corner_mask
                     else:
@@ -99,7 +99,7 @@ class LLaMA:
             if temperature > 0:
                 probs = torch.softmax(logits / temperature, dim=-1)
                 next_token = sample_top_p(probs, top_p)
-                
+
             else:
                 next_token = torch.argmax(logits, dim=-1)
             next_token = next_token.reshape(-1)
@@ -133,4 +133,3 @@ def sample_top_p(probs, p):
     next_token = torch.multinomial(probs_sort, num_samples=1)
     next_token = torch.gather(probs_idx, -1, next_token)
     return next_token
-    

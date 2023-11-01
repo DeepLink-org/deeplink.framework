@@ -3,8 +3,6 @@ import torch
 import os
 import torch._dynamo as dynamo
 from common import utils
-os.environ.setdefault("DIPU_MOCK_CUDA", "false")
-os.environ.setdefault("DICP_TOPS_DIPU", "True")
 import torch_dipu
 import json
 from pathlib import Path

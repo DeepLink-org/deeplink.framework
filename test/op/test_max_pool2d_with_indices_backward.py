@@ -1,4 +1,13 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
 
 
 class OpModule(torch.nn.Module):
@@ -24,11 +33,9 @@ class TestMaxPool2dWithIndicesBackward():
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         grad_output = torch.randn(size[0], dtype=dtype)
         inputs = torch.randn(size[1], dtype=dtype)
-        indices = torch.ones(size[0], dtype=torch.int64)
 
         dicp_grad_output = grad_output.to(device)
         dicp_inputs = inputs.to(device)
-        dicp_indices = indices.to(device)
 
         output = model(grad_output, inputs)
         dynamo.reset()

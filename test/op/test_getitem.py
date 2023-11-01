@@ -1,4 +1,14 @@
-from common.utils import *
+import pytest
+import operator
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
 
 
 class OpModule(torch.nn.Module):
