@@ -108,7 +108,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
-    export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
 
     # set the environment variable for the transformers repository
     export HF_HOME=${basic_path}/huggingface
