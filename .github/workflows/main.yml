@@ -423,6 +423,7 @@ jobs:
           cd mmpretrain
           pip install -e .
           cd ..
+          export ASCEND_RT_VISIBLE_DEVICES=5
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
       - name: Perform cleanup one iter data
