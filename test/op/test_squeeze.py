@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, dim):
         res_dim = torch.ops.aten.squeeze.dim(a, dim=dim)
         return res_dim
+
 
 model = OpModule()
 args = parse_args()
@@ -21,6 +32,7 @@ class TestSqueeze():
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size, dtype=dtype)
+        dim = -1 if len(size) == 2 else dim
 
         dicp_input1 = input1.to(device)
 

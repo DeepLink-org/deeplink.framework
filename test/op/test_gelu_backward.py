@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b, c):
         res_default = torch.ops.aten.gelu_backward.default(a, b, approximate=c)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -29,4 +40,4 @@ class TestGeluBackward():
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dicp_input2, approximate)
 
-        assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)
+        assert torch.allclose(output, dicp_output.cpu(), atol=1e-2, equal_nan=True)

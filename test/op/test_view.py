@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, b):
         res_default = torch.ops.aten.view(a, b)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -14,6 +25,8 @@ class TestView():
     @pytest.mark.parametrize("dtype", [torch.float32])
     @pytest.mark.parametrize("sizes", [Size(((5,), (5, 1)), ((5, 3), (3, 5))),
                                        Size(((5, 3), (3, 5)), ((5, 3), (3, 5))),
+                                       Size(((5, 3), (-1, 5)), ((5, 3), (-1, 5))),
+                                       Size(((5, 3), (3, -1)), ((5, 3), (3, -1))),
                                        Size(((2, 8), (16,)), ((2, 8), (16,))),
                                        Size(((2, 8), (2, 4, 2)), ((2, 8), (2, 4, 2)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)

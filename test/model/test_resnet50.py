@@ -1,10 +1,7 @@
 import pytest
 import copy
 import torch
-import torch.nn as nn
-import os
 import os.path as osp
-import torch._dynamo as dynamo
 import mmcls
 from mmcv import Config
 from mmcls.models import build_classifier
@@ -22,10 +19,11 @@ def gen_mmcls_model():
     config_root = osp.join(config_parent, 'configs')
 
     resnet_cfg = Config.fromfile(
-        osp.join(config_root, f'_base_/models/resnet50.py')
+        osp.join(config_root, '_base_/models/resnet50.py')
     )
     model = build_classifier(resnet_cfg.model)
     return model
+
 
 def gen_fake_train_loader(shape, num_batches=100, num_classes=1000):
     npu_cache_data = [1] * num_batches
@@ -37,7 +35,9 @@ def gen_fake_train_loader(shape, num_batches=100, num_classes=1000):
 
 
 class TestResnet50():
-    def test_forward_train(self, backend, dynamic, fake_batch_num=5, batch_size=32):
+    @pytest.mark.parametrize("fake_batch_num", [5])
+    @pytest.mark.parametrize("batch_size", [32])
+    def test_forward_train(self, backend, dynamic, fake_batch_num, batch_size):
         utils.update_dynamo_config(dynamic=dynamic)
         device = utils.get_device()
         torch_dipu.dipu.set_device(device)
@@ -52,17 +52,15 @@ class TestResnet50():
         cpu_optimizer = torch.optim.SGD(cpu_model.parameters(), lr=0.01,
                                         momentum=0.9, weight_decay=1e-4)
         dicp_optimizer = torch.optim.SGD(dicp_model.parameters(), lr=0.01,
-                                        momentum=0.9, weight_decay=1e-4)
-        
+                                         momentum=0.9, weight_decay=1e-4)
         dicp_compiled = torch.compile(dicp_model_forward, backend=backend, dynamic=dynamic)
-        dicp_optimizer_step = torch.compile(dicp_optimizer.step, backend=backend, dynamic=dynamic)
 
         input_batch_shape = (batch_size, 3, 224, 224)
         cpu_train_loader = gen_fake_train_loader(input_batch_shape, num_batches=fake_batch_num)
 
         cpu_model.train()
         dicp_model.train()
-        
+
         for _, (cpu_image, cpu_target) in enumerate(cpu_train_loader):
             # CPU
             cpu_loss = cpu_model_forward(cpu_image, cpu_target)
@@ -83,4 +81,3 @@ class TestResnet50():
             dicp_optimizer.step()
 
             assert torch.allclose(cpu_real_loss.detach(), dicp_real_loss.cpu().detach(), atol=1e-02, equal_nan=True)
-

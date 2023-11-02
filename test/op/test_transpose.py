@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, dims):
         res = torch.ops.aten.transpose(a, *dims)
         return res
+
 
 model = OpModule()
 args = parse_args()

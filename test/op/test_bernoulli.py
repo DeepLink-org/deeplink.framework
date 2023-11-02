@@ -1,9 +1,21 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    random,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, p):
-        res_p = torch.ops.aten.bernoulli.p(input, p)
+    def forward(self, x, p):
+        res_p = torch.ops.aten.bernoulli.p(x, p)
         return res_p
+
 
 model = OpModule()
 args = parse_args()

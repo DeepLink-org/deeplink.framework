@@ -256,14 +256,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
-            dims = f'''dims = {{'''
+            dims = 'dims = {'
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
                 elem = [self.process_sym_name(dim) for dim in elem]
                 dims += str(self.dynamic_index[idx]) + \
                     ":[" + ','.join(map(str, elem)) + '],'
-            dims = dims[:-1] + f'''}}'''
+            dims = dims[:-1] + '}'
             call_body.writeline(dims)
         else:
             call_body.writeline(f'''dims = None''')
@@ -417,8 +417,7 @@ class AscendCodegen(torch.fx.Interpreter):
             if d[k].node.str().isdigit():
                 d[k] = d[k].node.hint
             else:
-                import pdb
-                pdb.set_trace()
+                raise RuntimeError("expand_symint failed!")
 
     def remove_symint(self, cur):
         if isinstance(cur, list):
@@ -926,7 +925,7 @@ class AscendOverrides:
 
     @staticmethod
     def Fill(name, dims, value):
-        op = OP(f"{name}", "Fill")
+        op = OP(name, "Fill")
         op.set_input("dims", dims)
         op.set_input("value", value)
         return op.to_node()
@@ -960,7 +959,7 @@ class AscendOverrides:
     @staticmethod
     def Empty(name, shape, dtype, layout=torch.strided, device='cpu'):
         dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
-        op = OP(f"{name}", "Empty")
+        op = OP(name, "Empty")
         op.set_input("shape", shape)
         op.set_attr_int("dtype", dtype)
         return op.to_node()
@@ -1073,6 +1072,7 @@ class AscendOverrides:
         pad_grad = OP(name, "PadV3Grad")
         pad_grad.set_input("x", x)
         pad_grad.set_input("paddings", paddings)
+        return pad_grad.to_node()
 
     @staticmethod
     def MaxPool(name, x, ksize, strdes, padding, data_format):
@@ -1141,10 +1141,10 @@ class AscendOverrides:
 
     @staticmethod
     def Cumsum(name, x, dim):
-        op1 = OP(name, "Cumsum")
-        op1.set_input("x", x)
-        op1.set_input("axis", dim)
-        return op1.to_node()
+        op = OP(name, "Cumsum")
+        op.set_input("x", x)
+        op.set_input("axis", dim)
+        return op.to_node()
 
     @staticmethod
     def LogSoftmaxV2(name, x, dim):
@@ -1268,7 +1268,7 @@ class AscendOverrides:
     @staticmethod
     def Pack(name, x, axis):
         x = [elem.name for elem in x]
-        op = OP(f"{name}", "Pack")
+        op = OP(name, "Pack")
         op.set_dynamic_input("x", len(x), x)
         op.set_attr_int("axis", axis)
         op.set_attr_int("N", len(x))

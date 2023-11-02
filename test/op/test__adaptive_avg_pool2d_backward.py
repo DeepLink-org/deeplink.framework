@@ -1,4 +1,14 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, inputs, outputs, device="cpu"):
@@ -9,6 +19,7 @@ class OpModule(torch.nn.Module):
         res_loss = loss(res_default, outputs)
         res_loss.backward()
         return res_default
+
 
 model = OpModule()
 args = parse_args()

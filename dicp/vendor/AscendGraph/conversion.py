@@ -176,6 +176,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Add, (x, y), {})
 
+    @register_conversion(torch.ops.aten.add.Scalar)
+    def add_scalar(self, x, y):
+        return self.add(x, y)
+
     @register_conversion(torch.ops.aten._to_copy.default)
     def _to_copy(self, x, dtype=None, layout=torch.strided, device='cpu'):
         if dtype:
@@ -271,7 +275,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def Bernoulli(self, x, p, generator=None):
         assert generator is None
         dtype = x.node.meta['val'].dtype
-        shape_op = self.get_proxy(ascend_op.Shape, (x))
+        shape_op = self.get_proxy(ascend_op.Shape, (x,))
         prop_op = self.get_proxy(
             ascend_op.Const, ([float(p)], torch.float32, []))
         seed_op = self.get_proxy(ascend_op.Const, ([-1], torch.int64, []))
@@ -296,7 +300,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         shape = list(x.node.meta['val'].shape)
         shape_op = self.get_proxy(
             ascend_op.Const, (shape, torch.int32, [len(shape)]))
-        return self.get_proxy(ascend_op.Empty, (shape_op, dtype))
+        return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device))
 
     @register_conversion(aten.select.int)
     def select(self, x, dim, index):
@@ -419,6 +423,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         else:
             step = self.get_proxy(ascend_op.Cast, (step, "INT64"), {})
         return self.get_proxy(ascend_op.Range, (end, start, step))
+
+    @register_conversion(aten.arange.start)
+    def arange_start(self, start, end, step=1, dtype=None, device=None, layout=None, pin_memory=False):
+        return self.arange(end, start)
 
     @register_conversion([aten.eq, aten.eq.Tensor])
     def eq(self, a, b):
@@ -557,21 +565,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
         value = self.get_proxy(ascend_op.Const, ([value], torch_dtype, []))
         return self.get_proxy(ascend_op.Fill, (dims, value))
 
-    def fill_float(self, x, value):
-        return self.get_proxy(ascend_op.Fills, (x, value))
-
     @register_conversion(torch.ops.aten.fill.Scalar)
-    def fill(self, x, value):
-        if type(value) == float:
-            return self.fill_float(x, value)
-        x_shape = list(x.node.meta['val'].shape)
-        if len(x_shape) == 0:
-            x_shape = [1]
-        x_shape = self.get_proxy(
-            ascend_op.Const, (x_shape, torch.int32, [len(x_shape)]))
-        dtype = fx_traceback.get_current_meta()['val'].dtype
-        value = self.get_proxy(ascend_op.Const, ([value], dtype, []))
-        return self.get_proxy(ascend_op.Fill, (x_shape, value))
+    def fills(self, x, value):
+        return self.get_proxy(ascend_op.Fills, (x, value))
 
     @register_conversion(torch.ops.aten.topk.default)
     def topk(self, x, k, dim=-1, largest=True, sorted=True):
@@ -1020,7 +1016,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten._softmax_backward_data.default)
     def softmax_backward_data(self, grad_output, output, dim, input_dtype):
         dim = [dim] if not isinstance(dim, list) else dim
-        return self.get_proxy(ascend_op.SoftmaxGrad(grad_output, output, dim))
+        return self.get_proxy(ascend_op.SoftmaxGrad, (grad_output, output, dim))
 
     @register_conversion(aten.log)
     def log(self, x):

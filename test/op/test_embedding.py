@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, weight, indices):
         res_default = torch.ops.aten.embedding.default(weight, indices)
         return res_default
+
 
 model = OpModule()
 args = parse_args()

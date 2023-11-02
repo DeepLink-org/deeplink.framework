@@ -1,12 +1,11 @@
 import os
 import numbers
-from copy import deepcopy
 from torch._inductor.utils import IndentedBuffer
 
 import torch
 
 from typing import Any
-from torch.fx.node import Node, map_arg, map_aggregate
+from torch.fx.node import Node
 
 from torch._inductor.codegen.common import OpOverrides
 from ..config import tops_debug, dipu_flag, tops_check_precision
@@ -138,11 +137,11 @@ class EnflameCodegen(torch.fx.Interpreter):
         # some of the nodes have a list/tuple of faketensor in meta['val']
         try:
             node_shape = self.cur_node.meta['val'].shape
-        except:
+        except Exception:
             node_shape = None
         try:
             node_dtype = self.cur_node.meta['val'].dtype
-        except:
+        except Exception:
             node_dtype = None
 
         op_code = getattr(self.override, real_op)(
@@ -261,7 +260,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
 
         func_body.writeline("")
-        func_body.writeline(f'std::vector<void *> output_ptrs;')
+        func_body.writeline("std::vector<void *> output_ptrs;")
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 func_body.writeline(
@@ -290,7 +289,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_load_func_code(self):
         func_body = IndentedBuffer()
-        func_body.writeline(f'load(&exe_ptr, compile_bin_path);')
+        func_body.writeline("load(&exe_ptr, compile_bin_path);")
 
         run_func_code = IndentedBuffer()
         run_func_code.writeline(
@@ -303,7 +302,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return run_func_code
 
     def get_kernel_header(self):
-        return f"""
+        return """
                     #include <cmath>
                     #include <fstream>
                     #include <iostream>
@@ -367,7 +366,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                         return
                 """, strip=True
             )
-        compile_graph_code.writeline(f"source_code = '''")
+        compile_graph_code.writeline("source_code = '''")
         compile_graph_code.splice(self.get_kernel_header(), strip=True)
         compile_graph_code.writeline("")
         compile_graph_code.writeline(
@@ -380,10 +379,10 @@ class EnflameCodegen(torch.fx.Interpreter):
         compile_graph_code.splice(self.gen_compile_func_code())
         compile_graph_code.splice(self.gen_load_func_code())
         compile_graph_code.splice(self.gen_run_func_code())
-        compile_graph_code.writeline(f"'''")
+        compile_graph_code.writeline("'''")
 
         compile_graph_code.splice(
-            f"""
+            """
                 compile_job = TopsCompileJob(source_code)
                 async_compile = AsyncCompileKernel()
                 kernel_cpp_0 = async_compile.compile_kernel(compile_job)
@@ -417,7 +416,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             args.append('arg' + str(i))
         if args:
             call_body.writeline(f"{', '.join(args)}, = args")
-        call_body.writeline(f"args.clear()")
+        call_body.writeline("args.clear()")
         call_body.writeline("")
 
         bufs = []
@@ -431,7 +430,7 @@ class EnflameCodegen(torch.fx.Interpreter):
             else:
                 none_bufs.append("buf" + str(i))
                 call_body.writeline(
-                    bufs[-1] + " = " + (f"empty_strided((), ())"))
+                    bufs[-1] + " = " + ("empty_strided((), ())"))
 
         call_body.writeline("")
         if dipu_flag:
@@ -462,7 +461,7 @@ class EnflameCodegen(torch.fx.Interpreter):
                 call_body.writeline(f"sys.path.insert(0, '{self.folder}')")
             call_body.writeline(
                 f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
-            call_body.writeline(f"cpu_module = graph_module()")
+            call_body.writeline("cpu_module = graph_module()")
             call_body.writeline(
                 f"cpu_res = cpu_module({', '.join(map(lambda s: s + '.cpu()', args))})")
             call_body.writeline(
@@ -475,7 +474,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         call_body.writeline(f"return ({', '.join(bufs)})")
 
         call_func = IndentedBuffer()
-        call_func.writeline(f"def call(args):")
+        call_func.writeline("def call(args):")
         with call_func.indent():
             call_func.splice(call_body)
         return call_func.getvalue()
@@ -483,7 +482,7 @@ class EnflameCodegen(torch.fx.Interpreter):
     def gen_main_func(self):
         main_body = IndentedBuffer()
         main_body.splice(
-            f"""
+            """
             from torch._dynamo.testing import rand_strided
             from torch._inductor.utils import print_performance
             """, strip=True
@@ -502,7 +501,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         main_body.writeline(f"print(call([{', '.join(args)}]))")
 
         main_func = IndentedBuffer()
-        main_func.writeline(f"""if __name__ == "__main__":""")
+        main_func.writeline("""if __name__ == "__main__":""")
         with main_func.indent():
             main_func.splice(main_body)
         return main_func.getvalue()
@@ -612,7 +611,7 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Sub(op_var, shape, dtype, x,  y, **kwargs_list):
+    def Sub(op_var, shape, dtype, x, y, **kwargs_list):
         src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Sub({x}, {y});"
         return src_code
@@ -761,8 +760,8 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def FullLike(op_var, shape, dtype, input, value, **kwargs_list):
-        return f"builder::Op {op_var} = builder::FullLike({input}, {value});"
+    def FullLike(op_var, shape, dtype, x, value, **kwargs_list):
+        return f"builder::Op {op_var} = builder::FullLike({x}, {value});"
 
     @staticmethod
     def Transpose(op_var, shape, dtype, x, permution=[0, 1], **kwargs_list):
@@ -820,15 +819,15 @@ class EnflameOverrides(OpOverrides):
         return f"auto {op_var} = enflame::Scatter(hlir_builder, {x}, {dim}, {index}, {value});"
 
     @staticmethod
-    def Gather(op_var, shape, dtype, input, dim, index, **kwargs_list):
+    def Gather(op_var, shape, dtype, x, dim, index, **kwargs_list):
         src_code, op_type = EnflameOverrides.make_type(op_var, dtype, shape)
-        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {input}, {index}, {dim}, {op_type});"
+        src_code += f"auto {op_var} = enflame::Gather(hlir_builder, {x}, {index}, {dim}, {op_type});"
         return src_code
 
     @staticmethod
     def Slice(op_var, shape, dtype, start_indices, limit_indices, strides, x, *args, **kwargs_list):
         return f"builder::Op {op_var} = builder::Slice({x}, {{{', '.join(map(str, start_indices))}}}, "\
-                                        f"{{{', '.join(map(str, limit_indices))}}}, {{{', '.join(map(str, strides))}}});"
+               f"{{{', '.join(map(str, limit_indices))}}}, {{{', '.join(map(str, strides))}}});"
 
     @staticmethod
     def SliceInDim(op_var, shape, dtype, x, dim, start, end, step, **kwargs_list):
@@ -860,13 +859,13 @@ class EnflameOverrides(OpOverrides):
         bias_size = f"{{{', '.join(map(str, args[len(inputs)]))}}}"
         stride = f"{{{', '.join(map(str, args[len(inputs) + 1]))}}}"
         padding = f"{{{', '.join(map(str, args[len(inputs) + 2]))}}}"
-        dilation =  f"{{{', '.join(map(str,  args[len(inputs) + 3]))}}}"        
+        dilation = f"{{{', '.join(map(str,  args[len(inputs) + 3]))}}}"
         return f"auto {op_var} = enflame::Conv2D_Grad(hlir_builder, {', '.join(inputs)}, {bias_size}, {stride}, {padding}, {dilation});"
 
     @staticmethod
     def MaxPool2D(op_var, out_shape, out_dtype, shape, x, kernel_size, stride=[], padding=[0, 0], dilation=[1, 1], ceil_mode=False, **kwargs_list):
         ksize = f"{{{', '.join(map(str, kernel_size))}}}"
-        stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{1, 1}}"
+        stride = f"{{{', '.join(map(str, stride))}}}" if stride else f"{{{1, 1}}}"
         padding = f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}"
         shape = f"{{{', '.join(map(str, shape))}}}"
         return f"auto {op_var} = enflame::MaxPool2D(hlir_builder, {x}, {ksize}, {stride}, {padding}, {shape});"
@@ -877,7 +876,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def AvgPool2D(op_var, shape, dtype, reduce_dim, x, output_size, **kwargs):
-        return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {reduce_dim});"
+        return f"builder::Op {op_var} = builder::ReduceMean({x}, true, {{{', '.join(map(str, reduce_dim))}}});"
 
     # [a + bi] ===> tops.tuple(a, bi)
     @staticmethod

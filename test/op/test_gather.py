@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
-    def forward(self, input, dim, index):
-        res_default = torch.ops.aten.gather(input, dim, index)
+    def forward(self, x, dim, index):
+        res_default = torch.ops.aten.gather(x, dim, index)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
@@ -12,21 +23,21 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 
 class TestGather():
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size((5, 3), (5, 3)), Size((3, 5), (5, 3)), Size((2, 4), (2, 4))])
+    @pytest.mark.parametrize("sizes", [Size((5, 3), (5, 3)), Size((3, 5), (5, 3)), Size((2, 4, 5), (2, 4))])
+    @pytest.mark.parametrize("dim", [0, 1, -1])
     @pytest.mark.parametrize("compiled_model", compiled_model)
-    def test_torch_gather(self, sizes, dtype, compiled_model):
+    def test_torch_gather(self, sizes, dim, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
-        input = torch.randn(size, dtype=dtype)
-        dim = 1
-        index = torch.tensor([[0, 0], [1, 0]])
+        input1 = torch.randn(size, dtype=dtype)
+        index = torch.randint(0, 2, size)
 
-        dicp_input = input.to(device)
+        dicp_input1 = input1.to(device)
         dicp_index = index.to(device)
 
-        output = model(input, dim, index)
+        output = model(input1, dim, index)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_input, dim, dicp_index)
+        dicp_output = compiled_model.model(dicp_input1, dim, dicp_index)
 
         assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

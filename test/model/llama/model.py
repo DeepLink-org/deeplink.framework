@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List
+from typing import Tuple
 from dataclasses import dataclass
 import math
 import torch
@@ -229,7 +229,7 @@ class Transformer(nn.Module):
         # freqs_cis = self.freqs_cis[start_pos: start_pos + seqlen]
 
         for layer_idx in range(len(self.layers)):
-        # for layer_idx in range(1):
+            # for layer_idx in range(1):
             h = self.layers[layer_idx](h, freqs_cis_real, mask, slice_size)
         h = self.norm(h)
         output = self.output(h[:, -1, :])  # only compute last logits

@@ -1,9 +1,20 @@
-from common.utils import *
+import pytest
+from common.utils import (
+    torch,
+    dynamo,
+    parse_args,
+    compile_model,
+    get_device,
+    Size,
+    update_dynamo_config,
+)
+
 
 class OpModule(torch.nn.Module):
     def forward(self, a, view_size):
         res_default = torch.ops.aten._unsafe_view.default(a, view_size)
         return res_default
+
 
 model = OpModule()
 args = parse_args()
