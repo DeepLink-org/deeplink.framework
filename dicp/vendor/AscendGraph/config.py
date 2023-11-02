@@ -1,9 +1,15 @@
 import torch
 
-from torch._inductor.decomposition import decompositions
+from torch._decomp import get_decompositions
+
+
+aten = torch.ops.aten
+decomp_keys = [aten.native_dropout.default,
+               aten.native_dropout_backward.default]
+
 
 def get_decomp():
-    decompositions.clear()
-    return decompositions
+    return get_decompositions(decomp_keys)
+
 
 decomp = get_decomp()

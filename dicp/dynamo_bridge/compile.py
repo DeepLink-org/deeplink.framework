@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from torch._inductor.codecache import AsyncCompile
 
+
 class DeviceCompileJob():
     __metaclass__ = ABCMeta
 
@@ -26,7 +27,7 @@ class DeviceKernelCache:
         if key not in cls.cache:
             loaded = device_compile_job.get_compile_result()
             cls.cache[key] = loaded
-            cls.cache[key].key = key 
+            cls.cache[key].key = key
         return cls.cache[key]
 
 

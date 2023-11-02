@@ -20,6 +20,21 @@ builder::Op Gather(
     const int64_t dim,
     builder::Type gather_type);
 
+builder::Op ViewAsComplex(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape);
+
+builder::Op ViewAsReal(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op input,
+    const std::vector<int64_t> shape);
+
+builder::Op ComplexMul(
+    std::shared_ptr<builder::Builder> hlir_builder,
+    builder::Op lhs,
+    builder::Op rhs);
+
 static void PadToSize(builder::Op& operand, const std::vector<int64_t>& target_shape, builder::Op& output, builder::Op& pad_value) {
   bool has_padding = false;
   auto operand_shape = operand.GetType().GetShape();

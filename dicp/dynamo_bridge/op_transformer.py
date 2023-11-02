@@ -7,6 +7,7 @@ from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 
+
 class OpSetTransformer:
     def __init__(self, patterns):
         self._patterns = patterns
@@ -22,13 +23,22 @@ class SingleOpTransformer(torch.fx.Transformer):
     def __init__(self, module, conversions):
         super().__init__(module)
         self._conversions = conversions
+        self.sym_to_inputs = {}
 
-    def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+    def placeholder(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         proxy = super().placeholder(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
+        fake_tensor = proxy.node.meta['val']
+        if isinstance(fake_tensor, torch.SymInt):
+            self.sym_to_inputs[fake_tensor.node.str()] = proxy
         return proxy
 
-    def call_function(self, target : Target, args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def get_proxy(self, target, args: Tuple[Argument, ...], kwargs: Dict[str, Any] = {}):
+        proxy = self.tracer.create_proxy(
+            'call_function', target.get_singleton(), args, kwargs)
+        return proxy
+
+    def call_function(self, target: Target, args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         if target in self._conversions:
             converted_target = self._conversions[target]
             if isinstance(converted_target, tuple):
@@ -36,18 +46,23 @@ class SingleOpTransformer(torch.fx.Transformer):
                 out, process_fn = converted_target
                 args, kwargs = process_fn(args, kwargs)
             else:
-                out = self._conversions[target](*args, **kwargs)
-            proxy = self.tracer.create_proxy('call_function', out, args, kwargs)
+                out = self._conversions[target](self, *args, **kwargs)
+            if isinstance(out, Proxy):
+                out.node.meta = fx_traceback.get_current_meta()
+                return out
+            proxy = self.tracer.create_proxy(
+                'call_function', out, args, kwargs)
             proxy.node.meta = fx_traceback.get_current_meta()
             return proxy
         return super().call_function(target, args, kwargs)
 
-    def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+    def get_attr(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         proxy = super().get_attr(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
-        if not 'val' in proxy.node.meta:
+        if 'val' not in proxy.node.meta:
             proxy.node.meta['val'] = self.fetch_attr(target)
         return proxy
+
 
 if is_torch_210:
     import functools
@@ -104,11 +119,11 @@ if is_torch_210:
             for pattern in patterns_cls_list:
                 pattern.register(patterns)
 
-
     class BackendPatternMatcherTransformer:
         def __init__(self, patterns: PatternMatcherPass, patterns_cls_list: List[BackendPatternBase]):
             self._patterns = patterns
-            lazy_register_backend_patterns(self._patterns, tuple(patterns_cls_list))
+            lazy_register_backend_patterns(
+                self._patterns, tuple(patterns_cls_list))
 
         def transform(self, module: torch.fx.GraphModule):
             match_count = self._patterns.apply(module)

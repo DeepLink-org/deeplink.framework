@@ -1,3 +1,4 @@
+import traceback
 import torch
 from abc import ABC
 
@@ -62,8 +63,7 @@ class Operator(ABC):
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
 
         def make_faketensor(x):
-            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor)
-                                                   and x.fake_mode == fake_mode):
+            if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) and x.fake_mode == fake_mode):
                 return x
             if isinstance(x, FakeTensor):
                 x.fake_mode = fake_mode
@@ -81,5 +81,11 @@ class Operator(ABC):
             if hasattr(self, "infer_result"):
                 info: TensorInfo = self.infer_result(*new_args, **kwargs)
                 return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
-            else:
-                return self.torch_op(*new_args, **kwargs)
+            elif hasattr(self, "torch_op"):
+                try:
+                    return self.torch_op(*new_args, **kwargs)
+                except Exception as e:
+                    print(self.torch_op, new_args, kwargs)
+                    print(e.args)
+                    print(traceback.format_exc())
+                    raise RuntimeError("infer shape and dtype failed")

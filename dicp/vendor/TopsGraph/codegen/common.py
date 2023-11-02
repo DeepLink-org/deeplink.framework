@@ -320,7 +320,8 @@ class KernelArgs:
                 continue
             arg_defs.append(inner)
             call_args.append(outer)
-            precompile_args.append(TensorArg(inner, outer, V.graph.get_dtype(outer)))
+            precompile_args.append(
+                TensorArg(inner, outer, V.graph.get_dtype(outer)))
         for outer, inner in self.sizevars.items():
             arg_defs.append(inner)
             call_args.append(outer)
@@ -428,7 +429,8 @@ class CSE:
             var = self.newvar()
             self.cache[expr] = var
             if write:
-                V.kernel.current_node.codegen_originating_info(buffer, only_once=True)
+                V.kernel.current_node.codegen_originating_info(
+                    buffer, only_once=True)
                 buffer.writeline(f"{self.prefix}{var} = {expr}{self.suffix}")
         return self.cache[expr]
 
@@ -523,7 +525,8 @@ class Kernel(CodeGen):
             def __getattr__(name):
                 def inner(*args, **kwargs):
                     csevar = self.cse.generate(
-                        self.compute, getattr(parent_handler, name)(*args, **kwargs)
+                        self.compute, getattr(
+                            parent_handler, name)(*args, **kwargs)
                     )
                     csevar.update_on_args(name, args, kwargs)
                     return csevar
@@ -571,7 +574,7 @@ class Kernel(CodeGen):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if(hasattr(V.graph, 'scheduler')):
+        if (hasattr(V.graph, 'scheduler')):
             V.graph.scheduler.remove_kernel_local_buffers()
         super().__exit__(exc_type, exc_val, exc_tb)
 
