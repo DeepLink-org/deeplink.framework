@@ -93,7 +93,7 @@ function export_repo_pythonpath(){
         exit 1
     fi
 
-    // Stable Diffusion
+    # Stable Diffusion
     export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
     export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
