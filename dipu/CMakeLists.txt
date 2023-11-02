@@ -26,14 +26,14 @@ execute_process(COMMAND git rev-parse --short HEAD
                 OUTPUT_VARIABLE DIPU_GIT_HASH)
 
 set(UsedVendor "")
-set(Build_DIOPI_Target "torch")
+set(DIOPI_IMPL_OPT "torch")
 if (${DEVICE} IN_LIST DEVICE_CUDA)
     set(USE_CUDA ON)
     set(UsedVendor cuda)
 elseif (${DEVICE} IN_LIST DEVICE_CAMB)
     set(USE_CAMB ON)
     set(UsedVendor camb)
-    set(Build_DIOPI_Target "camb")
+    set(DIOPI_IMPL_OPT "camb")
 elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
     set(USE_ASCEND ON)
     set(UsedVendor ascend)
@@ -89,15 +89,6 @@ if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
   set(DIPU_COMPILED_WITH_CXX11_ABI 1)
 else()
   set(DIPU_COMPILED_WITH_CXX11_ABI 0)
-endif()
-
-if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)    
-    execute_process(
-      COMMAND
-        sh -x -c
-        "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
-      OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
 add_definitions(-fabi-version=${DIPU_ABI_V})
@@ -158,30 +149,37 @@ add_library(diopi_impl SHARED IMPORTED)
 
 if(WITH_DIOPI STREQUAL "INTERNAL")
 #----------------------------------Build DIOPI submodule-------------------------------------------
-  set(DIOPI_INTERNAL diopi_internal)
-  set(DIOPI_SUBDIR impl)
-  set(DIOPI_BUILD_TARGET "${DIOPI_INTERNAL}-build")
+  if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
+    execute_process(
+      COMMAND
+        sh -x -c
+        "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
+      OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+
   set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
   set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
   set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
   set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
   set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
   set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  ExternalProject_Add(${DIOPI_INTERNAL}
+  ExternalProject_Add(diopi_internal
                       DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
                       SOURCE_DIR ${DIOPI_SRC_PATH}
-                      SOURCE_SUBDIR ${DIOPI_SUBDIR}
+                      SOURCE_SUBDIR impl
                       BINARY_DIR ${DIOPI_BUILD_PATH}
                       DOWNLOAD_COMMAND ""
-                      CMAKE_ARGS -DIMPL_OPT=${Build_DIOPI_Target}
+                      CMAKE_ARGS -DIMPL_OPT=${DIOPI_IMPL_OPT}
                                  -DENABLE_COVERAGE=${USE_COVERAGE} 
                                  -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
                       BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
-                      INSTALL_COMMAND cmake -E echo "Skipping install step for ${DIOPI_INTERNAL}."
+                      INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal."
   )
-  ExternalProject_Add_StepTargets(${DIOPI_INTERNAL} configure build)
-  ExternalProject_Add_StepDependencies(${DIOPI_INTERNAL} build ${DIOPI_INTERNAL}-configure)
-  add_dependencies(diopi_impl ${DIOPI_BUILD_TARGET})
+  ExternalProject_Add_StepTargets(diopi_internal configure build install)
+  ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
+  ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
+  add_dependencies(diopi_impl diopi_internal-install)
 #--------------------------------------------------------------------------------------------------
 else()
     if(EXISTS $ENV{DIOPI_PATH})

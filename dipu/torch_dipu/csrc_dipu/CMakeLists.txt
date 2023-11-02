@@ -38,51 +38,50 @@ add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
 # ------------------------------------------------------------------------------
 
 #-------------------------add kineto as an external project ------------------------------------
-set(KINETO kineto)
-set(KINETO_PREFIX "third_party/kineto/")
-set(KINETO_SUBDIR "libkineto")
-#-------------------------download from git-----------------------------------------------------
-#set(KINETO_BUILD_TARGET "${KINETO}-build")
-#set(KINETO_PATH "${CMAKE_BINARY_DIR}/${KINETO_PREFIX}")
-#set(KINETO_SRC_PATH "${KINETO_PATH}/src/${KINETO}")
-#set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/${KINETO_BUILD_TARGET}")
-#message(STATUS "KINETO_PATH: " ${KINETO_PATH})
-#ExternalProject_Add(${KINETO}
-#                    PREFIX ${KINETO_PREFIX}
-#                    GIT_REPOSITORY https://github.com/DeepLink-org/kineto.git
-#                    GIT_TAG caikun/support_extensibility_v2
-#                    GIT_PROGRESS TRUE
-#                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF -DKINETO_USE_DEVICE_ACTIVITY=ON"
-#                    SOURCE_SUBDIR ${KINETO_SUBDIR}
-#                    INSTALL_COMMAND cmake -E echo "Skipping install step for ${KINETO}."
-#)
-
 #-------------------------use the local submodule(without download)-----------------------------
-set(KINETO_BUILD_TARGET "${KINETO}-build")
+set(KINETO_BUILD_TARGET "kineto_internal-build")
 set(KINETO_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
-set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/${KINETO}")
+set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/kineto")
 set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
-ExternalProject_Add(${KINETO}
-                    PREFIX ${KINETO_PREFIX}
+ExternalProject_Add(kineto_internal
+                    PREFIX "third_party/kineto/"
                     DOWNLOAD_DIR ${KINETO_DOWNLOAD_PATH}
                     SOURCE_DIR ${KINETO_SRC_PATH}
-                    SOURCE_SUBDIR ${KINETO_SUBDIR}
+                    SOURCE_SUBDIR libkineto
                     BINARY_DIR ${KINETO_BUILD_PATH}
                     DOWNLOAD_COMMAND ""
                     CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
                                "-DKINETO_USE_DEVICE_ACTIVITY=ON"
+                               "-DKINETO_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
                     BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
                                      "${KINETO_BUILD_PATH}/libkineto.a"
-                    INSTALL_COMMAND cmake -E echo "Skipping install step for ${KINETO}."
+                    INSTALL_COMMAND cmake -E echo "Skipping install step for kineto_internal."
 )
 ## makefile is foolish, the following code is a work around to avoid make file to run multiple kineto-build when using make -j N
-ExternalProject_Add_StepTargets(${KINETO} configure build)
-ExternalProject_Add_StepDependencies(${KINETO} build ${KINETO}-configure)
+ExternalProject_Add_StepTargets(kineto_internal configure build)
+ExternalProject_Add_StepDependencies(kineto_internal build kineto_internal-configure)
 #-----------------------------------------------------------------------------------------------
-include_directories(${KINETO_SRC_PATH}/libkineto/third_party/fmt/include)
-include_directories(${KINETO_SRC_PATH}/libkineto/include)
-include_directories(${KINETO_SRC_PATH}/libkineto/src)
-add_definitions(-DUSE_KINETO)
+add_library(kineto_lib STATIC IMPORTED)
+add_library(kineto_fmt STATIC IMPORTED)
+add_dependencies(kineto_lib kineto_internal-build)
+add_dependencies(kineto_fmt kineto_internal-build)
+set_target_properties(
+  kineto_lib PROPERTIES IMPORTED_LOCATION
+                        "${KINETO_BUILD_PATH}/libkineto.a")
+set_target_properties(
+  kineto_fmt PROPERTIES IMPORTED_LOCATION
+                        "${KINETO_BUILD_PATH}/fmt/libfmt.a")
+target_include_directories(kineto_fmt INTERFACE SYSTEM
+  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
+)
+target_include_directories(kineto_lib INTERFACE SYSTEM
+  ${KINETO_SRC_PATH}/libkineto/include
+  ${KINETO_SRC_PATH}/libkineto/src
+  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
+)
+add_library(kineto INTERFACE)
+target_link_libraries(kineto INTERFACE kineto_fmt kineto_lib)
+target_compile_definitions(kineto INTERFACE USE_KINETO)
 #-----------------------------------------------------------------------------------------------
 
 # src
@@ -128,10 +127,9 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
-target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/fmt/libfmt.a)
-target_link_libraries(${DIPU_LIB} ${KINETO_BUILD_PATH}/libkineto.a)
-
+target_link_libraries(${DIPU_LIB} kineto)
 target_link_libraries(${DIPU_LIB} diopi_impl)
+
 target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
@@ -160,7 +158,6 @@ endif()
 add_custom_target(copy_include DEPENDS vendor_include)
 add_dependencies(${DIPU_LIB} copy_include)
 add_dependencies(${DIPU_LIB} ${DIPU_AUTOGENED_KERNELS})
-add_dependencies(${DIPU_LIB} ${KINETO_BUILD_TARGET})
 # ---------------------- build bind in python ----------------------------------
 file(GLOB BIND_SRC_FILES binding/Export*.cpp binding/patch*.cpp)
 set(BIND_FILES ${BIND_SRC_FILES})
