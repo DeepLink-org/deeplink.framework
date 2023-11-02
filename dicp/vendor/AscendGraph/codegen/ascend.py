@@ -820,6 +820,7 @@ class AscendOverrides:
             else:
                 if index in arg_names:
                     assign_args.append((name, arg_names.index(index)))
+                op.set_input("x", input)
         else:
             op.set_input("x", input)
         return op.to_node()
@@ -1001,12 +1002,27 @@ class AscendOverrides:
 
     @staticmethod
     def MatMul(name, x1, x2, trans_x1: bool, trans_x2: bool):
-        op = OP(name, "MatMul")
-        op.set_input("x1", x1)
-        op.set_input("x2", x2)
-        op.set_attr_bool("transpose_x1", trans_x1)
-        op.set_attr_bool("transpose_x2", trans_x2)
-        return op.to_node()
+        # TODO! MatMul not support fp32 input
+        # for higher precision
+        cast_op1 = OP(f'{name}_x1_cast', "Unsqueeze")
+        cast_op1.set_input('x', x1)
+        cast_op1.set_attr_list_int("axes", [0])
+
+        cast_op2 = OP(f'{name}_x2_cast', "Unsqueeze")
+        cast_op2.set_input('x', x2)
+        cast_op2.set_attr_list_int("axes", [0])
+
+        op = OP(f'{name}_matmul', "BatchMatMul")
+        op.set_input("x1", f'{name}_x1_cast')
+        op.set_input("x2", f'{name}_x2_cast')
+        op.set_attr_bool("adj_x1", trans_x1)
+        op.set_attr_bool("adj_x2", trans_x2)
+        op.set_attr_int("_keep_dtype", 1)
+
+        res_op = OP(name, "Squeeze")
+        res_op.set_input("x", f'{name}_matmul')
+        res_op.set_attr_list_int("axis", [0])
+        return [cast_op1.to_node(), cast_op2.to_node(), op.to_node(), res_op.to_node()]
 
     @staticmethod
     def BatchMatMul(name, x1, x2, adj_x1: bool, adj_x2: bool):
