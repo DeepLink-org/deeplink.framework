@@ -14,7 +14,8 @@ using DROPLET_deviceId = int;
 // =====================
 
 void initializVendor() {
-
+  int num = -1;
+  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int*>(&num)))
 }
 
 void finalizeVendor() {
