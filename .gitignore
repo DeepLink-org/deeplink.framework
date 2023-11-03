@@ -121,3 +121,6 @@ cmake-build-*/
 
 #.core file
 core.*
+
+# CI temp directory
+mmlab_pack

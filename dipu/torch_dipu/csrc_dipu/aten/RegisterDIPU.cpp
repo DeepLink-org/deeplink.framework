@@ -54,7 +54,7 @@ bool get_force_fallback(const char* opname) {
 
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
-}
+}  // end of namespace native
 
 void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stack* stack) {
   static int level = []() {
@@ -107,7 +107,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
   }
 }
 
-}
+}  // end of namespace dipu
 
 namespace at {
 
@@ -120,7 +120,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   //  "Currently the foreach operator does not support fallback: ", name);
   const bool forech_op = name.find("foreach") != std::string::npos;
 
-  DIPU_REGISTER_LOG("fallback to cpu, name=" << name << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE("fallback to cpu, name=" << name << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
@@ -341,7 +341,7 @@ namespace {
     dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
   }
 
-}  // inner anonymous namespace
+}  // end of inner anonymous namespace
 
 
 DIPU_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
@@ -404,4 +404,4 @@ DIPU_LIBRARY_IMPL(aten, CPU, m) {
   m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }
 
-}  //end ns at
+}  //end namespace at

@@ -258,7 +258,7 @@ void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,  con
 
 }   // end namespace devapis
 
-}  // namespace parrots
+}  // namespace dipu
 
 
 
