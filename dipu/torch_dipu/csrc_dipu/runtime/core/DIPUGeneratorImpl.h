@@ -19,7 +19,9 @@ public:
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  virtual void set_state(const c10::TensorImpl& state) {}
+  virtual void set_state(const c10::TensorImpl& state) {};
+  virtual void set_offset(uint64_t offset) {};
+  virtual uint64_t get_offset() const {return 0;};
 
 protected:
   void set_state_flag(bool flag);
