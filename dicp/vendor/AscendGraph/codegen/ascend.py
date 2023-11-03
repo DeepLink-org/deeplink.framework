@@ -274,7 +274,7 @@ class AscendCodegen(torch.fx.Interpreter):
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
-                if isinstance(elem, torch.SymInt):
+                if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
                     shape_str += '[1],'
                     continue
                 shape = list(elem.shape)
