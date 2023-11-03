@@ -4,9 +4,6 @@ project(TorchDIPU)
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
 
-#require the external project to build as target
-include(ExternalProject)
-
 # use gcover
 option(ENABLE_COVERAGE "Use gcov" OFF)
 message(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
@@ -149,68 +146,7 @@ list(APPEND TORCH_INCLUDE_DIRS ${PYTORCH_DIR}/torch/include/
 include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
 message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
-add_library(diopi_impl SHARED IMPORTED)
-
-if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
-  if(NOT ${DIOPI_IMPL_OPT} STREQUAL "")
-#----------------------------------Build DIOPI submodule-------------------------------------------
-    if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-      execute_process(
-        COMMAND
-          sh -x -c
-          "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
-        OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-  
-    message(STATUS "building internal DIOPI")
-    set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
-    set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
-    set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
-    set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
-    set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-    ExternalProject_Add(diopi_internal
-                        DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
-                        SOURCE_DIR ${DIOPI_SRC_PATH}
-                        SOURCE_SUBDIR impl
-                        BINARY_DIR ${DIOPI_BUILD_PATH}
-                        DOWNLOAD_COMMAND ""
-                        CMAKE_ARGS -DIMPL_OPT=${DIOPI_IMPL_OPT}
-                                   -DENABLE_COVERAGE=${USE_COVERAGE} 
-                                   -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
-                        BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
-                        INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal."
-    )
-    ExternalProject_Add_StepTargets(diopi_internal configure build install)
-    ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
-    ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
-    add_dependencies(diopi_impl diopi_internal-install)
-  endif()
-#--------------------------------------------------------------------------------------------------
-else()
-  if(EXISTS $ENV{DIOPI_PATH})
-    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
-  else()
-    set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
-  endif()
-  if(EXISTS $ENV{DIOPI_ROOT})
-    set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  else()
-    set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  endif()
-endif()
-
-message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
-message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
-
-set_target_properties(
-  diopi_impl PROPERTIES IMPORTED_LOCATION
-                        ${DIOPI_IMPL_LIB})
-target_include_directories(diopi_impl INTERFACE "${DIOPI_PROTO_PATH}/include")
-target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
+add_subdirectory(third_party)
 
 if(LIBS)
   add_subdirectory(torch_dipu/csrc_dipu)

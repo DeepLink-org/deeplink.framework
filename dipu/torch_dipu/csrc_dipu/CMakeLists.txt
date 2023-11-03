@@ -37,53 +37,6 @@ add_custom_target(autogen_diopi_kernels_cpp
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
 # ------------------------------------------------------------------------------
 
-#-------------------------add kineto as an external project ------------------------------------
-#-------------------------use the local submodule(without download)-----------------------------
-set(KINETO_BUILD_TARGET "kineto_internal-build")
-set(KINETO_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
-set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/kineto")
-set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
-ExternalProject_Add(kineto_internal
-                    PREFIX "third_party/kineto/"
-                    DOWNLOAD_DIR ${KINETO_DOWNLOAD_PATH}
-                    SOURCE_DIR ${KINETO_SRC_PATH}
-                    SOURCE_SUBDIR libkineto
-                    BINARY_DIR ${KINETO_BUILD_PATH}
-                    DOWNLOAD_COMMAND ""
-                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
-                               "-DKINETO_USE_DEVICE_ACTIVITY=ON"
-                               "-DKINETO_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
-                    BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
-                                     "${KINETO_BUILD_PATH}/libkineto.a"
-                    INSTALL_COMMAND cmake -E echo "Skipping install step for kineto_internal."
-)
-## makefile is foolish, the following code is a work around to avoid make file to run multiple kineto-build when using make -j N
-ExternalProject_Add_StepTargets(kineto_internal configure build)
-ExternalProject_Add_StepDependencies(kineto_internal build kineto_internal-configure)
-#-----------------------------------------------------------------------------------------------
-add_library(kineto_lib STATIC IMPORTED)
-add_library(kineto_fmt STATIC IMPORTED)
-add_dependencies(kineto_lib kineto_internal-build)
-add_dependencies(kineto_fmt kineto_internal-build)
-set_target_properties(
-  kineto_lib PROPERTIES IMPORTED_LOCATION
-                        "${KINETO_BUILD_PATH}/libkineto.a")
-set_target_properties(
-  kineto_fmt PROPERTIES IMPORTED_LOCATION
-                        "${KINETO_BUILD_PATH}/fmt/libfmt.a")
-target_include_directories(kineto_fmt INTERFACE SYSTEM
-  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
-)
-target_include_directories(kineto_lib INTERFACE SYSTEM
-  ${KINETO_SRC_PATH}/libkineto/include
-  ${KINETO_SRC_PATH}/libkineto/src
-  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
-)
-add_library(kineto INTERFACE)
-target_link_libraries(kineto INTERFACE kineto_fmt kineto_lib)
-target_compile_definitions(kineto INTERFACE USE_KINETO)
-#-----------------------------------------------------------------------------------------------
-
 # src
 file(
   GLOB
@@ -204,4 +157,3 @@ set_target_properties(
 #  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
 # ~~~
 # ------------------------------------------------------------------------------
-
