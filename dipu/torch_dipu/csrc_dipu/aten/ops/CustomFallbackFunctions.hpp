@@ -28,7 +28,7 @@ static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
 
 static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                                                  at::Tensor& out) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=silu_out" << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out" << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
   out_cpu = at::silu_out(self_cpu, out_cpu);
@@ -53,7 +53,7 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
     const at::Tensor& self, const c10::List<c10::optional<at::Tensor>>& indices,
     at::Tensor& out) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=index.Tensor_out"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=index.Tensor_out"
                     << std::endl);
   auto indices_cpu = to_cpu(indices);
 
@@ -66,7 +66,7 @@ static at::Tensor& custom_fallback_dipu_index_tensor_out(
 static at::Tensor& custom_fallback_dipu__index_put_impl_(
     at::Tensor& self, const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& values, bool accumulate, bool unsafe) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=_index_put_impl_"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=_index_put_impl_"
                     << std::endl);
 
   auto indices_cpu = to_cpu(indices);
@@ -86,7 +86,7 @@ custom_fallback_dipu_native_batch_norm_out(
     const c10::optional<at::Tensor>& running_var_opt, bool training,
     double momentum, double eps, at::Tensor& out, at::Tensor& save_mean,
     at::Tensor& save_invstd) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=native_batch_norm_out"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=native_batch_norm_out"
                     << std::endl);
   at::Tensor input_cpu = input.cpu();
   at::Tensor out_cpu = out.cpu();
@@ -121,7 +121,7 @@ static at::Tensor custom_fallback_dipu_convolution_overrideable(
     const c10::optional<at::Tensor>& bias, at::IntArrayRef stride,
     at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed,
     at::IntArrayRef output_padding, int64_t groups) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=convolution_overrideable"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=convolution_overrideable"
                     << std::endl);
   auto input_cpu = input.cpu();
   auto weight_cpu = weight.cpu();
@@ -138,7 +138,7 @@ custom_fallback_dipu_convolution_backward_overrideable(
     const at::Tensor& weight, at::IntArrayRef stride, at::IntArrayRef padding,
     at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding,
     int64_t groups, ::std::array<bool, 3> output_mask) {
-  DIPU_REGISTER_WARN_ONCE(
+  DIPU_OP_LOG_WARNING_ONCE(
       "custom fallback to cpu, name=convolution_backward_overrideable"
       << std::endl);
   auto device = input.device();
@@ -185,7 +185,7 @@ custom_fallback_dipu_native_batch_norm(
     const c10::optional<at::Tensor>& running_mean_opt,
     const c10::optional<at::Tensor>& running_var_opt, bool training,
     double momentum, double eps) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=dipu_native_batch_norm"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=dipu_native_batch_norm"
                     << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::kFloat);
@@ -218,7 +218,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
                                      const at::Tensor& grad_output,
                                      const at::Tensor& weight,
                                      ::std::array<bool, 3> output_mask) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=linear_backward"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=linear_backward"
                     << std::endl);
   auto input_cpu = input.cpu();
   auto grad_output_cpu = grad_output.cpu();
@@ -272,7 +272,7 @@ custom_fallback_dipu_native_batch_norm_backward(
     const c10::optional<at::Tensor>& save_mean_opt,
     const c10::optional<at::Tensor>& save_invstd_opt, bool train, double eps,
     ::std::array<bool, 3> output_mask) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to cpu, name=native_batch_norm_backward"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=native_batch_norm_backward"
                     << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::ScalarType::Float);

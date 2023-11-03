@@ -16,16 +16,26 @@ namespace at {
  void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     torch::jit::Stack* stack);
 
-#define DIPU_REGISTER_WARN_ONCE(x)                                     \
-    {                                                            \
-        static bool should_print = true;                         \
-        const char* env = std::getenv("DIPU_DUMP_OP_ARGS");      \
-        int env_value = (env != nullptr) ? std::atoi(env) : 0;   \
-        if (should_print && env_value >= 0) {                    \
-            std::cout << x;                                      \
-            should_print = false;                                \
-        }                                                        \
-    }
+// Print the warning message only once for one process.
+#define DIPU_LOG_WARNING_ONCE(x)                                    \
+    do {                                                            \
+        static bool should_print = true;                            \
+        if (should_print) {                                         \
+            std::cout << x;                                         \
+            should_print = false;                                   \
+        }                                                           \
+    } while (0)
+
+// Check the environment variable and call the DIPU_LOG_WARNING_ONCE
+#define DIPU_OP_LOG_WARNING_ONCE(...)                               \
+    do {                                                            \
+        const char* env = std::getenv("DIPU_DUMP_OP_ARGS");         \
+        int env_value = (env != nullptr) ? std::atoi(env) : 0;      \
+        if (env_value >= 0) {                                       \
+            DIPU_LOG_WARNING_ONCE(__VA_ARGS__);                     \
+        }                                                           \
+    } while (0)
+
 
 // Temporarily not implement 'sub-dispatch from box' (from torch box func -> ourself unbox func)
 // which described in design doc.
@@ -37,11 +47,11 @@ namespace at {
         m.impl(opname, TORCH_FN(wapperFunc));                                                                           \
     }  else {                                                                                                           \
         if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                                                          \
-            DIPU_REGISTER_WARN_ONCE(#diopiFunc << " is not yet implemented, ");                                               \
+            DIPU_OP_LOG_WARNING_ONCE(#diopiFunc << " is not yet implemented, ");                                               \
         } else {                                                                                                        \
-            DIPU_REGISTER_WARN_ONCE("force fallback has been set, ");                                                         \
+            DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");                                                         \
         }                                                                                                               \
-        DIPU_REGISTER_WARN_ONCE(opname << " will be fallback to cpu" << std::endl);                                           \
+        DIPU_OP_LOG_WARNING_ONCE(opname << " will be fallback to cpu" << std::endl);                                           \
     }                                                                                                                   \
 } while (false);
 
@@ -50,11 +60,11 @@ namespace at {
         m.impl(opname, TORCH_FN(wapper_func));                                                                          \
     }  else {                                                                                                           \
         if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {                                                         \
-            DIPU_REGISTER_WARN_ONCE(#diopi_func << " is not yet implemented, ")  ;                                            \
+            DIPU_OP_LOG_WARNING_ONCE(#diopi_func << " is not yet implemented, ")  ;                                            \
         } else {                                                                                                        \
-            DIPU_REGISTER_WARN_ONCE("force fallback has been set, ");                                                         \
+            DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");                                                         \
         }                                                                                                               \
-        DIPU_REGISTER_WARN_ONCE(opname << " will be fallback to cpu" << std::endl);                                           \
+        DIPU_OP_LOG_WARNING_ONCE(opname << " will be fallback to cpu" << std::endl);                                           \
         m.impl(opname, TORCH_FN(custom_fallback_func));                                                                 \
     }                                                                                                                   \
 } while (false);

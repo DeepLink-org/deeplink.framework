@@ -39,7 +39,7 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     at::TensorList scaled_grads, at::Tensor& found_inf,
     const at::Tensor& inv_scale) {
-  DIPU_REGISTER_WARN_ONCE(
+  DIPU_OP_LOG_WARNING_ONCE(
       "custom fallback to separated ops, "
       "name=_amp_foreach_non_finite_check_and_unscale_"
       << std::endl);
@@ -77,7 +77,7 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     double growth_factor,
                                                     double backoff_factor,
                                                     int64_t growth_interval) {
-  DIPU_REGISTER_WARN_ONCE("custom fallback to separated ops, name=_amp_update_scale_"
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to separated ops, name=_amp_update_scale_"
                     << std::endl);
   TORCH_CHECK(growth_tracker.scalar_type() == at::ScalarType::Int,
               "growth_tracker must be an int tensor.");
