@@ -62,19 +62,37 @@ class AtenToAscendTransformer(SingleOpTransformer):
         def generate_sym_int(elem):
             elem = elem.node.str()
             elems = elem.strip().split(' ')
+
+            arg = None
+            if elems[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[elems[0]]
+                shape = self.get_proxy(ascend_op.Shape, (arg,))
+                axis = self.get_proxy(
+                    ascend_op.Const, ([0], torch.int32, [1]))
+                indice = self.get_proxy(
+                    ascend_op.Const, ([idx], torch.int32, [1]))
+                gather = self.get_proxy(
+                    ascend_op.GatherV2, (shape, indice, axis))
+
             if len(elems) > 1:
                 assert len(elems) == 3
                 assert elems[2].isdigit()
                 assert elems[1] == '+' or elems[1] == '-'
                 const_op = self.get_proxy(
                     ascend_op.Const, ([int(elems[2])], torch.int32, [1]))
-                args = (self.sym_to_inputs[elems[0]], const_op)
+                if arg is not None:
+                    args = (gather, const_op)
+                else:
+                    args = (self.sym_to_inputs[elems[0]], const_op)
                 if elems[1] == '+':
                     x_names.append(self.get_proxy(ascend_op.Add, args))
                 else:
                     x_names.append(self.get_proxy(ascend_op.Sub, args))
             else:
-                x_names.append(self.sym_to_inputs[elems[0]])
+                if arg is not None:
+                    x_names.append(gather)
+                else:
+                    x_names.append(self.sym_to_inputs[elems[0]])
 
         dims = []
         for elem in shape:
