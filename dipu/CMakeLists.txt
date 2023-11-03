@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU)
 
 option(TESTS "Whether to build unit tests" OFF)
@@ -26,28 +26,33 @@ execute_process(COMMAND git rev-parse --short HEAD
                 OUTPUT_VARIABLE DIPU_GIT_HASH)
 
 set(UsedVendor "")
-set(DIOPI_IMPL_OPT "torch")
+set(DIOPI_IMPL_OPT "")
 if (${DEVICE} IN_LIST DEVICE_CUDA)
-    set(USE_CUDA ON)
-    set(UsedVendor cuda)
+  set(USE_CUDA ON)
+  set(UsedVendor cuda)
+  set(DIOPI_IMPL_OPT "torch")
 elseif (${DEVICE} IN_LIST DEVICE_CAMB)
-    set(USE_CAMB ON)
-    set(UsedVendor camb)
-    set(DIOPI_IMPL_OPT "camb")
+  set(USE_CAMB ON)
+  set(UsedVendor camb)
+  set(DIOPI_IMPL_OPT "camb")
 elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
-    set(USE_ASCEND ON)
-    set(UsedVendor ascend)
+  set(USE_ASCEND ON)
+  set(UsedVendor ascend)
+  set(DIOPI_IMPL_OPT "ascend")
 elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
-    set(USE_TOPSRIDER ON)
-    set(UsedVendor topsrider)
+  set(USE_TOPSRIDER ON)
+  set(UsedVendor topsrider)
+  set(DIOPI_IMPL_OPT "tops")
 elseif (${DEVICE} IN_LIST DEVICE_SUPA)
-    set(USE_SUPA ON)
-    set(UsedVendor supa)
+  set(USE_SUPA ON)
+  set(UsedVendor supa)
+  set(DIOPI_IMPL_OPT "")
 elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
-    set(USE_DROPLET ON)
-    set(UsedVendor droplet)
+  set(USE_DROPLET ON)
+  set(UsedVendor droplet)
+  set(DIOPI_IMPL_OPT "droplet")
 else()
-    message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
+  message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
 
@@ -69,20 +74,20 @@ execute_process(
 )
 
 if(NOT DEFINED DIPU_ABI_V)
-    execute_process(
-      COMMAND
-        sh -x -c
-        "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
-            if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'"
-      OUTPUT_VARIABLE DIPU_ABI_V)
+  execute_process(
+    COMMAND
+      sh -x -c
+      "python -c 'import torch, builtins; print(next(item[-4:-2] for item in dir(builtins)      \
+          if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))'"
+    OUTPUT_VARIABLE DIPU_ABI_V)
 endif()
 
 if(NOT DEFINED DIPU_COMPILED_WITH_CXX11_ABI)    
-    execute_process(
-      COMMAND
-        sh -x -c
-        "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'"
-      OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
+  execute_process(
+    COMMAND
+      sh -x -c
+      "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'"
+    OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
 endif()
     
 if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
@@ -106,10 +111,10 @@ execute_process(
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
 if(NOT DEFINED PYTORCH_DIR)
-    execute_process(
-      COMMAND sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')"
-      OUTPUT_VARIABLE PYTORCH_DIR
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+    COMMAND sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')"
+    OUTPUT_VARIABLE PYTORCH_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 
 message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
@@ -117,7 +122,6 @@ message(STATUS "PYTORCH_DIR: " ${PYTORCH_DIR})
 # config
 include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
-
 
 if(ENABLE_COVERAGE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
@@ -147,53 +151,56 @@ message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 add_library(diopi_impl SHARED IMPORTED)
 
-if(WITH_DIOPI STREQUAL "INTERNAL")
+if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
+  if(NOT ${DIOPI_IMPL_OPT} STREQUAL "")
 #----------------------------------Build DIOPI submodule-------------------------------------------
-  if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-    execute_process(
-      COMMAND
-        sh -x -c
-        "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
-      OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
+      execute_process(
+        COMMAND
+          sh -x -c
+          "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
+        OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
+  
+    message(STATUS "building internal DIOPI")
+    set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
+    set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
+    set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
+    set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
+    set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
+    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+    ExternalProject_Add(diopi_internal
+                        DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
+                        SOURCE_DIR ${DIOPI_SRC_PATH}
+                        SOURCE_SUBDIR impl
+                        BINARY_DIR ${DIOPI_BUILD_PATH}
+                        DOWNLOAD_COMMAND ""
+                        CMAKE_ARGS -DIMPL_OPT=${DIOPI_IMPL_OPT}
+                                   -DENABLE_COVERAGE=${USE_COVERAGE} 
+                                   -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
+                        BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
+                        INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal."
+    )
+    ExternalProject_Add_StepTargets(diopi_internal configure build install)
+    ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
+    ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
+    add_dependencies(diopi_impl diopi_internal-install)
   endif()
-
-  set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
-  set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
-  set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
-  set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
-  set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
-  set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  ExternalProject_Add(diopi_internal
-                      DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
-                      SOURCE_DIR ${DIOPI_SRC_PATH}
-                      SOURCE_SUBDIR impl
-                      BINARY_DIR ${DIOPI_BUILD_PATH}
-                      DOWNLOAD_COMMAND ""
-                      CMAKE_ARGS -DIMPL_OPT=${DIOPI_IMPL_OPT}
-                                 -DENABLE_COVERAGE=${USE_COVERAGE} 
-                                 -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
-                      BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
-                      INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal."
-  )
-  ExternalProject_Add_StepTargets(diopi_internal configure build install)
-  ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
-  ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
-  add_dependencies(diopi_impl diopi_internal-install)
 #--------------------------------------------------------------------------------------------------
 else()
-    if(EXISTS $ENV{DIOPI_PATH})
-      set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
-    else()
-      set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
-    endif()
-    if(EXISTS $ENV{DIOPI_ROOT})
-      set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
-      set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-    else()
-      set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
-      set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-    endif()
+  if(EXISTS $ENV{DIOPI_PATH})
+    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
+  else()
+    set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
+  endif()
+  if(EXISTS $ENV{DIOPI_ROOT})
+    set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
+    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+  else()
+    set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
+    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
+  endif()
 endif()
 
 message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
