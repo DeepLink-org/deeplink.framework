@@ -331,8 +331,8 @@ class AscendCodegen(torch.fx.Interpreter):
             if name not in self.symint_outputs:
                 call_str.append(f'{name} = output_tensor[{i}]')
             else:
-                call_str.extend(f'del {name}',
-                                 f'{name} = int(output_tensor[{i}])')
+                call_str.extend([f'del {name}',
+                                 f'{name} = int(output_tensor[{i}])'])
 
         # dealing with modified args passing back
         output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in assign_args]

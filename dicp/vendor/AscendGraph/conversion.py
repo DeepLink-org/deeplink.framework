@@ -888,7 +888,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(_operator.mul)
     def inmul(self, x, y):
         assert (not isinstance(y, torch.fx.proxy.Proxy))
-        y = self.get_proxy(ascend_op.Const, ([y], torch.float32, []))
+        y = self.get_proxy(ascend_op.Const, ([y], torch.int32, []))
         return self.get_proxy(ascend_op.Mul, (x, y))
 
     @register_conversion(torch.ops.aten.sym_size)
