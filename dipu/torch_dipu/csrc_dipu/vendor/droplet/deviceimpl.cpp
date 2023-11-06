@@ -14,7 +14,10 @@ using DROPLET_deviceId = int;
 // =====================
 
 void initializVendor() {
-
+// according to the discussion with droplet team, make a random runtime call 
+// to make sure droplet runtime software is initialized correctly
+  int num = -1;
+  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int*>(&num)))
 }
 
 void finalizeVendor() {
