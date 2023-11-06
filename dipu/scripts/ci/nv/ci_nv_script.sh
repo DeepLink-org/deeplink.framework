@@ -2,7 +2,6 @@
 set -e
 echo "pwd: $(pwd)"
 
-
 function config_dipu_nv_cmake() {
     # export NCCL_ROOT="you nccl path should exist"
 
@@ -13,15 +12,15 @@ function config_dipu_nv_cmake() {
     cd ../
 }
 
-function build_diopi_lib() {
-    cd third_party/DIOPI/
-    cd impl
-    which cmake
-    sh scripts/build_impl.sh clean
-    sh scripts/build_impl.sh torch || exit -1
-
-    cd ../../..
-    unset Torch_DIR
+function config_all_nv_cmake() {
+    # export NCCL_ROOT="you nccl path should exist"
+    
+    mkdir -p build && cd ./build && rm -rf ./*
+    cmake ../  -DCMAKE_BUILD_TYPE=Release \
+        -DDEVICE=cuda \
+        -DENABLE_COVERAGE=${USE_COVERAGE} \
+        -DWITH_DIOPI=INTERNAL
+    cd ../
 }
 
 function build_dipu_lib() {
@@ -32,17 +31,21 @@ function build_dipu_lib() {
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
 }
 
+function build_all(){
+    echo "building dipu_lib:$(pwd)"
+    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
+    export DIOPI_BUILD_TESTRT=1
+    config_all_nv_cmake 2>&1 | tee ./cmake_nv.log
+    cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
+}
 case $1 in
     build_dipu)
         (
-            bash scripts/ci/ci_build_third_party.sh
-            build_diopi_lib
-            build_dipu_lib
+            build_all
         ) \
         || exit -1;;
     build_dipu_only)
         (
-            bash scripts/ci/ci_build_third_party.sh
             build_dipu_lib
         ) \
         || exit -1;;

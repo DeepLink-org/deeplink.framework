@@ -11,6 +11,14 @@ function config_dipu_camb_cmake() {
     cd ../
 }
 
+function config_all_camb_cmake() {
+    mkdir -p build && cd ./build && rm -rf ./*
+    cmake ../  -DCMAKE_BUILD_TYPE=Release \
+        -DDEVICE=camb  \
+        -DENABLE_COVERAGE=${USE_COVERAGE} \
+        -DWITH_DIOPI=INTERNAL
+    cd ../
+}
 
 function build_diopi_lib() {
     cd third_party/DIOPI/impl
@@ -26,18 +34,22 @@ function build_dipu_lib() {
     cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
 }
 
+function build_all() {
+    echo "building dipu_lib:$(pwd)"
+    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
+    config_all_camb_cmake 2>&1 | tee ./cmake_camb.log
+    cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
+}
+
 case $1 in
     build_dipu)
         (
-            bash scripts/ci/ci_build_third_party.sh
-            build_diopi_lib
-            build_dipu_lib
+            build_all
         ) || exit -1;;
     build_diopi)
         build_diopi_lib || exit -1;;
     build_dipu_only)
         (
-            bash scripts/ci/ci_build_third_party.sh
             build_dipu_lib
         ) || exit -1;;
     *)
