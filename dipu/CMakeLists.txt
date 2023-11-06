@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU)
 
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "default build type is Release")
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
 
@@ -44,6 +45,7 @@ elseif (${DEVICE} IN_LIST DEVICE_SUPA)
   set(USE_SUPA ON)
   set(UsedVendor supa)
   set(DIOPI_IMPL_OPT "")
+  #SUPA DEVICE DOES NOT NEED TO BUILD DIOPI, so set the target to "" to control the workflow.
 elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
   set(USE_DROPLET ON)
   set(UsedVendor droplet)

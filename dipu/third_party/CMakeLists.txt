@@ -16,14 +16,12 @@ if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
     endif()
   
     message(STATUS "building internal DIOPI")
-    set(DIOPI_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
     set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
     set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
     set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
     set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
     set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
     ExternalProject_Add(diopi_internal
-                        DOWNLOAD_DIR ${DIOPI_DOWNLOAD_PATH}
                         SOURCE_DIR ${DIOPI_SRC_PATH}
                         SOURCE_SUBDIR impl
                         BINARY_DIR ${DIOPI_BUILD_PATH}
@@ -54,6 +52,13 @@ else()
     set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
     set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
   endif()
+  find_library(FIND_DIOPI_IMPL_LIB_RESULTS 
+               NAMES libdiopi_impl 
+                     libdiopi_impl.so 
+                     diopi_impl 
+                     diopi_impl.so
+               HINTS ${DIOPI_IMPL_LIB_PATH}
+               REQUIRED)
 endif()
 
 message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
@@ -69,12 +74,10 @@ target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 #-------------------------add kineto as an external project ------------------------------------
 #-------------------------use the local submodule(without download)-----------------------------
 set(KINETO_BUILD_TARGET "kineto_internal-build")
-set(KINETO_DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/third_party")
 set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/kineto")
 set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
 ExternalProject_Add(kineto_internal
                     PREFIX "third_party/kineto/"
-                    DOWNLOAD_DIR ${KINETO_DOWNLOAD_PATH}
                     SOURCE_DIR ${KINETO_SRC_PATH}
                     SOURCE_SUBDIR libkineto
                     BINARY_DIR ${KINETO_BUILD_PATH}
@@ -90,8 +93,8 @@ ExternalProject_Add(kineto_internal
 ExternalProject_Add_StepTargets(kineto_internal configure build)
 ExternalProject_Add_StepDependencies(kineto_internal build kineto_internal-configure)
 #-----------------------------------------------------------------------------------------------
-add_library(kineto_lib STATIC IMPORTED GLOBAL)
-add_library(kineto_fmt STATIC IMPORTED GLOBAL)
+add_library(kineto_lib STATIC IMPORTED)
+add_library(kineto_fmt STATIC IMPORTED)
 add_dependencies(kineto_lib kineto_internal-build)
 add_dependencies(kineto_fmt kineto_internal-build)
 set_target_properties(
