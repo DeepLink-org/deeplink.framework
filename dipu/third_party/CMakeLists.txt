@@ -1,8 +1,7 @@
 #require the external project to build as target
 include(ExternalProject)
 
-add_library(diopi_impl SHARED IMPORTED GLOBAL)
-
+add_library(diopi_impl_lib SHARED IMPORTED GLOBAL)
 if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
   if(NOT ${DIOPI_IMPL_OPT} STREQUAL "")
 #----------------------------------Build DIOPI submodule-------------------------------------------
@@ -36,10 +35,11 @@ if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
     ExternalProject_Add_StepTargets(diopi_internal configure build install)
     ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
     ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
-    add_dependencies(diopi_impl diopi_internal-install)
+    add_dependencies(diopi_impl_lib diopi_internal-install)
   endif()
 #--------------------------------------------------------------------------------------------------
-else()
+elseif(NOT ${WITH_DIOPI} STREQUAL "OFF")
+  #WITH_DIOPI=OFF means does not need DIOPI
   if(EXISTS $ENV{DIOPI_PATH})
     set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
   else()
@@ -52,6 +52,7 @@ else()
     set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
     set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
   endif()
+  #WITH_DIOPI=OFF means does not need DIOPI
   find_library(FIND_DIOPI_IMPL_LIB_RESULTS 
                NAMES libdiopi_impl 
                      libdiopi_impl.so 
@@ -59,16 +60,29 @@ else()
                      diopi_impl.so
                HINTS ${DIOPI_IMPL_LIB_PATH}
                REQUIRED)
+else()
+  if(EXISTS $ENV{DIOPI_PATH})
+    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
+  else()
+    set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
+  endif()
 endif()
 
 message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
 message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
 
-set_target_properties(
-  diopi_impl PROPERTIES IMPORTED_LOCATION
-                        ${DIOPI_IMPL_LIB})
+add_library(diopi_impl INTERFACE)
+target_link_options(diopi_impl INTERFACE "LINKER:-no-as-needed")
 target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_PROTO_PATH}/include)
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
+
+#WITH_DIOPI=OFF means does not need DIOPI
+if(NOT ${WITH_DIOPI} STREQUAL "OFF")
+  set_target_properties(
+    diopi_impl_lib PROPERTIES IMPORTED_LOCATION
+                          ${DIOPI_IMPL_LIB})
+  target_link_libraries(diopi_impl INTERFACE diopi_impl_lib)
+endif()
 #-----------------------------------------------------------------------------------------------
 
 #-------------------------add kineto as an external project ------------------------------------
