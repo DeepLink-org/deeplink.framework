@@ -179,34 +179,6 @@ namespace {
     return dnative::empty_strided_cpu(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
   }
 
-  at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
-    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
-    if (non_blocking) {
-      auto stream = dipu::getCurrentDIPUStream();
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
-      if (self.is_cpu()) {
-        if (self.options().pinned_memory()) {
-          self.record_stream(stream);
-        }
-      } else if (!is_default_stream){
-        self.record_stream(stream);
-      }
-      if (src.is_cpu()) {
-        if (src.options().pinned_memory()) {
-          src.record_stream(stream);
-        }
-      } else if (!is_default_stream) {
-        src.record_stream(stream);
-      }
-    }
-    if (use_slow_copy) {
-      return dnative::copy_(self, src, non_blocking);
-    } else {
-      return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
-    }
-  }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
@@ -357,7 +329,6 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_DIPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_DIPU_empty_strided));
-  m.impl("copy_",  TORCH_FN(wrapper_copy_));
   m.impl("_reshape_alias", TORCH_FN(wrapper_DIPU___reshape_alias));
   m.impl("_copy_from_and_resize", TORCH_FN(wrapper_DIPU___copy_from_and_resize));
   m.impl("resize_", TORCH_FN(wrapper_resize_));
