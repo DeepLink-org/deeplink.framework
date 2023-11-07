@@ -38,8 +38,8 @@ if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
     add_dependencies(diopi_impl_lib diopi_internal-install)
   endif()
 #--------------------------------------------------------------------------------------------------
-elseif(NOT ${WITH_DIOPI} STREQUAL "OFF")
-  #WITH_DIOPI=OFF means does not need DIOPI
+elseif(NOT ((${WITH_DIOPI} STREQUAL "OFF") OR (${WITH_DIOPI} STREQUAL "off")) )
+  #WITH_DIOPI=OFF means does not link DIOPI
   if(EXISTS $ENV{DIOPI_PATH})
     set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
   else()
@@ -52,7 +52,6 @@ elseif(NOT ${WITH_DIOPI} STREQUAL "OFF")
     set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
     set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
   endif()
-  #WITH_DIOPI=OFF means does not need DIOPI
   find_library(FIND_DIOPI_IMPL_LIB_RESULTS 
                NAMES libdiopi_impl 
                      libdiopi_impl.so 
@@ -72,12 +71,12 @@ message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
 message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
 
 add_library(diopi_impl INTERFACE)
-target_link_options(diopi_impl INTERFACE "LINKER:-no-as-needed")
 target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_PROTO_PATH}/include)
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
-#WITH_DIOPI=OFF means does not need DIOPI
-if(NOT ${WITH_DIOPI} STREQUAL "OFF")
+#WITH_DIOPI=OFF means does not link DIOPI
+if(NOT ((${WITH_DIOPI} STREQUAL "OFF") OR (${WITH_DIOPI} STREQUAL "off")) )
+  target_link_options(diopi_impl_lib INTERFACE "LINKER:-no-as-needed")
   set_target_properties(
     diopi_impl_lib PROPERTIES IMPORTED_LOCATION
                           ${DIOPI_IMPL_LIB})
