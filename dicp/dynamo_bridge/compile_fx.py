@@ -49,12 +49,12 @@ def used_nodes_all_symint(nodes):
         if node.op == 'placeholder' and len(node.users) > 0:
             if hasattr(node, 'meta'):
                 node = node.meta['val']
-            if not isinstance(node, torch.SymInt) and not isinstance(node, torch.SymBool):
+            if not isinstance(node, torch.SymInt):
                 return False
         elif node.op == 'output':
             if hasattr(node, 'meta') and 'val' in node.meta:
                 node = node.meta['val']
-            if not isinstance(node, torch.SymInt) and not isinstance(node, torch.SymBool):
+            if not isinstance(node, torch.SymInt):
                 return False
     return True
 
