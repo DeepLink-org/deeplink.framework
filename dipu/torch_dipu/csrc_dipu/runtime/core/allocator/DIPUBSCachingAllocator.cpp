@@ -108,6 +108,7 @@ public:
     }
     set_memory_allocated(memory_allocated() + nbytes);
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes), deleteBSContext, device());
+    c10::reportMemoryUsageToProfiler(ptr, static_cast<int64_t>(nbytes), memory_allocated(), memory_reserved(), c10::Device(c10::DeviceType::CUDA, device().index()));
     return data_ptr;
   }
 
@@ -194,6 +195,8 @@ public:
 
 static void deleteBSContext(void* ptr) {
   auto ctx = static_cast<BSCachingAllocator::Context*>(ptr);
+  c10::reportMemoryUsageToProfiler(ctx->ptr(), -static_cast<int64_t>(ctx->real_size_), ctx->allocator()->memory_allocated(),
+    ctx->allocator()->memory_reserved(), c10::Device(c10::DeviceType::CUDA, ctx->allocator()->device().index()));
   delete ctx;
 }
 

@@ -9,14 +9,6 @@ function build_diopi_lib() {
     cd -
 }
 
-function build_dipu_py() {
-    echo "building dipu_py:$(pwd)"
-    export CMAKE_BUILD_TYPE=debug
-    export MAX_JOBS=12
-    python setup.py build_ext 2>&1 | tee ./build1.log
-    mv build/python_ext/torch_dipu/_C.cpython*.so torch_dipu
-}
-
 function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
@@ -24,10 +16,12 @@ function config_dipu_ascend_cmake() {
     cd ../
 }
 
-function autogen_diopi_wrapper() {
-    python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py \
-        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml \
-        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
+function config_all_ascend_cmake() {
+    mkdir -p build && cd ./build && rm -rf ./*
+    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
+        -DDEVICE=ascend \
+        -DWITH_DIOPI=INTERNAL
+    cd ../
 }
 
 function build_dipu_lib() {
@@ -35,17 +29,19 @@ function build_dipu_lib() {
     echo  "DIOPI_ROOT:${DIOPI_ROOT}"
     config_dipu_ascend_cmake 2>&1 | tee ./build1.log
     cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
-    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu.so   ./torch_dipu
-    mv ./build/torch_dipu/csrc_dipu/libtorch_dipu_python.so   ./torch_dipu
+}
+
+function build_all() {
+    echo "building dipu_lib:$(pwd)"
+    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
+    config_all_ascend_cmake 2>&1 | tee ./build1.log
+    cd build && make -j8  2>&1 | tee ./build1.log &&  cd ..
 }
 
 case $1 in
     build_dipu)
         (
-            build_diopi_lib
-            autogen_diopi_wrapper
-            build_dipu_lib
-            build_dipu_py
+            build_all
         ) \
         || exit -1;;
     *)

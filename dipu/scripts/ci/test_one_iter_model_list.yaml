@@ -96,6 +96,8 @@ cuda:
     - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 ascend:
-    # mmdetection
-    - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr" 
-      fallback_op_list: "cat.out,nll_loss.out,nll_loss_forward.output,cross_entropy_loss,where.self,linear,linear_backward,convolution_overrideable"
+    # mmsegmentation
+    # - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet"
+    #   fallback_op_list: "nll_loss2d_forward,nll_loss2d_backward,native_batch_norm,topk,convolution_overrideable,convolution_backward_overrideable,native_batch_norm_backward"
+    # - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
+    #   fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"

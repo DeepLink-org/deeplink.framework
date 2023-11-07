@@ -9,6 +9,7 @@ from .memory import *
 from .streams import *
 from .tensor import *
 from .storages import *
+from . import amp
 import torch_dipu
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
@@ -30,7 +31,7 @@ __all__ = [
     "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
 
     # stream
-    "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event",
+    "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event", "is_current_stream_capturing",
 
     # random
     "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
@@ -42,6 +43,7 @@ __all__ = [
     "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # not support mock cuda_graph now
+
 ]
 
 import atexit

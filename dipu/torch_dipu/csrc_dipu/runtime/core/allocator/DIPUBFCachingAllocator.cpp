@@ -402,9 +402,11 @@ static void deleteBFContext(void* ptr);
 
 class BFCachingAllocator: public CacheAllocator {
     mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
-
+    using mutex_t = std::mutex;
+    mutable mutex_t resource_pool_mutex_;
 private:
   void restore() const{
+    std::lock_guard<mutex_t> lk(resource_pool_mutex_);
     while (async_mem_pool()->ready()) {
         const auto block = async_mem_pool()->get();
         void* ptr = std::get<0>(block);
@@ -413,6 +415,22 @@ private:
         impl->releaseRaw(ptr, id);
     }
     set_memory_reserved(impl->memory_reserved());
+  }
+
+
+  void empty_resource_pool() const {
+    std::lock_guard<mutex_t> lk(resource_pool_mutex_);
+    while (async_mem_pool()->size() > 0) {
+        if (!async_mem_pool()->ready()) {
+            std::this_thread::yield();
+            continue;
+        }
+        const auto block = async_mem_pool()->get();
+        void* ptr = std::get<0>(block);
+        int id = std::get<1>(block);
+        DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr << " ,id:" << id << " ,allocator:" << this << ", device:" << device());
+        impl->releaseRaw(ptr, id);
+    }
   }
 
   void check_impl() const{
@@ -487,6 +505,7 @@ public:
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes, id), deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: malloc " << nbytes << ",requires " << size << " nbytes, ptr:" << ptr << ",device:" << device());
+    c10::reportMemoryUsageToProfiler(ptr, static_cast<int64_t>(nbytes), memory_allocated(), memory_reserved(), c10::Device(c10::DeviceType::CUDA, device().index()));
     return data_ptr;
   }
 
@@ -497,18 +516,6 @@ public:
     set_memory_reserved(impl->memory_reserved());
   }
 
-  void empty_resource_pool() const {
-    while (async_mem_pool()->size() > 0) {
-        if (!async_mem_pool()->ready()) {
-            std::this_thread::yield();
-            continue;
-        }
-        const auto block = async_mem_pool()->get();
-        void* ptr = std::get<0>(block);
-        int id = std::get<1>(block);
-        impl->releaseRaw(ptr, id);
-    }
-  }
   void release_all_memory() const override {
     if (!impl) {
         return;
@@ -530,6 +537,8 @@ public:
 
 static void deleteBFContext(void* ptr) {
   auto ctx = static_cast<BFCachingAllocator::Context*>(ptr);
+  c10::reportMemoryUsageToProfiler(ctx->ptr(), -static_cast<int64_t>(ctx->nbytes_), ctx->allocator()->memory_allocated(),
+    ctx->allocator()->memory_reserved(), c10::Device(c10::DeviceType::CUDA, ctx->allocator()->device().index()));
   delete ctx;
 }
 
