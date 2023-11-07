@@ -59,11 +59,6 @@ def used_nodes_all_symint(nodes):
     return True
 
 
-@functools.lru_cache(None)
-def _step_logger():
-    return dynamo_logging.get_step_logger(log)
-
-
 @torch.utils._python_dispatch._disable_current_modes()
 def compile_fx_inner(
     gm: torch.fx.GraphModule,
@@ -84,29 +79,11 @@ def compile_fx_inner(
     # to adapt large/deep models
     sys.setrecursionlimit(max(sys.getrecursionlimit(), 2000))
 
-    _step_logger()(
-        logging.INFO,
-        f"{backend} compiling "
-        f"{'BACKWARDS' if is_backward else 'FORWARDS'} "
-        f"graph {graph_id}",
-    )
-
-    shape_env = _shape_env_from_inputs(example_inputs)
-    fake_mode = get_fake_mode_from_tensors(example_inputs)
-
     gt = GraphTransformer(gm, backend)
     gt.transform()
     gt.infer_shape_dtype()
     compiled_fn = gt.compile_to_fn()
 
-    # TODO need align inputs?
-
-    _step_logger()(
-        logging.INFO,
-        f"{backend} compiling "
-        f"{'BACKWARDS' if is_backward else 'FORWARDS'} "
-        f"graph {graph_id}",
-    )
 
     # aot autograd needs to know to pass in inputs as a list
     compiled_fn._boxed_call = True
@@ -300,22 +277,6 @@ def count_tangents(fx_g: torch.fx.GraphModule):
 
     assert static_arg_idxs == list(range(len(static_arg_idxs)))
     return len(static_arg_idxs)
-
-
-def _shape_env_from_inputs(inputs):
-    shape_env = None
-    fake_mode = get_fake_mode_from_tensors(inputs)
-
-    # TODO(voz): It would be nice to enable this assert, but there are lots of tests that
-    # pass in real inputs for now.
-    # if len(inputs) > 0:
-    # assert fake_mode is not None, breakpoint()
-
-    if fake_mode is not None:
-        return fake_mode.shape_env
-
-    # TODO(voz): Should we always have one anyway?
-    return None
 
 
 def get_decompositions(backend):

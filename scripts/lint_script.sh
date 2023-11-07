@@ -6,7 +6,7 @@ echo $current_path
 
 case $1 in
   py-lint)
-    (echo "py-lint" && flake8 --ignore=E501,F841 dicp/) \
+    (echo "py-lint" && flake8 --ignore=E501,F841,W503 dicp/) \
     || exit -1;;
     *)
     echo -e "[ERROR] Incorrect option:" $1;

@@ -53,7 +53,8 @@ def main():
         },
         python_requires=">=3.8",
         install_requires=[
-            "torch >= 2.0.0a0"
+            "torch >= 2.0.0a0",
+            "torch_dipu == 0.1"
         ]
     )
 
