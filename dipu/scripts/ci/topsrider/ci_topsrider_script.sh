@@ -5,6 +5,7 @@ function config_dipu_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
      -DDEVICE=tops \
+     -DWITH_DIOPI=INTERNAL
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
 
@@ -15,9 +16,9 @@ function config_all_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
      -DDEVICE=tops \
+     -DWITH_DIOPI=INTERNAL
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
-     -DWITH_DIOPI=INTERNAL
     cd ../
 }
 
