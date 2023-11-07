@@ -127,17 +127,6 @@ class AddScalar(Operator):
         self.torch_op = aten.add.Scalar
 
 
-class Gemm(Operator):
-    def __init__(self, a, b):
-        super().__init__("Gemm")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.mm
-
-    def __call__(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
-
-
 class Abs(Operator):
     def __init__(self, a):
         super().__init__("Abs")
@@ -549,7 +538,7 @@ class Dot(Operator):
         super().__init__("Dot")
         self.args = args
         self.kwargs = kwargs
-        self.torch_op = aten.dot.default
+        self.torch_op = aten.mm
 
 
 class Concatenate(Operator):

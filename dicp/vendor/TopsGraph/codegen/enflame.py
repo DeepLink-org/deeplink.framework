@@ -639,10 +639,6 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Dot({x}, {y});"
 
     @staticmethod
-    def Gemm(op_var, shape, dtype, x, y, **kwargs_list):
-        return f"builder::Op {op_var} = builder::Gemm({{{x}, {y}}});"
-
-    @staticmethod
     def Max(op_var, shape, dtype, x, y, **kwargs_list):
         return f"builder::Op {op_var} = builder::Max({x}, {y});"
 
