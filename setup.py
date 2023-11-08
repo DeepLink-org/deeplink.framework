@@ -4,10 +4,8 @@ import os
 
 
 def build_deps():
-    paths = [
-        ('third_party/nlohmann/json/single_include/nlohmann/json.hpp', 'dicp/vendor/AscendGraph/codegen/nlohmann/json.hpp')
-    ]
-    
+    paths = []
+
     for orig_path, new_path in paths:
         if not os.path.exists(new_path):
             os.makedirs(os.path.dirname(new_path), exist_ok=True)

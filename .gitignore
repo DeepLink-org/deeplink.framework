@@ -3,4 +3,3 @@ __pycache__
 dicp.egg-info
 fusion_result.json
 /build/
-dicp/vendor/AscendGraph/codegen/nlohmann/
