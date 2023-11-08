@@ -381,8 +381,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Max, args, kwargs)
 
     @register_conversion(aten.pow.Tensor_Scalar)
-    def Pow(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Pow, args, kwargs)
+    def Pow_Tensor_Scalar(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Pow_Tensor_Scalar, args, kwargs)
+
+    @register_conversion(aten.pow.Tensor_Tensor)
+    def Pow_Tensor_Tensor(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Pow_Tensor_Tensor, args, kwargs)
 
     @register_conversion(aten.sigmoid.default)
     def Sigmoid(self, *args, **kwargs):

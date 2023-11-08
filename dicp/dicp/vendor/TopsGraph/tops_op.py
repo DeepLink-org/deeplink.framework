@@ -531,12 +531,20 @@ class Max(Operator):
         self.torch_op = aten.maximum.default
 
 
-class Pow(Operator):
+class Pow_Tensor_Scalar(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Pow")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.pow.Tensor_Scalar
+
+
+class Pow_Tensor_Tensor(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Pow")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.pow.Tensor_Tensor
 
 
 class Sigmoid(Operator):
