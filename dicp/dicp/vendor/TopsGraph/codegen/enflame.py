@@ -270,14 +270,18 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body.writeline(
             f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
-        input_paras = ''
+        input_paras = []
         for i in range(0, len(self.input_args)):
-            input_paras += f'float* input_ptr{str(i)}, '
+            input_paras.append(f"float* input_ptr{str(i)}")
+        input_paras = ", ".join(input_paras)
+
         output_paras = []
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                output_paras.append(f'float* output_ptr{str(i)}')
-        output_paras = ', '.join(output_paras)
+                output_paras.append(f"float* output_ptr{str(i)}")
+        output_paras = ", ".join(output_paras)
+        if len(output_paras) != 0:
+            output_paras = ", " + ", ".join(output_paras)
 
         run_func_code = IndentedBuffer()
         run_func_code.writeline(
