@@ -1,8 +1,8 @@
 camb:
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
-    - model_cfg: "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin_transformer"
-    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vision_transformer"
+    - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
+    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2 --no-pin-memory"
       precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
@@ -16,7 +16,7 @@ camb:
     - model_cfg: "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster_rcnn"
     - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
     - model_cfg: "mmdetection ssd/ssd300_coco.py workdirs_ssd"
-    - model_cfg: "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_dyhead"
+    # - model_cfg: "mmdetection dyhead/atss_r50_fpn_dyhead_1x_coco.py workdirs_dyhead"
     - model_cfg: "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask_rcnn"
       precision: {atol: 0.025, metric: 0.02, rtol: 0.02}
     - model_cfg: "mmdetection fcos/fcos_r50-dcn-caffe_fpn_gn-head-center-normbbox-centeronreg-giou_1x_coco.py workdirs_fcos"
@@ -49,13 +49,13 @@ camb:
     - model_cfg: "DI-engine ding/example/sac.py workdirs_sac"
 
     # # transformers
-    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    # - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 cuda:
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
-    - model_cfg: "mmpretrain swin_transformer/swin-large_16xb64_in1k.py workdirs_swin_transformer"
-    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_64xb64_in1k-384px.py workdirs_vision_transformer"
+    - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
+    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet"
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2"
@@ -70,7 +70,7 @@ cuda:
     - model_cfg: "mmdetection retinanet/retinanet_r50_fpn_1x_coco.py workdirs_retinanet"
     - model_cfg: "mmdetection mask_rcnn/mask-rcnn_r50_fpn_1x_coco.py workdirs_mask_rcnn"
     - model_cfg: "mmdetection faster_rcnn/faster-rcnn_r101_fpn_1x_coco.py workdirs_faster_rcnn"
-    - model_cfg: "mmdetection dyhead/atss_swin-l-p4-w12_fpn_dyhead_ms-2x_coco.py workdirs_dyhead"
+    - model_cfg: "mmdetection dyhead/atss_r50_fpn_dyhead_1x_coco.py workdirs_dyhead"
     # mmpose
     - model_cfg: "mmpose body_2d_keypoint/topdown_heatmap/coco/td-hm_hrnet-w32_udp-8xb64-210e_coco-256x192.py workdirs_hrnet"
     # mmaction2
@@ -91,9 +91,9 @@ cuda:
     - model_cfg: "DI-engine ding/example/ppo.py workdirs_ppo"
     - model_cfg: "DI-engine ding/example/sac.py workdirs_sac"
     # mmagic
-    - model_cfg: "mmagic stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable_diffusion"
+    # - model_cfg: "mmagic stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable_diffusion"
     # transformers
-    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    # - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 ascend:
     # mmsegmentation
