@@ -3,7 +3,7 @@ include(ExternalProject)
 
 add_library(diopi_impl SHARED IMPORTED GLOBAL)
 
-if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
+if(("${WITH_DIOPI}" STREQUAL "INTERNAL") OR ("${WITH_DIOPI}" STREQUAL "internal"))
   if(NOT ${DIOPI_IMPL_OPT} STREQUAL "")
 #----------------------------------Build DIOPI submodule-------------------------------------------
     if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
