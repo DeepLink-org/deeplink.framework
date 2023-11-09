@@ -417,7 +417,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         args = []
         for i in range(len(self.input_args)):
-            args.append('arg' + str(i))
+            args.append(self.input_args[i].name)
         if args:
             call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline("args.clear()")
@@ -426,13 +426,14 @@ class EnflameCodegen(torch.fx.Interpreter):
         bufs = []
         none_bufs = []
         for i in range(len(self.output_args)):
-            bufs.append("buf" + str(i))
             if not isinstance(self.output_args[i], type(None)):
-                otensor = self.output_args[i].meta['val']
-                call_body.writeline(
-                    bufs[-1] + " = " + self.gen_empty_tensor(otensor))
+                bufs.append(self.output_args[i].name)
+                if self.output_args[i] not in self.input_args:
+                    otensor = self.output_args[i].meta['val']
+                    call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
-                none_bufs.append("buf" + str(i))
+                bufs.append("buf" + str(i))
+                none_bufs.append(bufs[-1])
                 call_body.writeline(
                     bufs[-1] + " = " + ("empty_strided((), ())"))
 
@@ -472,7 +473,8 @@ class EnflameCodegen(torch.fx.Interpreter):
                 f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
 
         for arg in args:
-            call_body.writeline(f'del {arg}')
+            if arg not in bufs:
+                call_body.writeline(f'del {arg}')
         call_body.writeline("")
 
         call_body.writeline(f"return ({', '.join(bufs)})")
