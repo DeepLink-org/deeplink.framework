@@ -2148,21 +2148,6 @@
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
-- schema: "to.dtype(Tensor(a) self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor(a)"
-  register_op: False
-  custom_code_at_the_beginning: |
-    auto out = at::empty_like(self, self.options().dtype(dtype));
-  interface: diopiCastDtype(ctx, out, self);
-  custom_code_before_return: |
-    if (memory_format.has_value()) {
-      auto out1 = at::empty_like(out, out.options(), memory_format.value());
-      at::copy(out1, out, non_blocking);
-      out = out1;
-    }
-    if (!non_blocking) {
-        dipu::getCurrentDIPUStream().synchronize();
-    }
-
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
   no_device_check_args: [self, src]
   device: [not_for_any_now] #todo

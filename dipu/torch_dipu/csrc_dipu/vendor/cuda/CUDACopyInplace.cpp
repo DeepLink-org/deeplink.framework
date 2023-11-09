@@ -33,7 +33,7 @@ public:
   CUDACopyInplace() = default;
   ~CUDACopyInplace() = default;
 
-  at::Tensor& run(at::Tensor& self, const at::Tensor& src, bool non_blocking) override {
+  at::Tensor& run(at::Tensor& self, const at::Tensor& src, bool non_blocking, bool all   _cpu) override {
     return copy_(self, src, non_blocking);
   }
 
