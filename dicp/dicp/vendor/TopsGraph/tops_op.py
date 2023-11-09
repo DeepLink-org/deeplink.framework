@@ -392,6 +392,22 @@ class Softmax(Operator):
         self.torch_op = aten._softmax.default
 
 
+class Dot(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Dot")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.dot.default
+
+
+class Gemm(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Gemm")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.mm
+
+
 class Bmm(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Bmm")
@@ -449,14 +465,6 @@ class DotGeneral(Operator):
             fake_t = torch.empty(
                 size=res_shape, dtype=res_dtype, device=res_device)
         return fake_t
-
-
-class Dot(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Dot")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.mm
 
 
 class Concatenate(Operator):

@@ -627,6 +627,25 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
+    def Dot(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code = f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        return src_code
+
+    @staticmethod
+    def Gemm(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code = f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        return src_code
+
+    @staticmethod
+    def Bmm(op_var, shape, dtype, lhs, rhs, dot_dimension_numbers_str, **kwargs_list):
+        src_code = f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs} {dot_dimension_numbers_str});\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        src_code += f"builder::Op {op_var} = builder::Convert({op_var}, builder::Type({shape}, {type_set[dtype]}));"
+        return src_code
+
+    @staticmethod
     def DotGeneral(op_var, out_shape, out_dtype, lhs, rhs, lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims):
         lbd = '{' + ','.join([str(x) for x in lhs_batch_dims]) + '}'
         rbd = '{' + ','.join([str(x) for x in rhs_batch_dims]) + '}'
@@ -637,10 +656,6 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
         src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
         return src_code
-
-    @staticmethod
-    def Dot(op_var, shape, dtype, x, y, **kwargs_list):
-        return f"builder::Op {op_var} = builder::Dot({x}, {y});"
 
     @staticmethod
     def Max(op_var, shape, dtype, x, y, **kwargs_list):
