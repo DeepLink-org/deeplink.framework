@@ -914,7 +914,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Softmax(op_var, out_shape, out_dtype, x, y, z):
-        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
+        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, true);"
 
     @staticmethod
     def Logsoftmax(op_var, out_shape, out_dtype, x, y, z):

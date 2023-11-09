@@ -78,6 +78,22 @@ class NotEqual(Operator):
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
+    
+    
+class Equal_Tensor(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Equal")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.eq.Tensor
+
+
+class Equal_Scalar(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Equal")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.eq.Scalar
 
 
 class Mul(Operator):
@@ -242,6 +258,14 @@ class Copy(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.copy.default
+
+
+class Copy_(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy_.default
 
 
 class LiftFreshCopy(Operator):
@@ -491,14 +515,6 @@ class NewEmptyStrided(Operator):
         self.torch_op = aten.new_empty_strided.default
 
 
-class Equal(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Equal")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.eq.Tensor
-
-
 class Expand(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Expand")
@@ -638,14 +654,6 @@ class Embedding(Operator):
         self.args = args
         self.kargs = kwargs
         self.torch_op = aten.embedding.default
-
-
-class EqualScalar(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Equal")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.eq.Scalar
 
 
 class Convert(Operator):

@@ -248,12 +248,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.LessEqual, args, kwargs)
 
     @register_conversion(aten.eq.Tensor)
-    def Equal(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Equal, args, kwargs)
+    def Equal_Tensor(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Equal_Tensor, args, kwargs)
 
     @register_conversion(aten.eq.Scalar)
-    def EqualScalar(self, *args, **kwargs):
-        return self.get_proxy(tops_op.EqualScalar, args, kwargs)
+    def Equal_Scalar(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Equal_Scalar, args, kwargs)
 
     @register_conversion(aten.ne.Scalar)
     def NotEqual(self, a, b):
