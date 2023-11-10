@@ -27,7 +27,7 @@ DICP主要的核心功能如下：
 
 ## 基于DICP的国产硬件接入PyTorch2实践
 
-### DICP vs 纯Dynamo
+<!-- ### DICP vs 纯Dynamo -->
 
 基于上述DICP，国产硬件可快速接入Pytorch2的编译路线。此路线中的TorchDynamo组件，可使国产硬件在运行时的overhead大幅缩小。  
 并且针对国产硬件实现了以下特性：
@@ -59,6 +59,13 @@ DICP的运行逻辑如下图所示:
 
 
 ### Demo
+
+#### 安装DICP
+
+```
+cd /path_to_dicp
+pip install .
+```
 
 #### 在华为910上执行llama7B前向推理
 ```
