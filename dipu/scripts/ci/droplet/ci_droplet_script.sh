@@ -22,7 +22,7 @@ function config_all_droplet_cmake() {
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
      -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
-     -DWITH_DIOPI=INTERNAL \
+     -DWITH_DIOPI="none" \
      -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
       # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
