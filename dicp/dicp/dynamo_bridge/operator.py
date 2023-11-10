@@ -49,18 +49,22 @@ class Operator(ABC):
     # def infer_result(self, *args, **kwargs):
     #     pass
 
-    def __call__(self, *args, **kwargs):
-        def get_meta(x):
-            return x if not hasattr(x, 'meta') else x.meta['val']
-        new_args = tree_map(get_meta, args)
-
+    def get_fake_mode_from_args(self, args):
         fake_mode = None
-        tmp_args, _ = tree_flatten(new_args)
+        tmp_args, _ = tree_flatten(args)
         for arg in tmp_args:
             if isinstance(arg, FakeTensor):
                 fake_mode = arg.fake_mode
                 break
         fake_mode = self.fake_mode if fake_mode is None else fake_mode
+        return fake_mode
+
+    def __call__(self, *args, **kwargs):
+        def get_meta(x):
+            return x if not hasattr(x, 'meta') else x.meta['val']
+        new_args = tree_map(get_meta, args)
+
+        fake_mode = self.get_fake_mode_from_args(new_args)
 
         def make_faketensor(x):
             if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) and x.fake_mode == fake_mode):
