@@ -311,11 +311,10 @@ class AscendExecutor(object):
     def run(self, images, dims=None, output_shape=None):
         self.output_shape = output_shape
         assert len(images) > 0
-        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor) and x.device.type != dipu_device_str else x for x in images]
+        input = list(map(lambda x: x.to(dipu_device_str), images))
         self._prepare_input(input, dims)
         output = []
-        if dims is not None:
-            assert self.output_shape is not None
+        if self.output_shape:
             self._prepare_dynamic_output(output)
         else:
             self._prepare_output(output)

@@ -24,6 +24,13 @@ class SingleOpTransformer(torch.fx.Transformer):
         super().__init__(module)
         self._conversions = conversions
         self.sym_to_inputs = {}
+        self.sym_in_args = {}
+
+    def symint_in_shape(self, shape):
+        for elem in shape:
+            if isinstance(elem, torch.SymInt):
+                return True
+        return False
 
     def placeholder(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         proxy = super().placeholder(target, args, kwargs)
@@ -31,6 +38,13 @@ class SingleOpTransformer(torch.fx.Transformer):
         fake_tensor = proxy.node.meta['val']
         if isinstance(fake_tensor, torch.SymInt):
             self.sym_to_inputs[fake_tensor.node.str()] = proxy
+        elif self.symint_in_shape(fake_tensor.shape):
+            # mention symint position in args
+            for idx, dim in enumerate(fake_tensor.shape):
+                if isinstance(dim, torch.SymInt):
+                    st = dim.node.str()
+                    if not st in self.sym_in_args:
+                        self.sym_in_args[st] = (proxy, idx)
         return proxy
 
     def get_proxy(self, target, args: Tuple[Argument, ...], kwargs: Dict[str, Any] = {}):

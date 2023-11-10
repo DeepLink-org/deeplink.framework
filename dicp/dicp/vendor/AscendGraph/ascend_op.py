@@ -40,7 +40,7 @@ class Range(Operator):
         super().__init__("Range")
 
 
-class CumSum(Operator):
+class Cumsum(Operator):
     def __init__(self):
         super().__init__("Cumsum")
 
@@ -170,7 +170,7 @@ class TopK(Operator):
         super().__init__("TopK")
 
 
-class ScatterElement(Operator):
+class ScatterElements(Operator):
     def __init__(self):
         super().__init__("ScatterElements")
 
