@@ -1,5 +1,5 @@
 <div align=center>
-<img src="img/deepLink_logo.png">
+<img src="https://deeplink.readthedocs.io/zh-cn/latest/_static/image/logo.png">
 </div>
 
 # DIPU
@@ -81,7 +81,7 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 
 
 ### 算子适配能力
-  为了更好的接入 DIOPI 算子，DIPU 提供了一组 算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力，算子精度自动对比的能力（对比 DIOPI 算子 和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。 相关能力的具体说明参见 [Quick Start 文档](https://github.com/DeepLink-org/dipu/blob/main/QuickStart.md)的 *算子库接入*。
+  为了更好的接入 DIOPI 算子，DIPU 提供了一组 算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力，算子精度自动对比的能力（对比 DIOPI 算子 和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。 相关能力的具体说明参见 [Quick Start 文档](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/quick_start.html)的 *算子库接入*。
 
 
 ## 质量保障体系
@@ -91,10 +91,10 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 2. 简单开发的手工测例。这部分测例更注重算子能否跑通，对算子要求较低。
 3. 模型测试。我们开发了``one_iter``精度对比工具，会先在精度正确性没问题的设备（如 CPU 和 CUDA ）上训练模型，保存每一层的算子输入、输出、权重、梯度数据，再在待测试设备上训练模型，逐层对比训练精度。
 
-更多信息请参考：[dipu/tests](https://github.com/DeepLink-org/dipu/tree/main/tests)
+更多信息请参考：[dipu/tests](https://github.com/DeepLink-org/DIPU/tree/main/dipu/tests)。
 
 ## Learn More
 
-* [使用/设备接入教学](https://github.com/DeepLink-org/dipu/blob/main/QuickStart.md)
-* [常见问题](https://github.com/DeepLink-org/dipu/blob/main/FAQ.md)
-* [开发者指南](https://github.com/DeepLink-org/dipu/blob/main/Contributors.md)
+* [Quick Start](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/quick_start.html)
+* [常见问题](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/FAQ.html)
+* [开发者指南](https://github.com/DeepLink-org/DIPU/tree/main/dipu/Contributors.md)
