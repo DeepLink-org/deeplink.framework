@@ -844,7 +844,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         perm = [num for num in range(rank)]
         perm[dim0] = dim1
         perm[dim1] = dim0
-        ops = []
         if symint_in_shape(perm):
             perm = self.process_dynamic_shape(perm)
         else:

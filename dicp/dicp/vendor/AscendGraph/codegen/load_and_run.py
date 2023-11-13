@@ -283,16 +283,18 @@ class AscendExecutor(object):
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
                 assert (dataset == self.input_dataset)
 
-    def _prepare_output(self, output_tensor):
+    def _prepare_output(self, output_tensor, out_stride, out_storage_offset):
         for i in range(self.num_outputs):
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
+            item = item.as_strided(
+                self.output_dims[i], out_stride[i], out_storage_offset[i])
             output_tensor.append(item)
             ret = acl.update_data_buffer(
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def _prepare_dynamic_output(self, output_tensor):
+    def _prepare_dynamic_output(self, output_tensor, out_stride, out_storage_offset):
         for i in range(self.num_outputs):
             tot_size = 1
             for elem in self.output_shape[i]:
@@ -303,22 +305,26 @@ class AscendExecutor(object):
             self.output_size[i] = tot_size
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
+            item = item.as_strided(
+                self.output_dims[i], out_stride[i], out_storage_offset[i])
+
             output_tensor.append(item)
             ret = acl.update_data_buffer(
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def run(self, images, dims=None, output_shape=None):
+    def run(self, images, dims=None, output_shape=None, out_stride=None, out_storage_offset=None):
         self.output_shape = output_shape
         assert len(images) > 0
-        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor) and x.device.type != dipu_device_str else x for x in images]
+        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
+                 and x.device.type != dipu_device_str else x for x in images]
         self._prepare_input(input, dims)
         output = []
         if dims is not None:
             assert self.output_shape is not None
             self._prepare_dynamic_output(output)
         else:
-            self._prepare_output(output)
+            self._prepare_output(output, out_stride, out_storage_offset)
         self.forward()
         self._destroy_databuffer()
         return output
@@ -341,8 +347,9 @@ class AscendModel():
         atexit.register(self.cleanup)
         self.exe = AscendExecutor(device_id, model_path)
 
-    def run(self, images, dims=None, output_shape=None):
-        return self.exe.run(images, dims, output_shape)
+    def run(self, images, dims=None, output_shape=None,
+            out_stride=None, out_storage_offset=None):
+        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset)
 
     def cleanup(self):
         if hasattr(self, 'exe'):
