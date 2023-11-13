@@ -61,8 +61,8 @@ def ascendgraph_opset_convert(
     gm = BackendPatternMatcherTransformer(
         ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
     gm = AtenToAscendTransformer(gm).transform()
-    #gm = BackendPatternMatcherTransformer(
-    #    ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
+    gm = BackendPatternMatcherTransformer(
+        ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
     gm = OutputMarkPass().transform(gm)
     # gm = ArgsTransDataPass().transform(gm)
     return gm
