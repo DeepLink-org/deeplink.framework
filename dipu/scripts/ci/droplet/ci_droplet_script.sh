@@ -17,16 +17,19 @@ function config_dipu_droplet_cmake() {
 }
 
 function config_all_droplet_cmake() {
-    mkdir -p build && cd ./build && rm -rf ./*
+    rm -rf ./build
+    mkdir -p build
     echo "config_dipu_nv_cmake PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
-     -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
-     -DWITH_DIOPI=INTERNAL \
-     -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
-      # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
-      # -DCMAKE_CXX_FLAGS_DEBUG="-g -O0"
-    cd ../
+
+    args=(
+        "-DCMAKE_BUILD_TYPE=Debug"
+        "-DDEVICE=${DIPU_DEVICE}"
+        "-DPYTORCH_DIR=${PYTORCH_DIR}"
+        "-DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}" )
+    [[ ! -z "$DIOPI_ROOT" ]] && args+=( "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}" )
+    [[ ! -z "$DIOPI_PATH" ]] && args+=( "-DWITH_DIOPI_INCLUDE=${DIOPI_PATH}/include" )
+    cmake -S . -B build "${args[@]}"
 }
 
 function build_diopi_lib() {

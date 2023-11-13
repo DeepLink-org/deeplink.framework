@@ -7,7 +7,7 @@ export DIPU_LOCAL_DIR=/path/to/dipu
 
 export DIOPI_ROOT=${DIPU_LOCAL_DIR}/third_party/DIOPI/impl/lib
 export DIPU_ROOT=${DIPU_LOCAL_DIR}/torch_dipu
-export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${CONDA_ROOT}/envs/dipu/lib/python3.8:${DIPU_LOCAL_DIR}:${PYTHONPATH}
 export PATH=${PYTORCH_DIR}/build/bin:${CONDA_ROOT}/envs/dipu/bin:${CONDA_ROOT}/bin:${PATH}
 

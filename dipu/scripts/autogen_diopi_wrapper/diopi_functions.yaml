@@ -650,7 +650,7 @@
 
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  device: [-cuda]
+  device: [all, -cuda]
   custom_fallback: True
   custom_code_at_the_beginning: |
     at::Tensor grad_input, grad_weight, grad_bias;
@@ -666,7 +666,7 @@
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
-  device: [-cuda]
+  device: [all, -cuda]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
@@ -1310,7 +1310,7 @@
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  register_op: False
+  device: [droplet]
   custom_code_at_the_beginning: |
     const auto shapeA = self.sizes();
     const auto shapeB = other.sizes();
@@ -1349,7 +1349,7 @@
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  register_op: False
+  device: [droplet]
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
@@ -2148,7 +2148,77 @@
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
-#- schema: _amp_foreach_non_finite_check_and_unscale_(Tensor(a!)[] self, Tensor(b!) found_inf, Tensor inv_scale) -> void
+- schema: "to.dtype(Tensor(a) self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor(a)"
+  register_op: False
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(self, self.options().dtype(dtype));
+  interface: diopiCastDtype(ctx, out, self);
+  custom_code_before_return: |
+    if (memory_format.has_value()) {
+      auto out1 = at::empty_like(out, out.options(), memory_format.value());
+      at::copy(out1, out, non_blocking);
+      out = out1;
+    }
+    if (!non_blocking) {
+        dipu::getCurrentDIPUStream().synchronize();
+    }
+
+- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  no_device_check_args: [self, src]
+  device: [not_for_any_now] #todo
+  ins: [srcTemp]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
+    auto stream = dipu::getCurrentDIPUStream();
+    auto srcTemp = self.dtype() == src.dtype() ? src : src.to(self.dtype());
+    srcTemp = (srcTemp.numel() == self.numel()) ? srcTemp : srcTemp.expand(self.sizes());
+    if (non_blocking) {
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
+      if (self.is_cpu()) {
+        if (self.options().pinned_memory()) {
+          self.record_stream(stream);
+        }
+      } else if (!is_default_stream){
+        self.record_stream(stream);
+      }
+      if (srcTemp.is_cpu()) {
+        if (srcTemp.options().pinned_memory()) {
+          srcTemp.record_stream(stream);
+        }
+      } else if (!is_default_stream) {
+        srcTemp.record_stream(stream);
+      }
+    }
+    if (self.device().type() != srcTemp.device().type()) {
+      srcTemp = srcTemp.is_contiguous(self.suggest_memory_format()) ? srcTemp : srcTemp.contiguous(self.suggest_memory_format());
+      if (srcTemp.is_cpu() && (!self.is_cpu())) {
+        // c2d
+        dipu::devproxy::memCopyH2DAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
+      } else if ((!srcTemp.is_cpu()) && self.is_cpu()) {
+        // d2c
+        dipu::devproxy::memCopyD2HAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
+      }
+      if (!non_blocking) {
+        dipu::getCurrentDIPUStream().synchronize();
+      }
+
+      return self;
+    }
+  interface: diopiCopyInp(ctx, srcTemp, self)
+  custom_code_before_return: |
+    if (!non_blocking) {
+      dipu::getCurrentDIPUStream().synchronize();
+    }
+
+- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  no_device_check_args: [self, src]
+  custom_fallback: True
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    return custom_fallback_dipu_copy_(self, src, non_blocking);
+  interface: diopiCopyInp(ctx, src, self)
+
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
   custom_fallback: True
   custom_code_at_the_beginning: |

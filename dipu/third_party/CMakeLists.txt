@@ -1,88 +1,88 @@
 #require the external project to build as target
 include(ExternalProject)
 
-add_library(diopi_impl_lib SHARED IMPORTED GLOBAL)
-if((${WITH_DIOPI} STREQUAL "INTERNAL") OR (${WITH_DIOPI} STREQUAL "internal"))
-  if(NOT ${DIOPI_IMPL_OPT} STREQUAL "")
-#----------------------------------Build DIOPI submodule-------------------------------------------
-    if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-      execute_process(
-        COMMAND
-          sh -x -c
-          "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
-        OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    endif()
-  
-    message(STATUS "building internal DIOPI")
-    set(DIOPI_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI")
-    set(DIOPI_BUILD_PATH "${DIOPI_SRC_PATH}/build")
-    set(DIOPI_PROTO_PATH "${DIOPI_SRC_PATH}/proto")
-    set(DIOPI_IMPL_LIB_PATH "${DIOPI_SRC_PATH}/impl/lib")
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-    ExternalProject_Add(diopi_internal
-                        SOURCE_DIR ${DIOPI_SRC_PATH}
-                        SOURCE_SUBDIR impl
-                        BINARY_DIR ${DIOPI_BUILD_PATH}
-                        DOWNLOAD_COMMAND ""
-                        CMAKE_ARGS -DIMPL_OPT=${DIOPI_IMPL_OPT}
-                                   -DENABLE_COVERAGE=${USE_COVERAGE} 
-                                   -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
-                        BUILD_BYPRODUCTS ${DIOPI_IMPL_LIB}
-                        INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal."
-    )
-    ## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
-    ExternalProject_Add_StepTargets(diopi_internal configure build install)
-    ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
-    ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
-    add_dependencies(diopi_impl_lib diopi_internal-install)
-  endif()
-#--------------------------------------------------------------------------------------------------
-elseif(NOT ((${WITH_DIOPI} STREQUAL "OFF") OR (${WITH_DIOPI} STREQUAL "off")) )
-  #WITH_DIOPI=OFF means does not link DIOPI
-  if(EXISTS $ENV{DIOPI_PATH})
-    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
-  else()
-    set(DIOPI_PROTO_PATH "${WITH_DIOPI}/proto")
-  endif()
-  if(EXISTS $ENV{DIOPI_ROOT})
-    set(DIOPI_IMPL_LIB_PATH $ENV{DIOPI_ROOT})
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  else()
-    set(DIOPI_IMPL_LIB_PATH "${WITH_DIOPI}/impl/lib")
-    set(DIOPI_IMPL_LIB "${DIOPI_IMPL_LIB_PATH}/libdiopi_impl.so")
-  endif()
-  find_library(FIND_DIOPI_IMPL_LIB_RESULTS 
-               NAMES libdiopi_impl 
-                     libdiopi_impl.so 
-                     diopi_impl 
-                     diopi_impl.so
-               HINTS ${DIOPI_IMPL_LIB_PATH}
-               REQUIRED)
+#[[ DIOPI ]]
+
+# define some shared and cached options
+set(WITH_DIOPI_LIBRARY "INTERNAL" CACHE STRING
+  "Decide how to link DIOPI library, it could be one of (case-sensitive) 'INTERNAL', 'DISABLE' or '/directory/of/an/external/DIOPI/library'. \
+  It's INTERNAL by default and uses the internal DIOPI library. \
+  When it's DISABLE, DIOPI won't link to DIPU. \
+  When it's an absolute path, it use a user-provided DIOPI library.")
+set(WITH_DIOPI_INCLUDE "" CACHE PATH # use "PATH" type to provide a GUI file selector and convert relative path into absolute path
+  "Provide a folder of external DIOPI header files (or use internal DIOPI if is empty)")
+
+# locate DIOPI_LIBRARY_PATH
+if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
+  set(DIOPI_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/impl/lib")
+  # the default path is hard-coded and not safe, better to use other methods
+elseif(WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
+  set(DIOPI_LIBRARY_PATH "")
+elseif(EXISTS "${WITH_DIOPI_LIBRARY}" AND IS_DIRECTORY "${WITH_DIOPI_LIBRARY}")
+  set(DIOPI_LIBRARY_PATH "${WITH_DIOPI_LIBRARY}")
 else()
-  if(EXISTS $ENV{DIOPI_PATH})
-    set(DIOPI_PROTO_PATH $ENV{DIOPI_PATH})
-  else()
-    set(DIOPI_PROTO_PATH "${PROJECT_SOURCE_DIR}/third_party/DIOPI/proto")
-  endif()
+  message(FATAL_ERROR
+    "WITH_DIOPI_LIBRARY is invalid ('${WITH_DIOPI_LIBRARY}'), "
+    "it should be one of 'INTERNAL', 'DISABLE' or an absolute path")
 endif()
 
-message(STATUS "DIOPI_PROTO_PATH: ${DIOPI_PROTO_PATH}")
-message(STATUS "DIOPI_IMPL_LIB_PATH: ${DIOPI_IMPL_LIB_PATH}")
+# locate DIOPI_INCLUDE_PATH
+if (WITH_DIOPI_INCLUDE STREQUAL "")
+  set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
+  # the default path is hard-coded and not safe, better to use other methods
+elseif(EXISTS "${WITH_DIOPI_INCLUDE}" AND IS_DIRECTORY "${WITH_DIOPI_INCLUDE}")
+  set(DIOPI_INCLUDE_PATH "${WITH_DIOPI_INCLUDE}")
+else()
+  message(FATAL_ERROR
+    "WITH_DIOPI_INCLUDE is invalid ('${WITH_DIOPI_INCLUDE}'), "
+    "it should be empty or '/directory/of/DIOPI/header/files'")
+endif()
+
+# compile DIOPI if use internal one
+if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
+  if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
+    execute_process(
+      COMMAND
+        sh -x -c
+        "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
+      OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+
+  message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
+  ExternalProject_Add(diopi_internal
+                      SOURCE_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI"
+                      SOURCE_SUBDIR "impl"
+                      BINARY_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/build"
+                      DOWNLOAD_COMMAND ""
+                      CMAKE_ARGS
+                        # note: as CMAKE_ARGS is a list, do not add quotes to args (such as "${DIOPI_IMPL_OPT}").
+                        -DIMPL_OPT=${DIOPI_IMPL_OPT}
+                        -DENABLE_COVERAGE=${USE_COVERAGE}
+                        -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
+                      BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
+                      INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
+
+  ## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
+  ExternalProject_Add_StepTargets(diopi_internal configure build install)
+  ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
+  ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
+endif()
+
+message(STATUS "Using DIOPI_LIBRARY_PATH='${DIOPI_LIBRARY_PATH}', DIOPI_INCLUDE_PATH='${DIOPI_INCLUDE_PATH}'")
 
 add_library(diopi_impl INTERFACE)
-target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_PROTO_PATH}/include)
+target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
-#WITH_DIOPI=OFF means does not link DIOPI
-if(NOT ((${WITH_DIOPI} STREQUAL "OFF") OR (${WITH_DIOPI} STREQUAL "off")) )
+if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
+  add_library(diopi_impl_lib SHARED IMPORTED GLOBAL)
   target_link_options(diopi_impl_lib INTERFACE "LINKER:-no-as-needed")
-  set_target_properties(
-    diopi_impl_lib PROPERTIES IMPORTED_LOCATION
-                          ${DIOPI_IMPL_LIB})
+  set_target_properties(diopi_impl_lib PROPERTIES IMPORTED_LOCATION "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so")
+
+  add_dependencies(diopi_impl_lib diopi_internal-install)
   target_link_libraries(diopi_impl INTERFACE diopi_impl_lib)
 endif()
-#-----------------------------------------------------------------------------------------------
 
 #-------------------------add kineto as an external project ------------------------------------
 #-------------------------use the local submodule(without download)-----------------------------
