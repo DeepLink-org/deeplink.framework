@@ -291,7 +291,22 @@ class AscendCodegen(torch.fx.Interpreter):
             shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
         else:
-            call_body.writeline(f'''output_shape = None''')
+            call_body.writeline('''output_shape = None''')
+        
+        out_stride_str = '''out_stride = ['''
+        out_storage_offset_str = '''out_storage_offset = ['''
+        for elem in self.output_args:
+            if hasattr(elem, 'meta'):
+                elem = elem.meta['val']
+            stride = list(elem.stride())
+            if len(stride) == 0:
+                raise RuntimeError("Error handling empty output_stride")
+            out_stride_str += '[' + ','.join(map(str, stride)) + '],'
+            out_storage_offset_str += str(elem.storage_offset()) + ','
+        out_stride_str = out_stride_str[:-1] + ']'
+        out_storage_offset_str = out_storage_offset_str[:-1] + ']'
+        call_body.writeline(out_stride_str)
+        call_body.writeline(out_storage_offset_str)
 
         call_body.splice("""
                              import torch_dipu
@@ -306,7 +321,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      del tmp_arg
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape)']
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset)']
 
         if precision_check and self.aten_graph is not None:
             # import aten graph

@@ -1310,7 +1310,7 @@
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  register_op: False
+  device: [droplet]
   custom_code_at_the_beginning: |
     const auto shapeA = self.sizes();
     const auto shapeB = other.sizes();
@@ -1349,7 +1349,7 @@
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  register_op: False
+  device: [droplet]
   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
