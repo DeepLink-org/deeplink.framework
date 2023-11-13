@@ -219,6 +219,8 @@ class AscendCodegen(torch.fx.Interpreter):
             return st
         elif '+' in st:
             sp = st.split('+')
+            if len(sp) > 2:
+                sp = [sp[0], '+'.join(sp[1:])]
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
             if sp[0].isdigit():
@@ -232,10 +234,10 @@ class AscendCodegen(torch.fx.Interpreter):
                 return self.process_sym_name(sp[0]) + '+' + sp[1]
         elif '-' in st:
             sp = st.split('-')
+            if len(sp) > 2:
+                sp = [sp[0], '-'.join(sp[1:])]
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
-            if sp[0].isdigit():
-                (sp[1], sp[0]) = (sp[0], sp[1])
             if sp[0] in self.sym_in_args:
                 arg, idx = self.sym_in_args[sp[0]]
                 return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
@@ -245,6 +247,8 @@ class AscendCodegen(torch.fx.Interpreter):
                 return self.process_sym_name(sp[0]) + '-' + sp[1]
         elif '*' in st:
             sp = st.split('*')
+            if len(sp) > 2:
+                sp = [sp[0], '*'.join(sp[1:])]
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
             if sp[0].isdigit():
