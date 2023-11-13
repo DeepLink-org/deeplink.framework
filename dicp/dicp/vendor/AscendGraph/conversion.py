@@ -901,7 +901,15 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.mm.default)
     def mm(self, x, y):
-        return self.get_proxy(ascend_op.MatMul, (x, y, False, False))
+        # TODO! MatMul not support fp32 input
+        # for higher precision in some cases
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            x = self.get_proxy(ascend_op.Unsqueeze, (x, [0]))
+            y = self.get_proxy(ascend_op.Unsqueeze, (y, [0]))
+            mm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
+            return self.get_proxy(ascend_op.Squeeze, (mm, [0]))
+        else:
+            return self.get_proxy(ascend_op.MatMul, (x, y, False, False))
 
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
