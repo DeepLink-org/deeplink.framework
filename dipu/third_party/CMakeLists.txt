@@ -5,12 +5,14 @@ include(ExternalProject)
 
 # define some shared and cached options
 set(WITH_DIOPI_LIBRARY "INTERNAL" CACHE STRING
-  "Decide how to link DIOPI library, it could be one of (case-sensitive) 'INTERNAL', 'DISABLE' or '/directory/of/an/external/DIOPI/library'. \
+  "Decide how to use DIOPI library, it could be one of (case-sensitive) \
+  'INTERNAL', 'DISABLE' or '/directory/of/an/external/DIOPI/library'. \
   It's INTERNAL by default and uses the internal DIOPI library. \
-  When it's DISABLE, DIOPI won't link to DIPU. \
-  When it's an absolute path, it use a user-provided DIOPI library.")
+  When it's DISABLE, DIPU won't link DIOPI. \
+  When it's an absolute path, a user-provided DIOPI library will be used.")
 set(WITH_DIOPI_INCLUDE "" CACHE PATH # use "PATH" type to provide a GUI file selector and convert relative path into absolute path
-  "Provide a folder of external DIOPI header files (or use internal DIOPI if is empty)")
+  "Provide a directory of external DIOPI header files, or use internal DIOPI if is empty. \
+  When it's a directory, make sure WITH_DIOPI_LIBRARY is not INTERNAL.")
 
 # locate DIOPI_LIBRARY_PATH
 if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
@@ -30,12 +32,12 @@ endif()
 if (WITH_DIOPI_INCLUDE STREQUAL "")
   set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
   # the default path is hard-coded and not safe, better to use other methods
-elseif(EXISTS "${WITH_DIOPI_INCLUDE}" AND IS_DIRECTORY "${WITH_DIOPI_INCLUDE}")
+elseif(EXISTS "${WITH_DIOPI_INCLUDE}" AND IS_DIRECTORY "${WITH_DIOPI_INCLUDE}" AND NOT WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   set(DIOPI_INCLUDE_PATH "${WITH_DIOPI_INCLUDE}")
 else()
   message(FATAL_ERROR
-    "WITH_DIOPI_INCLUDE is invalid ('${WITH_DIOPI_INCLUDE}'), "
-    "it should be empty or '/directory/of/DIOPI/header/files'")
+    "WITH_DIOPI_INCLUDE is invalid ('${WITH_DIOPI_INCLUDE}'). "
+    "It should be empty or '/directory/of/DIOPI/headers' if WITH_DIOPI_LIBRARY is not INTERNAL.")
 endif()
 
 # compile DIOPI if use internal one
@@ -76,7 +78,7 @@ target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
 target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
 
 if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
-  add_library(diopi_impl_lib SHARED IMPORTED GLOBAL)
+  add_library(diopi_impl_lib SHARED IMPORTED)
   target_link_options(diopi_impl_lib INTERFACE "LINKER:-no-as-needed")
   set_target_properties(diopi_impl_lib PROPERTIES IMPORTED_LOCATION "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so")
 
