@@ -283,7 +283,7 @@ class AscendExecutor(object):
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
                 assert (dataset == self.input_dataset)
 
-    def _prepare_output(self, output_tensor, out_stride, out_storage_offset):
+    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset):
         for i in range(self.num_outputs):
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
@@ -294,14 +294,14 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def _prepare_dynamic_output(self, output_tensor, out_stride, out_storage_offset):
+    def _prepare_dynamic_output(self, output_tensor, output_shape, out_stride, out_storage_offset):
         for i in range(self.num_outputs):
             tot_size = 1
-            for elem in self.output_shape[i]:
+            for elem in output_shape[i]:
                 tot_size *= elem
             dtype = acl.mdl.get_output_data_type(self.model_desc, i)
             tot_size *= acl.data_type_size(dtype)
-            self.output_dims[i] = self.output_shape[i]
+            self.output_dims[i] = output_shape[i]
             self.output_size[i] = tot_size
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
@@ -314,17 +314,16 @@ class AscendExecutor(object):
             check_ret("acl.update_data_buffer", ret)
 
     def run(self, images, dims=None, output_shape=None, out_stride=None, out_storage_offset=None):
-        self.output_shape = output_shape
         assert len(images) > 0
         for img in images:
             assert isinstance(img, torch.Tensor)
         input = list(map(lambda x: x.to(dipu_device_str), images))
         self._prepare_input(input, dims)
         output = []
-        if self.output_shape:
-            self._prepare_dynamic_output(output)
+        if output_shape:
+            self._prepare_dynamic_output(output, output_shape, out_stride, out_storage_offset)
         else:
-            self._prepare_output(output, out_stride, out_storage_offset)
+            self._prepare_output(output, output_shape, out_stride, out_storage_offset)
         self.forward()
         self._destroy_databuffer()
         return output

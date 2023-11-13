@@ -221,18 +221,41 @@ class AscendCodegen(torch.fx.Interpreter):
             sp = st.split('+')
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
+            if sp[0].isdigit():
+                (sp[1], sp[0]) = (sp[0], sp[1])
             if sp[0] in self.sym_in_args:
                 arg, idx = self.sym_in_args[sp[0]]
                 return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
-            return self.sym_to_inputs[sp[0]] + '+' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '+' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '+' + sp[1]
         elif '-' in st:
             sp = st.split('-')
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
+            if sp[0].isdigit():
+                (sp[1], sp[0]) = (sp[0], sp[1])
             if sp[0] in self.sym_in_args:
                 arg, idx = self.sym_in_args[sp[0]]
                 return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
-            return self.sym_to_inputs[sp[0]] + '-' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '-' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '-' + sp[1]
+        elif '*' in st:
+            sp = st.split('*')
+            assert (len(sp) == 2)
+            sp = [elem.strip() for elem in sp]
+            if sp[0].isdigit():
+                (sp[1], sp[0]) = (sp[0], sp[1])
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '*' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '*' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '*' + sp[1]
         else:
             if st in self.sym_in_args:
                 arg, idx = self.sym_in_args[st]
@@ -282,27 +305,43 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
+            extra_stride_str = ''
+            extra_storage_offset_str = ''
             for elem in self.assign_args:
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
                 shape = [self.process_sym_name(str(dim)) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
+                stride = list(self.input_args[elem[1]].meta['val'].stride())
+                if len(stride) == 0:
+                    raise RuntimeError("Error handling empty output_stride")
+                stride = [self.process_sym_name(str(dim)) for dim in stride]
+                extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
+                extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
             shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
         else:
             call_body.writeline('''output_shape = None''')
-        
+
+        # add stride & storage_offset info
         out_stride_str = '''out_stride = ['''
         out_storage_offset_str = '''out_storage_offset = ['''
         for elem in self.output_args:
             if hasattr(elem, 'meta'):
                 elem = elem.meta['val']
+            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
+                out_stride_str += '[1],'
+                out_storage_offset_str += '0,'
+                continue
             stride = list(elem.stride())
             if len(stride) == 0:
                 raise RuntimeError("Error handling empty output_stride")
+            stride = [self.process_sym_name(str(dim)) for dim in stride]
             out_stride_str += '[' + ','.join(map(str, stride)) + '],'
             out_storage_offset_str += str(elem.storage_offset()) + ','
+        out_stride_str += extra_stride_str
+        out_storage_offset_str += extra_storage_offset_str
         out_stride_str = out_stride_str[:-1] + ']'
         out_storage_offset_str = out_storage_offset_str[:-1] + ']'
         call_body.writeline(out_stride_str)
