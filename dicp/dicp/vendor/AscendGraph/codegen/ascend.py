@@ -16,8 +16,6 @@ graph_id = 0
 
 precision_check = bool(os.environ.get("DICP_ASCEND_PRECISION_CHECK", False))
 
-sym_to_inputs = {}
-
 
 def get_graph_id():
     global graph_id
@@ -65,18 +63,12 @@ class AscendCodegen(torch.fx.Interpreter):
         self.folder = folder
         self.graph_key = graph_key
 
-        global sym_to_inputs
-        sym_to_inputs = {}
-        global sym_in_args
-        sym_in_args = {}
-        global arg_names
-        arg_names = []
+        self.sym_to_inputs = {}
+        self.sym_in_args = {}
 
         # for modified args return
-        global assign_args
-        assign_args = []
-        global cpu_tensor
-        cpu_tensor = []
+        self.assign_args = []
+        self.cpu_tensor = []
 
         super().__init__(graph)
 
@@ -84,8 +76,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args_dict[name] = name
         self.input_args.append(self.cur_node)
 
-        global arg_names
-        arg_names = [arg.name for arg in self.input_args]
         fake_tensor = self.cur_node.meta['val']
 
         format = "NCHW"
@@ -95,14 +85,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = [1]
             data_type = "INT32"
             format = "ND"
-            sym_to_inputs[fake_tensor.node.str()] = name
+            self.sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
             # mention symint position in args
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()
-                    if not st in sym_in_args:
-                        sym_in_args[st] = (name, idx)
+                    if not st in self.sym_in_args:
+                        self.sym_in_args[st] = (name, idx)
 
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt)
@@ -136,6 +126,12 @@ class AscendCodegen(torch.fx.Interpreter):
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = name
+
+        if hasattr(self.cur_node, 'meta'):
+            if 'prop' in self.cur_node.meta and 'cpu_tensor' in self.cur_node.meta['prop']:
+                self.cpu_tensor.append(self.cur_node.meta['prop']['cpu_tensor'])
+            if 'prop' in self.cur_node.meta and 'assign_args' in self.cur_node.meta['prop']:
+                self.assign_args.append(self.cur_node.meta['prop']['assign_args'])
 
         _, args_list = AscendOverrides.gen_args(
             self.args_dict[name], self.args_dict, args)
@@ -179,7 +175,7 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.generate_code()
 
     def parse_outputs(self):
-        symint_inputs = sym_to_inputs.values()
+        symint_inputs = self.sym_to_inputs.values()
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
@@ -193,8 +189,8 @@ class AscendCodegen(torch.fx.Interpreter):
             else:
                 self.py_output_names.append(str(node))
 
-        if len(assign_args) > 0:
-            self.graph_output_names.extend(list(zip(*assign_args))[0])
+        if len(self.assign_args) > 0:
+            self.graph_output_names.extend(list(zip(*self.assign_args))[0])
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -225,32 +221,32 @@ class AscendCodegen(torch.fx.Interpreter):
             sp = st.split('+')
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
-            if sp[0] in sym_in_args:
-                arg, idx = sym_in_args[sp[0]]
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
                 return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
-            return sym_to_inputs[sp[0]] + '+' + sp[1]
+            return self.sym_to_inputs[sp[0]] + '+' + sp[1]
         elif '-' in st:
             sp = st.split('-')
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
-            if sp[0] in sym_in_args:
-                arg, idx = sym_in_args[sp[0]]
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
                 return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
-            return sym_to_inputs[sp[0]] + '-' + sp[1]
+            return self.sym_to_inputs[sp[0]] + '-' + sp[1]
         else:
-            if st in sym_in_args:
-                arg, idx = sym_in_args[st]
+            if st in self.sym_in_args:
+                arg, idx = self.sym_in_args[st]
                 return "{}.shape[{}]".format(arg, idx)
-            return sym_to_inputs[st]
+            return self.sym_to_inputs[st]
 
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
-        shape_symint = [value[0] for value in sym_in_args.values()]
+        shape_symint = [value[0] for value in self.sym_in_args.values()]
 
-        if len(sym_in_args) > 0 or len(sym_to_inputs) > 0:
-            args = ['_' if not arg in shape_symint and not arg in sym_to_inputs.values() else arg for arg in self.args]
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            args = ['_' if not arg in shape_symint and not arg in self.sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
 
         # generate input dims
@@ -271,7 +267,7 @@ class AscendCodegen(torch.fx.Interpreter):
             call_body.writeline(f'''dims = None''')
 
         # generate output shapes
-        if len(sym_in_args) > 0 or len(sym_to_inputs) > 0:
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             shape_str = f'''output_shape = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
@@ -286,7 +282,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
-            for elem in assign_args:
+            for elem in self.assign_args:
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
@@ -327,7 +323,7 @@ class AscendCodegen(torch.fx.Interpreter):
 
         for i, name in enumerate(self.graph_output_names):
             if name not in self.symint_outputs:
-                if name in cpu_tensor:
+                if name in self.cpu_tensor:
                     call_str.append(f'{name} = output_tensor[{i}].cpu()')
                 else:
                     call_str.append(f'{name} = output_tensor[{i}]')
@@ -336,7 +332,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                  f'{name} = int(output_tensor[{i}])'])
 
         # dealing with modified args passing back
-        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in assign_args]
+        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in self.assign_args]
         call_str.extend(output_convert)
 
         if precision_check:
@@ -431,7 +427,7 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_graph_json(self):
         self.parse_outputs()
         self.gen_build_options()
-        has_dynamic_shape = False if len(sym_in_args) == 0 and len(sym_to_inputs) == 0 else True
+        has_dynamic_shape = False if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0 else True
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
@@ -812,13 +808,8 @@ class AscendOverrides:
     @staticmethod
     def Identity(name, input, index):
         op = OP(name, "Identity")
-        if index is not None:
-            if isinstance(index, int):
-                op.set_input_with_index("x", input, index)
-            else:
-                if index in arg_names:
-                    assign_args.append((name, arg_names.index(index)))
-                op.set_input("x", input)
+        if index is not None and isinstance(index, int):
+            op.set_input_with_index("x", input, index)
         else:
             op.set_input("x", input)
         return op.to_node()
@@ -934,9 +925,6 @@ class AscendOverrides:
         cast_op = OP(name, "Cast")
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
-
-        if device is not None and device == torch.device(type='cpu'):
-            cpu_tensor.append(name)
         return cast_op.to_node()
 
     @staticmethod

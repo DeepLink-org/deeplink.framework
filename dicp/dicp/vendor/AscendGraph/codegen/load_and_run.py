@@ -311,6 +311,8 @@ class AscendExecutor(object):
     def run(self, images, dims=None, output_shape=None):
         self.output_shape = output_shape
         assert len(images) > 0
+        for img in images:
+            assert isinstance(img, torch.Tensor)
         input = list(map(lambda x: x.to(dipu_device_str), images))
         self._prepare_input(input, dims)
         output = []
