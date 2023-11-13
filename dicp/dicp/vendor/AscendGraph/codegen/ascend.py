@@ -252,11 +252,11 @@ class AscendCodegen(torch.fx.Interpreter):
                 elem = elem.meta['val']
             stride = list(elem.stride())
             if len(stride) == 0:
-                    raise RuntimeError("Error handling empty output_stride")
-            out_stride_str += "[" + ','.join(map(str, stride)) + '],'
+                raise RuntimeError("Error handling empty output_stride")
+            out_stride_str += '[' + ','.join(map(str, stride)) + '],'
             out_storage_offset_str += str(elem.storage_offset()) + ','
-        out_stride_str = out_stride_str[:-1] + ''']'''
-        out_storage_offset_str = out_storage_offset_str[:-1] + ''']'''
+        out_stride_str = out_stride_str[:-1] + ']'
+        out_storage_offset_str = out_storage_offset_str[:-1] + ']'
         call_body.writeline(out_stride_str)
         call_body.writeline(out_storage_offset_str)
 
