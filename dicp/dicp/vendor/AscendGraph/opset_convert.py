@@ -55,14 +55,28 @@ class OutputMarkPass:
         return gm
 
 
+def symint_in_inputs(nodes):
+    for node in nodes:
+        if node.op == 'placeholder':
+            if hasattr(node, 'meta'):
+                node = node.meta['val']
+            if isinstance(node, torch.SymInt):
+                return True
+            if hasattr(node, 'shape'):
+                for dim in node.shape:
+                    if isinstance(dim, torch.SymInt):
+                        return True
+    return False
+
 def ascendgraph_opset_convert(
     gm: torch.fx.GraphModule,
 ):
     gm = BackendPatternMatcherTransformer(
         ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
     gm = AtenToAscendTransformer(gm).transform()
-    gm = BackendPatternMatcherTransformer(
-        ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
+    if not symint_in_inputs(list(gm.graph.nodes)):
+        gm = BackendPatternMatcherTransformer(
+            ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
     gm = OutputMarkPass().transform(gm)
     # gm = ArgsTransDataPass().transform(gm)
     return gm
