@@ -3,7 +3,6 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
-#include <structmember.h>
 
 #include <ATen/Device.h>
 #include <c10/util/Exception.h>
@@ -16,6 +15,8 @@
 #include <torch/csrc/utils/python_arg_parser.h>
 #include <torch/csrc/utils/python_numbers.h>
 #include <torch/csrc/utils/python_strings.h>
+
+#include <structmember.h>
 
 #include "exportapi.h"
 
