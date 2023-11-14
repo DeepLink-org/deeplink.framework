@@ -214,7 +214,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten._to_copy.default)
     def _to_copy(self, x, dtype=None, layout=torch.strided, device=None):
         if dtype:
-            return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype), device))
+            if device == torch.device(type='cpu'):
+                return self.get_proxy(ascend_op.CastCpu, (x, get_ascend_dtype(dtype)))
+            else:
+                return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
         else:
             return self.get_proxy(ascend_op.Identity, (x, None))
 
@@ -411,20 +414,20 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.arange.default)
     def arange(self, end, start=0, step=1, dtype=None, device='xpu', layout=None, pin_memory=False):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        assert isinstance(start, torch.fx.proxy.Proxy) or isinstance(start, int)
-        assert isinstance(end, torch.fx.proxy.Proxy) or isinstance(end, int)
-        assert isinstance(step, torch.fx.proxy.Proxy) or isinstance(step, int)
-        
-        if isinstance(start, int):
-            start = self.get_proxy(ascend_op.Const, (int(start), out_dtype))
-        elif start.node.meta['val'] != out_dtype:
+        assert isinstance(start, torch.fx.proxy.Proxy) or type(start) in [int, float]
+        assert isinstance(end, torch.fx.proxy.Proxy) or type(end) in [int, float]
+        assert isinstance(step, torch.fx.proxy.Proxy) or type(step) in [int, float]
+
+        if not isinstance(start, torch.fx.proxy.Proxy): # scalar const
+            start = self.get_proxy(ascend_op.Const, (start, out_dtype))
+        elif start.node.meta['val'] != out_dtype: # align tensor dtype
             start = self.get_proxy(ascend_op.Cast, (start, get_ascend_dtype(out_dtype)), {})
-        if isinstance(end, int):
-            end = self.get_proxy(ascend_op.Const, (int(end), out_dtype))
+        if not isinstance(end, torch.fx.proxy.Proxy):
+            end = self.get_proxy(ascend_op.Const, (end, out_dtype))
         elif end.node.meta['val'] != out_dtype:
             end = self.get_proxy(ascend_op.Cast, (end, get_ascend_dtype(out_dtype)), {})
-        if isinstance(step, int):
-            step = self.get_proxy(ascend_op.Const, (int(step), out_dtype))
+        if not isinstance(step, torch.fx.proxy.Proxy):
+            step = self.get_proxy(ascend_op.Const, (step, out_dtype))
         elif step.node.meta['val'] != out_dtype:
             step = self.get_proxy(ascend_op.Cast, (step, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Range, (end, start, step))
@@ -916,11 +919,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.copy_)
     def copy_(self, dst, src):
-        return self.get_proxy(ascend_op.Identity, (src, dst))
+        return self.get_proxy(ascend_op.IdentityInp, (src, dst))
 
     @register_conversion(torch.ops.aten.copy)
     def copy(self, dst, src):
-        return self.get_proxy(ascend_op.Identity, (src, dst))
+        return self.get_proxy(ascend_op.Identity, (src, None))
 
     @register_conversion(torch.ops.aten.unsqueeze)
     def unsqueeze(self, x, dim):

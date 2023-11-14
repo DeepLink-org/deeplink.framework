@@ -245,9 +245,19 @@ class Cast(Operator):
         super().__init__("Cast")
 
 
+class CastCpu(Operator):
+    def __init__(self):
+        super().__init__("CastCpu")
+
+
 class Identity(Operator):
     def __init__(self):
         super().__init__("Identity")
+
+
+class IdentityInp(Operator):
+    def __init__(self):
+        super().__init__("IdentityInp")
 
 
 class IdentityN(Operator):

@@ -877,6 +877,12 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def IdentityInp(name, input, dst):
+        op = OP(name, "Identity")
+        op.set_input("x", input)
+        return op.to_node()
+
+    @staticmethod
     def Exp(name, x):
         op = OP(name, "Exp")
         op.set_input("x", x)
@@ -988,6 +994,15 @@ class AscendOverrides:
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
         return cast_op.to_node()
+
+
+    @staticmethod
+    def CastCpu(name, x, ascend_dtype, device='cpu'):
+        cast_op = OP(name, "Cast")
+        cast_op.set_input("x", x)
+        cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+        return cast_op.to_node()
+
 
     @staticmethod
     def Const(name, x, dtype, dims=None, format="ND"):
