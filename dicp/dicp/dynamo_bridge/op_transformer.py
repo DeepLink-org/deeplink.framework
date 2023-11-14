@@ -6,6 +6,7 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
+from dicp.vendor.AscendGraph.codegen.utils import symint_in_shape
 
 
 class OpSetTransformer:
@@ -26,19 +27,13 @@ class SingleOpTransformer(torch.fx.Transformer):
         self.sym_to_inputs = {}
         self.sym_in_args = {}
 
-    def symint_in_shape(self, shape):
-        for elem in shape:
-            if isinstance(elem, torch.SymInt):
-                return True
-        return False
-
     def placeholder(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         proxy = super().placeholder(target, args, kwargs)
         proxy.node.meta = fx_traceback.get_current_meta()
         fake_tensor = proxy.node.meta['val']
         if isinstance(fake_tensor, torch.SymInt):
             self.sym_to_inputs[fake_tensor.node.str()] = proxy
-        elif self.symint_in_shape(fake_tensor.shape):
+        elif symint_in_shape(fake_tensor.shape):
             # mention symint position in args
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
