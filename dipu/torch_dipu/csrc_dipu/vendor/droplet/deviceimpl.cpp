@@ -13,7 +13,7 @@ using DROPLET_deviceId = int;
 //  Device class related
 // =====================
 
-void initializVendor() {
+void initializeVendor() {
 // according to the discussion with droplet team, make a random runtime call 
 // to make sure droplet runtime software is initialized correctly
   int num = -1;
