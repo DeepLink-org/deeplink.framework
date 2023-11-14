@@ -2,8 +2,8 @@
 #include "./helpfunc.hpp"
 
 #ifndef WIN32
-#include <pthread.h>
 #include <mutex>
+#include <pthread.h>
 #endif
 
 namespace dipu {
