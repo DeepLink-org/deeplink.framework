@@ -62,6 +62,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         -DIMPL_OPT=${DIOPI_IMPL_OPT}
                         -DENABLE_COVERAGE=${USE_COVERAGE}
                         -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
+                        -DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
                       INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
 
