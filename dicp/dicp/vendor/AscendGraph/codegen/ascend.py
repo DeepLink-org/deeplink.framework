@@ -402,7 +402,7 @@ class AscendCodegen(torch.fx.Interpreter):
 
         del_args = [f'del {x}' for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
-        call_body.writeline(f"args.clear()")
+        call_body.writeline("args.clear()")
         call_body.writeline(f"return ({', '.join(self.py_output_names)})")
 
         call_func = IndentedBuffer()

@@ -715,7 +715,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         shape = [dim.node.meta['val'] if hasattr(
             dim, 'node') else dim for dim in shape]
         shape = self.get_shape_proxy(shape)
-        return self.get_proxy(ascend_op.ExpandD, (x, shape))
+        return self.get_proxy(ascend_op.Expand, (x, shape))
 
     @register_conversion(torch.ops.aten.slice_backward.default)
     def slice_backward(self, grad, input_shape, dim, start, end, step):
