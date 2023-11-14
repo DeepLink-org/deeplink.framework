@@ -294,6 +294,8 @@ class AscendCodegen(torch.fx.Interpreter):
             call_body.writeline(f'''dims = None''')
 
         # generate output shapes
+        extra_stride_str = ''
+        extra_storage_offset_str = ''
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             shape_str = f'''output_shape = ['''
             for elem in self.output_args:
@@ -309,8 +311,6 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
-            extra_stride_str = ''
-            extra_storage_offset_str = ''
             for elem in self.assign_args:
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
