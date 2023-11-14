@@ -215,7 +215,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def _to_copy(self, x, dtype=None, layout=torch.strided, device=None):
         if dtype:
             if device == torch.device(type='cpu'):
-                return self.get_proxy(ascend_op.CastCpu, (x, get_ascend_dtype(dtype)))
+                return self.get_proxy(ascend_op.CastCpu, (x, get_ascend_dtype(dtype), device))
             else:
                 return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
         else:
