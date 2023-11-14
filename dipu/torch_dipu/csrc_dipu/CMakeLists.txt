@@ -20,6 +20,8 @@ set(DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/autogen_diopi_wrapper.py")
 set(DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/diopi_functions.yaml")
+set(DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE
+    "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/diopi_wrapper_template.py")
 set(DIPU_AUTOGENED_KERNELS_CPP
     "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 add_custom_command(
@@ -31,7 +33,8 @@ add_custom_command(
     --print_op_arg True --fun_config_dict
     '{\"current_device\": \"${UsedVendor}\"}'
   DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
-          ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG})
+          ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
+          ${DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE})
 add_custom_target(autogen_diopi_kernels_cpp
                   DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)

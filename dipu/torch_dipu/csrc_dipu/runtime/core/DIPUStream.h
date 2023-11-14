@@ -17,17 +17,17 @@ namespace dipu {
 
 class DIPU_API DIPUStream {
 public:
-  enum Unchecked { UNCHECKED };
-  explicit DIPUStream(c10::Stream stream) : stream_(stream) {
+  explicit DIPUStream(c10::Stream stream) : stream_(stream), initialized_(true) {
     TORCH_CHECK(stream_.device_type() == dipu::DIPU_DEVICE_TYPE);
   }
 
-  explicit DIPUStream(Unchecked, c10::Stream stream) : stream_(stream) {}
-
   explicit DIPUStream(devapis::deviceId_t devidx, c10::StreamId stream_id)
-    : DIPUStream(Unchecked::UNCHECKED, c10::Stream(c10::Stream::UNSAFE,
+    : DIPUStream(c10::Stream(c10::Stream::UNSAFE,
                 c10::Device(dipu::DIPU_DEVICE_TYPE, devidx), stream_id)) {
+  }
 
+  explicit DIPUStream() : DIPUStream(-1, 0) {
+    initialized_ = false;
   }
 
   ~DIPUStream(){}
@@ -94,6 +94,7 @@ public:
 
 private:
   c10::Stream stream_;
+  bool initialized_;
 };
 
 DIPU_API DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device = -1);

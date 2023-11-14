@@ -1,7 +1,6 @@
 #pragma once
 
 #include "OpUtils.hpp"
-#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 
 
