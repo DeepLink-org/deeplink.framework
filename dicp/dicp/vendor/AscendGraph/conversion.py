@@ -923,7 +923,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.copy)
     def copy(self, dst, src):
-        return self.get_proxy(ascend_op.Identity, (src, None))
+        return self.get_proxy(ascend_op.IdentityInp, (src, dst))
 
     @register_conversion(torch.ops.aten.unsqueeze)
     def unsqueeze(self, x, dim):
