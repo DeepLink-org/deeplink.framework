@@ -35,6 +35,7 @@ class SingleOpTransformer(torch.fx.Transformer):
             self.sym_to_inputs[fake_tensor.node.str()] = proxy
         elif symint_in_shape(fake_tensor.shape):
             # mention symint position in args
+            # dynamic shape feature
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()

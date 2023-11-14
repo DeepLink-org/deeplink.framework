@@ -28,6 +28,7 @@ class OutputMarkPass:
         self.cpu_tensor = []
 
     def transform(self, gm: torch.fx.graph_module):
+        # dynamic shape feature
         input_names = []
         for n in gm.graph.nodes:
             if n.op == 'placeholder':
@@ -56,6 +57,7 @@ class OutputMarkPass:
 
 
 def symint_in_inputs(nodes):
+    # dynamic shape feature
     for node in nodes:
         if node.op == 'placeholder':
             if hasattr(node, 'meta'):

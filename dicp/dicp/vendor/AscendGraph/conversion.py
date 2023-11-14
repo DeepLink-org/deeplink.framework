@@ -65,6 +65,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             elems = elem.strip().split(' ')
 
             arg = None
+            # dynamic shape feature
             if elems[0] in self.sym_in_args:
                 arg, idx = self.sym_in_args[elems[0]]
                 shape = self.get_proxy(ascend_op.Shape, (arg,))
@@ -409,11 +410,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.arange.default)
     def arange(self, end, start=0, step=1, dtype=None, device='xpu', layout=None, pin_memory=False):
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
         assert isinstance(start, torch.fx.proxy.Proxy) or isinstance(start, int)
         assert isinstance(end, torch.fx.proxy.Proxy) or isinstance(end, int)
         assert isinstance(step, torch.fx.proxy.Proxy) or isinstance(step, int)
-        out_dtype = fx_traceback.get_current_meta()['val'].dtype
-
+        
         if isinstance(start, int):
             start = self.get_proxy(ascend_op.Const, (int(start), out_dtype))
         elif start.node.meta['val'] != out_dtype:
@@ -716,8 +717,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
             x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
         shape = [dim.node.meta['val'] if hasattr(
             dim, 'node') else dim for dim in shape]
-        shape = self.get_shape_proxy(shape)
-        return self.get_proxy(ascend_op.Expand, (x, shape))
+        if isinstance(shape, list) and symint_in_shape(shape):
+            preprocess_shape = self.process_dynamic_shape(shape)
+            return self.get_proxy(ascend_op.Expand, (x, preprocess_shape))
+        else:
+            return self.get_proxy(ascend_op.ExpandD, (x, shape))
 
     @register_conversion(torch.ops.aten.slice_backward.default)
     def slice_backward(self, grad, input_shape, dim, start, end, step):

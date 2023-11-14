@@ -88,6 +88,7 @@ class AscendCodegen(torch.fx.Interpreter):
             self.sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
             # mention symint position in args
+            # dynamic shape feature
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()
@@ -215,6 +216,7 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.import_code.getvalue()
 
     def process_sym_name(self, st):
+        # dynamic shape feature
         if st.isdigit():
             return st
         elif '+' in st:
@@ -272,6 +274,7 @@ class AscendCodegen(torch.fx.Interpreter):
         self.args = [self.args_dict[x.name] for x in self.input_args]
         shape_symint = [value[0] for value in self.sym_in_args.values()]
 
+        # dynamic shape feature
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             args = ['_' if not arg in shape_symint and not arg in self.sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
@@ -294,6 +297,7 @@ class AscendCodegen(torch.fx.Interpreter):
             call_body.writeline(f'''dims = None''')
 
         # generate output shapes
+        # dynamic shape feature
         extra_stride_str = ''
         extra_storage_offset_str = ''
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
