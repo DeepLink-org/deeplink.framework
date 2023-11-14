@@ -412,18 +412,20 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert isinstance(start, torch.fx.proxy.Proxy) or isinstance(start, int)
         assert isinstance(end, torch.fx.proxy.Proxy) or isinstance(end, int)
         assert isinstance(step, torch.fx.proxy.Proxy) or isinstance(step, int)
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+
         if isinstance(start, int):
-            start = self.get_proxy(ascend_op.Const, (int(start), torch.int64))
-        else:
-            start = self.get_proxy(ascend_op.Cast, (start, "INT64"), {})
+            start = self.get_proxy(ascend_op.Const, (int(start), out_dtype))
+        elif start.node.meta['val'] != out_dtype:
+            start = self.get_proxy(ascend_op.Cast, (start, get_ascend_dtype(out_dtype)), {})
         if isinstance(end, int):
-            end = self.get_proxy(ascend_op.Const, (int(end), torch.int64))
-        else:
-            end = self.get_proxy(ascend_op.Cast, (end, "INT64"), {})
+            end = self.get_proxy(ascend_op.Const, (int(end), out_dtype))
+        elif end.node.meta['val'] != out_dtype:
+            end = self.get_proxy(ascend_op.Cast, (end, get_ascend_dtype(out_dtype)), {})
         if isinstance(step, int):
-            step = self.get_proxy(ascend_op.Const, (int(step), torch.int64))
-        else:
-            step = self.get_proxy(ascend_op.Cast, (step, "INT64"), {})
+            step = self.get_proxy(ascend_op.Const, (int(step), out_dtype))
+        elif step.node.meta['val'] != out_dtype:
+            step = self.get_proxy(ascend_op.Cast, (step, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Range, (end, start, step))
 
     @register_conversion(aten.arange.start)
