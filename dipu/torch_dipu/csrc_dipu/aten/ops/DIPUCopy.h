@@ -50,7 +50,7 @@ struct CopyParamsInfo {
 };
 
 namespace {
-  inline void try_record_stream(at::Tensor& tensor, DIPUStream& curStream, bool is_default_stream) {
+  inline void try_record_stream(const at::Tensor& tensor, DIPUStream& curStream, bool is_default_stream) {
     if (tensor.is_cpu()) {
       if (tensor.options().pinned_memory()) {
         tensor.record_stream(curStream);
@@ -177,8 +177,9 @@ public:
   }
 
 protected:
+
   void doCpuIntermediateCopy(at::Tensor& dst, const at::Tensor& src,
-                             bool non_blocking, CopyParamsInfo& info) {
+                             DIPUStream& curStream, bool non_blocking) {
     at::Tensor src_cpu = src;
     if(dipu::isDeviceTensor(src)) {
         src_cpu = at::empty_strided(src.sizes(), src.strides(),
@@ -186,52 +187,34 @@ protected:
       // src storage size may bigger than src_cpu's  if src is a partial view.
       // but not smaller. because src_cpu use same stride as src.
       // src -> src_cpu
-      doDirectCopy(src_cpu, src, non_blocking, info);
+      doDirectCopy(src_cpu, src, curStream, DIPUCopyType::D2H);
     }
 
     if(dipu::isDeviceTensor(dst)) {
       at::Tensor dst_cpu = at::empty_strided(dst.sizes(), dst.strides(),
             dst.options().device(c10::DeviceType::CPU));
-      doDirectCopy(dst_cpu, dst, non_blocking, info);
+      doDirectCopy(dst_cpu, dst, curStream, DIPUCopyType::D2H);
       // proxy to cpu to handle different type/view problem
       dst_cpu.copy_(src_cpu);
 
-      doDirectCopy(dst, dst_cpu, non_blocking, info);
+      doDirectCopy(dst, dst_cpu, curStream, DIPUCopyType::H2D);
     } else {  // dst is cpu
       dst.copy_(src_cpu);
     }
   }
 
-  void doDirectCopy(at::Tensor& dst, const at::Tensor& src, bool non_blocking, CopyParamsInfo& info) {
-    switch(info.copyType) {
+  void doDirectCopy(at::Tensor& dst, const at::Tensor& src,
+                    DIPUStream& curStream, DIPUCopyType copyType) {
+    switch(copyType) {
       case DIPUCopyType::H2D:
         // src is cpu.
-        copyH2D(dst, src, info.curStream);
+        copyH2D(dst, src, curStream);
       case DIPUCopyType::D2H:
         // dst is cpu.
-        copyD2H(dst, src, info.curStream);
+        copyD2H(dst, src, curStream);
       default:// device to device
-        copyD2D(dst, src, info.curStream);
+        copyD2D(dst, src, curStream);
     }
-  }
-
-  // overriding this func is possible but not recommended
-  virtual void copyAll(at::Tensor& dst, const at::Tensor& src,
-                      bool non_blocking, CopyParamsInfo& info) {
-    if (info.directCopy) {
-      doDirectCopy(dst, src, non_blocking, info);
-    } else {
-      switch(info.copyType) {
-        case DIPUCopyType::D2Self:
-          copyNodirectOnDevice(dst, src, non_blocking, info);
-          break;
-        case DIPUCopyType::D2OtherD:
-          copyNodirectBetweenDevices(dst, src, non_blocking, info);
-          break;
-        default:
-          copyNodirectDeviceHost(dst, src, non_blocking, info);
-      }
-    }  
   }
 
   // handle no-direct mem copy on one device, dipu has a simple configurable template strategy which 
@@ -243,11 +226,11 @@ protected:
   // 3.2 special no-contiguous (partial/hollow/overlap) 
   virtual void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                                     bool non_blocking, CopyParamsInfo& info) {
-    if (!useDiopiCast_ && !useDiopiCopy_) {
-      doCpuIntermediateCopy(dst, src, non_blocking, info);
+    if (!DiopiCast && !DiopiCopy) {
+      doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
     }
     auto tmpSrc = src;
-    if (useDiopiCopy_) {
+    if (DiopiCast) {
       if (!info.sameDtype) {
         tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
       }
@@ -255,7 +238,7 @@ protected:
       if (!info.allContiguous || info.bcastCopy) {
         dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
       } else {
-        doDirectCopy(dst, tmpSrc, non_blocking, info);
+        doDirectCopy(dst, tmpSrc, info.curStream, info.copyType);
       }
     } else {
       dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
@@ -270,16 +253,34 @@ protected:
                                           bool non_blocking, CopyParamsInfo& info) {
     auto dstInDevSrc = at::empty_strided(dst.sizes(), dst.strides(), dst.options().device(src.device()));
     copyNodirectOnDevice(dstInDevSrc, src, non_blocking, info);
-    doDirectCopy(dst, dstInDevSrc, non_blocking, info);
+    doDirectCopy(dst, dstInDevSrc, info.curStream, info.copyType);
   }
 
   // copy no-direct mem copy between cpu and device, dipu has default strategy which use
   // doCpuIntermediateCopy, it's slow. vendor who has more efficient solution can override it.
   virtual void copyNodirectDeviceHost(at::Tensor& dst, const at::Tensor& src,
                                         bool non_blocking, CopyParamsInfo& info) {
-      doCpuIntermediateCopy(dst, src, non_blocking, info);
+      doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
   }
 
+  // overriding this func is possible but not recommended
+  virtual void copyAll(at::Tensor& dst, const at::Tensor& src,
+                      bool non_blocking, CopyParamsInfo& info) {
+    if (info.directCopy) {
+      doDirectCopy(dst, src, info.curStream, info.copyType);
+    } else {
+      switch(info.copyType) {
+        case DIPUCopyType::D2Self:
+          copyNodirectOnDevice(dst, src, non_blocking, info);
+          break;
+        case DIPUCopyType::D2OtherD:
+          copyNodirectBetweenDevices(dst, src, non_blocking, info);
+          break;
+        default:
+          copyNodirectDeviceHost(dst, src, non_blocking, info);
+      }
+    }  
+  }
 };
 
 DIPUCopyBase* getDipuCopyClass();
