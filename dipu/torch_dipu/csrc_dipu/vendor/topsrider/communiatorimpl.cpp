@@ -23,12 +23,12 @@ DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm) {
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {
+DIPU_API diclResult_t diclGetUniqueId(commUniqueId *uniqueId) {
   ECCL_THROW(ecclGetUniqueId(uniqueId));
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclCommInitRank(diclComm_t* comm, int nranks,
+DIPU_API diclResult_t diclCommInitRank(diclComm_t *comm, int nranks,
                                        commUniqueId uniqueId, int rank,
                                        int localDeviceId) {
   ECCL_THROW(ecclCommInitRank(comm, nranks, uniqueId, rank));
@@ -47,16 +47,16 @@ DIPU_API diclResult_t diclCommDestroy(diclComm_t comm) {
 
 // DIPU_API diclResult_t diclCommAbort(diclComm_t comm);
 
-DIPU_API diclResult_t diclAllReduce(const void* sendbuff, void* recvbuff,
+DIPU_API diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff,
                                     size_t count, at::ScalarType datatype,
-                                    const ReduceOp& reduceOp, diclComm_t comm,
+                                    const ReduceOp &reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
   ECCL_THROW(ecclAllReduce(sendbuff, recvbuff, count, eccl_data_type[datatype],
                            eccl_op[reduceOp], comm, stream));
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff,
+DIPU_API diclResult_t diclBroadcast(const void *sendbuff, void *recvbuff,
                                     size_t count, at::ScalarType datatype,
                                     int root, diclComm_t comm,
                                     deviceStream_t stream) {
@@ -65,7 +65,7 @@ DIPU_API diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclAllGather(const void* sendBuf, void* recvBuf,
+DIPU_API diclResult_t diclAllGather(const void *sendBuf, void *recvBuf,
                                     size_t count, at::ScalarType datatype,
                                     diclComm_t comm, deviceStream_t stream) {
   ECCL_THROW(ecclAllGather(sendBuf, recvBuf, count, eccl_data_type[datatype],
@@ -73,19 +73,19 @@ DIPU_API diclResult_t diclAllGather(const void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
+DIPU_API diclResult_t diclReduce(const void *sendbuff, void *recvbuff,
                                  size_t count, at::ScalarType datatype,
-                                 const ReduceOp& reduceOp, int root,
+                                 const ReduceOp &reduceOp, int root,
                                  diclComm_t comm, deviceStream_t stream) {
   ECCL_THROW(ecclReduce(sendbuff, recvbuff, count, eccl_data_type[datatype],
                         eccl_op[reduceOp], root, comm, stream));
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
+DIPU_API diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf,
                                         size_t recvCount,
                                         at::ScalarType dataType,
-                                        const ReduceOp& op, diclComm_t comm,
+                                        const ReduceOp &op, diclComm_t comm,
                                         deviceStream_t stream) {
   ECCL_THROW(ecclReduceScatter(sendBuf, recvBuf, recvCount,
                                eccl_data_type[dataType], eccl_op[op], comm,
@@ -93,7 +93,7 @@ DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
+DIPU_API diclResult_t diclSend(void *sendbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   ECCL_THROW(
@@ -101,7 +101,7 @@ DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclRecv(void* recvbuff, size_t count,
+DIPU_API diclResult_t diclRecv(void *recvbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   ECCL_THROW(
