@@ -997,7 +997,7 @@ class AscendOverrides:
 
 
     @staticmethod
-    def CastCpu(name, x, ascend_dtype, device='cpu'):
+    def CastCpu(name, x, ascend_dtype):
         cast_op = OP(name, "Cast")
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
