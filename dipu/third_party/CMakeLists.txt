@@ -101,6 +101,7 @@ ExternalProject_Add(kineto_internal
                     CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
                                "-DKINETO_USE_DEVICE_ACTIVITY=ON"
                                "-DKINETO_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
+                               -DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}
                     BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
                                      "${KINETO_BUILD_PATH}/libkineto.a"
                     INSTALL_COMMAND cmake -E echo "Skipping install step for kineto_internal."
