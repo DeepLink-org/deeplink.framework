@@ -11,11 +11,12 @@
 
 namespace dipu {
 
-#define DIPU_CALLCUDA(Expr)                                                     \
-{                                                                               \
-    cudaError_t ret = Expr;                                                     \
-    TORCH_CHECK(ret == ::cudaSuccess, "call cuda error, expr = ", #Expr, ", ret = ", ret); \
-}
+#define DIPU_CALLCUDA(Expr)                                              \
+  {                                                                      \
+    cudaError_t ret = Expr;                                              \
+    TORCH_CHECK(ret == ::cudaSuccess, "call cuda error, expr = ", #Expr, \
+                ", ret = ", ret);                                        \
+  }
 
 using deviceStream_t = cudaStream_t;
 #define deviceDefaultStreamLiteral cudaStreamLegacy
@@ -24,9 +25,4 @@ using deviceEvent_t = cudaEvent_t;
 using diclComm_t = ncclComm_t;
 using commUniqueId = ncclUniqueId;
 
-}
-
-
-
-
-
+}  // namespace dipu
