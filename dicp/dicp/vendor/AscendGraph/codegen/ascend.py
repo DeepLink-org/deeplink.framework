@@ -157,18 +157,21 @@ class AscendCodegen(torch.fx.Interpreter):
 
     def parse_outputs(self):
         symint_inputs = sym_to_inputs.values()
+        real_output_args = []
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
                 name = self.args_dict[node.name]
                 self.py_output_names.append(name)
-                if name in self.graph_output_names:
+                if name in self.graph_output_names or name in self.graph_input_names:
                     continue
                 else:
+                    real_output_args.append(node)
                     self.graph_output_names.append(name)
                 if name in symint_inputs:
                     self.symint_outputs.append(name)
             else:
                 self.py_output_names.append(str(node))
+        self.output_args = real_output_args
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -244,7 +247,7 @@ class AscendCodegen(torch.fx.Interpreter):
         else:
             call_body.writeline('''dims = None''')
             call_body.writeline('''output_shape = None''')
-        
+
         out_stride_str = '''out_stride = ['''
         out_storage_offset_str = '''out_storage_offset = ['''
         for elem in self.output_args:
@@ -420,6 +423,7 @@ class AscendOperator:
         self.op_name = op_name
         self.op_type = op_type
         self.inputs = []
+        self.outputs = []
         self.attrs = []
         self.dynamic_inputs = []
         self.dynamic_outputs = []
@@ -431,6 +435,8 @@ class AscendOperator:
         }
         if len(self.inputs) > 0:
             node["inputs"] = self.inputs
+        if len(self.outputs) > 0:
+            node["outputs"] = self.outputs
         if len(self.attrs) > 0:
             node["attrs"] = self.attrs
         if len(self.dynamic_inputs) > 0:
@@ -443,6 +449,16 @@ class AscendOperator:
         self.inputs.append({
             "name": name,
             "value": value,
+        })
+
+    def set_output_desc(self, name, shape, format, data_type):
+        self.outputs.append({
+            "output_name": name,
+            "update_desc": {
+                "format": format,
+                "shape": shape,
+                "data_type": data_type
+            }
         })
 
     def set_input_with_index(self, name, value, index):
