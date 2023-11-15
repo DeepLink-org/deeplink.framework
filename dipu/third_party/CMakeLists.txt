@@ -58,10 +58,11 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                       BINARY_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/build"
                       DOWNLOAD_COMMAND ""
                       CMAKE_ARGS
-                        # note: as CMAKE_ARGS is a list, do not add quotes to args (such as "${DIOPI_IMPL_OPT}").
-                        -DIMPL_OPT=${DIOPI_IMPL_OPT}
-                        -DENABLE_COVERAGE=${USE_COVERAGE}
-                        -DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}
+                        # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
+                        "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
+                        "-DENABLE_COVERAGE=${USE_COVERAGE}"
+                        "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
+                        "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
                       INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
 
@@ -89,10 +90,10 @@ endif()
 #-------------------------add kineto as an external project ------------------------------------
 #-------------------------use the local submodule(without download)-----------------------------
 set(KINETO_BUILD_TARGET "kineto_internal-build")
-set(KINETO_SRC_PATH "${PROJECT_SOURCE_DIR}/third_party/kineto")
+set(KINETO_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/kineto")
 set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
 ExternalProject_Add(kineto_internal
-                    PREFIX "third_party/kineto/"
+                    PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/kineto/"
                     SOURCE_DIR ${KINETO_SRC_PATH}
                     SOURCE_SUBDIR libkineto
                     BINARY_DIR ${KINETO_BUILD_PATH}
@@ -100,6 +101,7 @@ ExternalProject_Add(kineto_internal
                     CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
                                "-DKINETO_USE_DEVICE_ACTIVITY=ON"
                                "-DKINETO_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
+                               "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                     BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
                                      "${KINETO_BUILD_PATH}/libkineto.a"
                     INSTALL_COMMAND cmake -E echo "Skipping install step for kineto_internal."
