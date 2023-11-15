@@ -5,6 +5,10 @@ source tests/common.sh
 
 function run_dipu_tests {
   # export DIPU_DUMP_OP_ARGS=2
+  unset DIPU_DUMP_OP_ARGS
+  export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
+  ${CDIR}/python/run_tests.sh
+
   run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v -f TestTensorCreationDIPU # --locals -f
 
   # skip ne, embedding, pow, view_as_complex, view_as_real, transpose, softmax, gt,
