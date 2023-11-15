@@ -1044,3 +1044,29 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.reciprocal.default)
     def Reciprocal(self, x):
         return self.get_proxy(ascend_op.Reciprocal, (x,))
+
+    @register_conversion(torch.ops.aten.native_dropout.default)
+    def NativeDropout(self, x, p, train):
+        assert train is True
+        dtype = x.node.meta['val'].dtype
+        p = 1. - p
+        shape = self.get_proxy(ascend_op.Shape, (x,))
+        prob = self.get_proxy(ascend_op.Const, ([float(p)], torch.float, []))
+        mask = self.get_proxy(ascend_op.DropOutGenMaskV4, (shape, prob))
+        prob_op = prob
+        if dtype == torch.float16:
+            cast = self.get_proxy(ascend_op.Cast, (prob, "FLOAT16"))
+            prob_op = cast
+        do_mask = self.get_proxy(ascend_op.DropOutDoMaskV3, (x, mask, prob_op))
+        return self.get_proxy(ascend_op.IdentityN, (do_mask, mask))
+
+    @register_conversion(torch.ops.aten.native_dropout_backward.default)
+    def NativeDropoutBackward(self, grad_output, mask, scale):
+        dtype = grad_output.node.meta['val'].dtype
+        p = 1. - scale
+        prob = self.get_proxy(ascend_op.Const, ([float(p)], torch.float, []))
+        prob_op = prob
+        if dtype == torch.float16:
+            cast = self.get_proxy(ascend_op.Cast, (prob, "FLOAT16"))
+            prob_op = cast
+        return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))

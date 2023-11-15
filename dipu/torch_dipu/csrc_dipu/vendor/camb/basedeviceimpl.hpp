@@ -1,12 +1,13 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
-#include <cnrt.h>
 #include <cndev.h>
 #include <cnnl.h>
+#include <cnrt.h>
+
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/runtime/device/deviceapis.h>
 #include <csrc_dipu/common.h>
+#include <csrc_dipu/runtime/device/deviceapis.h>
 
 // use header file as common is weird. change to use base class in future.
 // only vendor deviceimpl.cpp can include this header
@@ -25,13 +26,9 @@ deviceId_t current_device() {
   return static_cast<deviceId_t>(devId_);
 }
 
-void resetDevice(deviceId_t devId) {
-  DIPU_CALLCNRT(::cnrtDeviceReset())
-}
+void resetDevice(deviceId_t devId) { DIPU_CALLCNRT(::cnrtDeviceReset()) }
 
-void syncDevice() {
-  DIPU_CALLCNRT(::cnrtSyncDevice())
-}
+void syncDevice() { DIPU_CALLCNRT(::cnrtSyncDevice()) }
 
 int getDeviceCount() {
   int num = -1;
@@ -45,9 +42,7 @@ void getDriverVersion(int *version) {
   *version = verInfo.version;
 }
 
-void releaseStream() {
-  return;
-}
+void releaseStream() { return; }
 
 bool streamNotNull(deviceStream_t stream) {
   return stream != deviceDefaultStreamLiteral;
@@ -57,32 +52,24 @@ void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
   DIPU_CALLCNRT(::cnrtQueueWaitNotifier(event, stream, 0))
 }
 
-
-
 // =====================
 //  device event related
 // =====================
 
-void waitEvent(deviceEvent_t event) {
-  DIPU_CALLCNRT(::cnrtWaitNotifier(event))
-}
+void waitEvent(deviceEvent_t event) { DIPU_CALLCNRT(::cnrtWaitNotifier(event)) }
 
 void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLCNRT(::cnrtPlaceNotifier(event, stream));
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end) {
-  DIPU_CALLCNRT(cnrtNotifierElapsedTime(start, end, time))
-}
+void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end){
+    DIPU_CALLCNRT(cnrtNotifierElapsedTime(start, end, time))}
 
 EventStatus getEventStatus(deviceEvent_t event) {
   ::cnrtRet_t ret = ::cnrtQueryNotifier(event);
-  if (ret == ::cnrtSuccess)
-  {
+  if (ret == ::cnrtSuccess) {
     return devapis::EventStatus::READY;
-  }
-  else if (ret == ::cnrtErrorBusy || ret == ::cnrtErrorNotReady)
-  {
+  } else if (ret == ::cnrtErrorBusy || ret == ::cnrtErrorNotReady) {
     checkLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   }
@@ -93,56 +80,43 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 
-void freeHost(void *p) {
-    DIPU_CALLCNRT(cnrtFreeHost(p))
-}
+void freeHost(void *p){DIPU_CALLCNRT(cnrtFreeHost(p))}
 
 OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   ::cnrtRet_t r = ::cnrtMalloc(p, nbytes);
-  if (r != ::cnrtSuccess)
-  {
-    if (throwExcepion)
-    {
+  if (r != ::cnrtSuccess) {
+    if (throwExcepion) {
       checkLastError(); /* reset internal error state*/
       TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r);
-    }
-    else if ((r == ::cnrtErrorNoMem))
-    {
+    } else if ((r == ::cnrtErrorNoMem)) {
       return OpStatus::ERR_NOMEM;
-    }
-    else
-    {
+    } else {
       return OpStatus::ERR_UNKNOWN;
     }
   }
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void *p) {
-  DIPU_CALLCNRT(::cnrtFree(p))
-}
+void freeDevice(void *p) { DIPU_CALLCNRT(::cnrtFree(p)) }
 
 bool isPinnedPtr(const void *p) {
-    ::cnrtPointerAttributes_t attr;
-    DIPU_CALLCNRT(::cnrtPointerGetAttributes(&attr, p))
-    return attr.type == cnrtMemTypeHost;
+  ::cnrtPointerAttributes_t attr;
+  DIPU_CALLCNRT(::cnrtPointerGetAttributes(&attr, p))
+  return attr.type == cnrtMemTypeHost;
 }
 
 // (synchronous) copy from device to a device
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst, deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
+                deviceId_t srcDevId, const void *src) {
   // TODO(zhaoxiujia) : check src const
   syncDevice();
-  if (srcDevId != dstDevId)
-  {
-    DIPU_CALLCNRT(::cnrtMemcpyPeer(
-        dst, dstDevId, const_cast<void *>(src), srcDevId, nbytes))
-  }
-  else
-  {
-    if (dst != src)
-    {
-      DIPU_CALLCNRT(::cnrtMemcpy(
-          dst, const_cast<void *>(src), nbytes, CNRT_MEM_TRANS_DIR_DEV2DEV))
+  if (srcDevId != dstDevId) {
+    DIPU_CALLCNRT(::cnrtMemcpyPeer(dst, dstDevId, const_cast<void *>(src),
+                                   srcDevId, nbytes))
+  } else {
+    if (dst != src) {
+      DIPU_CALLCNRT(::cnrtMemcpy(dst, const_cast<void *>(src), nbytes,
+                                 CNRT_MEM_TRANS_DIR_DEV2DEV))
     }
   }
 }
@@ -150,46 +124,45 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst, deviceId_t srcDev
 // (synchronous) copy from host to a device
 void memCopyH2D(size_t nbytes, void *dst, const void *src) {
   syncDevice();
-  DIPU_CALLCNRT(::cnrtMemcpy(
-      dst, const_cast<void *>(src), nbytes, CNRT_MEM_TRANS_DIR_HOST2DEV))
+  DIPU_CALLCNRT(::cnrtMemcpy(dst, const_cast<void *>(src), nbytes,
+                             CNRT_MEM_TRANS_DIR_HOST2DEV))
 }
 
 // (synchronous) copy from a device to host
 void memCopyD2H(size_t nbytes, void *dst, const void *src) {
   syncDevice();
-  DIPU_CALLCNRT(::cnrtMemcpy(
-      dst, const_cast<void *>(src), nbytes, CNRT_MEM_TRANS_DIR_DEV2HOST))
+  DIPU_CALLCNRT(::cnrtMemcpy(dst, const_cast<void *>(src), nbytes,
+                             CNRT_MEM_TRANS_DIR_DEV2HOST))
 }
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                      deviceId_t dstDevId, void *dst, deviceId_t srcDevId, const void *src) {
-  if (dstDevId == srcDevId)
-  {
-    if (dst != src)
-    {
-      DIPU_CALLCNRT(::cnrtMemcpyAsync(
-          dst, const_cast<void *>(src), nbytes, stream, CNRT_MEM_TRANS_DIR_DEV2DEV))
+                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
+                     const void *src) {
+  if (dstDevId == srcDevId) {
+    if (dst != src) {
+      DIPU_CALLCNRT(::cnrtMemcpyAsync(dst, const_cast<void *>(src), nbytes,
+                                      stream, CNRT_MEM_TRANS_DIR_DEV2DEV))
     }
-  }
-  else
-  {
-    DIPU_CALLCNRT(cnrtMemcpyPeerAsync(
-        dst, dstDevId, const_cast<void *>(src), srcDevId, nbytes, stream))
+  } else {
+    DIPU_CALLCNRT(cnrtMemcpyPeerAsync(dst, dstDevId, const_cast<void *>(src),
+                                      srcDevId, nbytes, stream))
   }
 }
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst, const void *src){
-  DIPU_CALLCNRT(::cnrtMemcpyAsync(
-      dst, const_cast<void *>(src), nbytes, stream, CNRT_MEM_TRANS_DIR_HOST2DEV))
+void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst,
+                     const void *src) {
+  DIPU_CALLCNRT(::cnrtMemcpyAsync(dst, const_cast<void *>(src), nbytes, stream,
+                                  CNRT_MEM_TRANS_DIR_HOST2DEV))
 }
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst, const void *src) {
-  DIPU_CALLCNRT(::cnrtMemcpyAsync(
-      dst, const_cast<void *>(src), nbytes, stream, CNRT_MEM_TRANS_DIR_DEV2HOST))
+void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst,
+                     const void *src) {
+  DIPU_CALLCNRT(::cnrtMemcpyAsync(dst, const_cast<void *>(src), nbytes, stream,
+                                  CNRT_MEM_TRANS_DIR_DEV2HOST))
 }
 
-} // end namespace devapis
-} // end namespace dipu
+}  // end namespace devapis
+}  // end namespace dipu
