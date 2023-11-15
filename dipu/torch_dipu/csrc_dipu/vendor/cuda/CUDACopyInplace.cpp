@@ -21,6 +21,22 @@ public:
   }
 };
 
+
+//vendor which has incomplete diopiCopy implementation need write a subclass and override
+// copyNodirectBetweenDevices like this.
+/* 
+class VendorCopyInplcae: public DIPUCopyInplace<true, false> {
+public:
+  VendorCopyInplcae() = default;
+  ~VendorCopyInplcae() = default;
+   void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
+                                  bool non_blocking, CopyParamsInfo& info)  override {
+                                    
+      dipu_wrap_diopi_copy_inp(self, src, non_blocking);
+  }
+};
+*/
+
 static CUDACopyInplace cuda_copy_inplace;
 static int32_t cuda_init = []() {
   // setDipuCopyClass(&cuda_copy_inplace);
