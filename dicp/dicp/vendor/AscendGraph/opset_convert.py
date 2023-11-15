@@ -42,6 +42,8 @@ class OutputMarkPass:
             elif type(n.target) == IdentityInp:
                 if len(n.args) == 2 and n.args[1] is not None and str(n.args[1]) in input_names:
                     self.assign_args.append((n.name, input_names.index(str(n.args[1]))))
+                else:
+                    raise RuntimeError("Op inner copy_ error!")
 
         for n in gm.graph.nodes:
             if n.op == 'call_function':
