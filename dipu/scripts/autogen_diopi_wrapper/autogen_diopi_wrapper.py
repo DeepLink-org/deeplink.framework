@@ -94,6 +94,7 @@ def create_return_code_frome_schema(schema, allow_return_ref = True):
     return_code = schema[schema.find('->'):].replace('->', '').strip()
     return_code = re.sub('Tensor *\[ *\] *', 'std::vector<Tensor> ' ,return_code)
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
+    return_code = re.sub('\([a-zA-Z]\)', '' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('([\w_\d:&]+)[ ]+([\w\d_]+)?', R'\1', return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
@@ -131,9 +132,10 @@ def create_transform_input_to_cpu_code(fun_config):
 
     tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
     tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
     if len(tensors_arrays) > 0:
         for tensors_arg in tensors_arrays:
-            input_process_code += f"std::vector<at::Tensor> {tensors_arg}_cpu({tensors_arg}.size());\n";
+            input_process_code += f"std::vector<at::Tensor> {tensors_arg}_cpu({tensors_arg}.size());\n"
             input_process_code += f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)" + '{return tensor.cpu();});\n'
 
     return input_process_code
@@ -162,13 +164,15 @@ def create_param_list_from_schema(schema):
         'Scalar *\[ *\]' : 'at::ArrayRef<at::Scalar>',
         'Tensor *\( *[a-z]\!\) *\[ *\]' : 'at::ArrayRef<at::Tensor>',
         '[ ]*\([a-zA-Z]!\)' : '&',
+        'MemoryFormat\?' : 'const c10::optional<c10::MemoryFormat>',
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
         'Generator ?\?' : 'c10::optional<at::Generator>',
-        'Device ?\?' : 'c10::optional<c10::Device>',
+        'Device ?\?' : 'c10::optional<Device>',
+        'Device' : 'c10::Device',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,
@@ -377,6 +381,9 @@ def create_call_cpp_function_code_from_schema(schema):
 def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     schema = fun_config['schema']
     opname = get_op_name_from_schema(schema)
+    opname = re.sub('\.ScalarList', '', opname)
+    opname = re.sub('(_foreach_[\w\d_]+_?)\.List', R'\1', opname)
+    opname = re.sub('ctc_loss\.IntList', 'ctc_loss', opname)
     opname = re.sub('\.(Scalar)?(Tensor)?[\w_\d]*_out', '_outf', opname)
     opname = re.sub('\.out[\w_\d]*', '_outf', opname)
     opname = re.sub('\.Tensor_Scalar_out', '_outf', opname)
@@ -394,7 +401,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub('\.input', '', opname)
     opname = opname.replace('.', '_')
     opname = opname.split('.')[0]
-    if opname[-1] == '_':
+    if opname[-1] == '_' and len(get_function_return_param_from_schema(schema)) > 0:
         opname = opname[0:len(opname) - 1]
 
     sym_int_array_params = re.findall('[ ,\)]?SymInt\[\d?\] *([\w\d_]+)', schema)
@@ -406,7 +413,10 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
         opname = 'custom_fallback_' + create_fun_name_from_schema(schema)
     else:
         opname = 'at::' + opname
-    code = 'auto ' + ' result_cpu = ' + opname + '(' + create_args_name_list_from_schema(schema) + ');'
+    code = ''
+    if len(get_function_return_param_from_schema(schema)) > 0:
+        code = 'auto ' + 'result_cpu = '
+    code += opname + '(' + create_args_name_list_from_schema(schema) + ');'
     for sym_int_param in sym_int_array_params:
         code = code.replace(sym_int_param, sym_int_param + 'Vector')
 
@@ -422,6 +432,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
     tensors_arrays = re.findall('Tensor *\[ *\] * +([\w\d_]+)', schema[:schema.find('->')])
     tensors_arrays += re.findall('ITensorListRef *&? +([\w\d_]+)', schema[:schema.find('->')])
+    tensors_arrays += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
     optional_tensor_list_inputs = re.findall('Tensor *\? *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
     for input in inputs + optional_inputs + outputs + tensors_arrays + optional_tensor_list_inputs:
         code = re.sub('([\(, ]+)' + input + '([, \)]+)', R'\1' + input + '_cpu' + R'\2', code)
@@ -429,7 +440,12 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     return code
 
 def create_call_dipu_cpp_function_code_from_schema(schema):
-    code = create_return_code_frome_schema(schema) + ' result_device = ' + create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
+    code = create_return_code_frome_schema(schema)
+    if len(get_function_return_param_from_schema(schema)) > 0:
+        code += ' result_device = '
+    else:
+        code = code.replace('void ', '')
+    code += create_call_cpp_function_code_from_schema(schema).replace('; ', ';\n')
     return code.replace('; ', ';\n')
 
 def create_result_compare_code(fun_config):
@@ -446,6 +462,7 @@ def create_result_compare_code(fun_config):
             code += f'std::cout << "autocompare:\t{op_name}\t{return_param[i]}:" << std::endl << "\t" << dumpArg(std::get<{i}>(result_cpu)) << std::endl << "\t" << dumpArg(std::get<{i}>(result_device)) << std::endl << "\t" << {compare_code} << std::endl;\n';
 
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    inputs += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
     for i in range(len(inputs)):
         compare_code = f'_allclose({inputs[i]}_cpu, {inputs[i]})'
         code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << {compare_code} << std::endl;\n';
@@ -688,7 +705,7 @@ def functions_code_gen(fun_config):
             comment=[fun_config['schema']],
             execute_op_on_device_code=[create_call_dipu_cpp_function_code_from_schema(fun_config['schema']).replace(raw_fun_name, fun_name)],
             transform_result_to_cpu_code=[],
-            result_compare_code=[create_result_compare_code(fun_config) + "\nreturn result_device;\n"],
+            result_compare_code=[create_result_compare_code(fun_config) + ("\nreturn result_device;\n" if len(get_function_return_param_from_schema(fun_config['schema'])) > 0 else "")],
         )
         fbody += autocompare_code
         fun_name = auto_compare_fun_name

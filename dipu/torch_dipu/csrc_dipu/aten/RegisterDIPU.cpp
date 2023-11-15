@@ -54,7 +54,7 @@ bool get_force_fallback(const char* opname) {
 
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
-}
+}  // end of namespace native
 
 void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stack* stack) {
   static int level = []() {
@@ -71,30 +71,43 @@ void dump_fallback_op_args(const c10::OperatorHandle& op, const torch::jit::Stac
   auto& schema_args = op.schema().arguments();
   const auto num_arguments = schema_args.size();
   auto arguments = torch::jit::last(stack, num_arguments);
+
+  auto dumpTensor = [&](const at::Tensor tensor) {
+    if (tensor.defined()) {
+        std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
+            << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
+            << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
+        if (level > 2) {
+            std::cout << std::endl << tensor;
+        }
+      } else {
+        std::cout << "undefined";
+      }
+  };
+
   const auto arguments_begin = stack->size() - num_arguments;
   for (const auto idx : c10::irange(arguments.size())) {
     std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
     const auto& ivalue = arguments[idx];
     if (ivalue.isTensor()) {
       const auto& tensor = ivalue.toTensor();
-      if (tensor.defined()) {
-        std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes() << ", stride: " << tensor.strides() << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
-            << ", device:" << tensor.device() << ", layout:" << tensor.layout() << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false") << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
-            << ", memory_format: "  << tensor.suggest_memory_format() << ", data_ptr: " << tensor.data_ptr();
-        if (level >= 2) {
-            std::cout << std::endl << tensor;
-        }
-      } else {
-        std::cout << "undefined";
-      }
+      dumpTensor(tensor);
       std::cout << std::endl;
+    } else if (ivalue.isTensorList()) {
+      const auto& tensorlist = ivalue.toTensorList();
+      std::cout << std::endl;
+      for (size_t i = 0; i < tensorlist.size(); i++) {
+        std::cout << "\t";
+        dumpTensor(tensorlist[i]);
+        std::cout << std::endl;
+      }
     } else {
       std:: cout << ivalue << std::endl;
     }
   }
 }
 
-}
+}  // end of namespace dipu
 
 namespace at {
 
@@ -107,7 +120,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   //  "Currently the foreach operator does not support fallback: ", name);
   const bool forech_op = name.find("foreach") != std::string::npos;
 
-  DIPU_REGISTER_LOG("fallback to cpu, name=" << name << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE("fallback to cpu, name=" << name << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
     "aten::native_batch_norm",
@@ -166,15 +179,6 @@ namespace {
     return dnative::empty_strided_cpu(size, stride, dtype_opt, layout_opt, device_opt, pin_memory_opt);
   }
 
-  at::Tensor& wrapper_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
-    if (use_slow_copy) {
-      return dnative::copy_(self, src, non_blocking);
-    } else {
-      return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
-    }
-  }
 
   at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
     dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
@@ -294,13 +298,11 @@ namespace {
   }
 
   bool wrapper_DIPU_is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::is_pinned(self, device);
   }
 
   at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self, c10::optional<at::Device> device) {
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
     const OptionalDeviceGuard device_guard(device_of(self));
     return dnative::_pin_memory(self, device);
   }
@@ -311,7 +313,7 @@ namespace {
     dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
   }
 
-}  // inner anonymous namespace
+}  // end of inner anonymous namespace
 
 
 DIPU_LIBRARY_IMPL(_, DIPU_DEVICE_TYPE_MACRO, m) {
@@ -327,7 +329,6 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_DIPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_DIPU_empty_strided));
-  m.impl("copy_",  TORCH_FN(wrapper_copy_));
   m.impl("_reshape_alias", TORCH_FN(wrapper_DIPU___reshape_alias));
   m.impl("_copy_from_and_resize", TORCH_FN(wrapper_DIPU___copy_from_and_resize));
   m.impl("resize_", TORCH_FN(wrapper_resize_));
@@ -374,4 +375,4 @@ DIPU_LIBRARY_IMPL(aten, CPU, m) {
   m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }
 
-}  //end ns at
+}  //end namespace at

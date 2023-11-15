@@ -42,6 +42,12 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return prop;
 }
 
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+  DIPUDeviceStatus status;
+  cudaMemGetInfo(&status.freeGlobalMem, nullptr);
+  return status;
+}
+
 // in cuda_runtime_api.h
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
@@ -252,7 +258,7 @@ void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,  con
 
 }   // end namespace devapis
 
-}  // namespace parrots
+}  // namespace dipu
 
 
 

@@ -29,7 +29,7 @@ function check_and_clone_repository() {
 function clone_needed_repo() {
     set -e
     # clone some repositories
-    MMCV_VERSION=ee93530acc675231014b92a58fd6e4a59e27cc13
+    MMCV_VERSION=ea53ed02d7bcd856a1de42c6b408244c4fed5fa1
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
@@ -65,27 +65,6 @@ function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
     cd ..
-    # cd ../mmdet 
-    # pip install -e . --no-deps
-    # cd ../mmyolo
-    # # Install albumentations
-    # pip install -r requirements/albu.txt --no-deps
-    # # Install MMYOLO
-    # pip install -e . --no-deps
-    # cd mmagic
-    # pip install -e . -v 
-    # cd ../mmpretrain
-    # pip install -e .
-    # cd ..
-    # cd DI-engine
-    # pip install -e .
-    # cd ..
-    # #安装强化学习需要用的包
-    # pip install lz4
-    # pip install readerwriterlock
-    # pip install Flask==2.1.0
-    # pip install transformers
-    # pip install accelerate
 }
 
 function build_needed_repo_camb() {
@@ -94,31 +73,27 @@ function build_needed_repo_camb() {
     cd ..
 }
 
+function build_needed_repo_ascend() {
+    cd mmcv
+    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
+    cd ..
+}
+
 
 function export_repo_pythonpath(){
     basic_path="$2"
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in pythonpath..."
-        export PYTHONPATH=/mnt/cache/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
-        # set the environment variable for the transformers repository
-        export HF_HOME=${basic_path}/huggingface
-        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
-        export PYTHONPATH=/mnt/lustre/share/platform/env/miniconda3.8/envs/pt2.0_diopi/mmcvs/9b1209f:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
         export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
-        # set the environment variable for the transformers repository
-        export HF_HOME=${basic_path}/huggingface
-        export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
+    elif [ "$1" = "ascend" ]; then
+        echo "Executing ASCEND operation in pythonpath..."
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
         exit 1
@@ -132,7 +107,14 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmdetection:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
-    # export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+
+    # set the environment variable for the transformers repository
+    export HF_HOME=${basic_path}/huggingface
+    export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
+
+    export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
     echo "python path: $PYTHONPATH"
 }
@@ -171,6 +153,24 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+    
+    elif [ "$1" = "ascend" ]; then
+        echo "Executing ASCEND operation in build dataset..."
+        rm -rf data
+        mkdir data
+        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/lustre/share_data/PAT/datasets/kitti data/kitti
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/torchvision/resnet50-0676ba61.pth data/resnet50-0676ba61.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/vgg16_caffe-292e1171.pth data/vgg16_caffe-292e1171.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
 
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
@@ -188,10 +188,15 @@ case $1 in
     build_camb)
         build_needed_repo_camb
         build_dataset camb;;
+    build_ascend)
+        build_needed_repo_ascend
+        build_dataset ascend;;
     export_pythonpath_camb)
         export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)
         export_repo_pythonpath cuda $2;;
+    export_pythonpath_ascend)
+        export_repo_pythonpath ascend $2;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac

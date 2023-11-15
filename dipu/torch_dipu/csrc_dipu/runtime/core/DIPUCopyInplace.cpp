@@ -84,10 +84,7 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
   dipu::devproxy::memCopyD2DAsync(stream.rawstream(), size, dst_device.index(), dst_ptr, src_device.index(), src_ptr);
 
-  if (non_blocking) {
-    // TODO(caikun): remove syncStream when cache allocator is ready
-    dipu::devproxy::syncStream(stream.rawstream());
-  } else {
+  if (!non_blocking) {
     dipu::devproxy::syncStream(stream.rawstream());
   }
   return self;
@@ -96,7 +93,6 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
 at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
-  dipu::OptionalDIPUGuard device_guard(dst_device.is_cuda() ? dst_device : src_device);
 
   int64_t nbytes = iter.numel() * iter.element_size(0);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
@@ -108,10 +104,7 @@ at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tenso
     TORCH_CHECK(false, "unsupported devices in copy_");
   }
 
-  if (non_blocking) {
-    // TODO(caikun): remove syncStream when cache allocator is ready
-    dipu::devproxy::syncStream(stream.rawstream());
-  } else {
+  if (!non_blocking) {
     dipu::devproxy::syncStream(stream.rawstream());
   }
   return self;

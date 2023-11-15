@@ -1,191 +1,235 @@
-  diopiAbs
-  diopiAbsInp
-  diopiAdaptiveAvgPool2d
-  diopiAdaptiveAvgPool2dBackward
-  diopiAdd
-  diopiAddInp
-  diopiAddInpScalar
-  diopiAddScalar
-  diopiAddcdiv
-  diopiAddcdivInp
-  diopiAddcmul
-  diopiAddcmulInp
-  diopiAddmm
-  diopiAll
-  diopiAny
-  diopiArange
-  diopiArgmax
-  diopiBCELoss
-  diopiBCELossBackward
-  diopiBaddbmm
-  diopiBaddbmmInp
-  diopiBatchNorm
-  diopiBatchNormBackward
-  diopiBitwiseAnd
-  diopiBitwiseAndInp
-  diopiBitwiseAndInpScalar
-  diopiBitwiseAndScalar
-  diopiBitwiseNot
-  diopiBitwiseNotInp
-  diopiBmm
-  diopiCTCLoss
-  diopiCTCLossBackward
-  diopiCat
-  diopiCdist
-  diopiCdistBackward
-  diopiClamp
-  diopiClampInp
-  diopiClampInpScalar
-  diopiClampMaxScalar
-  diopiClampMinScalar
-  diopiClampScalar
-  diopiConvolution2d
-  diopiConvolution2dBackward
-  diopiCos
-  diopiCosInp
-  diopiCrossEntropyLoss
-  diopiCrossEntropyLossBackward
-  diopiCumsum
-  diopiDiv
-  diopiDivInp
-  diopiDivInpScalar
-  diopiDivScalar
-  diopiDropout
-  diopiDropoutInp
-  diopiEq
-  diopiEqInp
-  diopiEqInpScalar
-  diopiEqScalar
-  diopiErf
-  diopiErfInp
-  diopiExp
-  diopiExpInp
-  diopiFill
-  diopiFlip
-  diopiFloor
-  diopiFloorInp
-  diopiGather
-  diopiGe
-  diopiGeInp
-  diopiGeInpScalar
-  diopiGeScalar
-  diopiGelu
-  diopiGeluBackward
-  diopiGt
-  diopiGtInp
-  diopiGtInpScalar
-  diopiGtScalar
-  diopiHardswish
-  diopiHardswishBackward
-  diopiHardswishInp
-  diopiHardtanh
-  diopiHardtanhBackward
-  diopiHardtanhInp
-  diopiIndex
-  diopiIndexPut
-  diopiIndexSelect
-  diopiLayerNorm
-  diopiLayerNormBackward
-  diopiLe
-  diopiLeInp
-  diopiLeInpScalar
-  diopiLeScalar
-  diopiLeakyRelu
-  diopiLeakyReluBackward
-  diopiLeakyReluInp
-  diopiLinear
-  diopiLinearBackward
-  diopiLinspace
-  diopiLog
-  diopiLog2
-  diopiLog2Inp
-  diopiLogInp
-  diopiLogSoftmax
-  diopiLogSoftmaxBackward
-  diopiLogicalAnd
-  diopiLogicalAndInp
-  diopiLt
-  diopiLtInp
-  diopiLtInpScalar
-  diopiLtScalar
-  diopiMSELoss
-  diopiMSELossBackward
-  diopiMaskedFill
-  diopiMaskedFillInp
-  diopiMaskedFillInpScalar
-  diopiMaskedFillScalar
-  diopiMaskedSelect
-  diopiMatmul
-  diopiMax
-  diopiMaxAll
-  diopiMaxPool2d
-  diopiMaxPool2dBackward
-  diopiMaxPool2dWithIndices
-  diopiMaximum
-  diopiMean
-  diopiMin
-  diopiMinAll
-  diopiMinimum
-  diopiMm
-  diopiMul
-  diopiMulInp
-  diopiMulInpScalar
-  diopiMulScalar
-  diopiMultinomial
-  diopiNLLLoss
-  diopiNLLLossBackward
-  diopiNe
-  diopiNeInp
-  diopiNeInpScalar
-  diopiNeScalar
-  diopiNeg
-  diopiNegInp
-  diopiNonzero
-  diopiNorm
-  diopiNormalInp
-  diopiPolar
-  diopiPow
-  diopiPowInp
-  diopiPowInpTensor
-  diopiPowScalar
-  diopiPowTensor
-  diopiRandomInp
-  diopiRandperm
-  diopiReciprocal
-  diopiRelu
-  diopiReluInp
-  diopiRemainderTensor
-  diopiRepeat
-  diopiRoll
-  diopiRsqrt
-  diopiScatter
-  diopiScatterScalar
-  diopiSigmoid
-  diopiSigmoidBackward
-  diopiSilu
-  diopiSin
-  diopiSinInp
-  diopiSoftmax
-  diopiSoftmaxBackward
-  diopiSort
-  diopiSqrt
-  diopiSqrtInp
-  diopiStack
-  diopiStd
-  diopiSub
-  diopiSubScalar
-  diopiSum
-  diopiTanh
-  diopiTanhBackward
-  diopiTanhInp
-  diopiThresholdBackward
-  diopiTopk
-  diopiTranspose
-  diopiTril
-  diopiUniformInp
-  diopiUnique
-  diopiUpsampleLinear
-  diopiUpsampleLinearBackward
-  diopiUpsampleNearest
-  diopiUpsampleNearestBackward
-  diopiWhere
+diopiAbs
+diopiAbsInp
+diopiAdaptiveAvgPool2d
+diopiAdaptiveAvgPool2dBackward
+diopiAdd
+diopiAddcdiv
+diopiAddcdivInp
+diopiAddcmul
+diopiAddcmulInp
+diopiAddInp
+diopiAddInpScalar
+diopiAddmm
+diopiAddScalar
+diopiAll
+diopiAmax
+diopiAmpForeachNonFiniteCheckAndUnscaleInp
+diopiAmpUpdateScaleInp
+diopiAny
+diopiArange
+diopiArgmax
+diopiAtan
+diopiAvgPool2d
+diopiAvgPool2dBackward
+diopiBaddbmm
+diopiBaddbmmInp
+diopiBatchNorm
+diopiBatchNormBackward
+diopiBatchNormBackwardElemt
+diopiBatchNormBackwardReduce
+diopiBatchNormElemt
+diopiBatchNormGatherStatsWithCounts
+diopiBatchNormStats
+diopiBCELoss
+diopiBCELossBackward
+diopiBernoulliScalar
+diopiBitwiseAnd
+diopiBitwiseAndInp
+diopiBitwiseAndInpScalar
+diopiBitwiseAndScalar
+diopiBitwiseNot
+diopiBitwiseNotInp
+diopiBitwiseOr
+diopiBitwiseOrInp
+diopiBitwiseOrInpScalar
+diopiBitwiseOrScalar
+diopiBmm
+diopiCastDtype
+diopiCat
+diopiCdist
+diopiCdistBackward
+diopiClamp
+diopiClampInp
+diopiClampInpScalar
+diopiClampMax
+diopiClampMaxInp
+diopiClampMaxInpScalar
+diopiClampMaxScalar
+diopiClampMin
+diopiClampMinInp
+diopiClampMinInpScalar
+diopiClampMinScalar
+diopiClampScalar
+diopiCol2Im
+diopiConvolution2d
+diopiConvolution2dBackward
+diopiConvTranspose2d
+diopiConvTranspose2dBackward
+diopiCopyInp
+diopiCos
+diopiCosInp
+diopiCrossEntropyLoss
+diopiCrossEntropyLossBackward
+diopiCTCLoss
+diopiCTCLossBackward
+diopiCumsum
+diopiDiv
+diopiDivInp
+diopiDivInpScalar
+diopiDivScalar
+diopiDropout
+diopiEmbeddingBackward
+diopiEq
+diopiEqInp
+diopiEqInpScalar
+diopiEqScalar
+diopiErfinv
+diopiErfinvInp
+diopiExp
+diopiExpInp
+diopiFill
+diopiFlip
+diopiFloor
+diopiFloorInp
+diopiGather
+diopiGe
+diopiGeInp
+diopiGeInpScalar
+diopiGelu
+diopiGeluBackward
+diopiGeScalar
+diopiGroupNorm
+diopiGroupNormBackward
+diopiGt
+diopiGtInp
+diopiGtInpScalar
+diopiGtScalar
+diopiHardswish
+diopiHardswishBackward
+diopiHardswishInp
+diopiHardtanh
+diopiHardtanhBackward
+diopiHardtanhInp
+diopiIm2Col
+diopiIndex
+diopiIndexPut
+diopiIndexSelect
+diopiIsNan
+diopiLayerNorm
+diopiLayerNormBackward
+diopiLe
+diopiLeakyRelu
+diopiLeakyReluBackward
+diopiLeakyReluInp
+diopiLeInp
+diopiLeInpScalar
+diopiLerpScalar
+diopiLerpTensor
+diopiLeScalar
+diopiLinalgQR
+diopiLinear
+diopiLinearBackward
+diopiLinspace
+diopiLog
+diopiLog2
+diopiLog2Inp
+diopiLogicalAnd
+diopiLogicalAndInp
+diopiLogInp
+diopiLogSoftmax
+diopiLogSoftmaxBackward
+diopiLt
+diopiLtInp
+diopiLtInpScalar
+diopiLtScalar
+diopiMaskedFill
+diopiMaskedFillInp
+diopiMaskedFillInpScalar
+diopiMaskedFillScalar
+diopiMaskedSelect
+diopiMatmul
+diopiMax
+diopiMaxAll
+diopiMaximum
+diopiMaxPool2d
+diopiMaxPool2dBackward
+diopiMaxPool2dWithIndices
+diopiMean
+diopiMin
+diopiMinAll
+diopiMinimum
+diopiMm
+diopiMSELoss
+diopiMSELossBackward
+diopiMul
+diopiMulInp
+diopiMulInpScalar
+diopiMulScalar
+diopiMultinomial
+diopiNe
+diopiNeg
+diopiNegInp
+diopiNeInp
+diopiNeInpScalar
+diopiNeScalar
+diopiNLLLoss
+diopiNLLLossBackward
+diopiNonzero
+diopiNorm
+diopiNormalInp
+diopiPolar
+diopiPow
+diopiPowInp
+diopiPowInpTensor
+diopiPowScalar
+diopiPowTensor
+diopiProd
+diopiRandomInp
+diopiRandperm
+diopiReciprocal
+diopiRelu
+diopiReluInp
+diopiRemainderScalar
+diopiRemainderTensor
+diopiRepeat
+diopiRoll
+diopiRsqrt
+diopiScatter
+diopiScatterScalar
+diopiSgn
+diopiSigmoid
+diopiSigmoidBackward
+diopiSign
+diopiSilu
+diopiSin
+diopiSinInp
+diopiSmoothL1Loss
+diopiSmoothL1LossBackward
+diopiSoftmax
+diopiSoftmaxBackward
+diopiSort
+diopiSqrt
+diopiSqrtInp
+diopiStack
+diopiStd
+diopiSub
+diopiSubInp
+diopiSubInpScalar
+diopiSubScalar
+diopiSum
+diopiTanh
+diopiTanhBackward
+diopiTanhInp
+diopiTensorHandles
+diopiThresholdBackward
+diopiTopk
+diopiTranspose
+diopiTril
+diopiTriu
+diopiUniformInp
+diopiUnique
+diopiUpsampleLinear
+diopiUpsampleLinearBackward
+diopiUpsampleNearest
+diopiUpsampleNearestBackward
+diopiWhere

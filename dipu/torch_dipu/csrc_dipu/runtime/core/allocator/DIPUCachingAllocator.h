@@ -125,6 +125,7 @@ class DIPU_API CacheAllocator: public c10::Allocator, public MemStats {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
         auto current_stream = getCurrentDIPUStream();
         // If current stream is the default stream, we don't need to synchronize
+        // But before releasing the memory we must synchronize the default stream
         if (getDefaultDIPUStream() != current_stream) {
           streams_.insert(current_stream);
         }
@@ -196,8 +197,9 @@ struct RawAllocator<at::DeviceType::CPU> {
 template<typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>
 c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
     // Construct when really needed
-    static AllocatorImpl cache_allocator;
+    // async_mem_pool is used when cache_allocator being destructed so it should be destructed after cache_allocator
     static AsyncMemPoolImpl async_mem_pool;
+    static AllocatorImpl cache_allocator;
     static int n = [&](){
       cache_allocator.set_raw_allocator(raw_allocator);
       cache_allocator.set_async_mem_pool(&async_mem_pool);

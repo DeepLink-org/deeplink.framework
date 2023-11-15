@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPURawAllocator.h"
+#include "../DIPUStream.h"
 
 #include <mutex>
 #include <unordered_set>
@@ -15,6 +16,11 @@ static void DIPURawDeviceAllocatorDeleter(void *ptr) {
     if (ptr) {
       auto device = devproxy::current_device();
       DIPU_DEBUG_ALLOCATOR(2, "devproxy::freeDevice: free " << ptr);
+      // When only one stream is involved, in order to improve performance and memory usage,
+      // we actually do not use events for synchronization.
+      // The memory used by the same stream is allocated to the same stream for use without synchronization,
+      // this is no problem, but in direct release without synchronization is problematic, so adding synchronization here is necessary.
+      getDefaultDIPUStream().synchronize();
       devproxy::freeDevice(ptr);
       ptr = nullptr;
     }

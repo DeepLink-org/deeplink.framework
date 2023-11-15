@@ -38,12 +38,19 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 
   DIPUDeviceProperties prop;
   prop.name = device_prop.name;
-  prop.totalGlobalMem = mem_info.physicalMemoryTotal << 20;;
+  prop.totalGlobalMem = mem_info.physicalMemoryTotal << 20;
   prop.major = major;
   prop.minor = minor;
   prop.multiProcessorCount = multi_processor_cnt;
   return prop;
 }
+
+/* 
+  both cndevMemoryInfo_t.physicalMemoryUsed from cndevGetMemoryUsage and cndevProcessInfo_t from cndevGetProcessInfo seems not correct,
+  value always zero, need further investigation.
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+}
+*/
 
 // check last launch succ or not, throw if fail
 void checkLastError() {

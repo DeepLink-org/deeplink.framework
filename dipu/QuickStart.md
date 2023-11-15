@@ -59,11 +59,7 @@ git clone git@github.com:DeepLink-org/dipu.git
 cd dipu
 git submodule update --init --recursive
 
-# 修改 template_build _sh 中 PYTORCH_DIR、PYTHON_INCLUDE_DIR
 # 示例
-# PYTORCH_DIR="/home/$USER/code/pytorch"
-# PYTHON_INCLUDE_DIR="/home/$USER/env/py3.8/include/python3.8"
-
 # DIPU_DEVICE设置成厂商在dipu的设备名，即 https://github.com/DeepLink-org/dipu/blob/main/CMakeLists.txt 中的DEVICE_CAMB、DEVICE_ASCEND对应的字符串
 # DIOPI_IMPL设置成厂商在DIOPI/impl的实现代号，即 https://github.com/DeepLink-org/DIOPI/blob/main/impl/CMakeLists.txt 中的IMPL_CAMB、IMPL_ASCEND等对应的字符串
 # 示例
@@ -76,10 +72,8 @@ sh template_build_sh builddp $DIPU_DEVICE $DIOPI_IMPL
 ```
 ### 2.1.4 验证DIPU
 ``` bash
-export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/impl/lib
 export DIPU_ROOT=/home/$USER/code/dipu/torch_dipu
-export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH; 
-export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=/home/$USER/code/dipu:$PYTHONPATH
 
 python tests/test_ops/archived/test_tensor_add.py
@@ -293,7 +287,7 @@ void createStream(deviceStream_t* stream, bool prior) {
 - 对应上述CMAKE的修改，我们应该修改我们的编译脚本，在cmake相关命令中，我们的`template_build_sh`里面使用了`DCAMB=ON`，将其修改为`DDROPLET=ON`
 
 ### 4.4 编译与测试
-- 根据DIPU的编译介绍，我们在编译了impl之后，使用其编译脚本编译C++ ext和Python链接部分（脚本中`builddl`和`builddp`），这里需要注意编译之后将`LIBRARY_PATH`、`LD_LIBRARY_PATH`、`PYTHONPATH`都设置好避免后续使用出现问题
+- 根据DIPU的编译介绍，我们在编译了impl之后，使用其编译脚本编译C++ ext和Python链接部分（脚本中`builddl`和`builddp`），这里需要注意编译之后将 `LD_LIBRARY_PATH`、`PYTHONPATH`都设置好避免后续使用出现问题
 - `dipu/tests`文件夹中有许多基础功能的测试，建议首先尝试测试`python -u dipu/tests/test_ops/archived/test_tensor_add.py`，该文件测试跑通基本意味着我们的设备*runtime*接入没有问题了
 - 编译脚本参考[2.1.3](#213-编译dipu)，测试脚本可以参考[2.1.4](#214-验证dipu)
 

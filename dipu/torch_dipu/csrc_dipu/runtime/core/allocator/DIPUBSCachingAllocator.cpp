@@ -32,7 +32,24 @@ public:
     release_all_memory();
   }
 
-  size_t getAllocateSize(size_t nbytes) const{
+  // Better adaptability to memory blocks of various sizes, but internal fragmentation will be larger
+  size_t getAllocateSizeMoreAdaptable(size_t nbytes) const{
+    static const int kMinAllocationSizeExp = [](){
+      size_t size = 511;
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      if (env != nullptr) {
+        size = std::atoi(env);
+      }
+      int exp = 32 - __builtin_clz(size);
+      return exp;
+    }();
+    auto r = std::max(32 - __builtin_clz(nbytes), kMinAllocationSizeExp);
+    size_t allocateSize = 1 << r;
+    return allocateSize;
+  }
+
+  // The internal fragments are smaller, but are less adaptable to scenes with frequent and drastic changes in size.
+  size_t getAllocateSizeLessFragmentation(size_t nbytes) const{
     static const size_t kMinAllocationSize = [](){
       size_t size = 512;
       const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
@@ -45,27 +62,39 @@ public:
     return allocateSize;
   }
 
+  size_t getAllocateSize(size_t nbytes) const{
+    static bool less_fragmentation = std::getenv("DIPU_BS_MORE_ADAPTABLE") == nullptr;
+    return less_fragmentation ? getAllocateSizeLessFragmentation(nbytes) : getAllocateSizeMoreAdaptable(nbytes);
+  }
+
   c10::DataPtr allocate(size_t size) const override{
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::allocate " << size << ",allocator:" << this <<", memory-usage" << memory_allocated() << "/" << memory_reserved());
-    flush_mem_pool();
     std::lock_guard<mutex_t> lk(mutex_);
+    flush_mem_pool();
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
-    if (idel_blocks.size() > 0) {
-      ptr = idel_blocks.front();
-      idel_blocks.pop_front();
-      impl->total_idel_bytes_ -= nbytes;
-      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::reuse " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+    if (idel_blocks.size() <= 0) {
+      empty_resource_pool();
     }
-    if (ptr == nullptr){
-      for (size_t i = 0; i < 2; i++) {
+    for (size_t i = 0; i < 2; i++) {
+      if (idel_blocks.size() > 0) {
+        ptr = idel_blocks.front();
+        idel_blocks.pop_front();
+        impl->total_idel_bytes_ -= nbytes;
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::reuse " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
+        break;
+      } else {
         try {
           auto data_ptr = raw_allocator()->allocate(nbytes);
           ptr = data_ptr.get();
           device() = data_ptr.device();
           data_ptr.release_context();
           set_memory_reserved(memory_reserved() + nbytes);
+
+          impl->allocated_.insert(ptr);
+          impl->total_alocated_bytes_+= nbytes;
+          DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
           break;
         }
         catch(...) {
@@ -76,12 +105,10 @@ public:
           }
         }
       }
-      impl->allocated_.insert(ptr);
-      impl->total_alocated_bytes_+= nbytes;
-      DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate " << nbytes << ", requires:" << size << " bytes, ptr:" << ptr << ",allocator:" << this);
     }
     set_memory_allocated(memory_allocated() + nbytes);
-    c10::DataPtr data_ptr(ptr, makeContext(ptr, size), deleteBSContext, device());
+    c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes), deleteBSContext, device());
+    c10::reportMemoryUsageToProfiler(ptr, static_cast<int64_t>(nbytes), memory_allocated(), memory_reserved(), c10::Device(c10::DeviceType::CUDA, device().index()));
     return data_ptr;
   }
 
@@ -91,11 +118,10 @@ public:
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore " << nbytes << " bytes, ptr:" << ptr << ",allocator:" << this);
     impl->idel_blocks_[nbytes].push_back(ptr);
     impl->total_idel_bytes_ += nbytes;
-    set_memory_allocated(memory_allocated() - nbytes);
   }
 
-  void empty_cache() const override {
-    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+  void empty_resource_pool() const {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_resource_pool ,allocator:"  << this);
     while(async_mem_pool()->size() > 0) {
       if (async_mem_pool()->ready()) {
         flush_mem_pool();
@@ -103,6 +129,11 @@ public:
         std::this_thread::yield();
       }
     }
+  }
+
+  void empty_cache() const override {
+    DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::empty_cache ,allocator:"  << this);
+    empty_resource_pool();
     std::lock_guard<mutex_t> lk(mutex_);
     for(auto iter = impl->idel_blocks_.begin(); iter != impl->idel_blocks_.end(); ++iter) {
       auto& idel_blocks = iter->second;
@@ -116,7 +147,6 @@ public:
         raw_allocator()->raw_deallocate(ptr);
       }
     }
-    impl->idel_blocks_.clear();
   }
 
   void release_all_memory() const {
@@ -133,7 +163,7 @@ public:
   }
 
   struct Context: public DataPtrContextBase {
-    Context(void* ptr, size_t size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size) {
+    Context(void* ptr, size_t size, size_t real_size, const BSCachingAllocator* allocator):DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {
 
     }
 
@@ -148,14 +178,16 @@ public:
         }
 
         allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
+        allocator_->set_memory_allocated(allocator_->memory_allocated() - real_size_);
         allocator_->flush_mem_pool();
       }
     }
+    size_t real_size_ = 0;
   };
 
 
-  void* makeContext(void* ptr, size_t size) const{
-    auto ctx = new Context(ptr, size, this);
+  void* makeContext(void* ptr, size_t size, size_t real_size) const{
+    auto ctx = new Context(ptr, size, real_size, this);
     return ctx;
   }
 
@@ -163,6 +195,8 @@ public:
 
 static void deleteBSContext(void* ptr) {
   auto ctx = static_cast<BSCachingAllocator::Context*>(ptr);
+  c10::reportMemoryUsageToProfiler(ctx->ptr(), -static_cast<int64_t>(ctx->real_size_), ctx->allocator()->memory_allocated(),
+    ctx->allocator()->memory_reserved(), c10::Device(c10::DeviceType::CUDA, ctx->allocator()->device().index()));
   delete ctx;
 }
 
