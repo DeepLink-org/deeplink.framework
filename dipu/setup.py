@@ -36,6 +36,8 @@ def get_PYTORCH_DIR():
 
 def customized_cmake_args():
     cmake_args = list()
+
+    cmake_with_diopi_library = os.getenv("DIPU_WITH_DIOPI_LIBRARY", "INTERNAL")
     cmake_device = os.getenv("DIPU_DEVICE","cuda")
     cmake_args.append("-DCMAKE_BUILD_TYPE=Release")
     cmake_args.append("-DDEVICE="+cmake_device)
@@ -44,7 +46,7 @@ def customized_cmake_args():
     cmake_args.append("-DDIPU_COMPILED_WITH_CXX11_ABI="+str(get_DIPU_COMPILED_WITH_CXX11_ABI()))
     cmake_args.append("-DDIOPI_CMAKE_PREFIX_PATH="+get_DIOPI_CMAKE_PREFIX_PATH())
     cmake_args.append("-DPYTORCH_DIR="+get_PYTORCH_DIR())
-    cmake_args.append("-DWITH_DIOPI=INTERNAL")
+    cmake_args.append("-DWITH_DIOPI_LIBRARY=" + cmake_with_diopi_library)
     return cmake_args
 
 def torch_dipu_headers():
