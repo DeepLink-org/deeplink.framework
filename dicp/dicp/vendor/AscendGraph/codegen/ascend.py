@@ -1307,3 +1307,18 @@ class AscendOverrides:
         op = OP(name, "Reciprocal")
         op.set_input("x", x)
         return op.to_node()
+
+    @staticmethod
+    def DropOutGenMaskV4(name, shape, prob):
+        op = OP(name, "DropOutGenMaskV4")
+        op.set_input("shape", shape)
+        op.set_input("prob", prob)
+        return op.to_node()
+
+    @staticmethod
+    def DropOutDoMaskV3(name, x, mask, keep_prob):
+        op = OP(name, "DropOutDoMaskV3")
+        op.set_input("x", x)
+        op.set_input("mask", mask)
+        op.set_input("keep_prob", keep_prob)
+        return op.to_node()
