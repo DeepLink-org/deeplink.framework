@@ -61,6 +61,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
                         "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
                         "-DENABLE_COVERAGE=${USE_COVERAGE}"
+                        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
                         "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
