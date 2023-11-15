@@ -3,10 +3,8 @@ import torch.fx
 from typing import Tuple
 import operator
 
-from contextlib import nullcontext
-from torch.fx.experimental.symbolic_shapes import ShapeEnv
-from torch._subclasses import FakeTensor, FakeTensorMode
-from torch._functorch import config
+from dicp.dynamo_bridge.operator import Operator
+from torch._subclasses import FakeTensorMode
 aten = torch.ops.aten
 
 
@@ -20,86 +18,6 @@ def binary_device_check(name, lhs_t, rhs_t):
     assert lhs_t.device == rhs_t.device, \
         f"{name}: device of lhs - {lhs_t.device}, device of rhs - {rhs_t.device}"
     return lhs_t.device
-
-
-class Operator():
-    __name__: str
-    _singleton = None
-
-    def __init__(self, name_):
-        super().__init__()
-        self.__name__ = name_
-        if torch.__version__.startswith("2.0"):
-            self.shape_env = ShapeEnv() if config.use_dynamic_shapes else None
-            self.fake_mode = (
-                FakeTensorMode(shape_env=self.shape_env)
-                if config.use_fake_tensor
-                else nullcontext()
-            )
-        elif torch.__version__.startswith("2.1"):
-            self.shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
-            self.fake_mode = (
-                FakeTensorMode(shape_env=self.shape_env)
-                if config.fake_tensor_allow_meta
-                else nullcontext()
-            )
-        else:
-            raise ValueError(
-                f"unsupported dicp torch version: {torch.__version__}")
-
-    @classmethod
-    def get_singleton(cls):
-        args = [None] * (cls.__init__.__code__.co_argcount - 1)
-        if cls._singleton is None:
-            cls._singleton = cls(*args)
-        return cls._singleton
-
-    def name(self):
-        return self.__name__
-
-    def get_fake_mode_from_args(self, args):
-        fake_mode = None
-        for arg in args:
-            if isinstance(arg, FakeTensor):
-                fake_mode = arg.fake_mode
-                break
-            elif isinstance(arg, list):
-                for x in arg:
-                    if isinstance(x, FakeTensor):
-                        fake_mode = x.fake_mode
-                        break
-                if fake_mode is not None:
-                    break
-        if fake_mode is None:
-            fake_mode = self.fake_mode
-        return fake_mode
-
-    def __call__(self, *args, **kwargs):
-        new_args = []
-        for arg in args:
-            if isinstance(arg, list):
-                new_args.append([x if not hasattr(x, 'meta')
-                                else x.meta['val'] for x in arg])
-            else:
-                new_args.append(arg if not hasattr(
-                    arg, 'meta') else arg.meta['val'])
-        new_args = tuple(new_args)
-
-        fake_mode = self.get_fake_mode_from_args(new_args)
-
-        tmp_args = []
-        for arg in new_args:
-            if not isinstance(arg, torch.Tensor) or isinstance(arg, FakeTensor):
-                tmp_args.append(arg)
-            else:
-                tmp_args.append(FakeTensor.from_tensor(arg, fake_mode))
-        new_args = tuple(tmp_args)
-
-        try:
-            ret = self.torch_op(*new_args, **kwargs)
-        except Exception:
-            ret = None
-        return ret
 
 
 class Add(Operator):

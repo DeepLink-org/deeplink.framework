@@ -244,6 +244,21 @@ class AscendCodegen(torch.fx.Interpreter):
         else:
             call_body.writeline('''dims = None''')
             call_body.writeline('''output_shape = None''')
+        
+        out_stride_str = '''out_stride = ['''
+        out_storage_offset_str = '''out_storage_offset = ['''
+        for elem in self.output_args:
+            if hasattr(elem, 'meta'):
+                elem = elem.meta['val']
+            stride = list(elem.stride())
+            if len(stride) == 0:
+                raise RuntimeError("Error handling empty output_stride")
+            out_stride_str += '[' + ','.join(map(str, stride)) + '],'
+            out_storage_offset_str += str(elem.storage_offset()) + ','
+        out_stride_str = out_stride_str[:-1] + ']'
+        out_storage_offset_str = out_storage_offset_str[:-1] + ']'
+        call_body.writeline(out_stride_str)
+        call_body.writeline(out_storage_offset_str)
 
         call_body.splice("""
                              import torch_dipu
@@ -253,7 +268,7 @@ class AscendCodegen(torch.fx.Interpreter):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape)']
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset)']
 
         if precision_check and self.aten_graph is not None:
             # 1. export aten graph to disk
@@ -1291,4 +1306,19 @@ class AscendOverrides:
     def Reciprocal(name, x):
         op = OP(name, "Reciprocal")
         op.set_input("x", x)
+        return op.to_node()
+
+    @staticmethod
+    def DropOutGenMaskV4(name, shape, prob):
+        op = OP(name, "DropOutGenMaskV4")
+        op.set_input("shape", shape)
+        op.set_input("prob", prob)
+        return op.to_node()
+
+    @staticmethod
+    def DropOutDoMaskV3(name, x, mask, keep_prob):
+        op = OP(name, "DropOutDoMaskV3")
+        op.set_input("x", x)
+        op.set_input("mask", mask)
+        op.set_input("keep_prob", keep_prob)
         return op.to_node()

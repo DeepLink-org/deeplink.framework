@@ -4,8 +4,7 @@ from torch._decomp import get_decompositions
 
 
 aten = torch.ops.aten
-decomp_keys = [aten.native_dropout.default,
-               aten.native_dropout_backward.default]
+decomp_keys = []
 
 
 def get_decomp():

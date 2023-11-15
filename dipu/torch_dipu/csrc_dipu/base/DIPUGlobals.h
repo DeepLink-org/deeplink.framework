@@ -5,4 +5,4 @@ void initResource();
 
 void releaseAllResources();
 
-};
+};  // namespace dipu

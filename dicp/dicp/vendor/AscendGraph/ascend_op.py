@@ -421,6 +421,16 @@ class Reciprocal(Operator):
         super().__init__("Reciprocal")
 
 
+class DropOutGenMaskV4(Operator):
+    def __init__(self):
+        super().__init__("DropOutGenMaskV4")
+
+
+class DropOutDoMaskV3(Operator):
+    def __init__(self):
+        super().__init__("DropOutDoMaskV3")
+
+
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
 
