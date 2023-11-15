@@ -287,8 +287,9 @@ class AscendExecutor(object):
         for i in range(self.num_outputs):
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
-            item = item.as_strided(
-                self.output_dims[i], out_stride[i], out_storage_offset[i])
+            # TODO! add case judgement for stride info
+            # item = item.as_strided(
+            #     self.output_dims[i], out_stride[i], out_storage_offset[i])
             output_tensor.append(item)
             ret = acl.update_data_buffer(
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
@@ -305,8 +306,9 @@ class AscendExecutor(object):
             self.output_size[i] = tot_size
             item = torch.empty(
                 self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
-            item = item.as_strided(
-                self.output_dims[i], out_stride[i], out_storage_offset[i])
+            # TODO! add case judgement for stride info
+            # item = item.as_strided(
+            #     self.output_dims[i], out_stride[i], out_storage_offset[i])
 
             output_tensor.append(item)
             ret = acl.update_data_buffer(
@@ -315,9 +317,8 @@ class AscendExecutor(object):
 
     def run(self, images, dims=None, output_shape=None, out_stride=None, out_storage_offset=None):
         assert len(images) > 0
-        for img in images:
-            assert isinstance(img, torch.Tensor)
-        input = list(map(lambda x: x.to(dipu_device_str), images))
+        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
+                 and x.device.type != dipu_device_str else x for x in images]
         self._prepare_input(input, dims)
         output = []
         if output_shape:

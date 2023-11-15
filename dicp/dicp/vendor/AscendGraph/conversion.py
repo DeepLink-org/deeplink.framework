@@ -205,7 +205,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             if y_dtype != out_dtype:
                 y = self.get_proxy(
                     ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
-        return self.get_proxy(ascend_op.Add, (x, y), {})
+        return self.get_proxy(ascend_op.AddV2, (x, y), {})
 
     @register_conversion(torch.ops.aten.add.Scalar)
     def add_scalar(self, x, y):
@@ -215,7 +215,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def _to_copy(self, x, dtype=None, layout=torch.strided, device=None):
         if dtype:
             if device == torch.device(type='cpu'):
-                return self.get_proxy(ascend_op.CastCpu, (x, get_ascend_dtype(dtype), device))
+                return self.get_proxy(ascend_op.CastToCpu, (x, get_ascend_dtype(dtype)))
             else:
                 return self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
         else:
@@ -923,7 +923,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.copy)
     def copy(self, dst, src):
-        return self.get_proxy(ascend_op.IdentityInp, (src, dst))
+        return self.get_proxy(ascend_op.Identity, (src, None))
 
     @register_conversion(torch.ops.aten.unsqueeze)
     def unsqueeze(self, x, dim):

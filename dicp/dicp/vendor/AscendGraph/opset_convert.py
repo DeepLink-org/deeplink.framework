@@ -1,6 +1,6 @@
 import torch
 from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
-from dicp.vendor.AscendGraph.ascend_op import MatMul, CastCpu, IdentityInp
+from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
 from dicp.vendor.AscendGraph.pattern_replacement import (
     ascend_pattern_matcher,
@@ -37,9 +37,8 @@ class OutputMarkPass:
         for n in gm.graph.nodes:
             if n.op != 'call_function':
                 continue
-            if type(n.target) == CastCpu:
-                if len(n.args) == 3 and n.args[2] is not None and n.args[2] == torch.device(type='cpu'):
-                    self.cpu_tensor.append(n.name)
+            if type(n.target) == CastToCpu:
+                self.cpu_tensor.append(n.name)
             elif type(n.target) == IdentityInp:
                 if len(n.args) == 2 and n.args[1] is not None and str(n.args[1]) in input_names:
                     self.assign_args.append((n.name, input_names.index(str(n.args[1]))))

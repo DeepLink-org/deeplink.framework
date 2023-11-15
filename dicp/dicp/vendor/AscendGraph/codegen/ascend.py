@@ -995,14 +995,12 @@ class AscendOverrides:
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
         return cast_op.to_node()
 
-
     @staticmethod
-    def CastCpu(name, x, ascend_dtype, device=None):
+    def CastToCpu(name, x, ascend_dtype, device=None):
         cast_op = OP(name, "Cast")
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
         return cast_op.to_node()
-
 
     @staticmethod
     def Const(name, x, dtype, dims=None, format="ND"):
