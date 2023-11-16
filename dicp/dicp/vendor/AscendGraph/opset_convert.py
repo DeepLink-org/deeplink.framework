@@ -77,6 +77,9 @@ def ascendgraph_opset_convert(
     gm = BackendPatternMatcherTransformer(
         ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
     gm = AtenToAscendTransformer(gm).transform()
+
+    # For bug in pytorch
+    # Avoid for dynamic shape
     if not symint_in_inputs(list(gm.graph.nodes)):
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
