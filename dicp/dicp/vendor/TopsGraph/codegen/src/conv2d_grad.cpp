@@ -3,8 +3,7 @@
 const char *const kConv2D = "conv2d";
 const char *const kConv2DGrad = "conv2d_grad";
 
-static std::vector<int64_t> get_same_padding_value(int64_t dim,
-                                                   int64_t ksize,
+static std::vector<int64_t> get_same_padding_value(int64_t dim, int64_t ksize,
                                                    int64_t stride) {
   int64_t pad_along_dim = 0;
   if (dim % stride == 0) {
@@ -19,12 +18,8 @@ static std::vector<int64_t> get_same_padding_value(int64_t dim,
 }
 
 static std::pair<int64_t, int64_t> get_backprop_filter_padding(
-    int64_t input_dim,
-    int64_t output_dim,
-    int64_t kernel_size,
-    int64_t stride,
-    int64_t dilation,
-    int64_t padding_before) {
+    int64_t input_dim, int64_t output_dim, int64_t kernel_size, int64_t stride,
+    int64_t dilation, int64_t padding_before) {
   std::pair<int64_t, int64_t> padding_dim;
   int64_t expanded_output_size = (output_dim - 1) * stride + 1;
   int64_t padded_in_size = (kernel_size - 1) * dilation;
@@ -32,18 +27,14 @@ static std::pair<int64_t, int64_t> get_backprop_filter_padding(
   int64_t pad_total = padded_in_size - input_dim;
   // int64_t pad_before = padding_before;
   int64_t pad_before = std::max<int64_t>(pad_total / 2, 0);
-  
 
   padding_dim = {pad_before, pad_total - pad_before};
   return padding_dim;
 }
 
-static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
-                                                       int64_t output_dim,
-                                                       int64_t kernel_size,
-                                                       int64_t stride,
-                                                       int64_t dilation,
-                                                       int64_t padding_before) {
+static std::pair<int64_t, int64_t> get_backprop_input_padding(
+    int64_t input_dim, int64_t output_dim, int64_t kernel_size, int64_t stride,
+    int64_t dilation, int64_t padding_before) {
   std::pair<int64_t, int64_t> padding_dim;
   int64_t effective_filter_size = (kernel_size - 1) * dilation + 1;
   int64_t expanded_output_size = (output_dim - 1) * stride + 1;
@@ -54,15 +45,13 @@ static std::pair<int64_t, int64_t> get_backprop_input_padding(int64_t input_dim,
   return padding_dim;
 }
 
-builder::Op enflame::Conv2D_Grad(
-    std::shared_ptr<builder::Builder> tmp_builder,
-    builder::Op out_grad_,
-    builder::Op input_,
-    builder::Op filter_,
-    std::vector<int64_t> bias_shape,
-    std::vector<int64_t> stride,
-    std::vector<int64_t> padding,
-    std::vector<int64_t> dilation) {
+builder::Op enflame::Conv2D_Grad(std::shared_ptr<builder::Builder> tmp_builder,
+                                 builder::Op out_grad_, builder::Op input_,
+                                 builder::Op filter_,
+                                 std::vector<int64_t> bias_shape,
+                                 std::vector<int64_t> stride,
+                                 std::vector<int64_t> padding,
+                                 std::vector<int64_t> dilation) {
   // do not take bias in account because bias_grad will be calculated in
   // elementwise_add_grad input keys: Output@GRAD, Filter, Input output keytrs:
   // Filter@GRAD, Input@GRAD
@@ -89,17 +78,17 @@ builder::Op enflame::Conv2D_Grad(
   builder::Op filter_grad;
   if (true) {
     std::vector<int64_t> window_strides = dilation;
-    for(uint i = 0; i < window_strides.size(); i++){
-      if(window_strides[i] < 1){
+    for (uint i = 0; i < window_strides.size(); i++) {
+      if (window_strides[i] < 1) {
         window_strides[i] = 1;
       }
     }
     std::vector<int64_t> rhs_dilation = stride;
 
-    auto pad_h = get_backprop_filter_padding(
-        ih, oh, kh, stride[0], dilation[0], padding[0]);
-    auto pad_w = get_backprop_filter_padding(
-        iw, ow, kw, stride[1], dilation[1], padding[2]);
+    auto pad_h = get_backprop_filter_padding(ih, oh, kh, stride[0], dilation[0],
+                                             padding[0]);
+    auto pad_w = get_backprop_filter_padding(iw, ow, kw, stride[1], dilation[1],
+                                             padding[2]);
     std::vector<std::vector<int64_t>> paddings = {{pad_h.first, pad_h.second},
                                                   {pad_w.first, pad_w.second}};
     builder::ConvDimensionNumbers dims_attr(
@@ -112,10 +101,8 @@ builder::Op enflame::Conv2D_Grad(
         /*output_batch_dimension=*/2,
         /*output_feature_dimension=*/3,
         /*output_spatial_dimensions=*/{0, 1});
-        
-    filter_grad = builder::Conv(input,
-                                out_grad,
-                                dims_attr,
+
+    filter_grad = builder::Conv(input, out_grad, dims_attr,
                                 /*window_strides=*/window_strides,
                                 /*padding=*/paddings,
                                 /*lhs_dilation=*/{1, 1},
@@ -129,7 +116,7 @@ builder::Op enflame::Conv2D_Grad(
                              builder::Attribute("Conv2DBackpropFilter"));
     // std::cout << filter_grad << std::endl;
     // std::cout << "---- debug filter_grad end" << std::endl;
-    
+
     filter_grad = builder::Transpose(filter_grad, {3, 2, 0, 1});
   }
 
@@ -140,11 +127,11 @@ builder::Op enflame::Conv2D_Grad(
     std::vector<int64_t> lhs_dilation = stride;
     std::vector<int64_t> rhs_dilation = dilation;
 
-    auto pad_h = get_backprop_input_padding(
-        ih, oh, kh, stride[0], dilation[0], padding[0]);
-    auto pad_w = get_backprop_input_padding(
-        iw, ow, kw, stride[1], dilation[1], padding[2]);
-    
+    auto pad_h = get_backprop_input_padding(ih, oh, kh, stride[0], dilation[0],
+                                            padding[0]);
+    auto pad_w = get_backprop_input_padding(iw, ow, kw, stride[1], dilation[1],
+                                            padding[2]);
+
     std::vector<std::vector<int64_t>> paddings = {{pad_h.first, pad_h.second},
                                                   {pad_w.first, pad_w.second}};
 
@@ -159,9 +146,7 @@ builder::Op enflame::Conv2D_Grad(
         /*output_feature_dimension=*/3,
         /*output_spatial_dimensions=*/{1, 2});
 
-    input_grad = builder::Conv(out_grad,
-                               filter_reverse,
-                               dims_attr,
+    input_grad = builder::Conv(out_grad, filter_reverse, dims_attr,
                                /*window_strides=*/{1, 1},
                                /*padding=*/paddings,
                                /*lhs_dilation=*/lhs_dilation,
@@ -185,7 +170,8 @@ builder::Op enflame::Conv2D_Grad(
     bias_size = bias_size * bias_shape[i];
   }
   std::vector<int64_t> bias_data(bias_size, 0.0);
-  auto bias_grad = builder::Const(tmp_builder, static_cast<void *>(bias_data.data()), bias_type);
+  auto bias_grad = builder::Const(
+      tmp_builder, static_cast<void *>(bias_data.data()), bias_type);
 
   std::vector<builder::Op> outputs{input_grad, filter_grad, bias_grad};
 
@@ -199,6 +185,6 @@ builder::Op enflame::Conv2D_Grad(
 
   builder::Type outputs_type(tuple_shape, tuple_dtype);
   auto result = builder::Tuple(outputs);
-  
+
   return result;
 }

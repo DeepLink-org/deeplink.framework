@@ -1,41 +1,34 @@
 #pragma once
 
-#include <memory>
-#include <vector>
-#include <string>
-#include <limits>
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <limits>
+#include <memory>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "dtu_utils.h"
 
 namespace enflame {
-builder::Op Gather(
-    std::shared_ptr<builder::Builder> tmp_builder,
-    builder::Op input,
-    builder::Op index,
-    const int64_t dim,
-    builder::Type gather_type);
+builder::Op Gather(std::shared_ptr<builder::Builder> tmp_builder,
+                   builder::Op input, builder::Op index, const int64_t dim,
+                   builder::Type gather_type);
 
-builder::Op ViewAsComplex(
-    std::shared_ptr<builder::Builder> hlir_builder,
-    builder::Op input,
-    const std::vector<int64_t> shape);
+builder::Op ViewAsComplex(std::shared_ptr<builder::Builder> hlir_builder,
+                          builder::Op input, const std::vector<int64_t> shape);
 
-builder::Op ViewAsReal(
-    std::shared_ptr<builder::Builder> hlir_builder,
-    builder::Op input,
-    const std::vector<int64_t> shape);
+builder::Op ViewAsReal(std::shared_ptr<builder::Builder> hlir_builder,
+                       builder::Op input, const std::vector<int64_t> shape);
 
-builder::Op ComplexMul(
-    std::shared_ptr<builder::Builder> hlir_builder,
-    builder::Op lhs,
-    builder::Op rhs);
+builder::Op ComplexMul(std::shared_ptr<builder::Builder> hlir_builder,
+                       builder::Op lhs, builder::Op rhs);
 
-static void PadToSize(builder::Op& operand, const std::vector<int64_t>& target_shape, builder::Op& output, builder::Op& pad_value) {
+static void PadToSize(builder::Op& operand,
+                      const std::vector<int64_t>& target_shape,
+                      builder::Op& output, builder::Op& pad_value) {
   bool has_padding = false;
   auto operand_shape = operand.GetType().GetShape();
   std::vector<int64_t> edge_padding_low;
@@ -49,24 +42,21 @@ static void PadToSize(builder::Op& operand, const std::vector<int64_t>& target_s
     has_padding = has_padding || diff_in_high != 0;
   }
   if (has_padding) {
-    output = builder::Pad(operand, pad_value, 0, edge_padding_low, edge_padding_high, interior_padding);
+    output = builder::Pad(operand, pad_value, 0, edge_padding_low,
+                          edge_padding_high, interior_padding);
   } else {
     std::cout << "No need padding to size, weird!" << std::endl;
     output = operand;
   }
 }
 
-template<typename T>
-builder::Op Scatter(
-    std::shared_ptr<builder::Builder> hlir_builder,
-    builder::Op& self,
-    const int64_t dim,
-    builder::Op& index,
-    const T scalar_value) {
-  
+template <typename T>
+builder::Op Scatter(std::shared_ptr<builder::Builder> hlir_builder,
+                    builder::Op& self, const int64_t dim, builder::Op& index,
+                    const T scalar_value) {
   builder::PrimitiveType src_dtype = self.GetType().GetPrimitiveType();
   builder::Op src = builder::FullLike(index, scalar_value, src_dtype);
-  
+
   auto neg_inf = std::numeric_limits<T>::lowest();
   auto self_shape = self.GetType().GetShape();
   auto index_shape = index.GetType().GetShape();
@@ -90,7 +80,7 @@ builder::Op Scatter(
   builder::Op mask = builder::Equal(
       builder::BroadcastInDim(index, index_broadcast_dims, mask_type),
       builder::Iota(hlir_builder, dim, mask_type));
-  
+
   builder::Type selected_src_type(sizes, src.GetType().GetPrimitiveType());
   builder::Op selected_src = builder::Select(
       mask,
@@ -105,22 +95,26 @@ builder::Op Scatter(
   auto max_res = builder::Max(max_lhs, max_rhs);
   hlir_builder->SetOutput({max_res}, "binary_max");
 
-  builder::Op scalar_neg_inf = builder::Const(hlir_builder, neg_inf, builder::Type(self.GetType().GetPrimitiveType()));
+  builder::Op scalar_neg_inf = builder::Const(
+      hlir_builder, neg_inf, builder::Type(self.GetType().GetPrimitiveType()));
   builder::Op reduced_selected_src = builder::Reduce(
       {selected_src}, {scalar_neg_inf}, {dim + 1}, {"binary_max"});
 
   // add func binary_or
   hlir_builder->AddFunc("binary_or");
   builder::Type bool_scalar_type(builder::PrimitiveType::PRED());
-  auto binary_or_arg0 = hlir_builder->CreateInput(bool_scalar_type, "binary_or");
-  auto binary_or_arg1 = hlir_builder->CreateInput(bool_scalar_type, "binary_or");
+  auto binary_or_arg0 =
+      hlir_builder->CreateInput(bool_scalar_type, "binary_or");
+  auto binary_or_arg1 =
+      hlir_builder->CreateInput(bool_scalar_type, "binary_or");
   auto binary_or_result = builder::Or(binary_or_arg0, binary_or_arg1);
   hlir_builder->SetOutput({binary_or_result}, "binary_or");
 
-  builder::Op scalar_false = builder::Const(hlir_builder, false, builder::Type(builder::PrimitiveType::PRED()));
+  builder::Op scalar_false = builder::Const(
+      hlir_builder, false, builder::Type(builder::PrimitiveType::PRED()));
   builder::Op reduced_mask =
       builder::Reduce({mask}, {scalar_false}, {dim + 1}, {"binary_or"});
-  
+
   // check whether scatter result requires padding
   bool requires_padding = false;
   for (size_t i = 0; i < self_shape.size(); ++i) {
@@ -136,7 +130,8 @@ builder::Op Scatter(
   }
 
   if (requires_padding) {
-    PadToSize(reduced_selected_src, self_shape, reduced_selected_src, scalar_neg_inf);
+    PadToSize(reduced_selected_src, self_shape, reduced_selected_src,
+              scalar_neg_inf);
     PadToSize(reduced_mask, self_shape, reduced_mask, scalar_false);
   }
 
@@ -144,15 +139,9 @@ builder::Op Scatter(
   return res;
 }
 
-builder::Op BatchNorm(
-    std::shared_ptr<builder::Builder> hlir_builder,
-    builder::Op& input,
-    builder::Op& weight,
-    builder::Op& bias,
-    builder::Op& running_mean,
-    builder::Op& running_var,
-    int64_t channel_dim,
-    bool training,
-    double momentum,
-    double eps);
+builder::Op BatchNorm(std::shared_ptr<builder::Builder> hlir_builder,
+                      builder::Op& input, builder::Op& weight,
+                      builder::Op& bias, builder::Op& running_mean,
+                      builder::Op& running_var, int64_t channel_dim,
+                      bool training, double momentum, double eps);
 }  // namespace enflame

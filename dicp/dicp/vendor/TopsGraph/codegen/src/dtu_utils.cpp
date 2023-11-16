@@ -1,31 +1,29 @@
 #include "dtu_utils.h"
 
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <string.h>
-
-#include <unistd.h>
-#include <cstdint>
-#include <chrono>
-
 #include <Python.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <vector>
 
 #define HIT std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 
 bool file_exists(const char *filename) { return (access(filename, 0) == 0); }
 
-std::string ws2s(const std::wstring& ws)
-{
-    const wchar_t* wcs = ws.c_str();
-    size_t dByteNum = sizeof(wchar_t)*ws.size()+1;
+std::string ws2s(const std::wstring &ws) {
+  const wchar_t *wcs = ws.c_str();
+  size_t dByteNum = sizeof(wchar_t) * ws.size() + 1;
 
-    char* dest = new char[dByteNum];
-    wcstombs(dest, wcs, dByteNum);
-    std::string result = dest;
-    delete[] dest;
+  char *dest = new char[dByteNum];
+  wcstombs(dest, wcs, dByteNum);
+  std::string result = dest;
+  delete[] dest;
 
-    return result;
+  return result;
 }
 
 void compile(std::shared_ptr<builder::Builder> builder,
@@ -36,13 +34,12 @@ void compile(std::shared_ptr<builder::Builder> builder,
   auto hlir_module = builder->GetModule();
   auto ret = topsgraphCreateProgramFromModule(&program, hlir_module.get());
 
-  const char* options[] = {
-      "-arch=gcu200",
-      "-resource=4c24s",
+  const char *options[] = {
+      "-arch=gcu200", "-resource=4c24s",
       "-hlir=hlir-training-pipeline{tensor-split=true dynamic-shape=false}"};
-  
+
   topsgraphCompileProgram(program, 3, options);
-  
+
   // get binary size and binary data
   size_t binary_size = 0;
   topsgraphGetBinSize(program, &binary_size);
@@ -51,11 +48,11 @@ void compile(std::shared_ptr<builder::Builder> builder,
 
   std::string save_file = ws2s(static_cast<std::wstring>(compile_bin_path));
   std::ofstream fout(save_file, std::ios::binary);
-  fout.write((char*)(&binary_size), sizeof(int));
+  fout.write((char *)(&binary_size), sizeof(int));
   fout.write(binary, binary_size);
   fout.close();
 
-  delete [] binary;
+  delete[] binary;
   topsgraphDestroyProgram(&program);
 
   std::cout << "Compile done!" << std::endl;
@@ -69,9 +66,9 @@ int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
   std::ifstream fin(file_name, std::ios::binary);
   int binary_size_t;
   fin.read((char *)&binary_size_t, sizeof(int));
-  
+
   char *binary = new char[binary_size_t + 1];
-  memset(binary, 0, binary_size_t+1);
+  memset(binary, 0, binary_size_t + 1);
   fin.read(binary, binary_size_t);
   fin.close();
 
@@ -121,12 +118,8 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
   if (!dipu_flag) {
     for (size_t i = 0; i < input_count; i++) {
       topsMalloc(&dev_input, input_size[i]);
-      topsMemcpyAsync(
-          dev_input,
-          input_ptrs[i],
-          input_size[i],
-          topsMemcpyHostToDevice,
-          stream);
+      topsMemcpyAsync(dev_input, input_ptrs[i], input_size[i],
+                      topsMemcpyHostToDevice, stream);
       topsStreamSynchronize(stream);
       inputs[i] = dev_input;
     }
@@ -140,44 +133,25 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
   // 4. run
   if (dipu_flag) {
     ret = topsLaunchExecutableV2(
-        exe_ptr,
-        nullptr,
-        static_cast<void **>(input_ptrs.data()),
-        input_count,
-        nullptr,
-        nullptr,
-        static_cast<void **>(output_ptrs.data()),
-        output_count,
-        static_cast<topsStream_t>(dipu_stream));
-  }
-  else {
-    ret = topsLaunchExecutableV2(
-        exe_ptr,
-        nullptr,
-        inputs,
-        input_count,
-        nullptr,
-        nullptr,
-        outputs,
-        output_count,
-        stream);
+        exe_ptr, nullptr, static_cast<void **>(input_ptrs.data()), input_count,
+        nullptr, nullptr, static_cast<void **>(output_ptrs.data()),
+        output_count, static_cast<topsStream_t>(dipu_stream));
+  } else {
+    ret = topsLaunchExecutableV2(exe_ptr, nullptr, inputs, input_count, nullptr,
+                                 nullptr, outputs, output_count, stream);
     topsStreamSynchronize(stream);
   }
-    
+
   if (ret != topsSuccess) {
     std::cout << "topsLaunchExecutable fail,  ret = " << ret << std::endl;
     return -1;
   }
-  
+
   if (!dipu_flag) {
     for (size_t i = 0; i < output_count; i++) {
       // 5. D2H
-      ret = topsMemcpyAsync(
-          output_ptrs[i],
-          outputs[i],
-          output_size[i],
-          topsMemcpyDeviceToHost,
-          stream);
+      ret = topsMemcpyAsync(output_ptrs[i], outputs[i], output_size[i],
+                            topsMemcpyDeviceToHost, stream);
       topsStreamSynchronize(stream);
       if (ret != 0) {
         std::cout << "topsMemcpyAsync fail,  ret = " << ret << std::endl;
@@ -195,7 +169,7 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
     }
     topsStreamDestroy(stream);
   }
-  
+
   return 0;
 }
 
@@ -261,7 +235,7 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   ret = topsLaunchExecutableV2(exe_ptr, res_bundle, inputs, input_count,
                                input_dims, input_rank, outputs, output_count,
                                // output_dims, output_rank,
-			       stream);
+                               stream);
   if (ret != topsSuccess) {
     std::cout << "topsLaunchExecutable fail,  ret = " << ret << std::endl;
     return -1;
@@ -270,7 +244,8 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
   uint64_t dim_index = 0;
   for (size_t i = 0; i < output_count; i++) {
     // get real output shape
-    uint64_t output_dim_size = 1; // should be the byte size of output data type
+    uint64_t output_dim_size =
+        1;  // should be the byte size of output data type
     std::vector<uint64_t> shape_v;
     for (size_t j = 0; j < output_rank[i]; j++) {
       shape_v.push_back(output_dims[dim_index]);
