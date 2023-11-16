@@ -29,7 +29,7 @@ jobs:
       - name: build on topsrider
         uses: wugeshui/DIOPI/.github/actions/code-build-test@main
         with:
-          build_shell: "Write the script you want to execute here"
+          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
           job_name: "build"
 
   test:
@@ -39,7 +39,7 @@ jobs:
       - name: build on topsrider
         uses: wugeshui/DIOPI/.github/actions/code-build-test@main
         with:
-          build_shell: "Write the script you want to execute here"
+          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
           job_name: "build"
           cover_job: "1"
 
