@@ -1,0 +1,29 @@
+name: dicp ci
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".git*"
+      - "CODE_OF_CONDUCT**"
+
+env:
+  ENV_PATH: '/mnt/cache/share/platform/env'
+  DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runs-on-topsrider:
+    name: runs on topsrider
+    uses: ./.github/workflows/_runs-on-topsrider.yml
+
+  runs-on-ascend:
+    name: runs on ascend
+    uses: ./.github/workflows/_runs-on-ascend.yml

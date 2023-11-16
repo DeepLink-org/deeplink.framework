@@ -1,0 +1,45 @@
+name: runs on topsrider
+
+on:
+  workflow_call:
+    inputs:
+      machine:
+        description: If set to other value, the job need ssh
+        type: string
+        required: false
+        default: "TOPSRIDER"
+      runner:
+        description: Set up the build environment
+        type: string
+        required: false
+        default: "tps-topsrider-dev"
+
+jobs:
+  checkout_code:
+    name: checkout code
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout Code
+        uses: DeepLink-org/DIPU/.github/actions/checkout-code@wgs/add_dicp
+
+  build:
+    runs-on: ${{ inputs.runner }}
+    needs: checkout_code
+    steps:
+      - name: build on topsrider
+        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        with:
+          build_shell: "Write the script you want to execute here"
+          job_name: "build"
+
+  test:
+    runs-on: ${{ inputs.runner }}
+    needs: checkout_code
+    steps:
+      - name: build on topsrider
+        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        with:
+          build_shell: "Write the script you want to execute here"
+          job_name: "build"
+          cover_job: "1"
+

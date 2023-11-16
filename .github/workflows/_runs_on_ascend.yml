@@ -1,0 +1,46 @@
+name: runs on ascend
+
+on:
+  workflow_call:
+    inputs:
+      machine:
+        description: If set to other value, the job need ssh
+        type: string
+        required: false
+        default: "ASCEND"
+      runner:
+        description: Set up the build environment
+        type: string
+        required: false
+        default: "tps-ascend-ci"
+
+jobs:
+  checkout_code:
+    name: checkout code
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout Code
+        uses: wugeshui/DIOPI/.github/actions/checkout-code@main
+
+  build:
+    runs-on: ${{ inputs.runner }}
+    needs: checkout_code
+    steps:
+      - name: build on ascend
+        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        with:
+          build_env: ${{ inputs.build_env }}
+          build_shell: "Write the script you want to execute here"
+          job_name: "build"
+          cleaner: "clean_all_if_error"
+
+  rt-test:
+    runs-on: ${{ inputs.runner }}
+    needs: build
+    steps:
+      - name: rt test on ascend
+        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        with:
+          build_shell: " Write the script you want to execute here "
+          job_name: "build"
+          cover_job: "1"
