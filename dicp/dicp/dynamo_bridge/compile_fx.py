@@ -84,7 +84,6 @@ def compile_fx_inner(
     gt.infer_shape_dtype()
     compiled_fn = gt.compile_to_fn()
 
-
     # aot autograd needs to know to pass in inputs as a list
     compiled_fn._boxed_call = True
     return compiled_fn
