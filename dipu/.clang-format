@@ -1,0 +1,36 @@
+---
+BasedOnStyle: InheritParentConfig
+IncludeCategories:
+  - Regex:         '^("|<)csrc_dipu/'
+    Priority:      90
+    CaseSensitive: false
+  - Regex:         '^("|<)diopi/'
+    Priority:      80
+    CaseSensitive: false
+  - Regex:         '^("|<)(c10|aten|torch)/'
+    Priority:      40
+    CaseSensitive: false
+  - Regex:         '^("|<)Python\.h'
+    Priority:      50
+    CaseSensitive: false
+  - Regex:         '^("|<)(frameobject|structmember)\.h'
+    Priority:      50
+    SortPriority:  51
+    CaseSensitive: false
+  - Regex:         '^("|<)(pybind11)'
+    Priority:      50
+    SortPriority:  52
+    CaseSensitive: false
+  - Regex:         '^<((ext/.*)|pthread)\.h'
+    Priority:      20
+    SortPriority:  21
+    CaseSensitive: false
+  - Regex:         '^("|<)(cuda|su|cn|(..?ccl)|(.*_runtime)).*\.h'
+    Priority:      30
+    CaseSensitive: false
+  - Regex:         '^<.*'
+    Priority:      20
+    CaseSensitive: false
+  - Regex:         '.*'
+    Priority:      100
+    CaseSensitive: false

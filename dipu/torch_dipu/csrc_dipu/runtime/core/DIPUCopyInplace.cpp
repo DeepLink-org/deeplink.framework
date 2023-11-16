@@ -2,15 +2,17 @@
 #include "DIPUCopyInplace.h"
 
 #include <algorithm>
+
 #include <c10/util/Exception.h>
 
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
 
 namespace dipu {
 
-at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+at::Tensor &DIPUCopyInplace::run(at::Tensor &self, const at::Tensor &src,
+                                 bool non_blocking) {
   TORCH_CHECK(self.defined(), "self is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
 
@@ -24,24 +26,22 @@ at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src, bool n
   }
 
   // Exit early if self and src are views of the same data
-  const bool is_same_data = (
-      self.is_alias_of(src) &&
-      self.storage_offset() == src.storage_offset() &&
-      self.strides().equals(src.strides()) &&
-      self.sizes().equals(src.sizes()) &&
-      self.scalar_type() == src.scalar_type()
-    );
+  const bool is_same_data =
+      (self.is_alias_of(src) && self.storage_offset() == src.storage_offset() &&
+       self.strides().equals(src.strides()) &&
+       self.sizes().equals(src.sizes()) &&
+       self.scalar_type() == src.scalar_type());
   if (is_same_data) {
     return self;
   }
 
   auto iter = at::TensorIteratorConfig()
-    .add_output(self)
-    .add_input(src)
-    .resize_outputs(false)
-    .check_all_same_dtype(false)
-    .check_all_same_device(false)
-    .build();
+                  .add_output(self)
+                  .add_input(src)
+                  .resize_outputs(false)
+                  .check_all_same_dtype(false)
+                  .check_all_same_device(false)
+                  .build();
   if (iter.numel() == 0) {
     return self;
   }
@@ -49,7 +49,8 @@ at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src, bool n
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
   // 1. copy between devices
-  if (dst_device.type() == DIPU_DEVICE_TYPE && src_device.type() == DIPU_DEVICE_TYPE) {
+  if (dst_device.type() == DIPU_DEVICE_TYPE &&
+      src_device.type() == DIPU_DEVICE_TYPE) {
     return copy_between_devices(iter, self, src, non_blocking);
   }
 
@@ -63,7 +64,10 @@ at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src, bool n
   return copy_uncontiguous(iter, self, src, non_blocking);
 }
 
-at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+at::Tensor &DIPUCopyInplace::copy_between_devices(at::TensorIterator &iter,
+                                                  at::Tensor &self,
+                                                  const at::Tensor &src,
+                                                  bool non_blocking) {
   int64_t numel = iter.numel();
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
@@ -82,7 +86,8 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
 
   size_t size = numel * iter.element_size(0);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
-  dipu::devproxy::memCopyD2DAsync(stream.rawstream(), size, dst_device.index(), dst_ptr, src_device.index(), src_ptr);
+  dipu::devproxy::memCopyD2DAsync(stream.rawstream(), size, dst_device.index(),
+                                  dst_ptr, src_device.index(), src_ptr);
 
   if (!non_blocking) {
     dipu::devproxy::syncStream(stream.rawstream());
@@ -90,16 +95,21 @@ at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter, at::
   return self;
 }
 
-at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
+at::Tensor &DIPUCopyInplace::copy_contiguous(at::TensorIterator &iter,
+                                             at::Tensor &self,
+                                             const at::Tensor &src,
+                                             bool non_blocking) {
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
 
   int64_t nbytes = iter.numel() * iter.element_size(0);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
   if (dst_device.type() == DIPU_DEVICE_TYPE && src_device.is_cpu()) {
-    dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, iter.data_ptr(0), iter.data_ptr(1));
+    dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes,
+                                    iter.data_ptr(0), iter.data_ptr(1));
   } else if (dst_device.is_cpu() && src_device.type() == DIPU_DEVICE_TYPE) {
-    dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, iter.data_ptr(0), iter.data_ptr(1));
+    dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes,
+                                    iter.data_ptr(0), iter.data_ptr(1));
   } else {
     TORCH_CHECK(false, "unsupported devices in copy_");
   }
@@ -110,16 +120,24 @@ at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter, at::Tenso
   return self;
 }
 
-at::Tensor& DIPUCopyInplace::copy_uncontiguous(at::TensorIterator& iter, at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-  auto& dst = iter.tensor(0);
+at::Tensor &DIPUCopyInplace::copy_uncontiguous(at::TensorIterator &iter,
+                                               at::Tensor &self,
+                                               const at::Tensor &src,
+                                               bool non_blocking) {
+  auto &dst = iter.tensor(0);
   at::Tensor dst_contig;
   at::Tensor src_contig;
   if (iter.device_type(0) == DIPU_DEVICE_TYPE || non_blocking) {
-    dst_contig = dst.is_contiguous() ? dst : at::empty_like(dst, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+    dst_contig = dst.is_contiguous()
+                     ? dst
+                     : at::empty_like(dst, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
     src_contig = iter.tensor(1).to(iter.dtype(0)).expand_as(dst).contiguous();
   } else {
     bool same_type = iter.dtype(0) == iter.dtype(1);
-    dst_contig = (dst.is_contiguous() && same_type) ? dst : at::empty_like(dst, iter.dtype(1), LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+    dst_contig = (dst.is_contiguous() && same_type)
+                     ? dst
+                     : at::empty_like(dst, iter.dtype(1),
+                                      LEGACY_CONTIGUOUS_MEMORY_FORMAT);
     src_contig = iter.tensor(1).expand_as(dst).contiguous();
   }
   // perform a same-dtype copy on contiguous tensors
@@ -138,7 +156,7 @@ at::Tensor& DIPUCopyInplace::copy_uncontiguous(at::TensorIterator& iter, at::Ten
 static DIPUCopyInplace default_copy_inplace_op;
 static DIPUCopyInplace *dipu_copy_inplace_op = nullptr;
 
-DIPUCopyInplace* getDipuCopyInplace() {
+DIPUCopyInplace *getDipuCopyInplace() {
   TORCH_CHECK(dipu_copy_inplace_op, "dipu copy inplace not registered");
   return dipu_copy_inplace_op;
 }
