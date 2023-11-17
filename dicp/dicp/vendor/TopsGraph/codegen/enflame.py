@@ -435,9 +435,6 @@ class EnflameCodegen(torch.fx.Interpreter):
                     bufs[-1] + " = " + ("empty_strided((), ())"))
 
         call_body.writeline("")
-        if dipu_flag:
-            call_body.writeline(
-                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
 
         arg_ptrs = []
         for i in range(len(args)):
@@ -448,12 +445,23 @@ class EnflameCodegen(torch.fx.Interpreter):
             if bufs[i] not in none_bufs:
                 buf_ptrs.append("c_void_p(" + bufs[i] + ".data_ptr())")
 
+        call_body.writeline(f"args_ptr_type = c_void_p * {len(arg_ptrs)}")
+        call_body.writeline(f"bufs_ptr_type = c_void_p * {len(buf_ptrs)}")
+        call_body.writeline(f"args_ptr = args_ptr_type({','.join(arg_ptrs)})")
+        call_body.writeline(f"bufs_ptr = bufs_ptr_type({','.join(buf_ptrs)})")
+        call_body.writeline("")
+
+        if dipu_flag:
+            call_body.writeline(
+                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream"
+            )
+
         call_str = 'kernel_cpp_0('
         if dipu_flag:
             call_str += 'c_void_p(dipu_stream), '
         else:
             call_str += 'c_void_p(), '
-        call_str += ", ".join(arg_ptrs + buf_ptrs) + ")"
+        call_str += "args_ptr, bufs_ptr)"
         call_body.writeline(call_str)
 
         if tops_check_precision:
