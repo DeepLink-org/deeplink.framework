@@ -273,19 +273,16 @@ class EnflameCodegen(torch.fx.Interpreter):
         input_paras = []
         for i in range(0, len(self.input_args)):
             input_paras.append(f"float* input_ptr{str(i)}")
-        input_paras = ", ".join(input_paras)
 
         output_paras = []
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 output_paras.append(f"float* output_ptr{str(i)}")
-        output_paras = ", ".join(output_paras)
-        if len(output_paras) != 0:
-            output_paras = ", " + ", ".join(output_paras)
+        paras = input_paras + output_paras
 
         run_func_code = IndentedBuffer()
         run_func_code.writeline(
-            f'extern "C" void run(void *dipu_stream, {input_paras} {output_paras}) {"{"}')
+            f'extern "C" void run(void *dipu_stream, {", ".join(paras)}) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
