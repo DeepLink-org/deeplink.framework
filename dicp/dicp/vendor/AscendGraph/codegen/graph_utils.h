@@ -4,14 +4,13 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <json.hpp>
 #include <map>
 #include <numeric>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
-#include <json.hpp>
 
 #include "all_ops.h"
 #include "ascend_string.h"
@@ -31,61 +30,44 @@ using json = nlohmann::json;
 using namespace ge;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
-    "ConcatD",
-    "IdentityN",
-    "Pack",
-    "SplitD"};
+    "ConcatD", "IdentityN", "Pack", "SplitD"};
 
-void check_op(
-    std::unordered_map<std::string, ge::Operator>& op_map,
-    const std::string& op_name) {
+void check_op(std::unordered_map<std::string, ge::Operator>& op_map,
+              const std::string& op_name) {
   if (op_map.count(op_name) > 0) {
     throw std::runtime_error("op_name duplicated!");
   }
 }
 
-void setTensorData(
-    Tensor& tensor,
-    uint8_t* src_data,
-    uint64_t data_size,
-    const std::string& debug_name = "") {
+void setTensorData(Tensor& tensor, uint8_t* src_data, uint64_t data_size,
+                   const std::string& debug_name = "") {
   auto status = tensor.SetData(reinterpret_cast<uint8_t*>(src_data), data_size);
   if (status != ge::GRAPH_SUCCESS) {
     std::cout << "Set " << debug_name << " tensor data failed!" << std::endl;
   }
 }
 
-ge::Tensor genTensor(
-    const std::vector<int64_t>& tensor_shape,
-    ge::Format format,
-    ge::DataType data_type) {
+ge::Tensor genTensor(const std::vector<int64_t>& tensor_shape,
+                     ge::Format format, ge::DataType data_type) {
   TensorDesc desc(ge::Shape(tensor_shape), format, data_type);
   Tensor result(desc);
   return result;
 }
 
 template <typename T>
-ge::Tensor genTensorWithData(
-    const std::vector<int64_t>& tensor_shape,
-    ge::Format format,
-    ge::DataType data_type,
-    std::vector<T> value) {
+ge::Tensor genTensorWithData(const std::vector<int64_t>& tensor_shape,
+                             ge::Format format, ge::DataType data_type,
+                             std::vector<T> value) {
   TensorDesc desc(ge::Shape(tensor_shape), format, data_type);
   Tensor result(desc);
-  setTensorData(
-      result,
-      reinterpret_cast<uint8_t*>(value.data()),
-      value.size() * sizeof(T),
-      "genTensorWithData");
+  setTensorData(result, reinterpret_cast<uint8_t*>(value.data()),
+                value.size() * sizeof(T), "genTensorWithData");
   return result;
 }
 
-ge::Operator genInput(
-    const std::string op_name,
-    const std::vector<int64_t> shape,
-    ge::Format format,
-    ge::DataType data_type,
-    int index = -1) {
+ge::Operator genInput(const std::string op_name,
+                      const std::vector<int64_t> shape, ge::Format format,
+                      ge::DataType data_type, int index = -1) {
   TensorDesc tensor_desc_data_op =
       TensorDesc(ge::Shape(shape), format, data_type);
   auto op = op::Data(op_name.c_str());
@@ -115,10 +97,8 @@ class AclgraphBuilder {
     }
   }
 
-  void saveGraph(
-      const std::string& path,
-      const Graph& graph,
-      std::map<AscendString, AscendString>& options) {
+  void saveGraph(const std::string& path, const Graph& graph,
+                 std::map<AscendString, AscendString>& options) {
     ModelBufferData model;
 
     auto status = aclgrphBuildModel(graph, options, model);
@@ -159,10 +139,8 @@ ge::Format get_ascend_format(const std::string& format) {
 
 ge::DataType get_ascend_datatype(const std::string& data_type) {
   static std::unordered_map<std::string, ge::DataType> datatype_map = {
-      {"FLOAT", ge::DataType::DT_FLOAT},
-      {"FLOAT16", ge::DataType::DT_FLOAT16},
-      {"INT32", ge::DataType::DT_INT32},
-      {"INT64", ge::DataType::DT_INT64},
+      {"FLOAT", ge::DataType::DT_FLOAT}, {"FLOAT16", ge::DataType::DT_FLOAT16},
+      {"INT32", ge::DataType::DT_INT32}, {"INT64", ge::DataType::DT_INT64},
       {"BOOL", ge::DataType::DT_BOOL},
       {"UINT8", ge::DataType::DT_UINT8},
   };
@@ -178,10 +156,8 @@ T genDynamicOp(const std::string& op_name) {
 }
 
 template <typename T>
-void parseDynamicInput(
-    std::unordered_map<std::string, ge::Operator>& op_map,
-    T& op,
-    const json& node) {
+void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
+                       T& op, const json& node) {
   if (node.contains("dynamic_inputs")) {
     for (const auto& i : node["dynamic_inputs"]) {
       auto num = i["num"].get<unsigned int>();
@@ -192,8 +168,8 @@ void parseDynamicInput(
           auto index = item["index"].get<uint32_t>();
           auto value = op_map[item["value"].get<std::string>()];
           if (item.contains("edge")) {
-            op.set_dynamic_input_x(
-                index, value, item["edge"].get<std::string>().c_str());
+            op.set_dynamic_input_x(index, value,
+                                   item["edge"].get<std::string>().c_str());
           } else {
             op.set_dynamic_input_x(index, value);
           }
@@ -221,8 +197,7 @@ void parseDynamicOutput(T& op, const json& node) {
 }
 
 ge::Operator genDynamicOperator(
-    std::unordered_map<std::string, ge::Operator>& op_map,
-    const json& node) {
+    std::unordered_map<std::string, ge::Operator>& op_map, const json& node) {
   auto op_type = node["op_type"].get<std::string>();
   auto op_name = node["op_name"].get<std::string>();
   if (op_type == "ConcatD") {
@@ -246,10 +221,8 @@ ge::Operator genDynamicOperator(
   throw std::runtime_error("invalid dynamic opeartor!");
 }
 
-void parseCommonNode(
-    std::unordered_map<std::string, ge::Operator>& op_map,
-    ge::Operator& op,
-    const json& node) {
+void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
+                     ge::Operator& op, const json& node) {
   if (node.contains("inputs")) {
     for (const auto& i : node["inputs"]) {
       auto name = i["name"].get<std::string>().c_str();
@@ -261,14 +234,13 @@ void parseCommonNode(
         auto format = desc["format"].get<std::string>();
         auto data_type = desc["data_type"].get<std::string>();
         auto shape = desc["shape"].get<std::vector<int64_t>>();
-        TensorDesc tensor_desc = TensorDesc(
-            ge::Shape(shape),
-            get_ascend_format(format),
-            get_ascend_datatype(data_type));
+        TensorDesc tensor_desc =
+            TensorDesc(ge::Shape(shape), get_ascend_format(format),
+                       get_ascend_datatype(data_type));
         auto output_name = desc["output_name"].get<std::string>();
         if (output_name != "none") {
           op_map[i["value"].get<std::string>()].UpdateOutputDesc(
-                        output_name.c_str(), tensor_desc);
+            output_name.c_str(), tensor_desc);
           op.SetInput(name, value);
         } else {
           op.SetInput(name, value);
@@ -373,8 +345,8 @@ void buildGraph(Graph& graph, const json& graph_json) {
     if (op_with_dynamic_inputs_outputs.count(op_type) > 0) {
       op_map[node_name] = genDynamicOperator(op_map, node);
     } else {
-      op_map[node_name] = ge::OperatorFactory::CreateOperator(
-          node_name.c_str(), op_type.c_str());
+      op_map[node_name] = ge::OperatorFactory::CreateOperator(node_name.c_str(),
+                                                              op_type.c_str());
     }
     parseCommonNode(op_map, op_map[node_name], node);
     graph.AddOp(op_map[node_name]);
@@ -390,4 +362,4 @@ void buildGraph(Graph& graph, const json& graph_json) {
   graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);
 }
 
-#endif // DAVINCI_GRAPH_UTILS_H
+#endif  // DAVINCI_GRAPH_UTILS_H
