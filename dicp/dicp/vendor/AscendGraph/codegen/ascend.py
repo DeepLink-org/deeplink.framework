@@ -16,8 +16,6 @@ graph_id = 0
 
 precision_check = bool(os.environ.get("DICP_ASCEND_PRECISION_CHECK", False))
 
-sym_to_inputs = {}
-
 
 def get_graph_id():
     global graph_id
@@ -62,14 +60,22 @@ class AscendCodegen(torch.fx.Interpreter):
         self.graph_output_names = []
         self.build_options = []
 
-        global sym_to_inputs
-        sym_to_inputs = {}
+        self.folder = folder
+        self.graph_key = graph_key
+
+        self.sym_to_inputs = {}
+        self.sym_in_args = {}
+
+        # for modified args return
+        self.assign_args = []
+        self.cpu_tensor = []
 
         super().__init__(graph)
 
     def placeholder(self, name, target, args, kwargs):
         self.args_dict[name] = name
         self.input_args.append(self.cur_node)
+
         fake_tensor = self.cur_node.meta['val']
 
         format = "NCHW"
@@ -79,8 +85,16 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = [1]
             data_type = "INT32"
             format = "ND"
-            sym_to_inputs[fake_tensor.node.str()] = name
+            self.sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
+            # mention symint position in args
+            # dynamic shape feature
+            for idx, dim in enumerate(fake_tensor.shape):
+                if isinstance(dim, torch.SymInt):
+                    st = dim.node.str()
+                    if not st in self.sym_in_args:
+                        self.sym_in_args[st] = (name, idx)
+
             # deal with dynamic shape -1
             shape = [-1 if isinstance(elem, torch.SymInt)
                      else elem for elem in fake_tensor.shape]
@@ -113,6 +127,12 @@ class AscendCodegen(torch.fx.Interpreter):
     def call_function(self, name, target, args, kwargs):
         if name not in self.args_dict.keys():
             self.args_dict[name] = name
+
+        if hasattr(self.cur_node, 'meta'):
+            if 'prop' in self.cur_node.meta and 'cpu_tensor' in self.cur_node.meta['prop']:
+                self.cpu_tensor.append(self.cur_node.meta['prop']['cpu_tensor'])
+            if 'prop' in self.cur_node.meta and 'assign_args' in self.cur_node.meta['prop']:
+                self.assign_args.append(self.cur_node.meta['prop']['assign_args'])
 
         _, args_list = AscendOverrides.gen_args(
             self.args_dict[name], self.args_dict, args)
@@ -156,7 +176,7 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.generate_code()
 
     def parse_outputs(self):
-        symint_inputs = sym_to_inputs.values()
+        symint_inputs = self.sym_to_inputs.values()
         real_output_args = []
         for node in self.output_args:
             if isinstance(node, torch.fx.node.Node):
@@ -172,6 +192,9 @@ class AscendCodegen(torch.fx.Interpreter):
             else:
                 self.py_output_names.append(str(node))
         self.output_args = real_output_args
+
+        if len(self.assign_args) > 0:
+            self.graph_output_names.extend(list(zip(*self.assign_args))[0])
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -196,30 +219,71 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.import_code.getvalue()
 
     def process_sym_name(self, st):
+        # dynamic shape feature
         if st.isdigit():
             return st
         elif '+' in st:
             sp = st.split('+')
+            if len(sp) > 2:
+                sp = [sp[0], '+'.join(sp[1:])]
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
-            return sym_to_inputs[sp[0]] + '+' + sp[1]
+            if sp[0].isdigit():
+                (sp[1], sp[0]) = (sp[0], sp[1])
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '+' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '+' + sp[1]
         elif '-' in st:
             sp = st.split('-')
+            if len(sp) > 2:
+                sp = [sp[0], '-'.join(sp[1:])]
             assert (len(sp) == 2)
             sp = [elem.strip() for elem in sp]
-            return sym_to_inputs[sp[0]] + '-' + sp[1]
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '-' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '-' + sp[1]
+        elif '*' in st:
+            sp = st.split('*')
+            if len(sp) > 2:
+                sp = [sp[0], '*'.join(sp[1:])]
+            assert (len(sp) == 2)
+            sp = [elem.strip() for elem in sp]
+            if sp[0].isdigit():
+                (sp[1], sp[0]) = (sp[0], sp[1])
+            if sp[0] in self.sym_in_args:
+                arg, idx = self.sym_in_args[sp[0]]
+                return "{}.shape[{}]".format(arg, idx) + '*' + sp[1]
+            if sp[0] in self.sym_to_inputs.keys():
+                return self.sym_to_inputs[sp[0]] + '*' + sp[1]
+            else:
+                return self.process_sym_name(sp[0]) + '*' + sp[1]
         else:
-            return sym_to_inputs[st]
+            if st in self.sym_in_args:
+                arg, idx = self.sym_in_args[st]
+                return "{}.shape[{}]".format(arg, idx)
+            return self.sym_to_inputs[st]
 
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
+        shape_symint = [value[0] for value in self.sym_in_args.values()]
 
-        if len(self.dynamic_inputs) > 0:
-            args = ['_' if arg not in sym_to_inputs.values()
-                    else arg for arg in self.args]
+        # dynamic shape feature
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            args = ['_' if not arg in shape_symint and not arg in self.sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
+
+        # generate input dims
+        if len(self.dynamic_inputs) > 0:
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
@@ -232,32 +296,64 @@ class AscendCodegen(torch.fx.Interpreter):
                     ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + '}'
             call_body.writeline(dims)
+        else:
+            call_body.writeline(f'''dims = None''')
 
-            shape_str = '''output_shape = ['''
+        # generate output shapes
+        # dynamic shape feature
+        extra_stride_str = ''
+        extra_storage_offset_str = ''
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            shape_str = f'''output_shape = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
-                elem = list(elem.shape)
-                if len(elem) == 0:
+                if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
+                    shape_str += '[1],'
+                    continue
+                shape = list(elem.shape)
+                if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                elem = [self.process_sym_name(str(dim)) for dim in elem]
-                shape_str += "[" + ','.join(map(str, elem)) + '],'
-            shape_str = shape_str[:-1] + ''']'''
+                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
+
+            # process output_shape with modified args
+            for elem in self.assign_args:
+                shape = list(self.input_args[elem[1]].meta['val'].shape)
+                if len(shape) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
+                stride = list(self.input_args[elem[1]].meta['val'].stride())
+                if len(stride) == 0:
+                    raise RuntimeError("Error handling empty output_stride")
+                stride = [self.process_sym_name(str(dim)) for dim in stride]
+                extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
+                extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
+            shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
         else:
-            call_body.writeline('''dims = None''')
             call_body.writeline('''output_shape = None''')
 
+
+        # add stride & storage_offset info
         out_stride_str = '''out_stride = ['''
         out_storage_offset_str = '''out_storage_offset = ['''
         for elem in self.output_args:
             if hasattr(elem, 'meta'):
                 elem = elem.meta['val']
+            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
+                out_stride_str += '[1],'
+                out_storage_offset_str += '0,'
+                continue
             stride = list(elem.stride())
             if len(stride) == 0:
                 raise RuntimeError("Error handling empty output_stride")
+            stride = [self.process_sym_name(str(dim)) for dim in stride]
             out_stride_str += '[' + ','.join(map(str, stride)) + '],'
             out_storage_offset_str += str(elem.storage_offset()) + ','
+        out_stride_str += extra_stride_str
+        out_storage_offset_str += extra_storage_offset_str
         out_stride_str = out_stride_str[:-1] + ']'
         out_storage_offset_str = out_storage_offset_str[:-1] + ']'
         call_body.writeline(out_stride_str)
@@ -269,40 +365,50 @@ class AscendCodegen(torch.fx.Interpreter):
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
+                                 if isinstance(args[idx], torch.Tensor):
+                                     tmp_arg = args[idx].clone()
+                                     with torch.no_grad():
+                                         args[idx].copy_(tmp_arg)
+                                     del tmp_arg
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
         call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset)']
 
         if precision_check and self.aten_graph is not None:
-            # 1. export aten graph to disk
-            def get_unique_str():
-                uuid_str = str(uuid.uuid1())
-                return 'm' + str(uuid.uuid3(uuid.NAMESPACE_DNS, uuid_str + str(os.getpid())))
-            module_path = get_unique_str().replace('-', '')
-            folder_path = "/tmp/dicp_debug/aten_modules/" + module_path
-            os.system(f"mkdir -p {folder_path}")
-            self.aten_graph.to_folder(folder_path)
+            # import aten graph
+            call_str.append(f"import sys")
+            call_str.append(f"if '{self.folder}' not in sys.path:")
+            call_str.append(f"    sys.path.insert(0, '{self.folder}')")
+            call_str.append(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_str.append(f"aten_call = graph_module()")
 
-            # 2. import aten graph
-            call_str.append(f'from aten_modules.{module_path} import FxModule')
-            call_str.append('aten_call = FxModule()')
-            call_str.append('aten_output = aten_call(*args)')
+            call_str.append('aten_args = list(map(lambda x: x.to("cpu"), args))')
+            call_str.append('for idx in modified:')
+            call_str.append('    aten_args[idx] = aten_args[idx].item()')
+            call_str.append('aten_output = aten_call(*aten_args)')
 
         for i, name in enumerate(self.graph_output_names):
             if name not in self.symint_outputs:
-                call_str.append(f'{name} = output_tensor[{i}]')
+                if name in self.cpu_tensor:
+                    call_str.append(f'{name} = output_tensor[{i}].cpu()')
+                else:
+                    call_str.append(f'{name} = output_tensor[{i}]')
             else:
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
+
+        # dealing with modified args passing back
+        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in self.assign_args]
+        call_str.extend(output_convert)
+
         if precision_check:
             for i, name in enumerate(self.py_output_names):
                 if name != 'None' and name not in self.args and name not in self.symint_outputs:
                     call_str.append(f"{name}_cpu = aten_output[{i}]")
-                    call_str.append(f"check_tensor({name}, {name}_cpu)")
+                    call_str.append(f"check_tensor({name}.cpu(), {name}_cpu)")
         call_body.writelines(call_str)
 
-        del_args = [
-            'del ' + x for x in self.args if x not in self.py_output_names]
+        del_args = [f'del {x}' for x in self.args if x not in self.py_output_names]
         call_body.writelines(del_args)
         call_body.writeline("args.clear()")
         call_body.writeline(f"return ({', '.join(self.py_output_names)})")
@@ -387,7 +493,7 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_graph_json(self):
         self.parse_outputs()
         self.gen_build_options()
-        has_dynamic_shape = False if len(sym_to_inputs) == 0 else True
+        has_dynamic_shape = False if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0 else True
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
@@ -688,10 +794,10 @@ class AscendOverrides:
 
     @staticmethod
     def Select(name, cond, x1, x2):
-        op = OP(name, "Select")
+        op = OP(name, "SelectV2")
         op.set_input("condition", cond)
-        op.set_input("x1", x1)
-        op.set_input("x2", x2)
+        op.set_input("then", x1)
+        op.set_input("else", x2)
         return op.to_node()
 
     @staticmethod
@@ -781,10 +887,16 @@ class AscendOverrides:
     @staticmethod
     def Identity(name, input, index):
         op = OP(name, "Identity")
-        if index is not None:
+        if index is not None and isinstance(index, int):
             op.set_input_with_index("x", input, index)
         else:
             op.set_input("x", input)
+        return op.to_node()
+
+    @staticmethod
+    def IdentityInp(name, input, dst=None):
+        op = OP(name, "Identity")
+        op.set_input("x", input)
         return op.to_node()
 
     @staticmethod
@@ -894,7 +1006,14 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Cast(name, x, ascend_dtype):
+    def Cast(name, x, ascend_dtype, device=None):
+        cast_op = OP(name, "Cast")
+        cast_op.set_input("x", x)
+        cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
+        return cast_op.to_node()
+
+    @staticmethod
+    def CastToCpu(name, x, ascend_dtype, device=None):
         cast_op = OP(name, "Cast")
         cast_op.set_input("x", x)
         cast_op.set_attr_int("dst_type", get_ascend_dtype_num(ascend_dtype))
@@ -920,7 +1039,7 @@ class AscendOverrides:
         return broadcast_op.to_node()
 
     @staticmethod
-    def Empty(name, shape, dtype, layout, device):
+    def Empty(name, shape, dtype, layout=torch.strided, device='cpu'):
         dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
         op = OP(name, "Empty")
         op.set_input("shape", shape)
@@ -939,6 +1058,7 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_attr_int("axis", dim)
         op.set_attr_bool("descending", descending)
+        op.set_attr_int("_keep_dtype", 1)
         return op.to_node()
 
     @staticmethod
@@ -949,6 +1069,7 @@ class AscendOverrides:
         op.set_attr_int("dim", dim)
         op.set_attr_bool("largest", largest)
         op.set_attr_bool("sorted", sorted)
+        op.set_attr_int("_keep_dtype", 1)
         return op.to_node()
 
     @staticmethod
@@ -976,6 +1097,7 @@ class AscendOverrides:
         op.set_attr_bool("adj_x1", adj_x1)
         op.set_input("x2", x2)
         op.set_attr_bool("adj_x2", adj_x2)
+        op.set_attr_int("_keep_dtype", 1)
         return op.to_node()
 
     @staticmethod
