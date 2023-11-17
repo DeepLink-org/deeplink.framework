@@ -112,8 +112,8 @@ ExternalProject_Add_StepDependencies(kineto_internal build kineto_internal-confi
 #-----------------------------------------------------------------------------------------------
 add_library(kineto_lib STATIC IMPORTED)
 add_library(kineto_fmt STATIC IMPORTED)
-add_dependencies(kineto_lib kineto_internal-build)
-add_dependencies(kineto_fmt kineto_internal-build)
+add_library(kineto INTERFACE)
+add_dependencies(kineto kineto_internal-build)
 set_target_properties(
   kineto_lib PROPERTIES IMPORTED_LOCATION
                         "${KINETO_BUILD_PATH}/libkineto.a")
