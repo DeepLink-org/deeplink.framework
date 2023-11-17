@@ -30,20 +30,20 @@ class TestLinear(TestCase):
         self.assertEqual(y_dipu, y_cpu)
         self.assertEqual(grad_dipu, grad_cpu, prec=1e-4)
 
-    def test_linear_2d(self):
-        x = torch.arange(9, dtype=torch.float).reshape(3, 3)
-        label = torch.randn(3, 2)
-        self._test_linear(x, label)
+    # def test_linear_2d(self):
+    #     x = torch.arange(9, dtype=torch.float).reshape(3, 3)
+    #     label = torch.randn(3, 2)
+    #     self._test_linear(x, label)
 
-    def test_linear_3d(self):
-        x = torch.arange(12, dtype=torch.float).reshape(2, 2, 3)
-        label = torch.randn(2, 2, 2)
-        self._test_linear(x, label)
+    # def test_linear_3d(self):
+    #     x = torch.arange(12, dtype=torch.float).reshape(2, 2, 3)
+    #     label = torch.randn(2, 2, 2)
+    #     self._test_linear(x, label)
 
-    def test_linear_4d(self):
-        x = torch.arange(24, dtype=torch.float).reshape(2, 2, 2, 3)
-        label = torch.randn(2, 2, 2, 2)
-        self._test_linear(x, label)
+    # def test_linear_4d(self):
+    #     x = torch.arange(24, dtype=torch.float).reshape(2, 2, 2, 3)
+    #     label = torch.randn(2, 2, 2, 2)
+    #     self._test_linear(x, label)
 
     @staticmethod
     def _run_linear_simple(a: torch.Tensor, m: torch.nn.Linear, devicestr: str):

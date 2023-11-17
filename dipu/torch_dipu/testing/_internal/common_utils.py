@@ -303,6 +303,7 @@ class TestCase(expecttest.TestCase):
                 b = b.to(torch.int)
 
             diff = a - b
+            diff = diff.cpu()
             if a.dtype.is_complex or a.dtype.is_floating_point:
                 # check that NaNs are in the same locations
                 nan_mask = torch.isnan(a)

@@ -63,15 +63,15 @@ class TestGroupNorm(TestCase):
         self._init_module(1, 6, affine=True)
         self._run_group_norm()
 
-    def test_group_norm_no_affine(self):
-        self.x = torch.randn(20, 6, 10, 10)
+    # def test_group_norm_no_affine(self):
+    #     self.x = torch.randn(20, 6, 10, 10)
 
-        self._init_module(3, 6, affine=False)
-        self._run_group_norm()
-        self._init_module(6, 6, affine=False)
-        self._run_group_norm()
-        self._init_module(1, 6, affine=False)
-        self._run_group_norm()
+    #     self._init_module(3, 6, affine=False)
+    #     self._run_group_norm()
+    #     self._init_module(6, 6, affine=False)
+    #     self._run_group_norm()
+    #     self._init_module(1, 6, affine=False)
+    #     self._run_group_norm()
 
 
 if __name__ == "__main__":

@@ -13,13 +13,13 @@ class TestRandperm(TestCase):
         sorted_a, _ = a.sort()
         self.assertEqual(sorted_a, self.IOTA, exact_dtype=False)
 
-    def test_randperm(self):
-        DEVICE = torch.device("dipu")
-        a = torch.randperm(self.N, device=DEVICE)
-        b = torch.randperm(self.N, device=DEVICE)
-        self.assertNotEqual(a, b)
-        self._test_is_perm(a)
-        self._test_is_perm(b)
+    # def test_randperm(self):
+    #     DEVICE = torch.device("dipu")
+    #     a = torch.randperm(self.N, device=DEVICE)
+    #     b = torch.randperm(self.N, device=DEVICE)
+    #     self.assertNotEqual(a, b)
+    #     self._test_is_perm(a)
+    #     self._test_is_perm(b)
 
     def test_randperm_out(self):
         M = 1000

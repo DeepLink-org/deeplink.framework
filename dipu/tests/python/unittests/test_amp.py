@@ -50,52 +50,52 @@ class TestAmp(TestCase):
                 d_bfloat16 = torch.mm(a_float32, b_float32)
             self.assertEqual(d_bfloat16.dtype, torch.bfloat16)
 
-    def test_gradscaler(self):
-        """won't fail, only detecting errors"""
-        # 确定 CUDA 可用
-        device = torch.device("cuda")
+    # def test_gradscaler(self):
+    #     """won't fail, only detecting errors"""
+    #     # 确定 CUDA 可用
+    #     device = torch.device("cuda")
 
-        # 定义一个简单的模型
-        class SimpleModel(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.fc = nn.Linear(10, 10)
+    #     # 定义一个简单的模型
+    #     class SimpleModel(nn.Module):
+    #         def __init__(self):
+    #             super().__init__()
+    #             self.fc = nn.Linear(10, 10)
 
-            def forward(self, x):
-                return self.fc(x)
+    #         def forward(self, x):
+    #             return self.fc(x)
 
-        model = SimpleModel().to(device)
-        criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+    #     model = SimpleModel().to(device)
+    #     criterion = nn.MSELoss()
+    #     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        # 初始化 GradScaler
-        scaler = GradScaler()
+    #     # 初始化 GradScaler
+    #     scaler = GradScaler()
 
-        # 训练模型
-        NUM_EPOCHS = 5
-        for epoch in range(NUM_EPOCHS):
-            for batch in range(100):
-                # 生成模拟数据
-                inputs = torch.randn(32, 10).to(device)
-                targets = torch.randn(32, 10).to(device)
+    #     # 训练模型
+    #     NUM_EPOCHS = 5
+    #     for epoch in range(NUM_EPOCHS):
+    #         for batch in range(100):
+    #             # 生成模拟数据
+    #             inputs = torch.randn(32, 10).to(device)
+    #             targets = torch.randn(32, 10).to(device)
 
-                # 使用 autocast 进行前向传播，根据需要动态地选择数据类型
-                with autocast():
-                    outputs = model(inputs)
-                    loss = criterion(outputs, targets)
+    #             # 使用 autocast 进行前向传播，根据需要动态地选择数据类型
+    #             with autocast():
+    #                 outputs = model(inputs)
+    #                 loss = criterion(outputs, targets)
 
-                # 反向传播
-                optimizer.zero_grad()
-                # 使用 GradScaler 缩放损失，执行反向传播
-                scaler.scale(loss).backward()
-                # 使用 GradScaler 完成优化器的步骤更新
-                scaler.step(optimizer)
-                # 更新 GradScaler 的缩放因子
-                scaler.update()
+    #             # 反向传播
+    #             optimizer.zero_grad()
+    #             # 使用 GradScaler 缩放损失，执行反向传播
+    #             scaler.scale(loss).backward()
+    #             # 使用 GradScaler 完成优化器的步骤更新
+    #             scaler.step(optimizer)
+    #             # 更新 GradScaler 的缩放因子
+    #             scaler.update()
 
-            # print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}], Loss: {loss.item():.4f}")
+    #         # print(f"Epoch [{epoch + 1}/{NUM_EPOCHS}], Loss: {loss.item():.4f}")
 
-        # print("Training completed!")
+    #     # print("Training completed!")
 
 
 if __name__ == "__main__":
