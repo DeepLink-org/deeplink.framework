@@ -18,7 +18,7 @@ class SUPACopyInplace : public DIPUCopyInplace<true, false> {
   SUPACopyInplace() = default;
   ~SUPACopyInplace() = default;
 
-  // assume it can handle between device .
+  // assume it can handle between device.
   void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
                                   bool non_blocking,
                                   CopyParamsInfo& info) override {
@@ -27,7 +27,10 @@ class SUPACopyInplace : public DIPUCopyInplace<true, false> {
 };
 
 static SUPACopyInplace copy_inplace;
-setDipuCopyClass(&copy_inplace);
+static int32_t suap_copy_inplace_init = []() {
+  setDipuCopyClass(&copy_inplace);
+  return 1;
+}();
 
 }  // namespace supa
 }  // namespace dipu
