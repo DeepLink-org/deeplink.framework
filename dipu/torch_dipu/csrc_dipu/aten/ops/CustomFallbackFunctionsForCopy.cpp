@@ -1,7 +1,7 @@
 #include <ATen/ATen.h>
 
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
-#include "csrc_dipu/aten/ops/DIPUCopy.h"
+#include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 
 namespace dipu {
 namespace native {

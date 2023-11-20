@@ -1,6 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
-#include "DIPUCopy.h"
+#include "DIPUCopy.hpp"
 
 #include <algorithm>
 
