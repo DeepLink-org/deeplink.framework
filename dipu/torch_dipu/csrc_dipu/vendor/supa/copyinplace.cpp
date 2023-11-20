@@ -12,16 +12,15 @@ using dipu::native::dipu_wrap_diopi_copy_inp;
 
 // supa's existing implementaion same as cuda, it proxy all copy case to diopi,
 // it's different with diopiCopy doc's requirement (only handle device copy),
-// here we just keep it's behavior.
+// so we change it's behavior as only do device copy.
 class SUPACopyInplace : public DIPUCopyInplace<true, false> {
  public:
   SUPACopyInplace() = default;
   ~SUPACopyInplace() = default;
 
-  void copyAll(at::Tensor& self, const at::Tensor& src, bool non_blocking,
-               CopyParamsInfo& info) override {
-    dipu_wrap_diopi_copy_inp(self, src, non_blocking);
-    ;
+  void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
+                            bool non_blocking, CopyParamsInfo& info) override {
+    dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
 };
 

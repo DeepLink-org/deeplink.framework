@@ -15,11 +15,13 @@ class CUDACopyInplace : public DIPUCopyInplace<true, false> {
   CUDACopyInplace() = default;
   ~CUDACopyInplace() = default;
 
-  // diopi-cuda copy use aten, it handle all case. so leave all to it.
   void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                             bool non_blocking, CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
+
+  // diopi-cuda copy use aten, it can handle between device case. so leave all
+  // to it.
   void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
                                   bool non_blocking,
                                   CopyParamsInfo& info) override {
