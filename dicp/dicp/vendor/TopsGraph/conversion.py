@@ -334,23 +334,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
         dim = dim + len(out_shape) if dim < 0 else dim
         return self.get_proxy(tops_op.Softmax, (a, dim, half_to_float))
 
-    @register_conversion(aten.dot.default)
-    def Dot(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Dot, args, kwargs)
-
     @register_conversion(aten.mm)
     def Gemm(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Gemm, args, kwargs)
+        return self.get_proxy(tops_op.Dot, args, kwargs)
 
     @register_conversion(aten.bmm.default)
     def Bmm(self, *args, **kwargs):
-        for arg in args:
-            try:
-                arg_dtype = arg.node.meta["val"].dtype
-                if not isinstance(arg_dtype, torch.float32):
-                    arg = self.get_proxy(tops_op.Convert, (arg, torch.float32))
-            except Exception:
-                pass
         return self.get_proxy(tops_op.DotGeneral, (*args, [0,], [0,], [2,], [1,]))
 
     @register_conversion(aten.cat.default)
@@ -391,13 +380,9 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Max(self, *args, **kwargs):
         return self.get_proxy(tops_op.Max, args, kwargs)
 
-    @register_conversion(aten.pow.Tensor_Scalar)
-    def Pow_Tensor_Scalar(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Pow_Tensor_Scalar, args, kwargs)
-
-    @register_conversion(aten.pow.Tensor_Tensor)
-    def Pow_Tensor_Tensor(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Pow_Tensor_Tensor, args, kwargs)
+    @register_conversion([aten.pow.Tensor_Scalar, aten.pow.Tensor_Tensor])
+    def Pow(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Pow, args, kwargs)
 
     @register_conversion(aten.sigmoid.default)
     def Sigmoid(self, *args, **kwargs):
@@ -612,20 +597,20 @@ class ReplacePatternSiLU(BackendPatternBase):
 
 
 if is_torch_210:
-    Gemm = torch.fx.wrap(tops_op.Gemm.get_singleton())
-    Bmm = torch.fx.wrap(tops_op.Bmm.get_singleton())
+    Dot = torch.fx.wrap(tops_op.Dot.get_singleton())
     DotGeneral = torch.fx.wrap(tops_op.DotGeneral.get_singleton())
     Permute = torch.fx.wrap(tops_op.Transpose.get_singleton())
     Transpose = torch.fx.wrap(tops_op.Transpose1.get_singleton())
     Expand = torch.fx.wrap(tops_op.Expand.get_singleton())
     Reshape = torch.fx.wrap(tops_op.Reshape.get_singleton())
+    Bmm = torch.fx.wrap(tops_op.Bmm.get_singleton())
 
     @register_tops_patterns
-    class GemmTransposeRhsPattern(BackendPatternBase):
+    class DotTransposeRhsPattern(BackendPatternBase):
         @staticmethod
         def pattern(reshaped_input, weight):
             transposed_weight = Permute(weight, [1, 0])
-            return Gemm(reshaped_input, transposed_weight)
+            return Dot(reshaped_input, transposed_weight)
 
         @staticmethod
         def replacement(reshaped_input, weight):
