@@ -46,10 +46,8 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
 
 inline void try_record_stream(const at::Tensor& tensor, DIPUStream& curStream,
                               bool is_default_stream) {
-  if (tensor.is_cpu()) {
-    if (tensor.options().pinned_memory()) {
-      tensor.record_stream(curStream);
-    }
+  if (tensor.is_cpu() && tensor.options().pinned_memory()) {
+    tensor.record_stream(curStream);
   } else if (!is_default_stream) {
     tensor.record_stream(curStream);
   }
@@ -264,69 +262,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
-  /*
-  d2h: direct src (device) -> src_cpu. src_cpu -> dst (cpu)
-  h2d: direct dst (device) -> dst_cpu (if view).. src (cpu)  -> dst_cpu.
-       direct dst_cpu -> dst (device)
-  d2d: direct src (device) -> src_cpu. direct dst (device) -> dst_cpu (if view).
-       src_cpu -> dst_cpu.  direct dst_cpu -> dst (device), very very slow.
-  this can handle any case, it's fallback solution.
- */
-  void doCpuRelayCopy(at::Tensor& dst, const at::Tensor& src,
-                      DIPUStream& curStream, bool non_blocking) {
-    at::Tensor src_cpu = src;
-    if (dipu::isDeviceTensor(src)) {
-      auto src_cpu = makeSameStrideTensor(src, curStream,
-                                          c10::Device(c10::DeviceType::CPU));
-      // src storage size may bigger than src_cpu's when src is a partial view.
-      // but not smaller. because src_cpu use same stride as src.
-      // src -> src_cpu
-      doDirectMemFill(src_cpu, src, curStream, DIPUCopyType::D2H);
-    }
-
-    if (dipu::isDeviceTensor(dst)) {
-      auto dst_cpu = makeSameStrideTensor(
-          dst, curStream, c10::Device(c10::DeviceType::CPU), true);
-      // proxy to cpu to handle different type/view problem
-      dst_cpu.copy_(src_cpu);
-
-      doDirectMemFill(dst, dst_cpu, curStream, DIPUCopyType::H2D);
-    } else {  // dst is cpu
-      dst.copy_(src_cpu);
-    }
-  }
-
-  // handle no-direct mem copy on one device, dipu has a simple configurable
-  // template strategy which use DIOPI copy/cast correctly. if vendor has
-  // no-complete implementation of DIOPI copy/cast. please override
-  // copy_nodirect_device to decide the case needed to be executed by diopiCopy
-  // and proxy other case back to 'doCpuRelayCopy' which contain a slow
-  // implementaion.
-
-  // 1. type cast. 2. expand/bcast. 3.1 special no-contiguous (stride
-  // hollow/overlap) 3.2 mem-format no-contiguous (storage contiguous but not
-  // nchw), we don't handle this
-  virtual void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
-                                    bool non_blocking, CopyParamsInfo& info) {
-    if (!DiopiCast && !DiopiCopy) {
-      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
-    }
-    auto tmpSrc = src;
-    if (DiopiCast) {
-      if (!info.sameDtype_) {
-        tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
-        info.recomputeTensorsInfo(dst, tmpSrc);
-      }
-      if (info.directMemCopy_) {
-        doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_);
-      } else {  // need further convert
-        dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
-      }
-    } else {
-      dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
-    }
-  }
-
   // this func maximize leverage device copy (D2Self)
   // as relay in d2h, h2d, d2d copy. cannot used in device copy(D2Self).
   void doDeviceRelayCopy(at::Tensor& dst, const at::Tensor& src,
@@ -389,7 +324,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
           // 3. direct: dst_contigs_2(D) -> dst_contig(cpu/otherD).
           doDeviceRelayCopy(dstContig, src, non_blocking, newInfo);
         }
-        // 4. dst_contig -> dst (same D/cpu).
+        // 4. dst_contig -> dst (in same device/cpu), this operation need
+        // recurse call kernel, direcet copy cannot handle it.
         if (!dstContig.is_same(dst)) {
           dst.copy_(dstContig);
         }
@@ -415,11 +351,74 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
+  /*
+  d2h: direct src (device) -> src_cpu. src_cpu -> dst (cpu)
+  h2d: direct dst (device) -> dst_cpu (if view).. src (cpu)  -> dst_cpu.
+       direct dst_cpu -> dst (device)
+  d2d: direct src (device) -> src_cpu. direct dst (device) -> dst_cpu (if
+  view). src_cpu -> dst_cpu.  direct dst_cpu -> dst (device), very very
+  slow. this can handle any case, it's fallback solution.
+ */
+  void doCpuRelayCopy(at::Tensor& dst, const at::Tensor& src,
+                      DIPUStream& curStream, bool non_blocking) {
+    at::Tensor src_cpu = src;
+    if (dipu::isDeviceTensor(src)) {
+      auto src_cpu = makeSameStrideTensor(src, curStream,
+                                          c10::Device(c10::DeviceType::CPU));
+      // src storage size may bigger than src_cpu's when src is a partial view.
+      // but not smaller. because src_cpu use same stride as src.
+      // src -> src_cpu
+      doDirectMemFill(src_cpu, src, curStream, DIPUCopyType::D2H);
+    }
+
+    if (dipu::isDeviceTensor(dst)) {
+      auto dst_cpu = makeSameStrideTensor(
+          dst, curStream, c10::Device(c10::DeviceType::CPU), true);
+      // proxy to cpu to handle different type/view problem
+      dst_cpu.copy_(src_cpu);
+
+      doDirectMemFill(dst, dst_cpu, curStream, DIPUCopyType::H2D);
+    } else {  // dst is cpu
+      dst.copy_(src_cpu);
+    }
+  }
+
+  // handle no-direct mem copy on one device, dipu has a simple configurable
+  // template strategy which use DIOPI copy/cast correctly. if vendor has
+  // no-complete implementation of DIOPI copy/cast. please override
+  // copy_nodirect_device to decide the case needed to be executed by diopiCopy
+  // and proxy other case back to 'doCpuRelayCopy' which contain a slow
+  // implementaion.
+
+  // 1. type cast. 2. expand/bcast. 3.1 special no-contiguous (stride
+  // hollow/overlap) 3.2 mem-format no-contiguous (storage contiguous but not
+  // nchw), we don't handle this
+  virtual void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
+                                    bool non_blocking, CopyParamsInfo& info) {
+    if (!DiopiCast && !DiopiCopy) {
+      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
+    }
+    auto tmpSrc = src;
+    if (DiopiCast) {
+      if (!info.sameDtype_) {
+        tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
+        info.recomputeTensorsInfo(dst, tmpSrc);
+      }
+      if (info.directMemCopy_) {
+        doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_);
+      } else {  // need further convert
+        dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+      }
+    } else {
+      dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+    }
+  }
+
   // handle no-direct mem copy between different devices, dipu has default
   // strategy which use a intermidiate tensor, it's slow. vendor who has more
   // efficient p2p device copy can override it (eg: device has unified
   // addressing and supports passing in different device addresses to one kernel
-  // can direct use copyNodirectOnDevice() to do 'between-device-copy')
+  // can use copyNodirectOnDevice() to do 'between-device-copy')
   virtual void copyNodirectBetweenDevices(at::Tensor& dst,
                                           const at::Tensor& src,
                                           bool non_blocking,

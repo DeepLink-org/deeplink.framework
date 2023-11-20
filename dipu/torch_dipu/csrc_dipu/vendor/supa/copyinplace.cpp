@@ -18,8 +18,10 @@ class SUPACopyInplace : public DIPUCopyInplace<true, false> {
   SUPACopyInplace() = default;
   ~SUPACopyInplace() = default;
 
-  void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
-                            bool non_blocking, CopyParamsInfo& info) override {
+  // assume it can handle between device .
+  void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
+                                  bool non_blocking,
+                                  CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
 };
