@@ -141,8 +141,7 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
   static std::unordered_map<std::string, ge::DataType> datatype_map = {
       {"FLOAT", ge::DataType::DT_FLOAT}, {"FLOAT16", ge::DataType::DT_FLOAT16},
       {"INT32", ge::DataType::DT_INT32}, {"INT64", ge::DataType::DT_INT64},
-      {"BOOL", ge::DataType::DT_BOOL},
-      {"UINT8", ge::DataType::DT_UINT8},
+      {"BOOL", ge::DataType::DT_BOOL},   {"UINT8", ge::DataType::DT_UINT8},
   };
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];
@@ -240,7 +239,7 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
         auto output_name = desc["output_name"].get<std::string>();
         if (output_name != "none") {
           op_map[i["value"].get<std::string>()].UpdateOutputDesc(
-            output_name.c_str(), tensor_desc);
+              output_name.c_str(), tensor_desc);
           op.SetInput(name, value);
         } else {
           op.SetInput(name, value);
@@ -258,10 +257,9 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
       auto format = desc["format"].get<std::string>();
       auto data_type = desc["data_type"].get<std::string>();
       auto shape = desc["shape"].get<std::vector<int64_t>>();
-      TensorDesc tensor_desc = TensorDesc(
-          ge::Shape(shape),
-          get_ascend_format(format),
-          get_ascend_datatype(data_type));
+      TensorDesc tensor_desc =
+          TensorDesc(ge::Shape(shape), get_ascend_format(format),
+                     get_ascend_datatype(data_type));
       op.UpdateOutputDesc(name, tensor_desc);
     }
   }
