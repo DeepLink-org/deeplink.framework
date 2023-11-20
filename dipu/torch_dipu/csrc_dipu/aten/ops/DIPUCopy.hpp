@@ -101,7 +101,7 @@ inline void memCopyD2H(const at::Tensor& dst, const at::Tensor& src,
 }
 
 inline void memCopyD2D(const at::Tensor& dst, const at::Tensor& src,
-                       dipu::DIPUStream& stream, bool nbytes) {
+                       dipu::DIPUStream& stream, int64_t nbytes) {
   void* src_ptr = src.data_ptr();
   void* dst_ptr = dst.data_ptr();
 
@@ -127,7 +127,6 @@ inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
       break;
     default:  // device to device
       memCopyD2D(dst, src, stream, nbytes);
-      break;
   }
 }
 }  // anonymous namespace
