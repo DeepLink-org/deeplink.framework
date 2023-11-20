@@ -22,8 +22,8 @@ __all__ = [
     # "is_initialized",
 
     # tensor
-    'FloatTensor', 'DoubleTensor', 'HalfTensor',
-    'LongTensor', 'IntTensor', 'ShortTensor', 'ByteTensor', 'CharTensor', 'BoolTensor',
+    # 'FloatTensor', 'DoubleTensor', 'HalfTensor',
+    # 'LongTensor', 'IntTensor', 'ShortTensor', 'ByteTensor', 'CharTensor', 'BoolTensor',
 
     # device
     "can_device_access_peer",  "current_device",  "devicectx", "device_count", "device_of", "synchronize",

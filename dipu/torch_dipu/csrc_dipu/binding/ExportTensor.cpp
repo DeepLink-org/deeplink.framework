@@ -1,9 +1,16 @@
 // Copyright (c) 2023, DeepLink.
+#include <c10/core/Backend.h>
+#include <c10/core/DispatchKey.h>
+#include <c10/core/ScalarType.h>
+#include <Python.h>
 #include <torch/csrc/Exceptions.h>
+#include <torch/csrc/autograd/python_variable.h>
 #include <torch/csrc/autograd/utils/wrap_outputs.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/utils/pycfunction_helpers.h>
 #include <torch/csrc/utils/python_arg_parser.h>
 #include <torch/csrc/utils/python_strings.h>
+#include <torch/csrc/utils/tensor_new.h>
 #include <torch/csrc/utils/tensor_types.h>
 
 #include <csrc_dipu/base/basedef.h>
@@ -80,12 +87,95 @@ static PyObject *THPVariable_dipu(PyObject *module, PyObject *args,
   END_HANDLE_TH_ERRORS
 }
 
+// PyTensorType was defined in torch/csrc/tensor/python_tensor.cpp only, we can
+// only copy it to here to use.
+struct PyTensorType {
+  PyTypeObject py_type;
+  THPDtype* dtype;
+  THPLayout* layout;
+  bool is_cuda;
+  char name[64];
+  int backend;
+  int scalar_type;
+
+  at::Backend get_backend() const {
+    return static_cast<at::Backend>(backend);
+  }
+
+  c10::DispatchKey get_dispatch_key() const {
+    return c10::backendToDispatchKey(static_cast<at::Backend>(backend));
+  }
+
+  at::ScalarType get_scalar_type() const {
+    return static_cast<at::ScalarType>(scalar_type);
+  }
+};
+
+static_assert(
+    std::is_standard_layout<PyTensorType>::value,
+    "PyTensorType must be standard layout");
+
+// torch's Tensor_new checks torch::utils::cuda_enabled() for cuda tensor, we
+// need to get rid of this check.
+static PyObject* mock_Tensor_new(
+    PyTypeObject *type, PyObject *args, PyObject *kwargs) {
+  HANDLE_TH_ERRORS
+  auto& tensor_type = *((PyTensorType*)type);
+  return THPVariable_Wrap(torch::utils::legacy_tensor_ctor(
+    tensor_type.get_dispatch_key(),
+    tensor_type.get_scalar_type(),
+    args,
+    kwargs));
+  END_HANDLE_TH_ERRORS
+}
+
+static inline at::Backend dipu_mock_backend(at::Backend backend) {
+  switch (backend) {
+    case at::Backend::CUDA:
+      return DIPU_BACKEND_TYPE;
+    case at::Backend::SparseCUDA:
+      return DIPU_BACKEND_SPARSE_TYPE;
+    default:
+      return backend;
+  }
+}
+
+static PyObject* dipuMockCudaTensors(PyObject *_unused, PyObject *noargs) {
+  HANDLE_TH_ERRORS
+  auto torch_module = THPObjectPtr(PyImport_ImportModule("torch"));
+  if (!torch_module) throw python_error();
+
+  auto tensor_classes = THPObjectPtr(PyObject_GetAttrString(torch_module.get(),
+    "_tensor_classes"));
+  if (!tensor_classes) throw python_error();
+
+  auto seq = THPObjectPtr(PySequence_Fast(tensor_classes,
+    "torch._tensor_classes has been modified\n"));
+  if (!seq) throw python_error();
+
+  Py_ssize_t len = PySequence_Fast_GET_SIZE(seq.get());
+  PyObject** tensor_type_array = PySequence_Fast_ITEMS(seq.get());
+
+  for (Py_ssize_t i = 0; i < len; ++i) {
+    // assume no one change the items in torch._tensor_classes, i.e. assume
+    // they can be reinterpreted as PyTensorType.
+    PyTensorType* tensor_type = (PyTensorType*)tensor_type_array[i];
+    tensor_type->py_type.tp_new = mock_Tensor_new;
+    tensor_type->backend =
+      static_cast<int>(dipu_mock_backend(tensor_type->get_backend()));
+  }
+
+  Py_RETURN_NONE;
+  END_HANDLE_TH_ERRORS
+}
+
 // we prefer to use pybind11 to export patch func, cpython is used only patching
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
 static PyMethodDef TorchTensorMethods[] = {
     {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
      METH_VARARGS | METH_KEYWORDS, NULL},
+    {"_mockCudaTensor", (PyCFunction)dipuMockCudaTensors, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
 
 DIPU_API PyMethodDef *exportTensorFunctions() { return TorchTensorMethods; }
