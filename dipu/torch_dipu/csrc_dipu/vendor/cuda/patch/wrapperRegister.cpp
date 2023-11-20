@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/aten/RegisterDIPU.hpp>
+#include <csrc_dipu/base/basedef.h>
 
 namespace at {
 

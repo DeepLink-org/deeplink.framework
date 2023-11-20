@@ -178,7 +178,7 @@ will directly call mem_copy; if not, it call  copyNodirectXX.
 
 DiopiCast: means call separate diopiCast func, it's a forward compatible solutions because some vendor's
 DiopiCopy not support cast. new DiopiCopy api require cast/
-*/ 
+*/
 template <bool DiopiCopy, bool DiopiCast>
 class DIPUCopyInplace : public DIPUCopyBase {
 public:

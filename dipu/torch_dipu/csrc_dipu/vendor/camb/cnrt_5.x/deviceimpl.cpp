@@ -1,17 +1,12 @@
 // Copyright (c) 2023, DeepLink.
 #include "../basedeviceimpl.hpp"
 
-namespace dipu
-{
+namespace dipu {
 namespace devapis {
 
-void initializeVendor() {
+void initializeVendor() {}
 
-}
-
-void finalizeVendor() {
-
-}
+void finalizeVendor() {}
 
 // camb5.8.2
 // set current device given device according to id
@@ -23,9 +18,7 @@ void setDevice(deviceId_t devId) {
 }
 
 // check last launch succ or not, throw if fail
-void checkLastError() {
-  DIPU_CALLCNRT(::cnrtGetLastErr())
-}
+void checkLastError() { DIPU_CALLCNRT(::cnrtGetLastErr()) }
 
 void getRuntimeVersion(int *version) {
   DIPU_CALLCNRT(::cnrtGetVersion(reinterpret_cast<unsigned int *>(version)))
@@ -35,8 +28,7 @@ void getRuntimeVersion(int *version) {
 //  device stream related
 // =====================
 void createStream(deviceStream_t *stream, bool prior) {
-  if (prior)
-  {
+  if (prior) {
     DIPU_LOGW(
         "Camb device doesn't support prior queue(stream)."
         " Fall back on creating queue without priority.");
@@ -84,5 +76,5 @@ void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
   DIPU_CALLCNRT(cnrtMemsetD8Async(ptr, val, size, stream))
 }
 
-} // end namespace devapis
-} // end namespace dipu
+}  // end namespace devapis
+}  // end namespace dipu

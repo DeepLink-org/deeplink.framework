@@ -59,31 +59,31 @@ git clone git@github.com:DeepLink-org/dipu.git
 cd dipu
 git submodule update --init --recursive
 
+# 修改 template_build _sh 中 PYTORCH_DIR、PYTHON_INCLUDE_DIR
 # 示例
+# PYTORCH_DIR="/home/$USER/code/pytorch"
+
 # DIPU_DEVICE设置成厂商在dipu的设备名，即 https://github.com/DeepLink-org/dipu/blob/main/CMakeLists.txt 中的DEVICE_CAMB、DEVICE_ASCEND对应的字符串
-# DIOPI_IMPL设置成厂商在DIOPI/impl的实现代号，即 https://github.com/DeepLink-org/DIOPI/blob/main/impl/CMakeLists.txt 中的IMPL_CAMB、IMPL_ASCEND等对应的字符串
 # 示例
 # export DIPU_DEVICE=camb
-# export DIOPI_IMPL=camb
-sh template_build_sh builddiopi $DIPU_DEVICE $DIOPI_IMPL
-sh template_build_sh builddl $DIPU_DEVICE $DIOPI_IMPL
-sh template_build_sh builddp $DIPU_DEVICE $DIOPI_IMPL
+pip install .
 
 ```
 ### 2.1.4 验证DIPU
 ``` bash
+export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/impl/lib
 export DIPU_ROOT=/home/$USER/code/dipu/torch_dipu
-export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
-export PYTHONPATH=/home/$USER/code/dipu:$PYTHONPATH
+export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH; 
+export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 
-python tests/test_ops/archived/test_tensor_add.py
+sh ./tests/python/run_tests.sh
 ```
 
 ## 3. 算子库
 
 ### 3.1 算子库接入（请参考DIOPI第三方芯片算子库）
 
-在接入DIPU之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI的PROTO 声明进行了对应函数的实现，接入 DIOPI的IMPL。通过DIOPI的IMPL，我们可以编译出``libdiopi_impl.so``作为算子库文件
+在接入DIPU之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI的PROTO 声明进行了对应函数的实现，接入 DIOPI的IMPL。通过DIOPI的IMPL，我们在之前编译DIPU时会默认为对应设备编译出``libdiopi_impl.so``作为算子库文件
 - 细节可参考 [DIOPI仓库](https://github.com/DeepLink-org/DIOPI)
 - 需要注意的是，在我们进行一致性测试（diopi_test）时，会在编译时开启``DTEST=ON``，在我们接入DIPU时，编译的算子库应该关闭测试选项，即在cmake阶段使用``DTEST=OFF``
 - 下面是一个 DIOPI的IMPL 中的算子接入样例
@@ -170,16 +170,18 @@ $ python -c "import torch_dipu"
 
 #### 3.2.2 算子精度自动对比功能介绍
 由于该功能默认不开启，使用该功能时需要打开该功能并重新编译DIPU。
-如在寒武纪设备上，可将`dipu/scripts/ci_camb_script.sh`中的`autocompare`修改为`True`，其他设备类似
-```shell
-   python scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py                              \
-        --config scripts/autogen_diopi_wrapper/diopi_functions.yaml                           \
-        --out torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp                              \
-        --use_diopi_adapter True                                                              \
-        --diopi_adapter_header third_party/DIOPI/proto/include/diopi/diopi_adaptors.hpp \
-        --autocompare  True                                                                   \
-        --print_func_call_info True                                                           \
-        --print_op_arg True
+如在寒武纪设备上，可将`dipu/torch_dipu/csrc_dipu/CMakeLists.txt`中的`autocompare`修改为`True`
+```
+add_custom_command(
+  OUTPUT "${DIPU_AUTOGENED_KERNELS_CPP}"
+  COMMAND
+    python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
+    "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
+    --use_diopi_adapter False --autocompare True --print_func_call_info True
+    --print_op_arg True --fun_config_dict
+    '{\"current_device\": \"${UsedVendor}\"}'
+  DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
+          ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG})
 ```
 以上方法是对所有算子开启自动精度对比，如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比。
 只需要在相关的配置文件（如`dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`）给相应的算子添加`autocompare: True`即可
@@ -282,12 +284,23 @@ void createStream(deviceStream_t* stream, bool prior) {
 - DIPU在`dipu/torch_dipu/csrc_dipu/runtime/core/DIPUGeneratorImpl.h`中声明了`DIPUGeneratorImpl`这一个基本，如果我们的硬件实现了自己的`generator`基础函数，可以在这基础上实现自己的`DeviceGeneratorImpl`，并实现基础的`generator`相关函数。国产硬件暂无这方面的实现
 
 ### 4.3 增加编译脚本
-- 在`dipu/CMakeList.txt`中，加入新硬件的控制代码。可以参考CUDA、CAMB等其他硬件，加入DROPLET选项，让打开`USE_DROPLET`，并使得`UsedVendor`变为DROPLET
+- 在`dipu/CMakeList.txt`中，加入新硬件的控制代码。可以参考CUDA、CAMB等其他硬件，加入DROPLET选项，让打开`USE_DROPLET`，并使得`UsedVendor`变为DROPLET，同时添加该设备默认的DIOPI构建目标`DIOPI_IMPL_OPT`，并修改对应DIOPI构建目标的CMakeLists.txt文件，DIOPI的CMakeLists.txt修改细节可参考 [DIOPI仓库](https://github.com/DeepLink-org/DIOPI)。如果不准备在构建DIPU时同时构建DIOPI，可以将`DIOPI_IMPL_OPT`设置为`""`，
+参考的示例代码如下
+```
+list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
+......
+elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
+  set(USE_DROPLET ON)
+  set(UsedVendor droplet)
+  set(DIOPI_IMPL_OPT "droplet")
+......
+```
+
 - 在`dipu/torch_dipu/csrc_dipu/vendor`中我们需要编写`CMakeList`，给出`VENDOR_INCLUDE_DIRS`、`VENDOR_LIB_DIRS`、`DIPU_VENDOR_LIB`、`VENDOR_FILES`这几个硬件后端自己的头文件、库文件和runtime接入源代码，来让上层根据这些变量进行编译
-- 对应上述CMAKE的修改，我们应该修改我们的编译脚本，在cmake相关命令中，我们的`template_build_sh`里面使用了`DCAMB=ON`，将其修改为`DDROPLET=ON`
+- 对应上述CMAKE的修改，我们应该修改我们的环境变量，将DIPU_DEVICE设置为`droplet`。
 
 ### 4.4 编译与测试
-- 根据DIPU的编译介绍，我们在编译了impl之后，使用其编译脚本编译C++ ext和Python链接部分（脚本中`builddl`和`builddp`），这里需要注意编译之后将 `LD_LIBRARY_PATH`、`PYTHONPATH`都设置好避免后续使用出现问题
-- `dipu/tests`文件夹中有许多基础功能的测试，建议首先尝试测试`python -u dipu/tests/test_ops/archived/test_tensor_add.py`，该文件测试跑通基本意味着我们的设备*runtime*接入没有问题了
+- 根据DIPU的编译介绍，我们在编译了DIPU之后，需要注意将`LIBRARY_PATH`、`LD_LIBRARY_PATH`、`PYTHONPATH`都设置好避免后续使用出现问题
+- `dipu/tests`文件夹中有许多基础功能的测试，建议首先尝试测试`python -u dipu/tests/python/unittests/test_add.py`，该文件测试跑通基本意味着我们的设备*runtime*接入没有问题了
 - 编译脚本参考[2.1.3](#213-编译dipu)，测试脚本可以参考[2.1.4](#214-验证dipu)
 

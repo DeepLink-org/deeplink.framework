@@ -8,6 +8,7 @@
 namespace dipu {
 namespace supa {
 
+<<<<<<< HEAD
 using dipu::native::dipu_wrap_diopi_copy_inp;
 
 // supa's existing implementaion same as cuda, it proxy all copy case to diopi, it's different 

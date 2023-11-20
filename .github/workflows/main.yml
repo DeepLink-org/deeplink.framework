@@ -36,7 +36,7 @@ jobs:
       - name: clone repo
         run: |
           set -ex
-          cd ${GITHUB_WORKSPACE} && rm -rf DIPU DIPU_DIOPI ${REPO} 
+          cd ${GITHUB_WORKSPACE} && rm -rf DIPU ${REPO}_DIOPI ${REPO} 
           if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == *DeepLink-org* ]]; then
             git clone ${{ github.event.pull_request.head.repo.ssh_url }}
             cd ${GITHUB_WORKSPACE}/${{ github.event.repository.name }} && git checkout ${{ github.event.pull_request.head.sha }}
