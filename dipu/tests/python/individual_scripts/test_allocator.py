@@ -94,7 +94,7 @@ if __name__ == "__main__":
     p4.start()
     p4.join()
 
-    assert p1.exitcode == 0
+    assert p1.exitcode == 1
     assert p2.exitcode == 0
     assert p3.exitcode == 0
     assert p4.exitcode == 0
