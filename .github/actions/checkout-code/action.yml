@@ -36,9 +36,12 @@ runs:
               git checkout ${{ github.sha }}
             fi
           fi
+          cd source/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          git submodule update --init --depth 1 DIOPI
         }
         if [ ${MACHINE} != "local" ];then
           ssh ${MACHINE} " $(typeset -f checkout_code); checkout_code "
         else
           checkout_code
         fi
+

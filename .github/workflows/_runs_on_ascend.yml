@@ -20,27 +20,28 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout Code
-        uses: wugeshui/DIOPI/.github/actions/checkout-code@main
+        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
 
   build:
     runs-on: ${{ inputs.runner }}
     needs: checkout_code
     steps:
       - name: build on ascend
-        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
           build_env: ${{ inputs.build_env }}
-          build_shell: "Write the script you want to execute here"
+          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
           job_name: "build"
+          cover_job: "0"
           cleaner: "clean_all_if_error"
 
-  rt-test:
+  test:
     runs-on: ${{ inputs.runner }}
     needs: build
     steps:
       - name: rt test on ascend
-        uses: wugeshui/DIOPI/.github/actions/code-build-test@main
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
-          build_shell: " Write the script you want to execute here "
+          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
           job_name: "build"
           cover_job: "1"
