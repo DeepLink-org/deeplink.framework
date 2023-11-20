@@ -3,7 +3,7 @@
 
 #include <ATen/Tensor.h>
 #include <ATen/ATen.h>
-#include <ATen/TensorIterator.h>
+#include <ATen/MemoryOverlap.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
@@ -24,6 +24,7 @@ namespace dipu {
 
 using dipu::native::dipu_wrap_diopi_cast_dtype;
 using dipu::native::dipu_wrap_diopi_copy_inp;
+using MemoryFormat = at::MemoryFormat;
 
 enum DIPUCopyType {
   // in one device
@@ -33,23 +34,13 @@ enum DIPUCopyType {
   H2D,
 };
 
-struct CopyParamsInfo {
-  DIPUCopyType copyType;
-  DIPUStream curStream;
-  // basic info
-  // if cast needed
-  bool sameDtype = false;
-  // if stride based copy need
-  bool allContiguous = false;
-  // if bcast needed.
-  bool bcastCopy = false;
-
-  // composite info
-  // can direct mem copy 
-  bool directCopy = false;
-};
-
 namespace {
+  // Align with pytorch's behavior, see TensorIterator.cpp compute_mem_overlaps()
+  inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
+    assert_no_internal_overlap(dst);
+    assert_no_partial_overlap(dst, src);
+  }
+
   inline void try_record_stream(const at::Tensor& tensor, DIPUStream& curStream, bool is_default_stream) {
     if (tensor.is_cpu()) {
       if (tensor.options().pinned_memory()) {
@@ -75,32 +66,21 @@ namespace {
     return DIPUCopyType::D2Self;
   }
 
-  inline CopyParamsInfo getParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
-    // assume layout always = not suppport Sparse layout
-    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided, "only Strided layout is supported");
-    CopyParamsInfo info;
-    info.sameDtype = (dst.scalar_type() == src.scalar_type());
-    info.allContiguous = (dst.is_contiguous() && src.is_contiguous());
-    info.bcastCopy = (dst.numel() != src.numel());
-    info.directCopy = info.sameDtype && info.allContiguous && !info.bcastCopy;
-    info.copyType = getCopyType(dst, src);
-    info.curStream = dipu::getCurrentDIPUStream();
-    return info;
-  }
-
-
-  inline int64_t getDirectCopyBytes(const at::Tensor& dst, const at::Tensor& src) {
+  inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src, bool nonOverlappingAndDense) {
     if (dst.nbytes() != src.nbytes()) {  // outer bytes must same. different type is unsuported
-      TORCH_CHECK(false, "dipu copy with different size is not allowed");
+      TORCH_CHECK(false, "mem copy with different tensor size is not allowed");
     }
-    int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-    return srcBytes < dstBytes ? srcBytes : dstBytes;
+    if (nonOverlappingAndDense) {
+      return dst.nbytes();
+    } else {
+      int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+      int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+      return srcBytes < dstBytes ? srcBytes : dstBytes;
+    }
   }
 
-
-  inline void copyH2D(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream) {
-    int64_t nbytes = getDirectCopyBytes(dst, src);
+  inline void memCopyH2D(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream,
+                      int64_t nbytes) {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
@@ -108,8 +88,8 @@ namespace {
     dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
   }
 
-  inline void copyD2H(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream) {
-    int64_t nbytes = getDirectCopyBytes(dst, src);
+  inline void memCopyD2H(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream,
+                      int64_t nbytes) {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
@@ -117,8 +97,8 @@ namespace {
     dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
   }
 
-  inline void copyD2D(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream) {
-    int64_t nbytes = getDirectCopyBytes(dst, src);
+  inline void memCopyD2D(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream,
+                      bool nbytes) {
     void* src_ptr = src.data_ptr();
     void* dst_ptr = dst.data_ptr();
 
@@ -127,16 +107,69 @@ namespace {
     dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes, dst.device().index(), dst_ptr,
                                    src.device().index(), src_ptr);
   }
+
+  inline void memCopy(const at::Tensor& dst, const at::Tensor& src, dipu::DIPUStream& stream,
+                     DIPUCopyType copyType, bool nonOverlappingAndDense) {
+    int64_t nbytes = getMemCopyBytes(dst, src, nonOverlappingAndDense);
+    switch(copyType) {
+      case DIPUCopyType::H2D:
+        // src is cpu.
+        memCopyH2D(dst, src, stream, nbytes);
+        break;
+      case DIPUCopyType::D2H:
+        // dst is cpu.
+        memCopyD2H(dst, src, stream, nbytes);
+        break;
+      default:// device to device
+        memCopyD2D(dst, src, stream, nbytes);
+        break;
+    }
+  }
 } // anonymous namespace
 
+
+struct CopyParamsInfo {
+  DIPUCopyType copyType_;
+  DIPUStream curStream_;
+  // basic info
+  // if cast needed
+  bool sameDtype_ = false;
+  // determine if expand needed.
+  bool sameSize_ = false;
+  bool sameStride_ = false;
+  bool denseAndNoOverlap_ = false;
+
+  // composite info, can direct mem copy 
+  bool directMemCopy_ = false;
+
+  void recomputeTensorsInfo(const at::Tensor& dst, const at::Tensor& src) {
+    sameDtype_ = dst.scalar_type() == src.scalar_type();
+    sameSize_ = dst.sizes().equals(src.sizes());
+    sameStride_ = dst.strides().equals(src.strides());
+    denseAndNoOverlap_= dst.is_non_overlapping_and_dense() &&
+                         src.is_non_overlapping_and_dense();
+    directMemCopy_ = sameDtype_ && sameSize_ && sameStride_ && denseAndNoOverlap_ ;
+  }
+
+  CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
+      // assume layout always = not suppport Sparse layout
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided, "only Strided layout is supported");
+    copyType_ = getCopyType(dst, src);
+    curStream_ = dipu::getCurrentDIPUStream();
+
+    recomputeTensorsInfo(dst, src);
+  }
+
+  void updateCopyType(DIPUCopyType copyType) {
+    copyType_ = copyType;
+  }
+};
 
 class DIPUCopyBase {
 public:
   DIPUCopyBase() = default;
   virtual ~DIPUCopyBase() = default;
-
   virtual void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) = 0;
- 
 };
 
 /*
@@ -147,60 +180,84 @@ DiopiCast: means call separate diopiCast func, it's a forward compatible solutio
 DiopiCopy not support cast. new DiopiCopy api require cast:
 
 DiopiCopyBcast: if vendor diopiCopy cannot do bcast copy (false). set this to False, DIPUCopyInplace will
-try to expand tensor to same size before call diopiCopy, it's not yet implemented. always true now.
+try to expand tensor to same size before call diopiCopy, (todo: always true now)
 */ 
 template <bool DiopiCopy, bool DiopiCast, bool DiopiCopyBcast=true>
 class DIPUCopyInplace : public DIPUCopyBase {
-private:
-  bool useDiopiCopy_ = DiopiCopy;
-  bool useDiopiCast_ = DiopiCast;
-  bool diopiSupportBcast = true;
-
 public:
   DIPUCopyInplace() = default;
   void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) override {
     TORCH_CHECK(dst.defined(), "dst is undefined");
     TORCH_CHECK(src.defined(), "src is undefined");
-
-    auto paramsInfo = getParamsInfo(dst, src);
+    if (dst.numel() == 0 || dst.is_same(src)) {
+        return;
+    }
+    auto curStream = dipu::getCurrentDIPUStream();
     // recordBeforeCopy
     if (non_blocking) {
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == paramsInfo.curStream;
-      try_record_stream(dst, paramsInfo.curStream, is_default_stream);
-      try_record_stream(src, paramsInfo.curStream, is_default_stream);
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == curStream;
+      try_record_stream(dst, curStream, is_default_stream);
+      try_record_stream(src, curStream, is_default_stream);
     }
+    checkOverlap(dst, src);
 
-    copyAll(dst, src, non_blocking, paramsInfo);
-
+    auto info = CopyParamsInfo(dst, src);
+    // Exit early if self and src are views of the same data
+    bool isSameData = 
+            (dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
+            info.sameStride_ &&  info.sameDtype_);
+    if (isSameData) {
+      return;
+    }
+    copyAll(dst, src, non_blocking, info);
     // syncAfterCopy
     if (!non_blocking) {
-      dipu::devapis::syncStream(paramsInfo.curStream.rawstream());
+      dipu::devapis::syncStream(curStream.rawstream());
     }
   }
 
 protected:
-  // support view <-> real-stor tensor and real <-> real tensor copy.
-  // not support all view <-> view copy (may casue extra data to be copied)
-  void doDirectCopy(at::Tensor& dst, const at::Tensor& src,
-                    DIPUStream& curStream, DIPUCopyType copyType, bool strictCheck = false) {
-    // check is time consuming in fast path, default false
-    if (strictCheck && dst.is_view() && src.is_view()) {
-      TORCH_CHECK(false, "doDirectCopy cannot support all view-view copy");
-    }
+  /*
+  the memory area of the dst tensor (contains hollow area actually not belong to tensor)
+  will be totally overwrited by the same-size src mem area.
+  support copy between 2 tensor with same stride and dtype, no-dense and overlapped tensors
+  are also supported. but the 2 cannot both be view
+  (will casue data outside mem area be overwrited).
+  */
+  void doDirectMemFill(at::Tensor& dst, const at::Tensor& src,
+                    DIPUStream& curStream, DIPUCopyType copyType) {
 
-    switch(copyType) {
-      case DIPUCopyType::H2D:
-        // src is cpu.
-        copyH2D(dst, src, curStream);
-        break;
-      case DIPUCopyType::D2H:
-        // dst is cpu.
-        copyD2H(dst, src, curStream);
-        break;
-      default:// device to device
-        copyD2D(dst, src, curStream);
-        break;
+    if (dst.is_view() && src.is_view()) {
+      TORCH_CHECK(false, "doDirectMemFill cannot support all view-view copy");
     }
+    memCopy(dst, src, curStream, copyType, false);
+  }
+
+  // support mem copy between 2 nonOverlappingAndDense tensor with same stride and dtype. 
+  // both 2 can be view.
+  void doDirectMemCopy(at::Tensor& dst, const at::Tensor& src,
+                              DIPUStream& curStream, DIPUCopyType copyType) {
+    memCopy(dst, src, curStream, copyType, true);
+  }
+
+  at::Tensor makeSameStrideTensor(const at::Tensor& src, DIPUStream& curStream,
+                                  at::Device newDevice, bool willBackfillSrc = false) {
+    if (src.is_contiguous(MemoryFormat::ChannelsLast) || src.is_contiguous()) {
+      auto sameAsSrc = at::empty(src.sizes(), src.options().device(newDevice),
+                                 src.suggest_memory_format());
+      return sameAsSrc;
+    } else {
+      // empty_strided is much expensive than empty_memory_format().
+      // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
+      auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),
+                       src.options().device(newDevice));
+      // prefill newTensor to support backfill in future.
+      if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
+        doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
+      }
+      return sameAsSrc;
+    }
+ 
   }
 
    /*
@@ -209,31 +266,25 @@ protected:
         direct dst_cpu -> dst (device)
    d2d: direct src (device) -> src_cpu. direct dst (device) -> dst_cpu (if view).
         src_cpu -> dst_cpu.  direct dst_cpu -> dst (device), very very slow.
+   this can handle any case, it's fallback solution.
   */
-  void doCpuIntermediateCopy(at::Tensor& dst, const at::Tensor& src,
+  void doCpuRelayCopy(at::Tensor& dst, const at::Tensor& src,
                              DIPUStream& curStream, bool non_blocking) {
     at::Tensor src_cpu = src;
     if(dipu::isDeviceTensor(src)) {
-      // empty_strided can handle both hollow and overlap no-contiguous case and create correct
-      // size tensor. it's the basis why we can do direct copy between 2 no-contiguous tensor.
-      src_cpu = at::empty_strided(src.sizes(), src.strides(),
-          src.options().device(c10::DeviceType::CPU));
+      auto src_cpu = makeSameStrideTensor(src, curStream, c10::Device(c10::DeviceType::CPU));
       // src storage size may bigger than src_cpu's when src is a partial view.
       // but not smaller. because src_cpu use same stride as src.
       // src -> src_cpu
-      doDirectCopy(src_cpu, src, curStream, DIPUCopyType::D2H);
+      doDirectMemFill(src_cpu, src, curStream, DIPUCopyType::D2H);
     }
 
     if(dipu::isDeviceTensor(dst)) {
-      at::Tensor dst_cpu = at::empty_strided(dst.sizes(), dst.strides(),
-            dst.options().device(c10::DeviceType::CPU));
-      if (dst.is_view()) {
-        doDirectCopy(dst_cpu, dst, curStream, DIPUCopyType::D2H);
-      }
+      auto dst_cpu = makeSameStrideTensor(dst, curStream, c10::Device(c10::DeviceType::CPU), true);
       // proxy to cpu to handle different type/view problem
       dst_cpu.copy_(src_cpu);
 
-      doDirectCopy(dst, dst_cpu, curStream, DIPUCopyType::H2D);
+      doDirectMemFill(dst, dst_cpu, curStream, DIPUCopyType::H2D);
     } else {  // dst is cpu
       dst.copy_(src_cpu);
     }
@@ -242,28 +293,108 @@ protected:
   // handle no-direct mem copy on one device, dipu has a simple configurable template strategy which 
   // use DIOPI copy/cast correctly. if vendor has no-complete implementation of DIOPI copy/cast.
   // please override copy_nodirect_device to decide the case needed to be executed by diopiCopy
-  // and proxy other case back to 'doCpuIntermediateCopy' which contain a slow implementaion.
+  // and proxy other case back to 'doCpuRelayCopy' which contain a slow implementaion.
 
-  // 1. type cast. 2. expand/bcast. 3.1 simple no-contiguous (storage contiguous but not nhwc)
-  // 3.2 special no-contiguous (partial/hollow/overlap) 
+  // 1. type cast. 2. expand/bcast. 3.1 special no-contiguous (stride hollow/overlap) 
+  // 3.2 mem-format no-contiguous (storage contiguous but not nchw), we don't handle this
   virtual void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                                     bool non_blocking, CopyParamsInfo& info) {
     if (!DiopiCast && !DiopiCopy) {
-      doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
+      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
     auto tmpSrc = src;
     if (DiopiCast) {
-      if (!info.sameDtype) {
+      if (!info.sameDtype_) {
         tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
+        info.recomputeTensorsInfo(dst, tmpSrc);
       }
-      // need further convert
-      if (!info.allContiguous || info.bcastCopy) {
-        dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
-      } else {
-        doDirectCopy(dst, tmpSrc, info.curStream, info.copyType);
+      if (info.directMemCopy_) {
+         doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_);
+      } else {       // need further convert
+         dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
       }
     } else {
       dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+    }
+  }
+
+  // this func maximize leverage device copy (D2Self)
+  // as relay in d2h, h2d, d2d copy. cannot used in device copy(D2Self).
+  void doDeviceRelayCopy(at::Tensor& dst, const at::Tensor& src,
+                        bool non_blocking, CopyParamsInfo& info) {
+    switch(info.copyType_) {
+      // create dst_device (relay, same stride)
+      // 1. direct dst_cpu/otherdevice -> dst_device (is view).
+      // 2. src_device -> dst_device. 3. direct dst_device -> dst_cpu/otherdevice. 
+      case DIPUCopyType::D2OtherD:
+      case DIPUCopyType::D2H: {
+          auto curCopyType = info.copyType_;
+          // same stride as dst.
+          auto dstInDevSrc = makeSameStrideTensor(dst, info.curStream_, src.device(), true);
+          info.updateCopyType(DIPUCopyType::D2Self);
+          copyNodirectOnDevice(dstInDevSrc, src, non_blocking, info);
+          doDirectMemFill(dst, dstInDevSrc, info.curStream_, curCopyType);
+        }
+        break;
+      // create src_device (relay, same stride)
+      // direct src_cpu -> src_device, src_device -> dst(device)
+      case DIPUCopyType::H2D: {
+          auto srcInDstdev = makeSameStrideTensor(src, info.curStream_, dst.device());
+          doDirectMemFill(srcInDstdev, src, info.curStream_, DIPUCopyType::H2D);
+          info.updateCopyType(DIPUCopyType::D2Self);
+          copyNodirectOnDevice(dst, srcInDstdev, non_blocking, info);
+        }
+        break;
+      default:
+        TORCH_CHECK(false, "doDeviceRelayCopy not support one device device, it's a proxy method");
+    }
+  }
+
+  // doDeviceRelayCopy need create a relay tensor having same stride as the dst/src.
+  // it's expensive if the tensor is a view with big hollow, so supply this simple wrap method
+  // to help d2h, h2d, d2d copy. cannot used in device copy(D2Self). 
+  // logical approach:
+  // 1. create dst_contig. 2. create src_contig and src -> src_contig. 
+  // 3. direct src_contig -> dst_contig  4. dst_contig -> dst
+  //  (todo: automatic use)
+  void doContigTensorRelayCopy(at::Tensor& dst, const at::Tensor& src,
+                              bool non_blocking, CopyParamsInfo& info) {
+    switch(info.copyType_) {
+      case DIPUCopyType::D2OtherD:
+      case DIPUCopyType::D2H: {
+        // 1. create dst_contig. same device.
+        auto dstContig = dst.is_contiguous() ? dst 
+                     : at::empty_like(dst, c10::MemoryFormat::Contiguous);
+        auto newInfo = CopyParamsInfo(dstContig, src);
+        if (newInfo.directMemCopy_) {
+          doDirectMemCopy(dstContig, src, newInfo.curStream_, newInfo.copyType_);
+        } else {
+          // equivalent as logical approach:  
+          // 2. create dst contig in src Device and do src -> dst_contigs_2.
+          // 3. direct: dst_contigs_2(D) -> dst_contig(cpu/otherD).
+          doDeviceRelayCopy(dstContig, src, non_blocking, newInfo);
+        }
+         // 4. dst_contig -> dst (same D/cpu).
+        if (!dstContig.is_same(dst)) {
+          dst.copy_(dstContig);
+        }
+      }
+      break;
+      case DIPUCopyType::H2D: {
+          // 2. create src_contig and src -> src_contig (both cpu).
+          auto srcContig = src.contiguous(c10::MemoryFormat::Contiguous);
+          auto newInfo = CopyParamsInfo(dst, srcContig);
+          if (newInfo.directMemCopy_) {
+            doDirectMemCopy(dst, srcContig, newInfo.curStream_, newInfo.copyType_);
+          }
+          // equivalent as logical approach:  
+          // 1. create src_contig_2(D).  3. direct src_contig(CPU) -> src_contig_2 (D).
+          // 4. src_contig_2 (device) -> dst (device),
+          doDeviceRelayCopy(dst, srcContig, non_blocking, newInfo);
+        }
+        break;
+      default:
+        TORCH_CHECK(false, "doDeviceRelayCopy not support one device device, it's a proxy method");
     }
   }
 
@@ -273,20 +404,11 @@ protected:
   // can direct use copyNodirectOnDevice() to do 'between-device-copy')
   virtual void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
                                           bool non_blocking, CopyParamsInfo& info) {
-    if (DiopiCopy) { 
-      // need 3 steps: direct dst -> dst_in_src_device (if view).
-      // then src -> dst_in_src_device.  direct dst_in_src_device -> dst.
-      // but it still better than doCpuIntermediateCopy
-      auto dstInDevSrc = at::empty_strided(dst.sizes(), dst.strides(), dst.options().device(src.device()));
-      if (dst.is_view()) {
-        doDirectCopy(dstInDevSrc, dst, info.curStream, DIPUCopyType::D2OtherD);
-      }
-      info.copyType = DIPUCopyType::D2Self;
-      copyNodirectOnDevice(dstInDevSrc, src, non_blocking, info);
-      doDirectCopy(dst, dstInDevSrc, info.curStream, DIPUCopyType::D2OtherD);
-     
+    if (DiopiCopy) {
+      // doContigTensorRelayCopy(dst, src, non_blocking, info);
+      doDeviceRelayCopy(dst, src, non_blocking, info);
     } else { // if diopiCopy = false, direct do cpu copy is best.
-      doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
+      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
   }
 
@@ -294,54 +416,34 @@ protected:
   // intermidiate tensor, it's slow. vendor who has more efficient solution can override it.
   virtual void copyNodirectDeviceHost(at::Tensor& dst, const at::Tensor& src,
                                       bool non_blocking, CopyParamsInfo& info) {
-    if (DiopiCopy) {
-      switch(info.copyType) {
-        case DIPUCopyType::H2D: {
-          // direct src_cpu -> src_device, src_device -> dst(device)
-          auto srcIndev = at::empty_strided(src.sizes(), src.strides(), src.options().device(dst.device()));
-          doDirectCopy(srcIndev, src, info.curStream, DIPUCopyType::H2D);
-          info.copyType = DIPUCopyType::D2Self;
-          copyNodirectOnDevice(dst, srcIndev, non_blocking, info);
-          break;
-        }
-        // if dst tensor is view, leverage device copy need 3 steps: 1. direct dst_cpu -> dst_device.
-        // 2. src_device -> dst_device. 3. direct dst_device -> dst_cpu. do stride based copy on device.
-        // but doCpuIntermediateCopy D2H only need 2 step: direct src (device) -> src_cpu. src_cpu -> dst(cpu)
-        // do stride based copy on cpu (slow). not sure which is better.
-        case DIPUCopyType::D2H: {
-          if (dst.is_view()) {
-            doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
-          } else {
-            auto dstIndev = at::empty_strided(dst.sizes(), dst.strides(), dst.options().device(src.device()));
-            info.copyType = DIPUCopyType::D2Self;
-            copyNodirectOnDevice(dstIndev, src, non_blocking, info);
-            doDirectCopy(dst, dstIndev, info.curStream, DIPUCopyType::D2H);
-          }
-          break;
-        }
-        default:
-          TORCH_CHECK(false, "call copyNodirectDeviceHost with incorrect copy type");
-      }
+    if (DiopiCopy) { // try to maximum leverage device copy,
+      //doContigTensorRelayCopy(dst, src, non_blocking, info);
+      doDeviceRelayCopy(dst, src, non_blocking, info);
     } else { // if diopiCopy = false, direct do cpu copy is best.
-        doCpuIntermediateCopy(dst, src, info.curStream, non_blocking);
+      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
   }
 
   // overriding this func is possible but not recommended
-  virtual void copyAll(at::Tensor& dst, const at::Tensor& src,
-                      bool non_blocking, CopyParamsInfo& info) {
-    if (info.directCopy) {
-      doDirectCopy(dst, src, info.curStream, info.copyType);
+  virtual void copyAll(at::Tensor& dst, const at::Tensor& src, bool non_blocking,
+                        CopyParamsInfo& info) {
+    at::Tensor tmpSrc = src;
+    if (!info.sameSize_) {
+      tmpSrc = src.expand_as(dst);
+      info.recomputeTensorsInfo(tmpSrc, dst);
+    }
+    if (info.directMemCopy_) {
+      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_);
     } else {
-      switch(info.copyType) {
+      switch(info.copyType_) {
         case DIPUCopyType::D2Self:
-          copyNodirectOnDevice(dst, src, non_blocking, info);
+          copyNodirectOnDevice(dst, tmpSrc, non_blocking, info);
           break;
         case DIPUCopyType::D2OtherD:
-          copyNodirectBetweenDevices(dst, src, non_blocking, info);
+          copyNodirectBetweenDevices(dst, tmpSrc, non_blocking, info);
           break;
         default:
-          copyNodirectDeviceHost(dst, src, non_blocking, info);
+          copyNodirectDeviceHost(dst, tmpSrc, non_blocking, info);
       }
     }  
   }
