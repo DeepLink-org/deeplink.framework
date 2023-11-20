@@ -20,8 +20,7 @@ class CUDACopyInplace : public DIPUCopyInplace<true, false> {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
 
-  // diopi-cuda copy use aten, it can handle between device case. so leave all
-  // to it.
+  // diopi-cuda copy use aten, so it can handle between-device case.
   void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
                                   bool non_blocking,
                                   CopyParamsInfo& info) override {
