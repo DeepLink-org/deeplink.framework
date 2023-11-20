@@ -44,9 +44,6 @@ override {
 */
 
 static CUDACopyInplace cuda_copy_inplace;
-static int32_t cuda_init = []() {
-  setDipuCopyClass(&cuda_copy_inplace);
-  return 1;
-}();
+setDipuCopyClass(&cuda_copy_inplace);
 
 }  // namespace dipu

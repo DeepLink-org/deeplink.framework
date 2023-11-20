@@ -1,6 +1,6 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  register_op: False  # Whether generate registe code for this op, default value is True
+  register_op: False # Whether generate registe code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
@@ -422,7 +422,6 @@
     at::Tensor out = at::empty_like(self);
   interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index.expect_int(), label_smoothing)
 
-
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
   register_op: False
   custom_code_at_the_beginning: |
@@ -521,25 +520,35 @@
   interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
   forward_process_code: |
     bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
-  saved_data: [stride, padding, dilation, groups, bias_has_value, input, weight, output_padding]
+  saved_data:
+    [
+      stride,
+      padding,
+      dilation,
+      groups,
+      bias_has_value,
+      input,
+      weight,
+      output_padding,
+    ]
   cal_grad_code: |
-      auto grad_output = grad_outputs.at(0);
-      auto input = input_.toTensor();
-      auto weight = weight_.toTensor();
-      auto padding = padding_.toIntVector();
-      auto stride = stride_.toIntVector();
-      auto dilation = dilation_.toIntVector();
-      auto output_padding = output_padding_.toIntVector();
-      bool bias_has_value = bias_has_value_.toBool();
-      auto groups = groups_.toInt();
-      std::vector<int64_t> bias_sizes;
-      if (bias_has_value) {
-        bias_sizes.push_back(grad_output.size(1));
-      }
-      std::array<bool, 3> output_mask;
-      output_mask[0] = input.requires_grad();
-      output_mask[1] = weight.requires_grad();
-      output_mask[2] = bias_has_value;
+    auto grad_output = grad_outputs.at(0);
+    auto input = input_.toTensor();
+    auto weight = weight_.toTensor();
+    auto padding = padding_.toIntVector();
+    auto stride = stride_.toIntVector();
+    auto dilation = dilation_.toIntVector();
+    auto output_padding = output_padding_.toIntVector();
+    bool bias_has_value = bias_has_value_.toBool();
+    auto groups = groups_.toInt();
+    std::vector<int64_t> bias_sizes;
+    if (bias_has_value) {
+      bias_sizes.push_back(grad_output.size(1));
+    }
+    std::array<bool, 3> output_mask;
+    output_mask[0] = input.requires_grad();
+    output_mask[1] = weight.requires_grad();
+    output_mask[2] = bias_has_value;
   backward_schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   backward_return_code: |
     std::vector<at::Tensor>  outputs = {
@@ -647,7 +656,6 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     bool unbiased = correction.value_or(1) == 1;
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
-
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   device: [all, -cuda]
@@ -970,7 +978,6 @@
 - schema: "_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiSoftmaxBackward(ctx, grad_input, grad_output, output, dim);
 
-
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
@@ -1112,22 +1119,22 @@
   interface: diopiMax(ctx, max, max_indices, self, dim)
 
 - schema: "addcdiv.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
-  interface:  diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
+  interface: diopiAddcdiv(ctx, out, self,tensor1,tensor2,value)
 
 - schema: "addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
-  interface:  diopiAddcdivInp(ctx,self , tensor1, tensor2, value)
+  interface: diopiAddcdivInp(ctx,self , tensor1, tensor2, value)
 
 - schema: "addcmul.out(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1, Tensor(a!) out) -> Tensor(a!)"
-  interface:  diopiAddcmul(ctx, out, self, tensor1, tensor2, value)
+  interface: diopiAddcmul(ctx, out, self, tensor1, tensor2, value)
 
 - schema: "addcmul_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)"
-  interface:  diopiAddcmulInp(ctx,self,tensor1, tensor2, value)
+  interface: diopiAddcmulInp(ctx,self,tensor1, tensor2, value)
 
 - schema: "exp.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface:  diopiExp(ctx, out, self)
+  interface: diopiExp(ctx, out, self)
 
 - schema: "exp_(Tensor(a!) self) -> Tensor(a!)"
-  interface:  diopiExpInp(ctx, self)
+  interface: diopiExpInp(ctx, self)
 
 - schema: "tanh.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiTanh(ctx, out,self)
@@ -1454,7 +1461,16 @@
     auto target_lengths_dev = target_lengths.to(log_probs.device());
   forward_schema: ctc_loss_tensor(Tensor log_probs, Tensor targets_dev, Tensor input_lengths_dev, Tensor target_lengths_dev, int blank=0, int reduction=Mean, bool zero_infinity=False) -> Tensor
   backward_schema: "ctc_loss_tensor_backward(Tensor grad_output, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
-  saved_data: [log_probs, targets, input_lengths, target_lengths, blank, reduction, zero_infinity]
+  saved_data:
+    [
+      log_probs,
+      targets,
+      input_lengths,
+      target_lengths,
+      blank,
+      reduction,
+      zero_infinity,
+    ]
   cal_grad_code: |
     auto log_probs = log_probs_.toTensor();
     auto targets = targets_.toTensor().to(log_probs.device());
@@ -1527,7 +1543,16 @@
     at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   interface: diopiCTCLoss(ctx, out, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, reductionDiopi, zero_infinity)
   backward_schema: "ctc_loss_intlist_backward(Tensor grad_output, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
-  saved_data: [log_probs, targets, input_lengths, target_lengths, blank, reduction, zero_infinity]
+  saved_data:
+    [
+      log_probs,
+      targets,
+      input_lengths,
+      target_lengths,
+      blank,
+      reduction,
+      zero_infinity,
+    ]
   cal_grad_code: |
     auto log_probs = log_probs_.toTensor();
     auto targets = targets_.toTensor();
@@ -1560,7 +1585,7 @@
     int64_t max_target_length = target_lengths.max().cpu().item().to<int64_t>();
     auto neg_log_likelihood = at::empty({batch_size}, log_probs.options());
     auto log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
-  interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths, target_lengths, blank, ReductionNone, zero_infinity);  # TODO: param log_alpha ?
+  interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths, target_lengths, blank, ReductionNone, zero_infinity); # TODO: param log_alpha ?
 
 - schema: "_ctc_loss(Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, int blank=0, bool zero_infinity=False) -> (Tensor neg_log_likelihood, Tensor log_alpha)"
   ins: [input_lengths_tensor, target_lengths_tensor]
@@ -1576,7 +1601,7 @@
     auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
-  interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, ReductionNone, zero_infinity);  # TODO: param log_alpha ?
+  interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, ReductionNone, zero_infinity); # TODO: param log_alpha ?
 
 - schema: "_ctc_loss_backward.Tensor(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, bool zero_infinity=False) -> Tensor grad_input"
   device: [-camb, all]
@@ -1659,7 +1684,7 @@
   interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
 
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface:  diopiFloor(ctx, out,self);
+  interface: diopiFloor(ctx, out,self);
 
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -2149,7 +2174,7 @@
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
 # wrap_diopi_cast_dtype has no corresponding aten op and not registed, it's just a diopi func wrapper.
-# use this tricky method to support call multiple diopi-op in one aten-op 
+# use this tricky method to support call multiple diopi-op in one aten-op
 - schema: "wrap_diopi_cast_dtype(Tensor(a) self, ScalarType dtype) -> Tensor(a)"
   register_op: False
   custom_code_at_the_beginning: |
@@ -2163,14 +2188,22 @@
 
 # this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
-  print_func_call_info: False
-  print_op_args: False
   dummy_call_diopi: True
   custom_fallback: False
   custom_code_at_the_beginning: |
     dipu::getDipuCopyClass()->run(self, src, non_blocking);
     return self;
     // need add [composite] attr? the code behind this is useless.
+  interface: diopiCopyInp(ctx, srcTemp, self)
+
+- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  dummy_call_diopi: True
+  device: [cuda]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    dipu::getDipuCopyClass()->run(self, src, non_blocking);
+    return self;
+    // topsrider
   interface: diopiCopyInp(ctx, srcTemp, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
