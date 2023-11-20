@@ -16,21 +16,20 @@
 namespace dipu {
 
 class DIPU_API DIPUStream {
-public:
-  explicit DIPUStream(c10::Stream stream) : stream_(stream), initialized_(true) {
+ public:
+  explicit DIPUStream(c10::Stream stream)
+      : stream_(stream), initialized_(true) {
     TORCH_CHECK(stream_.device_type() == dipu::DIPU_DEVICE_TYPE);
   }
 
   explicit DIPUStream(devapis::deviceId_t devidx, c10::StreamId stream_id)
-    : DIPUStream(c10::Stream(c10::Stream::UNSAFE,
-                c10::Device(dipu::DIPU_DEVICE_TYPE, devidx), stream_id)) {
-  }
+      : DIPUStream(c10::Stream(c10::Stream::UNSAFE,
+                               c10::Device(dipu::DIPU_DEVICE_TYPE, devidx),
+                               stream_id)) {}
 
-  explicit DIPUStream() : DIPUStream(-1, 0) {
-    initialized_ = false;
-  }
+  explicit DIPUStream() : DIPUStream(-1, 0) { initialized_ = false; }
 
-  ~DIPUStream(){}
+  ~DIPUStream() {}
 
   bool operator==(const DIPUStream &other) const noexcept {
     return unwrap() == other.unwrap();

@@ -13,11 +13,6 @@
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
-<<<<<<< HEAD
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-=======
-#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
->>>>>>> main
 
 using dnative = dipu::native::DIPUATenFunctions;
 
