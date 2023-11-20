@@ -2,7 +2,7 @@
 
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/aten/ops/DIPUCopy.h>
+#include <csrc_dipu/aten/ops/DIPUCopy.hpp>
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/diopirt/diopirt_impl.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
