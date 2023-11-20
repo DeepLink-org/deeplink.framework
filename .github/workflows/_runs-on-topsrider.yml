@@ -29,7 +29,7 @@ jobs:
       - name: build on topsrider
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
         with:
-          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
+          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
           job_name: "build"
           cover_job: "0"
 
@@ -40,8 +40,7 @@ jobs:
       - name: build on topsrider
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
         with:
-          build_shell: "Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test"
+          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
           job_name: "build"
           cover_job: "1"
-
 
