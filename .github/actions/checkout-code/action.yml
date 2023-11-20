@@ -36,7 +36,7 @@ runs:
               git checkout ${{ github.sha }}
             fi
           fi
-          cd source/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          cd dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           cd ../.. && git submodule update --init dipu/third_party/DIOPI
         }
         if [ ${MACHINE} != "local" ];then
