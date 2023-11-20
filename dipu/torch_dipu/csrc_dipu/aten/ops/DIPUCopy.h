@@ -177,12 +177,9 @@ if input, output tensor occupy same storage size and has same mem-format, DIPUCo
 will directly call mem_copy; if not, it call  copyNodirectXX.
 
 DiopiCast: means call separate diopiCast func, it's a forward compatible solutions because some vendor's
-DiopiCopy not support cast. new DiopiCopy api require cast:
-
-DiopiCopyBcast: if vendor diopiCopy cannot do bcast copy (false). set this to False, DIPUCopyInplace will
-try to expand tensor to same size before call diopiCopy, (todo: always true now)
+DiopiCopy not support cast. new DiopiCopy api require cast/
 */ 
-template <bool DiopiCopy, bool DiopiCast, bool DiopiCopyBcast=true>
+template <bool DiopiCopy, bool DiopiCast>
 class DIPUCopyInplace : public DIPUCopyBase {
 public:
   DIPUCopyInplace() = default;
