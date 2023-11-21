@@ -1,0 +1,86 @@
+name: execute script
+
+description: build and test job
+
+inputs:
+  machine:
+    description: local-running job on local, other key is to ssh the machine
+    required: true
+    default: "local"
+  build_env:
+    description: Set up the source environment before build
+    required: false
+    default: ""
+  build_shell:
+    description: Set the build shell passed in by the build
+    required: true
+    default: ""
+  job_name:
+    description: Set task name
+    required: true
+    default: ""
+  partition:
+    description: Set cluster partition
+    required: false
+    default: ""
+  cleaner:
+    description: After the construction is completed, decide whether to clean up \
+      clean_all - Clean up all regardless of task results
+      clean_data - If the task fails, clean up  data
+      clean_all_if_error - If the task fails, clean up all data
+      clean_data_if_error - Clean up all regardless of task results
+    required: false
+    default: ""
+  cover_job:
+    description: 0-cover code, 1-preserve code
+    required: false
+    default: "0"
+  work_path:
+    description: ci work home
+    required: false
+    default: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}/${{ github.run_number }}'
+  srun_arg:
+    description: additional parameters need to be added during srun
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name : build and test
+      env:
+        JOB_NAME: ${{ inputs.job_name }}
+        MACHINE: ${{ inputs.machine }}
+        CLEANER: ${{ inputs.cleaner }}
+        GEN_DATA: "diopi_test/python/cache"
+        WORK_PATH: ${{ inputs.work_path }}
+      shell: bash
+      run: |
+        cleaner_shell=" "
+        if [ "${CLEANER}" == "clean_all_if_error" ];then
+          cleaner_shell="|| ( cd ${WORK_PATH} && rm -rf ${JOB_NAME} && exit 1 )"
+        elif [ "${CLEANER}" == "clean_data_if_error" ];then
+          cleaner_shell="|| ( cd ${WORK_PATH}/${JOB_NAME} && git clean -xdf ${GEN_DATA} && exit 1 )"
+        elif [ "${CLEANER}" == "clean_data" ];then
+          cleaner_shell="&& cd ${WORK_PATH}/${JOB_NAME} && git clean -xdf ${GEN_DATA} || ( cd ${WORK_PATH}/${JOB_NAME} && git clean -xdf ${GEN_DATA} && exit 1 )"
+        elif [ "${CLEANER}" == "clean_all" ];then
+          cleaner_shell="&& cd ${WORK_PATH} && rm -rf ${JOB_NAME} || ( cd ${WORK_PATH} && rm -rf ${JOB_NAME} && exit 1 )"
+        fi
+        if [ ${MACHINE} != "local" ];then
+          ssh ${MACHINE} """
+            set -e
+            source ~/.bashrc
+            export CI=true
+            source ${{ inputs.build_env }} && cd ${WORK_PATH}
+            if [ "${{ inputs.cover_job }}" == "0" ];then
+              rm -rf ${JOB_NAME}  && cp -R source ${JOB_NAME}
+            fi
+            cd ${JOB_NAME}
+            srun --job-name=${JOB_NAME} --partition=${{ inputs.partition }} ${{ inputs.srun_arg }} --time=10 bash -c '${{ inputs.build_shell }}' ${cleaner_shell}
+          """
+        else
+          export CI=true
+          source ~/.bashrc
+          cd ${WORK_PATH} && rm -rf ${JOB_NAME}  && cp -R source ${JOB_NAME} && cd ${JOB_NAME}
+          ${{ inputs.build_shell }} ${cleaner_shell}
+        fi

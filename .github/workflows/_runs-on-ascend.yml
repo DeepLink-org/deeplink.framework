@@ -1,0 +1,46 @@
+name: runs on ascend
+
+on:
+  workflow_call:
+    inputs:
+      machine:
+        description: If set to other value, the job need ssh
+        type: string
+        required: false
+        default: "ASCEND"
+      runner:
+        description: Set up the build environment
+        type: string
+        required: false
+        default: "tps-ascend-ci"
+
+jobs:
+  checkout_code:
+    name: checkout code
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout Code
+        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@wgs/add_dicp
+
+  build:
+    runs-on: ${{ inputs.runner }}
+    needs: checkout_code
+    steps:
+      - name: build on ascend
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
+        with:
+          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
+          job_name: "build"
+          cover_job: "0"
+          cleaner: "clean_all_if_error"
+
+  test:
+    runs-on: ${{ inputs.runner }}
+    needs: build
+    steps:
+      - name: rt test on ascend
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
+        with:
+          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
+          job_name: "build"
+          cover_job: "1"

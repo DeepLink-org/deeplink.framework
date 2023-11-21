@@ -1,0 +1,47 @@
+name: Checkout Code
+
+description: checkout code
+
+inputs:
+  machine:
+    description: If set to other value, the job need ssh
+    required: false
+    default: 'local'
+  working_path:
+    description: ci work home
+    required: false
+    default: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}/${{ github.run_number }}'
+
+runs:
+  using: composite
+  steps:
+    - name : checkout
+      env:
+        MACHINE: ${{ inputs.machine }}
+      shell: bash
+      run: |
+        function checkout_code(){
+          source ~/.bashrc
+          mkdir -p ${{ inputs.working_path }} && cd ${{ inputs.working_path }} && rm -rf source
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == *DeepLink-org* ]]; then
+            git clone ${{ github.event.pull_request.head.repo.clone_url }} source
+            cd source && git checkout ${{ github.event.pull_request.head.sha }}
+            git remote add mainrepo https://github.com/${{ github.repository }}.git
+            git fetch  mainrepo && git merge --no-edit mainrepo/${{ github.base_ref }}
+          else
+            git clone ${{ github.event.repository.clone_url }} source && cd source
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit ${{ github.base_ref }}
+            else
+              git checkout ${{ github.sha }}
+            fi
+          fi
+          cd dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          cd ../.. && git submodule update --init dipu/third_party/DIOPI
+        }
+        if [ ${MACHINE} != "local" ];then
+          ssh ${MACHINE} " $(typeset -f checkout_code); checkout_code "
+        else
+          $(typeset -f checkout_code); checkout_code
+        fi
+
