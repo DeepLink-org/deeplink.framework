@@ -5,7 +5,6 @@
 
 namespace dipu {
 namespace native {
-namespace {
 
 static DIPUCopyInplace<false, false> onCpuCopy;
 at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
@@ -17,7 +16,6 @@ at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
   onCpuCopy.run(self, src, non_blocking);
   return self;
 }
-}  // anonymous namespace
 
 }  // namespace native
 }  // namespace dipu
