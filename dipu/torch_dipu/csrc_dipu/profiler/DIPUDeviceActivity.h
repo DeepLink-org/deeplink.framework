@@ -11,11 +11,11 @@ namespace profile {
 class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
  public:
   ~DIPUDeviceActivity() override;
-  DIPUDeviceActivity(const DIPUDeviceActivity &) = delete;
-  DIPUDeviceActivity &operator=(const DIPUDeviceActivity &) = delete;
+  DIPUDeviceActivity(const DIPUDeviceActivity&) = delete;
+  DIPUDeviceActivity& operator=(const DIPUDeviceActivity&) = delete;
 
   // DIPUDeviceActivity designed as a singleton
-  static DIPUDeviceActivity &instance();
+  static DIPUDeviceActivity& instance();
 
   void pushCorrelationID(
       uint64_t id,
@@ -24,13 +24,13 @@ class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
       libkineto::DeviceActivityInterface::CorrelationFlowType type) override;
 
   void enableActivities(
-      const std::set<libkineto::ActivityType> &selected_activities) override;
+      const std::set<libkineto::ActivityType>& selected_activities) override;
   void disableActivities(
-      const std::set<libkineto::ActivityType> &selected_activities) override;
+      const std::set<libkineto::ActivityType>& selected_activities) override;
   void clearActivities() override;
   int32_t processActivities(
-      libkineto::ActivityLogger &logger,
-      std::function<const libkineto::ITraceActivity *(int32_t)> linked_activity,
+      libkineto::ActivityLogger& logger,
+      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
       int64_t start_time, int64_t end_time) override;
 
   void teardownContext() override;

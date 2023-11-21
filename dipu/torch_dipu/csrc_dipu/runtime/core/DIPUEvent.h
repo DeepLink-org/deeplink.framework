@@ -35,11 +35,11 @@ class DIPU_API DIPUEvent {
     }
   }
 
-  DIPUEvent(const DIPUEvent &) = delete;
-  DIPUEvent &operator=(const DIPUEvent &) = delete;
+  DIPUEvent(const DIPUEvent&) = delete;
+  DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent &&other) { moveHelper(std::move(other)); }
-  DIPUEvent &operator=(DIPUEvent &&other) {
+  DIPUEvent(DIPUEvent&& other) { moveHelper(std::move(other)); }
+  DIPUEvent& operator=(DIPUEvent&& other) {
     moveHelper(std::move(other));
     return *this;
   }
@@ -74,11 +74,11 @@ class DIPU_API DIPUEvent {
 
   void record() { record(getCurrentDIPUStream()); }
 
-  void recordOnce(const DIPUStream &stream) {
+  void recordOnce(const DIPUStream& stream) {
     if (!was_recorded_) record(stream);
   }
 
-  void record(const DIPUStream &stream) {
+  void record(const DIPUStream& stream) {
     if (!isCreated()) {
       createEvent(stream.device_index());
     }
@@ -90,14 +90,14 @@ class DIPU_API DIPUEvent {
     was_recorded_ = true;
   }
 
-  void wait(const DIPUStream &stream) {
+  void wait(const DIPUStream& stream) {
     if (isCreated()) {
       DIPUGuard guard(stream.device_index());
       devproxy::streamWaitEvent(stream, event_);
     }
   }
 
-  float elapsed_time(const DIPUEvent &other) const {
+  float elapsed_time(const DIPUEvent& other) const {
     TORCH_CHECK(
         isCreated() && other.isCreated(),
         "Both events must be recorded before calculating elapsed time.");
@@ -126,7 +126,7 @@ class DIPU_API DIPUEvent {
     devproxy::createEvent(&event_);
   }
 
-  void moveHelper(DIPUEvent &&other) {
+  void moveHelper(DIPUEvent&& other) {
     std::swap(flags_, other.flags_);
     std::swap(was_recorded_, other.was_recorded_);
     std::swap(device_index_, other.device_index_);

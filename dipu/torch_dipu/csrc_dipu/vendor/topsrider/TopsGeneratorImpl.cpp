@@ -17,7 +17,7 @@ class TopsGeneratorImpl : public dipu::DIPUGeneratorImpl {
   TopsGeneratorImpl(at::DeviceIndex device_index)
       : dipu::DIPUGeneratorImpl(device_index) {}
 
-  void set_state(const c10::TensorImpl &new_state) override {
+  void set_state(const c10::TensorImpl& new_state) override {
     at::detail::check_rng_state(new_state);
     auto new_state_size = new_state.numel();
     TORCH_CHECK(new_state_size == total_size ||

@@ -18,7 +18,7 @@ DIPUDeviceActivity::~DIPUDeviceActivity() {
   disableActivities(std::set<libkineto::ActivityType>());
 }
 
-DIPUDeviceActivity &DIPUDeviceActivity::instance() {
+DIPUDeviceActivity& DIPUDeviceActivity::instance() {
   static DIPUDeviceActivity instance;
   return instance;
 }
@@ -34,10 +34,10 @@ void DIPUDeviceActivity::popCorrelationID(
 }
 
 void DIPUDeviceActivity::enableActivities(
-    const std::set<libkineto::ActivityType> &selectedActivities) {}
+    const std::set<libkineto::ActivityType>& selectedActivities) {}
 
 void DIPUDeviceActivity::disableActivities(
-    const std::set<libkineto::ActivityType> &selectedActivities) {
+    const std::set<libkineto::ActivityType>& selectedActivities) {
   if (selectedActivities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
       selectedActivities.end()) {
     setProfileOpen(false);
@@ -51,13 +51,13 @@ void DIPUDeviceActivity::clearActivities() {
 }
 
 int32_t DIPUDeviceActivity::processActivities(
-    libkineto::ActivityLogger &logger,
-    std::function<const libkineto::ITraceActivity *(int32_t)> linkedActivity,
+    libkineto::ActivityLogger& logger,
+    std::function<const libkineto::ITraceActivity*(int32_t)> linkedActivity,
     int64_t startTime, int64_t endTime) {
   FlushAllRecords();
 
   auto records = RecordsImpl::get().getAllRecordList();
-  for (const auto &record : records) {
+  for (const auto& record : records) {
     GenericTraceActivity act;
     act.startTime = record.begin / 1000;
     act.endTime = record.end / 1000;
@@ -82,7 +82,7 @@ int32_t DIPUDeviceActivity::processActivities(
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo>
       resource_infos = RecordsImpl::get().getResourceInfo();
-  for (const auto &kv : resource_infos) {
+  for (const auto& kv : resource_infos) {
     logger.handleResourceInfo(kv.second, startTime);
   }
 
@@ -98,7 +98,7 @@ void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
 namespace libkineto {
 
-DeviceActivityInterface *device_activity_singleton =
+DeviceActivityInterface* device_activity_singleton =
     &dipu::profile::DIPUDeviceActivity::instance();
 
 }  // namespace libkineto

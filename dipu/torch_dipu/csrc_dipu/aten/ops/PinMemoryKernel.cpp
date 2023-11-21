@@ -10,7 +10,7 @@
 
 namespace dipu::native {
 
-bool DIPUATenFunctions::is_pinned(const at::Tensor &self,
+bool DIPUATenFunctions::is_pinned(const at::Tensor& self,
                                   c10::optional<at::Device> device) {
   // Only CPU tensors can be pinned
   if (!self.is_cpu()) {
@@ -22,7 +22,7 @@ bool DIPUATenFunctions::is_pinned(const at::Tensor &self,
   return dipu::isPinnedPtr(self.storage().data());
 }
 
-at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor &self,
+at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self,
                                           c10::optional<at::Device> device) {
   auto allocator = dipu::getAllocator(at::DeviceType::CPU);
   auto storage =

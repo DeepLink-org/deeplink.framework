@@ -9,7 +9,7 @@
 
 namespace dipu {
 
-at::Tensor &copy_(at::Tensor &self, const at::Tensor &src, bool non_blocking) {
+at::Tensor& copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
   if (self.numel() == 0) {
     return self;
   }
@@ -39,25 +39,25 @@ class CUDACopyInplace : public DIPUCopyInplace {
   CUDACopyInplace() = default;
   ~CUDACopyInplace() = default;
 
-  at::Tensor &run(at::Tensor &self, const at::Tensor &src,
+  at::Tensor& run(at::Tensor& self, const at::Tensor& src,
                   bool non_blocking) override {
     return copy_(self, src, non_blocking);
   }
 
-  at::Tensor &copy_between_devices(at::TensorIterator &iter, at::Tensor &self,
-                                   const at::Tensor &src,
+  at::Tensor& copy_between_devices(at::TensorIterator& iter, at::Tensor& self,
+                                   const at::Tensor& src,
                                    bool non_blocking) override {
     return copy_(self, src, non_blocking);
   }
 
-  at::Tensor &copy_contiguous(at::TensorIterator &iter, at::Tensor &self,
-                              const at::Tensor &src,
+  at::Tensor& copy_contiguous(at::TensorIterator& iter, at::Tensor& self,
+                              const at::Tensor& src,
                               bool non_blocking) override {
     return copy_(self, src, non_blocking);
   }
 
-  at::Tensor &copy_uncontiguous(at::TensorIterator &iter, at::Tensor &self,
-                                const at::Tensor &src,
+  at::Tensor& copy_uncontiguous(at::TensorIterator& iter, at::Tensor& self,
+                                const at::Tensor& src,
                                 bool non_blocking) override {
     return copy_(self, src, non_blocking);
   }

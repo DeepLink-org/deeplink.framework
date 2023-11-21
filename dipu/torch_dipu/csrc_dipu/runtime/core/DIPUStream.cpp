@@ -23,7 +23,7 @@ enum class StreamIdType : uint8_t {
   POOL = 0x1,
 };
 
-std::ostream &operator<<(std::ostream &stream, StreamIdType s) {
+std::ostream& operator<<(std::ostream& stream, StreamIdType s) {
   switch (s) {
     case StreamIdType::DEFAULT:
       stream << "DEFAULT";
@@ -83,7 +83,7 @@ struct DIPUStreamDevice {
   void _doInitPool() {
     DIPUGuard device_guard{devidx_};
     for (auto i = decltype(kStreamsPerPool){0}; i < kStreamsPerPool; ++i) {
-      auto &raw_device_stream = pool_streams[i];
+      auto& raw_device_stream = pool_streams[i];
       devproxy::createStream(&raw_device_stream);
     }
   }
@@ -223,7 +223,7 @@ void setCurrentDIPUStream(DIPUStream stream) {
   current_streams[devIdx] = stream.unwrap().id();
 }
 
-std::ostream &operator<<(std::ostream &os, const DIPUStream &stream) {
+std::ostream& operator<<(std::ostream& os, const DIPUStream& stream) {
   return os << stream.unwrap();
 }
 

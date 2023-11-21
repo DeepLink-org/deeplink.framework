@@ -62,22 +62,22 @@ void checkLastError() { DIPU_CALLCUDA(::cudaGetLastError()) }
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLCUDA(::cudaGetDeviceCount(reinterpret_cast<int *>(&num)))
+  DIPU_CALLCUDA(::cudaGetDeviceCount(reinterpret_cast<int*>(&num)))
   return num;
 }
 
-void getDriverVersion(int *version) {
+void getDriverVersion(int* version) {
   DIPU_CALLCUDA(::cudaDriverGetVersion(version))
 }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   DIPU_CALLCUDA(::cudaRuntimeGetVersion(version))
 }
 
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   if (prior) {
     DIPU_CALLCUDA(::cudaStreamCreateWithPriority(stream, cudaStreamDefault, -1))
   } else {
@@ -121,9 +121,9 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   static bool enableTiming = []() {
-    const char *env = std::getenv("DIPU_CUDA_EVENT_TIMING");
+    const char* env = std::getenv("DIPU_CUDA_EVENT_TIMING");
     if (env) {
       return std::atoi(env) > 0;
     } else {
@@ -147,7 +147,7 @@ void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLCUDA(::cudaEventRecord(event, stream))
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end){
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end){
     DIPU_CALLCUDA(cudaEventElapsedTime(time, start, end))}
 
 EventStatus getEventStatus(deviceEvent_t event) {
@@ -166,13 +166,13 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   DIPU_CALLCUDA(::cudaMallocHost(p, nbytes))
 }
 
-void freeHost(void *p){DIPU_CALLCUDA(::cudaFreeHost(p))}
+void freeHost(void* p){DIPU_CALLCUDA(::cudaFreeHost(p))}
 
-OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   ::cudaError_t r = ::cudaMalloc(p, nbytes);
   if (r != ::cudaSuccess) {
     if (throwExcepion) {
@@ -188,20 +188,20 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void *p) { DIPU_CALLCUDA(::cudaFree(p)) }
+void freeDevice(void* p) { DIPU_CALLCUDA(::cudaFree(p)) }
 
-bool isPinnedPtr(const void *p) {
+bool isPinnedPtr(const void* p) {
   ::cudaPointerAttributes attr;
   DIPU_CALLCUDA(::cudaPointerGetAttributes(&attr, p))
   return attr.type == cudaMemoryTypeHost;
 }
 
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLCUDA(::cudaMemsetAsync(ptr, val, size, stream))
 }
 
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLCUDA(::cudaMemcpy(dst, src, nbytes, ::cudaMemcpyDeviceToDevice))
   } else {
@@ -210,19 +210,19 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
 }
 
 // (synchronous) copy from host to a CUDA device
-void memCopyH2D(size_t nbytes, void *dst, const void *src) {
+void memCopyH2D(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLCUDA(::cudaMemcpy(dst, src, nbytes, ::cudaMemcpyHostToDevice))
 }
 
 // (synchronous) copy from a CUDA device to host
-void memCopyD2H(size_t nbytes, void *dst, const void *src) {
+void memCopyD2H(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLCUDA(::cudaMemcpy(dst, src, nbytes, ::cudaMemcpyDeviceToHost))
 }
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
-                     const void *src) {
+                     deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
+                     const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLCUDA(
         ::cudaMemcpyAsync(dst, src, nbytes, cudaMemcpyDeviceToDevice, stream))
@@ -233,15 +233,15 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
 }
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLCUDA(
       ::cudaMemcpyAsync(dst, src, nbytes, cudaMemcpyHostToDevice, stream))
 }
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLCUDA(
       ::cudaMemcpyAsync(dst, src, nbytes, cudaMemcpyDeviceToHost, stream));
 }

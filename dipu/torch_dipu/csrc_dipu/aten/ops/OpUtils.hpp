@@ -10,7 +10,7 @@ inline bool checkDiopiReturnValue() {
 
 inline bool checkTensorDevice() {
   static bool enable = []() {
-    const char *env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
+    const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
     if (env_ptr == nullptr) {
       return false;
     }
@@ -20,7 +20,7 @@ inline bool checkTensorDevice() {
 }
 
 inline void synchronizeIfEnable() {
-  static const char *mode = std::getenv("DIPU_SYNC_EXEC_MODE");
+  static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
   if (mode != nullptr) {
     DIPU_LOG_ONCE << "The synchronous operation is performed after "
                   << "the diopi function call because the DIPU_SYNC_EXEC_MODE "
@@ -32,20 +32,20 @@ inline void synchronizeIfEnable() {
 }
 
 inline int dumpOpArgLevel() {
-  const char *env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+  const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
   int level = env_ptr ? std::atoi(env_ptr) : 0;
   return level;
 }
 
 template <typename T>
-static std::string dumpArg(const T &t) {
+static std::string dumpArg(const T& t) {
   std::stringstream stream;
   stream << t;
   return stream.str();
 }
 
 template <typename T1>
-static std::string dumpArg(const c10::optional<T1> &opt_t) {
+static std::string dumpArg(const c10::optional<T1>& opt_t) {
   std::stringstream stream;
   if (opt_t.has_value()) {
     stream << dumpArg(opt_t.value());
@@ -54,7 +54,7 @@ static std::string dumpArg(const c10::optional<T1> &opt_t) {
 }
 
 template <typename T>
-static std::string dumpArg(const c10::OptionalArrayRef<T> &opt_t) {
+static std::string dumpArg(const c10::OptionalArrayRef<T>& opt_t) {
   std::stringstream stream;
   if (opt_t.has_value()) {
     stream << dumpArg(opt_t.value());
@@ -63,7 +63,7 @@ static std::string dumpArg(const c10::OptionalArrayRef<T> &opt_t) {
 }
 
 template <typename T1, template <typename elem> class container>
-static std::string dumpArg(const container<T1> &t) {
+static std::string dumpArg(const container<T1>& t) {
   std::stringstream stream;
   for (auto iter = t.begin(); iter != t.end(); ++iter) {
     stream << dumpArg(*iter) << ", ";
@@ -72,7 +72,7 @@ static std::string dumpArg(const container<T1> &t) {
 }
 
 template <>
-std::string dumpArg(const at::Tensor &tensor) {
+std::string dumpArg(const at::Tensor& tensor) {
   std::stringstream stream;
   if (tensor.defined()) {
     stream << "numel: " << tensor.numel() << ",sizes: " << tensor.sizes()
@@ -93,24 +93,24 @@ std::string dumpArg(const at::Tensor &tensor) {
 }
 
 template <>
-std::string dumpArg(const at::Scalar &scalar) {
+std::string dumpArg(const at::Scalar& scalar) {
   std::stringstream stream;
   stream << scalar;
   return stream.str();
 }
 
 template <>
-std::string dumpArg(const c10::string_view &str) {
+std::string dumpArg(const c10::string_view& str) {
   return dumpArg(std::string(str.data()));
 }
 
 template <>
-std::string dumpArg(const at::Generator &generator) {
+std::string dumpArg(const at::Generator& generator) {
   return "";
 }
 
 template <typename T, size_t N>
-static std::string dumpArg(const std::array<T, N> &t) {
+static std::string dumpArg(const std::array<T, N>& t) {
   std::stringstream stream;
   for (auto iter = t.begin(); iter != t.end(); ++iter) {
     stream << dumpArg(*iter) << " ";
@@ -119,7 +119,7 @@ static std::string dumpArg(const std::array<T, N> &t) {
 }
 
 template <>
-std::string dumpArg(const c10::List<c10::optional<at::Tensor>> &t) {
+std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
   std::stringstream stream;
   stream << "size:" << t.size() << std::endl;
   for (int i = 0; i < t.size(); ++i) {
@@ -136,7 +136,7 @@ std::string dumpArg(const c10::List<c10::optional<at::Tensor>> &t) {
 template <typename T1, typename T2, template <typename elem1> class container1,
           template <typename elem2> class container2>
 static std::vector<int64_t> infer_reduce_op_shape(
-    const container1<T1> &input_shape, const container2<T2> &dims,
+    const container1<T1>& input_shape, const container2<T2>& dims,
     bool keepdim) {
   if (dims.size() <= 0) {
     return std::vector<int64_t>();
@@ -170,7 +170,7 @@ static std::vector<int64_t> infer_reduce_op_shape(
   }
 }
 
-static std::string _allclose(const at::Tensor &a, const at::Tensor &b) {
+static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
   if (a.defined() && b.defined()) {
     try {
       if (at::allclose(a.cpu(), b.cpu(), 1e-4, 1e-5, true)) {
@@ -194,8 +194,8 @@ static std::string _allclose(const at::Tensor &a, const at::Tensor &b) {
   }
 }
 
-static std::string _allclose(const c10::ArrayRef<at::Tensor> &a,
-                             const c10::ArrayRef<at::Tensor> &b) {
+static std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
+                             const c10::ArrayRef<at::Tensor>& b) {
   if (a.size() != b.size()) {
     return "not_allclose:";
   }
