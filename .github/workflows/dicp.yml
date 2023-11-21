@@ -16,7 +16,7 @@ env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
 
 concurrency:
-  group: ${{ github.head_ref || github.ref }}
+  group: dicp-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
