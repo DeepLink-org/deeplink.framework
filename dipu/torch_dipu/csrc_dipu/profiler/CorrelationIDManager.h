@@ -9,11 +9,11 @@ namespace profile {
 
 class CorrelationIDManager {
  public:
-  CorrelationIDManager(const CorrelationIDManager &) = delete;
-  CorrelationIDManager &operator=(const CorrelationIDManager &) = delete;
+  CorrelationIDManager(const CorrelationIDManager&) = delete;
+  CorrelationIDManager& operator=(const CorrelationIDManager&) = delete;
 
   // CorrelationIDManager designed as a singleton
-  static CorrelationIDManager &instance();
+  static CorrelationIDManager& instance();
 
   void pushCorrelationID(
       uint64_t id,

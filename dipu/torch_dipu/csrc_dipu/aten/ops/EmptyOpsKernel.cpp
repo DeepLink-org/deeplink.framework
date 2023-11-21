@@ -17,7 +17,7 @@ using c10::TensorImpl;
 
 namespace dipu::native {
 
-static c10::Allocator *GetCPUAllocatorMaybePinned(bool pin_memory) {
+static c10::Allocator* GetCPUAllocatorMaybePinned(bool pin_memory) {
   if (pin_memory) {
     return dipu::getAllocator(at::DeviceType::CPU);
   }
@@ -35,7 +35,7 @@ at::Tensor DIPUATenFunctions::empty(
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) ==
                                    c10::Layout::Strided);
 
-  c10::Allocator *allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
+  c10::Allocator* allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
   constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
   return at::detail::empty_generic(size, allocator, dipu_ks,
                                    c10::dtype_or_default(dtype_opt),
@@ -72,7 +72,7 @@ at::Tensor DIPUATenFunctions::empty_strided(
   AT_ASSERT(layout_or_default(layout_opt) == Layout::Strided);
   auto dtype = dtype_or_default(dtype_opt);
 
-  c10::Allocator *allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
+  c10::Allocator* allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
   constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
   return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks,
                                            dtype);

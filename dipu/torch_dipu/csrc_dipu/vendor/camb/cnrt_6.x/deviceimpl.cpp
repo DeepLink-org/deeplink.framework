@@ -53,7 +53,7 @@ device_index) {
 // check last launch succ or not, throw if fail
 void checkLastError() { DIPU_CALLCNRT(::cnrtGetLastError()) }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   int major, minor, patch;
   DIPU_CALLCNRT(::cnrtGetLibVersion(&major, &minor, &patch))
   *version = major * 10000 + minor * 100 + patch;
@@ -62,7 +62,7 @@ void getRuntimeVersion(int *version) {
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   if (prior) {
     DIPU_LOGW(
         "Camb device doesn't support prior queue(stream)."
@@ -96,7 +96,7 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   DIPU_CALLCNRT(::cnrtNotifierCreate(event))
 }
 
@@ -107,12 +107,12 @@ void destroyEvent(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   DIPU_CALLCNRT(cnrtHostMalloc(p, nbytes))
 }
 
 // (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLCNRT(cnrtMemsetAsync(ptr, val, size, stream))
 }
 

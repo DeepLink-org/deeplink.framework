@@ -9,7 +9,7 @@ namespace profile {
 
 class DIPURecordQueue;
 std::unique_ptr<torch::profiler::impl::python_tracer::PythonTracerBase>
-makeTracer(DIPURecordQueue *queue);
+makeTracer(DIPURecordQueue* queue);
 
 void init();
 
