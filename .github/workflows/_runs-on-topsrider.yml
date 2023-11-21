@@ -20,14 +20,14 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout Code
-        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@wgs/add_dicp
+        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
 
   build:
     runs-on: ${{ inputs.runner }}
     needs: checkout_code
     steps:
       - name: build on topsrider
-        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
           build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
           job_name: "build"
@@ -38,7 +38,7 @@ jobs:
     needs: build
     steps:
       - name: build on topsrider
-        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@wgs/add_dicp
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
           build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
           job_name: "build"

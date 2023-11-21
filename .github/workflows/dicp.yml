@@ -10,6 +10,7 @@ on:
       - ".github/ISSUE_TEMPLATE/**"
       - ".git*"
       - "CODE_OF_CONDUCT**"
+      - "dipu/**"
 
 env:
   ENV_PATH: '/mnt/cache/share/platform/env'
@@ -22,8 +23,8 @@ concurrency:
 jobs:
   runs-on-topsrider:
     name: runs on topsrider
-    uses: DeepLink-org/deeplink.framework/.github/workflows/_runs-on-topsrider.yml@wgs/add_dicp
+    uses: ./.github/workflows/_runs-on-topsrider.yml
 
   runs-on-ascend:
     name: runs on ascend
-    uses: DeepLink-org/deeplink.framework/.github/workflows/_runs-on-ascend.yml@wgs/add_dicp
+    uses: ./.github/workflows/_runs-on-ascend.yml
