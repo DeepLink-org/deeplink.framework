@@ -28,7 +28,7 @@ Checks: '
   performance-*,
   readability-*,
   -readability-identifier-length,
-  -readability-identifier-naming,
+  -readability-identifier-naming,  # TODO(issues/446): naming convention
   -readability-qualified-auto,
   -readability-static-accessed-through-instance'
 AnalyzeTemporaryDtors: false
