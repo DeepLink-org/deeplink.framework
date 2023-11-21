@@ -2173,6 +2173,7 @@
     // need add [composite] attr? the code behind this is useless.
   interface: diopiCopyInp(ctx, srcTemp, self)
 
+# vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
   dummy_call_diopi: True
   custom_code_at_the_beginning: |

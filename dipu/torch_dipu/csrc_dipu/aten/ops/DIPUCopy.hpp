@@ -394,22 +394,24 @@ class DIPUCopyInplace : public DIPUCopyBase {
   // nchw), we don't handle this
   virtual void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                                     bool non_blocking, CopyParamsInfo& info) {
-    if (!DiopiCast && !DiopiCopy) {
-      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
-    }
-    at::Tensor tmpSrc = src;
     if (DiopiCast) {
+      at::Tensor tmpSrc = src;
       if (!info.sameDtype_) {
         tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
         info.recomputeTensorsInfo(dst, tmpSrc);
       }
+      // after cast
       if (info.directMemCopy_) {
         doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_);
-      } else {  // need further convert
+      } else if (DiopiCopy) {
         dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+      } else {
+        doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
       }
+    } else if (DiopiCopy) {  // !DiopiCast
+      dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
     } else {
-      dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+      doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
   }
 
