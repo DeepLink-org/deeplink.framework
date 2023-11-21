@@ -73,6 +73,8 @@ int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
   fin.close();
 
   topsCreateExecutable(exe_ptr, binary, binary_size_t);
+  delete[] binary;
+
   return 0;
 }
 
