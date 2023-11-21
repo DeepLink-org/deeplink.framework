@@ -362,8 +362,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
                       DIPUStream& curStream, bool non_blocking) {
     at::Tensor src_cpu = src;
     if (dipu::isDeviceTensor(src)) {
-      auto src_cpu = makeSameStrideTensor(src, curStream,
-                                          c10::Device(c10::DeviceType::CPU));
+      src_cpu = makeSameStrideTensor(src, curStream,
+                                     c10::Device(c10::DeviceType::CPU));
       // src storage size may bigger than src_cpu's when src is a partial view.
       // but not smaller. because src_cpu use same stride as src.
       // src -> src_cpu
@@ -397,7 +397,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (!DiopiCast && !DiopiCopy) {
       doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
-    auto tmpSrc = src;
+    at::Tensor tmpSrc = src;
     if (DiopiCast) {
       if (!info.sameDtype_) {
         tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
