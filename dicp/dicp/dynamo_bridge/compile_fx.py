@@ -254,7 +254,6 @@ def compile_fx_210(
         inference_compiler=inference_compiler,
         decompositions=decompositions,
         partition_fn=partition_fn,
-        keep_inference_input_mutations=True,
     )(model_, example_inputs_)
 
 
