@@ -403,11 +403,11 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.slice_scatter.default)
     def SliceScatter(self, a, b, dim=0, start=0, end=-1, step=1):
         operand_shape = a.node.meta["val"].shape
-        dim = dim % len(operand_shape)
-        start = 0 if start is None else start
-        end = operand_shape[dim] if end is None else end
         end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
-        assert end == operand_shape[dim] and step == 1, "limited support"
+        if end != operand_shape[dim]:
+            Warning(f"SliceScatter encounter unsupported end value: {end}, this will affect precision!")
+        if step != 1:
+            Warning(f"SliceScatter encounter unsupported step value: {step}, this will affect precision!")
         return self.get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
 
     @register_conversion(aten.select.int)
@@ -435,18 +435,17 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.scalar_tensor.default)
     def Scalar(self, a, **kwargs):
-        if "dtype" in kwargs:
-            real_dtype = kwargs["dtype"]
-            if real_dtype not in (torch.int64, torch.float32):
-                kwargs["dtype"] = torch.float32
-                scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
-                return self.get_proxy(tops_op.Convert(), (scalar, real_dtype))
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        if out_dtype is torch.float16:
+            kwargs["dtype"] = torch.float32
+            scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
+            return self.get_proxy(tops_op.Convert(), (scalar, out_dtype))
         return self.get_proxy(tops_op.Scalar, (a,), kwargs)
 
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
         idx_rank = len(args[1].node.meta['val'].shape)
-        return self.get_proxy(tops_op.XlaGather, (*args, [idx_rank,], [0,], [0,], idx_rank,
+        return self.get_proxy(tops_op.XlaGather, (args[0], args[1], [idx_rank,], [0,], [0,], idx_rank,
                                                   [1, args[0].node.meta['val'].shape[1]]))
 
     @register_conversion(prims.convert_element_type)
