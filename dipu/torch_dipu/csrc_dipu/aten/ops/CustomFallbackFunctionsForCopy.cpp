@@ -5,11 +5,11 @@
 
 namespace dipu {
 namespace native {
+namespace {
 
 static DIPUCopyInplace<false, false> onCpuCopy;
-static at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self,
-                                              const at::Tensor& src,
-                                              bool non_blocking) {
+at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
+                                       bool non_blocking) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to dipu copy, name=copy_"
                            << std::endl);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
@@ -17,6 +17,7 @@ static at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self,
   onCpuCopy.run(self, src, non_blocking);
   return self;
 }
+}  // anonymous namespace
 
 }  // namespace native
 }  // namespace dipu

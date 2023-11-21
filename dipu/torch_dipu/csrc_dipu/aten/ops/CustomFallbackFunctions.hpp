@@ -315,9 +315,8 @@ custom_fallback_dipu_native_batch_norm_backward(
   return std::tie(grad_input, grad_weight, grad_bias);
 }
 
-static at::Tensor &custom_fallback_dipu_copy_(at::Tensor &self,
-                                              const at::Tensor &src,
-                                              bool non_blocking);
+at::Tensor &custom_fallback_dipu_copy_(at::Tensor &self, const at::Tensor &src,
+                                       bool non_blocking);
 
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     at::TensorList scaled_grads, at::Tensor &found_inf,
