@@ -42,7 +42,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         work_dir = ""
         opt_arg = ""
         package_name = "diengine"
-    elif ("trans" in p1):
+    elif ("trans" in p1 or "alpaca" in p1):
         train_path = p1 + "/" + p2
         config_path = ""
         work_dir = ""
@@ -133,9 +133,9 @@ if __name__ == '__main__':
     device = sys.argv[1]
     job_name = sys.argv[2]
     gpu_requests = sys.argv[3]
-    partition_arg = sys.argv[4:]
-    partition = ' '.join(partition_arg)
-    logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests:{gpu_requests}")
+    partition = sys.argv[4]
+    model_list_selection= sys.argv[5]
+    logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, model_list_selection: {model_list_selection}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
     if device == 'cuda':
@@ -153,10 +153,15 @@ if __name__ == '__main__':
     os.environ['DIPU_DUMP_OP_ARGS'] = "0"
     os.environ['DIPU_DEBUG_ALLOCATOR'] = "0"
     os.environ['ONE_ITER_TOOL_DEVICE'] = "dipu"
-    os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "cpu"
+    # For traditional models, the baseline data is generated on the CPU. However, for large language models, the baseline data needs to be generated 
+    # on the GPU due to the limitation of the fp16 dtype.
+    if 'traditional' in model_list_selection:
+        os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "cpu"
+    else:
+        os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "gpu"
     # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  # 0.2 by default
     curPath = os.path.dirname(os.path.realpath(__file__))
-    yamlPath = os.path.join(curPath, "test_one_iter_model_list.yaml")
+    yamlPath = os.path.join(curPath, model_list_selection)
     with open(yamlPath, 'r', encoding='utf-8') as f:
         original_list = yaml.safe_load(f.read()).get(device, None)
         if not original_list:
