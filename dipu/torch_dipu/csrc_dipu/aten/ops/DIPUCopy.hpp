@@ -57,14 +57,14 @@ inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
   bool isSrcDevice = dipu::isDeviceTensor(src);
   bool isDstDevice = dipu::isDeviceTensor(dst);
   if (!isSrcDevice) {
-    return DIPUCopyType::H2D;
-  }
-  if (!isDstDevice) {
-    return DIPUCopyType::D2H;
+    return DIPUCopyType::H2D;  // this op not handle h2h, dest always device
+  } else if (!isDstDevice) {
+    return DIPUCopyType::D2H;  // here src always device
   } else if (src.device().index() != dst.device().index()) {
     return DIPUCopyType::D2OtherD;
+  } else {
+    return DIPUCopyType::D2Self;
   }
-  return DIPUCopyType::D2Self;
 }
 
 inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
