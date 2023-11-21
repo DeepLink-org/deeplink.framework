@@ -6,8 +6,6 @@ on:
       - main
       - dev_v0.25
   pull_request:
-    paths-ignore:
-      -  "dicp/**"
 
 env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
