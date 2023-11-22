@@ -256,33 +256,21 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body = IndentedBuffer()
         func_body.writeline('std::vector<void *> input_ptrs;')
         for i in range(0, len(self.input_args)):
-            func_body.writeline(
-                f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
+            func_body.writeline(f'input_ptrs.emplace_back(inputs_ptr[{str(i)}]);')
 
         func_body.writeline("")
         func_body.writeline("std::vector<void *> output_ptrs;")
+        output_ptr_count = 0
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                func_body.writeline(
-                    f'output_ptrs.emplace_back(output_ptr{str(i)});')
-
+                func_body.writeline(f'output_ptrs.emplace_back(outputs_ptr[{output_ptr_count}]);')
+                output_ptr_count += 1
         func_body.writeline("")
-        func_body.writeline(
-            f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
-        input_paras = []
-        for i in range(0, len(self.input_args)):
-            input_paras.append(f"float* input_ptr{str(i)}")
-
-        output_paras = []
-        for i in range(0, len(self.output_args)):
-            if not isinstance(self.output_args[i], type(None)):
-                output_paras.append(f"float* output_ptr{str(i)}")
-        paras = input_paras + output_paras
+        func_body.writeline(f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
         run_func_code = IndentedBuffer()
-        run_func_code.writeline(
-            f'extern "C" void run(void *dipu_stream, {", ".join(paras)}) {"{"}')
+        run_func_code.writeline(f'extern "C" void run(void *dipu_stream, void **inputs_ptr, void **outputs_ptr) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
@@ -395,7 +383,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_tensor(self, prefix, tensor):
         if dipu_flag:
-            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='xpu:{self.device_id}', dtype={tensor.dtype})"
+            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='dipu:{self.device_id}', dtype={tensor.dtype})"
         else:
             res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
         # makes a copy of the tensor for view ops
@@ -912,8 +900,9 @@ class EnflameOverrides(OpOverrides):
     def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(tensors) + '}'}, {dim});"
 
+    # Add an additional true flag for accuration in tops softmax.
     @staticmethod
-    def Softmax(op_var, out_shape, out_dtype, x, y, z):
+    def Softmax(op_var, out_shape, out_dtype, x, y):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, true);"
 
     @staticmethod
