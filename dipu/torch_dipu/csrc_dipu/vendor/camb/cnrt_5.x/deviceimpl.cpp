@@ -1,17 +1,12 @@
 // Copyright (c) 2023, DeepLink.
 #include "../basedeviceimpl.hpp"
 
-namespace dipu
-{
+namespace dipu {
 namespace devapis {
 
-void initializeVendor() {
+void initializeVendor() {}
 
-}
-
-void finalizeVendor() {
-
-}
+void finalizeVendor() {}
 
 // camb5.8.2
 // set current device given device according to id
@@ -23,20 +18,17 @@ void setDevice(deviceId_t devId) {
 }
 
 // check last launch succ or not, throw if fail
-void checkLastError() {
-  DIPU_CALLCNRT(::cnrtGetLastErr())
-}
+void checkLastError() { DIPU_CALLCNRT(::cnrtGetLastErr()) }
 
-void getRuntimeVersion(int *version) {
-  DIPU_CALLCNRT(::cnrtGetVersion(reinterpret_cast<unsigned int *>(version)))
+void getRuntimeVersion(int* version) {
+  DIPU_CALLCNRT(::cnrtGetVersion(reinterpret_cast<unsigned int*>(version)))
 }
 
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
-  if (prior)
-  {
+void createStream(deviceStream_t* stream, bool prior) {
+  if (prior) {
     DIPU_LOGW(
         "Camb device doesn't support prior queue(stream)."
         " Fall back on creating queue without priority.");
@@ -64,7 +56,7 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   DIPU_CALLCNRT(::cnrtCreateNotifier(event))
 }
 
@@ -75,14 +67,14 @@ void destroyEvent(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   DIPU_CALLCNRT(cnrtMallocHost(p, nbytes, CNRT_MEMTYPE_LOCKED))
 }
 
 // (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLCNRT(cnrtMemsetD8Async(ptr, val, size, stream))
 }
 
-} // end namespace devapis
-} // end namespace dipu
+}  // end namespace devapis
+}  // end namespace dipu

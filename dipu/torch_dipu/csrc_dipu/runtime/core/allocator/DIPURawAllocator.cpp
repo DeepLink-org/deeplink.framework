@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
 #include "DIPURawAllocator.h"
-#include "../DIPUStream.h"
 
 #include <mutex>
 #include <unordered_set>
@@ -10,25 +9,27 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
+#include "../DIPUStream.h"
+
 namespace dipu {
 
-static void DIPURawDeviceAllocatorDeleter(void *ptr) {
-    if (ptr) {
-      auto device = devproxy::current_device();
-      DIPU_DEBUG_ALLOCATOR(2, "devproxy::freeDevice: free " << ptr);
-      // When only one stream is involved, in order to improve performance and memory usage,
-      // we actually do not use events for synchronization.
-      // The memory used by the same stream is allocated to the same stream for use without synchronization,
-      // this is no problem, but in direct release without synchronization is problematic, so adding synchronization here is necessary.
-      getDefaultDIPUStream().synchronize();
-      devproxy::freeDevice(ptr);
-      ptr = nullptr;
-    }
+static void DIPURawDeviceAllocatorDeleter(void* ptr) {
+  if (ptr) {
+    auto device = devproxy::current_device();
+    DIPU_DEBUG_ALLOCATOR(2, "devproxy::freeDevice: free " << ptr);
+    // When only one stream is involved, in order to improve performance and
+    // memory usage, we actually do not use events for synchronization. The
+    // memory used by the same stream is allocated to the same stream for use
+    // without synchronization, this is no problem, but in direct release
+    // without synchronization is problematic, so adding synchronization here is
+    // necessary.
+    getDefaultDIPUStream().synchronize();
+    devproxy::freeDevice(ptr);
+    ptr = nullptr;
+  }
 }
 
-DIPURawDeviceAllocator::DIPURawDeviceAllocator() {
-
-}
+DIPURawDeviceAllocator::DIPURawDeviceAllocator() {}
 
 c10::DataPtr DIPURawDeviceAllocator::allocate(size_t size) const {
   auto idx = devproxy::current_device();
@@ -39,18 +40,21 @@ c10::DeleterFnPtr DIPURawDeviceAllocator::raw_deleter() const {
   return &DIPURawDeviceAllocatorDeleter;
 }
 
-c10::DataPtr DIPURawDeviceAllocator::allocate(size_t nbytes, c10::DeviceIndex device_index) const {
-      std::lock_guard<std::mutex> lock(mutex_);
-      void *data = nullptr;
-      if (nbytes > 0) {
-        devproxy::mallocDevice(&data, nbytes);
-        DIPU_DEBUG_ALLOCATOR(1, "devproxy::mallocDevice: malloc " << nbytes << " nbytes, ptr:" << data);
-      }
-      return {data, data, &DIPURawDeviceAllocatorDeleter, c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
+c10::DataPtr DIPURawDeviceAllocator::allocate(
+    size_t nbytes, c10::DeviceIndex device_index) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  void* data = nullptr;
+  if (nbytes > 0) {
+    devproxy::mallocDevice(&data, nbytes);
+    DIPU_DEBUG_ALLOCATOR(1, "devproxy::mallocDevice: malloc "
+                                << nbytes << " nbytes, ptr:" << data);
+  }
+  return {data, data, &DIPURawDeviceAllocatorDeleter,
+          c10::Device(dipu::DIPU_DEVICE_TYPE, device_index)};
 }
 
 class DIPURawHostAllocatorImpl final {
-public:
+ public:
   std::pair<void*, void*> allocate(size_t size) {
     if (size == 0) {
       return {nullptr, nullptr};
@@ -58,7 +62,8 @@ public:
 
     void* data = nullptr;
     devproxy::mallocHost(&data, size);
-    DIPU_DEBUG_ALLOCATOR(1, "devproxy::mallocHost: malloc " << size << " nbytes, ptr:" << data);
+    DIPU_DEBUG_ALLOCATOR(
+        1, "devproxy::mallocHost: malloc " << size << " nbytes, ptr:" << data);
     {
       std::lock_guard<std::mutex> lck(mtx_);
       blocks_[data] = size;
@@ -80,7 +85,7 @@ public:
     ctx = nullptr;
   }
 
-  bool isPinnedPtr(const void *p) {
+  bool isPinnedPtr(const void* p) {
     bool is_pinned = false;
     {
       std::lock_guard<std::mutex> lck(mtx_);
@@ -103,7 +108,7 @@ public:
     return is_pinned;
   }
 
-private:
+ private:
   static std::mutex mtx_;
   static std::map<void*, size_t> blocks_;
 };
@@ -119,20 +124,17 @@ static void DIPURawHostAllocatorDeleter(void* ctx) {
   dipu_host_allocator.free(ctx);
 }
 
-}
+}  // namespace
 
 c10::DeleterFnPtr DIPURawHostAllocator::raw_deleter() const {
-      return &DIPURawHostAllocatorDeleter;
+  return &DIPURawHostAllocatorDeleter;
 }
 
- c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
-    auto ptr_and_ctx = dipu_host_allocator.allocate(size);
-    return {
-        ptr_and_ctx.first,
-        ptr_and_ctx.second,
-        &DIPURawHostAllocatorDeleter,
-        at::DeviceType::CPU};
-  }
+c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
+  auto ptr_and_ctx = dipu_host_allocator.allocate(size);
+  return {ptr_and_ctx.first, ptr_and_ctx.second, &DIPURawHostAllocatorDeleter,
+          at::DeviceType::CPU};
+}
 
 bool isPinnedPtr(const void* ptr) {
   return dipu_host_allocator.isPinnedPtr(ptr);

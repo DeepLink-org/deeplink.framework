@@ -1,19 +1,19 @@
 // Copyright (c) 2023, DeepLink.
+#include "./DIPUDeviceInfo.h"
+
 #include <deque>
 #include <vector>
 
 #include <c10/core/Device.h>
 #include <c10/util/CallOnce.h>
-
-#include "./DIPUDeviceInfo.h"
 namespace dipu {
 
 // anonymous ns
 namespace {
 
-using std::shared_ptr;
-using dipu::devapis::DIPUDeviceProperties;
 using c10::DeviceIndex;
+using dipu::devapis::DIPUDeviceProperties;
+using std::shared_ptr;
 
 DeviceIndex num_gpus = -1;
 c10::once_flag init_flag;
@@ -27,8 +27,10 @@ static void initDIPUContextVectors() {
 }
 
 static void initDeviceProperty(DeviceIndex device_index) {
-  DIPUDeviceProperties device_prop = dipu::devproxy::getDeviceProperties(device_index);
-  device_properties[device_index] = std::make_shared<DIPUDeviceProperties>(device_prop);
+  DIPUDeviceProperties device_prop =
+      dipu::devproxy::getDeviceProperties(device_index);
+  device_properties[device_index] =
+      std::make_shared<DIPUDeviceProperties>(device_prop);
 }
 
 static inline void checkDevice(int32_t device_index) {
@@ -39,9 +41,10 @@ static inline void checkDevice(int32_t device_index) {
   AT_ASSERT(device_index >= 0 && device_index < num_gpus);
 }
 
-}  // end anonymous
+}  // namespace
 
-shared_ptr<DIPUDeviceProperties> getDevicePropertiesFromCache(int32_t device_index) {
+shared_ptr<DIPUDeviceProperties> getDevicePropertiesFromCache(
+    int32_t device_index) {
   checkDevice(device_index);
   c10::call_once(device_flags[device_index], initDeviceProperty, device_index);
   return device_properties[device_index];

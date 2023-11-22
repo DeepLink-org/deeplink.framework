@@ -1,15 +1,14 @@
 #include "collection.h"
 
 #include <algorithm>
+#include <fmt/format.h>
 #include <functional>
+#include <libkineto.h>
 #include <limits>
 #include <memory>
 #include <queue>
 #include <type_traits>
 #include <utility>
-
-#include <fmt/format.h>
-#include <libkineto.h>
 
 #include <ATen/Context.h>
 #include <ATen/record_function.h>
@@ -30,28 +29,29 @@ namespace profile {
 
 constexpr bool kKinetoAvailable{true};
 
-using torch::profiler::impl::AppendOnlyList;
-using torch::profiler::impl::ProfilerConfig;
-using torch::profiler::impl::KinetoObserverContext;
-using torch::profiler::impl::kineto::DeviceAndResource;
 using torch::profiler::perf_counters_t;
-using torch::profiler::impl::approx_time_t;
-using torch::profiler::impl::Result;
-using torch::profiler::impl::python_tracer::PythonTracerBase;
-using torch::profiler::impl::python_tracer::CompressedEvent;
-using torch::profiler::impl::RawTensorMetadata;
-using torch::profiler::impl::TensorMetadata;
-using torch::profiler::impl::op_input_t;
-using torch::profiler::impl::stacksToStr;
-using torch::profiler::impl::ProfilerState;
-using torch::profiler::impl::ExtraFields;
-using torch::profiler::impl::kineto::kineto_ids;
 using torch::profiler::impl::ActivityType;
-using torch::profiler::impl::kineto::interface_trace_t;
+using torch::profiler::impl::AppendOnlyList;
+using torch::profiler::impl::approx_time_t;
+using torch::profiler::impl::ExtraFields;
+using torch::profiler::impl::KinetoObserverContext;
+using torch::profiler::impl::op_input_t;
+using torch::profiler::impl::ProfilerConfig;
+using torch::profiler::impl::ProfilerState;
+using torch::profiler::impl::RawTensorMetadata;
+using torch::profiler::impl::Result;
+using torch::profiler::impl::stacksToStr;
+using torch::profiler::impl::TensorMetadata;
 using torch::profiler::impl::kineto::ActivityTraceWrapper;
+using torch::profiler::impl::kineto::DeviceAndResource;
+using torch::profiler::impl::kineto::interface_trace_t;
+using torch::profiler::impl::kineto::kineto_ids;
+using torch::profiler::impl::python_tracer::CompressedEvent;
+using torch::profiler::impl::python_tracer::PythonTracerBase;
 
 using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
-using trace_ptr_t = std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
+using trace_ptr_t =
+    std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
 
 void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
   for (const auto& value : values) {
@@ -78,7 +78,7 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
 }
 
 void DIPUInputOutputEncoder::push(const at::Tensor& t) {
-  if (t.defined() && !t.is_nested()) { // TODO fix nested sizes
+  if (t.defined() && !t.is_nested()) {  // TODO fix nested sizes
     tags_.emplace_back(Tag::Tensor);
     tensor_metadata_.emplace_back(t);
     tensor_sizes_strides_.copy(t.sizes());
@@ -93,8 +93,7 @@ void DIPUInputOutputEncoder::push(const at::Tensor& t) {
 
 // This is a custom-iterator-like getter to obtain input shapes and dtypes.
 auto DIPUInputOutputEncoder::getNextShapesAndDtypes() {
-  return [this,
-          tag_it = tags_.begin(),
+  return [this, tag_it = tags_.begin(),
           tensor_metadata_it = tensor_metadata_.begin(),
           tensor_size_strides_it = tensor_sizes_strides_.begin(),
           ivals_it = ivalues_.begin()]() mutable {
@@ -164,14 +163,15 @@ void DIPUInputOutputEncoder::clear() {
 // |  Correlation ID tracking (OpList & EventBlock)  |
 // ---------------------------------------------------
 template <typename T, size_t ChunkSize>
-DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<T, ChunkSize>::EventBlock() {
+DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<T,
+                                                    ChunkSize>::EventBlock() {
   static std::atomic<uint64_t> counter_{0};
   id_start_ = 1 + ChunkSize * counter_++;
 }
 
 template <class... Args>
-std::pair<KinetoObserverContext::Event*, uint64_t> DIPUThreadLocalSubqueue::
-    TorchOpStorage::OpList::emplace_back(Args&&... args) {
+std::pair<KinetoObserverContext::Event*, uint64_t>
+DIPUThreadLocalSubqueue::TorchOpStorage::OpList::emplace_back(Args&&... args) {
   maybe_grow();
   *next_ = {std::forward<Args>(args)...};
   auto corr_id = buffer_last_->correlation_id(next_);
@@ -184,10 +184,10 @@ uint64_t DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(
 }
 
 template <typename T, size_t ChunkSize>
-uint64_t DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<T, ChunkSize>::
-    correlation_id(const T* ptr) const {
-  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      ptr >= this->data() && ptr < this->data() + ChunkSize);
+uint64_t DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<
+    T, ChunkSize>::correlation_id(const T* ptr) const {
+  TORCH_INTERNAL_ASSERT_DEBUG_ONLY(ptr >= this->data() &&
+                                   ptr < this->data() + ChunkSize);
   return id_start_ + (ptr - this->data());
 }
 
@@ -199,12 +199,8 @@ std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
   KinetoObserverContext::Event* event;
   uint64_t corr_id;
   std::tie(event, corr_id) = torch_ops_.op_events_.emplace_back(
-      fn.seqNr(),
-      fn.forwardThreadId(),
-      fn.scope(),
-      fn.isAsync(),
-      fn.debugHandle(),
-      fn.name());
+      fn.seqNr(), fn.forwardThreadId(), fn.scope(), fn.isAsync(),
+      fn.debugHandle(), fn.name());
   if (config_.report_input_shapes) {
     torch_ops_.inputs_outputs_.push(fn.inputs());
   }
@@ -218,7 +214,8 @@ std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
   // backward nodes source range corresponds to the forward node
   // TODO: consider using C++ stack trace
   if (config_.with_stack && fn.scope() != at::RecordScope::BACKWARD_FUNCTION) {
-    auto cs = torch::profiler::impl::prepareCallstack(torch::jit::currentCallstack());
+    auto cs =
+        torch::profiler::impl::prepareCallstack(torch::jit::currentCallstack());
     torch_ops_.jit_stack_.emplace_back(callstackStr(cs));
   }
   if (config_.with_modules &&
@@ -250,9 +247,7 @@ struct StealOrDefault {
   StealOrDefault(T& container)
       : container_{container}, it_{container.begin()} {}
 
-  ~StealOrDefault() {
-    container_.get().clear();
-  }
+  ~StealOrDefault() { container_.get().clear(); }
 
   typename T::Iterator::value_type operator()() {
     if (it_.exhausted()) {
@@ -267,13 +262,12 @@ struct StealOrDefault {
   std::reference_wrapper<T> container_;
   typename T::Iterator it_;
 };
-} // namespace
+}  // namespace
 
 void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     std::vector<std::shared_ptr<Result>>& out,
     const std::function<time_t(approx_time_t)> time_converter,
-    const uint64_t tid,
-    const DeviceAndResource& kineto_info) {
+    const uint64_t tid, const DeviceAndResource& kineto_info) {
   // Plumb Autograd info to the top level annotation.
   auto it = op_events_.begin();
   for (C10_UNUSED const auto _ :
@@ -322,8 +316,8 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
         event->allow_tf32_cublas_,
         std::move(event->counters_)};
 
-    out.emplace_back(Result::create(
-        time_converter(event->start_time_), tid, kineto_info, std::move(e)));
+    out.emplace_back(Result::create(time_converter(event->start_time_), tid,
+                                    kineto_info, std::move(e)));
   }
 
   op_events_.clear();
@@ -338,37 +332,34 @@ struct SubQueueThreadCache {
 };
 
 // The astute observer will note that this leaves a dangling reference; nothing
-// in the teardown of `DIPURecordQueue` or `DIPUThreadLocalSubqueue` clears this value.
-// (And the raw pointer in `SubQueueThreadCache` will not extend the lifetime
-// of `*ref_`.) This is safe, however, because `getSubqueue` will check
+// in the teardown of `DIPURecordQueue` or `DIPUThreadLocalSubqueue` clears this
+// value. (And the raw pointer in `SubQueueThreadCache` will not extend the
+// lifetime of `*ref_`.) This is safe, however, because `getSubqueue` will check
 // `sub_queue_cache_.key_` before attempting to access `ref_`, and if `key_`
 // does not match the DIPURecordQueue's *unique* `id_` it will evict
 // `sub_queue_cache_` and fall back to a different mechanism.
 std::atomic<uint32_t> queue_id_{0};
 thread_local SubQueueThreadCache sub_queue_cache_{0, nullptr};
 
-std::string toString(const ExtraFields<torch::profiler::impl::EventType::PyCall>& e) {
+std::string toString(
+    const ExtraFields<torch::profiler::impl::EventType::PyCall>& e) {
   if (e.module_.has_value()) {
-    return fmt::format(
-        "nn.Module: {}_{}", e.module_->cls_name_.str(), e.module_->id_);
+    return fmt::format("nn.Module: {}_{}", e.module_->cls_name_.str(),
+                       e.module_->id_);
   }
-  return fmt::format(
-      "{}({}): {}",
-      e.callsite_.filename_.str(),
-      e.callsite_.line_no_,
-      e.callsite_.funcname_.str());
+  return fmt::format("{}({}): {}", e.callsite_.filename_.str(),
+                     e.callsite_.line_no_, e.callsite_.funcname_.str());
 }
 
 auto scopeToType(at::RecordScope scope) {
   return scope == at::RecordScope::USER_SCOPE
-      ? libkineto::ActivityType::USER_ANNOTATION
-      : libkineto::ActivityType::CPU_OP;
+             ? libkineto::ActivityType::USER_ANNOTATION
+             : libkineto::ActivityType::CPU_OP;
 }
 
 int64_t torchOpEndNS(
     const ExtraFields<torch::profiler::impl::EventType::TorchOp>& e,
-    const bool finished,
-    const std::weak_ptr<Result>& parent) {
+    const bool finished, const std::weak_ptr<Result>& parent) {
   if (finished && e.end_time_ns_ == std::numeric_limits<time_t>::min()) {
     auto p = parent.lock();
     if (p) {
@@ -387,11 +378,10 @@ auto kinetoEventCorrelationID(
   auto p = parent.lock();
   return p ? p->correlationID() : 0;
 }
-} // namespace
+}  // namespace
 
-DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(
-    const uint64_t tid,
-    const ProfilerConfig& config)
+DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(const uint64_t tid,
+                                                 const ProfilerConfig& config)
     : tid_{tid}, config_{config}, kineto_info_{kineto_ids()} {
   libkineto::api().activityProfiler().recordThreadInfo();
   if (!config_.experimental_config.performance_events.empty()) {
@@ -401,9 +391,8 @@ DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(
   }
 }
 
-DIPURecordQueue::DIPURecordQueue(
-    const ProfilerConfig& config,
-    std::set<ActivityType> activities)
+DIPURecordQueue::DIPURecordQueue(const ProfilerConfig& config,
+                                 std::set<ActivityType> activities)
     : id_(++queue_id_), config_{config}, activities_{std::move(activities)} {
   if (tracePython()) {
     python_tracer_ = makeTracer(this);
@@ -432,7 +421,8 @@ DIPUThreadLocalSubqueue* DIPURecordQueue::getSubqueue() {
   auto it = sub_queues_.find(tid);
   if (it == sub_queues_.end()) {
     it = sub_queues_
-             .emplace(tid, std::make_unique<DIPUThreadLocalSubqueue>(tid, config_))
+             .emplace(tid,
+                      std::make_unique<DIPUThreadLocalSubqueue>(tid, config_))
              .first;
   }
 
@@ -455,10 +445,8 @@ void mark_finished(std::shared_ptr<Result>& r) {
 
 static constexpr const char* indexKey = "Ev Idx";
 
-void passEventsToKineto(
-    const std::vector<std::shared_ptr<Result>>& results,
-    uint64_t start_time_us,
-    uint64_t end_time_us) {
+void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
+                        uint64_t start_time_us, uint64_t end_time_us) {
   using namespace torch::profiler::impl::kineto;
   TraceWrapper cpu_trace(start_time_us, "PyTorch Profiler");
 
@@ -466,18 +454,13 @@ void passEventsToKineto(
   for (const auto i : c10::irange(results.size())) {
     const auto& e = results[i];
     const auto* activity = cpu_trace.addCPUActivity(
-        e->name(),
-        e->kinetoType(),
-        e->kineto_info_,
-        e->correlationID(),
-        e->start_time_ns_ / 1000,
-        e->endTimeNS() / 1000);
+        e->name(), e->kinetoType(), e->kineto_info_, e->correlationID(),
+        e->start_time_ns_ / 1000, e->endTimeNS() / 1000);
 
     TORCH_INTERNAL_ASSERT(activity || !kKinetoAvailable);
     if (activity) {
       addMetadata(activity, indexKey, std::to_string(i));
     }
-    
   }
 
   // Kineto adds the events that it collected.
@@ -513,9 +496,8 @@ class TransferEvents {
   using activity_t = torch::profiler::impl::kineto::activity_t;
 
  public:
-  TransferEvents(
-      std::vector<std::shared_ptr<Result>>& results,
-      trace_ptr_t& trace)
+  TransferEvents(std::vector<std::shared_ptr<Result>>& results,
+                 trace_ptr_t& trace)
       : results_{results} {
     auto* trace_activities_ptr = trace->get()->activities();
     TORCH_INTERNAL_ASSERT(trace_activities_ptr != nullptr);
@@ -571,11 +553,11 @@ class TransferEvents {
       }
     }
     if (results_.get().size() != kineto_events_.size()) {
-      TORCH_WARN(fmt::format(
-          "Failed to recover relationship between all profiler and kineto events: "
-          "{} vs. {}  reassociated.",
-          results_.get().size(),
-          kineto_events_.size()));
+      TORCH_WARN(
+          fmt::format("Failed to recover relationship between all "
+                      "profiler and kineto events: "
+                      "{} vs. {}  reassociated.",
+                      results_.get().size(), kineto_events_.size()));
     }
   }
 
@@ -589,7 +571,7 @@ class TransferEvents {
 
     auto event = Result::create(
         activity->timestamp() * 1000,
-        noTID, // Placeholder
+        noTID,  // Placeholder
         device_and_resource,
         ExtraFields<torch::profiler::impl::EventType::Kineto>{
             activity->name(),
@@ -613,11 +595,10 @@ class TransferEvents {
     // Until we are very sure that we can reassociate kineto and profiler
     // events we need to be very defensive.
     const auto type = activity->type();
-    if (e == nullptr &&
-        (type == libkineto::ActivityType::CPU_OP ||
-         type == libkineto::ActivityType::CPU_INSTANT_EVENT ||
-         type == libkineto::ActivityType::USER_ANNOTATION ||
-         type == libkineto::ActivityType::PYTHON_FUNCTION)) {
+    if (e == nullptr && (type == libkineto::ActivityType::CPU_OP ||
+                         type == libkineto::ActivityType::CPU_INSTANT_EVENT ||
+                         type == libkineto::ActivityType::USER_ANNOTATION ||
+                         type == libkineto::ActivityType::PYTHON_FUNCTION)) {
       TORCH_WARN_ONCE(
           "Detected an event which was likely passed to kineto by the PyTorch "
           "profiler, but is not present in the set of known events: ",
@@ -650,9 +631,8 @@ class TransferEvents {
     }
   }
 
-  void setKinetoTID(
-      std::shared_ptr<Result>& r,
-      std::shared_ptr<Result> parent) {
+  void setKinetoTID(std::shared_ptr<Result>& r,
+                    std::shared_ptr<Result> parent) {
     r->visit(c10::overloaded(
         [&](ExtraFields<torch::profiler::impl::EventType::Kineto>& i) {
           TORCH_INTERNAL_ASSERT(r->start_tid_ == noTID);
@@ -720,16 +700,12 @@ class TransferEvents {
 };
 
 ActivityTraceWrapper stopTrace() {
-  return ActivityTraceWrapper{
-      libkineto::api().activityProfiler().stopTrace()
-  };
+  return ActivityTraceWrapper{libkineto::api().activityProfiler().stopTrace()};
 }
 
-trace_ptr_t addKinetoEvents(
-    std::vector<std::shared_ptr<Result>>& results,
-    uint64_t start_time_us,
-    uint64_t end_time_us,
-    const ProfilerConfig& config) {
+trace_ptr_t addKinetoEvents(std::vector<std::shared_ptr<Result>>& results,
+                            uint64_t start_time_us, uint64_t end_time_us,
+                            const ProfilerConfig& config) {
   using namespace torch::profiler::impl::kineto;
   passEventsToKineto(results, start_time_us, end_time_us);
 
@@ -750,9 +726,8 @@ struct ResultGreater {
   }
 };
 
-void set_in_tree_building(
-    std::vector<result_ptr_t>& results,
-    const bool value) {
+void set_in_tree_building(std::vector<result_ptr_t>& results,
+                          const bool value) {
   for (result_ptr_t& r : results) {
     r->visit(c10::overloaded(
         [value](ExtraFields<torch::profiler::impl::EventType::Vulkan>& i) {
@@ -777,7 +752,8 @@ void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
     // events are already marked finished before the main tree building
     // algorithm. It's fine to ignore them; the root event of these subtrees
     // not a Kineto op and will be handled normally.
-    if (c10::holds_alternative<ExtraFields<torch::profiler::impl::EventType::Kineto>>(
+    if (c10::holds_alternative<
+            ExtraFields<torch::profiler::impl::EventType::Kineto>>(
             event->extra_fields_) &&
         event->finished_) {
       return;
@@ -791,9 +767,9 @@ void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
 
     auto parent_it = stacks.find(event->start_tid_);
     if (parent_it == stacks.end()) {
-      auto fwd_tid = event->visit(c10::overloaded(
-          [](const op_fields& i) { return i.forward_tid_; },
-          [](const auto&) -> uint64_t { return 0; }));
+      auto fwd_tid = event->visit(
+          c10::overloaded([](const op_fields& i) { return i.forward_tid_; },
+                          [](const auto&) -> uint64_t { return 0; }));
       if (fwd_tid) {
         parent_it = stacks.find(fwd_tid);
       }
@@ -867,30 +843,30 @@ void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
 int64_t adjust_durations_dfs(std::shared_ptr<Result>& r) {
   if (SOFT_ASSERT(r != nullptr)) {
     int64_t original_duration = r->endTimeNS() - r->start_time_ns_;
-    int64_t children_total_duration = std::accumulate(
-        r->children_.begin(),
-        r->children_.end(),
-        0,
-        [](int64_t acc, std::shared_ptr<Result>& child) {
-          return acc + adjust_durations_dfs(child);
-        });
+    int64_t children_total_duration =
+        std::accumulate(r->children_.begin(), r->children_.end(), 0,
+                        [](int64_t acc, std::shared_ptr<Result>& child) {
+                          return acc + adjust_durations_dfs(child);
+                        });
 
     if (children_total_duration > original_duration) {
       r->visit(c10::overloaded(
-          [&r, &children_total_duration](ExtraFields<torch::profiler::impl::EventType::TorchOp>& i) {
+          [&r, &children_total_duration](
+              ExtraFields<torch::profiler::impl::EventType::TorchOp>& i) {
             i.end_time_ns_ = r->start_time_ns_ + children_total_duration;
           },
-          [&children_total_duration](ExtraFields<torch::profiler::impl::EventType::Vulkan>& i) {
+          [&children_total_duration](
+              ExtraFields<torch::profiler::impl::EventType::Vulkan>& i) {
             i.duration_ns_ = children_total_duration;
           },
           [](ExtraFields<torch::profiler::impl::EventType::Allocation>& _) {
             // Pass- Allocation events can't have children
           },
           [&](auto&) {
-            SOFT_ASSERT(
-                false,
-                "unexpected event type in mobile profiler adjust_durations_dfs: ",
-                r->name());
+            SOFT_ASSERT(false,
+                        "unexpected event type in mobile profiler "
+                        "adjust_durations_dfs: ",
+                        r->name());
           }));
       return children_total_duration;
     } else {
@@ -908,14 +884,14 @@ int64_t adjust_durations_dfs(std::shared_ptr<Result>& r) {
       that the last one ends at the same time as r
  * 3) Return r's final end time
  */
-int64_t adjust_timestamps_dfs(
-    std::shared_ptr<Result>& r,
-    int64_t new_start_time) {
+int64_t adjust_timestamps_dfs(std::shared_ptr<Result>& r,
+                              int64_t new_start_time) {
   if (SOFT_ASSERT(r != nullptr)) {
     if (r->start_time_ns_ != new_start_time) {
       // Adjust start time (keeping duration constant)
       r->visit(c10::overloaded(
-          [&r, &new_start_time](ExtraFields<torch::profiler::impl::EventType::TorchOp>& i) {
+          [&r, &new_start_time](
+              ExtraFields<torch::profiler::impl::EventType::TorchOp>& i) {
             i.end_time_ns_ =
                 new_start_time + (i.end_time_ns_ - r->start_time_ns_);
           },
@@ -926,17 +902,15 @@ int64_t adjust_timestamps_dfs(
             // Pass- No duration or end time to adjust
           },
           [&](auto&) {
-            SOFT_ASSERT(
-                false,
-                "unexpected event type in mobile profiler adjust_timestamps_dfs: ",
-                r->name());
+            SOFT_ASSERT(false,
+                        "unexpected event type in mobile profiler "
+                        "adjust_timestamps_dfs: ",
+                        r->name());
           }));
       r->start_time_ns_ = new_start_time;
     }
     int64_t children_total_duration = std::accumulate(
-        r->children_.begin(),
-        r->children_.end(),
-        0,
+        r->children_.begin(), r->children_.end(), 0,
         [](int64_t acc, std::shared_ptr<Result>& child) {
           return acc + (child->endTimeNS() - child->start_time_ns_);
         });
@@ -966,28 +940,23 @@ void adjust_timestamps(std::vector<std::shared_ptr<Result>>& out) {
     if (r->parent_.expired()) {
       adjust_durations_dfs(r);
       min_start_time = adjust_timestamps_dfs(
-          r,
-          std::max(
-              r->tag() != torch::profiler::impl::EventType::Vulkan
-                  ? r->start_time_ns_
-                  : std::numeric_limits<int64_t>::min(),
-              min_start_time));
+          r, std::max(r->tag() != torch::profiler::impl::EventType::Vulkan
+                          ? r->start_time_ns_
+                          : std::numeric_limits<int64_t>::min(),
+                      min_start_time));
     }
   }
 }
-} // namespace
+}  // namespace
 
-std::pair<
-    std::vector<std::shared_ptr<Result>>,
-    std::unique_ptr<ActivityTraceWrapper>>
-DIPURecordQueue::getRecords(
-    std::function<time_t(approx_time_t)> time_converter,
-    uint64_t start_time_us,
-    uint64_t end_time_us) {
+std::pair<std::vector<std::shared_ptr<Result>>,
+          std::unique_ptr<ActivityTraceWrapper>>
+DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
+                            uint64_t start_time_us, uint64_t end_time_us) {
   auto converter = [&](approx_time_t t) {
     return t == std::numeric_limits<approx_time_t>::min()
-        ? std::numeric_limits<time_t>::min()
-        : time_converter(t);
+               ? std::numeric_limits<time_t>::min()
+               : time_converter(t);
   };
   std::vector<std::shared_ptr<Result>> out;
   std::vector<CompressedEvent> python_enters;
@@ -998,7 +967,8 @@ DIPURecordQueue::getRecords(
         time_t start_time_ns;
         if constexpr (std::is_same<
                           std::remove_reference_t<decltype(i)>,
-                          ExtraFields<torch::profiler::impl::EventType::Backend>>::value) {
+                          ExtraFields<torch::profiler::impl::EventType::
+                                          Backend>>::value) {
           start_time_ns = i.start_time_us_ * 1000;
         } else {
           start_time_ns = converter(i.start_time_);
@@ -1012,15 +982,16 @@ DIPURecordQueue::getRecords(
       events.clear();
     };
 
-    queue.torch_ops_.materialize(
-        out, converter, queue.tid(), queue.kineto_info());
+    queue.torch_ops_.materialize(out, converter, queue.tid(),
+                                 queue.kineto_info());
     materialize(queue.backend_events_);
     for (auto& i : queue.allocations_) {
       out.emplace_back(Result::create(
           /*start_time_ns_=*/converter(i.start_time_),
           /*start_tid_=*/queue.tid(),
           /*kineto_info_=*/queue.kineto_info(),
-          /*extra_fields_=*/ExtraFields<torch::profiler::impl::EventType::Allocation>(i)));
+          /*extra_fields_=*/
+          ExtraFields<torch::profiler::impl::EventType::Allocation>(i)));
     }
     materialize(queue.ooms_);
 
@@ -1031,8 +1002,8 @@ DIPURecordQueue::getRecords(
   }
 
   if (python_tracer_) {
-    for (const auto& i : python_tracer_->getEvents(
-             converter, python_enters, end_time_us * 1000)) {
+    for (const auto& i : python_tracer_->getEvents(converter, python_enters,
+                                                   end_time_us * 1000)) {
       out.push_back(i);
     }
     python_tracer_.reset();
@@ -1066,5 +1037,5 @@ DIPURecordQueue::getRecords(
   return {out, std::move(trace)};
 }
 
-} // namespace profile
-} // namespace dipu
+}  // namespace profile
+}  // namespace dipu

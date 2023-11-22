@@ -1,23 +1,22 @@
 // Copyright (c) 2023, DeepLink.
 
+#include <cstring>
+#include <limits>
+#include <sstream>
+
+#include <ATen/Device.h>
+#include <c10/util/Exception.h>
+#include <torch/csrc/Device.h>
+#include <torch/csrc/Exceptions.h>
 #include <torch/csrc/Export.h>
 #include <torch/csrc/python_headers.h>
-
-#include <torch/csrc/Exceptions.h>
 #include <torch/csrc/utils/object_ptr.h>
 #include <torch/csrc/utils/pybind.h>
 #include <torch/csrc/utils/python_arg_parser.h>
 #include <torch/csrc/utils/python_numbers.h>
 #include <torch/csrc/utils/python_strings.h>
 
-#include <ATen/Device.h>
-#include <c10/util/Exception.h>
-#include <torch/csrc/Device.h>
-
 #include <structmember.h>
-#include <cstring>
-#include <limits>
-#include <sstream>
 
 #include "exportapi.h"
 
@@ -64,7 +63,6 @@ PyObject* DIPU_THPDevice_repr(THPDevice* self) {
   return THPUtils_packString(oss.str().c_str());
 }
 
-
 PyObject* DIPU_THPDevice_str(THPDevice* self) {
   std::ostringstream oss;
   oss << _get_dipu_python_type(self->device);
@@ -76,15 +74,16 @@ static struct PyGetSetDef DIPU_THPDevice_properties[] = {
     {"index", (getter)_THPDevice_index, nullptr, nullptr, nullptr},
     {nullptr}};
 
-
 /*
-why use this method to patch csrc.Device: because 
-1. csrc.Device is a final cpython class which not support attributes mock in python layer.
-2. rewrite a new DeviceType to replace THPDeviceType is not work because torch::PythonArgParser
- will check the type of THPDeviceType when parse Device parameter(see csrc/utils/python_arg_parer.cpp
-  FunctionParameter::check() -> THPDevice_Check())
-so we replace some attributes of THPDeviceType class in c-python layer 
-*/ 
+why use this method to patch csrc.Device: because
+1. csrc.Device is a final cpython class which not support attributes mock in
+python layer.
+2. rewrite a new DeviceType to replace THPDeviceType is not work because
+torch::PythonArgParser will check the type of THPDeviceType when parse Device
+parameter(see csrc/utils/python_arg_parer.cpp FunctionParameter::check() ->
+THPDevice_Check()) so we replace some attributes of THPDeviceType class in
+c-python layer
+*/
 void patchTorchCsrcDevice(PyObject* module) {
   // https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_dict
   THPDeviceType.tp_dict = nullptr;
@@ -93,9 +92,11 @@ void patchTorchCsrcDevice(PyObject* module) {
   THPDeviceType.tp_repr = (reprfunc)DIPU_THPDevice_repr;
   THPDeviceType.tp_str = (reprfunc)DIPU_THPDevice_str;
 
-  // change THPDeviceType as an overriable class need add some other prperties in PyTypeObject,
-  // It may cause problems and seem un-necessary, so we keep the THPDeviceType as immutable. 
-  THPDeviceType.tp_flags = Py_TPFLAGS_DEFAULT;   // | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+  // change THPDeviceType as an overriable class need add some other prperties
+  // in PyTypeObject, It may cause problems and seem un-necessary, so we keep
+  // the THPDeviceType as immutable.
+  THPDeviceType.tp_flags =
+      Py_TPFLAGS_DEFAULT;  // | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
 
   if (PyType_Ready(&THPDeviceType) < 0) {
     throw python_error();
@@ -104,13 +105,11 @@ void patchTorchCsrcDevice(PyObject* module) {
 
   auto m = py::handle(module).cast<py::module>();
 
-  m.def("_get_python_device_as_cuda", []() -> bool {
-    return PythonDeviceAsCuda;
-  });
+  m.def("_get_python_device_as_cuda",
+        []() -> bool { return PythonDeviceAsCuda; });
 
-  m.def ("_set_python_device_as_cuda", [](bool as_cuda) -> void {
-    PythonDeviceAsCuda = as_cuda;
-  });
+  m.def("_set_python_device_as_cuda",
+        [](bool as_cuda) -> void { PythonDeviceAsCuda = as_cuda; });
 
   // not really 'export' new type but change original THPDeviceType is enough
   // if (PyModule_AddObject(module, "device", (PyObject*)&THPDeviceType) != 0) {

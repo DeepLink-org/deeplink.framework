@@ -25,10 +25,8 @@ namespace autocast {
 namespace {
 
 template <typename... Args>
-inline bool firstarg_is_eligible(
-    DeviceType device_type,
-    const Tensor& arg,
-    Args... args) {
+inline bool firstarg_is_eligible(DeviceType device_type, const Tensor& arg,
+                                 Args... args) {
   return is_eligible(arg, device_type);
 }
 
@@ -61,17 +59,17 @@ enum class CastPolicy : uint8_t {
 // Base template for WrapFunction_, which is specialized to contain a "call"
 // method each CastPolicy
 template <CastPolicy policy, DeviceType device_type, class Redispatch,
-          Redispatch *F, class Ret, class ArgList>
+          Redispatch* F, class Ret, class ArgList>
 struct WrapFunction_ {};
 
 // CastPolicy::lower_precision_fp General_DeviceType
-template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
+template <DeviceType device_type, class Redispatch, Redispatch* F, class Ret,
           class... Args>
 struct WrapFunction_<CastPolicy::lower_precision_fp, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
   static Ret call(Args... args) {
-    // DispatchKey::Autocast is not the alias key of all AutocastType as Autograd, 
-    // it's just alias of AutocastCUDA (see c10/core/DispatchKey.h)
+    // DispatchKey::Autocast is not the alias key of all AutocastType as
+    // Autograd, it's just alias of AutocastCUDA (see c10/core/DispatchKey.h)
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
     return (*F)(
@@ -81,7 +79,7 @@ struct WrapFunction_<CastPolicy::lower_precision_fp, device_type, Redispatch, F,
 };
 
 // CastPolicy::fp32 General_DeviceType
-template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
+template <DeviceType device_type, class Redispatch, Redispatch* F, class Ret,
           class... Args>
 struct WrapFunction_<CastPolicy::fp32, device_type, Redispatch, F, Ret,
                      guts::typelist::typelist<Args...>> {
@@ -93,7 +91,7 @@ struct WrapFunction_<CastPolicy::fp32, device_type, Redispatch, F, Ret,
 };
 
 // CastPolicy::fp32_set_opt_dtype General_DeviceType
-template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
+template <DeviceType device_type, class Redispatch, Redispatch* F, class Ret,
           class... Args>
 struct WrapFunction_<CastPolicy::fp32_set_opt_dtype, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
@@ -112,7 +110,7 @@ struct WrapFunction_<CastPolicy::fp32_set_opt_dtype, device_type, Redispatch, F,
 };
 
 // CastPolicy::fp32_append_dtype General_DeviceType
-template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
+template <DeviceType device_type, class Redispatch, Redispatch* F, class Ret,
           class... Args>
 struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
                      Ret, guts::typelist::typelist<Args...>> {
@@ -125,7 +123,7 @@ struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
 };
 
 // CastPolicy::promote General_DeviceType
-template <DeviceType device_type, class Redispatch, Redispatch *F, class Ret,
+template <DeviceType device_type, class Redispatch, Redispatch* F, class Ret,
           class... Args>
 struct WrapFunction_<CastPolicy::promote, device_type, Redispatch, F, Ret,
                      guts::typelist::typelist<Args...>> {
@@ -156,7 +154,7 @@ template <
                        // some ops (for example, ops where we append a dtype)
                        // it's useful to redispatch to a function with a
                        // different signature.
-    Redispatch *F>     // The actual function we're redispatching to.
+    Redispatch* F>     // The actual function we're redispatching to.
 struct WrapFunction final {
   using type = WrapFunction_<
       policy, device_type, Redispatch, F,
@@ -239,8 +237,8 @@ DIPU_DEFINE_CAST_POLICY_CONVERSION(kPromote, promote);
 
 // This function will throw an error message when
 // torch.nn.functional.binary_cross_entropy is called within an autocast block
-Tensor DipuBinaryCrossEntropyBanned(const Tensor &, const Tensor &,
-                                    const c10::optional<Tensor> &, int64_t) {
+Tensor DipuBinaryCrossEntropyBanned(const Tensor&, const Tensor&,
+                                    const c10::optional<Tensor>&, int64_t) {
   AT_ERROR(
       R"(torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.
 Many models use a sigmoid layer right before the binary cross entropy layer.
@@ -365,19 +363,19 @@ TORCH_LIBRARY_IMPL(aten, DIPU_AUTOCAST_DEVICE_TYPE_MACRO, m) {
   // norm does not implicitly promote, but be aware when adding new ops to this
   // policy.
   KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(
-      at::norm, "norm.Scalar", Tensor(const Tensor &, const Scalar &),
-      Tensor(const Tensor &, const c10::optional<Scalar> &, ScalarType),
+      at::norm, "norm.Scalar", Tensor(const Tensor&, const Scalar&),
+      Tensor(const Tensor&, const c10::optional<Scalar>&, ScalarType),
       fp32_append_dtype)
   KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(
       at::norm, "norm.ScalarOpt_dim",
-      Tensor(const Tensor &, const c10::optional<Scalar> &, IntArrayRef, bool),
-      Tensor(const Tensor &, const c10::optional<Scalar> &, IntArrayRef, bool,
+      Tensor(const Tensor&, const c10::optional<Scalar>&, IntArrayRef, bool),
+      Tensor(const Tensor&, const c10::optional<Scalar>&, IntArrayRef, bool,
              ScalarType),
       fp32_append_dtype)
   KERNEL_DIPU_DIFFERENT_REDISPATCH_SIGNATURE(
       at::norm, "norm.names_ScalarOpt_dim",
-      Tensor(const Tensor &, const c10::optional<Scalar> &, DimnameList, bool),
-      Tensor(const Tensor &, const c10::optional<Scalar> &, DimnameList, bool,
+      Tensor(const Tensor&, const c10::optional<Scalar>&, DimnameList, bool),
+      Tensor(const Tensor&, const c10::optional<Scalar>&, DimnameList, bool,
              ScalarType),
       fp32_append_dtype)
   // promote

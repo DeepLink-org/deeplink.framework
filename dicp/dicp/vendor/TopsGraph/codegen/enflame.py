@@ -270,18 +270,19 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body.writeline(
             f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
-        input_paras = ''
+        input_paras = []
         for i in range(0, len(self.input_args)):
-            input_paras += f'float* input_ptr{str(i)}, '
+            input_paras.append(f"float* input_ptr{str(i)}")
+
         output_paras = []
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                output_paras.append(f'float* output_ptr{str(i)}')
-        output_paras = ', '.join(output_paras)
+                output_paras.append(f"float* output_ptr{str(i)}")
+        paras = input_paras + output_paras
 
         run_func_code = IndentedBuffer()
         run_func_code.writeline(
-            f'extern "C" void run(void *dipu_stream, {input_paras} {output_paras}) {"{"}')
+            f'extern "C" void run(void *dipu_stream, {", ".join(paras)}) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
@@ -413,7 +414,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         args = []
         for i in range(len(self.input_args)):
-            args.append('arg' + str(i))
+            args.append(self.input_args[i].name)
         if args:
             call_body.writeline(f"{', '.join(args)}, = args")
         call_body.writeline("args.clear()")
@@ -422,13 +423,14 @@ class EnflameCodegen(torch.fx.Interpreter):
         bufs = []
         none_bufs = []
         for i in range(len(self.output_args)):
-            bufs.append("buf" + str(i))
             if not isinstance(self.output_args[i], type(None)):
-                otensor = self.output_args[i].meta['val']
-                call_body.writeline(
-                    bufs[-1] + " = " + self.gen_empty_tensor(otensor))
+                bufs.append(self.output_args[i].name)
+                if self.output_args[i] not in self.input_args:
+                    otensor = self.output_args[i].meta['val']
+                    call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
-                none_bufs.append("buf" + str(i))
+                bufs.append("buf" + str(i))
+                none_bufs.append(bufs[-1])
                 call_body.writeline(
                     bufs[-1] + " = " + ("empty_strided((), ())"))
 
@@ -468,7 +470,8 @@ class EnflameCodegen(torch.fx.Interpreter):
                 f"check_res(list(cpu_res), list(({', '.join(map(lambda s: s + '.cpu()', bufs))},)), '{self.graph_key}')")
 
         for arg in args:
-            call_body.writeline(f'del {arg}')
+            if arg not in bufs:
+                call_body.writeline(f'del {arg}')
         call_body.writeline("")
 
         call_body.writeline(f"return ({', '.join(bufs)})")
@@ -623,6 +626,12 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
+    def Dot(op_var, shape, dtype, x, y, **kwargs_list):
+        src_code = f"builder::Op {op_var} = builder::Dot({x}, {y});\n"
+        src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
+        return src_code
+
+    @staticmethod
     def DotGeneral(op_var, out_shape, out_dtype, lhs, rhs, lhs_batch_dims, rhs_batch_dims, lhs_contract_dims, rhs_contract_dims):
         lbd = '{' + ','.join([str(x) for x in lhs_batch_dims]) + '}'
         rbd = '{' + ','.join([str(x) for x in rhs_batch_dims]) + '}'
@@ -633,10 +642,6 @@ class EnflameOverrides(OpOverrides):
         src_code += f"builder::Op {op_var} = builder::DotGeneral({lhs}, {rhs}, {op_var}_dims_attr);\n"
         src_code += f"""{op_var}.SetAttribute("op_type", builder::Attribute("DotInference"));"""
         return src_code
-
-    @staticmethod
-    def Dot(op_var, shape, dtype, x, y, **kwargs_list):
-        return f"builder::Op {op_var} = builder::Dot({x}, {y});"
 
     @staticmethod
     def Max(op_var, shape, dtype, x, y, **kwargs_list):

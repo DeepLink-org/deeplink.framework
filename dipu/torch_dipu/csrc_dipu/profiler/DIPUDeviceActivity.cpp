@@ -1,7 +1,8 @@
 #include "DIPUDeviceActivity.h"
 
-#include <output_base.h>
 #include <GenericTraceActivity.h>
+#include <output_base.h>
+
 #include <c10/util/Exception.h>
 
 #include "CorrelationIDManager.h"
@@ -22,18 +23,23 @@ DIPUDeviceActivity& DIPUDeviceActivity::instance() {
   return instance;
 }
 
-void DIPUDeviceActivity::pushCorrelationID(uint64_t id, DeviceActivityInterface::CorrelationFlowType type) {
+void DIPUDeviceActivity::pushCorrelationID(
+    uint64_t id, DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().pushCorrelationID(id, type);
 }
 
-void DIPUDeviceActivity::popCorrelationID(DeviceActivityInterface::CorrelationFlowType type) {
+void DIPUDeviceActivity::popCorrelationID(
+    DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().popCorrelationID(type);
 }
 
-void DIPUDeviceActivity::enableActivities(const std::set<libkineto::ActivityType>& selectedActivities) {}
+void DIPUDeviceActivity::enableActivities(
+    const std::set<libkineto::ActivityType>& selectedActivities) {}
 
-void DIPUDeviceActivity::disableActivities(const std::set<libkineto::ActivityType>& selectedActivities) {
-  if (selectedActivities.find(libkineto::ActivityType::CONCURRENT_KERNEL) != selectedActivities.end()) {
+void DIPUDeviceActivity::disableActivities(
+    const std::set<libkineto::ActivityType>& selectedActivities) {
+  if (selectedActivities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
+      selectedActivities.end()) {
     setProfileOpen(false);
   }
 }
@@ -74,8 +80,9 @@ int32_t DIPUDeviceActivity::processActivities(
     logger.handleGenericActivity(act);
   }
 
-  std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resource_infos = RecordsImpl::get().getResourceInfo();
-  for (const auto& kv: resource_infos) {
+  std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo>
+      resource_infos = RecordsImpl::get().getResourceInfo();
+  for (const auto& kv : resource_infos) {
     logger.handleResourceInfo(kv.second, startTime);
   }
 
@@ -91,6 +98,7 @@ void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
 namespace libkineto {
 
-DeviceActivityInterface* device_activity_singleton = &dipu::profile::DIPUDeviceActivity::instance();
+DeviceActivityInterface* device_activity_singleton =
+    &dipu::profile::DIPUDeviceActivity::instance();
 
 }  // namespace libkineto

@@ -77,8 +77,8 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     double growth_factor,
                                                     double backoff_factor,
                                                     int64_t growth_interval) {
-  DIPU_OP_LOG_WARNING_ONCE("custom fallback to separated ops, name=_amp_update_scale_"
-                    << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE(
+      "custom fallback to separated ops, name=_amp_update_scale_" << std::endl);
   TORCH_CHECK(growth_tracker.scalar_type() == at::ScalarType::Int,
               "growth_tracker must be an int tensor.");
   TORCH_CHECK(current_scale.scalar_type() == at::ScalarType::Float,

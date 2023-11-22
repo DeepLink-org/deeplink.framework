@@ -1,13 +1,13 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <set>
+#include <string>
 #include <unordered_set>
 
 #include <ATen/record_function.h>
-#include <torch/csrc/profiler/orchestration/observer.h>
 #include <torch/csrc/autograd/profiler_kineto.h>
+#include <torch/csrc/profiler/orchestration/observer.h>
 
 namespace dipu {
 namespace profile {

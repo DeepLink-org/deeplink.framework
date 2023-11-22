@@ -1,9 +1,9 @@
 #pragma once
 
-#include "OpUtils.hpp"
-#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
+#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
+#include "OpUtils.hpp"
 
 namespace dipu {
 namespace native {
@@ -29,7 +29,8 @@ static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
 
 static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                                                  at::Tensor& out) {
-  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out" << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out"
+                           << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
   out_cpu = at::silu_out(self_cpu, out_cpu);
@@ -55,7 +56,7 @@ static at::Tensor& custom_fallback_dipu_index_tensor_out(
     const at::Tensor& self, const c10::List<c10::optional<at::Tensor>>& indices,
     at::Tensor& out) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=index.Tensor_out"
-                    << std::endl);
+                           << std::endl);
   auto indices_cpu = to_cpu(indices);
 
   at::Tensor out_cpu = out.cpu();
@@ -68,7 +69,7 @@ static at::Tensor& custom_fallback_dipu__index_put_impl_(
     at::Tensor& self, const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& values, bool accumulate, bool unsafe) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=_index_put_impl_"
-                    << std::endl);
+                           << std::endl);
 
   auto indices_cpu = to_cpu(indices);
   at::Tensor self_cpu = self.cpu();
@@ -88,7 +89,7 @@ custom_fallback_dipu_native_batch_norm_out(
     double momentum, double eps, at::Tensor& out, at::Tensor& save_mean,
     at::Tensor& save_invstd) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=native_batch_norm_out"
-                    << std::endl);
+                           << std::endl);
   at::Tensor input_cpu = input.cpu();
   at::Tensor out_cpu = out.cpu();
   at::Tensor save_mean_cpu = save_mean.cpu();
@@ -122,8 +123,8 @@ static at::Tensor custom_fallback_dipu_convolution_overrideable(
     const c10::optional<at::Tensor>& bias, at::IntArrayRef stride,
     at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed,
     at::IntArrayRef output_padding, int64_t groups) {
-  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=convolution_overrideable"
-                    << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE(
+      "custom fallback to cpu, name=convolution_overrideable" << std::endl);
   auto input_cpu = input.cpu();
   auto weight_cpu = weight.cpu();
   auto bias_cpu = dipu_to_cpu(bias);
@@ -187,7 +188,7 @@ custom_fallback_dipu_native_batch_norm(
     const c10::optional<at::Tensor>& running_var_opt, bool training,
     double momentum, double eps) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=dipu_native_batch_norm"
-                    << std::endl);
+                           << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::kFloat);
 
@@ -220,7 +221,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
                                      const at::Tensor& weight,
                                      ::std::array<bool, 3> output_mask) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=linear_backward"
-                    << std::endl);
+                           << std::endl);
   auto input_cpu = input.cpu();
   auto grad_output_cpu = grad_output.cpu();
   auto weight_cpu = weight.cpu();
@@ -273,8 +274,8 @@ custom_fallback_dipu_native_batch_norm_backward(
     const c10::optional<at::Tensor>& save_mean_opt,
     const c10::optional<at::Tensor>& save_invstd_opt, bool train, double eps,
     ::std::array<bool, 3> output_mask) {
-  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=native_batch_norm_backward"
-                    << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE(
+      "custom fallback to cpu, name=native_batch_norm_backward" << std::endl);
   int64_t dim_c = input.size(1);
   at::TensorOptions options = input.options().dtype(at::ScalarType::Float);
 
@@ -315,35 +316,37 @@ custom_fallback_dipu_native_batch_norm_backward(
   return std::tie(grad_input, grad_weight, grad_bias);
 }
 
-static  at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src, bool non_blocking) {
-    DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=copy_" << std::endl);
-    dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-    static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
-    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
-    if (non_blocking) {
-      auto stream = dipu::getCurrentDIPUStream();
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
-      if (self.is_cpu()) {
-        if (self.options().pinned_memory()) {
-          self.record_stream(stream);
-        }
-      } else if (!is_default_stream){
+static at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self,
+                                              const at::Tensor& src,
+                                              bool non_blocking) {
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=copy_" << std::endl);
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  static bool use_slow_copy = (std::getenv("DIPU_USE_SLOW_COPY") != nullptr);
+  dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
+  if (non_blocking) {
+    auto stream = dipu::getCurrentDIPUStream();
+    const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
+    if (self.is_cpu()) {
+      if (self.options().pinned_memory()) {
         self.record_stream(stream);
       }
-      if (src.is_cpu()) {
-        if (src.options().pinned_memory()) {
-          src.record_stream(stream);
-        }
-      } else if (!is_default_stream) {
+    } else if (!is_default_stream) {
+      self.record_stream(stream);
+    }
+    if (src.is_cpu()) {
+      if (src.options().pinned_memory()) {
         src.record_stream(stream);
       }
-    }
-    if (use_slow_copy) {
-      return dipu::native::DIPUATenFunctions::copy_(self, src, non_blocking);
-    } else {
-      return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
+    } else if (!is_default_stream) {
+      src.record_stream(stream);
     }
   }
+  if (use_slow_copy) {
+    return dipu::native::DIPUATenFunctions::copy_(self, src, non_blocking);
+  } else {
+    return dipu::getDipuCopyInplace()->run(self, src, non_blocking);
+  }
+}
 
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     at::TensorList scaled_grads, at::Tensor& found_inf,

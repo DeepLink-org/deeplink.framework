@@ -335,7 +335,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Softmax, (a, dim, half_to_float))
 
     @register_conversion(aten.mm)
-    def Dot(self, *args, **kwargs):
+    def Gemm(self, *args, **kwargs):
         return self.get_proxy(tops_op.Dot, args, kwargs)
 
     @register_conversion(aten.bmm.default)
@@ -380,7 +380,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Max(self, *args, **kwargs):
         return self.get_proxy(tops_op.Max, args, kwargs)
 
-    @register_conversion(aten.pow.Tensor_Scalar)
+    @register_conversion([aten.pow.Tensor_Scalar, aten.pow.Tensor_Tensor])
     def Pow(self, *args, **kwargs):
         return self.get_proxy(tops_op.Pow, args, kwargs)
 

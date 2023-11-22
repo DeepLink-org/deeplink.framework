@@ -536,7 +536,7 @@ class Pow(Operator):
         super().__init__("Pow")
         self.args = args
         self.kwargs = kwargs
-        self.torch_op = aten.pow.Tensor_Scalar
+        self.torch_op = aten.pow
 
 
 class Sigmoid(Operator):

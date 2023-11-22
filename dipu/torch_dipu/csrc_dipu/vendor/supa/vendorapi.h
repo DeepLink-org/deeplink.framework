@@ -1,8 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
-#include <csrc_dipu/common.h>
 #include <succl.h>
 #include <supa.h>
+
+#include <csrc_dipu/common.h>
 
 namespace dipu {
 #define deviceDefaultStreamLiteral nullptr;

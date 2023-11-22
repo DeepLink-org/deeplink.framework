@@ -16,8 +16,7 @@ namespace ops {
 
 c10::intrusive_ptr<Work> send_dipu(
     at::TensorList tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t dstRank,
+    const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t dstRank,
     int64_t tag) {
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
@@ -26,8 +25,7 @@ c10::intrusive_ptr<Work> send_dipu(
 
 c10::intrusive_ptr<Work> recv_dipu_(
     at::TensorList tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t srcRank,
+    const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t srcRank,
     int64_t tag) {
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
@@ -37,34 +35,25 @@ c10::intrusive_ptr<Work> recv_dipu_(
 c10::intrusive_ptr<Work> reduce_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    int64_t root_rank,
-    int64_t root_tensor,
-    int64_t timeout) {
+    const c10::intrusive_ptr<ReduceOp>& reduce_op, int64_t root_rank,
+    int64_t root_tensor, int64_t timeout) {
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-      ->reduce(
-          tensor_vec,
-          ReduceOptions{
-              *reduce_op.get(),
-              root_rank,
-              root_tensor,
-              std::chrono::milliseconds(timeout)});
+      ->reduce(tensor_vec,
+               ReduceOptions{*reduce_op.get(), root_rank, root_tensor,
+                             std::chrono::milliseconds(timeout)});
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
     at::TensorList tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t root_rank,
-    int64_t root_tensor,
-    int64_t timeout) {
+    const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t root_rank,
+    int64_t root_tensor, int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-          ->broadcast(
-              tensor_vec,
-              BroadcastOptions{
-                  root_rank, root_tensor, std::chrono::milliseconds(timeout)});
+          ->broadcast(tensor_vec,
+                      BroadcastOptions{root_rank, root_tensor,
+                                       std::chrono::milliseconds(timeout)});
 
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       std::move(tensor_vec), work);
@@ -73,15 +62,13 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    int64_t timeout) {
+    const c10::intrusive_ptr<ReduceOp>& reduce_op, int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-          ->allreduce(
-              tensor_vec,
-              AllreduceOptions{
-                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
+          ->allreduce(tensor_vec,
+                      AllreduceOptions{*reduce_op.get(),
+                                       std::chrono::milliseconds(timeout)});
 
   // Return input tensors as output tensors to make inplace allreduce look like
   // a functional API, so that make_fx can correctly build the dependencies in
@@ -90,13 +77,14 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
       std::move(tensor_vec), work);
 }
 
-std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>> allgather_dipu_(
-    const std::vector<std::vector<at::Tensor>>& output_tensors,
-    at::TensorList input_tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t timeout) {
+std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>
+allgather_dipu_(const std::vector<std::vector<at::Tensor>>& output_tensors,
+                at::TensorList input_tensors,
+                const c10::intrusive_ptr<ProcessGroup>& process_group,
+                int64_t timeout) {
   auto input_tensors_vec = input_tensors.vec();
-  auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+  auto work =
+      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->allgather(
               const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
               input_tensors_vec,
@@ -104,14 +92,13 @@ std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>> allga
 
   // Copy output tensors (not storage) so that this can be used in a functional
   // manner
-  return std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>(
-          output_tensors, work);
+  return std::tuple<std::vector<std::vector<at::Tensor>>,
+                    c10::intrusive_ptr<Work>>(output_tensors, work);
 }
 
-// refer to distributed/c10d/Ops.cpp 
+// refer to distributed/c10d/Ops.cpp
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
-    at::Tensor& output_tensor,
-    at::Tensor& input_tensor,
+    at::Tensor& output_tensor, at::Tensor& input_tensor,
     const c10::intrusive_ptr<ProcessGroup>& process_group) {
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
                   ->_allgather_base(output_tensor, input_tensor);
@@ -119,48 +106,42 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
-std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> reduce_scatter_dipu_(
-    const at::TensorList& output_tensors,
-    const std::vector<std::vector<at::Tensor>>& input_tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    int64_t timeout) {
+std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
+reduce_scatter_dipu_(const at::TensorList& output_tensors,
+                     const std::vector<std::vector<at::Tensor>>& input_tensors,
+                     const c10::intrusive_ptr<ProcessGroup>& process_group,
+                     const c10::intrusive_ptr<ReduceOp>& reduce_op,
+                     int64_t timeout) {
   auto output_tensors_vec = output_tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->reduce_scatter(
               output_tensors_vec,
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
-              ReduceScatterOptions{
-                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
+              ReduceScatterOptions{*reduce_op.get(),
+                                   std::chrono::milliseconds(timeout)});
 
   return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
       output_tensors_vec, work);
 }
 
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
-    at::Tensor& output_tensor,
-    at::Tensor& input_tensor,
+    at::Tensor& output_tensor, at::Tensor& input_tensor,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    int64_t timeout) {
-  auto work =
-      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-          ->_reduce_scatter_base(
-              output_tensor,
-              input_tensor,
-              ReduceScatterOptions{
-                  *reduce_op.get(), std::chrono::milliseconds(timeout)});
+    const c10::intrusive_ptr<ReduceOp>& reduce_op, int64_t timeout) {
+  auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+                  ->_reduce_scatter_base(
+                      output_tensor, input_tensor,
+                      ReduceScatterOptions{*reduce_op.get(),
+                                           std::chrono::milliseconds(timeout)});
 
   return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
 }
 
-
 c10::intrusive_ptr<Work> gather_dipu_(
     const std::vector<std::vector<at::Tensor>>& output_tensors,
     const at::TensorList& input_tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t root_rank,
+    const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t root_rank,
     int64_t timeout) {
   auto input_tensors_vec = input_tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
@@ -173,8 +154,7 @@ c10::intrusive_ptr<Work> gather_dipu_(
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
     const at::TensorList& output_tensors,
     const std::vector<std::vector<at::Tensor>>& input_tensors,
-    const c10::intrusive_ptr<ProcessGroup>& process_group,
-    int64_t root_rank,
+    const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t root_rank,
     int64_t timeout) {
   auto output_tensors_vec = output_tensors.vec();
   auto work =
@@ -191,8 +171,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
 c10::intrusive_ptr<Work> barrier_dipu(
     at::Tensor /* unused */,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const std::vector<int64_t>& device_ids,
-    int64_t timeout) {
+    const std::vector<int64_t>& device_ids, int64_t timeout) {
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
       ->barrier(BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
 }
@@ -214,9 +193,9 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   // not implement
   m.impl("gather_", gather_dipu_);
 
-  // unregistered op, we expect it can fallback to cpu, but it not work now (hard to sync).
+  // unregistered op, we expect it can fallback to cpu, but it not work now
+  // (hard to sync).
 }
 
-
-} // namespace ops
-} // namespace c10d
+}  // namespace ops
+}  // namespace c10d

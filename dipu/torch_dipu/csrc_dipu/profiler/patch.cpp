@@ -1,17 +1,16 @@
+#include <GenericTraceActivity.h>
+#include <libkineto.h>
 #include <unordered_set>
 
 #include <c10/util/Exception.h>
-#include <torch/csrc/profiler/perf-inl.h>
-#include <torch/csrc/profiler/perf.h>
-#include <torch/csrc/profiler/util.h>
-#include <torch/csrc/profiler/kineto_shim.h>
-#include <torch/csrc/profiler/data_flow.h>
 #include <c10/util/overloaded.h>
 #include <c10/util/variant.h>
 #include <torch/csrc/profiler/collection.h>
-
-#include <GenericTraceActivity.h>
-#include <libkineto.h>
+#include <torch/csrc/profiler/data_flow.h>
+#include <torch/csrc/profiler/kineto_shim.h>
+#include <torch/csrc/profiler/perf-inl.h>
+#include <torch/csrc/profiler/perf.h>
+#include <torch/csrc/profiler/util.h>
 
 namespace torch {
 namespace profiler {
@@ -50,8 +49,8 @@ ApproximateClockToUnixTimeConverter::measurePairs() {
   return out;
 }
 
-std::function<time_t(approx_time_t)> ApproximateClockToUnixTimeConverter::
-    makeConverter() {
+std::function<time_t(approx_time_t)>
+ApproximateClockToUnixTimeConverter::makeConverter() {
   auto end_times = measurePairs();
 
   // Compute the real time that passes for each tick of the approximate clock.
@@ -99,42 +98,34 @@ namespace linux_perf {
 /*
  * Syscall wrapper for perf_event_open(2)
  */
-inline long perf_event_open(
-    struct perf_event_attr* hw_event,
-    pid_t pid,
-    int cpu,
-    int group_fd,
-    unsigned long flags) {
+inline long perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
+                            int cpu, int group_fd, unsigned long flags) {
   return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
 // TODO sync with Kineto level abstract events in profiler/events.h
 static const std::unordered_map<
-    std::string,
-    std::pair<perf_type_id, /* perf event type */ uint32_t>>
-    EventTable{
-        {"cycles",
-         std::make_pair(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES)},
-        {"instructions",
-         std::make_pair(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS)},
+    std::string, std::pair<perf_type_id, /* perf event type */ uint32_t>>
+    EventTable{{"cycles",
+                std::make_pair(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES)},
+               {"instructions",
+                std::make_pair(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS)},
 
-        // Non Standard events for testing
-        {"pagefaults",
-         std::make_pair(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS)},
-        {"backend-stall-cycles",
-         std::make_pair(
-             PERF_TYPE_HARDWARE,
-             PERF_COUNT_HW_STALLED_CYCLES_BACKEND)},
-        {"frontend-stall-cycles",
-         std::make_pair(
-             PERF_TYPE_HARDWARE,
-             PERF_COUNT_HW_STALLED_CYCLES_FRONTEND)}};
+               // Non Standard events for testing
+               {"pagefaults",
+                std::make_pair(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS)},
+               {"backend-stall-cycles",
+                std::make_pair(PERF_TYPE_HARDWARE,
+                               PERF_COUNT_HW_STALLED_CYCLES_BACKEND)},
+               {"frontend-stall-cycles",
+                std::make_pair(PERF_TYPE_HARDWARE,
+                               PERF_COUNT_HW_STALLED_CYCLES_FRONTEND)}};
 
 PerfEvent::~PerfEvent() {
   if (fd_ > -1) {
     close(fd_);
   }
-  fd_ = -1; // poison
+  fd_ = -1;  // poison
 }
 
 void PerfEvent::Init() {
@@ -153,7 +144,7 @@ void PerfEvent::Init() {
   attr.config = it->second.second;
   attr.disabled = 1;
   attr.inherit = 1;
-  attr.exclude_kernel = 1; // TBD
+  attr.exclude_kernel = 1;  // TBD
   attr.exclude_hv = 1;
   /*
    * These can be used to calculate estimated totals if the PMU is overcommitted
@@ -162,15 +153,15 @@ void PerfEvent::Init() {
   attr.read_format =
       PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
 
-  pid_t pid = getpid(); // this pid
-  int cpu = -1; // all cpus
+  pid_t pid = getpid();  // this pid
+  int cpu = -1;          // all cpus
   int group_fd = -1;
   unsigned long flags = 0;
 
   fd_ = static_cast<int>(perf_event_open(&attr, pid, cpu, group_fd, flags));
   if (fd_ == -1) {
-    TORCH_CHECK(
-        false, "perf_event_open() failed, error: ", std::strerror(errno));
+    TORCH_CHECK(false,
+                "perf_event_open() failed, error: ", std::strerror(errno));
   }
   Reset();
 }
@@ -178,21 +169,14 @@ void PerfEvent::Init() {
 uint64_t PerfEvent::ReadCounter() const {
   PerfCounter counter{};
   long n = read(fd_, &counter, sizeof(PerfCounter));
-  TORCH_CHECK(
-      n == sizeof(counter),
-      "Read failed for Perf event fd, event : ",
-      name_,
-      ", error: ",
-      std::strerror(errno));
+  TORCH_CHECK(n == sizeof(counter),
+              "Read failed for Perf event fd, event : ", name_,
+              ", error: ", std::strerror(errno));
   TORCH_CHECK(
       counter.time_enabled == counter.time_running,
       "Hardware performance counter time multiplexing is not handled yet",
-      ", name: ",
-      name_,
-      ", enabled: ",
-      counter.time_enabled,
-      ", running: ",
-      counter.time_running);
+      ", name: ", name_, ", enabled: ", counter.time_enabled,
+      ", running: ", counter.time_running);
   return counter.value;
 }
 
@@ -202,15 +186,12 @@ uint64_t PerfEvent::ReadCounter() const {
  */
 
 void PerfProfiler::Configure(std::vector<std::string>& event_names) {
-  TORCH_CHECK(
-      event_names.size() <= MAX_EVENTS,
-      "Too many events to configure, configured: ",
-      event_names.size(),
-      ", max allowed:",
-      MAX_EVENTS);
+  TORCH_CHECK(event_names.size() <= MAX_EVENTS,
+              "Too many events to configure, configured: ", event_names.size(),
+              ", max allowed:", MAX_EVENTS);
   std::unordered_set<std::string> s(event_names.begin(), event_names.end());
-  TORCH_CHECK(
-      s.size() == event_names.size(), "Duplicate event names are not allowed!")
+  TORCH_CHECK(s.size() == event_names.size(),
+              "Duplicate event names are not allowed!")
   for (auto name : event_names) {
     events_.emplace_back(name);
     events_.back().Init();
@@ -237,11 +218,10 @@ void PerfProfiler::Enable() {
 
 void PerfProfiler::Disable(perf_counters_t& vals) {
   StopCounting();
-  TORCH_CHECK(
-      vals.size() == events_.size(),
-      "Can not fit all perf counters in the supplied container");
-  TORCH_CHECK(
-      !start_values_.empty(), "PerfProfiler must be enabled before disabling");
+  TORCH_CHECK(vals.size() == events_.size(),
+              "Can not fit all perf counters in the supplied container");
+  TORCH_CHECK(!start_values_.empty(),
+              "PerfProfiler must be enabled before disabling");
 
   /* Always connecting this disable event to the last enable event i.e. using
    * whatever is on the top of the start counter value stack. */
@@ -257,7 +237,7 @@ void PerfProfiler::Disable(perf_counters_t& vals) {
   }
 }
 
-} // namespace linux_perf
+}  // namespace linux_perf
 
 namespace kineto {
 
@@ -271,17 +251,14 @@ TraceWrapper::TraceWrapper(const int64_t start_time, const std::string& name)
 #else
 {
 }
-#endif // USE_KINETO
+#endif  // USE_KINETO
 
 TraceWrapper::~TraceWrapper() = default;
 
 activity_t* TraceWrapper::addCPUActivity(
-    const std::string& name,
-    const libkineto::ActivityType type,
-    const DeviceAndResource device_and_resource,
-    const uint64_t correlation_id,
-    const int64_t start_time,
-    const int64_t end_time) {
+    const std::string& name, const libkineto::ActivityType type,
+    const DeviceAndResource device_and_resource, const uint64_t correlation_id,
+    const int64_t start_time, const int64_t end_time) {
 #ifdef USE_KINETO
   TORCH_CHECK((bool)(*this), "Cannot add event to non-existent trace.");
   cpu_trace_->emplace_activity(cpu_trace_->span, type, name);
@@ -296,14 +273,14 @@ activity_t* TraceWrapper::addCPUActivity(
   return cpu_trace_->activities.back().get();
 #else
   return nullptr;
-#endif // USE_KINETO
+#endif  // USE_KINETO
 }
 
 void TraceWrapper::transferCpuTrace(int64_t end_time) {
 #ifdef USE_KINETO
   cpu_trace_->span.endTime = end_time;
   libkineto::api().activityProfiler().transferCpuTrace(std::move(cpu_trace_));
-#endif // USE_KINETO
+#endif  // USE_KINETO
 }
 
 TraceWrapper::operator bool() const {
@@ -311,7 +288,7 @@ TraceWrapper::operator bool() const {
   return cpu_trace_ != nullptr;
 #else
   return false;
-#endif // USE_KINETO
+#endif  // USE_KINETO
 }
 
 ActivityTraceWrapper::ActivityTraceWrapper(
@@ -323,7 +300,7 @@ ActivityTraceWrapper::operator bool() const {
   return trace_ != nullptr;
 #else
   return false;
-#endif // USE_KINETO
+#endif  // USE_KINETO
 }
 
 void ActivityTraceWrapper::save(const std::string& path) {
@@ -333,36 +310,31 @@ void ActivityTraceWrapper::save(const std::string& path) {
   trace_->save(path);
   saved_ = true;
 #else
-  TORCH_CHECK(
-      false,
-      "Saving a trace requires using torch.profiler with Kineto support (USE_KINETO=1)");
-#endif // USE_KINETO
+  TORCH_CHECK(false,
+              "Saving a trace requires using torch.profiler with Kineto "
+              "support (USE_KINETO=1)");
+#endif  // USE_KINETO
 }
 
-void addMetadata(
-    const activity_t* activity,
-    const std::string& key,
-    const std::string& value) {
+void addMetadata(const activity_t* activity, const std::string& key,
+                 const std::string& value) {
   const_cast<activity_t*>(activity)->addMetadata(key, value);
 }
 
 const DeviceAndResource kineto_ids() {
 #ifdef USE_KINETO
-  return {
-      /*device=*/libkineto::processId(),
-      /*resource=*/libkineto::systemThreadId()};
+  return {/*device=*/libkineto::processId(),
+          /*resource=*/libkineto::systemThreadId()};
 #else
   return {};
-#endif // USE_KINETO
+#endif  // USE_KINETO
 }
 
 struct RegisterLibKinetoClient {
-  RegisterLibKinetoClient() {
-    libkineto::api();
-  }
+  RegisterLibKinetoClient() { libkineto::api(); }
 } register_libkineto_client;
 
-} // namespace kineto
+}  // namespace kineto
 
 namespace {
 static constexpr TensorImplAddress NoTensorImpl{nullptr};
@@ -379,13 +351,11 @@ struct RawTensorInfo {
 };
 
 struct RawTensors {
-  std::vector<RawTensorInfo>& get() {
-    return tensors_;
-  }
+  std::vector<RawTensorInfo>& get() { return tensors_; }
 
   void operator()(TensorMetadata& t) {
-    tensors_.emplace_back(RawTensorInfo{
-        t.impl(), t.data_, t.device_, false, t.allocation_id_, t.id_});
+    tensors_.emplace_back(RawTensorInfo{t.impl(), t.data_, t.device_, false,
+                                        t.allocation_id_, t.id_});
   }
 
   void operator()(c10::optional<TensorMetadata>& t) {
@@ -397,8 +367,8 @@ struct RawTensors {
   void operator()(ExtraFields<EventType::Allocation>& a) {
     const StorageImplData ptr{a.ptr_};
     const auto is_free = a.alloc_size_ < 0;
-    tensors_.emplace_back(RawTensorInfo{
-        NoTensorImpl, ptr, a.device(), is_free, a.allocation_id_, a.id_});
+    tensors_.emplace_back(RawTensorInfo{NoTensorImpl, ptr, a.device(), is_free,
+                                        a.allocation_id_, a.id_});
   }
 
   void operator()(std::vector<TensorMetadata>& t) {
@@ -412,7 +382,7 @@ struct RawTensors {
 
   std::vector<RawTensorInfo> tensors_;
 };
-} // namespace
+}  // namespace
 
 void calculateUniqueTensorIDs(
     std::vector<std::shared_ptr<Result>>& sorted_results) {
@@ -489,13 +459,11 @@ void calculateUniqueTensorIDs(
       }
     }
     tensors.erase(
-        std::remove_if(
-            tensors.begin(),
-            tensors.end(),
-            [&tensor_set](const auto& i) {
-              auto it = tensor_set.find(*i.allocation_id_ref_.get());
-              return it == tensor_set.end();
-            }),
+        std::remove_if(tensors.begin(), tensors.end(),
+                       [&tensor_set](const auto& i) {
+                         auto it = tensor_set.find(*i.allocation_id_ref_.get());
+                         return it == tensor_set.end();
+                       }),
         tensors.end());
   }
 
@@ -548,6 +516,6 @@ void calculateUniqueTensorIDs(
   }
 }
 
-} // namespace impl
-} // namespace profiler
-} // namespace torch
+}  // namespace impl
+}  // namespace profiler
+}  // namespace torch
