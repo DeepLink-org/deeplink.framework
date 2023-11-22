@@ -36,30 +36,6 @@ class GraphTransformer:
     def transform(self):
         self.gm = self.backend_opset_transform(self.gm)
 
-    # def infer_shape_dtype(self):
-    #     def make_tensor_meta(x) -> Optional[TensorMetadata]:
-    #         if isinstance(x, FakeTensor):
-    #             return _extract_tensor_metadata(x)
-    #         else:
-    #             return None
-
-    #     for n in self.gm.graph.nodes:
-    #         if n.op == 'call_function' and 'val' not in n.meta:
-    #             n.meta['val'] = (n.target(*n.args, **n.kwargs))
-    #             n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
-    #         elif n.op == 'get_attr':
-    #             target_atoms = n.target.split('.')
-    #             attr_itr = self.gm
-    #             for i, atom in enumerate(target_atoms):
-    #                 if not hasattr(attr_itr, atom):
-    #                     raise RuntimeError(
-    #                         f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
-    #                 attr_itr = getattr(attr_itr, atom)
-    #                 attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
-    #             with FakeTensorMode():
-    #                 n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
-    #             n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
-
     def infer_shape_dtype(self):
         def make_tensor_meta(x) -> Optional[TensorMetadata]:
             if isinstance(x, FakeTensor):
@@ -85,11 +61,6 @@ class GraphTransformer:
             else:
                 continue
             if 'val' in n.meta and test_infer:
-                # import pdb
-                # pdb.set_trace()
-                print("\noperator:\n",n.target)
-                print("\nfake_value:\n",fake_value.size() ," ",fake_value.dtype ," ",fake_value.stride()," ",fake_value.storage_offset() )
-                print("\nnmeta_value:\n",n.meta['val'].size() ," ",n.meta['val'].dtype ," ",n.meta['val'].stride()," ",n.meta['val'].storage_offset() )
                 assert n.meta['val'].size() == fake_value.size(), "check infer size failed"
                 assert n.meta['val'].dtype == fake_value.dtype, "check infer dtype failed"
                 assert n.meta['val'].stride() == fake_value.stride(), "check infer stride failed"

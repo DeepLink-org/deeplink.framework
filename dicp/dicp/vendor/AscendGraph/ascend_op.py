@@ -11,7 +11,6 @@ from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 aten = torch.ops.aten
 
 
-
 def symint_in_shape(shape):
     for elem in shape:
         if isinstance(elem, torch.SymInt):
@@ -31,19 +30,14 @@ class Adds(Operator):
         super().__init__("adds")
         self.torch_op = aten.add
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
 
-    def infer_result(self,x1,x2):
-        # import pdb
-        x1,x1_shape,x1_dim,x1_dtype=get_fake_tensor_meta_val(x1,True)
-        x2,x2_shape,x2_dim,x2_dtype=get_fake_tensor_meta_val(x2,True)
-        memory_format=get_memory_format(x1)
-        dtype=get_cast_dtype(x1_dtype,x2_dtype)
-        out_shape=get_broadcast_res_two_shape(x1_shape,x2_shape)
-        # pdb.set_trace()  
-
-        return TensorInfo(shape=out_shape,
-                          dtype=dtype, 
-                          memory_format=memory_format)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Add(Operator):
@@ -51,19 +45,14 @@ class Add(Operator):
         super().__init__("add")
         self.torch_op = aten.add
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
 
-    def infer_result(self,x1,x2):
-        # import pdb
-        x1,x1_shape,x1_dim,x1_dtype=get_fake_tensor_meta_val(x1,True)
-        x2,x2_shape,x2_dim,x2_dtype=get_fake_tensor_meta_val(x2,True)
-        memory_format=get_memory_format(x1)
-        dtype=get_cast_dtype(x1_dtype,x2_dtype)
-        out_shape=get_broadcast_res_two_shape(x1_shape,x2_shape)
-        # pdb.set_trace()  
-
-        return TensorInfo(shape=out_shape,
-                          dtype=dtype, 
-                          memory_format=memory_format)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class BroadcastTo(Operator):
@@ -100,22 +89,16 @@ class Mul(Operator):
     def __init__(self):
         super().__init__("Mul")
         self.torch_op = aten.mul
-    
-    def infer_result(self,x1,x2):
 
-        x1,x1_shape,x1_dim,x1_dtype=get_fake_tensor_meta_val(x1,True)
-        x2,x2_shape,x2_dim,x2_dtype=get_fake_tensor_meta_val(x2,True)
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
 
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
 
-        out_shape=get_broadcast_res_two_shape(x1_shape,x2_shape)
-        dtype=get_cast_dtype(x1_dtype,x2_dtype)
-        memory_format=get_memory_format(x1)
-
-        print(out_shape," ",dtype," ",memory_format)
-
-        return TensorInfo(shape=out_shape, 
-                          dtype=dtype, 
-                          memory_format=memory_format)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Div(Operator):
@@ -146,19 +129,14 @@ class Sqrt(Operator):
 class Log(Operator):
     def __init__(self):
         super().__init__("Log")
-        self.torch_op=aten.log
-
+        self.torch_op = aten.log
 
     def infer_result(self, x):
-        x,x_shape,x_dim,x_dtype=get_fake_tensor_meta_val(x)
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
 
-
-        return TensorInfo(x_shape, 
-                          dtype=x_dtype, 
-                          memory_format=get_memory_format(x))
-
-    
-    
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class Exp(Operator):
@@ -191,9 +169,11 @@ class SoftmaxV2(Operator):
         super().__init__("SoftmaxV2")
 
     def infer_result(self, x, axes=None):
-        x,x_shape,_,x_dtype=get_fake_tensor_meta_val(x,True)
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x, True)
 
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class ReduceSumD(Operator):
@@ -260,27 +240,26 @@ class ReduceMaxD(Operator):
     def __init__(self):
         super().__init__("ReduceMaxD")
 
-    def infer_result(self, x,dims,keepdim):
-        x,x_shape,x_dim,x_dtype=get_fake_tensor_meta_val(x)
+    def infer_result(self, x, dims, keepdim):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
 
-        out_shape=reduce_ops_output_size(x_shape,x_dim,dims,keepdim)
+        out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
 
-        return TensorInfo(shape=out_shape, 
-                          dtype=x_dtype, 
-                          memory_format=get_memory_format(x))    
+        return TensorInfo(
+            shape=out_shape, dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
-    # def 
+    # def
 
 
 class Const(Operator):
     def __init__(self):
         super().__init__("Const")
 
-    def infer_result(self, x,dtype,x_dim):
+    def infer_result(self, x, dtype, x_dim):
+        return TensorInfo(x_dim, dtype=dtype, memory_format=torch.contiguous_format)
 
-        return TensorInfo(x_dim, dtype=dtype, memory_format=torch.contiguous_format)    
-
-    # def 
+    # def
 
 
 class Sigmoid(Operator):
@@ -332,14 +311,12 @@ class Cast(Operator):
     def __init__(self):
         super().__init__("Cast")
 
-    def infer_result(self, x,dtype):
-        x,x_shape,x_dim,x_dtype=get_fake_tensor_meta_val(x)
+    def infer_result(self, x, dtype):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
 
-
-        return TensorInfo(x_shape, 
-                          dtype=dtype, 
-                          memory_format=get_memory_format(x))
-
+        return TensorInfo(
+            list(x_shape), dtype=dtype, memory_format=get_memory_format(x)
+        )
 
 
 class CastToCpu(Operator):
@@ -395,15 +372,14 @@ class Conv2DBackpropFilter(Operator):
 class LogSoftmaxV2(Operator):
     def __init__(self):
         super().__init__("LogSoftmaxV2")
-        self.torch_op=aten._log_softmax.default
+        self.torch_op = aten._log_softmax.default
 
-    def infer_result(self, x,dim):
-        x,x_shape,x_dim,x_dtype=get_fake_tensor_meta_val(x)
+    def infer_result(self, x, dim):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
 
-
-        return TensorInfo(x_shape, 
-                          dtype=x_dtype, 
-                          memory_format=get_memory_format(x))
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class LogSoftmaxGrad(Operator):
@@ -516,19 +492,14 @@ class AddV2(Operator):
     def __init__(self):
         super().__init__("AddV2")
 
-    def infer_result(self,x1,x2):
-        # import pdb
-        x1,x1_shape,x1_dim,x1_dtype=get_fake_tensor_meta_val(x1,True)
-        x2,x2_shape,x2_dim,x2_dtype=get_fake_tensor_meta_val(x2,True)
-        memory_format=get_memory_format(x1)
-        dtype=get_cast_dtype(x1_dtype,x2_dtype)
-        out_shape=get_broadcast_res_two_shape(x1_shape,x2_shape)
-        # pdb.set_trace()  
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
 
-        print("AddV2: ",out_shape," ",dtype," ",memory_format)
-        return TensorInfo(shape=out_shape,
-                          dtype=dtype, 
-                          memory_format=memory_format)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class StatelessRandomUniformV2(Operator):

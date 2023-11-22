@@ -1,3 +1,4 @@
+import logging
 import traceback
 import torch
 from abc import ABC
@@ -82,14 +83,20 @@ class Operator(ABC):
         new_args = tree_map(make_cpu, new_args)
 
         with fake_mode:
-            if hasattr(self, "infer_result"):
-                info: TensorInfo = self.infer_result(*new_args, **kwargs)
-                return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
-            elif hasattr(self, "torch_op"):
-                try:
+            try:
+                if hasattr(self, "infer_result"):
+                    info: TensorInfo = self.infer_result(*new_args, **kwargs)
+                    return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
+                elif hasattr(self, "torch_op"):
                     return self.torch_op(*new_args, **kwargs)
-                except Exception as e:
-                    print(self.torch_op, new_args, kwargs)
-                    print(e.args)
-                    print(traceback.format_exc())
-                    raise RuntimeError("infer shape and dtype failed")
+            except Exception as e:
+                print("torch_op: ",self.torch_op if hasattr(self, "torch_op") else "") 
+                print(new_args, kwargs)
+                print(e.args)
+                print(traceback.format_exc())
+                log = logging.getLogger(__name__)
+                if hasattr(self, "infer_result"):
+                    log.warning("infer shape and dtype failed")
+                elif hasattr(self, "torch_op"):
+                    log.warning("torch_op error")
+                # raise RuntimeError("infer shape and dtype failed")
