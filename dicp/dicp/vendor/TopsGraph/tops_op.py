@@ -78,22 +78,6 @@ class NotEqual(Operator):
     def __call__(self, *args, **kwargs):
         new_args = args[1:]
         return super().__call__(*new_args, **kwargs)
-    
-    
-class Equal_Tensor(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Equal")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.eq.Tensor
-
-
-class Equal_Scalar(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Equal")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.eq.Scalar
 
 
 class Mul(Operator):
@@ -258,14 +242,6 @@ class Copy(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.copy
-
-
-class Copy_(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Copy")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = torch.ops.aten.copy_.default
 
 
 class LiftFreshCopy(Operator):
