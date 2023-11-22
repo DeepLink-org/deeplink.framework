@@ -45,7 +45,7 @@ public:
 
 static CUDACopyInplace cuda_copy_inplace;
 static int32_t cuda_init = []() {
-  setDipuCopyClass(&cuda_copy_inplace);
+  setDipuCopyInstance(&cuda_copy_inplace);
   return 1;
 }();
 

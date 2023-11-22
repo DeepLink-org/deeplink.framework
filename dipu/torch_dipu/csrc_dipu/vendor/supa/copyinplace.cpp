@@ -28,7 +28,7 @@ class SUPACopyInplace : public DIPUCopyInplace<true, false> {
 
 static SUPACopyInplace copy_inplace;
 static int32_t suap_copy_inplace_init = []() {
-  setDipuCopyClass(&copy_inplace);
+  setDipuCopyInstance(&copy_inplace);
   return 1;
 }();
 

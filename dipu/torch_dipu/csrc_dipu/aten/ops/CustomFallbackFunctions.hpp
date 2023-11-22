@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include "csrc_dipu/aten/RegisterDIPU.hpp"

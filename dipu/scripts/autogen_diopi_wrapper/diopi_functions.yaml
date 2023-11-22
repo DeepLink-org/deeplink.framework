@@ -2168,7 +2168,7 @@
   custom_fallback: True
   device: [cuda, camb, ascend, droplet, supa]
   custom_code_at_the_beginning: |
-    dipu::getDipuCopyClass()->run(self, src, non_blocking);
+    dipu::getDipuCopyInstance()->run(self, src, non_blocking);
     return self;
     // need add [composite] attr? the code behind this is useless.
   interface: diopiCopyInp(ctx, srcTemp, self)

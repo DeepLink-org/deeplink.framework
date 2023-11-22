@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #include <ATen/ATen.h>
 
 #include "csrc_dipu/aten/RegisterDIPU.hpp"

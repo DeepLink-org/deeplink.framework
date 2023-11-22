@@ -10,26 +10,21 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
-namespace dipu::native {
-// these 2 func defined in AutoGenedKernels.cpp
-// if dipu autogen support header file gen, remove this
-extern at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& src,
-                                             at::ScalarType dtype);
-
-// if dipu autogen support proxy one torch op to multiple diopi op, remove this.
-extern at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst,
-                                            const at::Tensor& src,
-                                            bool non_blocking);
-
-}  // end namespace dipu::native
-
 namespace dipu {
+namespace native {
+// NOTICE: these 2 func defined in AutoGenedKernels.cpp
+// if dipu autogen support header file gen, remove this
+at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& src,
+                                      at::ScalarType dtype);
 
-using dipu::native::dipu_wrap_diopi_cast_dtype;
-using dipu::native::dipu_wrap_diopi_copy_inp;
-using MemoryFormat = at::MemoryFormat;
+// if dipu autogen support proxy one torch op to multiple diopi op, remove
+// this.
+at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst, const at::Tensor& src,
+                                     bool non_blocking);
 
-enum DIPUCopyType {
+}  // namespace native
+
+enum class DIPUCopyType {
   // in one device
   D2Self,
   D2OtherD,
@@ -182,8 +177,9 @@ class DIPUCopyBase {
 };
 
 /*
-if input, output tensor occupy same storage size and has same mem-format,
-DIPUCopyInplace will directly call mem_copy; if not, it call  copyNodirectXX.
+NOTICE: if input, output tensor occupy same storage size and has same
+mem-format, DIPUCopyInplace will directly call mem_copy; if not, it call
+copyNodirectXX.
 
 DiopiCast: means call separate diopiCast func, it's a forward compatible
 solutions because some vendor's DiopiCopy not support cast. new DiopiCopy api
@@ -225,11 +221,11 @@ class DIPUCopyInplace : public DIPUCopyBase {
 
  protected:
   /*
-  the memory area of the dst tensor (contains hollow area actually not belong to
-  tensor) will be totally overwrited by the same-size src mem area. support copy
-  between 2 tensor with same stride and dtype, no-dense and overlapped tensors
-  are also supported. but the 2 cannot both be view
-  (will casue data outside mem area be overwrited).
+  NOTICE: the memory area of the dst tensor (contains hollow area actually not
+  belong to tensor) will be totally overwrited by the same-size src mem area.
+  support copy between 2 tensor with same stride and dtype, no-dense and
+  overlapped tensors are also supported. but the 2 cannot both be view (will
+  casue data outside mem area be overwrited).
   */
   void doDirectMemFill(at::Tensor& dst, const at::Tensor& src,
                        DIPUStream& curStream, DIPUCopyType copyType,
@@ -251,7 +247,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
   at::Tensor makeSameStrideTensor(const at::Tensor& src, DIPUStream& curStream,
                                   at::Device newDevice,
                                   bool willBackfillSrc = false) {
-    if (src.is_contiguous(MemoryFormat::ChannelsLast) || src.is_contiguous()) {
+    if (src.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+        src.is_contiguous()) {
       auto sameAsSrc = at::empty(src.sizes(), src.options().device(newDevice),
                                  src.suggest_memory_format());
       return sameAsSrc;
@@ -268,7 +265,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
-  // this func maximize leverage device copy (D2Self)
+  // NOTICE: this func maximize leverage device copy (D2Self)
   // as relay in d2h, h2d, d2d copy. cannot used in device copy(D2Self).
   void doDeviceRelayCopy(at::Tensor& dst, const at::Tensor& src,
                          bool non_blocking, CopyParamsInfo& info) {
@@ -303,10 +300,10 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
-  // doDeviceRelayCopy need create a relay tensor having same stride as the
-  // dst/src. it's expensive if the tensor is a view with big hollow, so supply
-  // this simple wrap method to help d2h, h2d, d2d copy. cannot used in device
-  // copy(D2Self). logical approach:
+  // NOTICE: doDeviceRelayCopy need create a relay tensor having same stride as
+  // the dst/src. it's expensive if the tensor is a view with big hollow, so
+  // supply this simple wrap method to help d2h, h2d, d2d copy. cannot used in
+  // device copy(D2Self). logical approach:
   // 1. create dst_contig. 2. create src_contig and src -> src_contig.
   // 3. direct src_contig -> dst_contig  4. dst_contig -> dst
   //  (todo: automatic use)
@@ -358,6 +355,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
   }
 
   /*
+  NOTICE:
   d2h: direct src (device) -> src_cpu. src_cpu -> dst (cpu)
   h2d: direct dst (device) -> dst_cpu (if view).. src (cpu)  -> dst_cpu.
        direct dst_cpu -> dst (device)
@@ -395,9 +393,9 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
-  // handle no-direct mem copy on one device, dipu has a simple configurable
-  // template strategy which use DIOPI copy/cast correctly. if vendor has
-  // no-complete implementation of DIOPI copy/cast. please override
+  // NOTICE: handle no-direct mem copy on one device, dipu has a simple
+  // configurable template strategy which use DIOPI copy/cast correctly. if
+  // vendor has no-complete implementation of DIOPI copy/cast. please override
   // copy_nodirect_device to decide the case needed to be executed by diopiCopy
   // and proxy other case back to 'doCpuRelayCopy' which contain a slow
   // implementaion.
@@ -410,7 +408,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (DiopiCast) {
       at::Tensor tmpSrc = src;
       if (!info.sameDtype_) {
-        tmpSrc = dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
+        tmpSrc = native::dipu_wrap_diopi_cast_dtype(src, dst.scalar_type());
         info.recomputeTensorsInfo(dst, tmpSrc);
       }
       // after cast
@@ -418,20 +416,20 @@ class DIPUCopyInplace : public DIPUCopyBase {
         doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
                         !tmpSrc.is_same(src));
       } else if (DiopiCopy) {
-        dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
+        native::dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
       } else {
         doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
       }
     } else if (DiopiCopy) {  // !DiopiCast
-      dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
+      native::dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
     } else {
       doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
     }
   }
 
-  // handle no-direct mem copy between different devices, dipu has default
-  // strategy which use a intermidiate tensor, it's slow. vendor who has more
-  // efficient p2p device copy can override it (eg: device has unified
+  // NOTICE: handle no-direct mem copy between different devices, dipu has
+  // default strategy which use a intermidiate tensor, it's slow. vendor who has
+  // more efficient p2p device copy can override it (eg: device has unified
   // addressing and supports passing in different device addresses to one kernel
   // can use copyNodirectOnDevice() to do 'between-device-copy')
   virtual void copyNodirectBetweenDevices(at::Tensor& dst,
@@ -446,9 +444,9 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 
-  // copy no-direct mem copy between cpu and device, dipu has default strategy
-  // use intermidiate tensor, it's slow. vendor who has more efficient solution
-  // can override it.
+  // NOTICE: copy no-direct mem copy between cpu and device, dipu has default
+  // strategy use intermidiate tensor, it's slow. vendor who has more efficient
+  // solution can override it.
   virtual void copyNodirectDeviceHost(at::Tensor& dst, const at::Tensor& src,
                                       bool non_blocking, CopyParamsInfo& info) {
     if (DiopiCopy) {  // try to maximum leverage device copy,
@@ -485,8 +483,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
   }
 };
 
-DIPUCopyBase* getDipuCopyClass();
+DIPUCopyBase* getDipuCopyInstance();
 
-void setDipuCopyClass(DIPUCopyBase* op);
+void setDipuCopyInstance(DIPUCopyBase* op);
 
 }  // namespace dipu

@@ -13,12 +13,12 @@ namespace dipu {
 static DIPUCopyInplace<true, false> default_copy_inplace_op;
 static DIPUCopyBase* dipu_copy_op = &default_copy_inplace_op;
 
-DIPUCopyBase* getDipuCopyClass() {
+DIPUCopyBase* getDipuCopyInstance() {
   TORCH_CHECK(dipu_copy_op, "dipu copy inplace not registered");
   return dipu_copy_op;
 }
 
-void setDipuCopyClass(DIPUCopyBase* op) { dipu_copy_op = op; }
+void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op = op; }
 
 }  // namespace dipu
 
