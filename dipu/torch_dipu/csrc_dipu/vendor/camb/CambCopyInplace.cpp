@@ -27,7 +27,7 @@ class CambCopyInplace : public DIPUCopyInplace<true, false> {
 };
 
 static CambCopyInplace camb_copy_inplace;
-static int32_t cuda_init = []() {
+static int32_t camb_init = []() {
   setDipuCopyInstance(&camb_copy_inplace);
   return 1;
 }();
