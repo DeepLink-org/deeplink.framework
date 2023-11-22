@@ -20,7 +20,7 @@ namespace py = pybind11;
 
 namespace dipu {
 
-void exportProfiler(PyObject *module) {
+void exportProfiler(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
 
   m.def("_prepare_profiler", profile::prepareProfiler);

@@ -22,7 +22,7 @@ using c10::TensorImpl;
 using dipu::devproxy::current_device;
 
 namespace dipu::native {
-void DIPUATenFunctions::resize_bytes_dipu(StorageImpl *storage,
+void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage,
                                           size_t newsize_bytes) {
   TORCH_CHECK(storage->resizable(),
               "Trying to resize dipu storage that is not resizable");
@@ -53,7 +53,7 @@ void DIPUATenFunctions::resize_bytes_dipu(StorageImpl *storage,
   storage->set_nbytes(newsize_bytes);
 }
 
-static inline TensorImpl *_resize_impl_dipu_(TensorImpl *self, IntArrayRef size,
+static inline TensorImpl* _resize_impl_dipu_(TensorImpl* self, IntArrayRef size,
                                              at::OptionalIntArrayRef stride) {
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
@@ -71,7 +71,7 @@ static inline TensorImpl *_resize_impl_dipu_(TensorImpl *self, IntArrayRef size,
     new_storage_size = at::detail::computeStorageNbytesContiguous(
         size, itemsize, storage_offset);
   }
-  const c10::Storage &storage = self->unsafe_storage();
+  const c10::Storage& storage = self->unsafe_storage();
   TORCH_CHECK(storage, "Tensor: invalid null storage");
   if (self->numel() > 0 && new_storage_size > storage.nbytes()) {
     DIPUATenFunctions::resize_bytes_dipu(storage.unsafeGetStorageImpl(),
@@ -80,13 +80,13 @@ static inline TensorImpl *_resize_impl_dipu_(TensorImpl *self, IntArrayRef size,
   return self;
 }
 
-const at::Tensor &DIPUATenFunctions::resize_(
-    const at::Tensor &self, at::IntArrayRef size,
+const at::Tensor& DIPUATenFunctions::resize_(
+    const at::Tensor& self, at::IntArrayRef size,
     c10::optional<at::MemoryFormat> optional_memory_format) {
   if (self.has_names()) {
     return at::native::resize_named_tensor_(self, size, optional_memory_format);
   }
-  auto *self_ = self.unsafeGetTensorImpl();
+  auto* self_ = self.unsafeGetTensorImpl();
   // not support stride now
   _resize_impl_dipu_(self_, size, /*strides=*/c10::nullopt);
   if (optional_memory_format.has_value()) {
@@ -98,7 +98,7 @@ const at::Tensor &DIPUATenFunctions::resize_(
   return self;
 }
 
-at::Tensor &DIPUATenFunctions::set_storage_dipu_(at::Tensor &result,
+at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result,
                                                  c10::Storage storage,
                                                  int64_t storage_offset,
                                                  at::IntArrayRef size,
@@ -112,7 +112,7 @@ at::Tensor &DIPUATenFunctions::set_storage_dipu_(at::Tensor &result,
   return result;
 }
 
-at::Tensor &DIPUATenFunctions::set_dipu_(at::Tensor &result) {
+at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& result) {
   caffe2::TypeMeta dtype = result.dtype();
   c10::Storage storage(c10::Storage::use_byte_size_t(), 0,
                        dipu::getAllocator(dipu::DIPU_DEVICE_TYPE), true);

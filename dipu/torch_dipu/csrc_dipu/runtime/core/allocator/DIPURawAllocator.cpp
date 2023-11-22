@@ -13,7 +13,7 @@
 
 namespace dipu {
 
-static void DIPURawDeviceAllocatorDeleter(void *ptr) {
+static void DIPURawDeviceAllocatorDeleter(void* ptr) {
   if (ptr) {
     auto device = devproxy::current_device();
     DIPU_DEBUG_ALLOCATOR(2, "devproxy::freeDevice: free " << ptr);
@@ -43,7 +43,7 @@ c10::DeleterFnPtr DIPURawDeviceAllocator::raw_deleter() const {
 c10::DataPtr DIPURawDeviceAllocator::allocate(
     size_t nbytes, c10::DeviceIndex device_index) const {
   std::lock_guard<std::mutex> lock(mutex_);
-  void *data = nullptr;
+  void* data = nullptr;
   if (nbytes > 0) {
     devproxy::mallocDevice(&data, nbytes);
     DIPU_DEBUG_ALLOCATOR(1, "devproxy::mallocDevice: malloc "
@@ -55,12 +55,12 @@ c10::DataPtr DIPURawDeviceAllocator::allocate(
 
 class DIPURawHostAllocatorImpl final {
  public:
-  std::pair<void *, void *> allocate(size_t size) {
+  std::pair<void*, void*> allocate(size_t size) {
     if (size == 0) {
       return {nullptr, nullptr};
     }
 
-    void *data = nullptr;
+    void* data = nullptr;
     devproxy::mallocHost(&data, size);
     DIPU_DEBUG_ALLOCATOR(
         1, "devproxy::mallocHost: malloc " << size << " nbytes, ptr:" << data);
@@ -71,7 +71,7 @@ class DIPURawHostAllocatorImpl final {
     return {data, data};
   }
 
-  void free(void *ctx) {
+  void free(void* ctx) {
     if (ctx == nullptr) {
       return;
     }
@@ -85,16 +85,16 @@ class DIPURawHostAllocatorImpl final {
     ctx = nullptr;
   }
 
-  bool isPinnedPtr(const void *p) {
+  bool isPinnedPtr(const void* p) {
     bool is_pinned = false;
     {
       std::lock_guard<std::mutex> lck(mtx_);
       for (auto iter = blocks_.crbegin(); iter != blocks_.crend(); iter++) {
-        const void *ptr = iter->first;
+        const void* ptr = iter->first;
         const size_t size = iter->second;
-        const char *cptr = static_cast<const char *>(ptr);
-        const char *cp = static_cast<const char *>(p);
-        const char *max_ptr = cptr + size;
+        const char* cptr = static_cast<const char*>(ptr);
+        const char* cp = static_cast<const char*>(p);
+        const char* max_ptr = cptr + size;
         if (cp >= cptr && cp < max_ptr) {
           is_pinned = true;
           break;
@@ -110,17 +110,17 @@ class DIPURawHostAllocatorImpl final {
 
  private:
   static std::mutex mtx_;
-  static std::map<void *, size_t> blocks_;
+  static std::map<void*, size_t> blocks_;
 };
 
-std::map<void *, size_t> DIPURawHostAllocatorImpl::blocks_;
+std::map<void*, size_t> DIPURawHostAllocatorImpl::blocks_;
 std::mutex DIPURawHostAllocatorImpl::mtx_;
 
 namespace {
 
 static DIPURawHostAllocatorImpl dipu_host_allocator;
 
-static void DIPURawHostAllocatorDeleter(void *ctx) {
+static void DIPURawHostAllocatorDeleter(void* ctx) {
   dipu_host_allocator.free(ctx);
 }
 
@@ -136,7 +136,7 @@ c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
           at::DeviceType::CPU};
 }
 
-bool isPinnedPtr(const void *ptr) {
+bool isPinnedPtr(const void* ptr) {
   return dipu_host_allocator.isPinnedPtr(ptr);
 }
 

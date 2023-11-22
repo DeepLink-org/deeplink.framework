@@ -18,7 +18,7 @@ void initializeVendor() {
   // according to the discussion with droplet team, make a random runtime call
   // to make sure droplet runtime software is initialized correctly
   int num = -1;
-  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int *>(&num)))
+  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int*>(&num)))
 }
 
 void finalizeVendor() {}
@@ -51,22 +51,22 @@ void checkLastError() { DIPU_CALLDROPLET(::tangGetLastError()) }
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int *>(&num)))
+  DIPU_CALLDROPLET(::tangGetDeviceCount(reinterpret_cast<int*>(&num)))
   return num;
 }
 
-void getDriverVersion(int *version) {
+void getDriverVersion(int* version) {
   // DIPU_CALLDROPLET(::tangDriverGetVersion(version))
 }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   // DIPU_CALLDROPLET(::tangRuntimeGetVersion(version))
 }
 
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   if (prior) {
     DIPU_CALLDROPLET(
         ::tangStreamCreateWithPriority(stream, tangStreamDefault, -1))
@@ -112,7 +112,7 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   DIPU_CALLDROPLET(::tangEventCreateWithFlags(event, tangEventDisableTiming))
 }
 
@@ -128,7 +128,7 @@ void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLDROPLET(::tangEventRecord(event, stream))
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end){
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end){
     DIPU_CALLDROPLET(tangEventElapsedTime(time, start, end))}
 
 EventStatus getEventStatus(deviceEvent_t event) {
@@ -146,13 +146,13 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   DIPU_CALLDROPLET(::tangMallocHost(p, nbytes))
 }
 
-void freeHost(void *p){DIPU_CALLDROPLET(::tangFreeHost(p))}
+void freeHost(void* p){DIPU_CALLDROPLET(::tangFreeHost(p))}
 
-OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   if (nbytes == 0) return OpStatus::SUCCESS;
   ::tangError_t r = ::tangMalloc(p, nbytes);
   if (r != ::tangSuccess) {
@@ -169,16 +169,16 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void *p) { DIPU_CALLDROPLET(::tangFree(p)) }
+void freeDevice(void* p) { DIPU_CALLDROPLET(::tangFree(p)) }
 
-bool isPinnedPtr(const void *p) { return true; }
+bool isPinnedPtr(const void* p) { return true; }
 
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLDROPLET(::tangMemsetAsync(ptr, val, size, stream))
 }
 
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLDROPLET(::tangMemcpy(dst, src, nbytes, ::tangMemcpyDeviceToDevice))
   } else {
@@ -189,19 +189,19 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
 }
 
 // (synchronous) copy from host to a DROPLET device
-void memCopyH2D(size_t nbytes, void *dst, const void *src) {
+void memCopyH2D(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLDROPLET(::tangMemcpy(dst, src, nbytes, ::tangMemcpyHostToDevice))
 }
 
 // (synchronous) copy from a DROPLET device to host
-void memCopyD2H(size_t nbytes, void *dst, const void *src) {
+void memCopyD2H(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLDROPLET(::tangMemcpy(dst, src, nbytes, ::tangMemcpyDeviceToHost))
 }
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
-                     const void *src) {
+                     deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
+                     const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLDROPLET(
         ::tangMemcpyAsync(dst, src, nbytes, tangMemcpyDeviceToDevice, stream))
@@ -214,15 +214,15 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
 }
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLDROPLET(
       ::tangMemcpyAsync(dst, src, nbytes, tangMemcpyHostToDevice, stream))
 }
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLDROPLET(
       ::tangMemcpyAsync(dst, src, nbytes, tangMemcpyDeviceToHost, stream));
 }

@@ -45,17 +45,17 @@ struct ExtraRecordInfo {
 
   ExtraRecordInfo() : scope(""), opSeqId(0), attrs("") {}
 
-  ExtraRecordInfo &setScope(const string_t &scopeName) {
+  ExtraRecordInfo& setScope(const string_t& scopeName) {
     scope = scopeName;
     return *this;
   }
 
-  ExtraRecordInfo &setSeqId(size_t seqId) {
+  ExtraRecordInfo& setSeqId(size_t seqId) {
     opSeqId = seqId;
     return *this;
   }
 
-  ExtraRecordInfo &setAttrs(const string_t &sAttrs) {
+  ExtraRecordInfo& setAttrs(const string_t& sAttrs) {
     attrs = sAttrs;
     return *this;
   }
@@ -82,7 +82,7 @@ class RecordsImpl final {
   mutable mutex_t mtx_;
   // tid -> record list
   std::unordered_map<int32_t, std::unique_ptr<records_t>> allRecordLists_;
-  thread_local static records_t *pRecords;
+  thread_local static records_t* pRecords;
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resourceInfo_;
 
@@ -92,9 +92,9 @@ class RecordsImpl final {
  public:
   ~RecordsImpl() = default;
 
-  static RecordsImpl &get();
-  void addRecord(const Record &record);
-  void recordStream(int device, int streamId, const std::string &postfix = "");
+  static RecordsImpl& get();
+  void addRecord(const Record& record);
+  void recordStream(int device, int streamId, const std::string& postfix = "");
   void abandon();
 
   records_t getAllRecordList() const;
@@ -112,9 +112,9 @@ class RecordCreator final {
   ExtraRecordInfo extraInfo_;
 
  public:
-  explicit RecordCreator(const string_t &name, size_t opId,
+  explicit RecordCreator(const string_t& name, size_t opId,
                          uint64_t linkCorrelationId,
-                         const ExtraRecordInfo &extraInfo = ExtraRecordInfo());
+                         const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
 
   ~RecordCreator();
 
@@ -148,7 +148,7 @@ class DeviceRecordCreator final {
  public:
   DeviceRecordCreator(string_t name, deviceStream_t stream, int streamId,
                       size_t opId, uint64_t linkCorrelationId,
-                      const ExtraRecordInfo &extraInfo = ExtraRecordInfo());
+                      const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
 
   ~DeviceRecordCreator();
 
@@ -159,7 +159,7 @@ class DeviceRecordCreator final {
 class RecordBlockCreator {
  public:
   explicit RecordBlockCreator(
-      string_t name, const ExtraRecordInfo &extraInfo = ExtraRecordInfo(),
+      string_t name, const ExtraRecordInfo& extraInfo = ExtraRecordInfo(),
       deviceStream_t stream = dipu::getCurrentDIPUStream(),
       int streamId = dipu::getCurrentDIPUStream().id(),
       bool enProfile = isEnable());

@@ -4,7 +4,7 @@
 #include <ATen/ATen.h>
 #include <ATen/Tensor.h>
 
-void testTensorAdd(const at::Tensor &lhs, const at::Tensor &rhs) {
+void testTensorAdd(const at::Tensor& lhs, const at::Tensor& rhs) {
   at::Tensor result = lhs + rhs;
   std::cout << lhs << std::endl;
   std::cout << rhs << std::endl;

@@ -31,11 +31,11 @@ class DIPU_API DIPUStream {
 
   ~DIPUStream() {}
 
-  bool operator==(const DIPUStream &other) const noexcept {
+  bool operator==(const DIPUStream& other) const noexcept {
     return unwrap() == other.unwrap();
   }
 
-  bool operator!=(const DIPUStream &other) const noexcept {
+  bool operator!=(const DIPUStream& other) const noexcept {
     return unwrap() != other.unwrap();
   }
 
@@ -96,7 +96,7 @@ DIPU_API void setCurrentDIPUStream(DIPUStream stream);
 DIPU_API DIPUStream getStreamFromExternal(deviceStream_t ext_stream,
                                           c10::DeviceIndex device_index);
 
-std::ostream &operator<<(std::ostream &stream, const DIPUStream &s);
+std::ostream& operator<<(std::ostream& stream, const DIPUStream& s);
 }  // namespace dipu
 
 namespace std {

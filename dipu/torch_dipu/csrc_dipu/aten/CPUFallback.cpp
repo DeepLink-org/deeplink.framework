@@ -18,7 +18,7 @@ namespace native {
 
 // convenience helper for converting tensors to cpu
 
-std::vector<at::Tensor> to_cpu(const at::TensorList &tensors) {
+std::vector<at::Tensor> to_cpu(const at::TensorList& tensors) {
   // We can't just call at::to_cpu() on the entire list of Tensors
   // Because it will break on undefined tensors. Separate out undefined tensors
   // first.
@@ -26,7 +26,7 @@ std::vector<at::Tensor> to_cpu(const at::TensorList &tensors) {
   std::vector<at::Tensor> valid_tensors;
   std::vector<bool> to_translate(tensors.size());
   for (const auto i : c10::irange(tensors.size())) {
-    const at::Tensor &tensor = tensors[i];
+    const at::Tensor& tensor = tensors[i];
     // Explicitly handling undefined tensors here instead of letting
     // `at::_to_cpu` handle it. Otherwise, we'd need to require all backends
     // with their own implementation of _to_cpu to properly handle undefined
@@ -48,7 +48,7 @@ std::vector<at::Tensor> to_cpu(const at::TensorList &tensors) {
 }
 
 c10::optional<c10::Device> compute_target_device(
-    std::vector<at::Tensor> &t_args,
+    std::vector<at::Tensor>& t_args,
     std::vector<c10::List<at::Tensor>> tlist_args) {
   // Decide what device to move the output tensor(s) to.
   // The current convention is that we use the first tensor arg to pick the
@@ -58,7 +58,7 @@ c10::optional<c10::Device> compute_target_device(
   } else {
     // We need to loop through all of the (potentially multiple) TensorList
     // arguments In case, e.g. the first one is empty but the second is not.
-    for (auto &tens_list : tlist_args) {
+    for (auto& tens_list : tlist_args) {
       for (const auto i : c10::irange(tens_list.size())) {
         return tens_list.get(i).device();
       }
@@ -67,8 +67,8 @@ c10::optional<c10::Device> compute_target_device(
   return c10::nullopt;
 }
 
-void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
-  auto &schema_args = op.schema().arguments();
+void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
+  auto& schema_args = op.schema().arguments();
   const auto num_arguments = schema_args.size();
   auto arguments = torch::jit::last(stack, num_arguments);
   const auto arguments_begin = stack->size() - num_arguments;
@@ -86,7 +86,7 @@ void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
   // Step 1: Convert all non-CPU tensor inputs into CPU tensors
   // and put them on the stack at the correct indices.
   for (const auto idx : c10::irange(arguments.size())) {
-    const auto &ivalue = arguments[idx];
+    const auto& ivalue = arguments[idx];
     if (log_fallback_detail) {
       std::cout << "cpu_fallback:\t" << op.schema().name() << "\t arguments["
                 << idx << "] :" << schema_args[idx].name()
@@ -135,7 +135,7 @@ void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
   // inputs.
   for (const auto i : c10::irange(tensor_args_indices.size())) {
     auto tensor_idx = tensor_args_indices[i];
-    const at::AliasInfo *alias_info = schema_args[tensor_idx].alias_info();
+    const at::AliasInfo* alias_info = schema_args[tensor_idx].alias_info();
     if ((alias_info != nullptr && alias_info->isWrite())) {
       if (log_fallback_detail) {
         std::cout << "write back: " << tensor_idx << ":"
@@ -149,7 +149,7 @@ void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
   }
   for (const auto i : c10::irange(tensorlist_args_indices.size())) {
     auto tensorlist_idx = tensorlist_args_indices[i];
-    const at::AliasInfo *alias_info = schema_args[tensorlist_idx].alias_info();
+    const at::AliasInfo* alias_info = schema_args[tensorlist_idx].alias_info();
     if ((alias_info != nullptr && alias_info->isWrite())) {
       c10::List<at::Tensor> cpu_tensorlist = cpu_tensorlist_args[i];
       std::vector<at::Tensor> tensorlist = tensorlist_args[i].vec();
@@ -188,16 +188,16 @@ void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
   // Because of that, we warn if someone attempts to call the
   // CPU fallback on a view operator (this is to maintain BC for view ops for
   // XLA that fall back to CPU).
-  const auto &schema_returns = op.schema().returns();
-  const auto &num_returns = schema_returns.size();
+  const auto& schema_returns = op.schema().returns();
+  const auto& num_returns = schema_returns.size();
   auto returns = torch::jit::last(stack, num_returns);
   const auto returns_begin = stack->size() - num_returns;
 
   for (const auto idx : c10::irange(returns.size())) {
     if (returns[idx].isTensor()) {
-      const auto &return_tens = returns[idx].toTensor();
+      const auto& return_tens = returns[idx].toTensor();
       if (return_tens.defined()) {
-        const at::AliasInfo *alias_info = schema_returns[idx].alias_info();
+        const at::AliasInfo* alias_info = schema_returns[idx].alias_info();
         if (alias_info != nullptr && alias_info->isWrite()) {
           // Case (1): mutable alias case. Move the input ivalue directly onto
           // the stack in place of the existing cpu output tensor.
@@ -206,8 +206,8 @@ void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack) {
           // the loop here if we need to improve perf.
           for (const auto i : c10::irange(tensor_args_indices.size())) {
             auto input_tensor_idx = tensor_args_indices[i];
-            const auto &input_tensor = cpu_tensors[i];
-            const at::AliasInfo *input_alias_info =
+            const auto& input_tensor = cpu_tensors[i];
+            const at::AliasInfo* input_alias_info =
                 schema_args[input_tensor_idx].alias_info();
             // Checked above; adding assert to guard against breakage of the
             // below condition due to changing the above if test.

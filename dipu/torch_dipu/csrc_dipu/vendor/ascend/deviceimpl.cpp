@@ -39,7 +39,7 @@ deviceId_t current_device() {
   return static_cast<deviceId_t>(devId_);
 }
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
-  const char *device_name;
+  const char* device_name;
   size_t device_free;
   size_t device_total;
   device_name = aclrtGetSocName();
@@ -76,7 +76,7 @@ int getDeviceCount() {
   return num;
 }
 
-void getDriverVersion(int *version) {
+void getDriverVersion(int* version) {
   int32_t majorVersion;
   int32_t minorVersion;
   int32_t patchVersion;
@@ -88,7 +88,7 @@ void getDriverVersion(int *version) {
 //  mem related
 // =====================
 
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   if (nbytes <= 0) {
     *p = nullptr;
     return;
@@ -96,14 +96,14 @@ void mallocHost(void **p, size_t nbytes) {
   DIPU_CALLACLRT(aclrtMallocHost(p, nbytes))
 }
 
-void freeHost(void *p) {
+void freeHost(void* p) {
   if (p == nullptr) {
     return;
   }
   DIPU_CALLACLRT(aclrtFreeHost(p))
 }
 
-OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   if (nbytes <= 0) {
     *p = nullptr;
     return OpStatus::SUCCESS;
@@ -112,7 +112,7 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void *p) {
+void freeDevice(void* p) {
   if (p == nullptr) {
     return;
   }
@@ -120,22 +120,22 @@ void freeDevice(void *p) {
 }
 
 // (synchronous) copy from device to a device
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
   syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
 }
 
 // (synchronous) copy from host to a device
-void memCopyH2D(size_t nbytes, void *dst, const void *src) {
+void memCopyH2D(size_t nbytes, void* dst, const void* src) {
   syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_HOST_TO_DEVICE));
 }
 
 // (synchronous) copy from a device to host
-void memCopyD2H(size_t nbytes, void *dst, const void *src) {
+void memCopyD2H(size_t nbytes, void* dst, const void* src) {
   syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_HOST));
@@ -143,41 +143,41 @@ void memCopyD2H(size_t nbytes, void *dst, const void *src) {
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
-                     const void *src) {
+                     deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
+                     const void* src) {
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
 }
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_HOST_TO_DEVICE, stream));
 }
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_HOST, stream));
 }
 
 // (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLACLRT(aclrtMemsetAsync(ptr, size, val, size, stream));
 }
 
 // check last launch succ or not, throw if fail
 void checkLastError() {
-  const char *erroInfo = aclGetRecentErrMsg();
+  const char* erroInfo = aclGetRecentErrMsg();
   if (erroInfo == nullptr) {
     return;
   }
   printf("%s\n", erroInfo);
 }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   int major, minor, patch;
   DIPU_CALLACLRT(::aclrtGetVersion(&major, &minor, &patch))
   *version = major * 10000 + minor * 100 + patch;
@@ -186,7 +186,7 @@ void getRuntimeVersion(int *version) {
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   if (prior) {
     DIPU_LOGW(
         "Ascend device doesn't support prior queue(stream)."
@@ -238,7 +238,7 @@ void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLACLRT(::aclrtRecordEvent(event, stream));
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end){
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end){
     DIPU_CALLACLRT(aclrtEventElapsedTime(time, start, end))}
 
 EventStatus getEventStatus(deviceEvent_t event) {
@@ -252,7 +252,7 @@ EventStatus getEventStatus(deviceEvent_t event) {
   throw std::runtime_error("dipu device error");
 }
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   DIPU_CALLACLRT(::aclrtCreateEvent(event))
 }
 
