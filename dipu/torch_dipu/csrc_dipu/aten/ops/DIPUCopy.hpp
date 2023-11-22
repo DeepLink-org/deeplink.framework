@@ -233,7 +233,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
   */
   void doDirectMemFill(at::Tensor& dst, const at::Tensor& src,
                        DIPUStream& curStream, DIPUCopyType copyType,
-                       bool needMemCpSync) {
+                       bool needMemCpSync = true) {
     if (dst.is_view() && src.is_view()) {
       TORCH_CHECK(false, "doDirectMemFill cannot support all view-view copy");
     }
@@ -244,7 +244,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
   // and dtype. both 2 can be view.
   void doDirectMemCopy(at::Tensor& dst, const at::Tensor& src,
                        DIPUStream& curStream, DIPUCopyType copyType,
-                       bool needMemCpSync) {
+                       bool needMemCpSync = true) {
     memCopy(dst, src, curStream, copyType, needMemCpSync, true);
   }
 
@@ -262,8 +262,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
                                          src.options().device(newDevice));
       // prefill newTensor to support backfill in future.
       if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
-        doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src),
-                        true);
+        doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
       }
       return sameAsSrc;
     }
@@ -286,15 +285,14 @@ class DIPUCopyInplace : public DIPUCopyBase {
             makeSameStrideTensor(dst, info.curStream_, src.device(), true);
         info.updateCopyType(DIPUCopyType::D2Self);
         copyNodirectOnDevice(dstInDevSrc, src, non_blocking, info);
-        doDirectMemFill(dst, dstInDevSrc, info.curStream_, curCopyType, false);
+        doDirectMemFill(dst, dstInDevSrc, info.curStream_, curCopyType, true);
       } break;
       // create src_device (relay, same stride)
       // direct src_cpu -> src_device, src_device -> dst(device)
       case DIPUCopyType::H2D: {
         auto srcInDstdev =
             makeSameStrideTensor(src, info.curStream_, dst.device());
-        doDirectMemFill(srcInDstdev, src, info.curStream_, DIPUCopyType::H2D,
-                        true);
+        doDirectMemFill(srcInDstdev, src, info.curStream_, DIPUCopyType::H2D);
         info.updateCopyType(DIPUCopyType::D2Self);
         copyNodirectOnDevice(dst, srcInDstdev, non_blocking, info);
       } break;
@@ -324,8 +322,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
                 : at::empty_like(dst, c10::MemoryFormat::Contiguous);
         auto newInfo = CopyParamsInfo(dstContig, src);
         if (newInfo.directMemCopy_) {
-          doDirectMemCopy(dstContig, src, newInfo.curStream_, newInfo.copyType_,
-                          true);
+          doDirectMemCopy(dstContig, src, newInfo.curStream_,
+                          newInfo.copyType_);
         } else {
           // equivalent as logical approach:
           // 2. create dst contig in src Device and do src -> dst_contigs_2.
@@ -343,8 +341,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
         auto srcContig = src.contiguous(c10::MemoryFormat::Contiguous);
         auto newInfo = CopyParamsInfo(dst, srcContig);
         if (newInfo.directMemCopy_) {
-          doDirectMemCopy(dst, srcContig, newInfo.curStream_, newInfo.copyType_,
-                          true);
+          doDirectMemCopy(dst, srcContig, newInfo.curStream_,
+                          newInfo.copyType_);
         }
         // equivalent as logical approach:
         // 1. create src_contig_2(D).  3. direct src_contig(CPU) -> src_contig_2
@@ -376,7 +374,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       // src storage size may bigger than src_cpu's when src is a partial view.
       // but not smaller. because src_cpu use same stride as src.
       // src -> src_cpu
-      doDirectMemFill(src_cpu, src, curStream, DIPUCopyType::D2H, true);
+      doDirectMemFill(src_cpu, src, curStream, DIPUCopyType::D2H);
     }
 
     if (dipu::isDeviceTensor(dst)) {
@@ -384,7 +382,13 @@ class DIPUCopyInplace : public DIPUCopyBase {
           dst, curStream, c10::Device(c10::DeviceType::CPU), true);
       // proxy to cpu to handle different type/view problem
       dst_cpu.copy_(src_cpu);
-      doDirectMemFill(dst, dst_cpu, curStream, DIPUCopyType::H2D, false);
+      // todo: ?? need further check ???
+      // need force sync doDirectMemCopy & slow down performance.
+      // seems dipu CachedAllocator will recycle storage of temp tensor
+      // when the tensor instance leave scope, even the stream(default stream)
+      // not finish (not sure). is it a correct behavior ??
+      // function doDirectMemCopy has same problem!
+      doDirectMemFill(dst, dst_cpu, curStream, DIPUCopyType::H2D, true);
 
     } else {  // dst is cpu
       dst.copy_(src_cpu);
@@ -411,7 +415,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
       }
       // after cast
       if (info.directMemCopy_) {
-        doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_, false);
+        doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
+                        !tmpSrc.is_same(src));
       } else if (DiopiCopy) {
         dipu_wrap_diopi_copy_inp(dst, tmpSrc, non_blocking);
       } else {
@@ -463,7 +468,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
       info.recomputeTensorsInfo(tmpSrc, dst);
     }
     if (info.directMemCopy_) {
-      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_, false);
+      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
+                      info.copyType_ != DIPUCopyType::D2Self);
     } else {
       switch (info.copyType_) {
         case DIPUCopyType::D2Self:
