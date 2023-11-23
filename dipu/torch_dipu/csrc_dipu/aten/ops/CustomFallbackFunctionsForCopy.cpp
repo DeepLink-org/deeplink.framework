@@ -13,7 +13,6 @@ at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to dipu copy, name=copy_"
                            << std::endl);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
-  dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
   onCpuCopy.run(self, src, non_blocking);
   return self;
 }

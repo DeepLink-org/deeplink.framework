@@ -227,7 +227,7 @@ at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor& self,
 const at::Tensor& wrapper_resize_(
     const at::Tensor& self, at::IntArrayRef size,
     c10::optional<at::MemoryFormat> memory_format) {
-  // add guard for device switch.
+  // DeviceGuard omitted because resize_ has guard within itself.
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::resize_(self, size, memory_format);
 }

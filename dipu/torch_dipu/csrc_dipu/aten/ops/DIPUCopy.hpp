@@ -27,6 +27,7 @@ at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst, const at::Tensor& src,
 enum class DIPUCopyType {
   // in one device
   D2Self,
+  // Not fully tested
   D2OtherD,
   D2H,
   H2D,
@@ -122,8 +123,9 @@ inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
     default:  // device to device
       memCopyD2D(dst, src, stream, nbytes);
   }
-  // this sync is different with copy_ non_blocking, it's used when do a cpu
-  // copy after some stream op to guarantee the cpu copy get correct data.
+  // this sync is different with copy_ non_blocking, it's used inside one copy
+  // op when doing a intermidiate cpu copy after some stream op to guarantee the
+  // cpu copy get correct data.
   if (needMemCpSync) {
     dipu::devproxy::syncStream(stream.rawstream());
   }
@@ -153,12 +155,13 @@ struct CopyParamsInfo {
         sameDtype_ && sameSize_ && sameStride_ && denseAndNoOverlap_;
   }
 
-  CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
+  CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
+                 const DIPUStream& curStream) {
     // assume layout always = not suppport Sparse layout
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
                 "only Strided layout is supported");
     copyType_ = getCopyType(dst, src);
-    curStream_ = dipu::getCurrentDIPUStream();
+    curStream_ = curStream;
 
     recomputeTensorsInfo(dst, src);
   }
@@ -193,23 +196,26 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (dst.numel() == 0 || dst.is_same(src)) {
       return;
     }
+    const c10::DeviceGuard guard(dst.is_cpu() ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
-    // recordBeforeCopy
-    if (non_blocking) {
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == curStream;
-      try_record_stream(dst, curStream, is_default_stream);
-      try_record_stream(src, curStream, is_default_stream);
-    }
-    checkOverlap(dst, src);
 
-    auto info = CopyParamsInfo(dst, src);
-    // Exit early if self and src are views of the same data
+    auto info = CopyParamsInfo(dst, src, curStream);
+    // Exit early if dst and src are views of the same data
     bool isSameData =
         (dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
          info.sameStride_ && info.sameDtype_);
     if (isSameData) {
       return;
     }
+    checkOverlap(dst, src);
+
+    // recordBeforeCopy
+    if (non_blocking) {
+      const bool is_default_stream = dipu::getDefaultDIPUStream() == curStream;
+      try_record_stream(dst, curStream, is_default_stream);
+      try_record_stream(src, curStream, is_default_stream);
+    }
+
     copyAll(dst, src, non_blocking, info);
     // syncAfterCopy
     if (!non_blocking) {
@@ -276,6 +282,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       case DIPUCopyType::D2H: {
         auto curCopyType = info.copyType_;
         // same stride as dst.
+        // todo:: check if D2OtherD need change device guard.
         auto dstInDevSrc =
             makeSameStrideTensor(dst, info.curStream_, src.device(), true);
         info.updateCopyType(DIPUCopyType::D2Self);
@@ -315,7 +322,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
             dst.is_contiguous()
                 ? dst
                 : at::empty_like(dst, c10::MemoryFormat::Contiguous);
-        auto newInfo = CopyParamsInfo(dstContig, src);
+        // todo: check if D2OtherD need change device guard.
+        auto newInfo = CopyParamsInfo(dstContig, src, info.curStream_);
         if (newInfo.directMemCopy_) {
           doDirectMemCopy(dstContig, src, newInfo.curStream_,
                           newInfo.copyType_);
@@ -334,7 +342,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       case DIPUCopyType::H2D: {
         // 2. create src_contig and src -> src_contig (both cpu).
         auto srcContig = src.contiguous(c10::MemoryFormat::Contiguous);
-        auto newInfo = CopyParamsInfo(dst, srcContig);
+        auto newInfo = CopyParamsInfo(dst, srcContig, info.curStream_);
         if (newInfo.directMemCopy_) {
           doDirectMemCopy(dst, srcContig, newInfo.curStream_,
                           newInfo.copyType_);
