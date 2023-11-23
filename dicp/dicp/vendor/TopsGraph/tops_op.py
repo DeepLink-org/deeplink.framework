@@ -241,7 +241,7 @@ class Copy(Operator):
         super().__init__("Copy")
         self.args = args
         self.kwargs = kwargs
-        self.torch_op = torch.ops.aten.copy.default
+        self.torch_op = torch.ops.aten.copy
 
 
 class LiftFreshCopy(Operator):
@@ -496,7 +496,7 @@ class Equal(Operator):
         super().__init__("Equal")
         self.args = args
         self.kwargs = kwargs
-        self.torch_op = aten.eq.Tensor
+        self.torch_op = aten.eq
 
 
 class Expand(Operator):
@@ -638,14 +638,6 @@ class Embedding(Operator):
         self.args = args
         self.kargs = kwargs
         self.torch_op = aten.embedding.default
-
-
-class EqualScalar(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Equal")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.eq.Scalar
 
 
 class Convert(Operator):

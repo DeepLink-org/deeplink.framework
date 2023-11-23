@@ -17,7 +17,7 @@ class DROPLETGeneratorImpl : public dipu::DIPUGeneratorImpl {
   DROPLETGeneratorImpl(at::DeviceIndex device_index)
       : dipu::DIPUGeneratorImpl(device_index) {}
 
-  void set_state(const c10::TensorImpl &state) override {}
+  void set_state(const c10::TensorImpl& state) override {}
 
   void update_state() const override {}
 };

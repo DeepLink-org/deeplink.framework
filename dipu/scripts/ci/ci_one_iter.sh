@@ -111,8 +111,8 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
 
     # set the environment variable for the transformers repository
-    export HF_HOME=${basic_path}/huggingface
-    export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
+    # export HF_HOME=${basic_path}/huggingface
+    # export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
 
     export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH

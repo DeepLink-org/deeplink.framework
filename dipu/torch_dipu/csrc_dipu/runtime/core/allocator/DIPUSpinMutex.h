@@ -14,7 +14,7 @@ class SpinMutex {
  public:
   constexpr SpinMutex() noexcept = default;
 
-  SpinMutex(const SpinMutex &) = delete;
+  SpinMutex(const SpinMutex&) = delete;
 
   void delay() const noexcept { std::this_thread::yield(); }
 

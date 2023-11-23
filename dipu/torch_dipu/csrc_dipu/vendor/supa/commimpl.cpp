@@ -24,11 +24,11 @@ diclResult_t diclGetCommAsyncError(diclComm_t comm) {
   SUCCL_CALL(succlCommGetAsyncError(comm, &result));
 };
 
-diclResult_t diclGetUniqueId(commUniqueId *uniqueId) {
+diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {
   SUCCL_CALL(succlGetUniqueId(uniqueId));
 }
 
-diclResult_t diclCommInitRank(diclComm_t *comm, int nranks,
+diclResult_t diclCommInitRank(diclComm_t* comm, int nranks,
                               commUniqueId uniqueId, int rank,
                               int localDeviceId) {
   SUCCL_CALL(succlCommInitRank(comm, nranks, uniqueId, rank));
@@ -44,7 +44,7 @@ diclResult_t diclCommDestroy(diclComm_t comm) {
 
 // diclResult_t diclCommAbort(diclComm_t comm);
 
-static bool toSucclDataType(at::ScalarType type, succlDataType_t &out) {
+static bool toSucclDataType(at::ScalarType type, succlDataType_t& out) {
   static std::map<at::ScalarType, succlDataType_t> succlDataType = {
       {at::kChar, succlInt8},   {at::kByte, succlUint8},
       {at::kFloat, succlFloat}, {at::kDouble, succlFloat},
@@ -59,7 +59,7 @@ static bool toSucclDataType(at::ScalarType type, succlDataType_t &out) {
   return true;
 }
 
-static bool toSucclOpType(ReduceOp type, succlRedOp_t &out) {
+static bool toSucclOpType(ReduceOp type, succlRedOp_t& out) {
   static std::map<c10d::ReduceOp::RedOpType, succlRedOp_t> succlOp = {
       {c10d::ReduceOp::MIN, succlMin},
       {c10d::ReduceOp::MAX, succlMax},
@@ -87,8 +87,8 @@ static bool toSucclOpType(ReduceOp type, succlRedOp_t &out) {
   }
 
 // SCCL op mapping
-diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff, size_t count,
-                           at::ScalarType datatype, const ReduceOp &reduceOp,
+diclResult_t diclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
+                           at::ScalarType datatype, const ReduceOp& reduceOp,
                            diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(datatype);
   ConvertOpType(reduceOp);
@@ -96,7 +96,7 @@ diclResult_t diclAllReduce(const void *sendbuff, void *recvbuff, size_t count,
                             stream));
 }
 
-diclResult_t diclBroadcast(const void *sendbuff, void *recvbuff, size_t count,
+diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff, size_t count,
                            at::ScalarType datatype, int root, diclComm_t comm,
                            deviceStream_t stream) {
   ConvertScalarType(datatype);
@@ -104,15 +104,15 @@ diclResult_t diclBroadcast(const void *sendbuff, void *recvbuff, size_t count,
                             stream));
 }
 
-diclResult_t diclAllGather(const void *sendBuf, void *recvBuf, size_t count,
+diclResult_t diclAllGather(const void* sendBuf, void* recvBuf, size_t count,
                            at::ScalarType datatype, diclComm_t comm,
                            deviceStream_t stream) {
   ConvertScalarType(datatype);
   SUCCL_CALL(succlAllGather(sendBuf, recvBuf, count, suDataType, comm, stream));
 }
 
-diclResult_t diclReduce(const void *sendbuff, void *recvbuff, size_t count,
-                        at::ScalarType datatype, const ReduceOp &reduceOp,
+diclResult_t diclReduce(const void* sendbuff, void* recvbuff, size_t count,
+                        at::ScalarType datatype, const ReduceOp& reduceOp,
                         int root, diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(datatype);
   ConvertOpType(reduceOp);
@@ -120,8 +120,8 @@ diclResult_t diclReduce(const void *sendbuff, void *recvbuff, size_t count,
                          comm, stream));
 }
 
-diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount,
-                               at::ScalarType dataType, const ReduceOp &op,
+diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf, size_t recvCount,
+                               at::ScalarType dataType, const ReduceOp& op,
                                diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(dataType);
   ConvertOpType(op);
@@ -129,13 +129,13 @@ diclResult_t diclReduceScatter(void *sendBuf, void *recvBuf, size_t recvCount,
                                 comm, stream));
 }
 
-diclResult_t diclSend(void *sendbuff, size_t count, at::ScalarType datatype,
+diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype,
                       int peer, diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(datatype);
   SUCCL_CALL(succlSend(sendbuff, count, suDataType, peer, comm, stream));
 }
 
-diclResult_t diclRecv(void *recvbuff, size_t count, at::ScalarType datatype,
+diclResult_t diclRecv(void* recvbuff, size_t count, at::ScalarType datatype,
                       int peer, diclComm_t comm, deviceStream_t stream) {
   ConvertScalarType(datatype);
   SUCCL_CALL(succlRecv(recvbuff, count, suDataType, peer, comm, stream));

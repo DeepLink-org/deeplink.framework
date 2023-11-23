@@ -33,27 +33,27 @@ struct DIPUATenFunctions {
                                       c10::optional<at::Device> device_opt,
                                       c10::optional<bool> pin_memory_opt);
 
-  static at::Tensor &copy_(at::Tensor &self, const at::Tensor &src,
+  static at::Tensor& copy_(at::Tensor& self, const at::Tensor& src,
                            bool non_blocking);
 
-  static const at::Tensor &resize_(
-      const at::Tensor &self, at::IntArrayRef size,
+  static const at::Tensor& resize_(
+      const at::Tensor& self, at::IntArrayRef size,
       c10::optional<at::MemoryFormat> memory_format);
 
-  static at::Scalar _local_scalar_dense_dipu(const at::Tensor &self);
+  static at::Scalar _local_scalar_dense_dipu(const at::Tensor& self);
 
-  static at::Tensor &set_storage_dipu_(at::Tensor &result, c10::Storage storage,
+  static at::Tensor& set_storage_dipu_(at::Tensor& result, c10::Storage storage,
                                        int64_t storage_offset,
                                        at::IntArrayRef size,
                                        at::IntArrayRef stride);
-  static at::Tensor &set_dipu_(at::Tensor &self);
+  static at::Tensor& set_dipu_(at::Tensor& self);
 
-  static void resize_bytes_dipu(c10::StorageImpl *storage,
+  static void resize_bytes_dipu(c10::StorageImpl* storage,
                                 size_t newsize_bytes);
 
-  static bool is_pinned(const at::Tensor &self,
+  static bool is_pinned(const at::Tensor& self,
                         c10::optional<at::Device> device);
-  static at::Tensor _pin_memory(const at::Tensor &self,
+  static at::Tensor _pin_memory(const at::Tensor& self,
                                 c10::optional<at::Device> device);
 
   // todo:: use same format as autogen

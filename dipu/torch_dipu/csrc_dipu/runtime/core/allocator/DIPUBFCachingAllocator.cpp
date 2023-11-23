@@ -14,8 +14,8 @@ namespace dipu {
 
 class BFCachingAllocatorImpl {
  public:
-  using allocate_fn_t = std::function<void *(size_t)>;
-  using deallocate_fn_t = std::function<void(void *)>;
+  using allocate_fn_t = std::function<void*(size_t)>;
+  using deallocate_fn_t = std::function<void(void*)>;
 
  private:
   allocate_fn_t allocate_fn;
@@ -34,8 +34,8 @@ class BFCachingAllocatorImpl {
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
 
-  void *allocateOnDevice(size_t nbytes) {
-    void *ptr = nullptr;
+  void* allocateOnDevice(size_t nbytes) {
+    void* ptr = nullptr;
     try {
       ptr = allocate_fn(nbytes);
       cachedBytes += nbytes;
@@ -47,7 +47,7 @@ class BFCachingAllocatorImpl {
     return ptr;
   }
 
-  void releaseOnDevice(void *ptr, size_t nbytes) {
+  void releaseOnDevice(void* ptr, size_t nbytes) {
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocatorImpl: releaseOnDevice "
                                 << nbytes << " nbytes, ptr:" << ptr);
     deallocate_fn(ptr);
@@ -109,12 +109,12 @@ class BFCachingAllocatorImpl {
     int prevChunkInMem = 0, nextChunkInMem = 0;
     int prevChunkInList = 0, nextChunkInList = 0;
 
-    void *ptr;
+    void* ptr;
     size_t size;
     // The stream id when created
     size_t stream;
 
-    Chunk(void *ptr, size_t size, size_t stream)
+    Chunk(void* ptr, size_t size, size_t stream)
         : ptr(ptr), size(size), stream(stream) {}
 
     bool isMonoBlock() const { return !prevChunkInMem && !nextChunkInMem; }
@@ -134,7 +134,7 @@ class BFCachingAllocatorImpl {
     return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
   }
 
-  int newChunk(void *ptr, size_t size, size_t stream) {
+  int newChunk(void* ptr, size_t size, size_t stream) {
     int id;
     if (!recycleIds_.empty()) {
       id = recycleIds_.top();
@@ -192,7 +192,7 @@ class BFCachingAllocatorImpl {
 
   void insertChunkIntoBin(int id) {
     int binId = (chunks_[id].binId = binIdForSize(chunks_[id].size));
-    auto &set = streamSets_[chunks_[id].stream];
+    auto& set = streamSets_[chunks_[id].stream];
     set->set(binId);
     linkChunkInList(set->binHeads_[binId], id,
                     chunks_[set->binHeads_[binId]].nextChunkInList);
@@ -200,14 +200,14 @@ class BFCachingAllocatorImpl {
 
   void removeChunkFromBin(int id) {
     int binId = chunks_[id].binId;
-    auto &set = streamSets_[chunks_[id].stream];
+    auto& set = streamSets_[chunks_[id].stream];
     removeChunkInList(chunks_[id].prevChunkInList, chunks_[id].nextChunkInList);
     if (!chunks_[set->binHeads_[binId]].nextChunkInList) {
       set->remove(binId);
     }
   }
 
-  int findChunk(size_t nbytes, StreamSetHandle &set) {
+  int findChunk(size_t nbytes, StreamSetHandle& set) {
     // Check whether the first chunk in `least` bin satisfies
     int least = binIdForSize(nbytes);
     int id = chunks_[set->binHeads_[least]].nextChunkInList;
@@ -227,7 +227,7 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  void shrink(StreamSetHandle &set) {
+  void shrink(StreamSetHandle& set) {
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
       while (k) {
@@ -242,7 +242,7 @@ class BFCachingAllocatorImpl {
   }
 
   int split(int id, size_t nbytes) {
-    void *ptr = static_cast<char *>(chunks_[id].ptr) + nbytes;
+    void* ptr = static_cast<char*>(chunks_[id].ptr) + nbytes;
     size_t const size = chunks_[id].size - nbytes;
 
     chunks_[id].size = nbytes;
@@ -279,9 +279,9 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  int extend(size_t nbytes, StreamSetHandle &set) {
+  int extend(size_t nbytes, StreamSetHandle& set) {
     emptyCacheWithoutLock();
-    auto &extSize = set->currExtendSize_;
+    auto& extSize = set->currExtendSize_;
     bool increased = false;
     while (extSize < nbytes && extSize < kMaxExtendSize) {
       extSize *= 2;
@@ -289,7 +289,7 @@ class BFCachingAllocatorImpl {
     }
 
     size_t currBytes = std::max(nbytes, extSize);
-    void *ptr = allocateOnDevice(currBytes);
+    void* ptr = allocateOnDevice(currBytes);
     if (ptr) {
       if (!increased && extSize < kMaxExtendSize) {
         extSize *= 2;
@@ -308,13 +308,13 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  StreamSetHandle &checkStream(size_t stream) {
+  StreamSetHandle& checkStream(size_t stream) {
     if (stream >= streamSets_.size()) {
       streamSets_.resize(stream + 1);
     }
     if (streamSets_[stream] == nullptr) {
       streamSets_[stream] = std::make_unique<StreamSet>(stream);
-      for (int &binHead : streamSets_[stream]->binHeads_) {
+      for (int& binHead : streamSets_[stream]->binHeads_) {
         binHead = newChunk(nullptr, 0, 0);
       }
     }
@@ -322,7 +322,7 @@ class BFCachingAllocatorImpl {
   }
 
   void emptyCacheWithoutLock() {
-    for (auto &set : streamSets_) {
+    for (auto& set : streamSets_) {
       if (set != nullptr) {
         shrink(set);
       }
@@ -342,7 +342,7 @@ class BFCachingAllocatorImpl {
     emptyCacheWithoutLock();
   }
 
-  std::tuple<void *, int, size_t> allocateRaw(size_t size) {
+  std::tuple<void*, int, size_t> allocateRaw(size_t size) {
     if (!size) {
       return std::make_tuple(nullptr, 0, 0);
     }
@@ -352,7 +352,7 @@ class BFCachingAllocatorImpl {
     allocatedBytes += nbytes;
 
     std::lock_guard<mutex_t> lk(mut_);
-    auto &set = checkStream(0);
+    auto& set = checkStream(0);
     int id = findChunk(nbytes, set);
     if (!id) {
       id = extend(nbytes, set);
@@ -370,7 +370,7 @@ class BFCachingAllocatorImpl {
     ;
   }
 
-  void releaseRaw(void *ptr, int id) {
+  void releaseRaw(void* ptr, int id) {
     if (!ptr) {
       return;
     }
@@ -392,7 +392,7 @@ class BFCachingAllocatorImpl {
   size_t memory_reserved() { return cachedBytes; }
 };
 
-static void deleteBFContext(void *ptr);
+static void deleteBFContext(void* ptr);
 
 class BFCachingAllocator : public CacheAllocator {
   mutable std::unique_ptr<BFCachingAllocatorImpl> impl;
@@ -404,7 +404,7 @@ class BFCachingAllocator : public CacheAllocator {
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
     while (async_mem_pool()->ready()) {
       const auto block = async_mem_pool()->get();
-      void *ptr = std::get<0>(block);
+      void* ptr = std::get<0>(block);
       int id = std::get<1>(block);
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
@@ -423,7 +423,7 @@ class BFCachingAllocator : public CacheAllocator {
         continue;
       }
       const auto block = async_mem_pool()->get();
-      void *ptr = std::get<0>(block);
+      void* ptr = std::get<0>(block);
       int id = std::get<1>(block);
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
@@ -439,16 +439,16 @@ class BFCachingAllocator : public CacheAllocator {
     }
     impl.reset(new BFCachingAllocatorImpl());
 
-    std::function<void *(size_t)> alloc_fn =
-        std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator *)this,
+    std::function<void*(size_t)> alloc_fn =
+        std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this,
                   std::placeholders::_1);
-    std::function<void(void *)> dealloc_fn =
-        std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator *)this,
+    std::function<void(void*)> dealloc_fn =
+        std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this,
                   std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
 
-  void *makeContext(void *ptr, size_t size, size_t nbytes, int id) const {
+  void* makeContext(void* ptr, size_t size, size_t nbytes, int id) const {
     auto ctx = new Context(ptr, size, nbytes, id, this);
     return ctx;
   }
@@ -457,12 +457,12 @@ class BFCachingAllocator : public CacheAllocator {
   struct Context : public DataPtrContextBase {
     int id_ = 0;
     size_t nbytes_ = 0;
-    Context(void *ptr, size_t size, size_t nbytes, int id,
-            const BFCachingAllocator *allocator)
+    Context(void* ptr, size_t size, size_t nbytes, int id,
+            const BFCachingAllocator* allocator)
         : DataPtrContextBase(allocator, ptr, size), id_(id), nbytes_(nbytes) {}
 
     ~Context() {
-      auto allocator_ = static_cast<const BFCachingAllocator *>(allocator());
+      auto allocator_ = static_cast<const BFCachingAllocator*>(allocator());
       DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: add to async_mem_pool:"
                                   << ptr() << ", " << size() << " nbytes, id:"
                                   << id_ << ", allocator:" << allocator_
@@ -494,8 +494,8 @@ class BFCachingAllocator : public CacheAllocator {
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
-    std::tuple<void *, int, size_t> block = impl->allocateRaw(size);
-    void *ptr = std::get<0>(block);
+    std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
+    void* ptr = std::get<0>(block);
     if (ptr == nullptr && size > 0) {
       empty_resource_pool();
       block = impl->allocateRaw(size);
@@ -552,8 +552,8 @@ class BFCachingAllocator : public CacheAllocator {
   }
 };
 
-static void deleteBFContext(void *ptr) {
-  auto ctx = static_cast<BFCachingAllocator::Context *>(ptr);
+static void deleteBFContext(void* ptr) {
+  auto ctx = static_cast<BFCachingAllocator::Context*>(ptr);
   c10::reportMemoryUsageToProfiler(
       ctx->ptr(), -static_cast<int64_t>(ctx->nbytes_),
       ctx->allocator()->memory_allocated(), ctx->allocator()->memory_reserved(),

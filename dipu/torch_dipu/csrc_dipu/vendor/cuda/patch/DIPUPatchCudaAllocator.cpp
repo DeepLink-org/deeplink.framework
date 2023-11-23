@@ -16,22 +16,22 @@ namespace CUDACachingAllocator {
             << " this function should not be called!" x << std::endl;
 
 class DIPUCUDAAllocatorProxy : public CUDAAllocator {
-  std::unordered_map<void *, c10::DataPtr> tempMemBlock;
+  std::unordered_map<void*, c10::DataPtr> tempMemBlock;
   using mutex_t = std::mutex;
   mutable mutex_t mut_;
 
  public:
-  virtual void *raw_alloc_with_stream(size_t nbytes,
+  virtual void* raw_alloc_with_stream(size_t nbytes,
                                       cudaStream_t stream) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual void setMemoryFraction(double fraction, int device) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void *getBaseAllocation(void *ptr, size_t *size) override {
+  virtual void* getBaseAllocation(void* ptr, size_t* size) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void recordStream(const DataPtr &, CUDAStream stream) override {
+  virtual void recordStream(const DataPtr&, CUDAStream stream) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual DeviceStats getDeviceStats(int device) override {
@@ -72,19 +72,19 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual std::string name() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
-  virtual void cacheInfo(int dev_id, size_t *largestBlock) override {
+  virtual void cacheInfo(int dev_id, size_t* largestBlock) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
 
-  virtual void *raw_alloc(size_t nbytes) override {
+  virtual void* raw_alloc(size_t nbytes) override {
     auto data_ptr = this->allocate(nbytes);
-    void *ptr = data_ptr.get();
+    void* ptr = data_ptr.get();
     std::lock_guard<mutex_t> lk(mut_);
     tempMemBlock.emplace(ptr, std::move(data_ptr));
     return ptr;
   }
 
-  virtual void raw_delete(void *ptr) override {
+  virtual void raw_delete(void* ptr) override {
     std::lock_guard<mutex_t> lk(mut_);
     tempMemBlock.erase(ptr);
   }
@@ -118,7 +118,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
 namespace dipu {
 
 int patchCachingAllocator() {
-  const char *env = std::getenv("DIPU_PATCH_CUDA_CACHED_ALLOCATOR");
+  const char* env = std::getenv("DIPU_PATCH_CUDA_CACHED_ALLOCATOR");
   if (env != nullptr) {
     if (std::atoi(env) <= 0) {
       return 0;
@@ -134,7 +134,7 @@ int patchCachingAllocator() {
   static c10::cuda::CUDACachingAllocator::DIPUCUDAAllocatorProxy
       cuda_allocator_proxy;
   c10::cuda::CUDACachingAllocator::allocator.store(
-      dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator *>(
+      dynamic_cast<c10::cuda::CUDACachingAllocator::CUDAAllocator*>(
           &cuda_allocator_proxy));
   return 0;
 }

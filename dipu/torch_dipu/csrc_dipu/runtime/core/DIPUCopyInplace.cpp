@@ -11,7 +11,7 @@
 
 namespace dipu {
 
-at::Tensor &DIPUCopyInplace::run(at::Tensor &self, const at::Tensor &src,
+at::Tensor& DIPUCopyInplace::run(at::Tensor& self, const at::Tensor& src,
                                  bool non_blocking) {
   TORCH_CHECK(self.defined(), "self is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
@@ -64,9 +64,9 @@ at::Tensor &DIPUCopyInplace::run(at::Tensor &self, const at::Tensor &src,
   return copy_uncontiguous(iter, self, src, non_blocking);
 }
 
-at::Tensor &DIPUCopyInplace::copy_between_devices(at::TensorIterator &iter,
-                                                  at::Tensor &self,
-                                                  const at::Tensor &src,
+at::Tensor& DIPUCopyInplace::copy_between_devices(at::TensorIterator& iter,
+                                                  at::Tensor& self,
+                                                  const at::Tensor& src,
                                                   bool non_blocking) {
   int64_t numel = iter.numel();
   c10::Device dst_device = iter.device(0);
@@ -78,8 +78,8 @@ at::Tensor &DIPUCopyInplace::copy_between_devices(at::TensorIterator &iter,
     return native::DIPUATenFunctions::copy_(self, src, non_blocking);
   }
 
-  void *dst_ptr = iter.data_ptr(0);
-  void *src_ptr = iter.data_ptr(1);
+  void* dst_ptr = iter.data_ptr(0);
+  void* src_ptr = iter.data_ptr(1);
   if (src_ptr == dst_ptr && src_device == dst_device) {
     return self;
   }
@@ -95,9 +95,9 @@ at::Tensor &DIPUCopyInplace::copy_between_devices(at::TensorIterator &iter,
   return self;
 }
 
-at::Tensor &DIPUCopyInplace::copy_contiguous(at::TensorIterator &iter,
-                                             at::Tensor &self,
-                                             const at::Tensor &src,
+at::Tensor& DIPUCopyInplace::copy_contiguous(at::TensorIterator& iter,
+                                             at::Tensor& self,
+                                             const at::Tensor& src,
                                              bool non_blocking) {
   c10::Device dst_device = iter.device(0);
   c10::Device src_device = iter.device(1);
@@ -120,11 +120,11 @@ at::Tensor &DIPUCopyInplace::copy_contiguous(at::TensorIterator &iter,
   return self;
 }
 
-at::Tensor &DIPUCopyInplace::copy_uncontiguous(at::TensorIterator &iter,
-                                               at::Tensor &self,
-                                               const at::Tensor &src,
+at::Tensor& DIPUCopyInplace::copy_uncontiguous(at::TensorIterator& iter,
+                                               at::Tensor& self,
+                                               const at::Tensor& src,
                                                bool non_blocking) {
-  auto &dst = iter.tensor(0);
+  auto& dst = iter.tensor(0);
   at::Tensor dst_contig;
   at::Tensor src_contig;
   if (iter.device_type(0) == DIPU_DEVICE_TYPE || non_blocking) {
@@ -154,14 +154,14 @@ at::Tensor &DIPUCopyInplace::copy_uncontiguous(at::TensorIterator &iter,
 }
 
 static DIPUCopyInplace default_copy_inplace_op;
-static DIPUCopyInplace *dipu_copy_inplace_op = nullptr;
+static DIPUCopyInplace* dipu_copy_inplace_op = nullptr;
 
-DIPUCopyInplace *getDipuCopyInplace() {
+DIPUCopyInplace* getDipuCopyInplace() {
   TORCH_CHECK(dipu_copy_inplace_op, "dipu copy inplace not registered");
   return dipu_copy_inplace_op;
 }
 
-void setDipuCopyInplace(DIPUCopyInplace *op) {
+void setDipuCopyInplace(DIPUCopyInplace* op) {
   if (dipu_copy_inplace_op == nullptr) {
     dipu_copy_inplace_op = op;
   } else if (dipu_copy_inplace_op == &default_copy_inplace_op) {

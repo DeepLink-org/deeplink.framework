@@ -13,16 +13,16 @@ namespace dipu {
 
 class MemChecker final {
  public:
-  static MemChecker &instance();
+  static MemChecker& instance();
   static bool enable();
   static bool enable_backtrace();
   static int32_t max_block_num();
   static int32_t log_interval();
 
-  void insert(const void *ptr, size_t size);
-  void erase(const void *ptr);
-  void check(const at::Tensor &input);
-  void check(const void *ptr);
+  void insert(const void* ptr, size_t size);
+  void erase(const void* ptr);
+  void check(const at::Tensor& input);
+  void check(const void* ptr);
   ~MemChecker();
 
  private:
@@ -30,7 +30,7 @@ class MemChecker final {
 
  private:
   std::mutex mtx_;
-  std::unordered_map<const void *, std::pair<size_t, std::string>> blocks_;
+  std::unordered_map<const void*, std::pair<size_t, std::string>> blocks_;
   int64_t total_size_ = 0;
   int64_t insert_cnt_ = 0;
 };

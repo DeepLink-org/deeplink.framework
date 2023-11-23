@@ -12,13 +12,13 @@
 
 #define HIT std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 
-bool file_exists(const char *filename) { return (access(filename, 0) == 0); }
+bool file_exists(const char* filename) { return (access(filename, 0) == 0); }
 
-std::string ws2s(const std::wstring &ws) {
-  const wchar_t *wcs = ws.c_str();
+std::string ws2s(const std::wstring& ws) {
+  const wchar_t* wcs = ws.c_str();
   size_t dByteNum = sizeof(wchar_t) * ws.size() + 1;
 
-  char *dest = new char[dByteNum];
+  char* dest = new char[dByteNum];
   wcstombs(dest, wcs, dByteNum);
   std::string result = dest;
   delete[] dest;
@@ -27,14 +27,14 @@ std::string ws2s(const std::wstring &ws) {
 }
 
 void compile(std::shared_ptr<builder::Builder> builder,
-             topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
+             topsExecutable_t* exe_ptr, const wchar_t* compile_bin_path) {
   topsgraphProgram program;
 
   // get the built IR from builder
   auto hlir_module = builder->GetModule();
   auto ret = topsgraphCreateProgramFromModule(&program, hlir_module.get());
 
-  const char *options[] = {
+  const char* options[] = {
       "-arch=gcu200", "-resource=4c24s",
       "-hlir=hlir-training-pipeline{tensor-split=true dynamic-shape=false}"};
 
@@ -43,12 +43,12 @@ void compile(std::shared_ptr<builder::Builder> builder,
   // get binary size and binary data
   size_t binary_size = 0;
   topsgraphGetBinSize(program, &binary_size);
-  char *binary = new char[binary_size];
+  char* binary = new char[binary_size];
   topsgraphGetBin(program, binary);
 
   std::string save_file = ws2s(static_cast<std::wstring>(compile_bin_path));
   std::ofstream fout(save_file, std::ios::binary);
-  fout.write((char *)(&binary_size), sizeof(int));
+  fout.write((char*)(&binary_size), sizeof(int));
   fout.write(binary, binary_size);
   fout.close();
 
@@ -59,15 +59,15 @@ void compile(std::shared_ptr<builder::Builder> builder,
   return;
 }
 
-int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
+int load(topsExecutable_t* exe_ptr, const wchar_t* compile_bin_path) {
   std::wstring file_name_tmp = compile_bin_path;
   std::string file_name = ws2s(file_name_tmp);
 
   std::ifstream fin(file_name, std::ios::binary);
   int binary_size_t;
-  fin.read((char *)&binary_size_t, sizeof(int));
+  fin.read((char*)&binary_size_t, sizeof(int));
 
-  char *binary = new char[binary_size_t + 1];
+  char* binary = new char[binary_size_t + 1];
   memset(binary, 0, binary_size_t + 1);
   fin.read(binary, binary_size_t);
   fin.close();
@@ -76,13 +76,13 @@ int load(topsExecutable_t *exe_ptr, const wchar_t *compile_bin_path) {
   return 0;
 }
 
-int run(topsExecutable_t exe_ptr, void *dipu_stream,
-        std::vector<void *> &input_ptrs, std::vector<void *> &output_ptrs,
+int run(topsExecutable_t exe_ptr, void* dipu_stream,
+        std::vector<void*>& input_ptrs, std::vector<void*>& output_ptrs,
         int device_id, bool dipu_flag) {
-  void *inputs[MAX_NUM] = {0};
-  void *outputs[MAX_NUM] = {0};
-  void *dev_input = nullptr;
-  void *dev_output = nullptr;
+  void* inputs[MAX_NUM] = {0};
+  void* outputs[MAX_NUM] = {0};
+  void* dev_input = nullptr;
+  void* dev_output = nullptr;
 
   topsError_t ret;
   topsStream_t stream;
@@ -102,9 +102,9 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
             topsSuccess);
 
   // 2.2 query InputSize,output_size
-  uint64_t *input_size = (uint64_t *)malloc(input_count * sizeof(uint64_t));
+  uint64_t* input_size = (uint64_t*)malloc(input_count * sizeof(uint64_t));
   EXPECT_NE(input_size, nullptr);
-  uint64_t *output_size = (uint64_t *)malloc(output_count * sizeof(uint64_t));
+  uint64_t* output_size = (uint64_t*)malloc(output_count * sizeof(uint64_t));
   EXPECT_NE(output_size, nullptr);
 
   EXPECT_EQ(topsExecutableQueryInfo(exe_ptr, topsExecutableInfoInputSizeList,
@@ -133,9 +133,9 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
   // 4. run
   if (dipu_flag) {
     ret = topsLaunchExecutableV2(
-        exe_ptr, nullptr, static_cast<void **>(input_ptrs.data()), input_count,
-        nullptr, nullptr, static_cast<void **>(output_ptrs.data()),
-        output_count, static_cast<topsStream_t>(dipu_stream));
+        exe_ptr, nullptr, static_cast<void**>(input_ptrs.data()), input_count,
+        nullptr, nullptr, static_cast<void**>(output_ptrs.data()), output_count,
+        static_cast<topsStream_t>(dipu_stream));
   } else {
     ret = topsLaunchExecutableV2(exe_ptr, nullptr, inputs, input_count, nullptr,
                                  nullptr, outputs, output_count, stream);
@@ -173,16 +173,16 @@ int run(topsExecutable_t exe_ptr, void *dipu_stream,
   return 0;
 }
 
-int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
-          int64_t *input_dims, size_t *input_rank,
-          std::vector<void *> &output_ptrs, size_t *output_dims,
-          size_t *output_rank) {
+int runV2(topsExecutable_t exe_ptr, std::vector<void*>& input_ptrs,
+          int64_t* input_dims, size_t* input_rank,
+          std::vector<void*>& output_ptrs, size_t* output_dims,
+          size_t* output_rank) {
   int device_id = 0;
   int count = 0;
-  void *inputs[MAX_NUM] = {0};
-  void *outputs[MAX_NUM] = {0};
-  void *dev_input = nullptr;
-  void *dev_output = nullptr;
+  void* inputs[MAX_NUM] = {0};
+  void* outputs[MAX_NUM] = {0};
+  void* dev_input = nullptr;
+  void* dev_output = nullptr;
   topsError_t ret;
   topsStream_t stream;
   topsResource_t res_bundle;
@@ -206,9 +206,9 @@ int runV2(topsExecutable_t exe_ptr, std::vector<void *> &input_ptrs,
                                     &output_count),
             topsSuccess);
   // 2.2 query InputSize,output_size
-  uint64_t *input_size = (uint64_t *)malloc(input_count * sizeof(uint64_t));
+  uint64_t* input_size = (uint64_t*)malloc(input_count * sizeof(uint64_t));
   EXPECT_NE(input_size, nullptr);
-  uint64_t *output_size = (uint64_t *)malloc(output_count * sizeof(uint64_t));
+  uint64_t* output_size = (uint64_t*)malloc(output_count * sizeof(uint64_t));
   EXPECT_NE(output_size, nullptr);
 
   EXPECT_EQ(topsExecutableQueryInfo(exe_ptr, topsExecutableInfoInputSizeList,

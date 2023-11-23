@@ -25,10 +25,10 @@ namespace dipu::native {
 
 // need abstract cast strategy before copy, some device(eg camb) not support all
 // types,
-inline at::Tensor cast2CompatibleDeviceTensor(const at::Tensor &hostTensor) {
+inline at::Tensor cast2CompatibleDeviceTensor(const at::Tensor& hostTensor) {
   return hostTensor;
 }
-inline int64_t getCopyBytes(const at::Tensor &dst, const at::Tensor &src) {
+inline int64_t getCopyBytes(const at::Tensor& dst, const at::Tensor& src) {
   if (dst.nbytes() !=
       src.nbytes()) {  // outer bytes must same. different type is unsuported
     TORCH_CHECK(false, "dipu copy with different size is not allowed");
@@ -39,14 +39,14 @@ inline int64_t getCopyBytes(const at::Tensor &dst, const at::Tensor &src) {
   return srcBytes < dstBytes ? srcBytes : dstBytes;
 }
 
-static void copy_H2D(const at::Tensor &dst, const at::Tensor &src,
+static void copy_H2D(const at::Tensor& dst, const at::Tensor& src,
                      bool non_blocking) {
   int64_t nbytes = getCopyBytes(dst, src);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
   auto src_cast = cast2CompatibleDeviceTensor(src);
-  void *src_ptr = src_cast.data_ptr();
-  void *dst_ptr = dst.data_ptr();
+  void* src_ptr = src_cast.data_ptr();
+  void* dst_ptr = dst.data_ptr();
 
   MemChecker::instance().check(dst);
   dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
@@ -55,13 +55,13 @@ static void copy_H2D(const at::Tensor &dst, const at::Tensor &src,
   }
 }
 
-static void copy_D2H(const at::Tensor &dst, const at::Tensor &src,
+static void copy_D2H(const at::Tensor& dst, const at::Tensor& src,
                      bool non_blocking) {
   int64_t nbytes = getCopyBytes(dst, src);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
-  void *src_ptr = src.data_ptr();
-  void *dst_ptr = dst.data_ptr();
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
 
   MemChecker::instance().check(src);
   dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
@@ -84,7 +84,7 @@ inline bool isDiffStrides(const IntArrayRef stride1,
 }
 
 //  1. expand, 2. patial view. 3. type cast.
-inline bool canDirectCopy(const at::Tensor &dst, const at::Tensor &src) {
+inline bool canDirectCopy(const at::Tensor& dst, const at::Tensor& src) {
   // assume layout always = not suppport Sparse layout
   TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
               "only Strided layout is supported");
@@ -112,13 +112,13 @@ inline bool canDirectCopy(const at::Tensor &dst, const at::Tensor &src) {
   return false;
 }
 
-static void copy_D2D(const at::Tensor &dst, const at::Tensor &src,
+static void copy_D2D(const at::Tensor& dst, const at::Tensor& src,
                      bool non_blocking) {
   int64_t nbytes = getCopyBytes(dst, src);
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
 
-  void *src_ptr = src.data_ptr();
-  void *dst_ptr = dst.data_ptr();
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
 
   MemChecker::instance().check(src);
   MemChecker::instance().check(dst);
@@ -130,7 +130,7 @@ static void copy_D2D(const at::Tensor &dst, const at::Tensor &src,
   }
 }
 
-inline void doRealCp(at::Tensor &self, const at::Tensor &src,
+inline void doRealCp(at::Tensor& self, const at::Tensor& src,
                      bool non_blocking) {
   if (dipu::isDeviceTensor(self) && !dipu::isDeviceTensor(src)) {
     // src is cpu.
@@ -145,7 +145,7 @@ inline void doRealCp(at::Tensor &self, const at::Tensor &src,
 
 // self is dest
 // not handle storage offset, need?
-at::Tensor &DIPUATenFunctions::copy_(at::Tensor &self, const at::Tensor &src,
+at::Tensor& DIPUATenFunctions::copy_(at::Tensor& self, const at::Tensor& src,
                                      bool non_blocking) {
   if (self.numel() == 0) {
     return self;
@@ -185,7 +185,7 @@ at::Tensor &DIPUATenFunctions::copy_(at::Tensor &self, const at::Tensor &src,
   return self;
 }
 
-at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor &self) {
+at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
   AT_DISPATCH_ALL_TYPES_AND2(
       at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu",

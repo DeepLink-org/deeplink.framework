@@ -83,15 +83,15 @@ DIPU_API int getDeviceCount() {
   return count;
 }
 
-DIPU_API void getDriverVersion(int *version) {
+DIPU_API void getDriverVersion(int* version) {
   SUPA_CALL(suDriverGetVersion(version));
 }
 
-DIPU_API void getRuntimeVersion(int *version) {
+DIPU_API void getRuntimeVersion(int* version) {
   SUPA_CALL(suRuntimeGetVersion(version));
 }
 
-DIPU_API void createStream(deviceStream_t *stream, bool prior) {
+DIPU_API void createStream(deviceStream_t* stream, bool prior) {
   int flags = suStreamDefault;
   // Note: lower numbers are higher priorities, zero is default priority
   SUPA_CALL(suStreamCreateWithPriority(stream, flags, prior ? -1 : 0));
@@ -139,7 +139,7 @@ DIPU_API bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-DIPU_API void createEvent(deviceEvent_t *event) {
+DIPU_API void createEvent(deviceEvent_t* event) {
   SUPA_CALL(suEventCreate(event));
 }
 
@@ -155,7 +155,7 @@ DIPU_API void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   SUPA_CALL(suEventRecord(event, stream));
 }
 
-DIPU_API void eventElapsedTime(float *time, deviceEvent_t start,
+DIPU_API void eventElapsedTime(float* time, deviceEvent_t start,
                                deviceEvent_t end) {
   // unit of time is ms.
   SUPA_CALL(suEventElapsedTime(time, start, end));
@@ -177,17 +177,17 @@ DIPU_API EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-DIPU_API void mallocHost(void **p, size_t nbytes) { *p = malloc(nbytes); }
+DIPU_API void mallocHost(void** p, size_t nbytes) { *p = malloc(nbytes); }
 
-DIPU_API void freeHost(void *p) { free(p); }
+DIPU_API void freeHost(void* p) { free(p); }
 
 extern "C" {
-void *br_device_malloc(uint64_t bytes);
-void br_device_free(void *ptr);
+void* br_device_malloc(uint64_t bytes);
+void br_device_free(void* ptr);
 }
 
-DIPU_API OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
-  void *ptr = nullptr;
+DIPU_API OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
+  void* ptr = nullptr;
   ptr = br_device_malloc(nbytes);
   if (ptr != nullptr) {
     *p = ptr;
@@ -199,53 +199,53 @@ DIPU_API OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   return OpStatus::ERR_NOMEM;
 }
 
-DIPU_API void freeDevice(void *p) { br_device_free(p); }
+DIPU_API void freeDevice(void* p) { br_device_free(p); }
 
-DIPU_API bool isPinnedPtr(const void *p) { return false; }
+DIPU_API bool isPinnedPtr(const void* p) { return false; }
 
 // (asynchronous) set val
-DIPU_API void memSetAsync(const deviceStream_t stream, void *ptr, int val,
+DIPU_API void memSetAsync(const deviceStream_t stream, void* ptr, int val,
                           size_t size) {
   SUPA_CALL(suMemsetAsync(ptr, val, size, stream));
 }
 
 // (synchronous) copy from device to a device
-DIPU_API void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                         deviceId_t srcDevId, const void *src) {
+DIPU_API void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                         deviceId_t srcDevId, const void* src) {
   // SUPA uses Unified Virtual Address
   SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyDeviceToDevice));
 }
 
 // (synchronous) copy from host to a device
-DIPU_API void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void *dst,
-                         /*Host srcDev,*/ const void *src) {
+DIPU_API void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst,
+                         /*Host srcDev,*/ const void* src) {
   SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyHostToDevice));
 }
 
 // (synchronous) copy from a device to host
-DIPU_API void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void *dst,
-                         /*deviceId_t srcDevId,*/ const void *src) {
+DIPU_API void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
+                         /*deviceId_t srcDevId,*/ const void* src) {
   SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyDeviceToHost));
 }
 
 // (asynchronous) copy from device to a device
 DIPU_API void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                              deviceId_t dstDevId, void *dst,
-                              deviceId_t srcDevId, const void *src) {
+                              deviceId_t dstDevId, void* dst,
+                              deviceId_t srcDevId, const void* src) {
   SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyDeviceToDevice));
 }
 
 // (asynchronous) copy from host to a device
 DIPU_API void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
-                              /*deviceId_t dstDevId,*/ void *dst,
-                              /*Host srcDev,*/ const void *src) {
+                              /*deviceId_t dstDevId,*/ void* dst,
+                              /*Host srcDev,*/ const void* src) {
   SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyHostToDevice));
 }
 
 // (asynchronous) copy from a device to host
 DIPU_API void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
-                              /*Host dstDev,*/ void *dst,
-                              /*deviceId_t srcDevId,*/ const void *src) {
+                              /*Host dstDev,*/ void* dst,
+                              /*deviceId_t srcDevId,*/ const void* src) {
   SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyDeviceToHost));
 }
 }  // end namespace devapis

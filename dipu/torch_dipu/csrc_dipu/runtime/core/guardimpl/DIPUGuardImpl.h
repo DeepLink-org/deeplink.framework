@@ -12,7 +12,7 @@
 namespace dipu {
 // seems DIPUCachingAllocator.h and this class has Cycle reference? need
 // refactor?
-void recordStream(const c10::DataPtr &ptr, DIPUStream stream);
+void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
 
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;
@@ -71,7 +71,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     return getDefaultDIPUStream(device.index());
   }
 
-  void record(void **event, const c10::Stream &s,
+  void record(void** event, const c10::Stream& s,
               const c10::DeviceIndex device_index,
               const c10::EventFlag flag) const override {
     TORCH_CHECK(device_index == -1 || device_index == s.device_index(),
@@ -98,7 +98,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     setDevice(orig_device);
   }
 
-  void block(void *event, const c10::Stream &s) const override {
+  void block(void* event, const c10::Stream& s) const override {
     if (!event) return;
     deviceEvent_t dipu_event = static_cast<deviceEvent_t>(event);
     const auto orig_device = this->getDevice();
@@ -108,7 +108,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     setDevice(orig_device);
   }
 
-  void destroyEvent(void *event, const c10::DeviceIndex device_index)
+  void destroyEvent(void* event, const c10::DeviceIndex device_index)
       const noexcept override {
     if (!event) return;
     auto dipu_event = static_cast<deviceEvent_t>(event);
@@ -121,8 +121,8 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   // call from ivalue_inl.h  synchronizeWithCurrentStreams with 'current stream'
   // = default stream. it's useless in ddp, because output tensor is record with
   // comm stream in colletive(), but may be useful in other communication mode.
-  void recordDataPtrOnStream(const c10::DataPtr &dataptr,
-                             const c10::Stream &s) const override {
+  void recordDataPtrOnStream(const c10::DataPtr& dataptr,
+                             const c10::Stream& s) const override {
     DIPUStream stream(s);
     if (stream != getDefaultDIPUStream()) {
       dipu::recordStream(dataptr, stream);

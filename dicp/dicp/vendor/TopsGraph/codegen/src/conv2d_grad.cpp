@@ -1,7 +1,7 @@
 #include "conv2d_grad.h"
 
-const char *const kConv2D = "conv2d";
-const char *const kConv2DGrad = "conv2d_grad";
+const char* const kConv2D = "conv2d";
+const char* const kConv2DGrad = "conv2d_grad";
 
 static std::vector<int64_t> get_same_padding_value(int64_t dim, int64_t ksize,
                                                    int64_t stride) {
@@ -171,7 +171,7 @@ builder::Op enflame::Conv2D_Grad(std::shared_ptr<builder::Builder> tmp_builder,
   }
   std::vector<int64_t> bias_data(bias_size, 0.0);
   auto bias_grad = builder::Const(
-      tmp_builder, static_cast<void *>(bias_data.data()), bias_type);
+      tmp_builder, static_cast<void*>(bias_data.data()), bias_type);
 
   std::vector<builder::Op> outputs{input_grad, filter_grad, bias_grad};
 

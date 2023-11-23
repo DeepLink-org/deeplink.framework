@@ -24,10 +24,10 @@ class DeviceEvent final {
 
   deviceEvent_t get() const { return evt_; }
 
-  DeviceEvent(const DeviceEvent &) = delete;
-  DeviceEvent &operator=(const DeviceEvent &) = delete;
-  DeviceEvent(DeviceEvent &&) = default;
-  DeviceEvent &operator=(DeviceEvent &&) = default;
+  DeviceEvent(const DeviceEvent&) = delete;
+  DeviceEvent& operator=(const DeviceEvent&) = delete;
+  DeviceEvent(DeviceEvent&&) = default;
+  DeviceEvent& operator=(DeviceEvent&&) = default;
 };
 
 class StreamTimeOffsetTracker final {
@@ -56,27 +56,27 @@ class StreamTimeOffsetTracker final {
     ratio_ = 1.0f * (endOffset - beginOffset_) / time;
   }
 
-  const DeviceEvent &begin() const { return begin_; }
+  const DeviceEvent& begin() const { return begin_; }
 
   size_t offset() const { return beginOffset_; }
 
   float ratio() const { return ratio_; }
 };
 
-RecordsImpl &RecordsImpl::get() {
+RecordsImpl& RecordsImpl::get() {
   static RecordsImpl instance;
   return instance;
 }
 
 void RecordsImpl::abandon() {
   std::lock_guard<mutex_t> lck(mtx_);
-  for (auto &kv : allRecordLists_) {
+  for (auto& kv : allRecordLists_) {
     kv.second->clear();
   }
   resourceInfo_.clear();
 }
 
-void RecordsImpl::addRecord(const Record &record) {
+void RecordsImpl::addRecord(const Record& record) {
   if (pRecords == nullptr) {
     std::lock_guard<mutex_t> lk(mtx_);
     int32_t tid = libkineto::systemThreadId();
@@ -87,7 +87,7 @@ void RecordsImpl::addRecord(const Record &record) {
 }
 
 void RecordsImpl::recordStream(int device, int streamId,
-                               const std::string &postfix) {
+                               const std::string& postfix) {
   std::lock_guard<mutex_t> lck(mtx_);
   if (resourceInfo_.find({device, streamId}) == resourceInfo_.end()) {
     resourceInfo_.emplace(std::make_pair(device, streamId),
@@ -100,12 +100,12 @@ void RecordsImpl::recordStream(int device, int streamId,
 RecordsImpl::records_t RecordsImpl::getAllRecordList() const {
   std::lock_guard<mutex_t> lck(mtx_);
   records_t allrecords;
-  for (const auto &kv : allRecordLists_) {
+  for (const auto& kv : allRecordLists_) {
     if (!kv.second || kv.second->empty()) {
       continue;
     }
 
-    for (const auto &r : *(kv.second)) {
+    for (const auto& r : *(kv.second)) {
       allrecords.push_back(r);
     }
   }
@@ -118,7 +118,7 @@ RecordsImpl::getResourceInfo() const {
   return resourceInfo_;
 }
 
-thread_local RecordsImpl::records_t *RecordsImpl::pRecords = nullptr;
+thread_local RecordsImpl::records_t* RecordsImpl::pRecords = nullptr;
 
 class DeviceRecordsImpl final {
  private:
@@ -139,7 +139,7 @@ class DeviceRecordsImpl final {
 
   static int32_t flushReadyEventInterval() {
     static int32_t flush_ready_event_interval = []() -> int32_t {
-      const char *str = std::getenv("DIPU_FLUSH_READY_EVENT_INTERVAL");
+      const char* str = std::getenv("DIPU_FLUSH_READY_EVENT_INTERVAL");
       return str == nullptr ? DEFAULT_FLUSH_READY_INTERVAL : std::stoi(str);
     }();
     return flush_ready_event_interval;
@@ -150,7 +150,7 @@ class DeviceRecordsImpl final {
     return pTracker_->begin().get();
   }
 
-  size_t getTime(const DeviceEvent &evt, float scale = 1., size_t shift = 0) {
+  size_t getTime(const DeviceEvent& evt, float scale = 1., size_t shift = 0) {
     float time;
     dipu::devproxy::waitEvent(evt.get());
     dipu::devproxy::eventElapsedTime(&time, beginEvent(), evt.get());
@@ -182,7 +182,7 @@ class DeviceRecordsImpl final {
 
   void flushReady() {
     while (records_.size() > 0) {
-      auto &r = records_.front();
+      auto& r = records_.front();
       auto start_status = dipu::devproxy::getEventStatus(r.start->get());
       auto end_status = dipu::devproxy::getEventStatus(r.stop->get());
       auto origin_status = dipu::devproxy::getEventStatus(beginEvent());
@@ -207,19 +207,19 @@ class DeviceRecordsImpl final {
     std::lock_guard<std::mutex> lk(mtx_);
     if (records_.size() > 0) {
       TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
-      auto &trakcer = *pTracker_;
+      auto& trakcer = *pTracker_;
       trakcer.sync();
       float ratio = trakcer.ratio();
       size_t offset = trakcer.offset();
 
-      for (auto &r : ready_records_) {
+      for (auto& r : ready_records_) {
         r.begin = static_cast<size_t>(r.begin * 1e-3 * ratio) + offset;
         r.end = static_cast<size_t>(r.end * 1e-3 * ratio) + offset;
         RecordsImpl::get().addRecord(r);
       }
       ready_records_.clear();
 
-      for (auto &r : records_) {
+      for (auto& r : records_) {
         RecordsImpl::get().addRecord(
             Record({r.name, r.opId, getTime(*r.start, ratio, offset),
                     getTime(*r.stop, ratio, offset), r.deviceId, r.streamId,
@@ -238,7 +238,7 @@ class DeviceRecordsImpl final {
 
   void abandon() { reset(); }
 
-  static DeviceRecordsImpl &get() {
+  static DeviceRecordsImpl& get() {
     static DeviceRecordsImpl instance;
     return instance;
   }
@@ -265,9 +265,9 @@ void abandonAllRecords() {
   resetId();
 }
 
-RecordCreator::RecordCreator(const string_t &name, size_t opId,
+RecordCreator::RecordCreator(const string_t& name, size_t opId,
                              uint64_t linkCorrelationId,
-                             const ExtraRecordInfo &extraInfo) {
+                             const ExtraRecordInfo& extraInfo) {
   if (isEnable()) {
     name_ = name;
     opId_ = opId;
@@ -295,7 +295,7 @@ void RecordCreator::end() {
 DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream,
                                          int streamId, size_t opId,
                                          uint64_t linkCorrelationId,
-                                         const ExtraRecordInfo &extraInfo) {
+                                         const ExtraRecordInfo& extraInfo) {
   if (isEnable()) {
     DeviceRecordsImpl::get().ensureSetup(stream);
     name_ = name;
@@ -328,7 +328,7 @@ void DeviceRecordCreator::end() {
   end_ = true;
 }
 
-static std::string extraceFunction(const std::string &functionName) {
+static std::string extraceFunction(const std::string& functionName) {
   auto start = functionName.find_first_not_of(":");
   if (start == std::string::npos) {
     return "";
@@ -346,7 +346,7 @@ static std::string extraceFunction(const std::string &functionName) {
 }
 
 RecordBlockCreator::RecordBlockCreator(string_t name,
-                                       const ExtraRecordInfo &extraInfo,
+                                       const ExtraRecordInfo& extraInfo,
                                        deviceStream_t stream, int streamId,
                                        bool enProfile) {
   if (enProfile && isEnable()) {

@@ -7,40 +7,40 @@ namespace dipu {
 
 namespace diopi_helper {
 
-::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor &tensor) {
+::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
   return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor)
                           : nullptr;
 }
 
-::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor &tensor) {
+::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor) {
   return tensor.defined()
              ? reinterpret_cast<::diopiConstTensorHandle_t>(&tensor)
              : nullptr;
 }
 
-::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor *tensor) {
+::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor) {
   return tensor == nullptr ? nullptr : toDiopiTensorHandle(*tensor);
 }
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(
-    const c10::optional<at::Tensor> &tensor) {
+    const c10::optional<at::Tensor>& tensor) {
   if (!tensor.has_value()) return nullptr;
   return toDiopiTensorHandle(tensor.value());
 }
 
-::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator &generator) {
+::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator& generator) {
   return generator.defined()
              ? reinterpret_cast<::diopiGeneratorHandle_t>(&generator)
              : nullptr;
 }
 
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(
-    c10::optional<at::Generator> &generator) {
+    c10::optional<at::Generator>& generator) {
   if (!generator.has_value()) return nullptr;
   return toDiopiGeneratorHandle(generator.value());
 }
 
-::diopiScalar_t toDiopiScalar(const at::Scalar &scalar) {
+::diopiScalar_t toDiopiScalar(const at::Scalar& scalar) {
   ::diopiScalar_t result;
   switch (scalar.type()) {
     case c10::ScalarType::Bool: {
@@ -65,8 +65,8 @@ namespace diopi_helper {
   }
 }
 
-::diopiScalar_t toDiopiScalar(const at::Scalar &scalar,
-                              const c10::ScalarType &type) {
+::diopiScalar_t toDiopiScalar(const at::Scalar& scalar,
+                              const c10::ScalarType& type) {
   ::diopiScalar_t result;
   TORCH_CHECK(c10::canCast(scalar.type(), type));
   if (type == c10::ScalarType::Bool) {
@@ -191,7 +191,7 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
   }
 }
 
-::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef &input) {
+::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& input) {
   ::diopiSize_t diopi_size{nullptr, 0};
   if (input.has_value()) {
     diopi_size.data = input.value().data();
@@ -207,7 +207,7 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
   return diopi_size;
 }
 
-::diopiRoundMode_t toDiopiRoundMode(const std::string &rounding_mode) {
+::diopiRoundMode_t toDiopiRoundMode(const std::string& rounding_mode) {
   if (rounding_mode == "none" || rounding_mode == "None" ||
       rounding_mode.size() <= 0) {
     return RoundModeNone;

@@ -19,7 +19,7 @@ class DICLComm {
   }
 
  public:
-  explicit DICLComm(DIPUStream &bindStream)
+  explicit DICLComm(DIPUStream& bindStream)
       : diclStream_(bindStream), device_(bindStream.device()) {}
 
   ~DICLComm() noexcept {
@@ -33,20 +33,20 @@ class DICLComm {
   }
   static std::shared_ptr<DICLComm> create(int numRanks, int rank,
                                           commUniqueId uniqueid,
-                                          DIPUStream &stream) {
+                                          DIPUStream& stream) {
     auto comm = std::make_shared<DICLComm>(stream);
     comm->initRawComm(numRanks, rank, uniqueid);
     return comm;
   }
 
   // Must not be copyable
-  DICLComm(const DICLComm &) = delete;
-  DICLComm &operator=(const DICLComm &) = delete;
+  DICLComm(const DICLComm&) = delete;
+  DICLComm& operator=(const DICLComm&) = delete;
 
   // Move constructable
-  DICLComm(DICLComm &&other) = delete;
+  DICLComm(DICLComm&& other) = delete;
   // Move assignable
-  DICLComm &operator=(DICLComm &&other) = delete;
+  DICLComm& operator=(DICLComm&& other) = delete;
 
   diclComm_t rawComm() const { return rawComm_; }
 

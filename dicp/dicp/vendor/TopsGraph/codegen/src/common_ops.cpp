@@ -73,8 +73,15 @@ builder::Op enflame::BatchNorm(std::shared_ptr<builder::Builder> hlir_builder,
   std::vector<builder::Op> outputs;
 
   if (training) {
-    batch_norm_op_res =
-        builder::BatchNormTraining(input, weight, bias, eps_float, channel_dim);
+    std::vector<int64_t> input_shape = input.GetType().GetShape();
+    std::vector<std::vector<int64_t>> res_shape = {
+        input_shape, {input_shape[1]}, {input_shape[1]}};
+    builder::PrimitiveType primitive_type = input.GetType().GetPrimitiveType();
+    std::vector<builder::PrimitiveType> res_primitive_type = {
+        primitive_type, primitive_type, primitive_type};
+    builder::Type res_type(res_shape, res_primitive_type);
+    batch_norm_op_res = builder::BatchNormTraining(
+        input, weight, bias, eps_float, channel_dim, res_type);
   } else {
     batch_norm_op_res = builder::BatchNormInference(
         input, weight, bias, running_mean, running_var, eps_float, channel_dim);
