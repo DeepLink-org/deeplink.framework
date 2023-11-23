@@ -90,6 +90,7 @@ endif()
 #-------------------------add kineto as an external project ------------------------------------
 
 include(FetchContent)
+
 FetchContent_Declare(
   kineto
   URL           "${CMAKE_CURRENT_SOURCE_DIR}/kineto"

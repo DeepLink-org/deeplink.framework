@@ -3,12 +3,13 @@
 
 #include "../device/diclapis.h"
 
-using dipu::devapis::diclResult_t;
-using dipu::devapis::ReduceOp;
 namespace dipu {
 
 // need enhance return status.
 namespace devproxy {
+
+using dipu::devapis::diclResult_t;
+using dipu::devapis::ReduceOp;
 
 DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm);
 
