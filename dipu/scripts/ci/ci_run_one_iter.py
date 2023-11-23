@@ -144,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument('job_name', type=str, help='the name of the job')
     parser.add_argument('gpu_requests', type=str, help='the number of GPUs to request')
     parser.add_argument('partition', type=str, help='the partition to use')
-    parser.add_argument('model_list_selection', type=str, help='the selected model list')
+    parser.add_argument('model_list_selection', type=str, default="test_one_iter_traditional_model_list.yaml", help='the selected model list')
     args = parser.parse_args()
 
     device = args.device
