@@ -10,7 +10,7 @@
 namespace dipu {
 
 using dipu::native::dipu_wrap_diopi_copy_inp;
-class CUDACopyInplace : public DIPUCopyInplace<true, false> {
+class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
  public:
   CUDACopyInplace() = default;
   ~CUDACopyInplace() = default;
@@ -26,7 +26,7 @@ class CUDACopyInplace : public DIPUCopyInplace<true, false> {
 // vendor which has incomplete diopiCopy implementation need write a subclass
 // and override copyNodirectOnDevice like this.
 /*
-class VendorCopyInplcae: public DIPUCopyInplace<true, false> {
+class VendorCopyInplcae: public DIPUCopyInpOnDIOPI {
 public:
   VendorCopyInplcae() = default;
   ~VendorCopyInplcae() = default;

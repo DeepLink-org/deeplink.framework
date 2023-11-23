@@ -7,7 +7,7 @@
 namespace dipu {
 namespace native {
 
-static DIPUCopyInplace<false, false> onCpuCopy;
+static DIPUCopyInpOnCPU onCpuCopy;
 at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
                                        bool non_blocking) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to dipu copy, name=copy_"

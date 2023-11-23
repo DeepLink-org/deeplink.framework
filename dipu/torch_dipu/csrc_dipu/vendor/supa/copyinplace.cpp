@@ -13,7 +13,7 @@ using dipu::native::dipu_wrap_diopi_copy_inp;
 // supa's existing implementaion same as cuda, it proxy all copy case to diopi,
 // it's different with diopiCopy doc's requirement (only handle device copy),
 // so we change it's behavior as only do device copy.
-class SUPACopyInplace : public DIPUCopyInplace<true, false> {
+class SUPACopyInplace : public DIPUCopyInpOnDIOPI {
  public:
   SUPACopyInplace() = default;
   ~SUPACopyInplace() = default;

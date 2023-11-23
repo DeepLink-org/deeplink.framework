@@ -90,7 +90,7 @@ const static std::unordered_set<std::vector<diopiDtype_t>, HashCnnlCastDType>
 }  // namespace
 
 using dipu::native::dipu_wrap_diopi_copy_inp;
-class CambCopyInplace : public DIPUCopyInplace<true, false> {
+class CambCopyInplace : public DIPUCopyInpOnDIOPI {
  public:
   CambCopyInplace() = default;
   ~CambCopyInplace() = default;
@@ -99,14 +99,20 @@ class CambCopyInplace : public DIPUCopyInplace<true, false> {
                             bool non_blocking, CopyParamsInfo& info) override {
     diopiDtype_t dstDtype = dipu::diopi_helper::toDiopiDtype(dst.scalar_type());
     diopiDtype_t srcDtype = dipu::diopi_helper::toDiopiDtype(src.scalar_type());
-    // no cast and no complex
-    if (dstDtype == srcDtype && !dst.is_complex() && !src.is_complex()) {
-      DIPUCopyInplace::copyNodirectOnDevice(dst, src, non_blocking, info);
-    } else if (cnnlCastDataTypeMapping.find({srcDtype, dstDtype}) !=
-               cnnlCastDataTypeMapping.end()) {
-      DIPUCopyInplace::copyNodirectOnDevice(dst, src, non_blocking, info);
-    } else {
+    // diopiCopy(cnnlTranspose_v2) cannot handle float64 stride based
+    // copy, failed test: TestTorchDeviceType.test_memory_format_to
+    bool noSupportedTranspose = !dst.is_contiguous() && !src.is_contiguous() &&
+                                dstDtype == diopi_dtype_float64;
+    bool noSupportedDtype = dst.is_complex() || src.is_complex();
+    // cnnl only handle limited cast type.
+    bool noSupportedCast = !info.sameDtype_ &&
+                           cnnlCastDataTypeMapping.find({srcDtype, dstDtype}) ==
+                               cnnlCastDataTypeMapping.end();
+
+    if (noSupportedTranspose || noSupportedDtype || noSupportedCast) {
       doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
+    } else {
+      DIPUCopyInplace::copyNodirectOnDevice(dst, src, non_blocking, info);
     }
   }
 };

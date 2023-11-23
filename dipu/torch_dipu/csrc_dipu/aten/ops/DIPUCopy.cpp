@@ -10,7 +10,7 @@
 
 namespace dipu {
 
-static DIPUCopyInplace<true, false> default_copy_inplace_op;
+static DIPUCopyInpOnDIOPI default_copy_inplace_op;
 static DIPUCopyBase* dipu_copy_op = &default_copy_inplace_op;
 
 DIPUCopyBase* getDipuCopyInstance() {

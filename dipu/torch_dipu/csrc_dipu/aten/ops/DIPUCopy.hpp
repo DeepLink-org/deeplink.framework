@@ -32,7 +32,6 @@ enum class DIPUCopyType {
   H2D,
 };
 
-namespace {
 // Align with pytorch's behavior, see TensorIterator.cpp compute_mem_overlaps()
 inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
   assert_no_internal_overlap(dst);
@@ -129,7 +128,6 @@ inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
     dipu::devproxy::syncStream(stream.rawstream());
   }
 }
-}  // anonymous namespace
 
 struct CopyParamsInfo {
   DIPUCopyType copyType_;
@@ -482,6 +480,9 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
   }
 };
+using DIPUCopyInpOnCPU = DIPUCopyInplace<false, false>;
+using DIPUCopyInpOnDIOPI = DIPUCopyInplace<true, false>;
+using DIPUCopyInpOnDIOPIWithCast = DIPUCopyInplace<true, true>;
 
 DIPUCopyBase* getDipuCopyInstance();
 
