@@ -69,12 +69,13 @@ def get_cast_dtype(
         t1_idx = float_list.index(type1) if type1 in float_list else -1
         t2_idx = float_list.index(type2) if type2 in float_list else -1
         return float_list[max(t1_idx, t2_idx)]
-    elif type1 == torch.bool or type2 == torch.bool:
-        return torch.bool
     elif type1 in int_list or type2 in int_list:
         t1_idx = int_list.index(type1) if type1 in int_list else -1
         t2_idx = int_list.index(type2) if type2 in int_list else -1
         return int_list[max(t1_idx, t2_idx)]
+    elif type1 == torch.bool or type2 == torch.bool:
+        return torch.bool
+    
 
     assert False, str(type1) + " " + str(type2) + " can't cast these two types!"
     return None
