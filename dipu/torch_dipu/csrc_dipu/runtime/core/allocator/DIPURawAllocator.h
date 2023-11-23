@@ -21,7 +21,7 @@ namespace dipu {
       auto env = std::getenv("DIPU_DEBUG_ALLOCATOR");                          \
       return env ? std::atoi(env) : 0;                                         \
     }();                                                                       \
-    if (((mask)&value) == (mask)) {                                          \
+    if (((mask)&value) == (mask)) {                                            \
       std::cout << "[" << std::this_thread::get_id() << "]" << x << std::endl; \
     }                                                                          \
   }
