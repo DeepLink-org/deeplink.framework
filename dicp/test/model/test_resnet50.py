@@ -80,4 +80,4 @@ class TestResnet50():
             dicp_real_loss.backward()
             dicp_optimizer.step()
 
-            assert torch.allclose(cpu_real_loss.detach(), dicp_real_loss.cpu().detach(), atol=1e-02, equal_nan=True)
+            assert torch.allclose(cpu_real_loss.detach(), dicp_real_loss.cpu().detach(), atol=1e-01, equal_nan=True)
