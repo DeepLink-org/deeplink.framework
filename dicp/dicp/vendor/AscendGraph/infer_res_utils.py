@@ -101,6 +101,7 @@ def get_cast_dtype(
         return int_list[max(t1_idx, t2_idx)]
     elif type1 == torch.bool or type2 == torch.bool:
         return torch.bool
+    
 
     assert False, str(type1) + " " + str(type2) + " can't cast these two types!"
 
