@@ -6,6 +6,7 @@ import subprocess as sp
 import time
 import yaml
 import multiprocessing
+import argparse
 import logging
 log_format = '%(asctime)s - %(levelname)s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
@@ -91,12 +92,20 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh"
             cmd_cp_one_iter = ""
+        # for the inference of large language models
+        elif ('infer' in p2 and 'infer' in p3):
+            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 python {train_path}"
+            cmd_cp_one_iter = ""
         else:
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
             cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}"
     elif device == "camb" :
-        cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-        cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+        if ('infer' in p2 and 'infer' in p3):
+            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 python {train_path}"
+            cmd_cp_one_iter = ""
+        else:
+            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+            cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
         cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
         cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
@@ -130,11 +139,19 @@ def print_file(file_name):
 if __name__ == '__main__':
     # set some params
     max_parall = 8
-    device = sys.argv[1]
-    job_name = sys.argv[2]
-    gpu_requests = sys.argv[3]
-    partition = sys.argv[4]
-    model_list_selection= sys.argv[5]
+    parser = argparse.ArgumentParser(description='set some params.')
+    parser.add_argument('device', type=str, help='the device to use')
+    parser.add_argument('job_name', type=str, help='the name of the job')
+    parser.add_argument('gpu_requests', type=str, help='the number of GPUs to request')
+    parser.add_argument('partition', type=str, help='the partition to use')
+    parser.add_argument('model_list_selection', type=str, help='the selected model list')
+    args = parser.parse_args()
+
+    device = args.device
+    job_name = args.job_name
+    gpu_requests = args.gpu_requests
+    partition = args.partition
+    model_list_selection = args.model_list_selection
     logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, model_list_selection: {model_list_selection}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
