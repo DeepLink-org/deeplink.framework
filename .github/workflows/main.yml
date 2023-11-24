@@ -127,7 +127,7 @@ jobs:
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb
           rm -rf scripts
           ln -s ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source /mnt/cache/share/platform/env/camb_ci_diopi_impl
+          source /mnt/cache/share/platform/env/pt2.0v1_cpu_py310
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
@@ -268,7 +268,7 @@ jobs:
           cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
           rm -rf scripts
           ln -s ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source /mnt/cache/share/platform/env/pt2.0_diopi
+          source /mnt/cache/share/platform/env/pt2.0_diopi_cuda11.8
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
