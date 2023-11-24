@@ -10,28 +10,22 @@ def get_fake_tensor_meta_val(
     x_shape = x.size() if hasattr(x, "size") else [1]
     x_dim = len(x_shape)
     x_dtype = x.dtype if hasattr(x, "dtype") else None
-
     return x, x_shape, x_dim, x_dtype
 
 
 def get_broadcast_res_two_shape(shape1, shape2) -> Optional[list]:
     len1 = len(shape1)
     len2 = len(shape2)
-
     max_len = max(len1, len2)
-
     result_shape = []
-
     for i in range(-1, -max_len - 1, -1):
         dim1 = shape1[i] if i >= -len1 else 1
         dim2 = shape2[i] if i >= -len2 else 1
-
         if dim1 == dim2 or dim1 == 1 or dim2 == 1:
             result_shape.insert(0, max(dim1, dim2))
         else:
             print(torch.randn(shape1).shape, " ", torch.randn(shape2).shape, end=" ")
             assert False, "input shapes must be broadcastable!"
-
     return result_shape
 
 
@@ -75,20 +69,18 @@ def get_cast_dtype(
         return int_list[max(t1_idx, t2_idx)]
     elif type1 == torch.bool or type2 == torch.bool:
         return torch.bool
-    
 
     assert False, str(type1) + " " + str(type2) + " can't cast these two types!"
-    return None
 
 
 def analyze_memory_format(tensor: torch.Tensor, operation: str) -> torch.memory_format:
     original_format = tensor.memory_format
 
     if operation == "transpose":
-        # tensor = tensor.transpose(0, 1)
+        # TODO: transpose
         ...
     elif operation == "permute":
-        # tensor = tensor.permute(0, 2, 3, 1)
+        # TODO: permute
         ...
 
     return tensor.memory_format if tensor.is_contiguous() else original_format
@@ -105,7 +97,6 @@ def reduce_ops_output_size(
     else:
         dim = [dim] if not isinstance(dim, Sequence) else dim
         dim = [(d + x_dim) % x_dim for d in dim]
-
         if keepdim is True:
             shape = [1 if r in dim else ori_size for r, ori_size in enumerate(x_shape)]
         else:
@@ -114,5 +105,4 @@ def reduce_ops_output_size(
                 for r in range(x_dim)
                 if r not in dim and r - x_dim not in dim
             ]
-
     return shape
