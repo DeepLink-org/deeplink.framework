@@ -1,5 +1,5 @@
 // Copyright (c) 2023, DeepLink.
-#include <stdio.h>
+#include <cstdio>
 
 #include "./diopirt_impl.h"
 
@@ -24,7 +24,7 @@ namespace diopi_helper {
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(
     const c10::optional<at::Tensor>& tensor) {
-  if (!tensor.has_value()) return nullptr;
+  if (!tensor.has_value()) { return nullptr; }
   return toDiopiTensorHandle(tensor.value());
 }
 
@@ -36,7 +36,7 @@ namespace diopi_helper {
 
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(
     c10::optional<at::Generator>& generator) {
-  if (!generator.has_value()) return nullptr;
+  if (!generator.has_value()) { return nullptr; }
   return toDiopiGeneratorHandle(generator.value());
 }
 
@@ -73,11 +73,13 @@ namespace diopi_helper {
     result.stype = ::diopiDtype_t::diopi_dtype_int64;
     result.ival = static_cast<int64_t>(scalar.toBool());
     return result;
-  } else if (c10::isFloatingType(type)) {
+  } 
+  if (c10::isFloatingType(type)) {
     result.stype = ::diopiDtype_t::diopi_dtype_float64;
     result.fval = scalar.toDouble();
     return result;
-  } else if (c10::isIntegralType(type, false)) {
+  } 
+  if (c10::isIntegralType(type, false)) {
     result.stype = ::diopiDtype_t::diopi_dtype_int64;
     result.ival = static_cast<int64_t>(scalar.toLong());
     return result;
@@ -191,11 +193,11 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
   }
 }
 
-::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& input) {
+::diopiSize_t toDiopiSize(const at::OptionalIntArrayRef& dim) {
   ::diopiSize_t diopi_size{nullptr, 0};
-  if (input.has_value()) {
-    diopi_size.data = input.value().data();
-    diopi_size.len = input.value().size();
+  if (dim.has_value()) {
+    diopi_size.data = dim.value().data();
+    diopi_size.len = static_cast<int64_t>(dim.value().size());
   }
   return diopi_size;
 }
@@ -203,17 +205,19 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
 ::diopiSize_t toDiopiSize(at::IntArrayRef input) {
   ::diopiSize_t diopi_size{nullptr, 0};
   diopi_size.data = input.data();
-  diopi_size.len = input.size();
+  diopi_size.len = static_cast<int64_t>(input.size());
   return diopi_size;
 }
 
 ::diopiRoundMode_t toDiopiRoundMode(const std::string& rounding_mode) {
   if (rounding_mode == "none" || rounding_mode == "None" ||
-      rounding_mode.size() <= 0) {
+      rounding_mode.empty()) {
     return RoundModeNone;
-  } else if (rounding_mode == "floor") {
+  } 
+  if (rounding_mode == "floor") {
     return RoundModeFloor;
-  } else if (rounding_mode == "trunc") {
+  } 
+  if (rounding_mode == "trunc") {
     return RoundModeTrunc;
   }
   TORCH_CHECK(false,

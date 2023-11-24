@@ -13,15 +13,13 @@
 #include <csrc_dipu/runtime/rthelper.h>
 
 using at::IntArrayRef;
-using at::Layout;
-using c10::device_or_default;
-using c10::layout_or_default;
 using c10::MemoryFormat;
 using c10::StorageImpl;
 using c10::TensorImpl;
 using dipu::devproxy::current_device;
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage,
                                           size_t newsize_bytes) {
   TORCH_CHECK(storage->resizable(),
@@ -88,7 +86,7 @@ const at::Tensor& DIPUATenFunctions::resize_(
   }
   auto* self_ = self.unsafeGetTensorImpl();
   // not support stride now
-  _resize_impl_dipu_(self_, size, /*strides=*/c10::nullopt);
+  _resize_impl_dipu_(self_, size, /*stride=*/c10::nullopt);
   if (optional_memory_format.has_value()) {
     auto memory_format = optional_memory_format.value();
     TORCH_CHECK(memory_format != MemoryFormat::Preserve,
@@ -103,7 +101,8 @@ at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result,
                                                  int64_t storage_offset,
                                                  at::IntArrayRef size,
                                                  at::IntArrayRef stride) {
-  at::native::checkSetStorage(result, storage, storage_offset, size, stride);
+  at::native::checkSetStorage(result, std::move(storage), storage_offset, size,
+                              stride);
 
   result.unsafeGetTensorImpl()->set_storage_offset(storage_offset);
   at::OptionalIntArrayRef stride_opt =
@@ -112,12 +111,13 @@ at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result,
   return result;
 }
 
-at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& result) {
-  caffe2::TypeMeta dtype = result.dtype();
+at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& self) {
+  caffe2::TypeMeta dtype = self.dtype();
   c10::Storage storage(c10::Storage::use_byte_size_t(), 0,
                        dipu::getAllocator(dipu::DIPU_DEVICE_TYPE), true);
-  DIPUATenFunctions::set_storage_dipu_(result, storage, 0, {0}, {});
-  TORCH_INTERNAL_ASSERT(dtype == result.dtype());
-  return result;
+  DIPUATenFunctions::set_storage_dipu_(self, storage, 0, {0}, {});
+  TORCH_INTERNAL_ASSERT(dtype == self.dtype());
+  return self;
 }
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

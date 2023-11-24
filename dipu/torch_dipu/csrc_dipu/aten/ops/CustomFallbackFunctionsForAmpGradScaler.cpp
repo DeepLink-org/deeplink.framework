@@ -18,7 +18,7 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
                                         const at::Tensor& inv_scale) {
   scaled_grad *= inv_scale.item();
   if (!scaled_grad.isfinite().all().item<bool>()) {
-    found_inf[0] = 1.f;
+    found_inf[0] = 1.F;
   }
 }
 

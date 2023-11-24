@@ -17,40 +17,43 @@
 
 using dnative = dipu::native::DIPUATenFunctions;
 
-static std::string force_fallback_operators_list = []() -> std::string {
-  std::ifstream stream(".dipu_force_fallback_op_list.config",
-                       std::ios_base::in | std::ios::binary);
-  std::string content;
-  const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
-  if (env != nullptr) {
-    content += env;
-  }
-  if (stream.is_open()) {
-    while (!stream.eof()) {
-      std::string line;
-      stream >> line;
-      content += "," + line;
+static std::string getFallbackListContent() {
+    std::string content;
+    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+    if (env != nullptr) {
+        content += env;
     }
-  }
-  return content;
-}();
+
+    std::ifstream stream(".dipu_force_fallback_op_list.config",
+                         std::ios_base::in | std::ios::binary);
+    if (stream.is_open()) {
+        while (!stream.eof()) {
+            std::string line;
+            stream >> line;
+            content += "," + line;
+        }
+    }
+
+    return content;
+}
+
+static const std::string force_fallback_operators_list = getFallbackListContent();
 
 namespace dipu {
 bool get_force_fallback(const char* opname) {
-  if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
+  if (force_fallback_operators_list.empty() || opname == nullptr) {
     return false;
-  } else {
-    std::stringstream strstream(force_fallback_operators_list);
-    std::string force_fallback_pattern;
-    while (std::getline(strstream, force_fallback_pattern, ',')) {
-      if (force_fallback_pattern.size() <= 0) {
-        continue;
-      }
-      bool force_fallback =
-          std::regex_match(opname, std::regex(force_fallback_pattern));
-      if (force_fallback) {
-        return true;
-      }
+  }
+  std::stringstream strstream(force_fallback_operators_list);
+  std::string force_fallback_pattern;
+  while (std::getline(strstream, force_fallback_pattern, ',')) {
+    if (force_fallback_operators_list.empty()) {
+      continue;
+    }
+    bool force_fallback =
+        std::regex_match(opname, std::regex(force_fallback_pattern));
+    if (force_fallback) {
+      return true;
     }
   }
   return false;
@@ -77,7 +80,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op,
   const auto num_arguments = schema_args.size();
   auto arguments = torch::jit::last(stack, num_arguments);
 
-  auto dumpTensor = [&](const at::Tensor tensor) {
+  auto dumpTensor = [&](const at::Tensor& tensor) {
     if (tensor.defined()) {
       std::cout << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes()
                 << ", stride: " << tensor.strides()
@@ -98,7 +101,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op,
     }
   };
 
-  const auto arguments_begin = stack->size() - num_arguments;
+  // const auto arguments_begin = stack->size() - num_arguments;
   for (const auto idx : c10::irange(arguments.size())) {
     std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
     const auto& ivalue = arguments[idx];
@@ -109,9 +112,9 @@ void dump_fallback_op_args(const c10::OperatorHandle& op,
     } else if (ivalue.isTensorList()) {
       const auto& tensorlist = ivalue.toTensorList();
       std::cout << std::endl;
-      for (size_t i = 0; i < tensorlist.size(); i++) {
+      for (const auto & tensor : tensorlist) {
         std::cout << "\t";
-        dumpTensor(tensorlist[i]);
+        dumpTensor(tensor);
         std::cout << std::endl;
       }
     } else {
@@ -156,10 +159,9 @@ std::mutex DIPUOpRegister::mutex_;
 
 void DIPUOpRegister::register_op() {
   std::lock_guard<std::mutex> guard(mutex_);
-  for (auto iter = dipuOpRegisterList.begin(); iter != dipuOpRegisterList.end();
-       ++iter) {
-    torch::Library* lib = std::get<0>(*iter);
-    DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(*iter);
+  for (auto & iter : dipuOpRegisterList) {
+    torch::Library* lib = std::get<0>(iter);
+    DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(iter);
     fun_ptr(*lib);
   }
   dipuOpRegisterList.clear();
@@ -299,11 +301,11 @@ at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self,
 }
 
 at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
-    at::Tensor& self, at::Storage source, c10::SymInt storage_offset,
+    at::Tensor& self, at::Storage source, const c10::SymInt& storage_offset,
     c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
   // No device check
   // DeviceGuard omitted
-  return dnative::set_storage_dipu_(self, source, storage_offset.expect_int(),
+  return dnative::set_storage_dipu_(self, std::move(source), storage_offset.expect_int(),
                                     C10_AS_INTARRAYREF_SLOW(size),
                                     C10_AS_INTARRAYREF_SLOW(stride));
 }
@@ -414,7 +416,7 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 
 class IgnoreWarningHandler : public c10::WarningHandler {
  public:
-  void process(const c10::Warning& warning) {
+  void process(const c10::Warning& warning) override {
     // do nothing
   }
 };

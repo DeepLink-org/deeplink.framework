@@ -124,7 +124,7 @@ class DIPUThreadLocalSubqueue {
     // NB: This is a destructive operation.
     void materialize(
         std::vector<std::shared_ptr<torch::profiler::impl::Result>>& out,
-        const std::function<time_t(torch::profiler::impl::approx_time_t)>
+        const std::function<time_t(torch::profiler::impl::approx_time_t)>&
             time_converter,
         const uint64_t tid,
         const torch::profiler::impl::kineto::DeviceAndResource& kineto_info);

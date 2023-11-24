@@ -10,12 +10,10 @@
 #include <csrc_dipu/runtime/rthelper.h>
 
 using at::Layout;
-using c10::device_or_default;
 using c10::layout_or_default;
-using c10::StorageImpl;
-using c10::TensorImpl;
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 
 static c10::Allocator* GetCPUAllocatorMaybePinned(bool pin_memory) {
   if (pin_memory) {
@@ -96,4 +94,5 @@ at::Tensor DIPUATenFunctions::empty_strided_cpu(
                                            dtype);
 }
 
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

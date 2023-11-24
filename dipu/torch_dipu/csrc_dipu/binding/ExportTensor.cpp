@@ -27,16 +27,10 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
-static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
+static std::array<PyObject*, 2> splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
   PyObject* newArgs = PyTuple_New(rawSize - 1);
-  std::shared_ptr<PyObject* [2]> result(new PyObject*[2], [](PyObject** p) {
-    // if (p[1]) {    // cause segfault, why?
-    //   Py_DECREF(p[1]);
-    // }
-    delete[] p;
-    p = nullptr;
-  });
+  std::array<PyObject*, 2> result{};
   // 0 is self
   result[0] = PyTuple_GET_ITEM(args, 0);
   result[1] = newArgs;
@@ -85,7 +79,7 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
 // pybind.
 static PyMethodDef TorchTensorMethods[] = {
     {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
-     METH_VARARGS | METH_KEYWORDS, NULL},
+     METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
 
 DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods; }
