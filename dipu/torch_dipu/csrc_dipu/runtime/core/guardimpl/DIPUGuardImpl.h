@@ -65,13 +65,6 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::DeviceIndex deviceCount() const noexcept override {
-    // We'd better use C++20 std::in_range to do this.
-    using limits = std::numeric_limits<c10::DeviceIndex>;
-    auto index = devproxy::getDeviceCount();
-    // TORCH_CHECK or AT_ASSERT?
-    // We need a standard way to perform check.
-    TORCH_CHECK(limits::min() <= index && index <= limits::max(),
-                "overflow happends as index is ", index);
     return static_cast<c10::DeviceIndex>(index);
   }
 

@@ -1,7 +1,7 @@
 # !/bin/bash
 set -e
 
-function build_dipu() {
+function build() {
     path="build"
     echo "Building DIPU into: '$PWD/$path'"
     echo " - DIOPI_ROOT=${DIOPI_ROOT}"
@@ -21,9 +21,9 @@ function build_dipu() {
 
 case $1 in
     "build_dipu")
-        build_dipu ;;
+        build ;;
     "build_dipu_only")
-        build_dipu "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
+        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac
