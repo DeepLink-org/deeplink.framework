@@ -80,7 +80,7 @@ static at::Tensor& custom_fallback_dipu__index_put_impl_(
   return self;
 }
 
-static ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
+static ::std::tuple<at::Tensor, at::Tensor, at::Tensor>
 custom_fallback_dipu_native_batch_norm_out(
     const at::Tensor& input, const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt,
@@ -115,7 +115,7 @@ custom_fallback_dipu_native_batch_norm_out(
     running_var_opt.value().copy_(running_var_cpu.value());
   }
 
-  return std::tie(out, save_mean, save_invstd);
+  return {out, save_mean, save_invstd};
 }
 
 static at::Tensor custom_fallback_dipu_convolution_overrideable(
@@ -313,7 +313,7 @@ custom_fallback_dipu_native_batch_norm_backward(
   grad_weight.copy_(std::get<1>(at_out));
   grad_bias.copy_(std::get<2>(at_out));
 
-  return std::tie(grad_input, grad_weight, grad_bias);
+  return {grad_input, grad_weight, grad_bias};
 }
 
 at::Tensor& custom_fallback_dipu_copy_(at::Tensor& self, const at::Tensor& src,
