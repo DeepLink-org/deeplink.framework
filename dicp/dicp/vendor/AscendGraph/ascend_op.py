@@ -1,7 +1,12 @@
+import typing
 import torch
 from typing import Tuple
 from dicp.dynamo_bridge.operator import Operator
+import numpy as np
+from collections.abc import Sequence
+from dicp.vendor.AscendGraph.infer_res_utils import *
 
+from dicp.dynamo_bridge.utils import TensorInfo, get_memory_format
 
 aten = torch.ops.aten
 
@@ -24,10 +29,26 @@ class Adds(Operator):
     def __init__(self):
         super().__init__("adds")
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+
 
 class Add(Operator):
     def __init__(self):
         super().__init__("add")
+
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class BroadcastTo(Operator):
@@ -63,6 +84,15 @@ class Sub(Operator):
 class Mul(Operator):
     def __init__(self):
         super().__init__("Mul")
+        self.torch_op = aten.mul
+
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Div(Operator):
@@ -94,6 +124,12 @@ class Log(Operator):
     def __init__(self):
         super().__init__("Log")
 
+    def infer_result(self, x):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+
 
 class Exp(Operator):
     def __init__(self):
@@ -123,6 +159,12 @@ class Transpose(Operator):
 class SoftmaxV2(Operator):
     def __init__(self):
         super().__init__("SoftmaxV2")
+
+    def infer_result(self, x, axes=None):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x, True)
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class ReduceSumD(Operator):
@@ -189,10 +231,20 @@ class ReduceMaxD(Operator):
     def __init__(self):
         super().__init__("ReduceMaxD")
 
+    def infer_result(self, x, dims, keepdim):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
+        return TensorInfo(
+            shape=out_shape, dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+
 
 class Const(Operator):
     def __init__(self):
         super().__init__("Const")
+
+    def infer_result(self, x, dtype, x_dim):
+        return TensorInfo(x_dim, dtype=dtype, memory_format=torch.contiguous_format)
 
 
 class Sigmoid(Operator):
@@ -243,6 +295,12 @@ class InAdd(Operator):
 class Cast(Operator):
     def __init__(self):
         super().__init__("Cast")
+
+    def infer_result(self, x, dtype):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            list(x_shape), dtype=dtype, memory_format=get_memory_format(x)
+        )
 
 
 class CastToCpu(Operator):
@@ -298,6 +356,12 @@ class Conv2DBackpropFilter(Operator):
 class LogSoftmaxV2(Operator):
     def __init__(self):
         super().__init__("LogSoftmaxV2")
+
+    def infer_result(self, x, dim):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class LogSoftmaxGrad(Operator):
@@ -398,7 +462,6 @@ class SoftmaxGrad(Operator):
 class StatelessBernoulli(Operator):
     def __init__(self):
         super().__init__("StatelessBernoulli")
-        # self.torch_op = aten.bernoulli.p
 
 
 class Shape(Operator):
@@ -409,6 +472,14 @@ class Shape(Operator):
 class AddV2(Operator):
     def __init__(self):
         super().__init__("AddV2")
+
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        memory_format = get_memory_format(x1)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class StatelessRandomUniformV2(Operator):
