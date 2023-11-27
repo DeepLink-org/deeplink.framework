@@ -11,14 +11,18 @@
 namespace dipu {
 
 static DIPUCopyInpOnDIOPI default_copy_inplace_op;
-static DIPUCopyBase* dipu_copy_op = &default_copy_inplace_op;
 
-DIPUCopyBase* getDipuCopyInstance() {
-  TORCH_CHECK(dipu_copy_op, "dipu copy inplace not registered");
-  return dipu_copy_op;
+auto& dipu_copy_op() {
+  static DIPUCopyBase* dipu_copy_op_ = &default_copy_inplace_op;
+  return dipu_copy_op_;
 }
 
-void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op = op; }
+DIPUCopyBase* getDipuCopyInstance() {
+  TORCH_CHECK(dipu_copy_op(), "dipu copy inplace not registered");
+  return dipu_copy_op();
+}
+
+void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op() = op; }
 
 }  // namespace dipu
 
