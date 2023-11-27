@@ -65,7 +65,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::DeviceIndex deviceCount() const noexcept override {
-    return static_cast<c10::DeviceIndex>(index);
+    return static_cast<c10::DeviceIndex>(devproxy::getDeviceCount());
   }
 
   c10::Stream getStreamFromGlobalPool(c10::Device d,
