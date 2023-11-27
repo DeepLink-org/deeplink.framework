@@ -109,6 +109,7 @@ DIPU_API diclResult_t diclReduceScatter(
   NCCL_THROW(ncclReduceScatter(sendBuf, recvBuf, recvCount,
                                ncclDataType[datatype], ncclOp[reduceOp], comm,
                                stream));
+  return DICL_SUCCESS;
 }
 
 DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
