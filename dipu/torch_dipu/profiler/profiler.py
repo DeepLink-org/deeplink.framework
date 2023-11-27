@@ -1,3 +1,4 @@
+import os
 import torch
 from torch_dipu import _C
 from operator import attrgetter
@@ -422,3 +423,25 @@ def apply_profiler_patch():
     setattr(torch.autograd, '_add_metadata_json', _C._add_metadata_json)
     setattr(torch.autograd.profiler_util, '_build_table', dipu_build_table)
     torch.autograd.profiler.profile = DIPUProfile
+
+
+class profile(object):
+    def __init__(self, profiler_result_path="./", with_stack=False):
+        self.result_path = profiler_result_path
+        self.with_stack = with_stack
+        self.entered = False
+        try:
+            os.makedirs(self.result_path, exist_ok=True)
+        except Exception:
+            raise ValueError("the path of '%s' is invaild." % (self.result_path))
+
+    def __enter__(self):
+        if self.entered:
+            raise RuntimeError("dipu profile traces are not reentrant")
+
+        self.entered = True
+        _C._enable_profiler_api(self.result_path, self.with_stack)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _C._disable_profiler_api()

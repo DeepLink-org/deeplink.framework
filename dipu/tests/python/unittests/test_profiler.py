@@ -3,11 +3,12 @@ import torch
 import torch_dipu
 import torchvision.models as models
 from torch.profiler import profile, ProfilerActivity
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn, skipOn
 from tests.python.utils.local_eviron import local_eviron
-
+import torch._dynamo as dynamo
 
 class TestProfiler(TestCase):
+    @skipOn("NPU", "Currently only 1-norm is supported by camb for the scatter op")
     def test_profiler(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
@@ -49,6 +50,34 @@ class TestProfiler(TestCase):
         self.assertIn("Kb", profile_memory_output)
 
         prof.export_chrome_trace("./dipu_resnet18_profiler.json")
+
+    @onlyOn("CUDA")
+    def test_vendor_profiler(self):
+        x = torch.randn(3, 4).cuda()
+        y = torch.randn(3, 4).cuda()
+        with torch_dipu.profiler.profile("./results", False):
+            x.add_(y)
+
+
+    @onlyOn("NPU")
+    def test_dicp_profiler(self):
+        def fn(x):
+            y = torch.nn.functional.softmax(x, -1)
+            y = y * 5
+            y = torch.relu(y)
+            return y
+
+        opt_model = torch.compile(fn, backend='ascendgraph')
+        input = torch.randn(2, 3).cuda()
+        print(input)
+        # warmup
+        for _ in range(5):
+            opt_model(input)
+        print("finish warmup", flush=True)
+        with torch_dipu.profiler.profile("./results", False):
+            y = opt_model(input)
+            z = y + y
+
 
 if __name__ == "__main__":
     run_tests()
