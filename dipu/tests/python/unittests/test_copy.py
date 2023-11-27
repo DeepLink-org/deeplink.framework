@@ -57,7 +57,7 @@ class TestCopy(TestCase):
       
     def test_hollow_device_copy_(self):
       device = "cuda"
-      t1 = torch.ones((6, 4), device=device)
+      t1 = torch.rand((6, 4), device=device)
       dst1 = t1.as_strided((2, 2), (4, 1))
       src = torch.rand((2, 2), device=device)
       dst1.copy_(src)
