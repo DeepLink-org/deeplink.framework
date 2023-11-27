@@ -33,9 +33,6 @@ struct DIPUATenFunctions {
                                       c10::optional<at::Device> device_opt,
                                       c10::optional<bool> pin_memory_opt);
 
-  static at::Tensor& copy_(at::Tensor& self, const at::Tensor& src,
-                           bool non_blocking);
-
   static const at::Tensor& resize_(
       const at::Tensor& self, at::IntArrayRef size,
       c10::optional<at::MemoryFormat> memory_format);
