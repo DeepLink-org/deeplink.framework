@@ -3,6 +3,7 @@ cuda:
     # - model_cfg: "alpaca-lora run_llama_finetune.py workdirs_alpaca_lora_llama_finetune"
     # transformers
     - model_cfg: "transformers examples/pytorch/language-modeling/llama_7b_infer.py workdirs_transformers_llama_infer"
+    - model_cfg: "transformers examples/pytorch/language-modeling/internlm_7b_infer.py workdirs_transformers_internlm_infer"
 
 
 camb:
@@ -10,6 +11,7 @@ camb:
     # - model_cfg: "alpaca-lora run_llama_finetune.py workdirs_alpaca_lora_llama_finetune"
     # transformers
     - model_cfg: "transformers examples/pytorch/language-modeling/llama_7b_infer.py workdirs_transformers_llama_infer"
+    # - model_cfg: "transformers examples/pytorch/language-modeling/internlm_7b_infer.py workdirs_transformers_internlm_infer"
 
 
 ascend:

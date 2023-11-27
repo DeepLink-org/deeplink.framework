@@ -92,7 +92,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh"
             cmd_cp_one_iter = ""
-        # for the inference of large language models
+        # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
         elif ('infer' in p2 and 'infer' in p3):
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 python {train_path}"
             cmd_cp_one_iter = ""
@@ -100,6 +100,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
             cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}"
     elif device == "camb" :
+        # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
         if ('infer' in p2 and 'infer' in p3):
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 python {train_path}"
             cmd_cp_one_iter = ""
@@ -144,15 +145,15 @@ if __name__ == '__main__':
     parser.add_argument('job_name', type=str, help='the name of the job')
     parser.add_argument('gpu_requests', type=str, help='the number of GPUs to request')
     parser.add_argument('partition', type=str, help='the partition to use')
-    parser.add_argument('model_list_selection', type=str, nargs='?', default="test_one_iter_traditional_model_list.yaml", help='the selected model list')
+    parser.add_argument('selected_model_list', type=str, nargs='?', default="test_one_iter_large_language_model_list.yaml", help='the selected model list')
     args = parser.parse_args()
 
     device = args.device
     job_name = args.job_name
     gpu_requests = args.gpu_requests
     partition = args.partition
-    model_list_selection = args.model_list_selection
-    logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, model_list_selection: {model_list_selection}")
+    selected_model_list = args.selected_model_list
+    logging.info(f"job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, selected_model_list: {selected_model_list}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
     if device == 'cuda':
@@ -172,13 +173,13 @@ if __name__ == '__main__':
     os.environ['ONE_ITER_TOOL_DEVICE'] = "dipu"
     # For traditional models, the baseline data is generated on the CPU. However, for large language models, the baseline data needs to be generated 
     # on the GPU due to the limitation of the fp16 dtype.
-    if 'traditional' in model_list_selection:
+    if 'traditional' in selected_model_list:
         os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "cpu"
     else:
         os.environ['ONE_ITER_TOOL_DEVICE_COMPARE'] = "gpu"
     # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  # 0.2 by default
     curPath = os.path.dirname(os.path.realpath(__file__))
-    yamlPath = os.path.join(curPath, model_list_selection)
+    yamlPath = os.path.join(curPath, selected_model_list)
     with open(yamlPath, 'r', encoding='utf-8') as f:
         original_list = yaml.safe_load(f.read()).get(device, None)
         if not original_list:
