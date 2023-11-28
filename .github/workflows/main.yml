@@ -474,7 +474,7 @@ jobs:
       - name: Build PyTorch
         run: |
           set -ex
-          cd /mnt/cache/share/deeplinkci/source/pytorch
+          cd ${ASCEND_TORCH_DIR}
           if [ "$(git rev-parse HEAD)" != "${PYTORCH_COMMIT}" ]; then
             rm -rf build
           fi
