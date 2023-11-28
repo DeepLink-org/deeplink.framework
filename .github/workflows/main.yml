@@ -469,7 +469,7 @@ jobs:
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
     needs: [Rsync]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
         run: |
@@ -487,7 +487,7 @@ jobs:
   Build-Ascend-910b:
     name: Build-dipu-ascend-910b
     needs: [Build-PyTorch-For-Ascend-910b]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Build dipu
         run: |
@@ -500,7 +500,7 @@ jobs:
   Test-Ascend-910b:
     name: Test-dipu-ascend-910b
     needs: [Build-Ascend-910b]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Run a test
         run: |
@@ -512,7 +512,7 @@ jobs:
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b
     needs: [Build-Ascend-910b]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Build some env
         run: |
@@ -550,7 +550,7 @@ jobs:
   Build-Ascend-Latest-Target-910b:
     name: Build-dipu-ascend-latest-target-910b
     needs: [Build-PyTorch-For-Ascend-910b]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Build dipu diopi-latest-target
         run: |
@@ -563,7 +563,7 @@ jobs:
   Test-Ascend-Latest-Target-910b:
     name: Test-dipu-ascend-latest-target-910b
     needs: [Build-Ascend-Latest-Target-910b]
-    runs-on: tps-ascend-ci
+    runs-on: tps-ascend-ci-910b
     steps:
       - name: Run a test
         run: |
