@@ -35,6 +35,8 @@ AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'
 CheckOptions:
+  - key:   bugprone-signed-char-misuse.CharTypdefsToIgnore
+    value: true
   - key:   cppcoreguidelines-avoid-do-while.IgnoreMacros
     value: true
   - key:   cppcoreguidelines-narrowing-conversions.IgnoreConversionFromTypes
