@@ -1,2 +1,5 @@
 CompileFlags:
   Remove: -fabi*
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
