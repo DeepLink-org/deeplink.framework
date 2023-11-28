@@ -29,7 +29,7 @@ function check_and_clone_repository() {
 function clone_needed_repo() {
     set -e
     # clone some repositories
-    MMCV_VERSION=ea53ed02d7bcd856a1de42c6b408244c4fed5fa1
+    MMCV_VERSION=b366e923e46321f8e4eb26e79b622029e0eb2683
     MMENGINE_VERSION=v0.7.4
     MMPRETRAIN_VERSION=dipu_v1.0.0rc7_one_iter_tool
     MMDETECTION_VERSION=dipu_v3.0.0_one_iter_tool
