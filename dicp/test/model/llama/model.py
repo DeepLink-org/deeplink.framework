@@ -4,7 +4,7 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from common.utils import get_device
+from ...common.utils import get_device
 device = get_device()
 
 
