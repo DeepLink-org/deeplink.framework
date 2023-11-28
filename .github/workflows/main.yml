@@ -17,8 +17,9 @@ env:
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd -x SH-IDC1-10-198-8-60' }}
   CUDA_CLUSTER: SH1988
-  ASCEND_CI_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
+  CLUSTER_ASCEND_910B: ASCEND-910B
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
@@ -74,9 +75,12 @@ jobs:
           ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${ASCEND_CLUSTER} "mkdir -p ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${ASCEND_CLUSTER} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
 
   Build-Camb:
     name: Build-dipu-camb
@@ -368,7 +372,7 @@ jobs:
             rm -rf build
           fi
           if [ ! -d "build" ]; then
-            source ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
+            source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
             export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
             BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py build_ext -i || (rm -rf build && exit 1)
           fi
@@ -381,10 +385,10 @@ jobs:
       - name: Build dipu
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
-          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Ascend:
     name: Test-dipu-ascend
@@ -394,7 +398,7 @@ jobs:
       - name: Run a test
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
 
@@ -406,9 +410,9 @@ jobs:
       - name: Build some env
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
-          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend
@@ -416,9 +420,9 @@ jobs:
       - name: Run one iter tools
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
-          basic_path=${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
@@ -428,7 +432,7 @@ jobs:
         if: always()
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
           rm -rf one_iter_data
           touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
 
@@ -444,10 +448,10 @@ jobs:
       - name: Build dipu diopi-latest-target
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
-          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Ascend-Latest-Target:
     name: Test-dipu-ascend-latest-target
@@ -457,7 +461,114 @@ jobs:
       - name: Run a test
         run: |
           set -ex
-          cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
-          bash tests/run_ascend_tests.sh && cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
-          || ( cd ${ASCEND_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
+          bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
+
+  Build-PyTorch-For-Ascend-910b:
+    name: Build-dipu-pytorch-for-ascend-910b
+    needs: [Rsync]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build PyTorch
+        run: |
+          set -ex
+          cd /mnt/cache/share/deeplinkci/source/pytorch
+          if [ "$(git rev-parse HEAD)" != "${PYTORCH_COMMIT}" ]; then
+            rm -rf build
+          fi
+          if [ ! -d "build" ]; then
+            source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ascend/ci_ascend_env.sh
+            export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+            BUILD_BINARY=0 USE_PRECOMPILED_HEADERS=1 BUILD_TEST=0 USE_CUDA=0 python setup.py build_ext -i || (rm -rf build && exit 1)
+          fi
+
+  Build-Ascend-910b:
+    name: Build-dipu-ascend-910b
+    needs: [Build-PyTorch-For-Ascend-910b]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Ascend-910b:
+    name: Test-dipu-ascend-910b
+    needs: [Build-Ascend-910b]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash tests/run_ascend_tests.sh
+
+  Test-One-Iter-Ascend-910b:
+    name: Test-one-iter-ascend-910b
+    needs: [Build-Ascend-910b]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_ascend
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
+
+  Build-Ascend-Latest-Target-910b:
+    name: Build-dipu-ascend-latest-target-910b
+    needs: [Build-PyTorch-For-Ascend-910b]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Ascend-Latest-Target-910b:
+    name: Test-dipu-ascend-latest-target-910b
+    needs: [Build-Ascend-Latest-Target-910b]
+    runs-on: tps-ascend-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
