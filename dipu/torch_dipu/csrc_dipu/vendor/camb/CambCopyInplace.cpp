@@ -117,8 +117,8 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
   }
 };
 
-static CambCopyInplace camb_copy_inplace;
-static int32_t camb_init = []() {
+const static CambCopyInplace camb_copy_inplace;
+const static int32_t camb_init = []() {
   setDipuCopyInstance(&camb_copy_inplace);
   return 1;
 }();

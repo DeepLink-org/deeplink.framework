@@ -44,9 +44,8 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
 
 inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
-  if (tensor.is_cpu() && tensor.options().pinned_memory()) {
-    tensor.record_stream(curStream);
-  } else if (!is_default_stream) {
+  if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
+      !is_default_stream) {
     tensor.record_stream(curStream);
   }
 }
@@ -486,7 +485,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     at::Tensor tmpSrc = src;
     if (!info.sameSize_) {
       tmpSrc = src.expand_as(dst);
-      info.recomputeTensorsInfo(tmpSrc, dst);
+      info.recomputeTensorsInfo(dst, tmpSrc);
     }
     if (info.directMemCopy_) {
       doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
