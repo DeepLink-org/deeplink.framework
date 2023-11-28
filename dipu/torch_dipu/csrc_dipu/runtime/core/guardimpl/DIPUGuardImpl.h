@@ -7,13 +7,9 @@
 
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h>
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
-
 namespace dipu {
-// seems DIPUCachingAllocator.h and this class has Cycle reference? need
-// refactor?
-void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
-
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;
   DIPUGuardImpl() {}

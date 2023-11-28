@@ -8,8 +8,10 @@
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
 
-#include "../DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+
 #include "DIPUAsyncResourcePool.h"
+#include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
 
 namespace dipu {
@@ -136,24 +138,6 @@ void setAllocator(const std::string name, c10::DeviceType device_type,
                   uint8_t priority = 0);
 
 c10::Allocator* getAllocator(c10::DeviceType device_type);
-
-size_t memoryReserved(const c10::Device& device);
-
-size_t memoryAllocated(const c10::Device& device);
-
-size_t maxMemoryReserved(const c10::Device& device);
-
-size_t maxMemoryAllocated(const c10::Device& device);
-
-void emptyCachedMem();
-
-void initCachedAllocator();
-
-void releaseAllDeviceMem();
-
-void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
-
-void recordStream(const at::Tensor& tensor, DIPUStream stream);
 
 namespace {  // For internal implementation only
 
