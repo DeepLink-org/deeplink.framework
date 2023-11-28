@@ -10,9 +10,10 @@
 
 namespace dipu {
 
-static DIPUCopyInpOnDIOPI default_copy_inplace_op;
+static DIPUCopyInpOnDIOPI default_copy_inplace_op;  // NOLINT
 
 auto& dipu_copy_op() {
+  // NOLINTNEXTLINE
   static DIPUCopyBase* dipu_copy_op_ = &default_copy_inplace_op;
   return dipu_copy_op_;
 }
@@ -26,7 +27,8 @@ void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op() = op; }
 
 }  // namespace dipu
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
   AT_DISPATCH_ALL_TYPES_AND2(
@@ -42,4 +44,5 @@ at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
       });
   return r;
 }
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

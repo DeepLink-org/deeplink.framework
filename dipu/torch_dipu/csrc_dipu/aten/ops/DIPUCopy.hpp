@@ -53,14 +53,15 @@ inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
   bool isSrcDevice = dipu::isDeviceTensor(src);
   bool isDstDevice = dipu::isDeviceTensor(dst);
+  auto ret = DIPUCopyType::D2Self;
   if (!isSrcDevice) {
-    return DIPUCopyType::H2D;  // this op not handle h2h, dest always device
+    ret = DIPUCopyType::H2D;  // this op not handle h2h, dest always device
   } else if (!isDstDevice) {
-    return DIPUCopyType::D2H;  // here src always device
+    ret = DIPUCopyType::D2H;  // here src always device
   } else if (src.device().index() != dst.device().index()) {
-    return DIPUCopyType::D2OtherD;
+    ret = DIPUCopyType::D2OtherD;
   }
-  return DIPUCopyType::D2Self;
+  return ret;
 }
 
 inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
@@ -70,10 +71,12 @@ inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
     TORCH_CHECK(false, "mem copy with different tensor size is not allowed");
   }
   if (nonOverlappingAndDense) {
-    return dst.nbytes();
+    return static_cast<int64_t>(dst.nbytes());
   }
-  int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-  int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+  auto dstBytes = static_cast<int64_t>(
+      dst.unsafeGetTensorImpl()->unsafe_storage().nbytes());
+  auto srcBytes = static_cast<int64_t>(
+      src.unsafeGetTensorImpl()->unsafe_storage().nbytes());
   return std::min(srcBytes, dstBytes);
 }
 
@@ -266,17 +269,16 @@ class DIPUCopyInplace : public DIPUCopyBase {
       auto sameAsSrc = at::empty(src.sizes(), src.options().device(newDevice),
                                  src.suggest_memory_format());
       return sameAsSrc;
-    } else {
-      // empty_strided is much expensive than empty_memory_format().
-      // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
-      auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),
-                                         src.options().device(newDevice));
-      // prefill newTensor to support backfill in future.
-      if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
-        doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
-      }
-      return sameAsSrc;
     }
+    // empty_strided is much expensive than empty_memory_format().
+    // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
+    auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),
+                                       src.options().device(newDevice));
+    // prefill newTensor to support backfill in future.
+    if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
+      doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
+    }
+    return sameAsSrc;
   }
 
   // NOTICE: this func maximize leverage device copy (D2Self)

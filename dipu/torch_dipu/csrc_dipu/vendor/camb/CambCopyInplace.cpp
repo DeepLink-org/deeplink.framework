@@ -16,17 +16,20 @@ namespace dipu {
 // only cover commonly used cases, leaving diopi developer to optimize.
 namespace {
 struct HashCnnlCastDType {
+  const static int64_t HashMagic = 0x9e3779b9;
+  const static int64_t ShiftLeft = 6;
+  const static int64_t ShiftRight = 2;
   size_t operator()(const std::vector<diopiDtype_t>& vec) const {
     size_t ret = 0;
     for (auto it : vec) {
-      ret = (ret ^ static_cast<size_t>(it)) + 0x9e3779b9 + (ret << 6) +
-            (ret >> 2);
+      ret = (ret ^ static_cast<size_t>(it)) + HashMagic + (ret << ShiftLeft) +
+            (ret >> ShiftRight);
     }
     return ret;
   }
 };
 
-const static std::unordered_set<std::vector<diopiDtype_t>, HashCnnlCastDType>
+const std::unordered_set<std::vector<diopiDtype_t>, HashCnnlCastDType>
     cnnlCastDataTypeMapping{
         {{diopi_dtype_bool, diopi_dtype_int32}},
         {{diopi_dtype_bool, diopi_dtype_float16}},
@@ -89,11 +92,10 @@ const static std::unordered_set<std::vector<diopiDtype_t>, HashCnnlCastDType>
     };
 }  // namespace
 
-using dipu::native::dipu_wrap_diopi_copy_inp;
 class CambCopyInplace : public DIPUCopyInpOnDIOPI {
  public:
   CambCopyInplace() = default;
-  ~CambCopyInplace() = default;
+  ~CambCopyInplace() override = default;
 
   void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                             bool non_blocking, CopyParamsInfo& info) override {
@@ -117,7 +119,7 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
   }
 };
 
-const static CambCopyInplace camb_copy_inplace;
+static CambCopyInplace camb_copy_inplace;  // NOLINT
 const static int32_t camb_init = []() {
   setDipuCopyInstance(&camb_copy_inplace);
   return 1;
