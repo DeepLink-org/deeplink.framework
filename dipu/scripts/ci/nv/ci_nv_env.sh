@@ -10,7 +10,7 @@ export CXX=${GCC_ROOT}/bin/g++
 
 export CUDA_PATH=${PLATFORM}/dep/cuda11.8-cudnn8.9
 export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.8
-export NCCL_ROOT=${PLATFORM}/dep/nccl-2.13.4-cuda11.8
+export NCCL_ROOT=${PLATFORM}/dep/nccl-2.15.5-cuda11.8
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
 
