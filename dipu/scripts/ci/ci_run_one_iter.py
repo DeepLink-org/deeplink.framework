@@ -43,7 +43,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         work_dir = ""
         opt_arg = ""
         package_name = "diengine"
-    elif ("trans" in p1 or "alpaca" in p1):
+    elif ("trans" in p1):
         train_path = p1 + "/" + p2
         config_path = ""
         work_dir = ""
