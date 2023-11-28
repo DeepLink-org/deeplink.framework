@@ -145,14 +145,18 @@ if __name__ == '__main__':
     parser.add_argument('job_name', type=str, help='the name of the job')
     parser.add_argument('gpu_requests', type=str, help='the number of GPUs to request')
     parser.add_argument('partition_arg', type=str, help='the arg of partition')
-    parser.add_argument('selected_model_list', type=str, nargs='?', default="test_one_iter_traditional_model_list.yaml", help='the selected model list')
+    parser.add_argument('selection_of_model_list', type=str, nargs='?', default="traditional", choices=["traditional", "llm"], help='the selection of model list')
     args = parser.parse_args()
 
     device = args.device
     job_name = args.job_name
     gpu_requests = args.gpu_requests
     partition = args.partition_arg
-    selected_model_list = args.selected_model_list
+    # traditional and llm options are represented as one iter test for traditional models and large language models, respectively
+    if args.selection_of_model_list == "traditional":
+        selected_model_list = "test_one_iter_traditional_model_list.yaml"
+    elif args.selection_of_model_list == "llm":
+        selected_model_list = "test_one_iter_large_language_model_list.yaml"      
     logging.info(f"device: {device}, job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, selected_model_list: {selected_model_list}")
     error_flag = multiprocessing.Value('i', 0)  # if encount error
     max_model_num = 100
