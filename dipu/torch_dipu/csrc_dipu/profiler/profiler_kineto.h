@@ -13,17 +13,17 @@ namespace dipu {
 namespace profile {
 
 void prepareProfiler(
-    const torch::profiler::impl::ProfilerConfig &config,
-    const std::set<torch::profiler::impl::ActivityType> &activities);
+    const torch::profiler::impl::ProfilerConfig& config,
+    const std::set<torch::profiler::impl::ActivityType>& activities);
 
 void enableProfiler(
-    const torch::profiler::impl::ProfilerConfig &config,
-    const std::set<torch::profiler::impl::ActivityType> &activities,
-    const std::unordered_set<at::RecordScope> &scopes = {});
+    const torch::profiler::impl::ProfilerConfig& config,
+    const std::set<torch::profiler::impl::ActivityType>& activities,
+    const std::unordered_set<at::RecordScope>& scopes = {});
 
 std::unique_ptr<torch::autograd::profiler::ProfilerResult> disableProfiler();
 
-void addMetadataJson(const std::string &key, const std::string &value);
+void addMetadataJson(const std::string& key, const std::string& value);
 
 void profilerStep();
 

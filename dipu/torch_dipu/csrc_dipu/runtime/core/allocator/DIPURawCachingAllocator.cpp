@@ -4,7 +4,7 @@
 
 namespace dipu {
 
-static void deleteRawCachingAllocatorContext(void *);
+static void deleteRawCachingAllocatorContext(void*);
 
 class RawCachingAllocator : public CacheAllocator {
  public:
@@ -14,7 +14,7 @@ class RawCachingAllocator : public CacheAllocator {
 
   class Context : public DataPtrContextBase {
    public:
-    Context(const CacheAllocator *allocator, void *ptr, size_t size,
+    Context(const CacheAllocator* allocator, void* ptr, size_t size,
             size_t real_size)
         : DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {}
     ~Context() {
@@ -23,7 +23,7 @@ class RawCachingAllocator : public CacheAllocator {
         events.emplace_back();
         events.back().record(*iter);
       }
-      auto allocator_ = static_cast<const RawCachingAllocator *>(allocator());
+      auto allocator_ = static_cast<const RawCachingAllocator*>(allocator());
       allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
       allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                        real_size_);
@@ -35,7 +35,7 @@ class RawCachingAllocator : public CacheAllocator {
   size_t getAllocateSize(size_t nbytes) const {
     static const size_t kMinAllocationSize = []() {
       size_t size = 512;
-      const char *env = std::getenv("DIPU_RAW_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      const char* env = std::getenv("DIPU_RAW_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
       }
@@ -63,7 +63,7 @@ class RawCachingAllocator : public CacheAllocator {
     while (async_mem_pool()->size() > 0) {
       if (async_mem_pool()->ready()) {
         auto mem = async_mem_pool()->get();
-        void *ptr = std::get<0>(mem);
+        void* ptr = std::get<0>(mem);
         size_t size = std::get<1>(mem);
         size_t nbytes = getAllocateSize(size);
         raw_allocator()->raw_deallocate(ptr);
@@ -80,8 +80,8 @@ class RawCachingAllocator : public CacheAllocator {
   }
 };
 
-static void deleteRawCachingAllocatorContext(void *ptr) {
-  auto ctx = static_cast<RawCachingAllocator::Context *>(ptr);
+static void deleteRawCachingAllocatorContext(void* ptr) {
+  auto ctx = static_cast<RawCachingAllocator::Context*>(ptr);
   delete ctx;
 }
 

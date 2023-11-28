@@ -42,7 +42,7 @@ class MLUGeneratorImpl : public dipu::DIPUGeneratorImpl {
    *
    * See Note [Acquire lock when using random generators]
    */
-  void set_state(const c10::TensorImpl &state) override {
+  void set_state(const c10::TensorImpl& state) override {
     auto state_size = state.numel();
     TORCH_CHECK(state_size == mlu_state_size, "RNG state is wrong size");
 

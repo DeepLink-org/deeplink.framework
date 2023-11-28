@@ -13,9 +13,9 @@ namespace native {
 
 namespace {
 
-void _amp_non_finite_check_and_unscale_(at::Tensor &scaled_grad,
-                                        at::Tensor &found_inf,
-                                        const at::Tensor &inv_scale) {
+void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
+                                        at::Tensor& found_inf,
+                                        const at::Tensor& inv_scale) {
   scaled_grad *= inv_scale.item();
   if (!scaled_grad.isfinite().all().item<bool>()) {
     found_inf[0] = 1.f;
@@ -37,18 +37,18 @@ void _amp_non_finite_check_and_unscale_(at::Tensor &scaled_grad,
 // inv_scale     The inverse of the scale factor by which scaled_grads are
 //               currently multiplied.
 void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
-    at::TensorList scaled_grads, at::Tensor &found_inf,
-    const at::Tensor &inv_scale) {
+    at::TensorList scaled_grads, at::Tensor& found_inf,
+    const at::Tensor& inv_scale) {
   DIPU_OP_LOG_WARNING_ONCE(
       "custom fallback to separated ops, "
       "name=_amp_foreach_non_finite_check_and_unscale_"
       << std::endl);
   TORCH_CHECK(inv_scale.numel() == 1, "inv_scale must be a 1-element tensor.");
   TORCH_CHECK(found_inf.numel() == 1, "found_inf must be a 1-element tensor.");
-  for (const at::Tensor &t : scaled_grads) {
+  for (const at::Tensor& t : scaled_grads) {
     // NOLINTNEXTLINE: const_cast here is safe according to pytorch's source
     // code
-    _amp_non_finite_check_and_unscale_(const_cast<at::Tensor &>(t), found_inf,
+    _amp_non_finite_check_and_unscale_(const_cast<at::Tensor&>(t), found_inf,
                                        inv_scale);
   }
 }
@@ -71,9 +71,9 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
 //
 // Returns:
 // current_scale
-at::Tensor &custom_fallback_dipu__amp_update_scale_(at::Tensor &current_scale,
-                                                    at::Tensor &growth_tracker,
-                                                    const at::Tensor &found_inf,
+at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
+                                                    at::Tensor& growth_tracker,
+                                                    const at::Tensor& found_inf,
                                                     double growth_factor,
                                                     double backoff_factor,
                                                     int64_t growth_interval) {

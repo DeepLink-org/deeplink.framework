@@ -20,7 +20,7 @@ class NPUGeneratorImpl : public dipu::DIPUGeneratorImpl {
   NPUGeneratorImpl(at::DeviceIndex device_index)
       : dipu::DIPUGeneratorImpl(device_index) {}
 
-  void set_state(const c10::TensorImpl &state) override {
+  void set_state(const c10::TensorImpl& state) override {
     at::detail::check_rng_state(state);
     auto state_size = state.numel();
     TORCH_CHECK(

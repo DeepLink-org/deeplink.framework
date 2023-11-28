@@ -12,7 +12,7 @@
 
 namespace dipu {
 static at::Tensor dispatch_to(
-    const at::Tensor &self, at::Device device, bool non_blocking, bool copy,
+    const at::Tensor& self, at::Device device, bool non_blocking, bool copy,
     c10::optional<c10::MemoryFormat> optional_memory_format) {
   pybind11::gil_scoped_release no_gil;
   // NOTE: this is where we record aten::to in the graph during tracing.
@@ -27,10 +27,10 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
-static std::shared_ptr<PyObject *[2]> splitArgs(PyObject *args) {
+static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
-  PyObject *newArgs = PyTuple_New(rawSize - 1);
-  std::shared_ptr<PyObject *[2]> result(new PyObject *[2], [](PyObject **p) {
+  PyObject* newArgs = PyTuple_New(rawSize - 1);
+  std::shared_ptr<PyObject* [2]> result(new PyObject*[2], [](PyObject** p) {
     // if (p[1]) {    // cause segfault, why?
     //   Py_DECREF(p[1]);
     // }
@@ -49,8 +49,8 @@ static std::shared_ptr<PyObject *[2]> splitArgs(PyObject *args) {
 }
 
 // first parameter is export module torchdipu_module, not self tensor
-static PyObject *THPVariable_dipu(PyObject *module, PyObject *args,
-                                  PyObject *kwargs) {
+static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
+                                  PyObject* kwargs) {
   HANDLE_TH_ERRORS
   static torch::PythonArgParser parser(
       {"dipu(Device? device=None, bool non_blocking=False, *, MemoryFormat? "
@@ -59,10 +59,10 @@ static PyObject *THPVariable_dipu(PyObject *module, PyObject *args,
        "memory_format=None)|deprecated"});
 
   auto res = splitArgs(args);
-  PyObject *self = res[0];
-  PyObject *newArgs = res[1];
+  PyObject* self = res[0];
+  PyObject* newArgs = res[1];
 
-  auto &self_ = THPVariable_Unpack(self);
+  auto& self_ = THPVariable_Unpack(self);
   torch::ParsedArgs<3> parsed_args;
   auto r = parser.parse(self, newArgs, kwargs, parsed_args);
 
@@ -88,5 +88,5 @@ static PyMethodDef TorchTensorMethods[] = {
      METH_VARARGS | METH_KEYWORDS, NULL},
     {nullptr, nullptr, 0, nullptr}};
 
-DIPU_API PyMethodDef *exportTensorFunctions() { return TorchTensorMethods; }
+DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods; }
 }  // namespace dipu

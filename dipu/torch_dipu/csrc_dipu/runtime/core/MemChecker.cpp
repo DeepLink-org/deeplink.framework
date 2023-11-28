@@ -22,7 +22,7 @@ MemChecker::~MemChecker() {
   if (!blocks_.empty()) {
     std::cout << "dipu memory checker: there maybe exist memory leak. "
               << blocks_.size() << " blocks not released." << std::endl;
-    for (const auto &kv : blocks_) {
+    for (const auto& kv : blocks_) {
       std::cout << "key: " << kv.first << ", ptr: " << kv.second.first
                 << ", trace: " << kv.second.second << std::endl;
     }
@@ -31,7 +31,7 @@ MemChecker::~MemChecker() {
             << std::endl;
 }
 
-MemChecker &MemChecker::instance() {
+MemChecker& MemChecker::instance() {
   static MemChecker checker;
   return checker;
 }
@@ -49,7 +49,7 @@ bool MemChecker::enable_backtrace() {
 
 int32_t MemChecker::max_block_num() {
   static int32_t max_block = []() -> int32_t {
-    const char *str = std::getenv("DIPU_MEM_CHECK_MAX_BLOCK");
+    const char* str = std::getenv("DIPU_MEM_CHECK_MAX_BLOCK");
     if (str == nullptr) {
       return DEFAULT_MAX_BLOCK_NUM;
     }
@@ -61,7 +61,7 @@ int32_t MemChecker::max_block_num() {
 
 int32_t MemChecker::log_interval() {
   static int32_t interval = []() -> int32_t {
-    const char *str = std::getenv("DIPU_MEM_CHECK_LOG_INTERVAL");
+    const char* str = std::getenv("DIPU_MEM_CHECK_LOG_INTERVAL");
     if (str == nullptr) {
       return DEFAULT_LOG_INTERVAL;
     }
@@ -81,7 +81,7 @@ std::string MemChecker::current_state() const {
   return stream.str();
 }
 
-void MemChecker::insert(const void *ptr, size_t size) {
+void MemChecker::insert(const void* ptr, size_t size) {
   if (!enable() || ptr == nullptr) {
     return;
   }
@@ -115,7 +115,7 @@ void MemChecker::insert(const void *ptr, size_t size) {
   }
 }
 
-void MemChecker::erase(const void *ptr) {
+void MemChecker::erase(const void* ptr) {
   if (!enable() || ptr == nullptr) {
     return;
   }
@@ -139,12 +139,12 @@ void MemChecker::erase(const void *ptr) {
   }
 }
 
-void MemChecker::check(const at::Tensor &input) {
-  const void *ptr = input.unsafeGetTensorImpl()->unsafe_storage().data();
+void MemChecker::check(const at::Tensor& input) {
+  const void* ptr = input.unsafeGetTensorImpl()->unsafe_storage().data();
   check(ptr);
 }
 
-void MemChecker::check(const void *ptr) {
+void MemChecker::check(const void* ptr) {
   if (!enable()) {
     return;
   }

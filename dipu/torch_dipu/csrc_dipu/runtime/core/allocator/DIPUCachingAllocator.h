@@ -14,7 +14,7 @@
 
 namespace dipu {
 
-using AsyncMemPool = AsyncResourcePool<std::tuple<void *, size_t>>;
+using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
 class MemStats {
  private:
@@ -62,28 +62,28 @@ class MemStats {
 };
 
 class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
-  c10::Allocator *raw_allocator_ = nullptr;
-  AsyncMemPool *async_mem_pool_ = nullptr;
+  c10::Allocator* raw_allocator_ = nullptr;
+  AsyncMemPool* async_mem_pool_ = nullptr;
   mutable c10::Device device_ = c10::DeviceType::CPU;
 
  protected:
-  c10::Allocator *raw_allocator() const { return raw_allocator_; }
+  c10::Allocator* raw_allocator() const { return raw_allocator_; }
 
-  AsyncMemPool *async_mem_pool() const { return async_mem_pool_; }
+  AsyncMemPool* async_mem_pool() const { return async_mem_pool_; }
 
-  void *allocate_raw(size_t n) { return raw_allocator()->raw_allocate(n); }
+  void* allocate_raw(size_t n) { return raw_allocator()->raw_allocate(n); }
 
-  void free_raw(void *ptr) { return raw_allocator()->raw_deallocate(ptr); }
+  void free_raw(void* ptr) { return raw_allocator()->raw_deallocate(ptr); }
 
  public:
   CacheAllocator() {}
 
-  void set_raw_allocator(c10::Allocator *raw_allocator) {
+  void set_raw_allocator(c10::Allocator* raw_allocator) {
     raw_allocator_ = raw_allocator;
     device_ = raw_allocator_->allocate(0).device();
   }
 
-  void set_async_mem_pool(AsyncMemPool *async_mem_pool) {
+  void set_async_mem_pool(AsyncMemPool* async_mem_pool) {
     async_mem_pool_ = async_mem_pool;
   }
 
@@ -95,17 +95,17 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
 
   virtual void release_all_memory() const = 0;
 
-  c10::Device &device() const { return device_; }
+  c10::Device& device() const { return device_; }
 
   class DataPtrContextBase {
    private:
     std::set<DIPUStream> streams_;
-    mutable const CacheAllocator *allocator_ = nullptr;
-    void *ptr_ = nullptr;
+    mutable const CacheAllocator* allocator_ = nullptr;
+    void* ptr_ = nullptr;
     size_t size_ = 0;
 
    public:
-    DataPtrContextBase(const CacheAllocator *allocator, void *ptr, size_t size)
+    DataPtrContextBase(const CacheAllocator* allocator, void* ptr, size_t size)
         : allocator_(allocator), ptr_(ptr), size_(size) {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
         auto current_stream = getCurrentDIPUStream();
@@ -121,29 +121,29 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
 
     ~DataPtrContextBase() { MemChecker::instance().erase(ptr_); }
 
-    std::set<DIPUStream> &streams() { return streams_; }
+    std::set<DIPUStream>& streams() { return streams_; }
 
-    const CacheAllocator *allocator() { return allocator_; }
+    const CacheAllocator* allocator() { return allocator_; }
 
-    void *ptr() { return ptr_; }
+    void* ptr() { return ptr_; }
 
     size_t size() { return size_; }
   };
 };
 
 void setAllocator(const std::string name, c10::DeviceType device_type,
-                  std::function<c10::Allocator *(int)> allocator_get_fn,
+                  std::function<c10::Allocator*(int)> allocator_get_fn,
                   uint8_t priority = 0);
 
-c10::Allocator *getAllocator(c10::DeviceType device_type);
+c10::Allocator* getAllocator(c10::DeviceType device_type);
 
-size_t memoryReserved(const c10::Device &device);
+size_t memoryReserved(const c10::Device& device);
 
-size_t memoryAllocated(const c10::Device &device);
+size_t memoryAllocated(const c10::Device& device);
 
-size_t maxMemoryReserved(const c10::Device &device);
+size_t maxMemoryReserved(const c10::Device& device);
 
-size_t maxMemoryAllocated(const c10::Device &device);
+size_t maxMemoryAllocated(const c10::Device& device);
 
 void emptyCachedMem();
 
@@ -151,16 +151,16 @@ void initCachedAllocator();
 
 void releaseAllDeviceMem();
 
-void recordStream(const c10::DataPtr &ptr, DIPUStream stream);
+void recordStream(const c10::DataPtr& ptr, DIPUStream stream);
 
-void recordStream(const at::Tensor &tensor, DIPUStream stream);
+void recordStream(const at::Tensor& tensor, DIPUStream stream);
 
 namespace {  // For internal implementation only
 
 struct AllocatorRegisterer {
   explicit AllocatorRegisterer(
       const std::string name, c10::DeviceType device_type,
-      std::function<c10::Allocator *(int)> allocator_get_fn,
+      std::function<c10::Allocator*(int)> allocator_get_fn,
       uint8_t priority = 0) {
     setAllocator(name, device_type, allocator_get_fn, priority);
   }
@@ -180,7 +180,7 @@ struct RawAllocator<at::DeviceType::CPU> {
 };
 
 template <typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>
-c10::Allocator *get_allocator_impl(c10::Allocator *raw_allocator) {
+c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
   // Construct when really needed
   // async_mem_pool is used when cache_allocator being destructed so it should
   // be destructed after cache_allocator
@@ -195,7 +195,7 @@ c10::Allocator *get_allocator_impl(c10::Allocator *raw_allocator) {
 }
 
 template <class AllocatorImpl, class AsyncMemPoolImpl>
-c10::Allocator *get_allocator(int device_id, c10::Allocator *raw_allocator) {
+c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
 #define allocator_dispatch_device_id(id)                            \
   if (device_id == id) {                                            \
     return get_allocator_impl<AllocatorImpl, AsyncMemPoolImpl, id>( \
@@ -224,9 +224,9 @@ c10::Allocator *get_allocator(int device_id, c10::Allocator *raw_allocator) {
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority) \
   namespace name##device_type {                                                \
     static RawAllocator<device_type>::type raw_allocator;                      \
-    using AsyncMemPool = AsyncResourcePoolImpl<std::tuple<void *, size_t>,     \
+    using AsyncMemPool = AsyncResourcePoolImpl<std::tuple<void*, size_t>,      \
                                                device_type, priority>;         \
-    static std::function<c10::Allocator *(int)> allocator_get_fn =             \
+    static std::function<c10::Allocator*(int)> allocator_get_fn =              \
         std::bind(get_allocator<CachingAllocator, AsyncMemPool>,               \
                   std::placeholders::_1, &raw_allocator);                      \
     static AllocatorRegisterer g_allocator(#name, device_type,                 \

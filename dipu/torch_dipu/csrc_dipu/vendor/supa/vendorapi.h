@@ -10,7 +10,7 @@ namespace dipu {
 
 using deviceStream_t = suStream_t;
 using deviceEvent_t = suEvent_t;
-using deviceHandle_t = suContext *;
+using deviceHandle_t = suContext*;
 using deviceId_t = int;
 
 using diclComm_t = succlComm_t;

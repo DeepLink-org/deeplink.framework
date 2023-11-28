@@ -10,7 +10,7 @@
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 namespace dipu {
 
-const char *getDipuCommitId() { return DIPU_GIT_HASH; }
+const char* getDipuCommitId() { return DIPU_GIT_HASH; }
 
 static void printPromptAtStartup() {
   auto time = std::time(nullptr);

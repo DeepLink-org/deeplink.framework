@@ -10,7 +10,7 @@ namespace detail {
 
 namespace py = pybind11;
 
-at::ScalarType dtypeToScalarType(PyObject *dtype_obj) {
+at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
   TORCH_INTERNAL_ASSERT(THPDtype_Check(dtype_obj));
   // PyTorch does not care about aliasing and is compiled with
   // `-fno-strict-aliasing`.
@@ -22,8 +22,8 @@ at::ScalarType dtypeToScalarType(PyObject *dtype_obj) {
   return dtype.scalar_type;
 }
 
-PyObject *scalarTypeToDtype(at::ScalarType scalar_type) {
-  const char *dtype_name = nullptr;
+PyObject* scalarTypeToDtype(at::ScalarType scalar_type) {
+  const char* dtype_name = nullptr;
   switch (scalar_type) {
     case at::ScalarType::Float:
       dtype_name = "float32";
@@ -42,10 +42,10 @@ PyObject *scalarTypeToDtype(at::ScalarType scalar_type) {
       throw std::runtime_error("Unsupported scalar type");
   }
 
-  PyObject *torch_module = PyImport_ImportModule("torch");
+  PyObject* torch_module = PyImport_ImportModule("torch");
   TORCH_INTERNAL_ASSERT(torch_module);
 
-  PyObject *dtype_obj = PyObject_GetAttrString(torch_module, dtype_name);
+  PyObject* dtype_obj = PyObject_GetAttrString(torch_module, dtype_name);
   TORCH_INTERNAL_ASSERT(dtype_obj);
 
   Py_DECREF(torch_module);  // Decrement the refcount for the torch module
@@ -54,7 +54,7 @@ PyObject *scalarTypeToDtype(at::ScalarType scalar_type) {
                      // refcount of dtype_obj
 }
 
-bool isDtype(PyObject *obj) { return THPDtype_Check(obj); }
+bool isDtype(PyObject* obj) { return THPDtype_Check(obj); }
 
 template <>
 struct type_caster<at::ScalarType> {
@@ -63,7 +63,7 @@ struct type_caster<at::ScalarType> {
 
   bool load(py::handle src, bool) {
     // Convert Python torch.dtype to at::ScalarType
-    PyObject *obj = src.ptr();
+    PyObject* obj = src.ptr();
     if (isDtype(obj)) {
       value = dtypeToScalarType(obj);
       return true;
@@ -71,7 +71,7 @@ struct type_caster<at::ScalarType> {
     return false;
   }
 
-  static py::handle cast(const at::ScalarType &src,
+  static py::handle cast(const at::ScalarType& src,
                          py::return_value_policy /* policy */,
                          py::handle /* parent */) {
     // Convert at::ScalarType to Python torch.dtype

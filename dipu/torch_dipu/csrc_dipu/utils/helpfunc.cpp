@@ -7,7 +7,7 @@
 #endif
 
 namespace dipu {
-bool isDeviceTensor(const at::Tensor &tensor) {
+bool isDeviceTensor(const at::Tensor& tensor) {
   // same as tensor.device().type()
   return tensor.unsafeGetTensorImpl()->device_type() == dipu::DIPU_DEVICE_TYPE;
 }

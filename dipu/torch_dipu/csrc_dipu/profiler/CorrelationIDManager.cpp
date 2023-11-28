@@ -5,7 +5,7 @@ namespace profile {
 
 using libkineto::DeviceActivityInterface;
 
-CorrelationIDManager &CorrelationIDManager::instance() {
+CorrelationIDManager& CorrelationIDManager::instance() {
   static CorrelationIDManager instance;
   return instance;
 }

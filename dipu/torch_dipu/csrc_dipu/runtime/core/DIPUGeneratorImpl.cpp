@@ -36,7 +36,7 @@ static void initDIPUGenerator() {
  * maintain a global running state of the pseudo random number generation,
  * when a user does not explicitly mention any generator.
  */
-at::Generator &getDefaultDIPUGenerator(at::DeviceIndex device_index) {
+at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index) {
   std::call_once(dipu_init_flag, initDIPUGenerator);
 
   at::DeviceIndex idx = device_index;
@@ -124,11 +124,11 @@ std::shared_ptr<DIPUGeneratorImpl> DIPUGeneratorImpl::clone() const {
  *
  * See Note [Acquire lock when using random generators]
  */
-DIPUGeneratorImpl *DIPUGeneratorImpl::clone_impl() const {
+DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
   auto gen = new DIPUGeneratorImpl(this->device().index());
   gen->set_current_seed(this->seed_);
   auto state = this->state_;
-  const auto &state_clone = state.clone();
+  const auto& state_clone = state.clone();
   gen->set_state(*(state_clone.getIntrusivePtr().get()));
   gen->set_state_flag(this->state_need_reset_);
   return gen;

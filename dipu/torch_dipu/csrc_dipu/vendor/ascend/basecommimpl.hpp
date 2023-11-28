@@ -14,10 +14,10 @@ template <typename Key, typename Value, std::size_t Size>
 struct Map {
   std::array<std::pair<Key, Value>, Size> data;
 
-  [[nodiscard]] constexpr Value at(const Key &key) const {
+  [[nodiscard]] constexpr Value at(const Key& key) const {
     const auto itr =
         std::find_if(begin(data), end(data),
-                     [&key](const auto &v) { return v.first == key; });
+                     [&key](const auto& v) { return v.first == key; });
     if (itr != end(data)) {
       return itr->second;
     } else {
@@ -34,7 +34,7 @@ std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
     {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
 };
 
-bool isPinnedPtr(const void *p) {
+bool isPinnedPtr(const void* p) {
   TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");
   return false;
 }

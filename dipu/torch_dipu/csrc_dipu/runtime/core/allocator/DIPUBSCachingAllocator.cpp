@@ -12,12 +12,12 @@
 
 namespace dipu {
 
-static void deleteBSContext(void *);
+static void deleteBSContext(void*);
 
 class BSCachingAllocator : public CacheAllocator {
   struct Impl {
-    std::unordered_map<size_t, std::list<void *>> idel_blocks_;
-    std::set<void *> allocated_;
+    std::unordered_map<size_t, std::list<void*>> idel_blocks_;
+    std::set<void*> allocated_;
     size_t total_alocated_bytes_ = 0;
     size_t total_idel_bytes_ = 0;
   };
@@ -35,7 +35,7 @@ class BSCachingAllocator : public CacheAllocator {
   size_t getAllocateSizeMoreAdaptable(size_t nbytes) const {
     static const int kMinAllocationSizeExp = []() {
       size_t size = 511;
-      const char *env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
       }
@@ -52,7 +52,7 @@ class BSCachingAllocator : public CacheAllocator {
   size_t getAllocateSizeLessFragmentation(size_t nbytes) const {
     static const size_t kMinAllocationSize = []() {
       size_t size = 512;
-      const char *env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
+      const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
       }
@@ -77,8 +77,8 @@ class BSCachingAllocator : public CacheAllocator {
     std::lock_guard<mutex_t> lk(mutex_);
     flush_mem_pool();
     size_t nbytes = getAllocateSize(size);
-    void *ptr = nullptr;
-    auto &idel_blocks = impl->idel_blocks_[nbytes];
+    void* ptr = nullptr;
+    auto& idel_blocks = impl->idel_blocks_[nbytes];
     if (idel_blocks.size() <= 0) {
       empty_resource_pool();
     }
@@ -126,7 +126,7 @@ class BSCachingAllocator : public CacheAllocator {
     return data_ptr;
   }
 
-  void restore(size_t size, void *ptr) const {
+  void restore(size_t size, void* ptr) const {
     size_t nbytes = getAllocateSize(size);
     std::lock_guard<mutex_t> lk(mutex_);
     DIPU_DEBUG_ALLOCATOR(8, "BSCachingAllocator::restore "
@@ -155,10 +155,10 @@ class BSCachingAllocator : public CacheAllocator {
     std::lock_guard<mutex_t> lk(mutex_);
     for (auto iter = impl->idel_blocks_.begin();
          iter != impl->idel_blocks_.end(); ++iter) {
-      auto &idel_blocks = iter->second;
+      auto& idel_blocks = iter->second;
       const size_t size = iter->first;
       while (!idel_blocks.empty()) {
-        void *ptr = idel_blocks.front();
+        void* ptr = idel_blocks.front();
         idel_blocks.pop_front();
         impl->total_alocated_bytes_ -= size;
         set_memory_reserved(memory_reserved() - size);
@@ -184,12 +184,12 @@ class BSCachingAllocator : public CacheAllocator {
   }
 
   struct Context : public DataPtrContextBase {
-    Context(void *ptr, size_t size, size_t real_size,
-            const BSCachingAllocator *allocator)
+    Context(void* ptr, size_t size, size_t real_size,
+            const BSCachingAllocator* allocator)
         : DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {}
 
     ~Context() {
-      auto allocator_ = static_cast<const BSCachingAllocator *>(allocator());
+      auto allocator_ = static_cast<const BSCachingAllocator*>(allocator());
       DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__ << " allocator:" << allocator_
                                            << ", ptr:" << ptr()
                                            << ", size_:" << size());
@@ -210,14 +210,14 @@ class BSCachingAllocator : public CacheAllocator {
     size_t real_size_ = 0;
   };
 
-  void *makeContext(void *ptr, size_t size, size_t real_size) const {
+  void* makeContext(void* ptr, size_t size, size_t real_size) const {
     auto ctx = new Context(ptr, size, real_size, this);
     return ctx;
   }
 };
 
-static void deleteBSContext(void *ptr) {
-  auto ctx = static_cast<BSCachingAllocator::Context *>(ptr);
+static void deleteBSContext(void* ptr) {
+  auto ctx = static_cast<BSCachingAllocator::Context*>(ptr);
   c10::reportMemoryUsageToProfiler(
       ctx->ptr(), -static_cast<int64_t>(ctx->real_size_),
       ctx->allocator()->memory_allocated(), ctx->allocator()->memory_reserved(),

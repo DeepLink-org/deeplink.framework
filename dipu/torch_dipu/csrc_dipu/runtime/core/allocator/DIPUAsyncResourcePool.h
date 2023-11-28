@@ -13,7 +13,7 @@ namespace dipu {
 template <class T>
 class AsyncResourcePool {
  public:
-  virtual void add(const T &t, std::deque<DIPUEvent> &events) = 0;
+  virtual void add(const T& t, std::deque<DIPUEvent>& events) = 0;
   virtual T get() = 0;
   virtual bool ready() = 0;
   virtual size_t size() = 0;
@@ -27,7 +27,7 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
   mutex_t mutex_;
 
  public:
-  void add(const T &t, std::deque<DIPUEvent> &events) override {
+  void add(const T& t, std::deque<DIPUEvent>& events) override {
     std::lock_guard<mutex_t> lk(mutex_);
     list_.emplace_back(t, std::move(events));
   }
