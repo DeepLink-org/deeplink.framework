@@ -22,13 +22,13 @@ namespace dipu {
 using deviceStream_t = tangStream_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = tangEvent_t;
-using deviceHandle_t = tangContext_t *;
+using deviceHandle_t = tangContext_t*;
 #ifdef USE_PCCL
 using diclComm_t = pcclComm_t;
 using commUniqueId = pcclUniqueId;
 #else   // USE_PCCL
 class pcclComm_t {};
-using diclComm_t = pcclComm_t *;
+using diclComm_t = pcclComm_t*;
 class pcclUniqueId {};
 using commUniqueId = pcclUniqueId;
 #endif  // USE_PCCL

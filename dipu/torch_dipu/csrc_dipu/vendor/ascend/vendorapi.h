@@ -33,7 +33,7 @@ namespace dipu {
 using deviceStream_t = aclrtStream;
 #define deviceDefaultStreamLiteral nullptr;
 using deviceEvent_t = aclrtEvent;
-using deviceHandle_t = aclrtContext *;
+using deviceHandle_t = aclrtContext*;
 
 using diclComm_t = HcclComm;
 using commUniqueId = HcclRootInfo;

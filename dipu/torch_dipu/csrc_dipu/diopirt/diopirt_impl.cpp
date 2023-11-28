@@ -13,7 +13,7 @@ extern "C" {
 
 static char diopiVersion[256] = {0};
 
-DIOPI_RT_API const char *diopiGetVersion() {
+DIOPI_RT_API const char* diopiGetVersion() {
   static bool inited = false;
   if (!inited) {
     inited = true;
@@ -24,61 +24,61 @@ DIOPI_RT_API const char *diopiGetVersion() {
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorData(diopiTensorHandle_t pth,
-                                             void **pptr) {
-  *pptr = (reinterpret_cast<at::Tensor *>(pth))->data_ptr();
+                                             void** pptr) {
+  *pptr = (reinterpret_cast<at::Tensor*>(pth))->data_ptr();
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorDataConst(diopiConstTensorHandle_t pth,
-                                                  const void **pptr) {
-  *pptr = (reinterpret_cast<const at::Tensor *>(pth))->data_ptr();
+                                                  const void** pptr) {
+  *pptr = (reinterpret_cast<const at::Tensor*>(pth))->data_ptr();
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorShape(diopiConstTensorHandle_t pth,
-                                              diopiSize_t *size) {
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+                                              diopiSize_t* size) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *size = diopiSize_t{ptr->sizes().data(), static_cast<int64_t>(ptr->dim())};
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth,
-                                               diopiSize_t *stride) {
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+                                               diopiSize_t* stride) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *stride =
       diopiSize_t{ptr->strides().data(), static_cast<int64_t>(ptr->dim())};
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorDtype(diopiConstTensorHandle_t pth,
-                                              diopiDtype_t *dtype) {
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+                                              diopiDtype_t* dtype) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *dtype = diopihelper::toDiopiDtype(ptr->scalar_type());
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorDevice(diopiConstTensorHandle_t pth,
-                                               diopiDevice_t *device) {
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+                                               diopiDevice_t* device) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *device = (ptr->is_cpu() ? diopi_host : diopi_device);
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorNumel(diopiConstTensorHandle_t pth,
-                                              int64_t *numel) {
+                                              int64_t* numel) {
   if (pth == nullptr) {
     *numel = 0;
     return diopiSuccess;
   }
 
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *numel = ptr->numel();
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorElemSize(diopiConstTensorHandle_t pth,
-                                                 int64_t *elemsize) {
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(pth);
+                                                 int64_t* elemsize) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   diopiDtype_t dtype;
   auto ret = diopiGetTensorDtype(pth, &dtype);
   if (ret != diopiSuccess) return ret;
@@ -87,16 +87,42 @@ DIOPI_RT_API diopiError_t diopiGetTensorElemSize(diopiConstTensorHandle_t pth,
   return diopiSuccess;
 }
 
+DIOPI_RT_API diopiError_t diopiGetTensorStoragePtr(diopiConstTensorHandle_t pth,
+                                                   void** pStoragePtr) {
+  // Support both pt2.0 and pt2.1
+  *pStoragePtr = const_cast<void*>(
+      (reinterpret_cast<const at::Tensor*>(pth))->storage().data());
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t
+diopiGetTensorStorageOffset(diopiConstTensorHandle_t pth, int64_t* pOffset) {
+  *pOffset = (reinterpret_cast<const at::Tensor*>(pth))->storage_offset();
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t
+diopiGetTensorStorageNbytes(diopiConstTensorHandle_t pth, size_t* pNbytes) {
+  *pNbytes = (reinterpret_cast<const at::Tensor*>(pth))->storage().nbytes();
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiGetTensorDeviceIndex(
+    diopiConstTensorHandle_t pth, diopiDeviceIndex_t* pDevIndex) {
+  *pDevIndex = (reinterpret_cast<const at::Tensor*>(pth))->device().index();
+  return diopiSuccess;
+}
+
 DIOPI_RT_API diopiError_t diopiGetStream(diopiContextHandle_t ctx,
-                                         diopiStreamHandle_t *stream) {
+                                         diopiStreamHandle_t* stream) {
   *stream = ctx->stream;
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx,
-                                             diopiTensorHandle_t *tensor,
-                                             const diopiSize_t *size,
-                                             const diopiSize_t *stride,
+                                             diopiTensorHandle_t* tensor,
+                                             const diopiSize_t* size,
+                                             const diopiSize_t* stride,
                                              const diopiDtype_t dtype,
                                              const diopiDevice_t device) {
   // TORCH_CHECK(tensor != nullptr && *tensor == nullptr, "invalid parameter
@@ -119,7 +145,7 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx,
 }
 
 DIOPI_RT_API diopiError_t diopiRequireBuffer(diopiContextHandle_t ctx,
-                                             diopiTensorHandle_t *tensor,
+                                             diopiTensorHandle_t* tensor,
                                              int64_t num_bytes,
                                              diopiDevice_t device) {
   diopiSize_t size{&num_bytes, 1};
@@ -129,9 +155,9 @@ DIOPI_RT_API diopiError_t diopiRequireBuffer(diopiContextHandle_t ctx,
 
 DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx,
                                                  diopiConstGeneratorHandle_t th,
-                                                 diopiTensorHandle_t *state) {
-  const at::Generator *generator = reinterpret_cast<const at::Generator *>(th);
-  dipu::DIPUGeneratorImpl *gen_impl =
+                                                 diopiTensorHandle_t* state) {
+  const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+  dipu::DIPUGeneratorImpl* gen_impl =
       at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
 
   at::Tensor tensor;
@@ -147,10 +173,10 @@ DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx,
 
 DIOPI_RT_API diopiError_t diopiGeneratorSetState(
     diopiGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
-  at::Generator *generator = reinterpret_cast<at::Generator *>(th);
-  dipu::DIPUGeneratorImpl *gen_impl =
+  at::Generator* generator = reinterpret_cast<at::Generator*>(th);
+  dipu::DIPUGeneratorImpl* gen_impl =
       at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
-  const at::Tensor *ptr = reinterpret_cast<const at::Tensor *>(new_state);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(new_state);
 
   {
     std::lock_guard<std::mutex> lock(gen_impl->mutex_);
@@ -160,15 +186,15 @@ DIOPI_RT_API diopiError_t diopiGeneratorSetState(
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiRecordStart(const char *record_name,
-                                           void **record) {
+DIOPI_RT_API diopiError_t diopiRecordStart(const char* record_name,
+                                           void** record) {
   *record = new RecordBlockCreator(record_name);
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiRecordEnd(void **record) {
+DIOPI_RT_API diopiError_t diopiRecordEnd(void** record) {
   TORCH_CHECK(record != nullptr, "invalid parameter record_function");
-  auto dipu_record_block = static_cast<RecordBlockCreator *>(*record);
+  auto dipu_record_block = static_cast<RecordBlockCreator*>(*record);
   dipu_record_block->end();
   delete dipu_record_block;
   *record = nullptr;

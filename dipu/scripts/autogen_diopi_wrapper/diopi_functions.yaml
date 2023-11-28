@@ -2148,75 +2148,37 @@
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
-- schema: "to.dtype(Tensor(a) self, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor(a)"
+# wrap_diopi_cast_dtype has no corresponding aten op and not registed, it's just a diopi func wrapper.
+# use this tricky method to support call multiple diopi-op in one aten-op
+- schema: "wrap_diopi_cast_dtype(Tensor(a) self, ScalarType dtype) -> Tensor(a)"
   register_op: False
   custom_code_at_the_beginning: |
     auto out = at::empty_like(self, self.options().dtype(dtype));
   interface: diopiCastDtype(ctx, out, self);
-  custom_code_before_return: |
-    if (memory_format.has_value()) {
-      auto out1 = at::empty_like(out, out.options(), memory_format.value());
-      at::copy(out1, out, non_blocking);
-      out = out1;
-    }
-    if (!non_blocking) {
-        dipu::getCurrentDIPUStream().synchronize();
-    }
 
-- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+# a diopi func wrapper.
+- schema: wrap_diopi_copy_inp(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  register_op: False
   no_device_check_args: [self, src]
-  device: [not_for_any_now] #todo
-  ins: [srcTemp]
+  interface: diopiCopyInp(ctx, src, self)
+
+# this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
+- schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  dummy_call_diopi: True
   custom_fallback: True
+  device: [cuda, camb, ascend, droplet, supa]
   custom_code_at_the_beginning: |
-    dipu::DIPUGuard guard(self.is_cpu() ? src.device() : self.device());
-    auto stream = dipu::getCurrentDIPUStream();
-    auto srcTemp = self.dtype() == src.dtype() ? src : src.to(self.dtype());
-    srcTemp = (srcTemp.numel() == self.numel()) ? srcTemp : srcTemp.expand(self.sizes());
-    if (non_blocking) {
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == stream;
-      if (self.is_cpu()) {
-        if (self.options().pinned_memory()) {
-          self.record_stream(stream);
-        }
-      } else if (!is_default_stream){
-        self.record_stream(stream);
-      }
-      if (srcTemp.is_cpu()) {
-        if (srcTemp.options().pinned_memory()) {
-          srcTemp.record_stream(stream);
-        }
-      } else if (!is_default_stream) {
-        srcTemp.record_stream(stream);
-      }
-    }
-    if (self.device().type() != srcTemp.device().type()) {
-      srcTemp = srcTemp.is_contiguous(self.suggest_memory_format()) ? srcTemp : srcTemp.contiguous(self.suggest_memory_format());
-      if (srcTemp.is_cpu() && (!self.is_cpu())) {
-        // c2d
-        dipu::devproxy::memCopyH2DAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
-      } else if ((!srcTemp.is_cpu()) && self.is_cpu()) {
-        // d2c
-        dipu::devproxy::memCopyD2HAsync(stream.rawstream(), self.nbytes(), self.data_ptr(), srcTemp.data_ptr());
-      }
-      if (!non_blocking) {
-        dipu::getCurrentDIPUStream().synchronize();
-      }
-
-      return self;
-    }
+    dipu::getDipuCopyInstance()->run(self, src, non_blocking);
+    return self;
+    // need add [composite] attr? the code behind this is useless.
   interface: diopiCopyInp(ctx, srcTemp, self)
-  custom_code_before_return: |
-    if (!non_blocking) {
-      dipu::getCurrentDIPUStream().synchronize();
-    }
 
+# vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
-  no_device_check_args: [self, src]
-  custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     return custom_fallback_dipu_copy_(self, src, non_blocking);
+  device: [topsrider]
   interface: diopiCopyInp(ctx, src, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void

@@ -17,6 +17,7 @@ jobs:
         with:
           style: file
           tidy-checks: '-*' # disable clang tidy at this stage
+          version: 16
       - name: Fail test
         if: steps.linter.outputs.checks-failed > 0
         run: echo "Some files failed the linting checks!" && exit 1

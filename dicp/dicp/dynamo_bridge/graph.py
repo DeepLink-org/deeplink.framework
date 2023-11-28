@@ -1,4 +1,5 @@
 import logging
+import os
 import torch
 import torch.fx
 from typing import Optional
@@ -41,11 +42,11 @@ class GraphTransformer:
                 return _extract_tensor_metadata(x)
             else:
                 return None
-
+        test_infer = bool(os.environ.get("TEST_DICP_INFER", False))
         for n in self.gm.graph.nodes:
-            if n.op == 'call_function' and 'val' not in n.meta:
-                n.meta['val'] = (n.target(*n.args, **n.kwargs))
-                n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
+            fake_value = None
+            if n.op == 'call_function':
+                fake_value = (n.target(*n.args, **n.kwargs))
             elif n.op == 'get_attr':
                 target_atoms = n.target.split('.')
                 attr_itr = self.gm
@@ -56,7 +57,16 @@ class GraphTransformer:
                     attr_itr = getattr(attr_itr, atom)
                     attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
                 with FakeTensorMode():
-                    n.meta['val'] = torch.empty(attr_size, dtype=attr_dtye)
+                    fake_value = torch.empty(attr_size, dtype=attr_dtye)
+            else:
+                continue
+            if 'val' in n.meta and test_infer:
+                assert n.meta['val'].size() == fake_value.size(), "check infer size failed"
+                assert n.meta['val'].dtype == fake_value.dtype, "check infer dtype failed"
+                assert n.meta['val'].stride() == fake_value.stride(), "check infer stride failed"
+                assert n.meta['val'].storage_offset() == fake_value.storage_offset(), "check infer storage offset failed"
+            if 'val' not in n.meta:
+                n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
 
     def codegen(self):

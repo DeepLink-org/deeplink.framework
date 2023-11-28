@@ -3,7 +3,7 @@
 
 #include <torch/torch.h>
 
-void testTensorRelu(at::Tensor &self) {
+void testTensorRelu(at::Tensor& self) {
   std::cout << self << std::endl;
   std::cout << torch::relu(self) << std::endl;
   std::cout << self << std::endl;

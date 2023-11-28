@@ -20,7 +20,7 @@ def build_deps():
                 shutil.rmtree(new_path)
             shutil.copytree(orig_path, new_path)
             continue
-        raise RuntimeError("Check the file paths in `build_deps`")        
+        raise RuntimeError("Check the file paths in `build_deps`")
 
 
 def main():
@@ -43,7 +43,7 @@ def main():
             "Programming Language :: Python :: 3.10",
             "Operating System :: POSIX :: Linux"
         ],
-        entry_points = {
+        entry_points={
             'torch_dynamo_backends': [
                 'topsgraph = dicp.vendor.TopsGraph:topsgraph',
                 'ascendgraph = dicp.vendor.AscendGraph:ascendgraph',
