@@ -1,7 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 import io
-from tests.python.utils.stdout_redirector import stdout_redirector
-from tests.python.utils.local_eviron import local_eviron
+from torch_dipu.testing._internal.stdout_redirector import stdout_redirector
+from torch_dipu.testing._internal..local_eviron import local_eviron
 
 
 def _test_dipu_fallback():
