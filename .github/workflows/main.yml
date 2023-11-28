@@ -153,8 +153,7 @@ jobs:
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CAMB_PARTATION} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci/ci_one_iter.sh build_camb
           """
-
-      - name: run-one-iter-tools
+      - name: run-one-iter-for-traditional
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex
@@ -166,9 +165,22 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
-          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" ${CAMB_PARTATION} && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\" "test_one_iter_large_language_model_list.yaml"&& rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
-
+      - name: run-one-iter-for-llm
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          echo "pytorch dir: \${PYTORCH_DIR}"
+          source scripts/ci/camb/ci_camb_env.sh
+          basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
       - name: Perform cleanup one iter data
         if: always()
         run: |
@@ -292,8 +304,7 @@ jobs:
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=20 bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
-
-      - name: run-one-iter-tools
+      - name: run-one-iter-for-traditional
         run: |
           ssh ${CUDA_CLUSTER} """
             cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
@@ -302,9 +313,19 @@ jobs:
             source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
             cd mmlab_pack
             rm -rf one_iter_data
-            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\"  test_one_iter_traditional_model_list.yaml && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           """
-
+      - name: run-one-iter-for-llm
+        run: |
+          ssh ${CUDA_CLUSTER} """
+            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
+            source scripts/ci/nv/ci_nv_env.sh
+            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+            source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
+            cd mmlab_pack
+            rm -rf one_iter_data
+            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" test_one_iter_traditional_model_list.yaml && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
       - name: Perform cleanup one iter data
         if: always()
         run: |
