@@ -178,9 +178,5 @@ static PyMethodDef TorchTensorMethods[] = {
     {"_mockCudaTensor", (PyCFunction)dipuMockCudaTensors, METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}};
 
-<<<<<<< HEAD
-DIPU_API PyMethodDef *exportTensorFunctions() { return TorchTensorMethods; }
-=======
 DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods; }
->>>>>>> 8db5b50942b248da31d1fae504a4be71754b2a58
 }  // namespace dipu
