@@ -1,5 +1,6 @@
 CompileFlags:
   Remove: -fabi*
-Diagnostics:
-  UnusedIncludes: Strict
-  MissingIncludes: Strict
+# Enable these parameters after iwyu
+# Diagnostics:
+#   UnusedIncludes: Strict
+#   MissingIncludes: Strict

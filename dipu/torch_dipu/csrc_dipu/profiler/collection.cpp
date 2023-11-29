@@ -959,15 +959,17 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                : time_converter(t);
   };
 
-  struct TimeGetter {
+  // Used as a replacement of if-constexpr (C++ 17) to implement static
+  // polymorphism.
+  struct {
+    std::reference_wrapper<decltype(converter)> convert;
     using Event = torch::profiler::impl::EventType;
-    time_t operator()(ExtraFields<Event::OutOfMemory> const& i) const {
+    time_t operator()(const ExtraFields<Event::OutOfMemory>& i) const {
       return convert(i.start_time_);
     }
-    time_t operator()(ExtraFields<Event::Backend> const& i) const {
+    time_t operator()(const ExtraFields<Event::Backend>& i) const {
       return i.start_time_us_ * 1000;
     }
-    std::reference_wrapper<decltype(converter)> convert;
   } start_time_of{std::ref(converter)};
 
   std::vector<std::shared_ptr<Result>> out;
