@@ -53,15 +53,16 @@ inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
   bool isSrcDevice = dipu::isDeviceTensor(src);
   bool isDstDevice = dipu::isDeviceTensor(dst);
-  auto ret = DIPUCopyType::D2Self;
   if (!isSrcDevice) {
-    ret = DIPUCopyType::H2D;  // this op not handle h2h, dest always device
-  } else if (!isDstDevice) {
-    ret = DIPUCopyType::D2H;  // here src always device
-  } else if (src.device().index() != dst.device().index()) {
-    ret = DIPUCopyType::D2OtherD;
+    return DIPUCopyType::H2D;  // this op not handle h2h, dest always device
   }
-  return ret;
+  if (!isDstDevice) {
+    return DIPUCopyType::D2H;  // here src always device
+  }
+  if (src.device().index() != dst.device().index()) {
+    return DIPUCopyType::D2OtherD;
+  }
+  return DIPUCopyType::D2Self;
 }
 
 inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,

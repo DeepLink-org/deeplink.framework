@@ -43,7 +43,10 @@ public:
 };
 */
 
+// not const, see comments in DIPUCopy.cpp dipu_copy_op()
 static CUDACopyInplace cuda_copy_inplace;  // NOLINT
+
+// this variable only for call setInst. no other use
 const static int32_t cuda_init = []() {
   setDipuCopyInstance(&cuda_copy_inplace);
   return 1;

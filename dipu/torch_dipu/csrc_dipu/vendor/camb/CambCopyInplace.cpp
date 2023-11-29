@@ -16,9 +16,9 @@ namespace dipu {
 // only cover commonly used cases, leaving diopi developer to optimize.
 namespace {
 struct HashCnnlCastDType {
-  const static int64_t HashMagic = 0x9e3779b9;
-  const static int64_t ShiftLeft = 6;
-  const static int64_t ShiftRight = 2;
+  static constexpr int64_t HashMagic = 0x9e3779b9;
+  static constexpr int64_t ShiftLeft = 6;
+  static constexpr int64_t ShiftRight = 2;
   size_t operator()(const std::vector<diopiDtype_t>& vec) const {
     size_t ret = 0;
     for (auto it : vec) {
@@ -119,7 +119,10 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
   }
 };
 
+// not const, see comments in DIPUCopy.cpp dipu_copy_op()
 static CambCopyInplace camb_copy_inplace;  // NOLINT
+
+// this variable only for call setInst. no other use
 const static int32_t camb_init = []() {
   setDipuCopyInstance(&camb_copy_inplace);
   return 1;
