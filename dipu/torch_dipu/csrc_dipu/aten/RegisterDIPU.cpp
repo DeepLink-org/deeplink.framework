@@ -301,7 +301,7 @@ at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self,
 }
 
 at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
-    at::Tensor& self, at::Storage source, const c10::SymInt& storage_offset,
+    at::Tensor& self, at::Storage source, c10::SymInt storage_offset,
     c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
   // No device check
   // DeviceGuard omitted
