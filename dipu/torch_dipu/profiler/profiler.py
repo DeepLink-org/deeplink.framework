@@ -426,9 +426,11 @@ def apply_profiler_patch():
 
 
 class profile(object):
-    def __init__(self, profiler_result_path="./", with_stack=False):
+    def __init__(self, profiler_result_path="./", with_stack=False, record_shapes=False, profile_memory=False):
         self.result_path = profiler_result_path
         self.with_stack = with_stack
+        self.record_shapes = record_shapes
+        self.profile_memory = profile_memory
         self.entered = False
         try:
             os.makedirs(self.result_path, exist_ok=True)
@@ -440,7 +442,7 @@ class profile(object):
             raise RuntimeError("dipu profile traces are not reentrant")
 
         self.entered = True
-        _C._enable_profiler_api(self.result_path, self.with_stack)
+        _C._enable_profiler_api(self.result_path, self.with_stack, self.record_shapes, self.profile_memory)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

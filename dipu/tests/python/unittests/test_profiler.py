@@ -6,9 +6,18 @@ from torch.profiler import profile, ProfilerActivity
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn, skipOn
 from tests.python.utils.local_eviron import local_eviron
 import torch._dynamo as dynamo
+import subprocess
+
+def check_string_in_directory(directory, search_string):
+    grep_process = subprocess.Popen(["grep", "-r", search_string, directory], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, _ = grep_process.communicate()
+    if output:
+        return True
+    else:
+        return False
+
 
 class TestProfiler(TestCase):
-    @skipOn("NPU", "Currently only 1-norm is supported by camb for the scatter op")
     def test_profiler(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
@@ -51,12 +60,17 @@ class TestProfiler(TestCase):
 
         prof.export_chrome_trace("./dipu_resnet18_profiler.json")
 
-    @onlyOn("CUDA")
-    def test_vendor_profiler(self):
+    @onlyOn("NPU")
+    def test_aot_profiler(self):
         x = torch.randn(3, 4).cuda()
         y = torch.randn(3, 4).cuda()
-        with torch_dipu.profiler.profile("./results", False):
+        path = "./results/ato/"
+        with torch_dipu.profiler.profile(path, True):
             x.add_(y)
+
+        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "aten::add_"))
+        self.assertTrue(check_string_in_directory(path, "Add"))
 
 
     @onlyOn("NPU")
@@ -74,9 +88,15 @@ class TestProfiler(TestCase):
         for _ in range(5):
             opt_model(input)
         print("finish warmup", flush=True)
-        with torch_dipu.profiler.profile("./results", False):
+        path = "./results/dicp/"
+        with torch_dipu.profiler.profile(path, True):
             y = opt_model(input)
             z = y + y
+
+        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "aten::add"))
+        self.assertTrue(check_string_in_directory(path, "mulrelu"))
+        self.assertTrue(check_string_in_directory(path, "softmax"))
 
 
 if __name__ == "__main__":
