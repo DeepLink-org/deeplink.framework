@@ -13,3 +13,5 @@ export DIPU_PATH=${DIPU_ROOT}
 # PyTorch path related settings
 export PYTORCH_DIR=${ASCEND_TORCH_DIR}
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
+
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
