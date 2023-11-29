@@ -28,9 +28,10 @@ Checks: '
   performance-*,
   readability-*,
   -readability-identifier-length,
-  -readability-identifier-naming,  # TODO(issues/446): naming convention
+  -readability-identifier-naming,
   -readability-qualified-auto,
   -readability-static-accessed-through-instance'
+  # TODO: #446 - enable readability-identifier-naming
 AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'
