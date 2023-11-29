@@ -522,7 +522,7 @@ jobs:
           basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
           cd mmlab_pack
-          bash ../scripts/ci/ci_one_iter.sh build_ascend
+          bash ../scripts/ci/ci_one_iter.sh build_ascend910b
 
       - name: Run one iter tools
         run: |
