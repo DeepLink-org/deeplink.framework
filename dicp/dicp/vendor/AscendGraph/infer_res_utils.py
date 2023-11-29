@@ -131,7 +131,7 @@ def reduce_ops_output_size(
         if keepdim is True:
             shape = [1] * x_dim
         else:
-            shape = []
+            shape = []  # sum(all) need a scalar as ouput (no shape no stride)
     else:
         dim = [dim] if not isinstance(dim, Sequence) else dim
         dim = [(d + x_dim) % x_dim for d in dim]
