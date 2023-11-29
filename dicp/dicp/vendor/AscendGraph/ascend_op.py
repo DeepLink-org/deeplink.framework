@@ -99,25 +99,62 @@ class Div(Operator):
     def __init__(self):
         super().__init__("Div")
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+
+        return TensorInfo(
+            shape=get_broadcast_res_two_shape(x1_shape, x2_shape),
+            dtype=get_cast_dtype(x1_dtype, x2_dtype),
+            memory_format=get_memory_format(x1),
+        )
+
 
 class DivNoNan(Operator):
     def __init__(self):
         super().__init__("DivNoNan")
+
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+
+        return TensorInfo(
+            shape=get_broadcast_res_two_shape(x1_shape, x2_shape),
+            dtype=get_cast_dtype(x1_dtype, x2_dtype),
+            memory_format=get_memory_format(x1),
+        )
 
 
 class Maximum(Operator):
     def __init__(self):
         super().__init__("Maximum")
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+        return TensorInfo(
+            x1_shape,
+            dtype=get_cast_dtype(x1_dtype, x2_dtype),
+            memory_format=get_memory_format(x1),
+        )
+
 
 class Rsqrt(Operator):
     def __init__(self):
         super().__init__("Rsqrt")
 
+    def infer_result(self, x):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Sqrt(Operator):
     def __init__(self):
         super().__init__("Sqrt")
+
+    def infer_result(self, x):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Log(Operator):
@@ -135,15 +172,27 @@ class Exp(Operator):
     def __init__(self):
         super().__init__("Exp")
 
+    def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Neg(Operator):
     def __init__(self):
         super().__init__("Neg")
 
+    def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Relu(Operator):
     def __init__(self):
         super().__init__("Relu")
+
+    def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Swish(Operator):
@@ -251,25 +300,78 @@ class Sigmoid(Operator):
     def __init__(self):
         super().__init__("Sigmoid")
 
+    def infer_result(self, x):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x, True)
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+
 
 class Pow(Operator):
     def __init__(self):
         super().__init__("Pow")
+
+    def infer_result(self, base, expo):
+        base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base, True)
+
+        if isinstance(expo, Tuple):  # Const
+            expo, expo_shape = get_op_const_arg_kwarg(expo)
+            expo_dtype = type(expo[0]) if len(expo) > 0 else base_dtype
+        else:  # fake Tensor
+            expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(
+                expo, True
+            )
+
+        return TensorInfo(
+            get_broadcast_res_two_shape(base_shape, expo_shape),
+            dtype=get_cast_dtype(base_dtype, expo_dtype),
+            memory_format=get_memory_format(base),
+        )
 
 
 class Select(Operator):
     def __init__(self):
         super().__init__("Select")
 
+    def infer_result(self, x1, x2, condition):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        _, c_shape, _, _ = get_fake_tensor_meta_val(condition)
+        return TensorInfo(
+            get_broadcast_res_two_shape(
+                get_broadcast_res_two_shape(x1_shape, c_shape), x2_shape
+            ),
+            dtype=get_cast_dtype(x1_dtype, x2_dtype),
+            memory_format=get_memory_format(x1),
+        )
+
 
 class LessEqual(Operator):
     def __init__(self):
         super().__init__("LessEqual")
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+        return TensorInfo(
+            get_broadcast_res_two_shape(x1_shape, x2_shape),
+            dtype=torch.bool,
+            memory_format=get_memory_format(x1),
+        )
+
 
 class Less(Operator):
     def __init__(self):
         super().__init__("Less")
+
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+        return TensorInfo(
+            get_broadcast_res_two_shape(x1_shape, x2_shape),
+            dtype=torch.bool,
+            memory_format=get_memory_format(x1),
+        )
 
 
 class Equal(Operator):
@@ -312,15 +414,34 @@ class Identity(Operator):
     def __init__(self):
         super().__init__("Identity")
 
+    def infer_result(self, x, idx=None):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        out_shape = list(x_shape[idx]) if idx is not None else list(x_shape)
+        return TensorInfo(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class IdentityInp(Operator):
     def __init__(self):
         super().__init__("IdentityInp")
 
+    def infer_result(self, src, dst):
+        src, src_shape, src_dim, src_dtype = get_fake_tensor_meta_val(src)
+        dst, dst_shape, dst_dim, dst_dtype = get_fake_tensor_meta_val(dst)
+        out_shape = get_broadcast_res_two_shape(src_shape, dst_shape)
+        return TensorInfo(
+            out_shape, dtype=dst_dtype, memory_format=get_memory_format(dst)
+        )
+
 
 class IdentityN(Operator):
     def __init__(self):
         super().__init__("IdentityN")
+
+    def infer_result(self, x):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class Empty(Operator):
@@ -331,6 +452,13 @@ class Empty(Operator):
 class GatherV2(Operator):
     def __init__(self):
         super().__init__("GatherV2")
+
+    def infer_result(self, x, index, axis):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+        idx_shape.append(x_shape[-1])
+        return TensorInfo(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class OnesLike(Operator):
@@ -418,6 +546,10 @@ class ZerosLike(Operator):
     def __init__(self, x):
         super().__init__("ZerosLike")
 
+    def infer_result(self, x):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class SplitD(Operator):
     def __init__(self):
@@ -433,6 +565,20 @@ class ConcatD(Operator):
     def __init__(self):
         super().__init__("ConcatD")
 
+    # TODO:memory_format?
+    def infer_result(self, x, dim=0):
+        x0, x0_shape, x0_dim, x0_dtype = get_fake_tensor_meta_val(x[0])
+        dim = (dim + x0_dim) % x0_dim
+        out_shape = list(x0_shape)
+        out_shape[dim] = 0
+        for t in x:
+            _, t, _, _ = get_fake_tensor_meta_val(t)
+            out_shape[dim] += t[dim]
+
+        return TensorInfo(
+            shape=out_shape, dtype=x0_dtype, memory_format=get_memory_format(x0)
+        )
+
 
 class MaskedFill(Operator):
     def __init__(self):
@@ -442,6 +588,37 @@ class MaskedFill(Operator):
 class Reshape(Operator):
     def __init__(self):
         super().__init__("Reshape")
+
+    # TODO:conflict in solving stride between "view" and "select"
+    def infer_result(self, x, shape_const_op):
+        import pdb
+
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        re_shape, re_dim = get_op_const_arg_kwarg(shape_const_op)
+        # check whether stride and storage_offset are manually specified
+        # if so, x is from operators like "Slice", and the stride and storage_offset still need to modify here
+        x_stride = list(x.stride())
+        x_shape = list(x_shape)
+        pdb.set_trace()
+
+        for i in range(len(x_stride) - 2, -1, -1):
+            if x_stride[i + 1] * x_shape[i + 1] != x_stride[i]:
+                del x_stride[i + 1]
+                del x_shape[i + 1]
+                break
+        else:
+            if len(x_shape) != len(re_shape):
+                del x_stride[0]
+                del x_shape[0]
+
+        x_storage_offset = x.storage_offset()
+        # pdb.set_trace()
+        print(torch.empty(re_shape).size())
+        print(torch.empty(x_shape).size())
+
+        res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        res = torch.as_strided(res, re_shape, x_stride, x_storage_offset)
+        return res
 
 
 class Pad(Operator):
@@ -453,6 +630,12 @@ class Fills(Operator):
     def __init__(self):
         super().__init__("Fills")
 
+    def infer_result(self, x, value):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            shape=list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+
 
 class SoftmaxGrad(Operator):
     def __init__(self):
@@ -463,10 +646,23 @@ class StatelessBernoulli(Operator):
     def __init__(self):
         super().__init__("StatelessBernoulli")
 
+    def infer_result(self, target, prob, seed, offset, dtype):
+        tar, tar_shape, tar_dim, tar_dtype = get_fake_tensor_meta_val(target)
+        return TensorInfo(
+            shape=list(tar_shape), dtype=dtype, memory_format=torch.contiguous_format
+        )
+
 
 class Shape(Operator):
     def __init__(self):
         super().__init__("Shape")
+
+    def infer_result(self, x):
+        # like Const, we won't use this function, but it should exist as a flag for triggering inference of resinfo
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        return TensorInfo(
+            shape=list(x_shape), dtype=x_dtype, memory_format=torch.contiguous_format
+        )
 
 
 class AddV2(Operator):
