@@ -95,7 +95,6 @@ class Operator(ABC):
         new_args = tree_map(make_cpu, new_args)
 
         with fake_mode:
-            print("operator: ",self)
             try:
                 if hasattr(self, "infer_result"):
                     if self.__name__ in reqValOPList: # directly pass input to next op
