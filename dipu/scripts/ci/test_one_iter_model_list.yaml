@@ -97,3 +97,4 @@ cuda:
 
 ascend:
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet --no-pin-memory"
+      precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
