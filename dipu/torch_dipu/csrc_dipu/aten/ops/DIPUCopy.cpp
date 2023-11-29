@@ -13,12 +13,14 @@ namespace dipu {
 // it's the default strategy and be assigned to the pointer dipu_copy_op_ which
 // is a mutable poiner and may be change by vendor at runtime, so nor can
 // this variable be const.
-static DIPUCopyInpOnDIOPI default_copy_inplace_op;  // NOLINT
+static DIPUCopyInpOnDIOPI
+    default_copy_inplace_op;  // NOLINT
+                              // (cppcoreguidelines-avoid-non-const-global-variables)
 
 auto& dipu_copy_op() {
   // the default strategy can be changed by vendor, so dipu_copy_op_ is not
   // const but a mutable poiner.
-  // NOLINTNEXTLINE
+  // NOLINTNEXTLINE (cppcoreguidelines-avoid-non-const-global-variables)
   static DIPUCopyBase* dipu_copy_op_ = &default_copy_inplace_op;
   return dipu_copy_op_;
 }
