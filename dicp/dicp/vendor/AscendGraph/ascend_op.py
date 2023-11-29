@@ -80,6 +80,14 @@ class Sub(Operator):
     def __init__(self):
         super().__init__("Sub")
 
+    def infer_result(self, x1, x2):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
+        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+
 
 class Mul(Operator):
     def __init__(self):
@@ -220,15 +228,50 @@ class ReduceSumD(Operator):
     def __init__(self):
         super().__init__("ReduceSumD")
 
+    def infer_result(self, x, axes=None, keep_dims=False):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        shape = reduce_ops_output_size(x_shape, x_dim, axes, keep_dims)
+        return TensorInfo(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Unsqueeze(Operator):
     def __init__(self):
         super().__init__("Unsqueeze")
 
+    def infer_result(self, x, dim=None):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        assert dim is not None, (
+            self.__class__.__name__ + ": doesn't specify axis to unsqueeze!"
+        )
+        x_shape = list(x_shape)
+        for d in sorted(dim, reverse=True):
+            x_shape.insert(d + x_dim + 1 if d < 0 else d, 1)
+
+        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Squeeze(Operator):
     def __init__(self):
         super().__init__("Squeeze")
+
+    def infer_result(self, x, dim=None):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        if dim is None:
+            shape = [i for i in x_shape if i != 1]
+        else:
+            # dim=[dim] if not isinstance(dim,Sequence) else dim
+            shape = list(x_shape)
+            for i in dim:
+                assert x_shape[i] == 1, (
+                    self.__class__.__name__
+                    + ": can only squeeze a dimension that is 1!"
+                )
+                shape.pop(i)
+
+        x_memory_format = get_memory_format(x)
+        if len(shape) < 4:
+            x_memory_format = torch.contiguous_format
+        return TensorInfo(shape, dtype=x.dtype, memory_format=x_memory_format)
 
 
 class Pack(Operator):
@@ -591,15 +634,12 @@ class Reshape(Operator):
 
     # TODO:conflict in solving stride between "view" and "select"
     def infer_result(self, x, shape_const_op):
-        import pdb
-
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         re_shape, re_dim = get_op_const_arg_kwarg(shape_const_op)
         # check whether stride and storage_offset are manually specified
         # if so, x is from operators like "Slice", and the stride and storage_offset still need to modify here
         x_stride = list(x.stride())
         x_shape = list(x_shape)
-        pdb.set_trace()
 
         for i in range(len(x_stride) - 2, -1, -1):
             if x_stride[i + 1] * x_shape[i + 1] != x_stride[i]:
@@ -612,12 +652,11 @@ class Reshape(Operator):
                 del x_shape[0]
 
         x_storage_offset = x.storage_offset()
-        # pdb.set_trace()
         print(torch.empty(re_shape).size())
         print(torch.empty(x_shape).size())
-
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
         res = torch.as_strided(res, re_shape, x_stride, x_storage_offset)
+
         return res
 
 
