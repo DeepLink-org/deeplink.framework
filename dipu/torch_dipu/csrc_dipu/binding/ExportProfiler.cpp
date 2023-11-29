@@ -12,8 +12,8 @@
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/profiler/profiler_kineto.h"
 #include "csrc_dipu/profiler/profiler_python.h"
-#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/runtime/device/profilerapis.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "exportapi.h"
 

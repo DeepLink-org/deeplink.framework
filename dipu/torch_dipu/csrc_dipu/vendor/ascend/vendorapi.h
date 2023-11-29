@@ -22,12 +22,12 @@ namespace dipu {
     }                                                              \
   }
 
-#define DIPU_CALLACLRT(Expr)                                         \
-  {                                                                  \
-    TRACK_ACL(#Expr);                                                \
-    ::aclError ret = Expr;                                           \
-    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr,  \
-      ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());             \
+#define DIPU_CALLACLRT(Expr)                                               \
+  {                                                                        \
+    TRACK_ACL(#Expr);                                                      \
+    ::aclError ret = Expr;                                                 \
+    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
+                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
   }
 
 using deviceStream_t = aclrtStream;
