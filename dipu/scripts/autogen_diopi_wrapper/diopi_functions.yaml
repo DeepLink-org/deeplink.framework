@@ -2175,6 +2175,7 @@
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     return custom_fallback_dipu_copy_(self, src, non_blocking);
