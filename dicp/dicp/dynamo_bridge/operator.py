@@ -103,7 +103,6 @@ class Operator(ABC):
                     if self.__name__ in viewLikeOPList:# reset stride and storage_offset in op's infer_result
                         return self.infer_result(*new_args, **kwargs)
                     info: TensorInfo = self.infer_result(*new_args, **kwargs)
-                    print("info: ",info.shape," ",info.dtype," ",info.memory_format)  
                     return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
                 elif hasattr(self, "torch_op"):
                     return self.torch_op(*new_args, **kwargs)
