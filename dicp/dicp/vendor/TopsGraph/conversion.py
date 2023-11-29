@@ -211,9 +211,13 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Clone, args, kwargs)
 
     # Copy_ is only validated for inplace copy of input parameters in optimizer, be careful about other cases.
-    @register_conversion([aten.copy.default, aten.copy_.default])
+    @register_conversion(aten.copy.default)
     def Copy(self, *args, **kwargs):
         return self.get_proxy(tops_op.Copy, args, kwargs)
+
+    @register_conversion(aten.copy_.default)
+    def Copy_(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Copy_, args, kwargs)
 
     @register_conversion(aten.lift_fresh_copy.default)
     def LiftFreshCopy(self, *args, **kwargs):

@@ -154,6 +154,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return
 
     def output(self, name, target, args, kwargs):
+        self.inplace_dict = kwargs
         for i in range(0, len(args[0])):
             self.output_args.append(args[0][i])
 
@@ -421,6 +422,8 @@ class EnflameCodegen(torch.fx.Interpreter):
                 none_bufs.append(bufs[-1])
                 call_body.writeline(
                     bufs[-1] + " = " + ("empty_strided((), ())"))
+        for i in range(len(bufs) - len(self.inplace_dict), len(bufs)):
+            bufs[i] = self.inplace_dict[bufs[i]]
 
         call_body.writeline("")
 
@@ -473,7 +476,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         if dipu_flag:
             call_body.writeline(f"torch_dipu.current_stream({self.device_id}).synchronize()")
 
-        call_body.writeline(f"return ({', '.join(bufs)})")
+        call_body.writeline(f"return ({', '.join(bufs[:len(bufs)-len(self.inplace_dict)])})")
 
         call_func = IndentedBuffer()
         call_func.writeline("def call(args):")
@@ -566,6 +569,10 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Copy(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = {y};"
+
+    @staticmethod
+    def Copy_(op_var, shape, dtype, x, y, **kwargs_list):
         return f"builder::Op {op_var} = {y};"
 
     @staticmethod

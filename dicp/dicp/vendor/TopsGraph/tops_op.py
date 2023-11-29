@@ -244,6 +244,14 @@ class Copy(Operator):
         self.torch_op = torch.ops.aten.copy
 
 
+class Copy_(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy_")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy_
+
+
 class LiftFreshCopy(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("LiftFreshCopy")
