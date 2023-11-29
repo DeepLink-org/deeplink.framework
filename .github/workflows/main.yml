@@ -568,7 +568,7 @@ jobs:
       - name: Run a test
         run: |
           set -ex
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-Latest-Target-910b/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
