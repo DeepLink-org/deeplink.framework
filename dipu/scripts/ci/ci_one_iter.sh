@@ -84,20 +84,20 @@ function export_repo_pythonpath(){
     basic_path="$2"
     if [ "$1" = "cuda" ]; then
         echo "Executing CUDA operation in pythonpath..."
-        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in pythonpath..."
-        export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
-        export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "ascend" ]; then
         echo "Executing ASCEND operation in pythonpath..."
     else
-        echo "Invalid parameter. Please specify 'cuda' or 'camb'."
+        echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
         exit 1
     fi
+
+    # Stable Diffusion
+    export PYTHONPATH=${basic_path}/mmagic:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/data/stable-diffusion-v1-5:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
+
     export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
@@ -108,7 +108,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
-    export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
 
     # set the environment variable for the transformers repository
     # export HF_HOME=${basic_path}/huggingface
@@ -171,6 +171,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
 
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
