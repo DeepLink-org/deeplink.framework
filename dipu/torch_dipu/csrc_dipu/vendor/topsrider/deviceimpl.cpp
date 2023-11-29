@@ -54,22 +54,22 @@ void checkLastError() { DIPU_CALLTOPSRT(::topsGetLastError()) }
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLTOPSRT(::topsGetDeviceCount(reinterpret_cast<int *>(&num)))
+  DIPU_CALLTOPSRT(::topsGetDeviceCount(reinterpret_cast<int*>(&num)))
   return num;
 }
 
-void getDriverVersion(int *version) {
+void getDriverVersion(int* version) {
   DIPU_CALLTOPSRT(::topsDriverGetVersion(version))
 }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   DIPU_CALLTOPSRT(::topsRuntimeGetVersion(version))
 }
 
 // =====================
 //  device stream related
 // =====================
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   if (prior) {
     DIPU_LOGW(
         "topsStreamCreateWithPriority is not ready, replace with "
@@ -117,7 +117,7 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) {
+void createEvent(deviceEvent_t* event) {
   DIPU_CALLTOPSRT(::topsEventCreateWithFlags(event, topsEventDisableTiming))
 }
 
@@ -133,7 +133,7 @@ void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLTOPSRT(::topsEventRecord(event, stream))
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end){
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end){
     DIPU_CALLTOPSRT(topsEventElapsedTime(time, start, end))}
 
 EventStatus getEventStatus(deviceEvent_t event) {
@@ -152,15 +152,15 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   if (nbytes != 0) DIPU_CALLTOPSRT(::topsHostMalloc(p, nbytes))
 }
 
-void freeHost(void *p) {
+void freeHost(void* p) {
   if (!p) DIPU_CALLTOPSRT(::topsHostFree(p))
 }
 
-OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   ::topsError_t r = ::topsMalloc(p, nbytes);
   if (r != ::topsSuccess) {
     if (throwExcepion) {
@@ -175,20 +175,20 @@ OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void *p) { DIPU_CALLTOPSRT(::topsFree(p)) }
+void freeDevice(void* p) { DIPU_CALLTOPSRT(::topsFree(p)) }
 
-bool isPinnedPtr(const void *p) {
+bool isPinnedPtr(const void* p) {
   ::topsPointerAttribute_t attr;
   DIPU_CALLTOPSRT(::topsPointerGetAttributes(&attr, p))
   return attr.memoryType == topsMemoryTypeHost;
 }
 
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   DIPU_CALLTOPSRT(::topsMemsetAsync(ptr, val, size, stream))
 }
 
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLTOPSRT(::topsMemcpy(dst, src, nbytes, ::topsMemcpyDeviceToDevice))
   } else {
@@ -197,19 +197,19 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
 }
 
 // (synchronous) copy from host to a tops device
-void memCopyH2D(size_t nbytes, void *dst, const void *src) {
+void memCopyH2D(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLTOPSRT(::topsMemcpy(dst, src, nbytes, ::topsMemcpyHostToDevice))
 }
 
 // (synchronous) copy from a tops device to host
-void memCopyD2H(size_t nbytes, void *dst, const void *src) {
+void memCopyD2H(size_t nbytes, void* dst, const void* src) {
   DIPU_CALLTOPSRT(::topsMemcpy(dst, src, nbytes, ::topsMemcpyDeviceToHost))
 }
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
-                     const void *src) {
+                     deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
+                     const void* src) {
   if (dstDevId == srcDevId) {
     DIPU_CALLTOPSRT(
         ::topsMemcpyAsync(dst, src, nbytes, topsMemcpyDeviceToDevice, stream))
@@ -220,15 +220,15 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
 }
 
 // (asynchronous) copy from host to a device
-void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLTOPSRT(
       ::topsMemcpyAsync(dst, src, nbytes, topsMemcpyHostToDevice, stream))
 }
 
 // (asynchronous) copy from a device to host
-void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void *dst,
-                     const void *src) {
+void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes, void* dst,
+                     const void* src) {
   DIPU_CALLTOPSRT(
       ::topsMemcpyAsync(dst, src, nbytes, topsMemcpyDeviceToHost, stream));
 }

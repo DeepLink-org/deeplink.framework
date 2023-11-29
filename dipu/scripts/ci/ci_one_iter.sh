@@ -42,7 +42,7 @@ function clone_needed_repo() {
     SMART_VERSION=dev_for_mmcv2.0
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
-    TRANSFORMERS=dipu_v4.28.1_one_iter_tool
+    # TRANSFORMERS=dipu_v4.28.1_one_iter_tool
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -56,7 +56,7 @@ function clone_needed_repo() {
     check_and_clone_repository "mmagic" ${MMAGIC}
     check_and_clone_repository "mmyolo" ${MMYOLO}
     check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
-    check_and_clone_repository "transformers" ${TRANSFORMERS}
+    # check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
     cd ..
 }
@@ -111,8 +111,8 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
 
     # set the environment variable for the transformers repository
-    export HF_HOME=${basic_path}/huggingface
-    export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
+    # export HF_HOME=${basic_path}/huggingface
+    # export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
 
     export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH

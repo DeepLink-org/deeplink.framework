@@ -54,24 +54,24 @@ using torch::profiler::impl::shapesToStr;
 using torch::profiler::impl::stacksToStr;
 using torch::profiler::impl::TensorMetadata;
 
-auto shapesAndDtypes(const std::vector<op_input_t> &inputs) {
+auto shapesAndDtypes(const std::vector<op_input_t>& inputs) {
   std::vector<std::vector<int64_t>> shapes;
   std::vector<std::string> dtypes;
-  for (const auto &i : inputs) {
+  for (const auto& i : inputs) {
     c10::visit(c10::overloaded(
-                   [&](const TensorMetadata &t) {
+                   [&](const TensorMetadata& t) {
                      shapes.emplace_back(t.sizes_);
                      dtypes.emplace_back(scalarTypeToTypeMeta(t.dtype_).name());
                    },
-                   [&](const std::vector<TensorMetadata> &) {
+                   [&](const std::vector<TensorMetadata>&) {
                      shapes.emplace_back();
                      dtypes.emplace_back("TensorList");
                    },
-                   [&](const c10::IValue &) {
+                   [&](const c10::IValue&) {
                      shapes.emplace_back();
                      dtypes.emplace_back("Scalar");
                    },
-                   [&](const auto &) {
+                   [&](const auto&) {
                      shapes.emplace_back();
                      dtypes.emplace_back();
                    }),
@@ -81,7 +81,7 @@ auto shapesAndDtypes(const std::vector<op_input_t> &inputs) {
 }
 
 struct MetadataBase {
-  MetadataBase(const std::shared_ptr<Result> &result)
+  MetadataBase(const std::shared_ptr<Result>& result)
       : kineto_activity_{result->kineto_activity_} {
     if (c10::holds_alternative<ExtraFields<EventType::Kineto>>(
             result->extra_fields_)) {
@@ -98,7 +98,7 @@ struct MetadataBase {
     }
   }
 
-  void addMetadata(const std::string &key, const std::string &value) {
+  void addMetadata(const std::string& key, const std::string& value) {
     if (kineto_activity_ && !value.empty() && value != "\"\"") {
       torch::profiler::impl::kineto::addMetadata(kineto_activity_, key, value);
     }
@@ -107,56 +107,56 @@ struct MetadataBase {
   bool hasKinetoActivity() const { return kineto_activity_ != nullptr; }
 
  private:
-  const torch::profiler::impl::kineto::activity_t *kineto_activity_{nullptr};
+  const torch::profiler::impl::kineto::activity_t* kineto_activity_{nullptr};
 };
 
 struct AddTensorboardFields : public MetadataBase {
-  AddTensorboardFields(const std::shared_ptr<Result> &result,
-                       KinetoEvent &kineto_event)
+  AddTensorboardFields(const std::shared_ptr<Result>& result,
+                       KinetoEvent& kineto_event)
       : MetadataBase(result) {
     result->visit(*this);
     const auto module_hierarchy = kineto_event.moduleHierarchy();
     addMetadata("Module Hierarchy", stacksToStr(module_hierarchy.vec(), "."));
     addMetadata("Call stack", stacksToStr(kineto_event.stack().vec(), ";"));
 
-    result->visit_if_base<PyExtraFieldsBase>([&, this](const auto &i) -> void {
+    result->visit_if_base<PyExtraFieldsBase>([&, this](const auto& i) -> void {
       this->addMetadata("Python id", std::to_string(i.id_));
 
       c10::optional<std::string> parent_id;
       std::shared_ptr<Result> parent = result->parent_.lock();
       while (parent && !parent_id.has_value()) {
         parent->visit_if_base<PyExtraFieldsBase>(
-            [&](const auto &j) { parent_id = std::to_string(j.id_); });
+            [&](const auto& j) { parent_id = std::to_string(j.id_); });
         parent = parent->parent_.lock();
       }
       this->addMetadata("Python parent id", parent_id.value_or("null"));
     });
   }
 
-  void operator()(const ExtraFields<EventType::PyCall> &py_call) {
+  void operator()(const ExtraFields<EventType::PyCall>& py_call) {
     if (py_call.module_.has_value()) {
       addMetadata("Python module id", std::to_string(py_call.module_->id_));
     }
   }
 
   template <typename T>
-  void operator()(const T &) {}
+  void operator()(const T&) {}
 };
 
 struct AddGenericMetadata : public MetadataBase {
-  AddGenericMetadata(std::shared_ptr<Result> &result,
-                     const torch::profiler::impl::ProfilerConfig *config)
+  AddGenericMetadata(std::shared_ptr<Result>& result,
+                     const torch::profiler::impl::ProfilerConfig* config)
       : MetadataBase(result), config_(config) {
     result->visit(*this);
     if (config->experimental_config.verbose) {
       result->visit_if_base<PyExtraFieldsBase>(
-          [&, this](const auto &i) -> void {
+          [&, this](const auto& i) -> void {
             this->addMetadata("Python thread", std::to_string(i.python_tid_));
           });
     }
   }
 
-  void operator()(ExtraFields<EventType::TorchOp> &op_event) {
+  void operator()(ExtraFields<EventType::TorchOp>& op_event) {
     const auto shapes_and_dtypes = shapesAndDtypes(op_event.inputs_);
     if (!shapes_and_dtypes.first.empty()) {
       addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
@@ -167,7 +167,7 @@ struct AddGenericMetadata : public MetadataBase {
     }
 
     if (config_ && !config_->experimental_config.performance_events.empty()) {
-      auto &event_names = config_->experimental_config.performance_events;
+      auto& event_names = config_->experimental_config.performance_events;
       for (auto i = 0; i < op_event.perf_event_counters_->size(); ++i) {
         addMetadata(event_names[i],
                     std::to_string((*op_event.perf_event_counters_)[i]));
@@ -182,13 +182,13 @@ struct AddGenericMetadata : public MetadataBase {
     }
   }
 
-  void operator()(ExtraFields<EventType::Backend> &backend_event) {
+  void operator()(ExtraFields<EventType::Backend>& backend_event) {
     if (!backend_event.backend_.empty()) {
       addMetadata("Backend", "\"" + backend_event.backend_ + "\"");
     }
   }
 
-  void operator()(const ExtraFields<EventType::Allocation> &alloc) {
+  void operator()(const ExtraFields<EventType::Allocation>& alloc) {
     addMetadata("Device Type", std::to_string((int8_t)alloc.device_type_));
     addMetadata("Device Id", std::to_string(alloc.device_index_));
     addMetadata("Addr", std::to_string(reinterpret_cast<intptr_t>(alloc.ptr_)));
@@ -197,7 +197,7 @@ struct AddGenericMetadata : public MetadataBase {
     addMetadata("Total Reserved", std::to_string(alloc.total_reserved_));
   }
 
-  void operator()(const ExtraFields<EventType::OutOfMemory> &alloc) {
+  void operator()(const ExtraFields<EventType::OutOfMemory>& alloc) {
     addMetadata("Device Type", std::to_string((int8_t)alloc.device_type_));
     addMetadata("Device Id", std::to_string(alloc.device_index_));
     addMetadata("Bytes", std::to_string(alloc.alloc_size_));
@@ -206,11 +206,11 @@ struct AddGenericMetadata : public MetadataBase {
   }
 
   template <typename T>
-  void operator()(const T &) {}
+  void operator()(const T&) {}
 
  private:
   /* To get names of the performance events */
-  const torch::profiler::impl::ProfilerConfig *config_;
+  const torch::profiler::impl::ProfilerConfig* config_;
 };
 // Assumption: Total threads number will not exceed 2^16-1, and total ops will
 // not exceed 2^48 -1.
@@ -220,26 +220,26 @@ static inline uint64_t getForwardThreadKey(uint64_t tid, uint64_t seqNr) {
 
 struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
   explicit DIPUKinetoThreadLocalState(
-      const torch::profiler::impl::ProfilerConfig &config,
+      const torch::profiler::impl::ProfilerConfig& config,
       std::set<torch::profiler::impl::ActivityType> activities)
       : ProfilerStateBase(config),
         start_time_(getTimeUs()),
         record_queue_(config, std::move(activities)) {}
   ~DIPUKinetoThreadLocalState() override = default;
 
-  static DIPUKinetoThreadLocalState *get(bool global) {
-    auto *state = ProfilerStateBase::get(global);
+  static DIPUKinetoThreadLocalState* get(bool global) {
+    auto* state = ProfilerStateBase::get(global);
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(state == nullptr ||
                                      state->profilerType() ==
                                          ActiveProfilerType::KINETO);
-    return static_cast<DIPUKinetoThreadLocalState *>(state);
+    return static_cast<DIPUKinetoThreadLocalState*>(state);
   }
 
   ActiveProfilerType profilerType() override {
     return ActiveProfilerType::KINETO;
   }
 
-  void reportMemoryUsage(void *ptr, int64_t alloc_size, size_t total_allocated,
+  void reportMemoryUsage(void* ptr, int64_t alloc_size, size_t total_allocated,
                          size_t total_reserved, c10::Device device) override {
     if (config_.profile_memory && !config_.disabled()) {
       record_queue_.getSubqueue()->emplace_allocation_event(
@@ -257,11 +257,11 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
     }
   }
 
-  const post_process_t &getEventPostProcessingCallback() const {
+  const post_process_t& getEventPostProcessingCallback() const {
     return event_post_process_cb_;
   }
 
-  void setEventPostProcessingCallback(post_process_t &&cb) {
+  void setEventPostProcessingCallback(post_process_t&& cb) {
     event_post_process_cb_ = std::move(cb);
   }
 
@@ -281,30 +281,30 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
     // via the `stacks` property.
     kineto_events_.erase(
         std::remove_if(kineto_events_.begin(), kineto_events_.end(),
-                       [](const auto &i) { return i.isPythonFunction(); }),
+                       [](const auto& i) { return i.isPythonFunction(); }),
         kineto_events_.end());
 
     return std::move(records_and_trace.second);
   }
 
   template <typename T>
-  void invokeCallback(T &t) {
+  void invokeCallback(T& t) {
     if (event_post_process_cb_) {
       event_post_process_cb_(t.debug_handle_, t.jit_stack_, t.jit_modules_);
     }
   }
 
-  void materializeOpEvents(std::vector<std::shared_ptr<Result>> &events) {
-    for (auto &e : events) {
+  void materializeOpEvents(std::vector<std::shared_ptr<Result>>& events) {
+    for (auto& e : events) {
       if (e->parent_.expired()) {
         event_tree_.push_back(e);
       }
 
       if (e->finished_) {
         e->visit(c10::overloaded(
-            [this](ExtraFields<EventType::TorchOp> &i) { invokeCallback(i); },
-            [this](ExtraFields<EventType::Backend> &i) { invokeCallback(i); },
-            [](auto &) {}));
+            [this](ExtraFields<EventType::TorchOp>& i) { invokeCallback(i); },
+            [this](ExtraFields<EventType::Backend>& i) { invokeCallback(i); },
+            [](auto&) {}));
 
         kineto_events_.emplace_back(e, config_.experimental_config.verbose);
         AddTensorboardFields add_tb(e, kineto_events_.back());
@@ -317,17 +317,17 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
   }
 
   void generateForwardBackwardLink(
-      const KinetoEvent &kineto_event, uint64_t &fwd_bwd_link_id,
-      libkineto::GenericTraceActivity &activity,
-      std::unordered_map<uint64_t, libkineto::GenericTraceActivity *>
-          &tidSeq2activity) {
+      const KinetoEvent& kineto_event, uint64_t& fwd_bwd_link_id,
+      libkineto::GenericTraceActivity& activity,
+      std::unordered_map<uint64_t, libkineto::GenericTraceActivity*>&
+          tidSeq2activity) {
     if (kineto_event.fwdThreadId() > 0) {
       // act is backward op.
       uint64_t key = getForwardThreadKey(kineto_event.fwdThreadId(),
                                          kineto_event.sequenceNr());
       auto iter = tidSeq2activity.find(key);
       if (iter != tidSeq2activity.end()) {
-        libkineto::GenericTraceActivity *fwd = iter->second;
+        libkineto::GenericTraceActivity* fwd = iter->second;
         fwd->flow.start = true;
         activity.flow.id = fwd->flow.id = fwd_bwd_link_id;
         activity.flow.type = fwd->flow.type = libkineto::kLinkFwdBwd;
@@ -366,7 +366,7 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
 
 template <bool use_global_state_ptr = false>
 std::unique_ptr<at::ObserverContext> onFunctionEnter(
-    const at::RecordFunction &fn) {
+    const at::RecordFunction& fn) {
   auto state_ptr = DIPUKinetoThreadLocalState::get(use_global_state_ptr);
   if (!state_ptr) {
     return nullptr;
@@ -376,15 +376,15 @@ std::unique_ptr<at::ObserverContext> onFunctionEnter(
 
 // @lint-ignore CLANGTIDY clang-diagnostic-unused-parameter
 template <bool use_global_state_ptr = false>
-void onFunctionExit(const at::RecordFunction &fn,
-                    at::ObserverContext *ctx_ptr) {
+void onFunctionExit(const at::RecordFunction& fn,
+                    at::ObserverContext* ctx_ptr) {
   auto state_ptr = DIPUKinetoThreadLocalState::get(use_global_state_ptr);
   if (!state_ptr) {
     return;
   }
-  const auto &config = state_ptr->config();
-  auto *kineto_ctx_ptr =
-      static_cast<torch::profiler::impl::KinetoObserverContext *>(ctx_ptr);
+  const auto& config = state_ptr->config();
+  auto* kineto_ctx_ptr =
+      static_cast<torch::profiler::impl::KinetoObserverContext*>(ctx_ptr);
   TORCH_INTERNAL_ASSERT(kineto_ctx_ptr != nullptr);
   kineto_ctx_ptr->event_->end_time_ =
       torch::profiler::impl::getApproximateTime();
@@ -403,7 +403,7 @@ void onFunctionExit(const at::RecordFunction &fn,
 }
 
 template <bool use_global_callback = false>
-void pushProfilingCallbacks(const std::unordered_set<at::RecordScope> &scopes) {
+void pushProfilingCallbacks(const std::unordered_set<at::RecordScope>& scopes) {
   auto registration_state_ptr =
       DIPUKinetoThreadLocalState::get(use_global_callback);
   TORCH_INTERNAL_ASSERT(registration_state_ptr, "Expected profiler state set");
@@ -423,8 +423,8 @@ void pushProfilingCallbacks(const std::unordered_set<at::RecordScope> &scopes) {
 
 static void prepareTrace(
     const bool cpuOnly,
-    const std::set<torch::profiler::impl::ActivityType> &activities,
-    const torch::profiler::impl::ExperimentalConfig &config) {
+    const std::set<torch::profiler::impl::ActivityType>& activities,
+    const torch::profiler::impl::ExperimentalConfig& config) {
   if (!libkineto::api().isProfilerRegistered()) {
     libkineto_init(/*cpuOnly=*/cpuOnly, /*logOnError=*/true);
     libkineto::api().suppressLogMessages();
@@ -445,8 +445,8 @@ static void prepareTrace(
 }
 
 void prepareProfiler(
-    const torch::profiler::impl::ProfilerConfig &config,
-    const std::set<torch::profiler::impl::ActivityType> &activities) {
+    const torch::profiler::impl::ProfilerConfig& config,
+    const std::set<torch::profiler::impl::ActivityType>& activities) {
   TORCH_CHECK(config.state == ProfilerState::KINETO ||
                   config.state == ProfilerState::KINETO_GPU_FALLBACK,
               "Supported only in Kineto profiler");
@@ -465,7 +465,7 @@ void prepareProfiler(
      * TODO Should we gracefully drop the invalid event if we have atleast one
      * valid?
      */
-    auto is_standard_event = [](const std::string &event) -> bool {
+    auto is_standard_event = [](const std::string& event) -> bool {
       for (auto e : torch::profiler::ProfilerPerfEvents) {
         if (!std::strcmp(event.c_str(), e)) {
           return true;
@@ -474,7 +474,7 @@ void prepareProfiler(
       return false;
     };
 
-    for (const auto &e : config.experimental_config.performance_events) {
+    for (const auto& e : config.experimental_config.performance_events) {
       if (!is_standard_event(e)) {
         TORCH_WARN("Forwarding a non-standard CPU performance event : ", e);
       }
@@ -482,9 +482,9 @@ void prepareProfiler(
   }
 }
 void enableProfiler(
-    const torch::profiler::impl::ProfilerConfig &config,
-    const std::set<torch::profiler::impl::ActivityType> &activities,
-    const std::unordered_set<at::RecordScope> &scopes) {
+    const torch::profiler::impl::ProfilerConfig& config,
+    const std::set<torch::profiler::impl::ActivityType>& activities,
+    const std::unordered_set<at::RecordScope>& scopes) {
   const auto has_cpu =
       activities.count(torch::profiler::impl::ActivityType::CPU);
   TORCH_CHECK(
@@ -518,7 +518,7 @@ void enableProfiler(
 
 std::unique_ptr<ProfilerResult> disableProfiler() {
   auto state_ptr = ProfilerStateBase::pop();
-  const auto &config = state_ptr->config();
+  const auto& config = state_ptr->config();
   TORCH_CHECK(state_ptr && (config.state == ProfilerState::KINETO),
               "Can't disable Kineto profiler when it's not running");
 
@@ -545,7 +545,7 @@ std::unique_ptr<ProfilerResult> disableProfiler() {
   return result;
 }
 
-void addMetadataJson(const std::string &key, const std::string &value) {
+void addMetadataJson(const std::string& key, const std::string& value) {
   if (libkineto::api().isProfilerInitialized()) {
     libkineto::api().activityProfiler().addMetadata(key, value);
   } else {

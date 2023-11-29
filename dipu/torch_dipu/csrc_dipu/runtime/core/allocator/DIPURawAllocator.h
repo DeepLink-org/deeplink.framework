@@ -44,6 +44,6 @@ class DIPURawHostAllocator : public c10::Allocator {
   c10::DeleterFnPtr raw_deleter() const override;
 };
 
-DIPU_API bool isPinnedPtr(const void *ptr);
+DIPU_API bool isPinnedPtr(const void* ptr);
 
 }  // namespace dipu

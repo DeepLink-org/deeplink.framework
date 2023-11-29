@@ -54,6 +54,14 @@ class TestCopy(TestCase):
             #     print(f"dst_dipu = {dst_dipu}")
             #     assert False, "copy_ test fail"
             self.assertEqual(dst_cpu, dst_dipu.cpu())
+      
+    def test_hollow_device_copy_(self):
+      device = "cuda"
+      t1 = torch.rand((6, 4), device=device)
+      dst1 = t1.as_strided((2, 2), (4, 1))
+      src = torch.rand((2, 2), device=device)
+      dst1.copy_(src)
+      self.assertEqual(dst1.cpu(), src.cpu())
 
 
 if __name__ == "__main__":

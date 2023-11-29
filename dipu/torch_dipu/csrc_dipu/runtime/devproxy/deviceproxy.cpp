@@ -43,15 +43,15 @@ void checkLastError() { return devapis::checkLastError(); }
 
 int getDeviceCount() { return devapis::getDeviceCount(); }
 
-void getDriverVersion(int *version) {
+void getDriverVersion(int* version) {
   return devapis::getDriverVersion(version);
 }
 
-void getRuntimeVersion(int *version) {
+void getRuntimeVersion(int* version) {
   return devapis::getRuntimeVersion(version);
 }
 
-void createStream(deviceStream_t *stream, bool prior) {
+void createStream(deviceStream_t* stream, bool prior) {
   return devapis::createStream(stream, prior);
 }
 
@@ -84,7 +84,7 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t *event) { return getEventFromPool(*event); }
+void createEvent(deviceEvent_t* event) { return getEventFromPool(*event); }
 
 void destroyEvent(deviceEvent_t event) { return restoreEventToPool(event); }
 
@@ -94,7 +94,7 @@ void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   return devapis::recordEvent(event, stream);
 }
 
-void eventElapsedTime(float *time, deviceEvent_t start, deviceEvent_t end) {
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end) {
   return devapis::eventElapsedTime(time, start, end);
 }
 
@@ -105,61 +105,61 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 //  mem related
 // =====================
-void mallocHost(void **p, size_t nbytes) {
+void mallocHost(void** p, size_t nbytes) {
   return devapis::mallocHost(p, nbytes);
 }
 
-void freeHost(void *p) { return devapis::freeHost(p); }
+void freeHost(void* p) { return devapis::freeHost(p); }
 
-OpStatus mallocDevice(void **p, size_t nbytes, bool throwExcepion) {
+OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   return devapis::mallocDevice(p, nbytes, throwExcepion);
 }
 
-void freeDevice(void *p) { return devapis::freeDevice(p); }
+void freeDevice(void* p) { return devapis::freeDevice(p); }
 
-bool isPinnedPtr(const void *p) { return devapis::isPinnedPtr(p); }
+bool isPinnedPtr(const void* p) { return devapis::isPinnedPtr(p); }
 
 // (asynchronous) set val
-void memSetAsync(const deviceStream_t stream, void *ptr, int val, size_t size) {
+void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
   return devapis::memSetAsync(stream, ptr, val, size);
 }
 
 // (synchronous) copy from device to a device
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void *dst,
-                deviceId_t srcDevId, const void *src) {
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
   return devapis::memCopyD2D(nbytes, dstDevId, dst, srcDevId, src);
 }
 
 // (synchronous) copy from host to a device
-void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void *dst,
-                /*Host srcDev,*/ const void *src) {
+void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst,
+                /*Host srcDev,*/ const void* src) {
   return devapis::memCopyH2D(nbytes, dst, src);
 }
 
 // (synchronous) copy from a device to host
-void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void *dst,
-                /*deviceId_t srcDevId,*/ const void *src) {
+void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
+                /*deviceId_t srcDevId,*/ const void* src) {
   return devapis::memCopyD2H(nbytes, dst, src);
 }
 
 // (asynchronous) copy from device to a device
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
-                     deviceId_t dstDevId, void *dst, deviceId_t srcDevId,
-                     const void *src) {
+                     deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
+                     const void* src) {
   return devapis::memCopyD2DAsync(stream, nbytes, dstDevId, dst, srcDevId, src);
 }
 
 // (asynchronous) copy from host to a device
 void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
-                     /*deviceId_t dstDevId,*/ void *dst,
-                     /*Host srcDev,*/ const void *src) {
+                     /*deviceId_t dstDevId,*/ void* dst,
+                     /*Host srcDev,*/ const void* src) {
   return devapis::memCopyH2DAsync(stream, nbytes, dst, src);
 }
 
 // (asynchronous) copy from a device to host
 void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
-                     /*Host dstDev,*/ void *dst,
-                     /*deviceId_t srcDevId,*/ const void *src) {
+                     /*Host dstDev,*/ void* dst,
+                     /*deviceId_t srcDevId,*/ const void* src) {
   return devapis::memCopyD2HAsync(stream, nbytes, dst, src);
 }
 

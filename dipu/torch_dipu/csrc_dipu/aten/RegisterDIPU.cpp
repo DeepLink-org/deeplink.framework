@@ -13,7 +13,6 @@
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
-#include <csrc_dipu/runtime/core/DIPUCopyInplace.h>
 
 using dnative = dipu::native::DIPUATenFunctions;
 
@@ -21,7 +20,7 @@ static std::string force_fallback_operators_list = []() -> std::string {
   std::ifstream stream(".dipu_force_fallback_op_list.config",
                        std::ios_base::in | std::ios::binary);
   std::string content;
-  const char *env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+  const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
   if (env != nullptr) {
     content += env;
   }
@@ -36,7 +35,7 @@ static std::string force_fallback_operators_list = []() -> std::string {
 }();
 
 namespace dipu {
-bool get_force_fallback(const char *opname) {
+bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.size() <= 0 || opname == nullptr) {
     return false;
   } else {
@@ -57,13 +56,13 @@ bool get_force_fallback(const char *opname) {
 }
 
 namespace native {
-void cpu_fallback(const c10::OperatorHandle &op, torch::jit::Stack *stack);
+void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }  // end of namespace native
 
-void dump_fallback_op_args(const c10::OperatorHandle &op,
-                           const torch::jit::Stack *stack) {
+void dump_fallback_op_args(const c10::OperatorHandle& op,
+                           const torch::jit::Stack* stack) {
   static int level = []() {
-    const char *env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+    const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
     return env_ptr ? std::atoi(env_ptr) : 0;
   }();
 
@@ -73,7 +72,7 @@ void dump_fallback_op_args(const c10::OperatorHandle &op,
   const auto name = c10::toString(op.operator_name());
   printf("--%-50s %-30s \n", ("[" + name + "]:").data(), "dipu_fallback");
 
-  auto &schema_args = op.schema().arguments();
+  auto& schema_args = op.schema().arguments();
   const auto num_arguments = schema_args.size();
   auto arguments = torch::jit::last(stack, num_arguments);
 
@@ -101,13 +100,13 @@ void dump_fallback_op_args(const c10::OperatorHandle &op,
   const auto arguments_begin = stack->size() - num_arguments;
   for (const auto idx : c10::irange(arguments.size())) {
     std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
-    const auto &ivalue = arguments[idx];
+    const auto& ivalue = arguments[idx];
     if (ivalue.isTensor()) {
-      const auto &tensor = ivalue.toTensor();
+      const auto& tensor = ivalue.toTensor();
       dumpTensor(tensor);
       std::cout << std::endl;
     } else if (ivalue.isTensorList()) {
-      const auto &tensorlist = ivalue.toTensorList();
+      const auto& tensorlist = ivalue.toTensorList();
       std::cout << std::endl;
       for (size_t i = 0; i < tensorlist.size(); i++) {
         std::cout << "\t";
@@ -124,8 +123,8 @@ void dump_fallback_op_args(const c10::OperatorHandle &op,
 
 namespace at {
 
-void dipu_fallback(const c10::OperatorHandle &op, DispatchKeySet dispatch_keys,
-                   torch::jit::Stack *stack) {
+void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
+                   torch::jit::Stack* stack) {
   dipu::dump_fallback_op_args(op, stack);
   const auto name = c10::toString(op.operator_name());
 
@@ -150,7 +149,7 @@ void dipu_fallback(const c10::OperatorHandle &op, DispatchKeySet dispatch_keys,
   }
 }
 
-std::deque<std::tuple<torch::Library *, DIPUOpRegister::OpRegFunPtr>>
+std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>>
     DIPUOpRegister::dipuOpRegisterList;
 std::mutex DIPUOpRegister::mutex_;
 
@@ -158,7 +157,7 @@ void DIPUOpRegister::register_op() {
   std::lock_guard<std::mutex> guard(mutex_);
   for (auto iter = dipuOpRegisterList.begin(); iter != dipuOpRegisterList.end();
        ++iter) {
-    torch::Library *lib = std::get<0>(*iter);
+    torch::Library* lib = std::get<0>(*iter);
     DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(*iter);
     fun_ptr(*lib);
   }
@@ -209,7 +208,7 @@ at::Tensor wrapper_CPU_empty_strided(at::IntArrayRef size,
                                     device_opt, pin_memory_opt);
 }
 
-at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor &self,
+at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor& self,
                                         c10::SymIntArrayRef size,
                                         c10::SymIntArrayRef stride) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
@@ -218,22 +217,22 @@ at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor &self,
 }
 
 // only used by cpu_fallback.
-at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor &self,
-                                               const at::Tensor &dst) {
+at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor& self,
+                                               const at::Tensor& dst) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   dst.resize_as_(self).copy_(self);
   return dst;
 }
 
-const at::Tensor &wrapper_resize_(
-    const at::Tensor &self, at::IntArrayRef size,
+const at::Tensor& wrapper_resize_(
+    const at::Tensor& self, at::IntArrayRef size,
     c10::optional<at::MemoryFormat> memory_format) {
-  // add guard for device switch.
+  // DeviceGuard omitted because resize_ has guard within itself.
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::resize_(self, size, memory_format);
 }
 
-at::Tensor wrapper_DIPU__as_strided(const at::Tensor &self,
+at::Tensor wrapper_DIPU__as_strided(const at::Tensor& self,
                                     c10::SymIntArrayRef size,
                                     c10::SymIntArrayRef stride,
                                     c10::optional<c10::SymInt> storage_offset) {
@@ -247,7 +246,7 @@ at::Tensor wrapper_DIPU__as_strided(const at::Tensor &self,
           : c10::nullopt);
 }
 
-at::Tensor wrapper_DIPU__view(const at::Tensor &self,
+at::Tensor wrapper_DIPU__view(const at::Tensor& self,
                               c10::SymIntArrayRef size) {
   // No device check
   // DeviceGuard omitted
@@ -255,19 +254,19 @@ at::Tensor wrapper_DIPU__view(const at::Tensor &self,
   return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
 }
 
-at::Tensor wrapper_DIPU__view_as_real(const at::Tensor &self) {
+at::Tensor wrapper_DIPU__view_as_real(const at::Tensor& self) {
   // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::view_as_real(self);
 }
 
-at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor &self) {
+at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor& self) {
   // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::view_as_complex(self);
 }
 
-at::Tensor &wrapper_DIPU__zero_(at::Tensor &self) {
+at::Tensor& wrapper_DIPU__zero_(at::Tensor& self) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   const OptionalDeviceGuard device_guard(device_of(self));
   return at::native::zero_(self);
@@ -275,7 +274,7 @@ at::Tensor &wrapper_DIPU__zero_(at::Tensor &self) {
 
 // it's a view op, However it's not registered by
 // RegisterCompositeExplicitAutograd.cpp, but by cpu/cuda backend.
-at::Tensor wrapper_DIPU__unfold(const at::Tensor &self, int64_t dimension,
+at::Tensor wrapper_DIPU__unfold(const at::Tensor& self, int64_t dimension,
                                 int64_t size, int64_t step) {
   // No device check
   // DeviceGuard omitted
@@ -283,13 +282,13 @@ at::Tensor wrapper_DIPU__unfold(const at::Tensor &self, int64_t dimension,
   return at::native::unfold(self, dimension, size, step);
 }
 
-at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor &self) {
+at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor& self) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::_local_scalar_dense_dipu(self);
 }
 
-at::Tensor &wrapper_DIPU_source_Storage_set_(at::Tensor &self,
+at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self,
                                              at::Storage source) {
   // No device check
   // DeviceGuard omitted
@@ -298,8 +297,8 @@ at::Tensor &wrapper_DIPU_source_Storage_set_(at::Tensor &self,
   return dnative::set_storage_dipu_(self, std::move(source), 0, new_size, {});
 }
 
-at::Tensor &wrapper_DIPU_source_Storage_offset_set_(
-    at::Tensor &self, at::Storage source, c10::SymInt storage_offset,
+at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
+    at::Tensor& self, at::Storage source, c10::SymInt storage_offset,
     c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
   // No device check
   // DeviceGuard omitted
@@ -308,8 +307,8 @@ at::Tensor &wrapper_DIPU_source_Storage_offset_set_(
                                     C10_AS_INTARRAYREF_SLOW(stride));
 }
 
-at::Tensor &wrapper_DIPU_source_Tensor_set_(at::Tensor &self,
-                                            const at::Tensor &source) {
+at::Tensor& wrapper_DIPU_source_Tensor_set_(at::Tensor& self,
+                                            const at::Tensor& source) {
   // No device check
   // DeviceGuard omitted
   if (self.unsafeGetTensorImpl() != source.unsafeGetTensorImpl()) {
@@ -320,7 +319,7 @@ at::Tensor &wrapper_DIPU_source_Tensor_set_(at::Tensor &self,
   return self;
 }
 
-at::Tensor &wrapper_DIPU__set_(at::Tensor &self) {
+at::Tensor& wrapper_DIPU__set_(at::Tensor& self) {
   c10::optional<Device> common_device = nullopt;
   (void)common_device;  // Suppress unused variable warning
   c10::impl::check_and_update_common_device(common_device, self,
@@ -329,13 +328,13 @@ at::Tensor &wrapper_DIPU__set_(at::Tensor &self) {
   return dnative::set_dipu_(self);
 }
 
-bool wrapper_DIPU__is_set_to(const at::Tensor &self, const at::Tensor &tensor) {
+bool wrapper_DIPU__is_set_to(const at::Tensor& self, const at::Tensor& tensor) {
   // No device check
   // DeviceGuard omitted
   return at::native::is_set_to(self, tensor);
 }
 
-bool wrapper_BackendSelect_is_pinned(const at::Tensor &self,
+bool wrapper_BackendSelect_is_pinned(const at::Tensor& self,
                                      c10::optional<at::Device> device) {
   // Only CPU tensors can be pinned
   if (!self.is_cpu()) {
@@ -347,7 +346,7 @@ bool wrapper_BackendSelect_is_pinned(const at::Tensor &self,
   return at::_ops::is_pinned::redispatch(dk, self, device);
 }
 
-at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor &self,
+at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self,
                                              c10::optional<at::Device> device) {
   TORCH_CHECK(self.device().is_cpu(), "cannot pin '", self.toString(),
               "' only dense CPU tensors can be pinned");
@@ -356,19 +355,19 @@ at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor &self,
   return at::_ops::_pin_memory::redispatch(dk, self, device);
 }
 
-bool wrapper_DIPU_is_pinned(const at::Tensor &self,
+bool wrapper_DIPU_is_pinned(const at::Tensor& self,
                             c10::optional<at::Device> device) {
   const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::is_pinned(self, device);
 }
 
-at::Tensor wrapper_DIPU__pin_memory(const at::Tensor &self,
+at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self,
                                     c10::optional<at::Device> device) {
   const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::_pin_memory(self, device);
 }
 
-void wrapper_DIPU__record_stream(at::Tensor &self, at::Stream s) {
+void wrapper_DIPU__record_stream(at::Tensor& self, at::Stream s) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   const OptionalDeviceGuard device_guard(device_of(self));
   dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
@@ -414,12 +413,12 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 
 class IgnoreWarningHandler : public c10::WarningHandler {
  public:
-  void process(const c10::Warning &warning) {
+  void process(const c10::Warning& warning) {
     // do nothing
   }
 };
 
-c10::WarningHandler *getIgnoreHandler() {
+c10::WarningHandler* getIgnoreHandler() {
   static IgnoreWarningHandler handler_ = IgnoreWarningHandler();
   return &handler_;
 }

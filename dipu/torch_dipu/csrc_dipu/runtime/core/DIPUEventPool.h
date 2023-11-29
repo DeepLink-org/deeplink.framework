@@ -5,9 +5,9 @@
 
 namespace dipu {
 
-void getEventFromPool(deviceEvent_t &event);
+void getEventFromPool(deviceEvent_t& event);
 
-void restoreEventToPool(deviceEvent_t &event);
+void restoreEventToPool(deviceEvent_t& event);
 
 void releaseAllEvent();
 

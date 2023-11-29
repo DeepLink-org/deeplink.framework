@@ -24,14 +24,14 @@ namespace dipu {
 
 static bool PythonDeviceAsCuda = false;
 
-static at::DeviceType _get_dipu_python_type(const at::Device &device) {
+static at::DeviceType _get_dipu_python_type(const at::Device& device) {
   if (device.type() == DIPU_DEVICE_TYPE && PythonDeviceAsCuda) {
     return at::DeviceType::CUDA;
   }
   return device.type();
 }
 
-PyObject *_THPDevice_type(THPDevice *self, PyObject *noargs) {
+PyObject* _THPDevice_type(THPDevice* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
   std::ostringstream oss;
   oss << _get_dipu_python_type(self->device);
@@ -40,7 +40,7 @@ PyObject *_THPDevice_type(THPDevice *self, PyObject *noargs) {
   END_HANDLE_TH_ERRORS
 }
 
-PyObject *_THPDevice_index(THPDevice *self, PyObject *noargs) {
+PyObject* _THPDevice_index(THPDevice* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
   if (self->device.has_index()) {
     return THPUtils_packInt64(self->device.index());
@@ -50,7 +50,7 @@ PyObject *_THPDevice_index(THPDevice *self, PyObject *noargs) {
   END_HANDLE_TH_ERRORS
 }
 
-PyObject *DIPU_THPDevice_repr(THPDevice *self) {
+PyObject* DIPU_THPDevice_repr(THPDevice* self) {
   std::ostringstream oss;
   oss << "device(type=\'" << _get_dipu_python_type(self->device) << "\'";
   if (self->device.has_index()) {
@@ -63,7 +63,7 @@ PyObject *DIPU_THPDevice_repr(THPDevice *self) {
   return THPUtils_packString(oss.str().c_str());
 }
 
-PyObject *DIPU_THPDevice_str(THPDevice *self) {
+PyObject* DIPU_THPDevice_str(THPDevice* self) {
   std::ostringstream oss;
   oss << _get_dipu_python_type(self->device);
   return THPUtils_packString(oss.str().c_str());
@@ -84,7 +84,7 @@ parameter(see csrc/utils/python_arg_parer.cpp FunctionParameter::check() ->
 THPDevice_Check()) so we replace some attributes of THPDeviceType class in
 c-python layer
 */
-void patchTorchCsrcDevice(PyObject *module) {
+void patchTorchCsrcDevice(PyObject* module) {
   // https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_dict
   THPDeviceType.tp_dict = nullptr;
   // change Type properties

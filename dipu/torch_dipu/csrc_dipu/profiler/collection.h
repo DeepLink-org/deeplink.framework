@@ -49,7 +49,7 @@ class DIPUInputOutputEncoder final {
     TERMINATOR
   };
 
-  void push(const at::Tensor &t);
+  void push(const at::Tensor& t);
 
   torch::profiler::impl::AppendOnlyList<
       Tag, torch::profiler::impl::IO_ENCODER_DEFAULT_BLOCK_SIZE>
@@ -69,44 +69,44 @@ class DIPUInputOutputEncoder final {
 class DIPUThreadLocalSubqueue {
  public:
   DIPUThreadLocalSubqueue(const uint64_t tid,
-                          const torch::profiler::impl::ProfilerConfig &config);
+                          const torch::profiler::impl::ProfilerConfig& config);
 
   std::unique_ptr<torch::profiler::impl::KinetoObserverContext> begin_op(
-      const at::RecordFunction &fn);
+      const at::RecordFunction& fn);
 
   template <class... Args>
-  void emplace_backend_event(Args &&...args) {
+  void emplace_backend_event(Args&&... args) {
     backend_events_.emplace_back(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  void emplace_vulkan_event(Args &&...args) {
+  void emplace_vulkan_event(Args&&... args) {
     vulkan_events_.emplace_back(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  void emplace_allocation_event(Args &&...args) {
+  void emplace_allocation_event(Args&&... args) {
     allocations_.emplace_back(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  void emplace_ooms_event(Args &&...args) {
+  void emplace_ooms_event(Args&&... args) {
     ooms_.emplace_back(std::forward<Args>(args)...);
   }
 
   template <class... Args>
-  void emplace_py_call(Args &&...args) {
+  void emplace_py_call(Args&&... args) {
     py_calls_.emplace_back(std::forward<Args>(args)...);
   }
 
   uint64_t tid() const { return tid_; }
 
-  const torch::profiler::impl::kineto::DeviceAndResource &kineto_info() const {
+  const torch::profiler::impl::kineto::DeviceAndResource& kineto_info() const {
     return kineto_info_;
   }
 
   inline void disable_perf_profiler(
-      torch::profiler::perf_counters_t &counters) const {
+      torch::profiler::perf_counters_t& counters) const {
     perf_profiler_->Disable(counters);
   }
 
@@ -123,17 +123,17 @@ class DIPUThreadLocalSubqueue {
   struct TorchOpStorage {
     // NB: This is a destructive operation.
     void materialize(
-        std::vector<std::shared_ptr<torch::profiler::impl::Result>> &out,
+        std::vector<std::shared_ptr<torch::profiler::impl::Result>>& out,
         const std::function<time_t(torch::profiler::impl::approx_time_t)>
             time_converter,
         const uint64_t tid,
-        const torch::profiler::impl::kineto::DeviceAndResource &kineto_info);
+        const torch::profiler::impl::kineto::DeviceAndResource& kineto_info);
 
     template <typename T, size_t ChunkSize>
     class EventBlock : public std::array<T, ChunkSize> {
      public:
       EventBlock();
-      uint64_t correlation_id(const T *ptr) const;
+      uint64_t correlation_id(const T* ptr) const;
 
      private:
       uint64_t id_start_;
@@ -145,8 +145,8 @@ class DIPUThreadLocalSubqueue {
                                                        EventBlock> {
      public:
       template <class... Args>
-      std::pair<event_t *, uint64_t> emplace_back(Args &&...args);
-      static uint64_t correlationID(const OpList::Iterator &e);
+      std::pair<event_t*, uint64_t> emplace_back(Args&&... args);
+      static uint64_t correlationID(const OpList::Iterator& e);
     } op_events_;
 
     // report_input_shapes
@@ -209,11 +209,11 @@ class DIPUThreadLocalSubqueue {
 
 class DIPURecordQueue {
  public:
-  DIPURecordQueue(const torch::profiler::impl::ProfilerConfig &config,
+  DIPURecordQueue(const torch::profiler::impl::ProfilerConfig& config,
                   std::set<torch::profiler::impl::ActivityType> activities);
 
   bool tracePython() const;
-  DIPUThreadLocalSubqueue *getSubqueue();
+  DIPUThreadLocalSubqueue* getSubqueue();
   void stop();
 
   // NB: This is a destructive operation.

@@ -256,33 +256,21 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body = IndentedBuffer()
         func_body.writeline('std::vector<void *> input_ptrs;')
         for i in range(0, len(self.input_args)):
-            func_body.writeline(
-                f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
+            func_body.writeline(f'input_ptrs.emplace_back(inputs_ptr[{str(i)}]);')
 
         func_body.writeline("")
         func_body.writeline("std::vector<void *> output_ptrs;")
+        output_ptr_count = 0
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                func_body.writeline(
-                    f'output_ptrs.emplace_back(output_ptr{str(i)});')
-
+                func_body.writeline(f'output_ptrs.emplace_back(outputs_ptr[{output_ptr_count}]);')
+                output_ptr_count += 1
         func_body.writeline("")
-        func_body.writeline(
-            f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
-        input_paras = []
-        for i in range(0, len(self.input_args)):
-            input_paras.append(f"float* input_ptr{str(i)}")
-
-        output_paras = []
-        for i in range(0, len(self.output_args)):
-            if not isinstance(self.output_args[i], type(None)):
-                output_paras.append(f"float* output_ptr{str(i)}")
-        paras = input_paras + output_paras
+        func_body.writeline(f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
         run_func_code = IndentedBuffer()
-        run_func_code.writeline(
-            f'extern "C" void run(void *dipu_stream, {", ".join(paras)}) {"{"}')
+        run_func_code.writeline(f'extern "C" void run(void *dipu_stream, void **inputs_ptr, void **outputs_ptr) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
@@ -435,9 +423,6 @@ class EnflameCodegen(torch.fx.Interpreter):
                     bufs[-1] + " = " + ("empty_strided((), ())"))
 
         call_body.writeline("")
-        if dipu_flag:
-            call_body.writeline(
-                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
 
         arg_ptrs = []
         for i in range(len(args)):
@@ -448,12 +433,23 @@ class EnflameCodegen(torch.fx.Interpreter):
             if bufs[i] not in none_bufs:
                 buf_ptrs.append("c_void_p(" + bufs[i] + ".data_ptr())")
 
+        call_body.writeline(f"args_ptr_type = c_void_p * {len(arg_ptrs)}")
+        call_body.writeline(f"bufs_ptr_type = c_void_p * {len(buf_ptrs)}")
+        call_body.writeline(f"args_ptr = args_ptr_type({','.join(arg_ptrs)})")
+        call_body.writeline(f"bufs_ptr = bufs_ptr_type({','.join(buf_ptrs)})")
+        call_body.writeline("")
+
+        if dipu_flag:
+            call_body.writeline(
+                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream"
+            )
+
         call_str = 'kernel_cpp_0('
         if dipu_flag:
             call_str += 'c_void_p(dipu_stream), '
         else:
             call_str += 'c_void_p(), '
-        call_str += ", ".join(arg_ptrs + buf_ptrs) + ")"
+        call_str += "args_ptr, bufs_ptr)"
         call_body.writeline(call_str)
 
         if tops_check_precision:
@@ -473,6 +469,9 @@ class EnflameCodegen(torch.fx.Interpreter):
             if arg not in bufs:
                 call_body.writeline(f'del {arg}')
         call_body.writeline("")
+
+        if dipu_flag:
+            call_body.writeline(f"torch_dipu.current_stream({self.device_id}).synchronize()")
 
         call_body.writeline(f"return ({', '.join(bufs)})")
 
@@ -901,9 +900,10 @@ class EnflameOverrides(OpOverrides):
     def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(tensors) + '}'}, {dim});"
 
+    # Add an additional true flag for accuration in tops softmax.
     @staticmethod
-    def Softmax(op_var, out_shape, out_dtype, x, y, z):
-        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
+    def Softmax(op_var, out_shape, out_dtype, x, y):
+        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, true);"
 
     @staticmethod
     def Logsoftmax(op_var, out_shape, out_dtype, x, y, z):

@@ -61,6 +61,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
                         "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
                         "-DENABLE_COVERAGE=${USE_COVERAGE}"
+                        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
                         "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
@@ -88,48 +89,15 @@ if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
 endif()
 
 #-------------------------add kineto as an external project ------------------------------------
-#-------------------------use the local submodule(without download)-----------------------------
-set(KINETO_BUILD_TARGET "kineto_internal-build")
-set(KINETO_SRC_PATH "${CMAKE_CURRENT_SOURCE_DIR}/kineto")
-set(KINETO_BUILD_PATH "${KINETO_SRC_PATH}/build")
-ExternalProject_Add(kineto_internal
-                    PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/kineto/"
-                    SOURCE_DIR ${KINETO_SRC_PATH}
-                    SOURCE_SUBDIR libkineto
-                    BINARY_DIR ${KINETO_BUILD_PATH}
-                    DOWNLOAD_COMMAND ""
-                    CMAKE_ARGS "-DKINETO_BUILD_TESTS=OFF"
-                               "-DKINETO_USE_DEVICE_ACTIVITY=ON"
-                               "-DKINETO_COMPILED_WITH_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
-                               "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
-                    BUILD_BYPRODUCTS "${KINETO_BUILD_PATH}/fmt/libfmt.a"
-                                     "${KINETO_BUILD_PATH}/libkineto.a"
-                    INSTALL_COMMAND cmake -E echo "Skipping install step for kineto_internal."
-)
-## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
-ExternalProject_Add_StepTargets(kineto_internal configure build)
-ExternalProject_Add_StepDependencies(kineto_internal build kineto_internal-configure)
-#-----------------------------------------------------------------------------------------------
-add_library(kineto_lib STATIC IMPORTED)
-add_library(kineto_fmt STATIC IMPORTED)
-add_dependencies(kineto_lib kineto_internal-build)
-add_dependencies(kineto_fmt kineto_internal-build)
-set_target_properties(
-  kineto_lib PROPERTIES IMPORTED_LOCATION
-                        "${KINETO_BUILD_PATH}/libkineto.a")
-set_target_properties(
-  kineto_fmt PROPERTIES IMPORTED_LOCATION
-                        "${KINETO_BUILD_PATH}/fmt/libfmt.a")
-target_include_directories(kineto_fmt SYSTEM INTERFACE
-  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
-)
-target_include_directories(kineto_lib SYSTEM INTERFACE
-  ${KINETO_SRC_PATH}/libkineto/include
-  ${KINETO_SRC_PATH}/libkineto/src
-  ${KINETO_SRC_PATH}/libkineto/third_party/fmt/include
-)
-add_library(kineto INTERFACE)
-target_link_libraries(kineto INTERFACE kineto_fmt kineto_lib)
-target_compile_definitions(kineto INTERFACE USE_KINETO)
-#-----------------------------------------------------------------------------------------------
 
+include(FetchContent)
+FetchContent_Declare(
+  kineto
+  URL           "${CMAKE_CURRENT_SOURCE_DIR}/kineto"
+  SOURCE_SUBDIR libkineto
+  SYSTEM)
+set(KINETO_BUILD_TESTS OFF CACHE INTERNAL "turn off tests")
+set(KINETO_USE_DEVICE_ACTIVITY ON CACHE INTERNAL "enable device activity")
+set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "keep abi settings")
+
+FetchContent_MakeAvailable(kineto)
