@@ -10,14 +10,6 @@ from contextlib import nullcontext
 from torch._subclasses import FakeTensor, FakeTensorMode
 from dicp.dynamo_bridge.utils import TensorInfo
 
-reqValOPList=[ # need to pass inputs without constructing fake tensor
-    "Const",
-]
-
-viewLikeOPList=[  # operators changing "view" without modifing real storage
-    "Slice",
-    "Reshape"
-]
 
 class Operator(ABC):
     __name__: str
@@ -97,12 +89,7 @@ class Operator(ABC):
         with fake_mode:
             try:
                 if hasattr(self, "infer_result"):
-                    if self.__name__ in reqValOPList: # directly pass input to next op
-                        return new_args, kwargs
-                    if self.__name__ in viewLikeOPList:# reset stride and storage_offset in op's infer_result
-                        return self.infer_result(*new_args, **kwargs)
-                    info: TensorInfo = self.infer_result(*new_args, **kwargs)
-                    return torch.empty(info.shape, dtype=info.dtype, memory_format=info.memory_format)
+                    return self.infer_result(*new_args, **kwargs)
                 elif hasattr(self, "torch_op"):
                     return self.torch_op(*new_args, **kwargs)
             except Exception as e:

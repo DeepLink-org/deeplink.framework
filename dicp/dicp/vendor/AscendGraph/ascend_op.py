@@ -35,7 +35,7 @@ class Adds(Operator):
         memory_format = get_memory_format(x1)
         dtype = get_cast_dtype(x1_dtype, x2_dtype)
         out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
-        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Add(Operator):
@@ -48,7 +48,7 @@ class Add(Operator):
         memory_format = get_memory_format(x1)
         dtype = get_cast_dtype(x1_dtype, x2_dtype)
         out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
-        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class BroadcastTo(Operator):
@@ -86,7 +86,7 @@ class Sub(Operator):
         out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
         dtype = get_cast_dtype(x1_dtype, x2_dtype)
         memory_format = get_memory_format(x1)
-        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Mul(Operator):
@@ -100,7 +100,7 @@ class Mul(Operator):
         out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
         dtype = get_cast_dtype(x1_dtype, x2_dtype)
         memory_format = get_memory_format(x1)
-        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Div(Operator):
@@ -110,12 +110,10 @@ class Div(Operator):
     def infer_result(self, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
-
-        return TensorInfo(
-            shape=get_broadcast_res_two_shape(x1_shape, x2_shape),
-            dtype=get_cast_dtype(x1_dtype, x2_dtype),
-            memory_format=get_memory_format(x1),
-        )
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class DivNoNan(Operator):
@@ -125,12 +123,10 @@ class DivNoNan(Operator):
     def infer_result(self, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
-
-        return TensorInfo(
-            shape=get_broadcast_res_two_shape(x1_shape, x2_shape),
-            dtype=get_cast_dtype(x1_dtype, x2_dtype),
-            memory_format=get_memory_format(x1),
-        )
+        out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Maximum(Operator):
@@ -140,7 +136,7 @@ class Maximum(Operator):
     def infer_result(self, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
-        return TensorInfo(
+        return torch.empty(
             x1_shape,
             dtype=get_cast_dtype(x1_dtype, x2_dtype),
             memory_format=get_memory_format(x1),
@@ -153,7 +149,7 @@ class Rsqrt(Operator):
 
     def infer_result(self, x):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Sqrt(Operator):
@@ -162,7 +158,7 @@ class Sqrt(Operator):
 
     def infer_result(self, x):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Log(Operator):
@@ -171,9 +167,7 @@ class Log(Operator):
 
     def infer_result(self, x):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Exp(Operator):
@@ -182,7 +176,7 @@ class Exp(Operator):
 
     def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Neg(Operator):
@@ -191,7 +185,7 @@ class Neg(Operator):
 
     def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Relu(Operator):
@@ -200,7 +194,7 @@ class Relu(Operator):
 
     def infer_result(self, x, base=-1.0, scale=1.0, shift=0.0):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Swish(Operator):
@@ -219,9 +213,7 @@ class SoftmaxV2(Operator):
 
     def infer_result(self, x, axes=None):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x, True)
-        return TensorInfo(
-            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class ReduceSumD(Operator):
@@ -230,8 +222,8 @@ class ReduceSumD(Operator):
 
     def infer_result(self, x, axes=None, keep_dims=False):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
-        shape = reduce_ops_output_size(x_shape, x_dim, axes, keep_dims)
-        return TensorInfo(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        out_shape = reduce_ops_output_size(x_shape, x_dim, axes, keep_dims)
+        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Unsqueeze(Operator):
@@ -247,7 +239,7 @@ class Unsqueeze(Operator):
         for d in sorted(dim, reverse=True):
             x_shape.insert(d + x_dim + 1 if d < 0 else d, 1)
 
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Squeeze(Operator):
@@ -271,7 +263,7 @@ class Squeeze(Operator):
         x_memory_format = get_memory_format(x)
         if len(shape) < 4:
             x_memory_format = torch.contiguous_format
-        return TensorInfo(shape, dtype=x.dtype, memory_format=x_memory_format)
+        return torch.empty(shape, dtype=x_dtype, memory_format=x_memory_format)
 
 
 class Pack(Operator):
@@ -326,17 +318,15 @@ class ReduceMaxD(Operator):
     def infer_result(self, x, dims, keepdim):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
-        return TensorInfo(
-            shape=out_shape, dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Const(Operator):
     def __init__(self):
         super().__init__("Const")
 
-    def infer_result(self, x, dtype, x_dim):
-        return TensorInfo(x_dim, dtype=dtype, memory_format=torch.contiguous_format)
+    def infer_result(self, new_args, kwargs):
+        return new_args, kwargs
 
 
 class Sigmoid(Operator):
@@ -345,9 +335,7 @@ class Sigmoid(Operator):
 
     def infer_result(self, x):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x, True)
-        return TensorInfo(
-            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Pow(Operator):
@@ -365,11 +353,10 @@ class Pow(Operator):
                 expo, True
             )
 
-        return TensorInfo(
-            get_broadcast_res_two_shape(base_shape, expo_shape),
-            dtype=get_cast_dtype(base_dtype, expo_dtype),
-            memory_format=get_memory_format(base),
-        )
+        out_shape = get_broadcast_res_two_shape(base_shape, expo_shape)
+        dtype = get_cast_dtype(base_dtype, expo_dtype)
+        memory_format = get_memory_format(base)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class Select(Operator):
@@ -380,13 +367,12 @@ class Select(Operator):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
         _, c_shape, _, _ = get_fake_tensor_meta_val(condition)
-        return TensorInfo(
-            get_broadcast_res_two_shape(
-                get_broadcast_res_two_shape(x1_shape, c_shape), x2_shape
-            ),
-            dtype=get_cast_dtype(x1_dtype, x2_dtype),
-            memory_format=get_memory_format(x1),
+        out_shape = get_broadcast_res_two_shape(
+            get_broadcast_res_two_shape(x1_shape, c_shape), x2_shape
         )
+        dtype = get_cast_dtype(x1_dtype, x2_dtype)
+        memory_format = get_memory_format(x1)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class LessEqual(Operator):
@@ -396,7 +382,7 @@ class LessEqual(Operator):
     def infer_result(self, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
-        return TensorInfo(
+        return torch.empty(
             get_broadcast_res_two_shape(x1_shape, x2_shape),
             dtype=torch.bool,
             memory_format=get_memory_format(x1),
@@ -410,7 +396,7 @@ class Less(Operator):
     def infer_result(self, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
-        return TensorInfo(
+        return torch.empty(
             get_broadcast_res_two_shape(x1_shape, x2_shape),
             dtype=torch.bool,
             memory_format=get_memory_format(x1),
@@ -443,9 +429,7 @@ class Cast(Operator):
 
     def infer_result(self, x, dtype):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            list(x_shape), dtype=dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=dtype, memory_format=get_memory_format(x))
 
 
 class CastToCpu(Operator):
@@ -460,7 +444,7 @@ class Identity(Operator):
     def infer_result(self, x, idx=None):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         out_shape = list(x_shape[idx]) if idx is not None else list(x_shape)
-        return TensorInfo(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class IdentityInp(Operator):
@@ -471,7 +455,7 @@ class IdentityInp(Operator):
         src, src_shape, src_dim, src_dtype = get_fake_tensor_meta_val(src)
         dst, dst_shape, dst_dim, dst_dtype = get_fake_tensor_meta_val(dst)
         out_shape = get_broadcast_res_two_shape(src_shape, dst_shape)
-        return TensorInfo(
+        return torch.empty(
             out_shape, dtype=dst_dtype, memory_format=get_memory_format(dst)
         )
 
@@ -482,9 +466,7 @@ class IdentityN(Operator):
 
     def infer_result(self, x):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class Empty(Operator):
@@ -501,7 +483,7 @@ class GatherV2(Operator):
         idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
         idx_shape = list(idx_shape)
         idx_shape.append(x_shape[-1])
-        return TensorInfo(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class OnesLike(Operator):
@@ -530,9 +512,7 @@ class LogSoftmaxV2(Operator):
 
     def infer_result(self, x, dim):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class LogSoftmaxGrad(Operator):
@@ -591,7 +571,7 @@ class ZerosLike(Operator):
 
     def infer_result(self, x):
         _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class SplitD(Operator):
@@ -617,9 +597,8 @@ class ConcatD(Operator):
         for t in x:
             _, t, _, _ = get_fake_tensor_meta_val(t)
             out_shape[dim] += t[dim]
-
-        return TensorInfo(
-            shape=out_shape, dtype=x0_dtype, memory_format=get_memory_format(x0)
+        return torch.empty(
+            out_shape, dtype=x0_dtype, memory_format=get_memory_format(x0)
         )
 
 
@@ -656,7 +635,6 @@ class Reshape(Operator):
         print(torch.empty(x_shape).size())
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
         res = torch.as_strided(res, re_shape, x_stride, x_storage_offset)
-
         return res
 
 
@@ -671,9 +649,7 @@ class Fills(Operator):
 
     def infer_result(self, x, value):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            shape=list(x_shape), dtype=x_dtype, memory_format=get_memory_format(x)
-        )
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class SoftmaxGrad(Operator):
@@ -687,8 +663,8 @@ class StatelessBernoulli(Operator):
 
     def infer_result(self, target, prob, seed, offset, dtype):
         tar, tar_shape, tar_dim, tar_dtype = get_fake_tensor_meta_val(target)
-        return TensorInfo(
-            shape=list(tar_shape), dtype=dtype, memory_format=torch.contiguous_format
+        return torch.empty(
+            tar_shape, dtype=dtype, memory_format=torch.contiguous_format
         )
 
 
@@ -699,8 +675,8 @@ class Shape(Operator):
     def infer_result(self, x):
         # like Const, we won't use this function, but it should exist as a flag for triggering inference of resinfo
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        return TensorInfo(
-            shape=list(x_shape), dtype=x_dtype, memory_format=torch.contiguous_format
+        return torch.empty(
+            x_shape, dtype=x_dtype, memory_format=torch.contiguous_format
         )
 
 
@@ -714,7 +690,7 @@ class AddV2(Operator):
         memory_format = get_memory_format(x1)
         dtype = get_cast_dtype(x1_dtype, x2_dtype)
         out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
-        return TensorInfo(shape=out_shape, dtype=dtype, memory_format=memory_format)
+        return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
 class StatelessRandomUniformV2(Operator):
