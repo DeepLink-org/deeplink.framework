@@ -9,7 +9,7 @@ def generate_unittest_for_individual_scripts():
 import io
 import os
 import unittest
-from torch_dipu.testing._internal.stdout_redirector import stdout_redirector
+from stdout_redirector import stdout_redirector
 
 
 class TestIndividualScripts(unittest.TestCase):
