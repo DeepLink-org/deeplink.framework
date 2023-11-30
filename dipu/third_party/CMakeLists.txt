@@ -1,4 +1,4 @@
-cmake_minimum_required(3.25) # 3.25 for add_subdirectory(SYSTEM)
+cmake_minimum_required(VERSION 3.25) # 3.25 for add_subdirectory(SYSTEM)
 
 #require the external project to build as target
 include(ExternalProject)
