@@ -8,6 +8,8 @@
 #include <hccl/hccl.h>
 #include <hccl/hccl_types.h>
 
+#include <c10/util/Exception.h>
+
 #include <csrc_dipu/common.h>
 
 namespace dipu {
@@ -20,14 +22,12 @@ namespace dipu {
     }                                                              \
   }
 
-#define DIPU_CALLACLRT(Expr)                                         \
-  {                                                                  \
-    TRACK_ACL(#Expr);                                                \
-    ::aclError ret = Expr;                                           \
-    if (ret != ::ACL_SUCCESS) {                                      \
-      throw std::runtime_error(std::string("ascend device error:") + \
-                               aclGetRecentErrMsg());                \
-    }                                                                \
+#define DIPU_CALLACLRT(Expr)                                               \
+  {                                                                        \
+    TRACK_ACL(#Expr);                                                      \
+    ::aclError ret = Expr;                                                 \
+    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
+                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
   }
 
 using deviceStream_t = aclrtStream;
