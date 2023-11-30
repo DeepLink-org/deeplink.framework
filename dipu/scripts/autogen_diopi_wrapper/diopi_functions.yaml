@@ -1683,11 +1683,17 @@
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
 
+- schema: "floor_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiFloorInp(ctx, self);
+
 - schema: "floor.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiFloor(ctx, out,self);
+  interface: diopiFloor(ctx, out, self);
+
+- schema: "ceil_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiCeilInp(ctx, self);
 
 - schema: "ceil.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiCeil(ctx, out,self);
+  interface: diopiCeil(ctx, out, self);
 
 - schema: "arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
