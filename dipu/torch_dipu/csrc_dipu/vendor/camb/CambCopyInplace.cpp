@@ -120,9 +120,8 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
 };
 
 // not const, see comments in DIPUCopy.cpp dipu_copy_op()
-static CambCopyInplace
-    camb_copy_inplace;  // NOLINT
-                        // (cppcoreguidelines-avoid-non-const-global-variables)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static CambCopyInplace camb_copy_inplace;  
 
 // this variable only for call setInst. no other use
 const static int32_t camb_init = []() {
