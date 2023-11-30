@@ -19,17 +19,16 @@ diopi_wrapper_file_template_content = \
 
 $header_include_code
 
-namespace dipu::native {
-
+namespace dipu {
+namespace native {
+    
 using dipu::diopi_helper::toDiopiGeneratorHandle;
+using dipu::diopi_helper::toDiopiSize;
+using dipu::diopi_helper::toDiopiRoundMode;
 
-
-using namespace dipu::diopi_helper;
-
-$functions_code
-
-
-}  // namespace dipu::native
+$functions_code    
+}  // namespace native
+}  // namespace dipu
 
 namespace at {
 
