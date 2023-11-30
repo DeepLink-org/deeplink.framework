@@ -169,18 +169,8 @@ if __name__ == '__main__':
 
     logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 
-
     logging.info(f"python path: {os.environ.get('PYTHONPATH', None)}")
 
-    try:
-        import torch_dipu
-        print("当前文件", os.path.basename(__file__))
-        print("包的路径: ", torch_dipu.__path__)
-        print("dipu导入成功")
-    except:
-        print("当前文件", os.path.basename(__file__))
-        print("dipu导入失败")
-        pass
     os.environ['DIPU_DUMP_OP_ARGS'] = "0"
     os.environ['DIPU_DEBUG_ALLOCATOR'] = "0"
     os.environ['ONE_ITER_TOOL_DEVICE'] = "dipu"

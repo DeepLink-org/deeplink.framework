@@ -149,7 +149,7 @@ jobs:
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\$(pwd):\$PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CAMB_PARTATION} --gres=mlu:${MLU_REQUESTS} sh ../scripts/ci/ci_one_iter.sh build_camb
           """
@@ -163,7 +163,7 @@ jobs:
           source scripts/ci/camb/ci_camb_env.sh
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\$(pwd):\$PYTHONPATH
           cd mmlab_pack
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
@@ -178,7 +178,7 @@ jobs:
           source scripts/ci/camb/ci_camb_env.sh
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\$(pwd):\$PYTHONPATH
           cd mmlab_pack
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
@@ -302,7 +302,7 @@ jobs:
           basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
-          export PYTHONPATH=\${pwd}:\$PYTHONPATH
+          export PYTHONPATH=\$(pwd):\$PYTHONPATH
           cd mmlab_pack
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=20 bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
@@ -313,7 +313,7 @@ jobs:
             source scripts/ci/nv/ci_nv_env.sh
             basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
             source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-            export PYTHONPATH=\${pwd}:\$PYTHONPATH
+            export PYTHONPATH=\$(pwd):\$PYTHONPATH
             cd mmlab_pack
             rm -rf one_iter_data
             python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
@@ -325,7 +325,7 @@ jobs:
             source scripts/ci/nv/ci_nv_env.sh
             basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
             source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-            export PYTHONPATH=\${pwd}:\$PYTHONPATH
+            export PYTHONPATH=\$(pwd):\$PYTHONPATH
             cd mmlab_pack
             rm -rf one_iter_data
             python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
