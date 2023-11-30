@@ -106,13 +106,7 @@ def apply_temp_patch():
     torch.jit.script = script_wrapper
 
 
-def apply_cuda_tensor_patch():
-    if mockcuda:
-        _C._mockCudaTensor()
-
-
 def apply_patches():
-    apply_cuda_tensor_patch()
     apply_tensor_method_patch()
     apply_torch_function_patch()
     apply_dist_patch()
