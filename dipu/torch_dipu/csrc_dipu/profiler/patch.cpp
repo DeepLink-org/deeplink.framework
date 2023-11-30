@@ -35,6 +35,7 @@ ApproximateClockToUnixTimeConverter::measurePair() {
 }
 
 ApproximateClockToUnixTimeConverter::time_pairs
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 ApproximateClockToUnixTimeConverter::measurePairs() {
   static constexpr auto n_warmup = 5;
   for (C10_UNUSED const auto _ : c10::irange(n_warmup)) {
@@ -58,7 +59,7 @@ ApproximateClockToUnixTimeConverter::makeConverter() {
   for (const auto i : c10::irange(replicates)) {
     auto delta_ns = end_times[i].t_ - start_times_[i].t_;
     auto delta_approx = end_times[i].approx_t_ - start_times_[i].approx_t_;
-    scale_factors[i] = (double)delta_ns / (double)delta_approx;
+    scale_factors[i] = static_cast<double>(delta_ns) / static_cast<double>(delta_approx);
   }
   std::sort(scale_factors.begin(), scale_factors.end());
   long double scale_factor = scale_factors[replicates / 2 + 1];
@@ -76,14 +77,14 @@ ApproximateClockToUnixTimeConverter::makeConverter() {
   for (const auto i : c10::irange(replicates)) {
     auto dt = start_times_[i].t_ - t0;
     auto dt_approx =
-        (double)(start_times_[i].approx_t_ - t0_approx) * scale_factor;
-    t0_correction[i] = dt - (time_t)dt_approx;
+        static_cast<double>(start_times_[i].approx_t_ - t0_approx) * scale_factor;
+    t0_correction[i] = static_cast<double>(dt - static_cast<time_t>(dt_approx));
   }
-  t0 += t0_correction[t0_correction.size() / 2 + 1];
+  t0 += static_cast<time_t>(t0_correction[t0_correction.size() / 2 + 1]);
 
   return [=](approx_time_t t_approx) {
     // See above for why this is more stable than `A * t_approx + B`.
-    auto result = (time_t)((double)(t_approx - t0_approx) * scale_factor) + t0;
+    auto result = static_cast<time_t>(static_cast<double>(t_approx - t0_approx) * scale_factor) + t0;
     return result;
   };
 }
@@ -98,12 +99,12 @@ namespace linux_perf {
 /*
  * Syscall wrapper for perf_event_open(2)
  */
-inline long perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
-                            int cpu, int group_fd, unsigned long flags) {
+inline int64_t perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
+                            int cpu, int group_fd, uint64_t flags) {
   return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-// TODO sync with Kineto level abstract events in profiler/events.h
+// TODO(caikun-pjlab): sync with Kineto level abstract events in profiler/events.h
 static const std::unordered_map<
     std::string, std::pair<perf_type_id, /* perf event type */ uint32_t>>
     EventTable{{"cycles",
@@ -156,7 +157,7 @@ void PerfEvent::Init() {
   pid_t pid = getpid();  // this pid
   int cpu = -1;          // all cpus
   int group_fd = -1;
-  unsigned long flags = 0;
+  uint64_t flags = 0;
 
   fd_ = static_cast<int>(perf_event_open(&attr, pid, cpu, group_fd, flags));
   if (fd_ == -1) {
@@ -168,7 +169,7 @@ void PerfEvent::Init() {
 
 uint64_t PerfEvent::ReadCounter() const {
   PerfCounter counter{};
-  long n = read(fd_, &counter, sizeof(PerfCounter));
+  int64_t n = read(fd_, &counter, sizeof(PerfCounter));
   TORCH_CHECK(n == sizeof(counter),
               "Read failed for Perf event fd, event : ", name_,
               ", error: ", std::strerror(errno));
@@ -197,7 +198,7 @@ void PerfProfiler::Configure(std::vector<std::string>& event_names) {
     events_.back().Init();
   }
 
-  // TODO
+  // TODO(caikun-pjlab):
   // Reset pthreadpool here to make sure we can attach to new children
   // threads
 }
@@ -265,7 +266,7 @@ activity_t* TraceWrapper::addCPUActivity(
   auto& act = libkineto::CpuTraceBuffer::toRef(cpu_trace_->activities.back());
   act.device = device_and_resource.device;
   act.resource = device_and_resource.resource;
-  act.id = correlation_id;
+  act.id = static_cast<int32_t>(correlation_id);
   act.startTime = start_time;
   if (type != libkineto::ActivityType::CPU_INSTANT_EVENT) {
     act.endTime = end_time;
@@ -321,6 +322,7 @@ void addMetadata(const activity_t* activity, const std::string& key,
   const_cast<activity_t*>(activity)->addMetadata(key, value);
 }
 
+// NOLINTNEXTLINE(readability-const-return-type)
 const DeviceAndResource kineto_ids() {
 #ifdef USE_KINETO
   return {/*device=*/libkineto::processId(),
@@ -330,14 +332,14 @@ const DeviceAndResource kineto_ids() {
 #endif  // USE_KINETO
 }
 
-struct RegisterLibKinetoClient {
+const struct RegisterLibKinetoClient {
   RegisterLibKinetoClient() { libkineto::api(); }
 } register_libkineto_client;
 
 }  // namespace kineto
 
 namespace {
-static constexpr TensorImplAddress NoTensorImpl{nullptr};
+constexpr TensorImplAddress NoTensorImpl{nullptr};
 
 struct RawTensorInfo {
   TensorImplAddress impl_;
@@ -378,7 +380,7 @@ struct RawTensors {
   }
 
   template <typename T>
-  void operator()(T&) {}
+  void operator()(T& t) {}
 
   std::vector<RawTensorInfo> tensors_;
 };
@@ -441,7 +443,7 @@ void calculateUniqueTensorIDs(
     ska::flat_hash_map<key_t, size_t, HashCombine> versions;
     for (auto& t : tensors) {
       auto inserted = versions.insert({{t.storage_, t.device_}, counter});
-      counter += inserted.second;
+      counter += static_cast<size_t>(inserted.second);
       t.allocation_id_ref_.get().emplace(AllocationID(inserted.first->second));
       if (t.is_free_) {
         versions.erase(inserted.first);
@@ -503,7 +505,7 @@ void calculateUniqueTensorIDs(
     size_t current_id{0};
     for (const auto& i : unique_pairs) {
       auto inserted = id_map.insert({i.first, current_id});
-      current_id += inserted.second;
+      current_id += static_cast<size_t>(inserted.second);
       id_map.insert({i.second, inserted.first->second});
     }
   }
