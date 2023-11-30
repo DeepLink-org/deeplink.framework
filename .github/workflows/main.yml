@@ -75,9 +75,6 @@ jobs:
           ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${ASCEND_CLUSTER} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${ASCEND_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${ASCEND_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
           ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
