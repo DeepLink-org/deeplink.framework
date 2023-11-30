@@ -1,0 +1,44 @@
+name: runs on topsrider
+
+on:
+  workflow_call:
+    inputs:
+      machine:
+        description: If set to other value, the job need ssh
+        type: string
+        required: false
+        default: "TOPSRIDER"
+      runner:
+        description: Set up the build environment
+        type: string
+        required: false
+        default: "tps-topsrider-dicp"
+
+jobs:
+  checkout_code:
+    name: checkout code
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - name: Checkout Code
+        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
+
+  build_test:
+    runs-on: ${{ inputs.runner }}
+    needs: checkout_code
+    steps:
+      - name: build and test on topsrider
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
+        with:
+          build_shell: "
+                       source dicp/scripts/ci/tops/ci_tops_build_env.sh && \
+                       pip uninstall torch_dipu -y && \
+                       pip uninstall dicp -y && \
+                       cd dipu && python setup.py install --user && \
+                       cd ../dicp && python setup.py install --user && \
+                       cd .. && source dicp/scripts/ci/tops/ci_tops_test_env.sh /mnt/models/llama_models && \
+                       export TEST_DIR=$(pwd)/dicp/test && echo ${TEST_DIR} && \
+                       bash ${TEST_DIR}/tops_scripts/ops/run_test_ops.sh false && \
+                       bash ${TEST_DIR}/tops_scripts/models/run_test_models.sh false
+                       "
+          job_name: "build_test"
+          cover_job: "0"

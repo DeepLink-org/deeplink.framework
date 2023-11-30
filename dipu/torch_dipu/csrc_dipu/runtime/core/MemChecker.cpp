@@ -6,8 +6,8 @@
 #include <sstream>
 #include <string>
 
-#include <c10/util/Exception.h>
 #include <c10/util/Backtrace.h>
+#include <c10/util/Exception.h>
 
 namespace dipu {
 
@@ -21,12 +21,14 @@ MemChecker::~MemChecker() {
 
   if (!blocks_.empty()) {
     std::cout << "dipu memory checker: there maybe exist memory leak. "
-      << blocks_.size() << " blocks not released." << std::endl;
-    for (const auto &kv : blocks_) {
-      std::cout << "key: " << kv.first << ", ptr: " << kv.second.first << ", trace: " << kv.second.second << std::endl;
+              << blocks_.size() << " blocks not released." << std::endl;
+    for (const auto& kv : blocks_) {
+      std::cout << "key: " << kv.first << ", ptr: " << kv.second.first
+                << ", trace: " << kv.second.second << std::endl;
     }
   }
-  std::cout << "dipu memory checker: going to destruction. " << current_state() << std::endl;
+  std::cout << "dipu memory checker: going to destruction. " << current_state()
+            << std::endl;
 }
 
 MemChecker& MemChecker::instance() {
@@ -40,7 +42,8 @@ bool MemChecker::enable() {
 }
 
 bool MemChecker::enable_backtrace() {
-  static bool enable_trace = (std::getenv("DIPU_MEM_CHECK_ENABLE_BACKTRACE") != nullptr);
+  static bool enable_trace =
+      (std::getenv("DIPU_MEM_CHECK_ENABLE_BACKTRACE") != nullptr);
   return enable_trace;
 }
 
@@ -70,11 +73,11 @@ int32_t MemChecker::log_interval() {
 
 std::string MemChecker::current_state() const {
   std::stringstream stream;
-  stream << "current block num = " <<  blocks_.size()
-    << ", total_size = " << (total_size_ >> 20) << "MB"
-    << ", insert count = " << insert_cnt_
-    << ", max block num = " << max_block_num()
-    << ", log interval = " << log_interval();
+  stream << "current block num = " << blocks_.size()
+         << ", total_size = " << (total_size_ >> 20) << "MB"
+         << ", insert count = " << insert_cnt_
+         << ", max block num = " << max_block_num()
+         << ", log interval = " << log_interval();
   return stream.str();
 }
 
@@ -88,7 +91,8 @@ void MemChecker::insert(const void* ptr, size_t size) {
   std::string state;
   {
     std::lock_guard<std::mutex> lck(mtx_);
-    blocks_[ptr] = std::make_pair(size, enable_backtrace() ? c10::get_backtrace() : "");
+    blocks_[ptr] =
+        std::make_pair(size, enable_backtrace() ? c10::get_backtrace() : "");
     total_size_ += static_cast<int64_t>(size);
     ++insert_cnt_;
 
@@ -104,7 +108,8 @@ void MemChecker::insert(const void* ptr, size_t size) {
   }
 
   if (may_leak) {
-    std::cout << "dipu memory checker: there may be memory leak. " << state << std::endl;
+    std::cout << "dipu memory checker: there may be memory leak. " << state
+              << std::endl;
   } else if (print_log) {
     std::cout << "dipu memory checker: " << state << std::endl;
   }
@@ -128,12 +133,14 @@ void MemChecker::erase(const void* ptr) {
   }
 
   if (!found) {
-    std::cout << "dipu memory checker: not found point address going to free, ptr = " << ptr << std::endl;
+    std::cout
+        << "dipu memory checker: not found point address going to free, ptr = "
+        << ptr << std::endl;
   }
 }
 
-void MemChecker::check(const at::Tensor &input) {
-  const void *ptr = input.unsafeGetTensorImpl()->unsafe_storage().data();
+void MemChecker::check(const at::Tensor& input) {
+  const void* ptr = input.unsafeGetTensorImpl()->unsafe_storage().data();
   check(ptr);
 }
 
@@ -149,7 +156,9 @@ void MemChecker::check(const void* ptr) {
   }
 
   if (!found) {
-    std::cout << "dipu memory checker: not found point address when check, ptr = " << ptr << std::endl;
+    std::cout
+        << "dipu memory checker: not found point address when check, ptr = "
+        << ptr << std::endl;
   }
 }
 

@@ -1,9 +1,8 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <stdint.h>
-
 #include <mutex>
+#include <stdint.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -13,7 +12,7 @@
 namespace dipu {
 
 class MemChecker final {
-public:
+ public:
   static MemChecker& instance();
   static bool enable();
   static bool enable_backtrace();
@@ -26,10 +25,10 @@ public:
   void check(const void* ptr);
   ~MemChecker();
 
-private:
+ private:
   std::string current_state() const;
 
-private:
+ private:
   std::mutex mtx_;
   std::unordered_map<const void*, std::pair<size_t, std::string>> blocks_;
   int64_t total_size_ = 0;

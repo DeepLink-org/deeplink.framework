@@ -12,4 +12,3 @@ void restoreEventToPool(deviceEvent_t& event);
 void releaseAllEvent();
 
 }  // namespace dipu
-

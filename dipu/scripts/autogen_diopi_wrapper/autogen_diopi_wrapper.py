@@ -94,6 +94,7 @@ def create_return_code_frome_schema(schema, allow_return_ref = True):
     return_code = schema[schema.find('->'):].replace('->', '').strip()
     return_code = re.sub('Tensor *\[ *\] *', 'std::vector<Tensor> ' ,return_code)
     return_code = re.sub('\([a-zA-Z]!\)', '&' , return_code)
+    return_code = re.sub('\([a-zA-Z]\)', '' , return_code)
     return_code = re.sub('Tensor', 'at::Tensor' , return_code)
     return_code = re.sub('([\w_\d:&]+)[ ]+([\w\d_]+)?', R'\1', return_code)
     return_code = re.sub('\(', 'std::tuple<', return_code)
@@ -163,13 +164,15 @@ def create_param_list_from_schema(schema):
         'Scalar *\[ *\]' : 'at::ArrayRef<at::Scalar>',
         'Tensor *\( *[a-z]\!\) *\[ *\]' : 'at::ArrayRef<at::Tensor>',
         '[ ]*\([a-zA-Z]!\)' : '&',
+        'MemoryFormat\?' : 'const c10::optional<c10::MemoryFormat>',
         'str\?' : 'c10::optional<c10::string_view>',
         '([, \(]{1})str ' : R'\1c10::string_view ',
         'ScalarType[ ]*\?' : 'c10::optional<at::ScalarType>',
         'ScalarType[ ]+([\w\d_]+)' : R'at::ScalarType \1',
         'Scalar[ ]*\? *([\w\d_]+)' :  R'const c10::optional<at::Scalar>& \1',
         'Generator ?\?' : 'c10::optional<at::Generator>',
-        'Device ?\?' : 'c10::optional<c10::Device>',
+        'Device ?\?' : 'c10::optional<Device>',
+        'Device' : 'c10::Device',
         'Layout ?\?' : 'c10::optional<at::Layout>' ,
         'Tensor ?\? *\[ *\]' : R'const c10::List<c10::optional<at::Tensor>>&' ,
         'Tensor ?\?' : 'const c10::optional<at::Tensor>&' ,

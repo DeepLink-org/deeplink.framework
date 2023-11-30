@@ -1,0 +1,23 @@
+name: code format
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  cpp-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        with:
+          style: file
+          tidy-checks: '-*' # disable clang tidy at this stage
+          version: 16
+      - name: Fail test
+        if: steps.linter.outputs.checks-failed > 0
+        run: echo "Some files failed the linting checks!" && exit 1

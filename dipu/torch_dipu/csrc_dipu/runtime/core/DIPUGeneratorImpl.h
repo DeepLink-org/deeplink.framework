@@ -1,14 +1,14 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <ATen/TensorUtils.h>
+#include <ATen/core/Generator.h>
 #include <c10/core/Device.h>
 #include <c10/core/GeneratorImpl.h>
-#include <ATen/core/Generator.h>
-#include <ATen/TensorUtils.h>
 
 namespace dipu {
 class DIPUGeneratorImpl : public c10::GeneratorImpl {
-public:
+ public:
   // Constructors
   explicit DIPUGeneratorImpl(at::DeviceIndex device_index = -1);
   ~DIPUGeneratorImpl() = default;
@@ -19,9 +19,11 @@ public:
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  virtual void set_state(const c10::TensorImpl& state) {}
+  virtual void set_state(const c10::TensorImpl& state){};
+  virtual void set_offset(uint64_t offset){};
+  virtual uint64_t get_offset() const { return 0; };
 
-protected:
+ protected:
   void set_state_flag(bool flag);
   virtual void update_state() const {}
 

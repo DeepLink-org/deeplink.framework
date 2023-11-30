@@ -1,8 +1,10 @@
 // Copyright (c) 2023, DeepLink.
-#include <torch/torch.h>
 #include <iostream>
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+
+#include <torch/torch.h>
+
 #include <csrc_dipu/runtime/core/DIPUStream.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 using namespace dipu;
 void testcopy() {
@@ -53,12 +55,11 @@ void testStream1() {
   auto stream3 = getCurrentDIPUStream();
   rawStream = stream3.rawstream();
   std::cout << "current stream =" << rawStream << std::endl;
-
 }
 
 // need change to use gtest.
 int main() {
-  for(int i=0; i<3; i++) {
+  for (int i = 0; i < 3; i++) {
     // testcopy();
     testDeviceSwitch();
     // testStream1();

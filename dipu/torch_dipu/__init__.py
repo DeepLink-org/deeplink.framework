@@ -19,10 +19,11 @@ from torch_dipu import dipu
 from torch_dipu.dipu import *
 from .dipu.distributed import apply_dist_patch
 from .dipu.tensor import apply_tensor_type_patch
-from .profiler.profiler import dipu_profiler, dipu_kineto_available
+from .profiler.profiler import apply_profiler_patch
 from .dipu.dataloader import apply_dataloader_patch
 from .dipu.generator import apply_generator_patch
 from .dipu.streams import apply_stream_patch, _dipu_record_stream
+from .dipu.amp import apply_amp_patch
 
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
@@ -41,7 +42,7 @@ def apply_tensor_method_patch():
     torch.Tensor.new =  GetDeviceProxy(torch.Tensor.new,  pos = -1)
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
-    torch.Tensor.is_dipu = GetDeviceProxy(_C.is_dipu)
+    torch.Tensor.is_dipu = property(_C.is_dipu)
 
     # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp 
     # THPVariable_record_stream() will loss. so we currently replace in the python layer.
@@ -82,13 +83,20 @@ def apply_torch_function_patch():
     torch.randn = GetDeviceStaticProxy(torch.randn)
     torch.randn_like = GetDeviceStaticProxy(torch.randn_like)
     torch.randperm = GetDeviceStaticProxy(torch.randperm)
+
+    # todo: try to automaitc check & mock funcs
+    torch.linspace = GetDeviceStaticProxy(torch.linspace)
+
     if mockcuda:
         for attr in dipu.__all__:
             if hasattr(torch.cuda, attr):
                 setattr(torch.cuda, attr, getattr(dipu, attr))
-
-            if attr in torch.cuda.random.__all__ and hasattr(torch.cuda.random, attr):
-                setattr(torch.cuda.random, attr, getattr(dipu, attr))
+            if attr in torch.cuda.random.__all__ and hasattr(dipu.random_dipu, attr):
+                setattr(torch.cuda.random, attr, getattr(dipu.random_dipu, attr))
+            if attr in torch.cuda.memory.__all__ and hasattr(dipu.memory, attr):
+                setattr(torch.cuda.memory, attr, getattr(dipu.memory, attr))
+        # special case dipu ans cuda use different name
+        torch.cuda.device = dipu.devicectx
 
 
 # temp solution, need redesign storage
@@ -96,12 +104,6 @@ def apply_temp_patch():
     def script_wrapper(*args, **kwargs):
         pass
     torch.jit.script = script_wrapper
-
-
-def apply_profiler_patch():
-    setattr(torch.profiler, 'kineto_available', dipu_kineto_available)
-    setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
-    torch.profiler.profile = dipu_profiler
 
 
 def apply_patches():
@@ -114,5 +116,7 @@ def apply_patches():
     apply_dataloader_patch()
     apply_generator_patch()
     apply_stream_patch()
+    apply_amp_patch()
+
 
 apply_patches()

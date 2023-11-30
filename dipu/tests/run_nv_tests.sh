@@ -6,6 +6,7 @@ source tests/common.sh
 function run_dipu_tests {
   unset DIPU_DUMP_OP_ARGS
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
+  ${CDIR}/python/run_tests.sh
   run_test "${PYTORCH_TEST_DIR}/test/nn/test_convolution.py" -v TestConvolutionNNDeviceTypeDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_testing.py" "$@" -v TestTestParametrizationDeviceTypeDIPU TestTestingDIPU
@@ -24,11 +25,6 @@ function run_dipu_tests {
   # run_test "${PYTORCH_TEST_DIR}/test/test_ops_gradients.py" "$@" -v TestBwdGradientsDIPU
   # run_test "${PYTORCH_TEST_DIR}/test/test_ops.py" "$@" -v
   # run_test "${PYTORCH_TEST_DIR}/test/test_shape_ops.py" "$@" -v TestShapeOpsDIPU
-  run_test "$CDIR/test_ops/test_adaptive_avg_pool2d_backward.py"
-  run_test "$CDIR/test_ops/test_addmm.py"
-  run_test "$CDIR/test_ops/test_log_softmax_backward.py"
-  run_test "$CDIR/test_ops/test_log_softmax.py"
-  ls $CDIR/test_ops/archived/test*.py | xargs --verbose  -I {} sh -c "python {}"
 }
 
 if [ "$LOGFILE" != "" ]; then
