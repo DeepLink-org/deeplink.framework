@@ -10,9 +10,16 @@
 
 namespace dipu {
 
+// it's the default strategy and be assigned to the pointer dipu_copy_op_ which
+// is a mutable poiner and may be change by vendor at runtime, so nor can
+// this variable be const.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static DIPUCopyInpOnDIOPI default_copy_inplace_op;
 
 auto& dipu_copy_op() {
+  // the default strategy can be changed by vendor, so dipu_copy_op_ is not
+  // const but a mutable poiner.
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static DIPUCopyBase* dipu_copy_op_ = &default_copy_inplace_op;
   return dipu_copy_op_;
 }
@@ -26,7 +33,8 @@ void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op() = op; }
 
 }  // namespace dipu
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
   AT_DISPATCH_ALL_TYPES_AND2(
@@ -42,4 +50,5 @@ at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
       });
   return r;
 }
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu
