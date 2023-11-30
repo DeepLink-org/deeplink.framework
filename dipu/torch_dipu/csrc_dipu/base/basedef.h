@@ -6,7 +6,7 @@
 
 #include <csrc_dipu/runtime/device/basedef.h>
 
-#define C10_COMPILE_TIME_MAX_DIPUS 16
+auto static constexpr C10_COMPILE_TIME_MAX_DIPUS = 16;
 
 #define DIPU_DEVICE_TYPE_MACRO XPU
 #define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO \
@@ -18,10 +18,10 @@
 namespace dipu {
 
 // XPU is originally intel output-of-tree code
-// https://github.com/intel/intel-extension-for-pytorch ( branch xpu-master ) we
-// use this type but PrivateUse1 not to impersonate our DIPU device. because
-// compared with PrivateUse1, XPU has richer support in pytorch trunk and not
-// too much feature in torch to interfere our logic (as XLA).
+// https://github.com/intel/intel-extension-for-pytorch ( branch xpu-master )
+// we use this type but PrivateUse1 not to impersonate our DIPU device.
+// because compared with PrivateUse1, XPU has richer support in pytorch trunk
+// and not too much feature in torch to interfere our logic (as XLA).
 const auto DIPU_DEVICE_TYPE = at::DeviceType::DIPU_DEVICE_TYPE_MACRO;
 
 const auto DIPU_DISPATCH_KEY = c10::DispatchKey::DIPU_DEVICE_TYPE_MACRO;
