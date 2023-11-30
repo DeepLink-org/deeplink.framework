@@ -86,7 +86,7 @@ DIPU_API void freeDevice(void* p);
 DIPU_API bool isPinnedPtr(const void* p);
 
 // (asynchronous) set val
-DIPU_API void memSetAsync(const deviceStream_t stream, void* ptr, int val,
+DIPU_API void memSetAsync(deviceStream_t stream, void* ptr, int val,
                           size_t size);
 
 // (synchronous) copy from device to a device
@@ -102,17 +102,17 @@ DIPU_API void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
                          /*deviceId_t srcDevId,*/ const void* src);
 
 // (asynchronous) copy from device to a device
-DIPU_API void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyD2DAsync(deviceStream_t stream, size_t nbytes,
                               deviceId_t dstDevId, void* dst,
                               deviceId_t srcDevId, const void* src);
 
 // (asynchronous) copy from host to a device
-DIPU_API void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyH2DAsync(deviceStream_t stream, size_t nbytes,
                               /*deviceId_t dstDevId,*/ void* dst,
                               /*Host srcDev,*/ const void* src);
 
 // (asynchronous) copy from a device to host
-DIPU_API void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
+DIPU_API void memCopyD2HAsync(deviceStream_t stream, size_t nbytes,
                               /*Host dstDev,*/ void* dst,
                               /*deviceId_t srcDevId,*/ const void* src);
 
