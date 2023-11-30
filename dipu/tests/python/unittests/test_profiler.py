@@ -64,7 +64,7 @@ class TestProfiler(TestCase):
     def test_aot_profiler(self):
         x = torch.randn(3, 4).cuda()
         y = torch.randn(3, 4).cuda()
-        path = "./results/ato/"
+        path = "./results/aot/"
         with torch_dipu.profiler.profile(path, True):
             x.add_(y)
 
@@ -83,11 +83,9 @@ class TestProfiler(TestCase):
 
         opt_model = torch.compile(fn, backend='ascendgraph')
         input = torch.randn(2, 3).cuda()
-        print(input)
         # warmup
         for _ in range(5):
             opt_model(input)
-        print("finish warmup", flush=True)
         path = "./results/dicp/"
         with torch_dipu.profiler.profile(path, True):
             y = opt_model(input)

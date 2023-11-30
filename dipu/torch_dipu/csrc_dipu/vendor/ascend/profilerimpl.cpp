@@ -3,7 +3,8 @@
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
 #include <acl/acl_prof.h>
-#include <stdint.h>
+#include <array>
+#include <cstdint>
 
 #include <ATen/record_function.h>
 #include <torch/csrc/jit/frontend/tracer.h>
@@ -23,6 +24,9 @@ extern "C" aclError aclprofSetStampCallStack(void* stamp, const char* callStack,
 namespace dipu {
 namespace devapis {
 
+static const uint64_t kNpuEvents = 431;
+static const uint64_t kAicoreMetrics = 1;
+
 class AscendProfiler {
  public:
   AscendProfiler(const AscendProfiler&) = delete;
@@ -38,14 +42,13 @@ class AscendProfiler {
   std::unique_ptr<at::ObserverContext> startRecordEvent(
       const at::RecordFunction& fn);
   void finishRecordEvent(const at::RecordFunction& fn,
-                         at::ObserverContext* context);
+                         at::ObserverContext* context) const;
 
  private:
   AscendProfiler() = default;
-  void recordCallStack(void* stamp, int64_t sequence_num,
-                       at::RecordScope scope);
+  static void recordCallStack(void* stamp, int64_t sequence_num,
+                              at::RecordScope scope);
 
- private:
   bool enable_ = false;
   aclprofConfig* config_ = nullptr;
   bool call_stack_ = false;
@@ -72,17 +75,14 @@ void AscendProfiler::enableProfiler(const std::string& dump_path,
   int32_t device_index = 0;
   DIPU_CALLACLRT(aclrtGetDevice(&device_index));
 
-  uint64_t npu_event = 431;
-  uint64_t aicore_metrics = 1;
-  static const uint32_t device_num = 1;
-  uint32_t device_ids[device_num] = {static_cast<uint32_t>(device_index)};
+  std::array<uint32_t, 1> device_ids = {static_cast<uint32_t>(device_index)};
   aclprofAicoreEvents* events = nullptr;
   config_ = aclprofCreateConfig(
-      device_ids, device_num, static_cast<aclprofAicoreMetrics>(aicore_metrics),
-      events, npu_event);
+      device_ids.data(), device_ids.size(),
+      static_cast<aclprofAicoreMetrics>(kAicoreMetrics), events, kNpuEvents);
   TORCH_CHECK(config_ != nullptr,
               "aclprofCreateConfig fail, device_index = ", device_index,
-              "npu_event = ", npu_event, "aicore_metrics = ", aicore_metrics);
+              "npu_event = ", kNpuEvents, "aicore_metrics = ", kAicoreMetrics);
 
   DIPU_CALLACLRT(aclrtSynchronizeDevice());
   DIPU_CALLACLRT(aclprofInit(dump_path.c_str(), dump_path.size()));
@@ -169,13 +169,13 @@ void AscendProfiler::recordCallStack(void* stamp, int64_t sequence_num,
 }
 
 void AscendProfiler::finishRecordEvent(const at::RecordFunction& fn,
-                                       at::ObserverContext* context) {
+                                       at::ObserverContext* context) const {
   if (!enable_) {
     DIPU_LOGW("ascend profiler not enabled, ignore record event");
     return;
   }
 
-  AscendObserverContext* ctx_ptr = static_cast<AscendObserverContext*>(context);
+  auto* ctx_ptr = static_cast<AscendObserverContext*>(context);
   DIPU_CALLACLRT(aclprofRangeStop(ctx_ptr->id));
   aclprofDestroyStamp(ctx_ptr->data);
 }
