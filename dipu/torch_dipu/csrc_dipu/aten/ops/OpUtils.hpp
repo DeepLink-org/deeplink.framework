@@ -77,6 +77,7 @@ static std::string dumpArg(const container<T1>& t) {
 template <>
 std::string dumpArg(const at::Tensor& tensor) {
   std::stringstream stream;
+  stream << "'";
   if (tensor.defined()) {
     stream << "numel: " << tensor.numel() << ",sizes: " << tensor.sizes()
            << ", stride: " << tensor.strides()
@@ -92,6 +93,7 @@ std::string dumpArg(const at::Tensor& tensor) {
   } else {
     stream << "undefined";
   }
+  stream << "'";
   return stream.str();
 }
 
@@ -124,14 +126,14 @@ static std::string dumpArg(const std::array<T, N>& t) {
 template <>
 std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
   std::stringstream stream;
-  stream << "size:" << t.size() << std::endl;
   for (int i = 0; i < t.size(); ++i) {
     bool has_value = t[i].has_value();
-    stream << "\t" << i << "th: has_value:" << has_value << " ";
     if (has_value) {
       stream << dumpArg(t[i].value());
+    } else {
+      stream << "null";
     }
-    stream << std::endl;
+    stream << ",";
   }
   return stream.str();
 }
