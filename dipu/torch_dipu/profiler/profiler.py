@@ -21,7 +21,7 @@ from torch.autograd.profiler_util import (
 def dipu_kineto_available():
     return True
 
-class DIPUProfile(torch.autograd.profiler.profile):
+class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
         # result.events() has most of the events - PyTorch op-level and device-level events
 
@@ -422,7 +422,7 @@ def apply_profiler_patch():
     setattr(torch.autograd, '_supported_activities', _C._supported_activities)
     setattr(torch.autograd, '_add_metadata_json', _C._add_metadata_json)
     setattr(torch.autograd.profiler_util, '_build_table', dipu_build_table)
-    torch.autograd.profiler.profile = DIPUProfile
+    torch.autograd.profiler.profile = TorchProfile
 
 
 class NativeProfile(object):
