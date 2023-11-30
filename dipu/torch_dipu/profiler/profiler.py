@@ -425,7 +425,7 @@ def apply_profiler_patch():
     torch.autograd.profiler.profile = DIPUProfile
 
 
-class profile(object):
+class NativeProfile(object):
     def __init__(self, profiler_result_path="./", with_stack=False, record_shapes=False, profile_memory=False):
         self.result_path = profiler_result_path
         self.with_stack = with_stack
@@ -439,7 +439,7 @@ class profile(object):
 
     def __enter__(self):
         if self.entered:
-            raise RuntimeError("dipu profile traces are not reentrant")
+            raise RuntimeError("native profile traces are not reentrant")
 
         self.entered = True
         _C._enable_profiler_api(self.result_path, self.with_stack, self.record_shapes, self.profile_memory)

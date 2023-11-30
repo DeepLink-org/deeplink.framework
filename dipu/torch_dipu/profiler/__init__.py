@@ -1,1 +1,1 @@
-from .profiler import profile
+from .profiler import NativeProfile

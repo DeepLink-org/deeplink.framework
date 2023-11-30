@@ -3,7 +3,7 @@ import torch
 import torch_dipu
 import torchvision.models as models
 from torch.profiler import profile, ProfilerActivity
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn, skipOn
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
 from tests.python.utils.local_eviron import local_eviron
 import torch._dynamo as dynamo
 import subprocess
@@ -65,7 +65,7 @@ class TestProfiler(TestCase):
         x = torch.randn(3, 4).cuda()
         y = torch.randn(3, 4).cuda()
         path = "./results/aot/"
-        with torch_dipu.profiler.profile(path, True):
+        with torch_dipu.profiler.NativeProfile(path, True):
             x.add_(y)
 
         self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
@@ -87,7 +87,7 @@ class TestProfiler(TestCase):
         for _ in range(5):
             opt_model(input)
         path = "./results/dicp/"
-        with torch_dipu.profiler.profile(path, True):
+        with torch_dipu.profiler.NativeProfile(path, True):
             y = opt_model(input)
             z = y + y
 
