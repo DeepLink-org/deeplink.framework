@@ -2,7 +2,7 @@ PLATFORM=/mnt/lustre/share/platform
 ENV_NAME=pt2.0v1_cpu_py310
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
-GCC_ROOT=/mnt/lustre/share/platform/dep/gcc-10.4
+GCC_ROOT=/mnt/lustre/share/platform/dep/gcc-10.2
 CONDA_ROOT=${PLATFORM}/env/miniconda3.10
 
 export NEUWARE_HOME=/usr/local/neuware
