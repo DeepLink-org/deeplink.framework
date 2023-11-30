@@ -13,7 +13,7 @@ using dipu::native::dipu_wrap_diopi_copy_inp;
 class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
  public:
   CUDACopyInplace() = default;
-  ~CUDACopyInplace() = default;
+  ~CUDACopyInplace() override = default;
 
   // diopi-cuda copy use aten, so it can handle between-device case.
   void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
@@ -43,8 +43,12 @@ public:
 };
 */
 
+// not const, see comments in DIPUCopy.cpp dipu_copy_op()
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static CUDACopyInplace cuda_copy_inplace;
-static int32_t cuda_init = []() {
+
+// this variable only for call setInst. no other use
+const static int32_t cuda_init = []() {
   setDipuCopyInstance(&cuda_copy_inplace);
   return 1;
 }();
