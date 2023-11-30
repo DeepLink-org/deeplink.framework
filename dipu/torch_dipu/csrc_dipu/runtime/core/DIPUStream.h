@@ -18,8 +18,7 @@ namespace dipu {
 
 class DIPU_API DIPUStream {
  public:
-  explicit DIPUStream(c10::Stream stream)
-      : stream_(stream), initialized_(true) {
+  explicit DIPUStream(c10::Stream stream) : stream_(stream) {
     TORCH_CHECK(stream_.device_type() == dipu::DIPU_DEVICE_TYPE);
   }
 
@@ -28,7 +27,8 @@ class DIPU_API DIPUStream {
                                c10::Device(dipu::DIPU_DEVICE_TYPE, devidx),
                                stream_id)) {}
 
-  explicit DIPUStream() : DIPUStream(-1, 0) { initialized_ = false; }
+  // Need more discussion to handle empty DIPUStream.
+  explicit DIPUStream() : DIPUStream(-1, 0) {}
 
   ~DIPUStream() = default;
 
@@ -82,7 +82,6 @@ class DIPU_API DIPUStream {
 
  private:
   c10::Stream stream_;
-  bool initialized_;
 };
 
 DIPU_API DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device = -1);
