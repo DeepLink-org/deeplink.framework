@@ -1,0 +1,1 @@
+../../../torch_dipu/testing/_internal/stdout_redirector.py
