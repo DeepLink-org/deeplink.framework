@@ -101,3 +101,5 @@ ascend:
     #   fallback_op_list: "nll_loss2d_forward,nll_loss2d_backward,native_batch_norm,topk,convolution_overrideable,convolution_backward_overrideable,native_batch_norm_backward"
     # - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
     #   fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
+    # mmpretrain
+    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
