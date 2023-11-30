@@ -386,55 +386,58 @@ struct RawTensors {
 };
 }  // namespace
 
+void FlattenToUniformRepresentation(std::vector<std::shared_ptr<Result>>& sorted_results,
+     std::vector<RawTensorInfo>& tensors) {
+
+  RawTensors raw_tensors;
+  // The python tracer caches values, so it's only safe to use the first case.
+  ska::flat_hash_set<PyModuleSelf> seen_modules;
+  ska::flat_hash_set<PyOptimizerSelf> seen_optimizers;
+  for (auto& result : sorted_results) {
+    result->visit(c10::overloaded(
+        [&](ExtraFields<EventType::TorchOp>& torch_op) {
+          for (auto& i : torch_op.inputs_) {
+            c10::visit(raw_tensors, i);
+          }
+        },
+        [&](ExtraFields<EventType::PyCall>& py_call) {
+          // torch.nn.Module
+          if (py_call.module_.has_value() &&
+              seen_modules.insert(py_call.module_->self_).second) {
+            for (auto& p : py_call.module_->parameters_) {
+              raw_tensors(p.metadata_);
+              raw_tensors(p.grad_metadata_);
+            }
+          }
+
+          // torch.optim.Optimizer
+          if (py_call.optimizer_.has_value() &&
+              seen_optimizers.insert(py_call.optimizer_->self_).second) {
+            for (auto& p : py_call.optimizer_->parameters_) {
+              raw_tensors(p.metadata_);
+              raw_tensors(p.grad_metadata_);
+              for (auto& state_i : p.state_) {
+                raw_tensors(state_i.second);
+              }
+            }
+          }
+        },
+        [&](auto& i) { raw_tensors(i); }));
+  }
+  tensors = std::move(raw_tensors.tensors_);
+}
+
 void calculateUniqueTensorIDs(
     std::vector<std::shared_ptr<Result>>& sorted_results) {
   // This task is equivilent to https://leetcode.com/problems/number-of-islands/
   // We first cluster events with a greedy index assignment, and then merge
   // groups that overlap.
   std::vector<RawTensorInfo> tensors;
-
+ 
   // Flatten results to a uniform representation.
   // --------------------------------------------------------------------------
-  {
-    RawTensors raw_tensors;
-
-    // The python tracer caches values, so it's only safe to use the first case.
-    ska::flat_hash_set<PyModuleSelf> seen_modules;
-    ska::flat_hash_set<PyOptimizerSelf> seen_optimizers;
-    for (auto& result : sorted_results) {
-      result->visit(c10::overloaded(
-          [&](ExtraFields<EventType::TorchOp>& torch_op) {
-            for (auto& i : torch_op.inputs_) {
-              c10::visit(raw_tensors, i);
-            }
-          },
-          [&](ExtraFields<EventType::PyCall>& py_call) {
-            // torch.nn.Module
-            if (py_call.module_.has_value() &&
-                seen_modules.insert(py_call.module_->self_).second) {
-              for (auto& p : py_call.module_->parameters_) {
-                raw_tensors(p.metadata_);
-                raw_tensors(p.grad_metadata_);
-              }
-            }
-
-            // torch.optim.Optimizer
-            if (py_call.optimizer_.has_value() &&
-                seen_optimizers.insert(py_call.optimizer_->self_).second) {
-              for (auto& p : py_call.optimizer_->parameters_) {
-                raw_tensors(p.metadata_);
-                raw_tensors(p.grad_metadata_);
-                for (auto& state_i : p.state_) {
-                  raw_tensors(state_i.second);
-                }
-              }
-            }
-          },
-          [&](auto& i) { raw_tensors(i); }));
-    }
-    tensors = std::move(raw_tensors.tensors_);
-  }
-
+  FlattenToUniformRepresentation(sorted_results, tensors);
+  
   // Assign IDs to solve ABA for Storage.
   // --------------------------------------------------------------------------
   {
