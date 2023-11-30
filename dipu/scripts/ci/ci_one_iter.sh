@@ -171,6 +171,23 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+    elif [ "$1" = "ascend910b" ]; then
+        echo "Executing ASCEND operation in build dataset..."
+        rm -rf data
+        mkdir data
+        ln -s /mnt/cache/share/datasets/Imagenet data/imagenet
+        ln -s /mnt/cache/share/datasets/mscoco2017  data/coco
+        ln -s /mnt/cache/share/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/cache/share/datasets/kitti data/kitti
+        ln -s /mnt/cache/share/datasets/mmaction/Kinetics400 data/kinetics400
+        ln -s /mnt/cache/share/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/cache/share/datasets/mmocr/mjsynth data/mjsynth
+        ln -s /mnt/cache/share/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/cache/share/datasets/pretrain/torchvision/resnet50-0676ba61.pth data/resnet50-0676ba61.pth
+        ln -s /mnt/cache/share/datasets/mmdet/pretrain/vgg16_caffe-292e1171.pth data/vgg16_caffe-292e1171.pth
+        ln -s /mnt/cache/share/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
+        ln -s /mnt/cache/share/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
+        ln -s /mnt/cache/share/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
 
     else
         echo "Invalid parameter. Please specify 'cuda' or 'camb'."
@@ -191,6 +208,9 @@ case $1 in
     build_ascend)
         build_needed_repo_ascend
         build_dataset ascend;;
+    build_ascend910b)
+        build_needed_repo_ascend
+        build_dataset ascend910b;;
     export_pythonpath_camb)
         export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)
