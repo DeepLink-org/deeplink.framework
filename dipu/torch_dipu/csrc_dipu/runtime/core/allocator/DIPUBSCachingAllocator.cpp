@@ -1,18 +1,18 @@
 // Copyright (c) 2023, DeepLink.
 
+#include <cstdint>
 #include <deque>
 #include <list>
 #include <map>
 #include <mutex>
 #include <set>
-#include <stdint.h>
 #include <unordered_map>
 
 #include "DIPUCachingAllocator.h"
 
 namespace dipu {
 
-static void deleteBSContext(void*);
+static void deleteBSContext(void* ptr);
 
 class BSCachingAllocator : public CacheAllocator {
   struct Impl {
@@ -26,32 +26,35 @@ class BSCachingAllocator : public CacheAllocator {
   mutable mutex_t mutex_;
 
  public:
-  BSCachingAllocator() { impl.reset(new Impl()); }
+  BSCachingAllocator() { impl = std::make_unique<Impl>(); }
 
-  ~BSCachingAllocator() { release_all_memory(); }
+  ~BSCachingAllocator() override { release_all_memory(); }
 
   // Better adaptability to memory blocks of various sizes, but internal
   // fragmentation will be larger
-  size_t getAllocateSizeMoreAdaptable(size_t nbytes) const {
-    static const int kMinAllocationSizeExp = []() {
-      size_t size = 511;
+  static size_t getAllocateSizeMoreAdaptable(size_t nbytes) {
+    const int max_bits = 32;
+    static const int kMinAllocationSizeExp = [=]() {
+      const int bytes_num = 511;
+      size_t size = bytes_num;
       const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
       }
-      int exp = 32 - __builtin_clz(size);
+      int exp = max_bits - __builtin_clz(size);
       return exp;
     }();
-    auto r = std::max(32 - __builtin_clz(nbytes), kMinAllocationSizeExp);
+    auto r = std::max(max_bits - __builtin_clz(nbytes), kMinAllocationSizeExp);
     size_t allocateSize = 1 << r;
     return allocateSize;
   }
 
   // The internal fragments are smaller, but are less adaptable to scenes with
   // frequent and drastic changes in size.
-  size_t getAllocateSizeLessFragmentation(size_t nbytes) const {
+  static size_t getAllocateSizeLessFragmentation(size_t nbytes) {
     static const size_t kMinAllocationSize = []() {
-      size_t size = 512;
+      const int bytes_num = 512;
+      size_t size = bytes_num;
       const char* env = std::getenv("DIPU_BS_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
@@ -62,7 +65,7 @@ class BSCachingAllocator : public CacheAllocator {
     return allocateSize;
   }
 
-  size_t getAllocateSize(size_t nbytes) const {
+  static size_t getAllocateSize(size_t nbytes) {
     static bool less_fragmentation =
         std::getenv("DIPU_BS_MORE_ADAPTABLE") == nullptr;
     return less_fragmentation ? getAllocateSizeLessFragmentation(nbytes)
@@ -79,11 +82,11 @@ class BSCachingAllocator : public CacheAllocator {
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
-    if (idel_blocks.size() <= 0) {
+    if (idel_blocks.empty()) {
       empty_resource_pool();
     }
     for (size_t i = 0; i < 2; i++) {
-      if (idel_blocks.size() > 0) {
+      if (!idel_blocks.empty()) {
         ptr = idel_blocks.front();
         idel_blocks.pop_front();
         impl->total_idel_bytes_ -= nbytes;
@@ -92,27 +95,26 @@ class BSCachingAllocator : public CacheAllocator {
                                     << " bytes, ptr:" << ptr
                                     << ",allocator:" << this);
         break;
-      } else {
-        try {
-          auto data_ptr = raw_allocator()->allocate(nbytes);
-          ptr = data_ptr.get();
-          device() = data_ptr.device();
-          data_ptr.release_context();
-          set_memory_reserved(memory_reserved() + nbytes);
+      } 
+      try {
+        auto data_ptr = raw_allocator()->allocate(nbytes);
+        ptr = data_ptr.get();
+        device() = data_ptr.device();
+        data_ptr.release_context();
+        set_memory_reserved(memory_reserved() + nbytes);
 
-          impl->allocated_.insert(ptr);
-          impl->total_alocated_bytes_ += nbytes;
-          DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate "
-                                      << nbytes << ", requires:" << size
-                                      << " bytes, ptr:" << ptr
-                                      << ",allocator:" << this);
-          break;
-        } catch (...) {
-          if (i == 0) {
-            empty_cache();
-          } else {
-            TORCH_CHECK(false, "no memory available")
-          }
+        impl->allocated_.insert(ptr);
+        impl->total_alocated_bytes_ += nbytes;
+        DIPU_DEBUG_ALLOCATOR(4, "BSCachingAllocator::allocate "
+                                    << nbytes << ", requires:" << size
+                                    << " bytes, ptr:" << ptr
+                                    << ",allocator:" << this);
+        break;
+      } catch (...) {
+        if (i == 0) {
+          empty_cache();
+        } else {
+          TORCH_CHECK(false, "no memory available")
         }
       }
     }
@@ -148,7 +150,7 @@ class BSCachingAllocator : public CacheAllocator {
     }
   }
 
-  void empty_cache() const override {
+  void empty_cache_impl() const {
     DIPU_DEBUG_ALLOCATOR(8,
                          "BSCachingAllocator::empty_cache ,allocator:" << this);
     empty_resource_pool();
@@ -168,10 +170,18 @@ class BSCachingAllocator : public CacheAllocator {
     }
   }
 
-  void release_all_memory() const {
+  void empty_cache() const override {
+    empty_cache_impl();
+  }
+
+  void release_all_memory_impl() const {
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::release_all_memory allocator:" << this);
     empty_cache();
+  }
+
+  void release_all_memory() const override {
+    release_all_memory_impl();
   }
 
   void flush_mem_pool() const {
@@ -195,9 +205,10 @@ class BSCachingAllocator : public CacheAllocator {
                                            << ", size_:" << size());
       if (allocator_->impl) {
         std::deque<DIPUEvent> events;
-        for (auto iter = streams().begin(); iter != streams().end(); iter++) {
+        //for (auto& iter = streams().begin(); iter != streams().end(); iter++) {
+        for (const auto & item : streams()) {
           events.emplace_back();
-          events.back().record(*iter);
+          events.back().record(item);
         }
 
         allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()),
@@ -225,7 +236,9 @@ static void deleteBSContext(void* ptr) {
   delete ctx;
 }
 
-DIPU_REGISTER_ALLOCATOR(BS, dipu::DIPU_DEVICE_TYPE, BSCachingAllocator, 0);
-DIPU_REGISTER_ALLOCATOR(BS, at::DeviceType::CPU, BSCachingAllocator, 0);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPU_REGISTER_ALLOCATOR(BS, DIPU_DEVICE_TYPE_MACRO, BSCachingAllocator, 0);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPU_REGISTER_ALLOCATOR(BS, CPU, BSCachingAllocator, 0);
 
 }  // namespace dipu

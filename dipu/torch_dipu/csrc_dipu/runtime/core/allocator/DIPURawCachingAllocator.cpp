@@ -4,13 +4,13 @@
 
 namespace dipu {
 
-static void deleteRawCachingAllocatorContext(void*);
+static void deleteRawCachingAllocatorContext(void* ptr);
 
 class RawCachingAllocator : public CacheAllocator {
  public:
-  RawCachingAllocator() {}
+  RawCachingAllocator() = default;
 
-  ~RawCachingAllocator() {}
+  ~RawCachingAllocator () override = default;
 
   class Context : public DataPtrContextBase {
    public:
@@ -19,9 +19,9 @@ class RawCachingAllocator : public CacheAllocator {
         : DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {}
     ~Context() {
       std::deque<DIPUEvent> events;
-      for (auto iter = streams().begin(); iter != streams().end(); iter++) {
+      for (const auto & item : streams()) {
         events.emplace_back();
-        events.back().record(*iter);
+        events.back().record(item);
       }
       auto allocator_ = static_cast<const RawCachingAllocator*>(allocator());
       allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
@@ -32,9 +32,10 @@ class RawCachingAllocator : public CacheAllocator {
     size_t real_size_ = 0;
   };
 
-  size_t getAllocateSize(size_t nbytes) const {
+  static size_t getAllocateSize(size_t nbytes) {
     static const size_t kMinAllocationSize = []() {
-      size_t size = 512;
+      const int bytes_num = 512;
+      size_t size = bytes_num;
       const char* env = std::getenv("DIPU_RAW_ALLOCATOR_MIN_ALLOCATE_SIZE");
       if (env != nullptr) {
         size = std::atoi(env);
@@ -54,8 +55,8 @@ class RawCachingAllocator : public CacheAllocator {
     auto ptr = raw_allocator()->raw_allocate(nbytes);
     set_memory_reserved(memory_reserved() + nbytes);
     set_memory_allocated(memory_allocated() + nbytes);
-    return c10::DataPtr(ptr, new Context(this, ptr, size, nbytes),
-                        deleteRawCachingAllocatorContext, device());
+    return {ptr, new Context(this, ptr, size, nbytes),
+                        deleteRawCachingAllocatorContext, device()};
   }
 
   void empty_cache() const override {
@@ -84,8 +85,9 @@ static void deleteRawCachingAllocatorContext(void* ptr) {
   auto ctx = static_cast<RawCachingAllocator::Context*>(ptr);
   delete ctx;
 }
-
-DIPU_REGISTER_ALLOCATOR(RAW, dipu::DIPU_DEVICE_TYPE, RawCachingAllocator, 0);
-DIPU_REGISTER_ALLOCATOR(RAW, at::DeviceType::CPU, RawCachingAllocator, 0);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPU_REGISTER_ALLOCATOR(RAW, DIPU_DEVICE_TYPE_MACRO, RawCachingAllocator, 0);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPU_REGISTER_ALLOCATOR(RAW, CPU, RawCachingAllocator, 0);
 
 }  // namespace dipu
