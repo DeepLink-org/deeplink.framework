@@ -178,7 +178,7 @@
   interface: diopiLogicalNot(ctx, out, self);
 
 - schema: "logical_not_(Tensor(a!) self) -> Tensor(a!)"
-  interface: diopiLogicalNotInp(ctx, self, self)
+  interface: diopiLogicalNotInp(ctx, self)
 
 - schema: "logical_not(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
