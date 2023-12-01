@@ -1,5 +1,5 @@
 import os
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 
 
 def test_allocator(max_allocate, step, algorithm, log_mask, test_pin_memory=True):
@@ -67,6 +67,7 @@ def test_allocator(max_allocate, step, algorithm, log_mask, test_pin_memory=True
 
 
 if __name__ == "__main__":
+    set_start_method('spawn', force=True)
     max_allocate = 1 << 15
     p1 = Process(
         target=test_allocator,
