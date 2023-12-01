@@ -13,6 +13,8 @@ auto static constexpr C10_COMPILE_TIME_MAX_DIPUS = 16;
   C10_CONCATENATE(Autograd, DIPU_DEVICE_TYPE_MACRO)
 #define DIPU_AUTOCAST_DEVICE_TYPE_MACRO \
   C10_CONCATENATE(Autocast, DIPU_DEVICE_TYPE_MACRO)
+#define DIPU_SPARSE_DEVICE_TYPE_MACRO \
+  C10_CONCATENATE(Sparse, DIPU_DEVICE_TYPE_MACRO)
 
 // to do: abstract a layer which not depend on pytorch
 namespace dipu {
@@ -28,7 +30,9 @@ const auto DIPU_DISPATCH_KEY = c10::DispatchKey::DIPU_DEVICE_TYPE_MACRO;
 const auto DIPU_DISPATCH_AUTOGRAD_KEY =
     c10::DispatchKey::DIPU_AUTOGRAD_DEVICE_TYPE_MACRO;
 
-const auto DIPU_Backend_TYPE = c10::Backend::DIPU_DEVICE_TYPE_MACRO;
+const auto DIPU_BACKEND_TYPE = c10::Backend::DIPU_DEVICE_TYPE_MACRO;
+const auto DIPU_BACKEND_SPARSE_TYPE =
+    c10::Backend::DIPU_SPARSE_DEVICE_TYPE_MACRO;
 
 const auto DICL_BACKEND_NAME = "dicl";
 
