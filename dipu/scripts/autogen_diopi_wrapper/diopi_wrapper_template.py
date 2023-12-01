@@ -16,19 +16,23 @@ diopi_wrapper_file_template_content = \
 #include <csrc_dipu/utils/Log.h>
 #include "CustomFallbackFunctions.hpp"
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
+#include <vector>
 
 $header_include_code
 
-namespace dipu {
-namespace native {
+// NOLINTBEGIN(readability-redundant-control-flow)
+
+namespace dipu::native {
     
 using dipu::diopi_helper::toDiopiGeneratorHandle;
 using dipu::diopi_helper::toDiopiSize;
 using dipu::diopi_helper::toDiopiRoundMode;
 
 $functions_code    
-}  // namespace native
-}  // namespace dipu
+
+}  // namespace dipu::native
+
+// NOLINTEND(readability-redundant-control-flow)
 
 namespace at {
 

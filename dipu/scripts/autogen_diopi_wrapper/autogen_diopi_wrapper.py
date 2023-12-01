@@ -588,7 +588,9 @@ def functions_code_gen(fun_config):
         if input.strip().endswith('?'):
             input = input.replace('?', '')
             input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
-            input_process_code += f"if ({input}.has_value() && {input}.value().defined()) {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n\n"
+            input_process_code += f"if ({input}.has_value() && {input}.value().defined())" + "{\n"
+            input_process_code += f"\t{input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n"
+            input_process_code += "}\n"
         else:
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
 
