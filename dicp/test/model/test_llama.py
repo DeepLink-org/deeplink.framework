@@ -2,12 +2,12 @@ import pytest
 import torch
 import os
 import torch._dynamo as dynamo
-from common import utils
+from ..common import utils
 import torch_dipu
 import json
 from pathlib import Path
-from model.llama.generation import Tokenizer, LLaMA
-from model.llama.model import Transformer, ModelArgs
+from ..model.llama.generation import Tokenizer, LLaMA
+from ..model.llama.model import Transformer, ModelArgs
 dynamo.config.cache_size_limit = 128
 utils.update_dynamo_config(False)
 device = utils.get_device()
