@@ -24,6 +24,19 @@ class SUPACopyInplace : public DIPUCopyInpOnDIOPI {
                                   CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
+  void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) override {
+    auto curStream = dipu::getCurrentDIPUStream();
+    ::diopiContext context(curStream.rawstream());
+    auto ctx = &context;
+    auto diopi_src = dipu::diopi_helper::toDiopiTensorHandle(src);
+    auto diopi_dst = dipu::diopi_helper::toDiopiTensorHandle(dst);
+    TORCH_CHECK(diopiError_t::diopiSuccess ==
+                diopiCopyInp(ctx, diopi_src, diopi_dst));
+    // syncAfterCopy
+    if (!non_blocking) {
+      dipu::devapis::syncStream(curStream.rawstream());
+    }
+  }
 };
 
 static SUPACopyInplace copy_inplace;
