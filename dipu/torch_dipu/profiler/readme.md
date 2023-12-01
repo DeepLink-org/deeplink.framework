@@ -23,10 +23,11 @@ DeepLink profiler接口对齐了PyTorch Profiler，通过上下文管理器启�
     1. `activities`：要收集的打点列表
         * `ProfilerActivity.CPU`：收集PyTorch算子、TorchScript函数以及用户自定义代码标签
         * `ProfilerActivity.CUDA`：收集设备kernel打点
-    2. `record_shapes`：是否记录算子输入的形状
+    2. `record_shapes`：是否记录算子输入的形状s
     3. `profile_memory`：是否统计模型张量内存消耗
     4. `use_cuda`：是否统计设备kernel执行时间
     5. `with_stack`：是否打印调用栈
+
 ```Python
 with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
     with record_function("model_inference"):
@@ -36,7 +37,9 @@ with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
 ```Python
 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 ```
+
 输出如下
+
 ```
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------
                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls
@@ -61,7 +64,7 @@ Self CPU time total: 253.751ms
 print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
 ```
 输出如下
-```Python
+```
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  --------------------------------------------------------------------------------
                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg    # of Calls                                                                      Input Shapes
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  --------------------------------------------------------------------------------
@@ -90,8 +93,10 @@ with profile(activities=[
 
 print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
 ```
+
 输出如下
-```Python
+
+```
 -------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls
 -------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
@@ -132,7 +137,7 @@ with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shap
 print(prof.key_averages().table(sort_by="cpu_memory_usage", row_limit=10))
 ```
 输出如下
-```Python
+```
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg       CPU Mem  Self CPU Mem    # of Calls
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------
@@ -165,7 +170,7 @@ prof.export_chrome_trace("trace.json")
 使用Chrome trace viewer (chrome://tracing)工具查看trace.json文件，可视化结果如下图
 
 <div align=center>
-<img src="trace_json.png">
+<img src="/dipu/img/profiler/trace_json.png">
 </div>
 
 6. 打印调用链
@@ -184,7 +189,7 @@ with profile(
 print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=2))
 ```
 输出如下
-```Python
+```
 -------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  -----------------------------------------------------------------
                                              Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  Source Location
 -------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  -----------------------------------------------------------------
@@ -267,7 +272,7 @@ runner.register_custom_hooks([profiler_hook])
 ```
   2. 使用chrome trace viewer查看，发现conv2d耗时长，从图中可以看到conv2d调用到了`thnn_conv2d`，而不是预期的`cudnn_convolution`
 <div align=center>
-<img src="./thnn_conv2d.png">
+<img src="/dipu/img/profiler/thnn_conv2d.png">
 </div>
 
   3. 最后定位到DeepLink某个版本新增了 `torch._C._set_cudnn_enabled(false)`，关闭了cudnn，把这句话删除速度恢复正常。
