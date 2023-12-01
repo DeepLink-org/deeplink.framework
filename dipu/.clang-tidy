@@ -45,6 +45,8 @@ CheckOptions:
     value: true
   - key:   cppcoreguidelines-narrowing-conversions.IgnoreConversionFromTypes
     value: 'size_t;ptrdiff_t;size_type;difference_type'
+  - key:   performance-unnecessary-value-param.AllowedTypes
+    value: 'c10::SymInt'
   - key:   readability-function-cognitive-complexity.IgnoreMacros
     value: true
   - key:   readability-implicit-bool-conversion.AllowIntegerConditions
