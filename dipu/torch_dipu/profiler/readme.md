@@ -61,7 +61,9 @@ print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 Self CPU time total: 253.751ms
 ```
 从输出中可以发现，大部分的执行时间花在conv2d。
+
 需要说明的是，cpu time是指这个算子执行的总时间；同时，该算子有可能调用其他算子，self cpu time是该算子的总时间减去调用其他算子的时间。
+
 要获得更精细的结果粒度并包括运算符输入形状，需要设置`group_by_input_shape=True`（注意：这需要将profile的输入参数`record_shape`设置为True）
 ```Python
 print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
@@ -218,6 +220,7 @@ Self CUDA time total: 169.640ms
 Profiler提供了一个额外的API来处理长时间运行的作业（如模型训练）。跟踪所有的执行可能很慢，并导致非常大的跟踪文件。要避免这种情况，请使用可选参数：
   1. `schedule`：指定一个函数，该函数以整数参数作为输入，并返回一个动作给Profiler。使用这个参数的最佳方式是使用`torch.profiler.schedule`辅助函数，它可以为您生成一个schedule
   2. `on_trace_ready`：指定一个函数，该函数将Profiler的引用作为输入，并在每次准备好新跟踪时由Profiler调用。
+
 为了说明API是如何工作的，让我们首先考虑以下带有`torch.profiler.schedule`函数的示例：
 ```Python
 from torch.profiler import schedule
@@ -239,8 +242,11 @@ Profiler假设长时间运行的任务由多个步骤组成，步骤编号从零
 4. 可选的repeat参数指定循环的上限。默认情况下（零值），分析器将在任务运行时执行循环。
 
 因此，在上面的示例中，分析器将跳过前15个步骤，将下一个步骤用于预热，积极记录接下来的3个步骤，再跳过另外5个步骤，将下一个步骤用于预热，再积极记录另外3个步骤。由于指定了repeat=2参数值，分析器将在第一个两个周期后停止记录。
+
 在每个周期结束时，分析器调用指定的on_trace_ready函数，并将自身作为参数传递。该函数用于处理新的追踪结果，可以通过获取表格输出或将输出保存为追踪文件来进行处理。
+
 要向分析器发送下一个步骤已开始的信号，请调用prof.step()函数。当前分析器步骤存储在prof.step_num中。
+
 以下示例显示了如何使用上述概念：
 ```Python
 def trace_handler(p):
