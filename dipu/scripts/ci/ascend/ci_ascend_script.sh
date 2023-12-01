@@ -42,6 +42,7 @@ case $1 in
     build_dipu)
         (
             build_all
+            python -c "import torch_dipu; print('build dipu successfully')"
         ) \
         || exit -1;;
     *)
