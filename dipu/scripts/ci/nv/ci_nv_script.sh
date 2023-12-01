@@ -21,9 +21,15 @@ function build() {
 
 case $1 in
     "build_dipu")
-        build ;;
+        (
+            build
+            python -c "import torch_dipu; print('build dipu successfully')"
+        ) || exit -1;;
     "build_dipu_only")
-        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
+        (
+            build "-DWITH_DIOPI_LIBRARY=DISABLE"
+            python -c "import torch_dipu; print('build dipu successfully')"
+        ) || exit -1;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac
