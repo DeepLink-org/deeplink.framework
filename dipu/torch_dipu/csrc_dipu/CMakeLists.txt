@@ -80,6 +80,7 @@ set(SOURCE_FILES
     ${PROFILER_FILES})
 
 add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+target_compile_features(${DIPU_LIB} PUBLIC cxx_std_14)
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
@@ -158,7 +159,6 @@ target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
 set_target_properties(
   ${DIPU_LIB} ${DIPU_PYTHON_LIB} ${DIPU_C_PYTHON_EXT_LIB}
   PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
-
 # TODO(lljbash,lihuayi): set the lib output dir like pytorch
 # ~~~
 # Directories are organized like PyTorch.
