@@ -23,7 +23,7 @@ DeepLink profiler接口对齐了PyTorch Profiler，通过上下文管理器启�
     1. `activities`：要收集的打点列表
         * `ProfilerActivity.CPU`：收集PyTorch算子、TorchScript函数以及用户自定义代码标签
         * `ProfilerActivity.CUDA`：收集设备kernel打点
-    2. `record_shapes`：是否记录算子输入的形状s
+    2. `record_shapes`：是否记录算子输入的形状
     3. `profile_memory`：是否统计模型张量内存消耗
     4. `use_cuda`：是否统计设备kernel执行时间
     5. `with_stack`：是否打印调用栈
