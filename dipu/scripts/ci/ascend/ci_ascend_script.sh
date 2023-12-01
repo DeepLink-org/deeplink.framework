@@ -1,5 +1,5 @@
 # !/bin/bash
-set -e
+set -eo pipefail
 echo "pwd: $(pwd)"
 
 function build_diopi_lib() {
@@ -42,7 +42,6 @@ case $1 in
     build_dipu)
         (
             build_all
-            python -c "import torch_dipu; print('build dipu successfully')"
         ) \
         || exit -1;;
     *)

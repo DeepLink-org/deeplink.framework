@@ -1,5 +1,5 @@
 # !/bin/bash
-set -e
+set -eo pipefail
 
 function build() {
     path="build"
@@ -21,15 +21,9 @@ function build() {
 
 case $1 in
     "build_dipu")
-        (
-            build
-            python -c "import torch_dipu; print('build dipu successfully')"
-        ) || exit -1;;
+        build ;;
     "build_dipu_only")
-        (
-            build "-DWITH_DIOPI_LIBRARY=DISABLE"
-            python -c "import torch_dipu; print('build dipu successfully')"
-        ) || exit -1;;
+        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac

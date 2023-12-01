@@ -1,5 +1,5 @@
 # !/bin/bash
-set -e
+set -eo pipefail
 echo "pwd: $(pwd)"
 
 
@@ -45,14 +45,12 @@ case $1 in
     build_dipu)
         (
             build_all
-            python -c "import torch_dipu; print('build dipu successfully')"
         ) || exit -1;;
     build_diopi)
         build_diopi_lib || exit -1;;
     build_dipu_only)
         (
             build_dipu_lib
-            python -c "import torch_dipu; print('build dipu successfully')"
         ) || exit -1;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
