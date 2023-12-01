@@ -5,6 +5,7 @@ DeepLink Profiler是一个允许在训练和推理过程中收集性能指标的
 ## 使用说明
 本教程将以resnet18模型为例，讲解如何使用DeepLink Profiler分析模型性能。
 1. 导入必要的库
+
 ``` python
 import torch_dipu
 import torch
@@ -13,20 +14,22 @@ from torch.profiler import profile, record_function, ProfilerActivity
 ```
 
 2. 实例化resnet18模型
+
 ```python
 model = models.resnet18()
 inputs = torch.randn(5, 3, 224, 224)
 ```
 
 3. 使用DeepLink profiler分析模型执行时间
+
 DeepLink profiler接口对齐了PyTorch Profiler，通过上下文管理器启用，并接受很多参数，常用的参数有
-    1. `activities`：要收集的打点列表
-        * `ProfilerActivity.CPU`：收集PyTorch算子、TorchScript函数以及用户自定义代码标签
-        * `ProfilerActivity.CUDA`：收集设备kernel打点
-    2. `record_shapes`：是否记录算子输入的形状
-    3. `profile_memory`：是否统计模型张量内存消耗
-    4. `use_cuda`：是否统计设备kernel执行时间
-    5. `with_stack`：是否打印调用栈
++ `activities`：要收集的打点列表
+   * `ProfilerActivity.CPU`：收集PyTorch算子、TorchScript函数以及用户自定义代码标签
+    * `ProfilerActivity.CUDA`：收集设备kernel打点
++ `record_shapes`：是否记录算子输入的形状
++ `profile_memory`：是否统计模型张量内存消耗
++ `use_cuda`：是否统计设备kernel执行时间
++ `with_stack`：是否打印调用栈
 
 ```Python
 with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
@@ -81,6 +84,7 @@ print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total
 ---------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  --------------------------------------------------------------------------------
 ```
 从输出可以看到，resnet18模型中卷积包含了几种不同的形状。
+
 Profiler还可用于分析在GPU和其他AI加速芯片上执行的模型的性能：
 ```Python
 model = models.resnet18().cuda()
@@ -127,6 +131,7 @@ Self CUDA time total: 168.781ms
 从输出可以看到，`diopiConvolution2d`和`diopiBatchNorm`是两个算子耗时最长。
 
 4. 分析内存消耗
+
 PyTorch profiler还可以统计算子分配或释放的内存量。要启用内存分析功能，请将profile_memory设置成True。
 ```Python
 model = models.resnet18()
@@ -157,6 +162,7 @@ Self CPU time total: 119.442ms
 
 
 5. 使用chrome trace viewer进行可视化
+
 Profiling结果可以输出成json文件
 ```Python
 model = models.resnet18().cuda()
@@ -174,6 +180,7 @@ prof.export_chrome_trace("trace.json")
 </div>
 
 6. 打印调用链
+
 Profiler可用于分析Python和TorchScript堆栈跟踪。
 ```Python
 with profile(
@@ -182,10 +189,7 @@ with profile(
     experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True)
 ) as prof:
     model(inputs)
-```
 
-# Print aggregated stats
-```Python
 print(prof.key_averages(group_by_stack_n=5).table(sort_by="self_cuda_time_total", row_limit=2))
 ```
 输出如下
@@ -210,6 +214,7 @@ Self CPU time total: 139.666ms
 Self CUDA time total: 169.640ms
 ```
 7. 使用Profiler分析长时间运行任务
+
 Profiler提供了一个额外的API来处理长时间运行的作业（如模型训练）。跟踪所有的执行可能很慢，并导致非常大的跟踪文件。要避免这种情况，请使用可选参数：
   1. `schedule`：指定一个函数，该函数以整数参数作为输入，并返回一个动作给Profiler。使用这个参数的最佳方式是使用`torch.profiler.schedule`辅助函数，它可以为您生成一个schedule
   2. `on_trace_ready`：指定一个函数，该函数将Profiler的引用作为输入，并在每次准备好新跟踪时由Profiler调用。
