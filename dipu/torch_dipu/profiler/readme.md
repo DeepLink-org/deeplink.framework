@@ -119,7 +119,7 @@ print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
 Self CPU time total: 143.583ms
 Self CUDA time total: 168.781ms
 ```
-从输出可以看到，diopiConvolution2d和diopiBatchNorm是两个算子耗时最长。
+从输出可以看到，`diopiConvolution2d`和`diopiBatchNorm`是两个算子耗时最长。
 
 4. 分析内存消耗
 PyTorch profiler还可以统计算子分配或释放的内存量。要启用内存分析功能，请将profile_memory设置成True。
