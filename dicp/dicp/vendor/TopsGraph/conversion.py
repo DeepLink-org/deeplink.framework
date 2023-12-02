@@ -168,11 +168,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Split(self, a, size, dim=0, **kwargs):
         in_shape = a.node.meta["val"].shape
         dim = dim % len(in_shape)
-        sections = in_shape[dim] // size if in_shape[dim] % size == 0 else in_shape[dim] // size + 1
-
-        def get_real_end(end):
-            return end if end <= in_shape[dim] else in_shape[dim]
-        splits = (self.get_proxy(tops_op.SliceInDim, (a, dim, i * size, get_real_end((i + 1) * size), 1)) for i in range(sections))
+        sections = (in_shape[dim] + size - 1) // size
+        splits = (self.get_proxy(tops_op.SliceInDim, (a, dim, i * size, min((i + 1) * size, in_shape[dim]), 1)) for i in range(sections))
         return self.get_proxy(tops_op.MakeTuple, tuple(splits))
 
     @register_conversion(aten.sum)
