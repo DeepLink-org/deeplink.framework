@@ -8,8 +8,7 @@ namespace dipu {
 namespace devapis {
 
 // NCCL op mapping
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
+static const std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
     {ReduceOp::MIN, ncclMin}, {ReduceOp::MAX, ncclMax},
     {ReduceOp::SUM, ncclSum}, {ReduceOp::PRODUCT, ncclProd},
 #ifdef NCCL_HAS_AVG
@@ -18,8 +17,7 @@ static std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
 };
 
 // NCCL type typing
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::map<at::ScalarType, ncclDataType_t> ncclDataType = {
+static const std::map<at::ScalarType, ncclDataType_t> ncclDataType = {
     {at::kChar, ncclInt8},         {at::kByte, ncclUint8},
     {at::kFloat, ncclFloat},       {at::kDouble, ncclDouble},
     {at::kInt, ncclInt32},         {at::kLong, ncclInt64},
@@ -74,8 +72,8 @@ DIPU_API diclResult_t diclAllReduce(const void* sendbuff, void* recvbuff,
                                     size_t count, at::ScalarType datatype,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
-  NCCL_THROW(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType[datatype],
-                           ncclOp[reduceOp], comm, stream));
+  NCCL_THROW(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType.at(datatype),
+                           ncclOp.at(reduceOp), comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -83,7 +81,7 @@ DIPU_API diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff,
                                     size_t count, at::ScalarType datatype,
                                     int root, diclComm_t comm,
                                     deviceStream_t stream) {
-  NCCL_THROW(ncclBroadcast(sendbuff, recvbuff, count, ncclDataType[datatype],
+  NCCL_THROW(ncclBroadcast(sendbuff, recvbuff, count, ncclDataType.at(datatype),
                            root, comm, stream));
   return DICL_SUCCESS;
 }
@@ -91,8 +89,8 @@ DIPU_API diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff,
 DIPU_API diclResult_t diclAllGather(const void* sendBuf, void* recvBuf,
                                     size_t sendCount, at::ScalarType datatype,
                                     diclComm_t comm, deviceStream_t stream) {
-  NCCL_THROW(ncclAllGather(sendBuf, recvBuf, sendCount, ncclDataType[datatype],
-                           comm, stream));
+  NCCL_THROW(ncclAllGather(sendBuf, recvBuf, sendCount,
+                           ncclDataType.at(datatype), comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -100,8 +98,8 @@ DIPU_API diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
                                  size_t count, at::ScalarType datatype,
                                  const ReduceOp& reduceOp, int root,
                                  diclComm_t comm, deviceStream_t stream) {
-  NCCL_THROW(ncclReduce(sendbuff, recvbuff, count, ncclDataType[datatype],
-                        ncclOp[reduceOp], root, comm, stream));
+  NCCL_THROW(ncclReduce(sendbuff, recvbuff, count, ncclDataType.at(datatype),
+                        ncclOp.at(reduceOp), root, comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -109,8 +107,8 @@ DIPU_API diclResult_t diclReduceScatter(
     void* sendBuf, void* recvBuf, size_t recvCount, at::ScalarType datatype,
     const ReduceOp& reduceOp, diclComm_t comm, deviceStream_t stream) {
   NCCL_THROW(ncclReduceScatter(sendBuf, recvBuf, recvCount,
-                               ncclDataType[datatype], ncclOp[reduceOp], comm,
-                               stream));
+                               ncclDataType.at(datatype), ncclOp.at(reduceOp),
+                               comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -118,7 +116,7 @@ DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   NCCL_THROW(
-      ncclSend(sendbuff, count, ncclDataType[datatype], peer, comm, stream));
+      ncclSend(sendbuff, count, ncclDataType.at(datatype), peer, comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -126,7 +124,7 @@ DIPU_API diclResult_t diclRecv(void* recvbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   NCCL_THROW(
-      ncclRecv(recvbuff, count, ncclDataType[datatype], peer, comm, stream));
+      ncclRecv(recvbuff, count, ncclDataType.at(datatype), peer, comm, stream));
   return DICL_SUCCESS;
 }
 
