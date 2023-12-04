@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <mutex>
 
 #include <c10/core/Device.h>
@@ -17,20 +18,19 @@ namespace dipu {
 
 class DIPU_API DIPUStream {
  public:
-  enum Unchecked { UNCHECKED };
   explicit DIPUStream(c10::Stream stream) : stream_(stream) {
     TORCH_CHECK(stream_.device_type() == dipu::DIPU_DEVICE_TYPE);
   }
 
-  explicit DIPUStream(Unchecked, c10::Stream stream) : stream_(stream) {}
-
   explicit DIPUStream(devapis::deviceId_t devidx, c10::StreamId stream_id)
-      : DIPUStream(Unchecked::UNCHECKED,
-                   c10::Stream(c10::Stream::UNSAFE,
+      : DIPUStream(c10::Stream(c10::Stream::UNSAFE,
                                c10::Device(dipu::DIPU_DEVICE_TYPE, devidx),
                                stream_id)) {}
 
-  ~DIPUStream() {}
+  // Need more discussion to handle empty DIPUStream.
+  explicit DIPUStream() : DIPUStream(-1, 0) {}
+
+  ~DIPUStream() = default;
 
   bool operator==(const DIPUStream& other) const noexcept {
     return unwrap() == other.unwrap();
@@ -40,9 +40,8 @@ class DIPU_API DIPUStream {
     return unwrap() != other.unwrap();
   }
 
-  /// Implicit conversion to pytorch Stream.
+  // FIXME: add explicit later as it is used by many other files.
   operator c10::Stream() const { return unwrap(); }
-
   operator deviceStream_t() const { return rawstream(); }
 
   /// Get the device index that this stream is associated with.
@@ -51,7 +50,7 @@ class DIPU_API DIPUStream {
   /// Get the full Device that this stream is associated with.  The Device
   /// is guaranteed to be a device.
   c10::Device device() const {
-    return c10::Device(dipu::DIPU_DEVICE_TYPE, device_index());
+    return {dipu::DIPU_DEVICE_TYPE, device_index()};
   }
 
   c10::StreamId id() const { return stream_.id(); }
@@ -99,11 +98,9 @@ DIPU_API DIPUStream getStreamFromExternal(deviceStream_t ext_stream,
 std::ostream& operator<<(std::ostream& stream, const DIPUStream& s);
 }  // namespace dipu
 
-namespace std {
 template <>
-struct hash<dipu::DIPUStream> {
-  size_t operator()(dipu::DIPUStream s) const noexcept {
+struct std::hash<dipu::DIPUStream> {
+  std::size_t operator()(dipu::DIPUStream const& s) const noexcept {
     return std::hash<c10::Stream>{}(s.unwrap());
   }
 };
-}  // namespace std

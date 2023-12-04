@@ -37,7 +37,8 @@ runs:
             fi
           fi
           cd dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ../.. && git submodule update --init dipu/third_party/DIOPI
+          rm -rf kineto && git clone --reference /mnt/cache/share/deeplinkci/source/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git kineto
+          cd ../.. && git submodule update --init && cd dipu/third_party/kineto && git submodule update --init
         }
         if [ ${MACHINE} != "local" ];then
           ssh ${MACHINE} " $(typeset -f checkout_code); checkout_code "

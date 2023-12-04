@@ -244,6 +244,14 @@ class Copy(Operator):
         self.torch_op = torch.ops.aten.copy
 
 
+class Copy_(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy_")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy_
+
+
 class LiftFreshCopy(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("LiftFreshCopy")
@@ -717,10 +725,11 @@ class GetTupleElement(Operator):
         if hasattr(x, 'meta'):
             x = x.meta['val']
 
-        if x.dtype in (torch.cfloat, torch.cdouble):
-            data_type = torch.double if x.dtype == torch.cdouble else torch.float
-            data_size = x.size()
-            return torch.empty(data_size, dtype=data_type)
+            if hasattr(x, 'dtype') and x.dtype in (torch.cfloat, torch.cdouble):
+                data_type = torch.double if x.dtype == torch.cdouble else torch.float
+                data_size = x.size()
+                with FakeTensorMode():
+                    return torch.empty(data_size, dtype=data_type)
 
         x = x[idx]
         if hasattr(x, 'meta'):

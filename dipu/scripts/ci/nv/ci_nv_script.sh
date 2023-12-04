@@ -1,55 +1,29 @@
 # !/bin/bash
 set -e
-echo "pwd: $(pwd)"
 
-function config_dipu_nv_cmake() {
-    # export NCCL_ROOT="you nccl path should exist"
+function build() {
+    path="build"
+    echo "Building DIPU into: '$PWD/$path'"
+    echo " - DIOPI_ROOT=${DIOPI_ROOT}"
 
-    mkdir -p build && cd ./build && rm -rf ./*
-    cmake ../  -DCMAKE_BUILD_TYPE=Release \
-        -DDEVICE=cuda \
-        -DENABLE_COVERAGE=${USE_COVERAGE}
-    cd ../
+    args=(
+        "-DDEVICE=cuda"
+        "-DENABLE_COVERAGE=${USE_COVERAGE}"
+        "-DCMAKE_BUILD_TYPE=Release"
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+        "$@" )
+
+    rm -rf "$path"
+    mkdir -p "$path"
+    cmake -B "$path" -S . "${args[@]}" 2>&1 | tee "${path}/cmake_nv.log"
+    cmake --build "$path" --parallel 8 2>&1 | tee "${path}/build.log"
 }
 
-function config_all_nv_cmake() {
-    # export NCCL_ROOT="you nccl path should exist"
-    
-    mkdir -p build && cd ./build && rm -rf ./*
-    cmake ../  -DCMAKE_BUILD_TYPE=Release \
-        -DDEVICE=cuda \
-        -DENABLE_COVERAGE=${USE_COVERAGE} \
-        -DWITH_DIOPI=INTERNAL
-    cd ../
-}
-
-function build_dipu_lib() {
-    echo "building dipu_lib:$(pwd)"
-    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    export DIOPI_BUILD_TESTRT=1
-    config_dipu_nv_cmake 2>&1 | tee ./cmake_nv.log
-    cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
-}
-
-function build_all(){
-    echo "building dipu_lib:$(pwd)"
-    echo  "DIOPI_ROOT:${DIOPI_ROOT}"
-    export DIOPI_BUILD_TESTRT=1
-    config_all_nv_cmake 2>&1 | tee ./cmake_nv.log
-    cd build && make -j8  2>&1 | tee ./build.log &&  cd ..
-}
 case $1 in
-    build_dipu)
-        (
-            build_all
-        ) \
-        || exit -1;;
-    build_dipu_only)
-        (
-            build_dipu_lib
-        ) \
-        || exit -1;;
+    "build_dipu")
+        build ;;
+    "build_dipu_only")
+        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
     *)
-        echo -e "[ERROR] Incorrect option:" $1;
+        echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac
-exit 0
