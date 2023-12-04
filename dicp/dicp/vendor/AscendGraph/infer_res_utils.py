@@ -1,9 +1,28 @@
 from collections.abc import Sequence
 from typing import Optional, Tuple, Union
+from dicp.dynamo_bridge.utils import get_memory_format
 
 import torch
 
 """parse and get val"""
+
+
+# in conversion.py, some ops' ("cast") inputs are ascend_type like 'FLOAT',but infer needs torch type
+def ascend_type_to_torch(ascend_type: str) -> torch.dtype:
+    ascend_type_map = {
+        "BOOL": torch.bool,
+        "INT64": torch.int64,
+        "FLOAT": torch.float32,
+        "FLOAT16": torch.float16,
+        "INT32": torch.int32,
+        "COMPLEX64": torch.complex64,
+    }
+
+    assert (
+        ascend_type in ascend_type_map
+    ), "unknow ascend_dtype in ascend_type_to_torch!"
+
+    return ascend_type_map[ascend_type]
 
 
 def get_fake_tensor_meta_val(
@@ -154,3 +173,30 @@ def cal_stride_offset(new_shape: list, offset: list, res: torch.Tensor):
         new_offset += s * off
     stride = [k for k, i, j in zip(stride, ori_shape, new_shape) if i != j]
     return stride, new_offset
+
+
+"""binary&unary operators"""
+
+
+def common_binary_op_infer(x1, x2, spec_dtype=None, spec_format=None) -> torch.Tensor:
+    x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+    x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+    out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+    dtype = get_cast_dtype(x1_dtype, x2_dtype) if not spec_dtype else spec_dtype
+    memory_format = get_memory_format(x1) if not spec_format else spec_format
+    return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
+
+
+def common_unary_op_infer(x, spec_dtype=None, spec_format=None) -> torch.Tensor:
+    _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+    return torch.empty(
+        x_shape,
+        dtype=x_dtype if not spec_dtype else spec_dtype,
+        memory_format=get_memory_format(x) if not spec_format else spec_format,
+    )
+
+
+def reduce_op_infer(x, dims, keepdim) -> torch.tensor:
+    x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+    out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
+    return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
