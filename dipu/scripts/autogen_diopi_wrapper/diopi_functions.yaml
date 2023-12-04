@@ -1102,6 +1102,7 @@
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [other]
   interface: diopiMaximum(ctx, out, self, other)
 
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
