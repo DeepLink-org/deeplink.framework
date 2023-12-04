@@ -414,7 +414,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 bufs.append(self.output_args[i].name)
-                if self.output_args[i] not in self.input_args:
+                if self.output_args[i] not in self.input_args and bufs[-1] not in self.inplace_dict.keys():
                     otensor = self.output_args[i].meta['val']
                     call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
