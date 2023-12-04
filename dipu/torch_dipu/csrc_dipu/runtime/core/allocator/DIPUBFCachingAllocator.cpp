@@ -1,8 +1,10 @@
 // Copyright (c) 2023, DeepLink.
 
 #include <functional>
+#include <memory>
 #include <stack>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "DIPUCachingAllocator.h"
@@ -158,7 +160,7 @@ class BFCachingAllocatorImpl {
     // If `nbytes` is so large, we just put it into the last
     if (bigBinIdx > kNumBigBins - 1) { return kNumBigBins * kNumSubBins - 1;}
     // Get the index of sub bin
-    int subBinIdx = nBlocks ^ (1ULL << bigBinIdx);
+    int subBinIdx = static_cast<int>(nBlocks ^ (1ULL << bigBinIdx));
     subBinIdx >>= std::max(bigBinIdx - kLogNumSubBins, 0);
     return bigBinIdx * kNumSubBins + subBinIdx;
   }
@@ -384,11 +386,11 @@ class BFCachingAllocatorImpl {
   void set_mem_allocate_fn(allocate_fn_t allocate_fn,
                            deallocate_fn_t deallocate_fn) {
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: set_mem_allocate_fn ");
-    this->allocate_fn = allocate_fn;
-    this->deallocate_fn = deallocate_fn;
+    this->allocate_fn = std::move(allocate_fn);
+    this->deallocate_fn = std::move(deallocate_fn);
   }
 
-  size_t memory_reserved() { return cachedBytes; }
+  size_t memory_reserved() const { return cachedBytes; }
 };
 
 static void deleteBFContext(void* ptr);
@@ -404,7 +406,7 @@ class BFCachingAllocator : public CacheAllocator {
     while (async_mem_pool()->ready()) {
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
-      int id = std::get<1>(block);
+      int id = static_cast<int>(std::get<1>(block));
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
@@ -423,7 +425,7 @@ class BFCachingAllocator : public CacheAllocator {
       }
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
-      int id = std::get<1>(block);
+      int id = static_cast<int>(std::get<1>(block));
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
@@ -436,13 +438,13 @@ class BFCachingAllocator : public CacheAllocator {
     if (impl) {
       return;
     }
-    impl.reset(new BFCachingAllocatorImpl());
+    impl = std::make_unique<BFCachingAllocatorImpl>();
 
     std::function<void*(size_t)> alloc_fn =
-        std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this,
+        std::bind(&BFCachingAllocator::allocate_raw, const_cast<BFCachingAllocator*>(this),
                   std::placeholders::_1);
     std::function<void(void*)> dealloc_fn =
-        std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this,
+        std::bind(&BFCachingAllocator::free_raw, const_cast<BFCachingAllocator*>(this),
                   std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
@@ -545,7 +547,7 @@ class BFCachingAllocator : public CacheAllocator {
 
   BFCachingAllocator() { check_impl(); }
 
-  ~BFCachingAllocator() {
+  ~BFCachingAllocator() override {
     DIPU_DEBUG_ALLOCATOR(8, "~BFCachingAllocator allocator:" << this);
     release_all_memory();
   }
