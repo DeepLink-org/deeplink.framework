@@ -98,6 +98,7 @@ void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
 namespace libkineto {
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 DeviceActivityInterface* device_activity_singleton =
     &dipu::profile::DIPUDeviceActivity::instance();
 

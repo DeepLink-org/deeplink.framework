@@ -15,7 +15,7 @@ static const int32_t DEFAULT_FLUSH_READY_INTERVAL = 1000;
 
 class DeviceEvent final {
  private:
-  deviceEvent_t evt_;
+  deviceEvent_t evt_{};
 
  public:
   DeviceEvent() { dipu::devproxy::createEvent(&evt_); }
@@ -34,26 +34,24 @@ class StreamTimeOffsetTracker final {
   DeviceEvent begin_;
   deviceStream_t stream_;
   size_t beginOffset_;
-  float ratio_ = 0.f;
+  float ratio_ = 0.F;
 
  public:
-  explicit StreamTimeOffsetTracker(deviceStream_t stream) {
-    stream_ = stream;
+  explicit StreamTimeOffsetTracker(deviceStream_t stream) : stream_(stream), beginOffset_(torch::profiler::impl::getTime()) {
     devproxy::recordEvent(begin_.get(), stream_);
     devproxy::waitEvent(begin_.get());
-    beginOffset_ = torch::profiler::impl::getTime();
   }
 
   ~StreamTimeOffsetTracker() = default;
 
   void sync() {
     DeviceEvent end;
-    float time;
+    float time = 0.F;
     dipu::devproxy::recordEvent(end.get(), stream_);
     dipu::devproxy::waitEvent(end.get());
     dipu::devproxy::eventElapsedTime(&time, begin_.get(), end.get());
     size_t endOffset = torch::profiler::impl::getTime();
-    ratio_ = 1.0f * (endOffset - beginOffset_) / time;
+    ratio_ = static_cast<float>(endOffset - beginOffset_) / time;
   }
 
   const DeviceEvent& begin() const { return begin_; }
@@ -118,6 +116,7 @@ RecordsImpl::getResourceInfo() const {
   return resourceInfo_;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local RecordsImpl::records_t* RecordsImpl::pRecords = nullptr;
 
 class DeviceRecordsImpl final {
@@ -128,7 +127,6 @@ class DeviceRecordsImpl final {
   std::vector<Record> ready_records_;
   std::unique_ptr<StreamTimeOffsetTracker> pTracker_;
 
- private:
   DeviceRecordsImpl() {}
 
   static bool enableFlushReadyEvent() {
@@ -151,7 +149,7 @@ class DeviceRecordsImpl final {
   }
 
   size_t getTime(const DeviceEvent& evt, float scale = 1., size_t shift = 0) {
-    float time;
+    float time = 0.F;
     dipu::devproxy::waitEvent(evt.get());
     dipu::devproxy::eventElapsedTime(&time, beginEvent(), evt.get());
     return static_cast<size_t>(time * scale) + shift;
@@ -160,17 +158,16 @@ class DeviceRecordsImpl final {
  public:
   ~DeviceRecordsImpl() { reset(); }
 
- public:
   void ensureSetup(deviceStream_t stream) {
     if (!pTracker_) {
       std::lock_guard<std::mutex> lk(mtx_);
       if (!pTracker_) {
-        pTracker_.reset(new StreamTimeOffsetTracker(stream));
+        pTracker_ = std::make_unique<StreamTimeOffsetTracker>(stream);
       }
     }
   }
 
-  void addDeviceRecord(DeviceRecord record) {
+  void addDeviceRecord(const DeviceRecord &record) {
     std::lock_guard<std::mutex> lk(mtx_);
     TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
     records_.push_back(record);
@@ -181,7 +178,7 @@ class DeviceRecordsImpl final {
   }
 
   void flushReady() {
-    while (records_.size() > 0) {
+    while (!records_.empty()) {
       auto& r = records_.front();
       auto start_status = dipu::devproxy::getEventStatus(r.start->get());
       auto end_status = dipu::devproxy::getEventStatus(r.stop->get());
@@ -191,8 +188,8 @@ class DeviceRecordsImpl final {
           origin_status != devapis::EventStatus::READY) {
         break;
       }
-      float t1 = 0.0f;
-      float t2 = 0.0f;
+      float t1 = 0.F;
+      float t2 = 0.F;
       dipu::devproxy::eventElapsedTime(&t1, beginEvent(), r.start->get());
       dipu::devproxy::eventElapsedTime(&t2, r.start->get(), r.stop->get());
       ready_records_.push_back(
@@ -205,7 +202,7 @@ class DeviceRecordsImpl final {
 
   void flush() {
     std::lock_guard<std::mutex> lk(mtx_);
-    if (records_.size() > 0) {
+    if (!records_.empty()) {
       TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
       auto& trakcer = *pTracker_;
       trakcer.sync();
@@ -213,8 +210,8 @@ class DeviceRecordsImpl final {
       size_t offset = trakcer.offset();
 
       for (auto& r : ready_records_) {
-        r.begin = static_cast<size_t>(r.begin * 1e-3 * ratio) + offset;
-        r.end = static_cast<size_t>(r.end * 1e-3 * ratio) + offset;
+        r.begin = static_cast<size_t>(static_cast<double>(r.begin) * 1e-3 * ratio) + offset;
+        r.end = static_cast<size_t>(static_cast<double>(r.end) * 1e-3 * ratio) + offset;
         RecordsImpl::get().addRecord(r);
       }
       ready_records_.clear();
@@ -244,6 +241,7 @@ class DeviceRecordsImpl final {
   }
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool gEnableFlag = false;
 
 bool isEnable() { return gEnableFlag; }
@@ -252,7 +250,9 @@ void setProfileOpen(bool profileFlag) { gEnableFlag = profileFlag; }
 
 void FlushAllRecords() { DeviceRecordsImpl::get().flush(); }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static size_t kInitModuleId = 10000;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<size_t> moduleId(kInitModuleId);
 
 size_t generateId() { return ++moduleId; }
@@ -298,7 +298,7 @@ DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream,
                                          const ExtraRecordInfo& extraInfo) {
   if (isEnable()) {
     DeviceRecordsImpl::get().ensureSetup(stream);
-    name_ = name;
+    name_ = std::move(name);
     opId_ = opId;
     extraInfo_ = extraInfo;
     stream_ = stream;
@@ -329,12 +329,12 @@ void DeviceRecordCreator::end() {
 }
 
 static std::string extraceFunction(const std::string& functionName) {
-  auto start = functionName.find_first_not_of(":");
+  auto start = functionName.find_first_not_of(':');
   if (start == std::string::npos) {
     return "";
   }
 
-  auto end = functionName.find_first_of("(");
+  auto end = functionName.find_first_of('(');
   if (end == std::string::npos) {
     end = functionName.size();
   }
@@ -354,10 +354,10 @@ RecordBlockCreator::RecordBlockCreator(string_t name,
     uint64_t correlationId =
         CorrelationIDManager::instance().getCorrelationID();
     name = extraceFunction(name);
-    pHostRecord_.reset(new RecordCreator("LaunchKernel_" + name, opId,
-                                         correlationId, extraInfo));
-    pDeviceRecord_.reset(new DeviceRecordCreator(name, stream, streamId, opId,
-                                                 correlationId, extraInfo));
+    pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
+                                         correlationId, extraInfo);
+    pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(name, stream, streamId, opId,
+                                                 correlationId, extraInfo);
   }
 }
 
