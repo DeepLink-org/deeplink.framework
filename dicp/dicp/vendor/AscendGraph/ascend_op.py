@@ -63,8 +63,8 @@ class BatchMatMul(Operator):
         super().__init__("BatchMatMul")
 
     def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
-        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1, True)
-        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
 
         assert x1_dim == 3 and x2_dim == 3, (
             self.__class__.__name__ + ": bmm's inputs must be  3D tensor!"
@@ -210,7 +210,7 @@ class Unsqueeze(Operator):
         super().__init__("Unsqueeze")
 
     def infer_result(self, x, dim=None):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         assert dim is not None, (
             self.__class__.__name__ + ": doesn't specify axis to unsqueeze!"
         )
@@ -225,7 +225,7 @@ class Squeeze(Operator):
         super().__init__("Squeeze")
 
     def infer_result(self, x, dim=None):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         if dim is None:
             shape = [i for i in x_shape if i != 1]
         else:
@@ -317,14 +317,14 @@ class Pow(Operator):
         super().__init__("Pow")
 
     def infer_result(self, base, expo):
-        base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base, True)
+        base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base)
 
         if isinstance(expo, Tuple):  # Const
             expo, expo_shape = get_op_const_arg_kwarg(expo)
             expo_dtype = type(expo[0]) if len(expo) > 0 else base_dtype
         else:  # fake Tensor
             expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(
-                expo, True
+                expo
             )
 
         out_shape = get_broadcast_res_two_shape(base_shape, expo_shape)
@@ -339,7 +339,7 @@ class Select(Operator):
 
     def infer_result(self, x1, x2, condition):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
-        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2, True)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
         _, c_shape, _, _ = get_fake_tensor_meta_val(condition)
         out_shape = get_broadcast_res_two_shape(
             get_broadcast_res_two_shape(x1_shape, c_shape), x2_shape
