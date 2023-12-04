@@ -2224,6 +2224,7 @@
         return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
     });
   interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), self.size(), found_inf, inv_scale)
+  autocompare: disable
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
   custom_fallback: True
