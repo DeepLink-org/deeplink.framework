@@ -28,7 +28,7 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   if (devapis::getDeviceStatus) {
     return devapis::getDeviceStatus(device_index);
   }
-  return DIPUDeviceStatus();
+  return {};
 }
 
 // set current device given device according to id

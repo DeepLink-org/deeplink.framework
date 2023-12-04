@@ -11,9 +11,10 @@ namespace cuda {
 
 namespace CUDACachingAllocator {
 
-#define DIPU_PATCH_CUDA_ALLOCATOR(x)           \
-  std::cout << __FUNCTION__ << ":" << __LINE__ \
-            << " this function should not be called!" x << std::endl;
+#define DIPU_PATCH_CUDA_ALLOCATOR(x)                                  \
+  std::cout << __FUNCTION__ << ":" << __LINE__                        \
+            << " this function should not be called!" x << std::endl; \
+  throw std::runtime_error("this function should not be called!");
 
 class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   std::unordered_map<void*, c10::DataPtr> tempMemBlock;
@@ -21,62 +22,56 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   mutable mutex_t mut_;
 
  public:
-  virtual void* raw_alloc_with_stream(size_t nbytes,
-                                      cudaStream_t stream) override {
+  void* raw_alloc_with_stream(size_t nbytes, cudaStream_t stream) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void setMemoryFraction(double fraction, int device) override {
+  void setMemoryFraction(double fraction, int device) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void* getBaseAllocation(void* ptr, size_t* size) override {
+  void* getBaseAllocation(void* ptr, size_t* size) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void recordStream(const DataPtr&, CUDAStream stream) override {
+  void recordStream(const DataPtr& /*unused*/, CUDAStream stream) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual DeviceStats getDeviceStats(int device) override {
+  DeviceStats getDeviceStats(int device) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void resetAccumulatedStats(int device) override {
+  void resetAccumulatedStats(int device) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void resetPeakStats(int device) override {
+  void resetPeakStats(int device) override { DIPU_PATCH_CUDA_ALLOCATOR(); }
+  SnapshotInfo snapshot() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
+  void notifyCaptureBegin(int device, CaptureId_t graph_id,
+                          MempoolId_t mempool_id) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual SnapshotInfo snapshot() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
-  virtual void notifyCaptureBegin(int device, CaptureId_t graph_id,
-                                  MempoolId_t mempool_id) override {
+  void notifyCaptureAboutToEnd(int device, CaptureId_t graph_id) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureAboutToEnd(int device,
-                                       CaptureId_t graph_id) override {
+  void notifyCaptureEnded(int device, CaptureId_t graph_id) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureEnded(int device, CaptureId_t graph_id) override {
+  void notifyCaptureDestroy(int device, MempoolId_t mempool_id) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureDestroy(int device,
-                                    MempoolId_t mempool_id) override {
+  std::shared_ptr<void> getIpcDevPtr(std::string handle) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual std::shared_ptr<void> getIpcDevPtr(std::string handle) override {
+  void recordHistory(bool enabled, CreateContextFn context_recorder,
+                     size_t alloc_trace_max_entries,
+                     bool alloc_trace_record_context) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void recordHistory(bool enabled, CreateContextFn context_recorder,
-                             size_t alloc_trace_max_entries,
-                             bool alloc_trace_record_context) override {
+  void attachOutOfMemoryObserver(OutOfMemoryObserver observer) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void attachOutOfMemoryObserver(
-      OutOfMemoryObserver observer) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
-  virtual std::string name() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
-  virtual void cacheInfo(int dev_id, size_t* largestBlock) override {
+  std::string name() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
+  void cacheInfo(int dev_id, size_t* largestBlock) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
 
-  virtual void* raw_alloc(size_t nbytes) override {
+  void* raw_alloc(size_t nbytes) override {
     auto data_ptr = this->allocate(nbytes);
     void* ptr = data_ptr.get();
     std::lock_guard<mutex_t> lk(mut_);
@@ -84,23 +79,23 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     return ptr;
   }
 
-  virtual void raw_delete(void* ptr) override {
+  void raw_delete(void* ptr) override {
     std::lock_guard<mutex_t> lk(mut_);
     tempMemBlock.erase(ptr);
   }
 
-  virtual void init(int device_count) override {}
+  void init(int device_count) override {}
 
-  virtual bool initialized() override { return true; }
+  bool initialized() override { return true; }
 
-  virtual void emptyCache() override { dipu::emptyCachedMem(); }
+  void emptyCache() override { dipu::emptyCachedMem(); }
 
-  virtual bool needsPoolSpecificPeerAccess() override {
+  bool needsPoolSpecificPeerAccess() override {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     return false;
   }
 
-  virtual DataPtr allocate(size_t n) const override {
+  DataPtr allocate(size_t n) const override {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     auto data_ptr = c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(n);
     data_ptr.unsafe_set_device(
@@ -142,6 +137,6 @@ int patchCachingAllocator() {
 and this compilation unit may not be compiled, so it is still initialized with
 global variables
 */
-static int n = patchCachingAllocator();
+static const int n = patchCachingAllocator();
 
 }  // namespace dipu

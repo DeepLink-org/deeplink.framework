@@ -8,6 +8,7 @@ namespace dipu {
 namespace devapis {
 
 // NCCL op mapping
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
     {ReduceOp::MIN, ncclMin}, {ReduceOp::MAX, ncclMax},
     {ReduceOp::SUM, ncclSum}, {ReduceOp::PRODUCT, ncclProd},
@@ -17,6 +18,7 @@ static std::map<ReduceOp::RedOpType, ncclRedOp_t> ncclOp = {
 };
 
 // NCCL type typing
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<at::ScalarType, ncclDataType_t> ncclDataType = {
     {at::kChar, ncclInt8},         {at::kByte, ncclUint8},
     {at::kFloat, ncclFloat},       {at::kDouble, ncclDouble},
@@ -42,13 +44,13 @@ static std::map<at::ScalarType, ncclDataType_t> ncclDataType = {
 const int DICL_UNIQUE_ID_BYTES_SIZE = NCCL_UNIQUE_ID_BYTES;
 
 DIPU_API diclResult_t diclGetCommAsyncError(diclComm_t comm) {
+  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   ncclResult_t ncclAsyncErr_;
   NCCL_THROW(ncclCommGetAsyncError(comm, &ncclAsyncErr_));
   if (ncclAsyncErr_ != ncclSuccess) {
     return DICL_SUCCESS;
-  } else {
-    return DICL_ERR_UNDEF;
   }
+  return DICL_ERR_UNDEF;
 }
 
 DIPU_API diclResult_t diclGetUniqueId(commUniqueId* uniqueId) {

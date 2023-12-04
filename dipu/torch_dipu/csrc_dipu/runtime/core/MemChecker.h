@@ -2,7 +2,7 @@
 #pragma once
 
 #include <mutex>
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -28,7 +28,6 @@ class MemChecker final {
  private:
   std::string current_state() const;
 
- private:
   std::mutex mtx_;
   std::unordered_map<const void*, std::pair<size_t, std::string>> blocks_;
   int64_t total_size_ = 0;

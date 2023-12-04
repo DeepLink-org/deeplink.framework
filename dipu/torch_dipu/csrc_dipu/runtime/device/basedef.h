@@ -16,7 +16,7 @@ namespace dipu {
 // "default", "hidden", "protected" or "internal
 #define DIPU_HIDDEN __attribute__((visibility("hidden")))
 
-typedef int32_t enum_t;
+using enum_t = int32_t;
 
 #define DIPU_STRING(x) #x
 #define DIPU_CODELOC __FILE__ " (" DIPU_STRING(__LINE__) ")"
@@ -54,14 +54,14 @@ enum class MemCPKind : enum_t {
   D2D,
 };
 
-typedef enum {
+enum diclResult_t {
   /*! The operation was successful. */
   DICL_SUCCESS = 0x0,
 
   /*! undefined error */
   DICL_ERR_UNDEF = 0x01000,
 
-} diclResult_t;
+};
 
 struct DIPUDeviceStatus {
   size_t freeGlobalMem = 0;

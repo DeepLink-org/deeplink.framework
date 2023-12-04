@@ -7,6 +7,7 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 DIPU_API devapis::VendorDeviceType VENDOR_TYPE =
     devapis::VendorDeviceType::CUDA;
 
@@ -22,12 +23,14 @@ void initializeVendor() {}
 void finalizeVendor() {}
 
 deviceId_t current_device() {
+  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
   cuda_deviceId devId_;
   DIPU_CALLCUDA(::cudaGetDevice(&devId_))
   return static_cast<deviceId_t>(devId_);
 }
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
   ::cudaDeviceProp device_prop;
   DIPU_CALLCUDA(cudaGetDeviceProperties(&device_prop, device_index))
 
@@ -94,7 +97,7 @@ void destroyStream(deviceStream_t stream, deviceId_t devId) {
   destroyStream(stream);
 }
 
-void releaseStream() { return; }
+void releaseStream() {}
 
 bool streamNotNull(deviceStream_t stream) {
   return (stream != nullptr && stream != cudaStreamLegacy &&
@@ -111,10 +114,7 @@ void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
 
 bool isStreamEmpty(deviceStream_t stream) {
   auto err = cudaStreamQuery(stream);
-  if (err == ::cudaSuccess) {
-    return true;
-  }
-  return false;
+  return err == ::cudaSuccess;
 }
 
 // =====================
@@ -126,9 +126,8 @@ void createEvent(deviceEvent_t* event) {
     const char* env = std::getenv("DIPU_CUDA_EVENT_TIMING");
     if (env) {
       return std::atoi(env) > 0;
-    } else {
-      return true;
     }
+    return true;
   }();
 
   DIPU_CALLCUDA(::cudaEventCreateWithFlags(
@@ -154,13 +153,13 @@ EventStatus getEventStatus(deviceEvent_t event) {
   ::cudaError_t ret = ::cudaEventQuery(event);
   if (ret == ::cudaSuccess) {
     return devapis::EventStatus::READY;
-  } else if (ret == ::cudaErrorNotReady) {
+  }
+  if (ret == ::cudaErrorNotReady) {
     ::cudaGetLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
-  } else {
-    TORCH_CHECK(false,
-                "unexpected event status in getEventStatus, ret = ", ret);
   }
+  TORCH_CHECK(false,
+              "unexpected event status in getEventStatus, ret = ", ret);
 }
 
 // =====================
@@ -191,6 +190,7 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
 void freeDevice(void* p) { DIPU_CALLCUDA(::cudaFree(p)) }
 
 bool isPinnedPtr(const void* p) {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
   ::cudaPointerAttributes attr;
   DIPU_CALLCUDA(::cudaPointerGetAttributes(&attr, p))
   return attr.type == cudaMemoryTypeHost;
