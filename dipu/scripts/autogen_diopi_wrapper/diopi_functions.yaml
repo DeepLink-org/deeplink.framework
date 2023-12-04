@@ -157,6 +157,38 @@
     auto out = at::empty(shape, self.options().dtype(at::kBool));
   interface: diopiLogicalAnd(ctx, out, self, other);
 
+- schema: "logical_or.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+        auto shape = at::infer_size(self.sizes(), other.sizes());
+        out.resize_(shape);
+    }
+  interface: diopiLogicalOr(ctx, out, self, other);
+
+- schema: "logical_or_(Tensor(a!) self, Tensor other) -> Tensor(a!)"
+  interface: diopiLogicalOrInp(ctx, self, other)
+
+- schema: "logical_or(Tensor self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto shape = at::infer_size(self.sizes(), other.sizes());
+    auto out = at::empty(shape, self.options().dtype(at::kBool));
+  interface: diopiLogicalOr(ctx, out, self, other);
+
+- schema: "logical_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+        out.resize_(self.sizes());
+    }
+  interface: diopiLogicalNot(ctx, out, self);
+
+- schema: "logical_not_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiLogicalNotInp(ctx, self)
+
+- schema: "logical_not(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
+  interface: diopiLogicalNot(ctx, out, self);
+
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
   interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
 
