@@ -175,6 +175,10 @@
   interface: diopiLogicalOr(ctx, out, self, other);
 
 - schema: "logical_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_code_at_the_beginning: |
+    if (out.numel() == 0) {
+        out.resize_(self.sizes());
+    }
   interface: diopiLogicalNot(ctx, out, self);
 
 - schema: "logical_not_(Tensor(a!) self) -> Tensor(a!)"

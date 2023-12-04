@@ -15,6 +15,7 @@ class TestLogicalOr(TestCase):
     def test_logical_or_non_bool(self):
         a = torch.tensor([0, 1, 10, 0], dtype=torch.int8)
         b = torch.tensor([4, 0, 1, 0], dtype=torch.int8)
+        out = torch.tensor([], dtype=torch.bool)
         self.assertEqual(
             torch.logical_or(a.cuda(), b.cuda()).cpu(), torch.logical_or(a, b)
         )
@@ -31,6 +32,10 @@ class TestLogicalOr(TestCase):
                 a.cuda(), b.cuda(), out=torch.empty(4, dtype=torch.bool).cuda()
             ).cpu(),
             torch.logical_or(a, b, out=torch.empty(4, dtype=torch.bool)),
+        )
+        self.assertEqual(
+            torch.logical_or(a.cuda(), b.cuda(), out=out.cuda()
+                             ).cpu(), torch.logical_or(a, b, out=out)
         )
 
 
