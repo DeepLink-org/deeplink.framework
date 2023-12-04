@@ -18,12 +18,6 @@ class SUPACopyInplace : public DIPUCopyInpOnDIOPI {
   SUPACopyInplace() = default;
   ~SUPACopyInplace() = default;
 
-  // assume it can handle between device.
-  void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
-                                  bool non_blocking,
-                                  CopyParamsInfo& info) override {
-    dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
-  }
   void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) override {
     auto curStream = dipu::getCurrentDIPUStream();
     ::diopiContext context(curStream.rawstream());
