@@ -4,7 +4,7 @@ import torch_dipu
 import torchvision.models as models
 from torch.profiler import profile, ProfilerActivity
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
-from tests.python.utils.local_eviron import local_eviron
+from torch_dipu.testing._internal.local_eviron import local_eviron
 import torch._dynamo as dynamo
 import subprocess
 
@@ -15,6 +15,7 @@ def check_string_in_directory(directory, search_string):
         return True
     else:
         return False
+
 
 
 class TestProfiler(TestCase):
