@@ -39,10 +39,10 @@ jobs:
       - name: clone repo
         run: |
           set -ex
-          cd ${GITHUB_WORKSPACE} && rm -rf DIPU ${REPO}_DIOPI ${REPO} 
-          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == *DeepLink-org* ]]; then
-            git clone ${{ github.event.pull_request.head.repo.ssh_url }}
-            cd ${GITHUB_WORKSPACE}/${{ github.event.repository.name }} && git checkout ${{ github.event.pull_request.head.sha }}
+          cd ${GITHUB_WORKSPACE} && rm -rf DIPU ${REPO}_DIOPI ${REPO} ${REPO}.dev
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
+            git clone ${{ github.event.pull_request.head.repo.ssh_url }} ${REPO}
+            cd ${GITHUB_WORKSPACE}/${REPO} && git checkout ${{ github.event.pull_request.head.sha }}
             git remote add mainrepo git@github.com:${GITHUB_REPOSITORY}.git
             git fetch  mainrepo && git merge --no-edit mainrepo/${{ github.base_ref }}
           else
