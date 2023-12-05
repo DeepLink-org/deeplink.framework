@@ -16,6 +16,7 @@ diopi_wrapper_file_template_content = \
 #include <csrc_dipu/utils/Log.h>
 #include "CustomFallbackFunctions.hpp"
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
+#include <vector>
 
 $header_include_code
 
