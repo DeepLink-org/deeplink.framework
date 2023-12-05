@@ -1648,6 +1648,11 @@
     }
   interface: diopiRemainderTensor(ctx, out, self, other)
 
+- schema: "remainder.Scalar_Tensor(Scalar self, Tensor other) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = at::empty_like(other);
+  interface: diopiRemainder(ctx, out, self, other)
+
 - schema: "norm.out(Tensor self, Scalar? p, int[1] dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
