@@ -1,32 +1,70 @@
 from collections.abc import Sequence
 from typing import Optional, Tuple, Union
+from dicp.dynamo_bridge.utils import get_memory_format
 
 import torch
+
+"""parse and get val"""
+
+
+# in conversion.py, some ops' ("cast") inputs are ascend_type like 'FLOAT',but infer needs torch type
+def ascend_type_to_torch(ascend_type: str) -> torch.dtype:
+    ascend_type_map = {
+        "BOOL": torch.bool,
+        "INT64": torch.int64,
+        "FLOAT": torch.float32,
+        "FLOAT16": torch.float16,
+        "INT32": torch.int32,
+        "COMPLEX64": torch.complex64,
+    }
+
+    assert (
+        ascend_type in ascend_type_map
+    ), "unknow ascend_dtype in ascend_type_to_torch!"
+
+    return ascend_type_map[ascend_type]
 
 
 def get_fake_tensor_meta_val(
     x, req_dim=True, req_dtype=True
-) -> Tuple[any, list, Union[int, None], Union[torch.dtype, type, None]]:
+) -> Tuple[torch.Tensor, Union[torch.Size, list], int, Union[torch.dtype, type, None]]:
     x_shape = x.size() if hasattr(x, "size") else [1]
     x_dim = len(x_shape)
     x_dtype = x.dtype if hasattr(x, "dtype") else None
     return x, x_shape, x_dim, x_dtype
 
 
-def get_broadcast_res_two_shape(shape1, shape2) -> Optional[list]:
-    len1 = len(shape1)
-    len2 = len(shape2)
-    max_len = max(len1, len2)
-    result_shape = []
-    for i in range(-1, -max_len - 1, -1):
-        dim1 = shape1[i] if i >= -len1 else 1
-        dim2 = shape2[i] if i >= -len2 else 1
-        if dim1 == dim2 or dim1 == 1 or dim2 == 1:
-            result_shape.insert(0, max(dim1, dim2))
-        else:
-            print(torch.randn(shape1).shape, " ", torch.randn(shape2).shape, end=" ")
-            assert False, "input shapes must be broadcastable!"
-    return result_shape
+def get_op_const_arg_kwarg(const_arg):
+    """
+    if some operator uses Const as an input, call this func to get the input (args and kwargs) of the input op.
+    Some operators like "reshape" need a tensor's value(shape), so for operators like "Const" we directly pass its input
+    (including value and shape) instead of constructing a fakeTensor, which will neglect a tensor's value.
+    input:
+        - const_arg: Tuple (new_args,kwargs)
+            - new_args: Tuple, identical to input-"new_args" of operator Const
+            - kwargs: dict, identical to input-"kwargs" of operator Const
+
+    output:
+        - arg0: list, value of "Const"'s input
+        - arg2: list, shape of "Const"'s input
+    """
+    new_args = const_arg[0]
+    arg0 = new_args[0]
+    arg2 = new_args[2]
+    return arg0, arg2
+
+
+def get_op_const_arg_kwarg(const_arg):
+    """
+    similar to get_op_const_arg_kwarg()
+    """
+    new_args = const_arg[0]
+    shape = new_args[0]
+    dim = new_args[2]
+    return shape, dim
+
+
+"""analyze dtype,format"""
 
 
 def get_cast_dtype(
@@ -86,6 +124,25 @@ def analyze_memory_format(tensor: torch.Tensor, operation: str) -> torch.memory_
     return tensor.memory_format if tensor.is_contiguous() else original_format
 
 
+"""calculate size,stride,storage_offset"""
+
+
+def get_broadcast_res_two_shape(shape1, shape2) -> Optional[list]:
+    len1 = len(shape1)
+    len2 = len(shape2)
+    max_len = max(len1, len2)
+    result_shape = []
+    for i in range(-1, -max_len - 1, -1):
+        dim1 = shape1[i] if i >= -len1 else 1
+        dim2 = shape2[i] if i >= -len2 else 1
+        if dim1 == dim2 or dim1 == 1 or dim2 == 1:
+            result_shape.insert(0, max(dim1, dim2))
+        else:
+            print(torch.randn(shape1).shape, " ", torch.randn(shape2).shape, end=" ")
+            assert False, "input shapes must be broadcastable!"
+    return result_shape
+
+
 def reduce_ops_output_size(
     x_shape, x_dim, dim: Union[None, Sequence, int], keepdim=False
 ):
@@ -93,7 +150,7 @@ def reduce_ops_output_size(
         if keepdim is True:
             shape = [1] * x_dim
         else:
-            shape = []
+            shape = []  # sum(all) need a scalar as ouput (no shape no stride)
     else:
         dim = [dim] if not isinstance(dim, Sequence) else dim
         dim = [(d + x_dim) % x_dim for d in dim]
@@ -106,3 +163,40 @@ def reduce_ops_output_size(
                 if r not in dim and r - x_dim not in dim
             ]
     return shape
+
+
+def cal_stride_offset(new_shape: list, offset: list, res: torch.Tensor):
+    stride = list(res.stride())
+    ori_shape = list(res.size())
+    new_offset = 0
+    for s, off in zip(stride, offset):
+        new_offset += s * off
+    stride = [k for k, i, j in zip(stride, ori_shape, new_shape) if i != j]
+    return stride, new_offset
+
+
+"""binary&unary operators"""
+
+
+def common_binary_op_infer(x1, x2, spec_dtype=None, spec_format=None) -> torch.Tensor:
+    x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+    x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+    out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
+    dtype = get_cast_dtype(x1_dtype, x2_dtype) if not spec_dtype else spec_dtype
+    memory_format = get_memory_format(x1) if not spec_format else spec_format
+    return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
+
+
+def common_unary_op_infer(x, spec_dtype=None, spec_format=None) -> torch.Tensor:
+    _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+    return torch.empty(
+        x_shape,
+        dtype=x_dtype if not spec_dtype else spec_dtype,
+        memory_format=get_memory_format(x) if not spec_format else spec_format,
+    )
+
+
+def reduce_op_infer(x, dims, keepdim) -> torch.tensor:
+    x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+    out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
+    return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
