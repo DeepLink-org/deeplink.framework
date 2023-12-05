@@ -1,9 +1,9 @@
 PLATFORM=/mnt/lustre/share/platform
-ENV_NAME=dipu_poc
+ENV_NAME=pt2.0v1_cpu_py310
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
-GCC_ROOT=/mnt/lustre/share/platform/dep/gcc-7.5
-CONDA_ROOT=${PLATFORM}/env/miniconda3.8
+GCC_ROOT=/mnt/lustre/share/platform/dep/gcc-10.2
+CONDA_ROOT=${PLATFORM}/env/miniconda3.10
 
 export NEUWARE_HOME=/usr/local/neuware
 export CC=${GCC_ROOT}/bin/gcc
@@ -13,7 +13,7 @@ export CXX=${GCC_ROOT}/bin/g++
 export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
-export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTHONPATH}
+#export PYTHONPATH=${PYTORCH_DIR}/install_path/lib/python3.8/site-packages:${PYTHONPATH}
 export PATH=${GCC_ROOT}/bin:${PYTORCH_DIR}/install_path/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 
