@@ -1,7 +1,7 @@
 set(DIPU_LIB torch_dipu)
 set(DIPU_PYTHON_LIB torch_dipu_python)
 set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
-
+add_definitions(-std=c++17)
 # python path
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
 

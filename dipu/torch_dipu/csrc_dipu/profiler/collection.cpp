@@ -309,6 +309,7 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
         DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
         time_converter(event->end_time_),
         input_getter(),
+        input_getter(),
         jit_stack(),
         jit_module(),
         extra_args(),

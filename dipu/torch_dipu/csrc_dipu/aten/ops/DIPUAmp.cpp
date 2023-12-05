@@ -117,7 +117,8 @@ struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
-    at::ScalarType out_type = type_from_firstarg(at::kFloat, args...);
+    at::ScalarType out_type =
+        type_from_firstarg(device_type, at::kFloat, args...);
     return (*F)(args..., out_type);
   }
 };

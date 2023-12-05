@@ -48,6 +48,8 @@ diopiCastDtype
 diopiCat
 diopiCdist
 diopiCdistBackward
+diopiCeil
+diopiCeilInp
 diopiClamp
 diopiClampInp
 diopiClampInpScalar

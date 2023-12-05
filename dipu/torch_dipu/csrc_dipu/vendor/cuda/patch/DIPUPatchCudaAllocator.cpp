@@ -44,27 +44,25 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual SnapshotInfo snapshot() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
-  virtual void notifyCaptureBegin(int device, CaptureId_t graph_id,
-                                  MempoolId_t mempool_id) override {
+  void notifyCaptureBegin(int device, CaptureId_t graph_id,
+                          MempoolId_t mempool_id) {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureAboutToEnd(int device,
-                                       CaptureId_t graph_id) override {
+  void notifyCaptureAboutToEnd(int device, CaptureId_t graph_id) {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureEnded(int device, CaptureId_t graph_id) override {
+  void notifyCaptureEnded(int device, CaptureId_t graph_id) {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void notifyCaptureDestroy(int device,
-                                    MempoolId_t mempool_id) override {
+  void notifyCaptureDestroy(int device, MempoolId_t mempool_id) {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual std::shared_ptr<void> getIpcDevPtr(std::string handle) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
-  virtual void recordHistory(bool enabled, CreateContextFn context_recorder,
-                             size_t alloc_trace_max_entries,
-                             bool alloc_trace_record_context) override {
+  void recordHistory(bool enabled, CreateContextFn context_recorder,
+                     size_t alloc_trace_max_entries,
+                     bool alloc_trace_record_context) {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   virtual void attachOutOfMemoryObserver(
@@ -95,7 +93,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
 
   virtual void emptyCache() override { dipu::emptyCachedMem(); }
 
-  virtual bool needsPoolSpecificPeerAccess() override {
+  bool needsPoolSpecificPeerAccess() {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     return false;
   }
@@ -106,6 +104,26 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     data_ptr.unsafe_set_device(
         c10::Device(c10::DeviceType::CUDA, data_ptr.device().index()));
     return data_ptr;
+  }
+
+  void beginAllocateStreamToPool(int device, cudaStream_t stream,
+                                 MempoolId_t mempool_id) {}
+  void endAllocateStreamToPool(int device, cudaStream_t stream) {}
+
+  void recordHistory(bool enabled, CreateContextFn context_recorder,
+                     size_t alloc_trace_max_entries, RecordContext when) {}
+  void releasePool(int device, MempoolId_t mempool_id) {}
+
+  void enablePeerAccess(int dev, int dev_to_access) {}
+
+  cudaError_t memcpyAsync(void* dst, int dstDevice, const void* src,
+                          int srcDevice, size_t count, cudaStream_t stream,
+                          bool p2p_enabled) {}
+  std::shared_ptr<AllocatorState> getCheckpointState(int device,
+                                                     MempoolId_t id) {}
+  CheckpointDelta setCheckpointPoolState(int device,
+                                         std::shared_ptr<AllocatorState> pps) {
+    return CheckpointDelta();
   }
 };
 
