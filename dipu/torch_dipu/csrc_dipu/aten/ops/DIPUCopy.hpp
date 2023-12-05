@@ -15,12 +15,12 @@ namespace dipu {
 namespace native {
 // NOTICE: these 2 func defined in AutoGenedKernels.cpp
 // if dipu autogen support header file gen, remove this
-at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& src,
+at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& self,
                                       at::ScalarType dtype);
 
 // if dipu autogen support proxy one torch op to multiple diopi op, remove
 // this.
-at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst, const at::Tensor& src,
+at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& self, const at::Tensor& src,
                                      bool non_blocking);
 
 }  // namespace native
