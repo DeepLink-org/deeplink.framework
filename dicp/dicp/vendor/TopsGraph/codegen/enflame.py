@@ -583,14 +583,12 @@ class EnflameOverrides(OpOverrides):
         if isinstance(value, str):
             return src_code, value
         elif isinstance(value, numbers.Number):
-            src_code = f"{cxx_type_set[dtype]} {op_var}_const_value{count} = static_cast<{cxx_type_set[dtype]}>({value});\n"
-            src_code += f"builder::Type {op_var}_const_type{count}({{{1}}}, {type_set[dtype]});\n"
+            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, {value}, builder::Type({{1}}, {type_set[dtype]}));\n"
         elif isinstance(value, (list, tuple)):
-            src_code = f"std::vector<{cxx_type_set[dtype]}> {op_var}_const_value{count} = {{{', '.join(map(str, value))}}};\n"
-            src_code += f"builder::Type {op_var}_const_type{count}({{{len(value)}}}, {type_set[dtype]});\n"
-        value = f"{op_var}_const{count}"
-        src_code += f"builder::Op {value} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_type{count});\n"
-        return src_code, value
+            src_code += f"std::vector<{cxx_type_set[dtype]}> {op_var}_const_value{count} = {{{', '.join(map(str, value))}}};\n"
+            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, {op_var}_const_value{count}, builder::Type({{{len(value)}}}, {type_set[dtype]}));\n"
+
+        return src_code, f"{op_var}_const{count}"
 
     @staticmethod
     def make_type(op_var, dtype, shape=[1], count=0):
