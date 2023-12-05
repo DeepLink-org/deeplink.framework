@@ -170,18 +170,6 @@ class Erf(Operator):
         self.torch_op = aten.erf
 
 
-class Split(Operator):
-    def __init__(self, *args, **kwargs):
-        super().__init__("Split")
-        self.args = args
-        self.kwargs = kwargs
-        self.torch_op = aten.split
-
-    def __call__(self, *args, **kwargs):
-        new_args = args[:3]
-        return super().__call__(*new_args, **kwargs)
-
-
 class ReduceSum(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("ReduceSum")

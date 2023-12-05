@@ -714,12 +714,6 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Erf({x});"
 
     @staticmethod
-    def Split(op_var, shape, dtype, x, split, axis=0, num_outputs=0, **kwargs_list):
-        src_code, split = EnflameOverrides.make_const(op_var, split, torch.int64)
-        src_code += f"builder::Op {op_var} = builder::GeneralSplit({x}, {split}, {axis});"
-        return src_code
-
-    @staticmethod
     def Sigmoid(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Sigmoid({x});"
 
