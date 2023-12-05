@@ -1,5 +1,5 @@
 # Copyright (c) 2023, DeepLink.
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 from local_eviron import local_eviron
 
 
@@ -15,6 +15,7 @@ def _test_op_register(mode):
 
 
 if __name__ == "__main__":
+    set_start_method('spawn', force=True)
     p1 = Process(
         target=_test_op_register,
         args=(0,),

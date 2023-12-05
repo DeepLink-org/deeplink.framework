@@ -346,6 +346,10 @@ class AscendCodegen(torch.fx.Interpreter):
                 out_stride_str += '[1],'
                 out_storage_offset_str += '0,'
                 continue
+            if elem.dim()==0: # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
+                out_stride_str += '[1],'
+                out_storage_offset_str += '0,'
+                continue
             stride = list(elem.stride())
             if len(stride) == 0:
                 raise RuntimeError("Error handling empty output_stride")
