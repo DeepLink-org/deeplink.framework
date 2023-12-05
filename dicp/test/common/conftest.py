@@ -1,5 +1,5 @@
 import pytest
-from common.utils import parse_bool_arg
+from ..common.utils import parse_bool_arg
 
 
 def pytest_addoption(parser):

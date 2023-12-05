@@ -1,8 +1,8 @@
 from typing import List
 
 import torch
-from model.llama.tokenizer import Tokenizer
-from model.llama.model import Transformer, precompute_freqs_cis
+from ...model.llama.tokenizer import Tokenizer
+from ...model.llama.model import Transformer, precompute_freqs_cis
 
 
 class LLaMA:

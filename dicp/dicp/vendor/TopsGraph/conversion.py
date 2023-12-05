@@ -230,13 +230,14 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Clone(self, *args, **kwargs):
         return self.get_proxy(tops_op.Clone, args, kwargs)
 
+    # Copy_ is only validated for inplace copy of input parameters in optimizer, be careful about other cases.
     @register_conversion(aten.copy.default)
     def Copy(self, *args, **kwargs):
         return self.get_proxy(tops_op.Copy, args, kwargs)
 
     @register_conversion(aten.copy_.default)
     def Copy_(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Copy, args, kwargs)
+        return self.get_proxy(tops_op.Copy_, args, kwargs)
 
     @register_conversion(aten.lift_fresh_copy.default)
     def LiftFreshCopy(self, *args, **kwargs):
@@ -267,13 +268,9 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def LessEqual(self, *args, **kwargs):
         return self.get_proxy(tops_op.LessEqual, args, kwargs)
 
-    @register_conversion(aten.eq.Tensor)
+    @register_conversion([aten.eq.Tensor, aten.eq.Scalar])
     def Equal(self, *args, **kwargs):
         return self.get_proxy(tops_op.Equal, args, kwargs)
-
-    @register_conversion(aten.eq.Scalar)
-    def EqualScalar(self, *args, **kwargs):
-        return self.get_proxy(tops_op.EqualScalar, args, kwargs)
 
     @register_conversion(aten.ne.Scalar)
     def NotEqual(self, a, b):
@@ -352,7 +349,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Softmax(self, a, dim, half_to_float):
         out_shape = fx_traceback.get_current_meta()["val"].shape
         dim = dim + len(out_shape) if dim < 0 else dim
-        return self.get_proxy(tops_op.Softmax, (a, dim, half_to_float))
+        return self.get_proxy(tops_op.Softmax, (a, dim))
 
     @register_conversion(aten.mm)
     def Gemm(self, *args, **kwargs):
@@ -430,11 +427,11 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.slice_scatter.default)
     def SliceScatter(self, a, b, dim=0, start=0, end=-1, step=1):
         operand_shape = a.node.meta["val"].shape
-        dim = dim % len(operand_shape)
-        start = 0 if start is None else start
-        end = operand_shape[dim] if end is None else end
         end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
-        assert end == operand_shape[dim] and step == 1, "limited support"
+        if end != operand_shape[dim]:
+            Warning(f"SliceScatter encounter unsupported end value: {end}, this will affect precision!")
+        if step != 1:
+            Warning(f"SliceScatter encounter unsupported step value: {step}, this will affect precision!")
         return self.get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
 
     @register_conversion(aten.select.int)
@@ -462,18 +459,17 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.scalar_tensor.default)
     def Scalar(self, a, **kwargs):
-        if "dtype" in kwargs:
-            real_dtype = kwargs["dtype"]
-            if real_dtype not in (torch.int64, torch.float32):
-                kwargs["dtype"] = torch.float32
-                scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
-                return self.get_proxy(tops_op.Convert(), (scalar, real_dtype))
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        if out_dtype is torch.float16:
+            kwargs["dtype"] = torch.float32
+            scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
+            return self.get_proxy(tops_op.Convert(), (scalar, out_dtype))
         return self.get_proxy(tops_op.Scalar, (a,), kwargs)
 
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
         idx_rank = len(args[1].node.meta['val'].shape)
-        return self.get_proxy(tops_op.XlaGather, (*args, [idx_rank,], [0,], [0,], idx_rank,
+        return self.get_proxy(tops_op.XlaGather, (args[0], args[1], [idx_rank,], [0,], [0,], idx_rank,
                                                   [1, args[0].node.meta['val'].shape[1]]))
 
     @register_conversion(prims.convert_element_type)

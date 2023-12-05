@@ -1,5 +1,5 @@
 import os
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 
 
 def test_mem_stats(algorithm, log_mask):
@@ -61,6 +61,7 @@ def test_mem_stats(algorithm, log_mask):
 
 
 if __name__ == "__main__":
+    set_start_method('spawn', force=True)
     p1 = Process(
         target=test_mem_stats,
         args=("BF", 0),

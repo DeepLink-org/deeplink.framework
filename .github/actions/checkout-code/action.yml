@@ -23,7 +23,7 @@ runs:
         function checkout_code(){
           source ~/.bashrc
           mkdir -p ${{ inputs.working_path }} && cd ${{ inputs.working_path }} && rm -rf source
-          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == *DeepLink-org* ]]; then
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
             git clone ${{ github.event.pull_request.head.repo.clone_url }} source
             cd source && git checkout ${{ github.event.pull_request.head.sha }}
             git remote add mainrepo https://github.com/${{ github.repository }}.git
@@ -37,7 +37,8 @@ runs:
             fi
           fi
           cd dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
-          cd ../.. && git submodule update --init dipu/third_party/DIOPI
+          rm -rf kineto && git clone --reference /mnt/cache/share/deeplinkci/source/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git kineto
+          cd ../.. && git submodule update --init && cd dipu/third_party/kineto && git submodule update --init
         }
         if [ ${MACHINE} != "local" ];then
           ssh ${MACHINE} " $(typeset -f checkout_code); checkout_code "

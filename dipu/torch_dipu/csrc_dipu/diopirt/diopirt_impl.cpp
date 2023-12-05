@@ -89,7 +89,9 @@ DIOPI_RT_API diopiError_t diopiGetTensorElemSize(diopiConstTensorHandle_t pth,
 
 DIOPI_RT_API diopiError_t diopiGetTensorStoragePtr(diopiConstTensorHandle_t pth,
                                                    void** pStoragePtr) {
-  *pStoragePtr = (reinterpret_cast<const at::Tensor*>(pth))->storage().data();
+  // Support both pt2.0 and pt2.1
+  *pStoragePtr = const_cast<void*>(
+      (reinterpret_cast<const at::Tensor*>(pth))->storage().data());
   return diopiSuccess;
 }
 

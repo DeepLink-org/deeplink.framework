@@ -1,4 +1,4 @@
-name: code format
+name: format
 
 on:
   workflow_dispatch:
@@ -8,16 +8,34 @@ on:
       - main
 
 jobs:
-  cpp-linter:
+  markdownlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: cpp-linter/cpp-linter-action@v2
-        id: linter
-        with:
-          style: file
-          tidy-checks: '-*' # disable clang tidy at this stage
-          version: 16
-      - name: Fail test
-        if: steps.linter.outputs.checks-failed > 0
-        run: echo "Some files failed the linting checks!" && exit 1
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    - uses: tj-actions/changed-files@v40
+      id: changed-files
+      with:
+        files: '**/*.md'
+        separator: ","
+    - uses: DavidAnson/markdownlint-cli2-action@v14
+      if: steps.changed-files.outputs.any_changed == 'true'
+      with:
+        globs: ${{ steps.changed-files.outputs.all_changed_files }}
+        separator: ","
+
+  clang-format:
+    needs: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cpp-linter/cpp-linter-action@v2
+      id: cpp-lint
+      with:
+        style: file
+        tidy-checks: '-*' # disable clang tidy at this stage
+        version: 16
+    - name: Fail test
+      if: steps.cpp-lint.outputs.checks-failed > 0
+      run: echo "Some files failed the linting checks!" && exit 1

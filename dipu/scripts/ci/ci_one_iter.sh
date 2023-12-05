@@ -42,7 +42,7 @@ function clone_needed_repo() {
     SMART_VERSION=dev_for_mmcv2.0
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
-    # TRANSFORMERS=dipu_v4.28.1_one_iter_tool
+    TRANSFORMERS=dipu_v4.35.2_one_iter_tool
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -56,7 +56,7 @@ function clone_needed_repo() {
     check_and_clone_repository "mmagic" ${MMAGIC}
     check_and_clone_repository "mmyolo" ${MMYOLO}
     check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
-    # check_and_clone_repository "transformers" ${TRANSFORMERS}
+    check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
     cd ..
 }
@@ -95,7 +95,7 @@ function export_repo_pythonpath(){
     elif [ "$1" = "ascend" ]; then
         echo "Executing ASCEND operation in pythonpath..."
     else
-        echo "Invalid parameter. Please specify 'cuda' or 'camb'."
+        echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
         exit 1
     fi
     export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
@@ -108,11 +108,11 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmengine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
-    export PYTHONPATH=${basic_path}/transformers:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
 
     # set the environment variable for the transformers repository
-    # export HF_HOME=${basic_path}/huggingface
-    # export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
+    export HF_HOME=${basic_path}/huggingface
+    export HUGGINGFACE_HUB_CACHE=/mnt/lustre/share_data/PAT/datasets/hub
 
     export PYTHONPATH=${basic_path}/mmcv:$PYTHONPATH
     export PYTHONPATH=${basic_path}/SMART/tools/one_iter_tool/one_iter:$PYTHONPATH
@@ -171,9 +171,26 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+    elif [ "$1" = "ascend910b" ]; then
+        echo "Executing ASCEND operation in build dataset..."
+        rm -rf data
+        mkdir data
+        ln -s /mnt/cache/share/datasets/Imagenet data/imagenet
+        ln -s /mnt/cache/share/datasets/mscoco2017  data/coco
+        ln -s /mnt/cache/share/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/cache/share/datasets/kitti data/kitti
+        ln -s /mnt/cache/share/datasets/mmaction/Kinetics400 data/kinetics400
+        ln -s /mnt/cache/share/datasets/mmocr/icdar2015 data/icdar2015
+        ln -s /mnt/cache/share/datasets/mmocr/mjsynth data/mjsynth
+        ln -s /mnt/cache/share/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/cache/share/datasets/pretrain/torchvision/resnet50-0676ba61.pth data/resnet50-0676ba61.pth
+        ln -s /mnt/cache/share/datasets/mmdet/pretrain/vgg16_caffe-292e1171.pth data/vgg16_caffe-292e1171.pth
+        ln -s /mnt/cache/share/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
+        ln -s /mnt/cache/share/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
+        ln -s /mnt/cache/share/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
 
     else
-        echo "Invalid parameter. Please specify 'cuda' or 'camb'."
+        echo "Invalid parameter. Please specify 'cuda' 'camb' or 'ascend'."
         exit 1
     fi
 }
@@ -191,6 +208,9 @@ case $1 in
     build_ascend)
         build_needed_repo_ascend
         build_dataset ascend;;
+    build_ascend910b)
+        build_needed_repo_ascend
+        build_dataset ascend910b;;
     export_pythonpath_camb)
         export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)

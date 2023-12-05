@@ -154,6 +154,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return
 
     def output(self, name, target, args, kwargs):
+        self.inplace_dict = kwargs
         for i in range(0, len(args[0])):
             self.output_args.append(args[0][i])
 
@@ -256,33 +257,21 @@ class EnflameCodegen(torch.fx.Interpreter):
         func_body = IndentedBuffer()
         func_body.writeline('std::vector<void *> input_ptrs;')
         for i in range(0, len(self.input_args)):
-            func_body.writeline(
-                f'input_ptrs.emplace_back(static_cast<void *>(input_ptr{str(i)}));')
+            func_body.writeline(f'input_ptrs.emplace_back(inputs_ptr[{str(i)}]);')
 
         func_body.writeline("")
         func_body.writeline("std::vector<void *> output_ptrs;")
+        output_ptr_count = 0
         for i in range(0, len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
-                func_body.writeline(
-                    f'output_ptrs.emplace_back(output_ptr{str(i)});')
-
+                func_body.writeline(f'output_ptrs.emplace_back(outputs_ptr[{output_ptr_count}]);')
+                output_ptr_count += 1
         func_body.writeline("")
-        func_body.writeline(
-            f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
-        input_paras = []
-        for i in range(0, len(self.input_args)):
-            input_paras.append(f"float* input_ptr{str(i)}")
-
-        output_paras = []
-        for i in range(0, len(self.output_args)):
-            if not isinstance(self.output_args[i], type(None)):
-                output_paras.append(f"float* output_ptr{str(i)}")
-        paras = input_paras + output_paras
+        func_body.writeline(f'run(exe_ptr, dipu_stream, input_ptrs, output_ptrs, {self.device_id}, {"true" if dipu_flag else "false"});')
 
         run_func_code = IndentedBuffer()
-        run_func_code.writeline(
-            f'extern "C" void run(void *dipu_stream, {", ".join(paras)}) {"{"}')
+        run_func_code.writeline(f'extern "C" void run(void *dipu_stream, void **inputs_ptr, void **outputs_ptr) {"{"}')
         with run_func_code.indent():
             run_func_code.splice(func_body)
         run_func_code.splice('}')
@@ -425,7 +414,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 bufs.append(self.output_args[i].name)
-                if self.output_args[i] not in self.input_args:
+                if self.output_args[i] not in self.input_args and bufs[-1] not in self.inplace_dict.keys():
                     otensor = self.output_args[i].meta['val']
                     call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
@@ -433,11 +422,10 @@ class EnflameCodegen(torch.fx.Interpreter):
                 none_bufs.append(bufs[-1])
                 call_body.writeline(
                     bufs[-1] + " = " + ("empty_strided((), ())"))
+        for i in range(len(bufs) - len(self.inplace_dict), len(bufs)):
+            bufs[i] = self.inplace_dict[bufs[i]]
 
         call_body.writeline("")
-        if dipu_flag:
-            call_body.writeline(
-                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream")
 
         arg_ptrs = []
         for i in range(len(args)):
@@ -448,12 +436,23 @@ class EnflameCodegen(torch.fx.Interpreter):
             if bufs[i] not in none_bufs:
                 buf_ptrs.append("c_void_p(" + bufs[i] + ".data_ptr())")
 
+        call_body.writeline(f"args_ptr_type = c_void_p * {len(arg_ptrs)}")
+        call_body.writeline(f"bufs_ptr_type = c_void_p * {len(buf_ptrs)}")
+        call_body.writeline(f"args_ptr = args_ptr_type({','.join(arg_ptrs)})")
+        call_body.writeline(f"bufs_ptr = bufs_ptr_type({','.join(buf_ptrs)})")
+        call_body.writeline("")
+
+        if dipu_flag:
+            call_body.writeline(
+                f"dipu_stream = torch_dipu.current_stream({self.device_id}).dipu_stream"
+            )
+
         call_str = 'kernel_cpp_0('
         if dipu_flag:
             call_str += 'c_void_p(dipu_stream), '
         else:
             call_str += 'c_void_p(), '
-        call_str += ", ".join(arg_ptrs + buf_ptrs) + ")"
+        call_str += "args_ptr, bufs_ptr)"
         call_body.writeline(call_str)
 
         if tops_check_precision:
@@ -474,7 +473,10 @@ class EnflameCodegen(torch.fx.Interpreter):
                 call_body.writeline(f'del {arg}')
         call_body.writeline("")
 
-        call_body.writeline(f"return ({', '.join(bufs)})")
+        if dipu_flag:
+            call_body.writeline(f"torch_dipu.current_stream({self.device_id}).synchronize()")
+
+        call_body.writeline(f"return ({', '.join(bufs[:len(bufs)-len(self.inplace_dict)])})")
 
         call_func = IndentedBuffer()
         call_func.writeline("def call(args):")
@@ -569,6 +571,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = {y};"
 
     @staticmethod
+    def Copy_(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = {y};"
+
+    @staticmethod
     def LiftFreshCopy(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = {x};"
 
@@ -618,7 +624,9 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Sub(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
+        src_code_x, x = EnflameOverrides.make_const(op_var, x, dtype)
+        src_code_y, y = EnflameOverrides.make_const(op_var, y, dtype)
+        src_code = src_code_x + src_code_y
         src_code += f"builder::Op {op_var} = builder::Sub({x}, {y});"
         return src_code
 
@@ -683,7 +691,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Pow(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const(op_var, y)
+        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Pow({x}, {y});"
         return src_code
 
@@ -777,7 +785,8 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def FullLike(op_var, shape, dtype, x, value, **kwargs_list):
-        return f"builder::Op {op_var} = builder::FullLike({x}, {value});"
+        src_code = f"builder::Op {op_var} = builder::FullLike({x}, {value}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
+        return src_code
 
     @staticmethod
     def Transpose(op_var, shape, dtype, x, permution=[0, 1], **kwargs_list):
@@ -916,9 +925,10 @@ class EnflameOverrides(OpOverrides):
     def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(tensors) + '}'}, {dim});"
 
+    # Add an additional true flag for accuration in tops softmax.
     @staticmethod
-    def Softmax(op_var, out_shape, out_dtype, x, y, z):
-        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, {z});"
+    def Softmax(op_var, out_shape, out_dtype, x, y):
+        return f"builder::Op {op_var} = builder::Softmax({x}, {y}, true);"
 
     @staticmethod
     def Logsoftmax(op_var, out_shape, out_dtype, x, y, z):
