@@ -75,23 +75,23 @@ git push -u origin {branch_name}
 
 #### 提交拉取请求 (Pull Request)
 
-1. 在 GitHub 的 Pull request 界面创建拉取请求
-2. 根据指引修改 Pull request 描述，以便于其他开发者更好地理解你的修改
+1. 在 GitHub 的 pull request 界面创建拉取请求
+2. 根据指引修改 pull request 描述，以便于其他开发者更好地理解你的修改
 
 描述规范详见[拉取请求规范](#拉取请求规范)
 
 注意事项：
 
-- Pull Request 描述应该包含修改理由、修改内容以及修改后带来的影响，并关联相关 issue（具体方式见[文档](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)）。
+- Pull request 描述应该包含修改理由、修改内容以及修改后带来的影响，并关联相关 issue（具体方式见[文档](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)）。
 - 如果是第一次为 DIPU 做贡献，需要签署 CLA。
-- 检查提交的 Pull Request 是否通过 CI（集成测试）。
-- 如果 Pull Request 通过了 CI 检查，那么就可以等待其他开发者的 review，并根据 reviewer 的意见，修改代码，并重复上述步骤，直到 reviewer 同意合入 Pull Request。
+- 检查提交的 pull request 是否通过 CI（持续集成）。
+- 如果 pull request 通过了 CI 检查，那么就可以等待其他开发者的 review，并根据 reviewer 的意见，修改代码，并重复上述步骤，直到 reviewer 同意合入 pull request。
 
-所有 reviewers 同意合入 Pull Request 后，我们会尽快将 Pull Request 合并到主分支。
+所有 reviewers 同意合入 pull request 后，我们会尽快将 pull request 合并到主分支。
 
 #### 解决冲突
 
-随着时间的推移，我们的代码库会不断更新，这时候，如果你的 Pull Request 与主分支存在冲突，你需要解决冲突，解决冲突的方式有两种：
+随着时间的推移，我们的代码库会不断更新，这时候，如果你的 pull request 与主分支存在冲突，你需要解决冲突，解决冲突的方式有两种：
 
 ```bash
 git fetch --all --prune
@@ -109,15 +109,15 @@ git merge upstream/main
 
 ### 拉取请求规范
 
-- 一个 Pull Request 对应一个短期分支。
-- 粒度要细，一个 Pull Request 只做一件事情，避免超大的 Pull Request。
-  - Bad：一个 Pull Request 里补充多个模型所需的所有算子；
-  - Acceptable：一个 Pull Request 里实现一个或几个相关算子；
+- 一个 pull request 对应一个短期分支。
+- 粒度要细，一个 pull request 只做一件事情，避免超大的 pull request。
+  - Bad：一个 pull request 里补充多个模型所需的所有算子；
+  - Acceptable：一个 pull request 里实现一个或几个相关算子；
   - Good：修复某个算子 input 为空时引发的 bug。
 - 每次 commit 时需要提供清晰且有意义 commit 信息。
-- 提供清晰且有意义的 Pull Request 描述：
+- 提供清晰且有意义的 pull request 描述：
   - 标题写明白任务名称，参考格式：`[Prefix] Short description of the pull request (Suffix)`；
     - Prefix 参考：新增功能 `[Feature]`, 修 bug `[Fix]`, 文档相关 `[Docs]`, 开发中 `[WIP]` (暂时不会被 review)。
-  - 描述里介绍 Pull Request 的主要修改内容，结果，以及对其他部分的影响, 参考 Pull Request 模板；
-  - 关联相关的 issue 和其他 Pull Request。
+  - 描述里介绍 pull request 的主要修改内容，结果，以及对其他部分的影响, 参考 pull request 模板；
+  - 关联相关的 issue 和其他 pull request。
 - 如果引入了其他三方库，或借鉴了三方库的代码，请确认它们的许可证和 DIPU License 兼容，并在借鉴的代码上补充 `This code is inspired from <LINK>`。

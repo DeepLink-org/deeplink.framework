@@ -1,8 +1,14 @@
+<!-- markdownlint-disable-next-line MD041 MD033 -->
+<div align=center>
+<!-- markdownlint-disable-next-line MD033 -->
+<img src="https://deeplink.readthedocs.io/zh-cn/latest/_static/image/logo.png" alt="DeepLink Logo">
+</div>
+
 # DIPU
 
 ## 介绍
 
-DIPU (Device Independent Process Unit) 是由 **一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层** 共同组成的拓展包。 用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
+DIPU (device independent process unit) 是由 **一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层** 共同组成的拓展包。 用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
 
 虽然 PyTorch 定义了一套基础的运行时接口 `c10`，可以基于这个接口直接抽象各个设备接口，但是 `c10` 首先是个直面框架层的接口，每个接入的设备都需要实现大量类似的逻辑来完成 `c10` 的实现，对于多设备的支持很不方便。DIPU 先把 `c10` 的运行时适配到 DIPU 自己的运行时，把通用的逻辑抽取出来，可以让厂商仅实现必要的设备接口即可工作。
 
@@ -10,7 +16,7 @@ DIPU (Device Independent Process Unit) 是由 **一组抽象设备 Runtime 接�
 
 DIPU 结构上分为 Python 和 CPP 两部分：
 
-![structure](https://deeplink.readthedocs.io/zh_CN/latest/_images/structure1.png)
+![project structure](https://deeplink.readthedocs.io/zh_CN/latest/_images/structure1.png)
 
 ### CPP 层
 
@@ -59,17 +65,16 @@ Aten 的能力主要依赖于 PyTorch 提供的注册自定义 *backend* 的能�
 
 ### Dispatch 机制与 DIOPI 算子库
 
-PyTorch 的算子注册和分派有很多步骤，详见[参考文档](
-  https://github.com/pytorch/pytorch/wiki/PyTorch-dispatcher-walkthrough)。
+PyTorch 的算子注册和分派有很多步骤，详见[参考文档](https://github.com/pytorch/pytorch/wiki/PyTorch-dispatcher-walkthrough)。
 
-DIPU CPP 层适配的 ATen 算子对应的是分派过程中最底层（*backend*层） 的算子或者 *composite* 层里等效为 *backend* 的算子。
+DIPU CPP 层适配的 ATen 算子对应的是分派过程中最底层（*backend* 层） 的算子或者 *composite* 层里等效为 *backend* 的算子。
 
 这里面有一定的灵活性，以`Linear` 算子为例，在 PyTorch 的 `cpu/cuda` 设备上，它被实现为一个 `composite` 算子，实际的 *backend* 层算子是组合算子内部调用的 `addmm` 或者更底层的 `mm`。 而在 DIPU (`privateuse1`) 设备中，目前是注册了一个 `Linear` 算子（DIOPI 有这个算子）来替代组合算子，所以分派会直接走到新的 *backend* 层算子 `Linear`，而不会在调用原来的 `addmm/mm`。但是如果对应设备的 DIOPI 的 IMPL 算子库 没有实现 `diopiLinear` 而是实现了 `mm` 算子，也是可以正常走通 `Linear` 的调用流程的。
 
 ### 无侵入式的 PyTorch 扩展包
 
 DIPU 没有直接修改 PyTorch 的代码，而是使用 out-of-tree 的方式接入新设备，详见[参考文档](https://pytorch.org/tutorials/advanced/extend_dispatcher.html)。
-  
+
 PyTorch 要求 out-of-tree 的代码必须定义一个私有的 *Backend Key*，DIPU目前没有和 PyTorch 做官方的沟通，因此 PyTorch 主干里没有 `DIPU` 这个设备，目前是暂时借用 `PrivateUse1` 这个 Key（后续考虑改为借用 `XPU` 设备 Key，因为这个 Key 在 PyTorch 主干代码中有更好的支持）。
 
 基于用户私有的 *Backend Key* 和 `Dispatch Key`，PyTorch 会把算子调用请求分发到对应设备的算子实现。另外 `c10` 本身提供了一些注册能力，比如 `C10_REGISTER_GUARD_IMPL`，可以让用户把私有设备的 *Runtime* 代码注册到框架中。

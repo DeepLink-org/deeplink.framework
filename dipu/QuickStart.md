@@ -4,17 +4,17 @@
 <img src="https://deeplink.readthedocs.io/zh-cn/latest/_static/image/logo.png" alt="DeepLink Logo">
 </div>
 
-# 国产硬件接入DIPU 技术参考
+# 国产硬件接入 DIPU 技术参考
 
 ## 介绍
 
-DIPU 是由一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层共同组成的拓展包，目的在于方便国产硬件接入并支持训练。本文档主要说明接入流程，提供标准化的技术接入参考实现。
+DIPU 是由一组抽象设备 runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层共同组成的拓展包，目的在于方便国产硬件接入并支持训练。本文档主要说明接入流程，提供标准化的技术接入参考实现。
 
 ## 准备工作
 
 ### 环境准备
 
-在使用国产硬件接入DIPU 之前，我们需要先准备一个自己编译的 Pytorch2.0（纯 CPU 版本即可），并确保自己的 Pytorch2.0 处于可用状态。这里需要确定使用的 gcc、cmake、python3 等基础库的版本尽可能匹配，同时确保这个环境能够编译硬件算子库。
+在使用国产硬件接入 DIPU 之前，我们需要先准备一个自己编译的 PyTorch2.0（纯 CPU 版本即可），并确保自己的 PyTorch2.0 处于可用状态。这里需要确定使用的 gcc、cmake、python3 等基础库的版本尽可能匹配，同时确保这个环境能够编译硬件算子库。
 
 以下步骤供参考。
 
@@ -38,15 +38,14 @@ make install
 
 # 环境生效
 cd /home/$USER/env/dipu/gcc/bin
-export PATH=`pwd`:$PATH
+export PATH=$PWD:$PATH
 ```
 
-#### 安装 Pytorch
+#### 安装 PyTorch
 
-``` note
-使用gcc 7.5编译pytorch
-pytorch 2.0 推荐使用commitid：c263bd43e8e8502d4726643bc6fd046f0130ac0e
-```
+使用 gcc 7.5 编译 PyTorch：
+
+> PyTorch 2.0 推荐使用 commit id 为 `c263bd43e8e8502d4726643bc6fd046f0130ac0e` 的版本。
 
 ``` bash
 cd /home/$USER/code
@@ -80,7 +79,7 @@ pip install ./deeplink.framework/dipu
 ``` bash
 export DIOPI_ROOT=/home/$USER/code/dipu/third_party/DIOPI/impl/lib
 export DIPU_ROOT=/home/$USER/code/dipu/torch_dipu
-export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH; 
+export LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LIBRARY_PATH;
 export LD_LIBRARY_PATH=$DIPU_ROOT:$DIOPI_ROOT:$LD_LIBRARY_PATH
 
 sh ./tests/python/run_tests.sh
@@ -90,11 +89,11 @@ sh ./tests/python/run_tests.sh
 
 ### 算子库接入（请参考 DIOPI 第三方芯片算子库）
 
-在接入 DIPU 之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI 的 PROTO 声明进行了对应函数的实现，接入 DIOPI 的 IMPL。通过 DIOPI 的 IMPL，我们在之前编译 DIPU 时会默认为对应设备编译出 `libdiopi_impl.so` 作为算子库文件
+在接入 DIPU 之前，我们的硬件应该提供一个已经实现的算子库，并已经按照 DIOPI 的 PROTO 声明进行了对应函数的实现，接入 DIOPI 的 IMPL。通过 DIOPI 的 IMPL，我们在之前编译 DIPU 时会默认为对应设备编译出 `libdiopi_impl.so` 作为算子库文件。
 
-- 细节可参考 [DIOPI 仓库](https://github.com/DeepLink-org/DIOPI)
-- 需要注意的是，在我们进行一致性测试 (diopi_test) 时，会在编译时开启 `DTEST=ON`，在我们接入 DIPU 时，编译的算子库应该关闭测试选项，即在 CMake 阶段使用 `DTEST=OFF`
-- 下面是一个 DIOPI 的 IMPL 中的算子接入样例
+- 细节可参考 [DIOPI 仓库](https://github.com/DeepLink-org/DIOPI)。
+- 需要注意的是，在我们进行一致性测试 (diopi_test) 时，会在编译时开启 `DTEST=ON`，在我们接入 DIPU 时，编译的算子库应该关闭测试选项，即在 CMake 阶段使用 `DTEST=OFF`。
+- 下面是一个 DIOPI 的 IMPL 中的算子接入样例：
 
     ```cpp
     __global__ void softmaxKernel(const float* in, float* out, int64_t outer_dim, int64_t inner_dim, int64_t axis_dim) {
@@ -201,7 +200,7 @@ add_custom_command(
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG})
 ```
 
-以上方法是对所有算子开启自动精度对比。如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比，只需要在相关的配置文件（如 `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`) 给相应的算子添加 `autocompare: True` 即可。
+以上方法是对所有算子开启自动精度对比。如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比，只需要在相关的配置文件（如 `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`）给相应的算子添加 `autocompare: True` 即可。
 
 ```shell
 $ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制fallback到cpu,可选
@@ -230,7 +229,7 @@ autocompare:    add.out other: allclose
 >>>
 ```
 
-可以看到，CPU 计算结果与设备计算结果 `allclose`，也能看到CPU和设备计算结果的`shape`、`dtype`等信息。特别的，需要注意以下几个问题：
+可以看到，CPU 计算结果与设备计算结果 `allclose`，也能看到CPU和设备计算结果的 `shape`、`dtype` 等信息。特别的，需要注意以下几个问题：
 
 1. `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml` 中配置了 `autograd:True` 的算子 (`cross_entropy_loss`、`conv2d`、`dropout`、`dropout_`、`linear`) 暂不支持 *backward* 的精度自动对比。如模型精度对不齐，可根据需要先将这几个算子 fallback 到 CPU 来确定问题。
 2. 随机数生成相关的算子（`dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml` 中配置了 `autocompare:False`）没有做 `autocompare`，因为结果总是 `not_allclose`。
@@ -326,5 +325,5 @@ void createStream(deviceStream_t* stream, bool prior) {
 ### 编译与测试
 
 - 根据 DIPU 的编译介绍，我们在编译了 DIPU 之后，需要注意将 `LIBRARY_PATH`、`LD_LIBRARY_PATH`、`PYTHONPATH` 都设置好避免后续使用出现问题。
-- `dipu/tests`文件夹中有许多基础功能的测试，建议首先尝试测试 `python -u dipu/tests/python/unittests/test_add.py`，该文件测试跑通基本意味着我们的设备 *runtime* 接入没有问题了。
-- 编译脚本参考“编译 DIPU”，测试脚本可以参考“验证 DIPU”。
+- `dipu/tests` 文件夹中有许多基础功能的测试，建议首先尝试测试 `python -u dipu/tests/python/unittests/test_add.py`，该文件测试跑通基本意味着我们的设备 *runtime* 接入没有问题了。
+- 编译脚本参考[编译 DIPU](#编译-dipu)，测试脚本可以参考[验证 DIPU](#验证-dipu)。

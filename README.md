@@ -12,7 +12,7 @@ Deeplink.framework 是 DeepLink 推出的介于 AI 训练框架和硬件语言�
 
 ### DIPU
 
-DIPU (Device Independent Process Unit) 是由一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层共同组成的拓展包。 用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
+DIPU (Device Independent Process Unit) 是由一组抽象设备 runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层共同组成的拓展包。 用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
 
 ### DICP
 
@@ -20,7 +20,7 @@ DIPU (Device Independent Process Unit) 是由一组抽象设备 Runtime 接口�
 
 ## 相关索引
 
-* [DIPU 目录](./dipu/README.md)
+* [DIPU 介绍](./dipu/README.md)
 * [DIPU 文档](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/Introduction.html)
-* [DICP 目录](./dicp/readme.md)
+* [DICP 介绍](./dicp/readme.md)
 * [DICP 文档](https://deeplink.readthedocs.io/zh-cn/latest/doc/DICP/introduction.html)
