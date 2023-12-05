@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -eo pipefail
 DIOPI_IMPL=${3:-droplet}
 DIPU_DEVICE=${2:-droplet}
 

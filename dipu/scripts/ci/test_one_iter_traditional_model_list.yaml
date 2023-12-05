@@ -49,7 +49,7 @@ camb:
     - model_cfg: "DI-engine ding/example/sac.py workdirs_sac"
 
     # # transformers
-    # - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 cuda:
     # # mmpretrain
@@ -93,7 +93,7 @@ cuda:
     # mmagic
     # - model_cfg: "mmagic stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable_diffusion"
     # transformers
-    # - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 ascend:
     # mmsegmentation
