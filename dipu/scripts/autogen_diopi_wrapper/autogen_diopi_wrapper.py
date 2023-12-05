@@ -118,7 +118,7 @@ def create_transform_input_to_cpu_code(fun_config):
     for input in optional_tensor_list_inputs:
         input_process_code += f"\nc10::List<c10::optional<at::Tensor>> {input}_cpu;\n"
         input_process_code += f"for (int i = 0; i < {input}.size();++i)" + " {\n"
-        input_process_code += f"\t{input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>({input}[i].value().cpu()) : {input}[i]);\n"
+        input_process_code += f"  {input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>({input}[i].value().cpu()) : {input}[i]);\n"
         input_process_code += "}\n"
 
     outputs = re.findall('Tensor\([a-z]!\)[ ]+([\w\d_]+){1}', schema[:schema.find('->')])
@@ -151,7 +151,7 @@ def create_print_op_args_code(fun_config):
     code += "if (dumpOpArgLevel() > 1) {\n"
     for input in inputs:
         input = input.strip()
-        code += f'\tstd::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
+        code += f'  std::cout << "\t{opname}:\t{input}:" << dumpArg({input}) << std::endl;\n'
     code += "}"
     return code
 
@@ -455,11 +455,11 @@ def create_result_compare_code(fun_config):
     code = ''
     if len(return_param) == 1 :
         compare_code = f'_allclose(result_cpu, result_device)'
-        code += f'std::cout << "autocompare:\t{op_name}\t{return_param[0]}:" << std::endl << "\t" << dumpArg(result_cpu) << std::endl << "\t" << dumpArg(result_device) << std::endl << "\t" << {compare_code} << std::endl;\n';
+        code += f'std::cout << "autocompare:\t{op_name}\t{return_param[0]}:" << std::endl << "  " << dumpArg(result_cpu) << std::endl << "  " << dumpArg(result_device) << std::endl << "  " << {compare_code} << std::endl;\n';
     elif len(return_param) > 1:
         for i in range(len(return_param)):
             compare_code = f'_allclose(std::get<{i}>(result_cpu), std::get<{i}>(result_device))'
-            code += f'std::cout << "autocompare:\t{op_name}\t{return_param[i]}:" << std::endl << "\t" << dumpArg(std::get<{i}>(result_cpu)) << std::endl << "\t" << dumpArg(std::get<{i}>(result_device)) << std::endl << "\t" << {compare_code} << std::endl;\n';
+            code += f'std::cout << "autocompare:\t{op_name}\t{return_param[i]}:" << std::endl << "  " << dumpArg(std::get<{i}>(result_cpu)) << std::endl << "  " << dumpArg(std::get<{i}>(result_device)) << std::endl << "  " << {compare_code} << std::endl;\n';
 
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     inputs += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
@@ -474,8 +474,8 @@ def create_code_to_print_fun_call_info_from_schema(fun_config):
     op_name = get_op_name_from_schema(fun_config['schema'])
     diopi_func = fun_config.get('interface', '')
     diopi_func = diopi_func[0 : diopi_func.find('(')]
-    debug_code = "if (dumpOpArgLevel() > 0) {\n\t"
-    debug_code += f'printf("--%-50s %-30s \\n", "[{op_name}]:", "{diopi_func}");' + '\n'
+    debug_code = "if (dumpOpArgLevel() > 0) {\n"
+    debug_code += f'  printf("--%-50s %-30s \\n", "[{op_name}]:", "{diopi_func}");' + '\n'
     debug_code += "}\n"
     return debug_code
 
@@ -539,10 +539,10 @@ def create_device_check_code(fun_config):
 
     for args in set(tensors):
         if not args.endswith('?'):
-            code += f'\tTORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
+            code += f'  TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
         else:
             args = args[0:-1]
-            code += f'\tTORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
+            code += f'  TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
 
     if len(tensors) > 0:
         code += "}"
@@ -589,7 +589,7 @@ def functions_code_gen(fun_config):
             input = input.replace('?', '')
             input_process_code += f"\n::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = nullptr;\n"
             input_process_code += f"if ({input}.has_value() && {input}.value().defined())" + "{\n"
-            input_process_code += f"\t{input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n"
+            input_process_code += f"  {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input}.value());\n"
             input_process_code += "}\n"
         else:
             input_process_code += f"::diopiConstTensorHandle_t {input}{diopi_tensor_suffix} = dipu::diopi_helper::toDiopiTensorHandle({input});\n"
