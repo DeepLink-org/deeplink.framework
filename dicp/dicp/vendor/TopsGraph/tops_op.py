@@ -434,7 +434,7 @@ class BatchNormBackward(Operator):
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
-        self.torch_op = aten._softmax.default
+        self.torch_op = aten.softmax
 
 
 class Bmm(Operator):
