@@ -7,7 +7,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -40,11 +40,17 @@ void abandonAllRecords();
 
 struct ExtraRecordInfo {
   string_t scope;
-  size_t opSeqId;
+  size_t opSeqId{};
   string_t attrs;
 
-  ExtraRecordInfo() : scope(""), opSeqId(0), attrs("") {}
+  ExtraRecordInfo() = default;
 
+  ExtraRecordInfo(const ExtraRecordInfo&) = default;
+  ExtraRecordInfo(ExtraRecordInfo&&) = default;
+  ExtraRecordInfo& operator=(const ExtraRecordInfo&) = default;
+  ExtraRecordInfo& operator=(ExtraRecordInfo&&) = default;
+  ExtraRecordInfo(string_t scope, string_t attrs)
+      : scope(std::move(scope)), attrs(std::move(attrs)) {}
   ExtraRecordInfo& setScope(const string_t& scopeName) {
     scope = scopeName;
     return *this;
@@ -82,11 +88,12 @@ class RecordsImpl final {
   mutable mutex_t mtx_;
   // tid -> record list
   std::unordered_map<int32_t, std::unique_ptr<records_t>> allRecordLists_;
+
+  //NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   thread_local static records_t* pRecords;
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resourceInfo_;
 
- private:
   RecordsImpl() = default;
 
  public:
@@ -161,7 +168,7 @@ class RecordBlockCreator {
   explicit RecordBlockCreator(
       string_t name, const ExtraRecordInfo& extraInfo = ExtraRecordInfo(),
       deviceStream_t stream = dipu::getCurrentDIPUStream(),
-      int streamId = dipu::getCurrentDIPUStream().id(),
+      int streamId = static_cast<int>(dipu::getCurrentDIPUStream().id()),
       bool enProfile = isEnable());
 
   void end();
