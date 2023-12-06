@@ -49,7 +49,7 @@ class TestMinimimMaximum(TestCase):
         # scalar on cpu
         r_dipu1 = torch.maximum(a.to(self.dipu), b)
         # scalar on device
-        r_dipu2 = torch.maximum(a.to(self.dipu), b)
+        r_dipu2 = torch.maximum(a.to(self.dipu), b.to(self.dipu))
         r_cpu = torch.maximum(a, b)
         self.assertEqual(r_dipu1.to(self.cpu), r_cpu)
         self.assertEqual(r_dipu2.to(self.cpu), r_cpu)
