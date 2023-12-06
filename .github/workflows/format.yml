@@ -22,16 +22,11 @@ jobs:
         files: '**/*.md'
         separator: ','
     - name: MarkdownLint
-      uses: DavidAnson/markdownlint-cli2-action@v14
       if: steps.changed-files.outputs.any_changed == 'true'
+      uses: DavidAnson/markdownlint-cli2-action@v14
       with:
         globs: ${{ steps.changed-files.outputs.all_changed_files }}
         separator: ','
-    - name: AutoCorrect
-      uses: huacnlee/autocorrect-action@main
-      if: steps.changed-files.outputs.any_changed == 'true'
-      with:
-        args: --lint --no-diff-bg-color $(tr -s ',' ' ' <<< ${{ steps.changed-files.outputs.all_changed_files }})
 
   clang-format:
     needs: markdownlint
