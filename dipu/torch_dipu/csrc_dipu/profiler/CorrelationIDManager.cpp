@@ -27,13 +27,13 @@ uint64_t CorrelationIDManager::getCorrelationID() {
   return external_ids_[type].back();
 }
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local std::array<
     std::deque<uint64_t>, DeviceActivityInterface::CorrelationFlowType::End>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     CorrelationIDManager::external_ids_;
     
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local std::deque<DeviceActivityInterface::CorrelationFlowType>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     CorrelationIDManager::type_;
 
 }  // namespace profile
