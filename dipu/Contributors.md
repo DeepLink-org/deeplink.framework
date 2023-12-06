@@ -18,7 +18,7 @@
 
 ### 拉取请求工作流
 
-如果你对拉取请求不了解，没关系，接下来的内容将会从零开始，一步一步地指引你如何创建一个拉取请求。如果你想深入了解拉取请求的开发模式，可以参考[GitHub 官方文档](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests)
+如果你对拉取请求不了解，没关系，接下来的内容将会从零开始，一步一步地指引你如何创建一个拉取请求。如果你想深入了解拉取请求的开发模式，可以参考 [GitHub 官方文档](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests)
 
 #### 复刻仓库
 
@@ -43,7 +43,7 @@ upstream git@github.com:DeepLink-org/deeplink.framework (fetch)
 upstream git@github.com:DeepLink-org/deeplink.framework (push)
 ```
 
-> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 `git clone` 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu 。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
+> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 `git clone` 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
 
 #### 创建开发分支
 
@@ -59,7 +59,7 @@ git checkout -b xxx/refactor_contributing_doc
 git pull upstream main
 ```
 
-#### 提交代码并在本地通过dipu测试
+#### 提交代码并在本地通过 DIPU 测试
 
 提交的代码需要通过 DIPU 在各设备上的测例和模型 one_iter 测试。
 
@@ -78,11 +78,11 @@ git push -u origin {branch_name}
 1. 在 GitHub 的 pull request 界面创建拉取请求
 2. 根据指引修改 pull request 描述，以便于其他开发者更好地理解你的修改
 
-描述规范详见[拉取请求规范](#拉取请求规范)
+描述规范详见 [拉取请求规范](#拉取请求规范)
 
 注意事项：
 
-- Pull request 描述应该包含修改理由、修改内容以及修改后带来的影响，并关联相关 issue（具体方式见[文档](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)）。
+- Pull request 描述应该包含修改理由、修改内容以及修改后带来的影响，并关联相关 issue（具体方式见 [GitHub 官方文档](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)）。
 - 如果是第一次为 DIPU 做贡献，需要签署 CLA。
 - 检查提交的 pull request 是否通过 CI（持续集成）。
 - 如果 pull request 通过了 CI 检查，那么就可以等待其他开发者的 review，并根据 reviewer 的意见，修改代码，并重复上述步骤，直到 reviewer 同意合入 pull request。
@@ -117,7 +117,7 @@ git merge upstream/main
 - 每次 commit 时需要提供清晰且有意义 commit 信息。
 - 提供清晰且有意义的 pull request 描述：
   - 标题写明白任务名称，参考格式：`[Prefix] Short description of the pull request (Suffix)`；
-    - Prefix 参考：新增功能 `[Feature]`, 修 bug `[Fix]`, 文档相关 `[Docs]`, 开发中 `[WIP]` (暂时不会被 review)。
-  - 描述里介绍 pull request 的主要修改内容，结果，以及对其他部分的影响, 参考 pull request 模板；
+    - Prefix 参考：新增功能 `[Feature]`, 修 bug `[Fix]`, 文档相关 `[Docs]`, 开发中 `[WIP]` （暂时不会被 review）。
+  - 描述里介绍 pull request 的主要修改内容，结果，以及对其他部分的影响，参考 pull request 模板；
   - 关联相关的 issue 和其他 pull request。
 - 如果引入了其他三方库，或借鉴了三方库的代码，请确认它们的许可证和 DIPU License 兼容，并在借鉴的代码上补充 `This code is inspired from <LINK>`。

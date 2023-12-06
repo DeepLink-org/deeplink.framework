@@ -11,19 +11,22 @@ jobs:
   markdownlint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
       with:
-        fetch-depth: 2
-    - uses: tj-actions/changed-files@v40
+        fetch-depth: 8
+    - name: Collect changed files
+      uses: tj-actions/changed-files@v40
       id: changed-files
       with:
         files: '**/*.md'
-        separator: ","
-    - uses: DavidAnson/markdownlint-cli2-action@v14
+        separator: ','
+    - name: MarkdownLint
       if: steps.changed-files.outputs.any_changed == 'true'
+      uses: DavidAnson/markdownlint-cli2-action@v14
       with:
         globs: ${{ steps.changed-files.outputs.all_changed_files }}
-        separator: ","
+        separator: ','
 
   clang-format:
     needs: markdownlint

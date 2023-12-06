@@ -167,7 +167,7 @@ export DIPU_FORCE_FALLBACK_OPS_LIST=add.out,conv2d
 python -c "import torch_dipu"
 ```
 
-Fallback scalar 版本的重载函数， tensor 版本的重载函数类似：
+Fallback scalar 版本的重载函数，tensor 版本的重载函数类似：
 
 ```bash
 export DIPU_FORCE_FALLBACK_OPS_LIST='.*.Scalar'
@@ -203,7 +203,7 @@ add_custom_command(
 以上方法是对所有算子开启自动精度对比。如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比，只需要在相关的配置文件（如 `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`）给相应的算子添加 `autocompare: True` 即可。
 
 ```shell
-$ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制fallback到cpu,可选
+$ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制 fallback 到 cpu, 可选
 $ python
 >>> import torch
 >>> import torch_dipu
@@ -229,7 +229,7 @@ autocompare:    add.out other: allclose
 >>>
 ```
 
-可以看到，CPU 计算结果与设备计算结果 `allclose`，也能看到CPU和设备计算结果的 `shape`、`dtype` 等信息。特别的，需要注意以下几个问题：
+可以看到，CPU 计算结果与设备计算结果 `allclose`，也能看到 CPU 和设备计算结果的 `shape`、`dtype` 等信息。特别的，需要注意以下几个问题：
 
 1. `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml` 中配置了 `autograd:True` 的算子 (`cross_entropy_loss`、`conv2d`、`dropout`、`dropout_`、`linear`) 暂不支持 *backward* 的精度自动对比。如模型精度对不齐，可根据需要先将这几个算子 fallback 到 CPU 来确定问题。
 2. 随机数生成相关的算子（`dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml` 中配置了 `autocompare:False`）没有做 `autocompare`，因为结果总是 `not_allclose`。
@@ -245,12 +245,11 @@ autocompare:    add.out other: allclose
 >>> import os
 diopi dyload init
 >>> x = torch.randn(3,4).cuda()
->>> os.environ['DIPU_DUMP_OP_ARGS']='1' # 只打印调用的底层算子名以及相关的diopi函数
+>>> os.environ['DIPU_DUMP_OP_ARGS']='1' # 只打印调用的底层算子名以及相关的 diopi 函数
 >>> y = x + x
 [dipu_add_out:349]:add.out  diopiAdd
 
-
->>> os.environ['DIPU_DUMP_OP_ARGS']='2'  # 打印调用的底层算子名，相关的diopi函数，算子参数
+>>> os.environ['DIPU_DUMP_OP_ARGS']='2'  # 打印调用的底层算子名，相关的 diopi 函数，算子参数
 >>> y = x + 3
 [dipu_add_out:349]:add.out  diopiAdd
 [dipu_add_scalar_out:248]:add.Scalar_out  diopiAddScalar
@@ -259,8 +258,7 @@ diopi dyload init
         add.Scalar_out: alpha:1
         add.Scalar_out: out:numel:12, sizes:[3, 4], stride:[4, 1], is_view:0, TensorOptions(dtype=float, device=privateuseone:0, layout=Strided, requires_grad=false (default), pinned_memory=false (default), memory_format=(nullopt)), data_ptr:0x7ff8c8c00400
 
-
->>> os.environ['DIPU_DUMP_OP_ARGS']='3' # 打印调用的底层算子名，相关的diopi函数，算子参数， tensor的值
+>>> os.environ['DIPU_DUMP_OP_ARGS']='3' # 打印调用的底层算子名，相关的 diopi 函数，算子参数， tensor 的值
 >>> y = x * 3
 [dipu_mul_out:815]:mul.out  diopiMul
 [dipu_mul_scalar_out:753]:mul.Scalar_out  diopiMulScalar
@@ -289,7 +287,7 @@ diopi dyload init
 
 ### 核心代码添加
 
-- 在 `dipu/torch_dipu/csrc_dipu/runtime/device/basedef.h` 中定义了DIPU支持的硬件类型，我们需要在 `VendorDeviceType` 枚举类中添加 `DROPLET` 的硬件后端，并在这个文件中的`VendorTypeToStr` 函数里添加新硬件支持。后续这个文件中可能有更多的函数会涉及到硬件类型，按需添加即可。
+- 在 `dipu/torch_dipu/csrc_dipu/runtime/device/basedef.h` 中定义了 DIPU 支持的硬件类型，我们需要在 `VendorDeviceType` 枚举类中添加 `DROPLET` 的硬件后端，并在这个文件中的`VendorTypeToStr` 函数里添加新硬件支持。后续这个文件中可能有更多的函数会涉及到硬件类型，按需添加即可。
 - `dipu/torch_dipu/csrc_dipu/vendor` 文件夹中存有各个硬件后端的 *runtime* 接入代码，我们需要根据 `dipu/torch_dipu/csrc_dipu/runtime/device/deviceapis.h` 中的声明，创建 `deviceimpl.cpp` 去根据硬件自己底层的 *runtime* 接口实现对应的函数。下面是 `deviceapis.h` 中的 `createStream` 函数的在国产硬件上的实现样例：
 
 ``` cpp
@@ -302,7 +300,7 @@ void createStream(deviceStream_t* stream, bool prior) {
 }
 ```
 
-- 如果有多机多卡训练的需求，需要根据 `dipu/torch_dipu/csrc_dipu/runtime/device/diclapis.h` 中的声明，创建 `communiatorimpl.cpp` 去根据硬件自己底层的 *runtime* 接口实现对应的函数。
+- 如果有多机多卡训练的需求，需要根据 `dipu/torch_dipu/csrc_dipu/runtime/device/diclapis.h` 中的声明，创建 `communicatorimpl.cpp` 去根据硬件自己底层的 *runtime* 接口实现对应的函数。
 - DIPU 在 `dipu/torch_dipu/csrc_dipu/runtime/core/DIPUGeneratorImpl.h` 中声明了 `DIPUGeneratorImpl` 这一个基本类型，如果我们的硬件实现了自己的 `generator` 基础函数，可以在这基础上实现自己的 `DeviceGeneratorImpl`，并实现基础的 `generator` 相关函数。国产硬件暂无这方面的实现。
 
 ### 增加编译脚本
@@ -326,4 +324,4 @@ void createStream(deviceStream_t* stream, bool prior) {
 
 - 根据 DIPU 的编译介绍，我们在编译了 DIPU 之后，需要注意将 `LIBRARY_PATH`、`LD_LIBRARY_PATH`、`PYTHONPATH` 都设置好避免后续使用出现问题。
 - `dipu/tests` 文件夹中有许多基础功能的测试，建议首先尝试测试 `python -u dipu/tests/python/unittests/test_add.py`，该文件测试跑通基本意味着我们的设备 *runtime* 接入没有问题了。
-- 编译脚本参考[编译 DIPU](#编译-dipu)，测试脚本可以参考[验证 DIPU](#验证-dipu)。
+- 编译脚本参考 [编译 DIPU](#编译-dipu)，测试脚本可以参考 [验证 DIPU](#验证-dipu)。
