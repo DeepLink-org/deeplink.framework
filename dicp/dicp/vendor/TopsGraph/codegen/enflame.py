@@ -589,7 +589,7 @@ class EnflameOverrides(OpOverrides):
         if isinstance(value, str):
             return src_code, value
         elif isinstance(value, numbers.Number):
-            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, {value}, builder::Type({{1}}, {type_set[dtype]}));\n"
+            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, static_cast<{cxx_type_set[dtype]}>({value}), builder::Type({{1}}, {type_set[dtype]}));\n"
         elif isinstance(value, (list, tuple)):
             src_code += f"std::vector<{cxx_type_set[dtype]}> {op_var}_const_value{count} = {{{', '.join(map(str, value))}}};\n"
             src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, {op_var}_const_value{count}, builder::Type({{{len(value)}}}, {type_set[dtype]}));\n"
