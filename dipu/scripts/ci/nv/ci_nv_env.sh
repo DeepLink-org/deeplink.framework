@@ -2,14 +2,14 @@ PLATFORM=/mnt/cache/share/platform
 ENV_NAME=pt2.0_diopi
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
-GCC_ROOT=${PLATFORM}/dep/gcc-7.5
-CONDA_ROOT=${PLATFORM}/env/miniconda3.8
+GCC_ROOT=${PLATFORM}/dep/gcc-10.2
+CONDA_ROOT=${PLATFORM}/env/miniconda3.10
 export CC=${GCC_ROOT}/bin/gcc
 export CXX=${GCC_ROOT}/bin/g++
 
-export CUDA_PATH=${PLATFORM}/dep/cuda11.7-cudnn8.5
-export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.7
-export NCCL_ROOT=${PLATFORM}/dep/nccl-2.13.4-cuda11.7
+export CUDA_PATH=${PLATFORM}/dep/cuda11.8-cudnn8.9
+export MPI_ROOT=${PLATFORM}/dep/openmpi-4.0.5-cuda11.8
+export NCCL_ROOT=${PLATFORM}/dep/nccl-2.15.5-cuda11.8
 export GTEST_ROOT=${PLATFORM}/dep/googletest-gcc5.4
 
 
@@ -24,7 +24,7 @@ export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export DIOPI_PATH=$(pwd)/third_party/DIOPI/proto
 export DIPU_PATH=${DIPU_ROOT}
-export PYTORCH_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/lib/python3.8/site-packages
+export PYTORCH_DIR=${PLATFORM}/dep/DIOPI_pytorch/pytorch2.0_cu118
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
 export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
