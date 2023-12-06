@@ -1134,8 +1134,12 @@
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  no_device_check_args: [other]
-  interface: diopiMaximum(ctx, out, self, other)
+  no_device_check_args: [self, other]
+  ins: [selfTemp, otherTemp]
+  custom_code_at_the_beginning: |
+    auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
+    auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
+  interface: diopiMaximum(ctx, out, selfTemp, otherTemp)
 
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
   custom_code_at_the_beginning: |
@@ -1679,7 +1683,12 @@
   interface: diopiClampMaxInp(ctx, self, max)
 
 - schema: "minimum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiMinimum(ctx,out, self, other)
+  no_device_check_args: [self, other]
+  ins: [selfTemp, otherTemp]
+  custom_code_at_the_beginning: |
+    auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
+    auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
+  interface: diopiMinimum(ctx, out, selfTemp, otherTemp)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiScatterScalar(ctx, out, self, dim, value, index, "")
