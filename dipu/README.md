@@ -8,7 +8,7 @@
 
 ## 介绍
 
-DIPU (device independent process unit) 是由 **一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层** 共同组成的拓展包。 用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
+DIPU (device independent process unit) 是由 **一组抽象设备 Runtime 接口，一组框架能力相关的运行时基类/接口，一个针对 DIOPI 标准算子的适配层** 共同组成的拓展包。用来在训练框架 PyTorch 上接入 DIOPI 算子库，实现 Eager 模式的推理和训练。其能够在编译时，决定抽象设备被影射的方式；并使用统一的运行时，减少在多硬件上适配训练框架的成本。DIPU 即可以基于统一的设备运行时来屏蔽厂商的实际设备；也可以基于统一的框架相关的运行时基类，由厂商自行实现特有的运行时逻辑。
 
 虽然 PyTorch 定义了一套基础的运行时接口 `c10`，可以基于这个接口直接抽象各个设备接口，但是 `c10` 首先是个直面框架层的接口，每个接入的设备都需要实现大量类似的逻辑来完成 `c10` 的实现，对于多设备的支持很不方便。DIPU 先把 `c10` 的运行时适配到 DIPU 自己的运行时，把通用的逻辑抽取出来，可以让厂商仅实现必要的设备接口即可工作。
 
@@ -67,9 +67,9 @@ Aten 的能力主要依赖于 PyTorch 提供的注册自定义 *backend* 的能�
 
 PyTorch 的算子注册和分派有很多步骤，详见 [参考文档](https://github.com/pytorch/pytorch/wiki/PyTorch-dispatcher-walkthrough)。
 
-DIPU CPP 层适配的 ATen 算子对应的是分派过程中最底层（*backend* 层） 的算子或者 *composite* 层里等效为 *backend* 的算子。
+DIPU CPP 层适配的 ATen 算子对应的是分派过程中最底层（*backend* 层）的算子或者 *composite* 层里等效为 *backend* 的算子。
 
-这里面有一定的灵活性，以`Linear` 算子为例，在 PyTorch 的 `cpu/cuda` 设备上，它被实现为一个 `composite` 算子，实际的 *backend* 层算子是组合算子内部调用的 `addmm` 或者更底层的 `mm`。 而在 DIPU (`privateuse1`) 设备中，目前是注册了一个 `Linear` 算子（DIOPI 有这个算子）来替代组合算子，所以分派会直接走到新的 *backend* 层算子 `Linear`，而不会在调用原来的 `addmm/mm`。但是如果对应设备的 DIOPI 的 IMPL 算子库 没有实现 `diopiLinear` 而是实现了 `mm` 算子，也是可以正常走通 `Linear` 的调用流程的。
+这里面有一定的灵活性，以`Linear` 算子为例，在 PyTorch 的 `cpu/cuda` 设备上，它被实现为一个 `composite` 算子，实际的 *backend* 层算子是组合算子内部调用的 `addmm` 或者更底层的 `mm`。而在 DIPU (`privateuse1`) 设备中，目前是注册了一个 `Linear` 算子（DIOPI 有这个算子）来替代组合算子，所以分派会直接走到新的 *backend* 层算子 `Linear`，而不会在调用原来的 `addmm/mm`。但是如果对应设备的 DIOPI 的 IMPL 算子库 没有实现 `diopiLinear` 而是实现了 `mm` 算子，也是可以正常走通 `Linear` 的调用流程的。
 
 ### 无侵入式的 PyTorch 扩展包
 
@@ -83,7 +83,7 @@ PyTorch 要求 out-of-tree 的代码必须定义一个私有的 *Backend Key*，
 
 ### 算子适配能力
 
-为了更好的接入 DIOPI 算子，DIPU 提供了一组算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力、算子精度自动对比的能力（对比 DIOPI 算子和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。 相关能力的具体说明参见 [Quick Start 文档](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/quick_start.html) 的“算子库接入”章节。
+为了更好的接入 DIOPI 算子，DIPU 提供了一组算子适配相关的辅助能力，比如灵活的算子 Fallback to CPU 的能力、算子精度自动对比的能力（对比 DIOPI 算子和 PyTorch 原生的 CPU 算子），算子执行过程中打印算子参数的能力。基于这些能力，接入算子时可以更方便排查算子精度等问题。相关能力的具体说明参见 [Quick Start 文档](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/quick_start.html) 的“算子库接入”章节。
 
 ## 质量保障体系
 

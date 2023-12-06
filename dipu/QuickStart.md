@@ -167,7 +167,7 @@ export DIPU_FORCE_FALLBACK_OPS_LIST=add.out,conv2d
 python -c "import torch_dipu"
 ```
 
-Fallback scalar 版本的重载函数， tensor 版本的重载函数类似：
+Fallback scalar 版本的重载函数，tensor 版本的重载函数类似：
 
 ```bash
 export DIPU_FORCE_FALLBACK_OPS_LIST='.*.Scalar'
@@ -300,7 +300,7 @@ void createStream(deviceStream_t* stream, bool prior) {
 }
 ```
 
-- 如果有多机多卡训练的需求，需要根据 `dipu/torch_dipu/csrc_dipu/runtime/device/diclapis.h` 中的声明，创建 `communiatorimpl.cpp` 去根据硬件自己底层的 *runtime* 接口实现对应的函数。
+- 如果有多机多卡训练的需求，需要根据 `dipu/torch_dipu/csrc_dipu/runtime/device/diclapis.h` 中的声明，创建 `communicatorimpl.cpp` 去根据硬件自己底层的 *runtime* 接口实现对应的函数。
 - DIPU 在 `dipu/torch_dipu/csrc_dipu/runtime/core/DIPUGeneratorImpl.h` 中声明了 `DIPUGeneratorImpl` 这一个基本类型，如果我们的硬件实现了自己的 `generator` 基础函数，可以在这基础上实现自己的 `DeviceGeneratorImpl`，并实现基础的 `generator` 相关函数。国产硬件暂无这方面的实现。
 
 ### 增加编译脚本

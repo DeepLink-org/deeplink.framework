@@ -43,7 +43,7 @@ upstream git@github.com:DeepLink-org/deeplink.framework (fetch)
 upstream git@github.com:DeepLink-org/deeplink.framework (push)
 ```
 
-> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 `git clone` 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu 。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
+> 这里对 origin 和 upstream 进行一个简单的介绍，当我们使用 `git clone` 来克隆代码时，会默认创建一个 origin 的 remote，它指向我们克隆的代码库地址，而 upstream 则是我们自己添加的，用来指向原始代码库地址。当然如果你不喜欢他叫 upstream，也可以自己修改，比如叫 dipu。我们通常向 origin 提交代码（即 fork 下来的远程仓库），然后向 upstream 提交一个 pull request。如果提交的代码和最新的代码发生冲突，再从 upstream 拉取最新的代码，和本地分支解决冲突，再提交到 origin。
 
 #### 创建开发分支
 
