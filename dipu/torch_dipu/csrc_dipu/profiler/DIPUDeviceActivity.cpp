@@ -11,7 +11,6 @@
 namespace dipu {
 namespace profile {
 
-using libkineto::DeviceActivityInterface;
 using libkineto::GenericTraceActivity;
 
 DIPUDeviceActivity::~DIPUDeviceActivity() {
@@ -59,11 +58,11 @@ int32_t DIPUDeviceActivity::processActivities(
   auto records = RecordsImpl::get().getAllRecordList();
   for (const auto& record : records) {
     GenericTraceActivity act;
-    act.startTime = record.begin / 1000;
-    act.endTime = record.end / 1000;
-    act.id = record.opId;
-    act.device = record.pid;
-    act.resource = record.threadIdx;
+    act.startTime = static_cast<int64_t>(record.begin / 1000);
+    act.endTime = static_cast<int64_t>(record.end / 1000);
+    act.id = static_cast<int32_t>(record.opId);
+    act.device = static_cast<int32_t>(record.pid);
+    act.resource = static_cast<int32_t>(record.threadIdx);
     act.flow.id = record.opId;
     if (record.isKernel) {
       act.activityType = libkineto::ActivityType::CONCURRENT_KERNEL;
@@ -86,7 +85,7 @@ int32_t DIPUDeviceActivity::processActivities(
     logger.handleResourceInfo(kv.second, startTime);
   }
 
-  return records.size();
+  return static_cast<int32_t>(records.size());
 }
 
 void DIPUDeviceActivity::teardownContext() {}
