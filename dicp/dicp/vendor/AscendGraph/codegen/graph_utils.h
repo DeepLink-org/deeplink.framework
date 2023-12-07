@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "acl/acl.h"
 #include "all_ops.h"
 #include "ascend_string.h"
 #include "ge_api.h"
@@ -83,10 +84,9 @@ class AclgraphBuilder {
  public:
   explicit AclgraphBuilder() {
     // 1. system init
-    std::string kSocVersion = "Ascend910ProB";
+    auto kSocVersion = aclrtGetSocName();
     std::map<AscendString, AscendString> global_options = {
-        {AscendString(ge::ir_option::SOC_VERSION),
-         AscendString(kSocVersion.c_str())},
+        {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
         {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
