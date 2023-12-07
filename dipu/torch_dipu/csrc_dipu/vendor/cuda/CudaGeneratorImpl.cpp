@@ -5,7 +5,7 @@
 
 namespace dipu {
 
-static const size_t states_size = 200 * sizeof(4120);
+static const size_t states_size = 0; // 200 * sizeof(4120);
 static const size_t seed_size = sizeof(uint64_t);
 static const size_t offset_size = sizeof(int64_t);
 static const size_t total_size = states_size + seed_size + offset_size;

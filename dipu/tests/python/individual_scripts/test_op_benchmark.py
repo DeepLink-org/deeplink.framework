@@ -58,8 +58,9 @@ for b, n in product(sizes, sizes):
     # description is the column
     label = "Batched dot"
     sub_label = f"[{b}, {n}]"
-    x = torch.ones((b, n))
-    for num_threads in [1, 4, 16, 32]:
+    x = torch.ones((b, n)).cuda()
+    # cuda tensor, not so many dispatch threads in actual case. 16, 32]:
+    for num_threads in [1, 4]:  
         results.append(
             benchmark.Timer(
                 stmt="batched_dot_mul_sum(x, x)",
