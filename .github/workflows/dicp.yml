@@ -10,7 +10,6 @@ on:
       - ".github/ISSUE_TEMPLATE/**"
       - ".git*"
       - "CODE_OF_CONDUCT**"
-      - "dipu/**"
 
 env:
   ENV_PATH: '/mnt/cache/share/platform/env'

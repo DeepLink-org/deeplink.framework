@@ -18,7 +18,7 @@ class DIPU_API DIPUEvent {
  public:
   // Constructors
   // Default value for `flags` is specified below
-  DIPUEvent() {}
+  DIPUEvent() = default;
 
   // add flags in future
   // DIPUEvent(unsigned int flags) : flags_{flags} {}
@@ -38,22 +38,18 @@ class DIPU_API DIPUEvent {
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other) { moveHelper(std::move(other)); }
-  DIPUEvent& operator=(DIPUEvent&& other) {
-    moveHelper(std::move(other));
-    return *this;
-  }
+  DIPUEvent(DIPUEvent&& other) noexcept = default;
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept = default;
 
-  operator deviceEvent_t() const { return rawevent(); }
+  explicit operator deviceEvent_t() const { return rawevent(); }
 
   // aclrtEvent do not support Less than operator until now
 
   c10::optional<at::Device> device() const {
     if (isCreated()) {
       return at::Device(dipu::DIPU_DEVICE_TYPE, device_index_);
-    } else {
-      return {};
     }
+    return {};
   }
 
   bool isCreated() const { return event_ != nullptr; }
@@ -64,18 +60,17 @@ class DIPU_API DIPUEvent {
     if (!isCreated()) {
       return true;
     }
+
     DIPUGuard guard(device_index_);
-    auto currStatus = devproxy::getEventStatus(event_);
-    if (currStatus == devapis::EventStatus::READY) {
-      return true;
-    }
-    return false;
+    return devproxy::getEventStatus(event_) == devapis::EventStatus::READY;
   }
 
   void record() { record(getCurrentDIPUStream()); }
 
   void recordOnce(const DIPUStream& stream) {
-    if (!was_recorded_) record(stream);
+    if (!was_recorded_) {
+      record(stream);
+    }
   }
 
   void record(const DIPUStream& stream) {
@@ -124,13 +119,6 @@ class DIPU_API DIPUEvent {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
     devproxy::createEvent(&event_);
-  }
-
-  void moveHelper(DIPUEvent&& other) {
-    std::swap(flags_, other.flags_);
-    std::swap(was_recorded_, other.was_recorded_);
-    std::swap(device_index_, other.device_index_);
-    std::swap(event_, other.event_);
   }
 };
 

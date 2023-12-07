@@ -1,5 +1,8 @@
 #pragma once
 
+#include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/utils/Log.h>
+
 namespace dipu{
 namespace native{
 
