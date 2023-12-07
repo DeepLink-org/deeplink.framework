@@ -96,5 +96,6 @@ DIPU 的这一部分主要就是对 PyTorch 的``c10`` 和``c10d``相关接口�
 ## Learn More
 
 * [Quick Start](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/quick_start.html)
+* [Profiler](./torch_dipu/profiler/readme.md)
 * [常见问题](https://deeplink.readthedocs.io/zh-cn/latest/doc/DIPU/FAQ.html)
 * [开发者指南](https://github.com/DeepLink-org/DIPU/tree/main/dipu/Contributors.md)

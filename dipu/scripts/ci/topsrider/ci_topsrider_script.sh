@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -eo pipefail
 
 function config_dipu_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*

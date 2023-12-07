@@ -1,3 +1,6 @@
+# Need 3.25 for add_subdirectory(SYSTEM)
+# cmake_minimum_required(VERSION 3.25)
+
 #require the external project to build as target
 include(ExternalProject)
 
@@ -61,6 +64,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
                         "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
                         "-DENABLE_COVERAGE=${USE_COVERAGE}"
+                        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
                         "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
@@ -87,16 +91,11 @@ if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
   target_link_libraries(diopi_impl INTERFACE diopi_impl_lib)
 endif()
 
-#-------------------------add kineto as an external project ------------------------------------
+#[[ libkineto ]]
 
-include(FetchContent)
-FetchContent_Declare(
-  kineto
-  URL           "${CMAKE_CURRENT_SOURCE_DIR}/kineto"
-  SOURCE_SUBDIR libkineto
-  SYSTEM)
 set(KINETO_BUILD_TESTS OFF CACHE INTERNAL "turn off tests")
 set(KINETO_USE_DEVICE_ACTIVITY ON CACHE INTERNAL "enable device activity")
-set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "keep abi settings")
-
-FetchContent_MakeAvailable(kineto)
+set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "pass through ABI settings")
+# KINETO_COMPILED_WITH_CXX11_ABI might be removed from libkineto as we are
+# using add_subdirectory instead of ExternalProject.
+add_subdirectory(kineto/libkineto SYSTEM)

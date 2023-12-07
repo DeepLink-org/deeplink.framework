@@ -38,11 +38,8 @@ class DIPU_API DIPUEvent {
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other)  noexcept { moveHelper(std::move(other)); }
-  DIPUEvent& operator=(DIPUEvent&& other)  noexcept {
-    moveHelper(std::move(other));
-    return *this;
-  }
+  DIPUEvent(DIPUEvent&& other) noexcept = default;
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept = default;
 
   explicit operator deviceEvent_t() const { return rawevent(); }
 
@@ -51,8 +48,8 @@ class DIPU_API DIPUEvent {
   c10::optional<at::Device> device() const {
     if (isCreated()) {
       return at::Device(dipu::DIPU_DEVICE_TYPE, device_index_);
-    }        return {};
-   
+    }
+    return {};
   }
 
   bool isCreated() const { return event_ != nullptr; }
@@ -63,9 +60,9 @@ class DIPU_API DIPUEvent {
     if (!isCreated()) {
       return true;
     }
+
     DIPUGuard guard(device_index_);
-    auto currStatus = devproxy::getEventStatus(event_);
-    return currStatus == devapis::EventStatus::READY;
+    return devproxy::getEventStatus(event_) == devapis::EventStatus::READY;
   }
 
   void record() { record(getCurrentDIPUStream()); }
@@ -122,13 +119,6 @@ class DIPU_API DIPUEvent {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
     devproxy::createEvent(&event_);
-  }
-
-  void moveHelper(DIPUEvent&& other) {
-    std::swap(flags_, other.flags_);
-    std::swap(was_recorded_, other.was_recorded_);
-    std::swap(device_index_, other.device_index_);
-    std::swap(event_, other.event_);
   }
 };
 
