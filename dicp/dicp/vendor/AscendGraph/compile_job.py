@@ -34,6 +34,7 @@ class AscendCompileJob(DeviceCompileJob):
                      '-std=c++11',
                      '-O3',
                      '-Wall',
+                     '-I/usr/local/Ascend/ascend-toolkit/latest/include',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_proto/inc',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/include/graph',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/include/ge',
@@ -46,10 +47,10 @@ class AscendCompileJob(DeviceCompileJob):
                      '-lge_runner',
                      source_path,
                      '-o' + self._lib_path,
-                     '-Wl,-rpath,/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                      '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libgraph.so',
                      '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libge_runner.so',
-                     '/usr/local/Ascend/ascend-toolkit/latest/lib64/libgraph_base.so']
+                     '/usr/local/Ascend/ascend-toolkit/latest/lib64/libgraph_base.so',
+                     '/usr/local/Ascend/ascend-toolkit/latest/runtime/lib64/stub/libascendcl.so',]
 
     def _compile(self):
         if not os.path.exists(self._lib_path):
