@@ -194,18 +194,12 @@
   interface: diopiLogicalNot(ctx, out, self);
 
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
-  interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, running_meanDiopiTensorHandleCopy, running_varDiopiTensorHandleCopy, training, momentum, eps);
+  interface: diopiBatchNorm(ctx, out, save_mean, save_invstd, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
   custom_code_before_call_diopi: |
-    ::diopiTensorHandle_t running_meanDiopiTensorHandleCopy = nullptr;
-    if (running_mean.has_value() && running_mean.value().defined()){
-      at::Tensor running_mean_copy(running_mean.value());
-    	running_meanDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_mean_copy);
-    }  
-    ::diopiTensorHandle_t running_varDiopiTensorHandleCopy = nullptr;
-    if (running_var.has_value() && running_var.value().defined()){
-      at::Tensor running_var_copy(running_var.value());
-    	running_varDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_var_copy);
-    }
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+  custom_code_before_return: |
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 
 - schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
   custom_code_at_the_beginning: |
@@ -222,18 +216,12 @@
         out1 = at::empty({dim_c}, options);
         out2 = at::empty({dim_c}, options);
     }
-  interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, running_meanDiopiTensorHandleCopy, running_varDiopiTensorHandleCopy, training, momentum, eps);
+  interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
   custom_code_before_call_diopi: |
-    ::diopiTensorHandle_t running_meanDiopiTensorHandleCopy = nullptr;
-    if (running_mean.has_value() && running_mean.value().defined()){
-      at::Tensor running_mean_copy(running_mean.value());
-    	running_meanDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_mean_copy);
-    }  
-    ::diopiTensorHandle_t running_varDiopiTensorHandleCopy = nullptr;
-    if (running_var.has_value() && running_var.value().defined()){
-      at::Tensor running_var_copy(running_var.value());
-    	running_varDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_var_copy);
-    }   
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+  custom_code_before_return: |
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 
 - schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
   custom_code_at_the_beginning: |
@@ -1937,18 +1925,12 @@
     auto shape = input.size(1);
     auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
     auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
-  interface: diopiBatchNormGatherStatsWithCounts(ctx, out0, out1, input, mean, invstd, running_meanDiopiTensorHandleCopy, running_varDiopiTensorHandleCopy, static_cast<float>(momentum), static_cast<float>(eps), counts)
+  interface: diopiBatchNormGatherStatsWithCounts(ctx, out0, out1, input, mean, invstd, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), static_cast<float>(momentum), static_cast<float>(eps), counts)
   custom_code_before_call_diopi: |
-    ::diopiTensorHandle_t running_meanDiopiTensorHandleCopy = nullptr;
-    if (running_mean.has_value() && running_mean.value().defined()){
-      at::Tensor running_mean_copy(running_mean.value());
-    	running_meanDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_mean_copy);
-    }  
-    ::diopiTensorHandle_t running_varDiopiTensorHandleCopy = nullptr;
-    if (running_var.has_value() && running_var.value().defined()){
-      at::Tensor running_var_copy(running_var.value());
-    	running_varDiopiTensorHandleCopy = dipu::diopi_helper::toDiopiTensorHandle(running_var_copy);
-    }
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+  custom_code_before_return: |
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 
 - schema: batch_norm_backward_reduce(Tensor grad_out, Tensor input, Tensor mean, Tensor invstd, Tensor? weight, bool input_g, bool weight_g, bool bias_g) -> (Tensor, Tensor, Tensor, Tensor)
   custom_code_at_the_beginning: |
