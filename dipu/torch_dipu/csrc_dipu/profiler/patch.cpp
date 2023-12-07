@@ -319,6 +319,7 @@ void ActivityTraceWrapper::save(const std::string& path) {
 
 void addMetadata(const activity_t* activity, const std::string& key,
                  const std::string& value) {
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
   const_cast<activity_t*>(activity)->addMetadata(key, value);
 }
 

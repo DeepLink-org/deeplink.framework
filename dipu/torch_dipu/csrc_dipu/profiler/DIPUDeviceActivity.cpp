@@ -54,12 +54,12 @@ int32_t DIPUDeviceActivity::processActivities(
     std::function<const libkineto::ITraceActivity*(int32_t)> linkedActivity,
     int64_t startTime, int64_t endTime) {
   FlushAllRecords();
-
+  constexpr size_t kSecondToMillisecond = 1000;
   auto records = RecordsImpl::get().getAllRecordList();
   for (const auto& record : records) {
     GenericTraceActivity act;
-    act.startTime = static_cast<int64_t>(record.begin / 1000);
-    act.endTime = static_cast<int64_t>(record.end / 1000);
+    act.startTime = static_cast<int64_t>(record.begin / kSecondToMillisecond);
+    act.endTime = static_cast<int64_t>(record.end / kSecondToMillisecond);
     act.id = static_cast<int32_t>(record.opId);
     act.device = static_cast<int32_t>(record.pid);
     act.resource = static_cast<int32_t>(record.threadIdx);
@@ -75,7 +75,7 @@ int32_t DIPUDeviceActivity::processActivities(
     act.flow.id = record.opId;
     act.flow.type = libkineto::kLinkAsyncCpuGpu;
     auto link_cor_id = record.linkCorrelationId;
-    act.linked = linkedActivity(link_cor_id);
+    act.linked = linkedActivity(static_cast<int32_t>(link_cor_id));
     logger.handleGenericActivity(act);
   }
 
