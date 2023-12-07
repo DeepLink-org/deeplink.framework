@@ -1,6 +1,7 @@
 #pragma once
 
-namespace dipu::native {
+namespace dipu{
+namespace native{
 
 inline bool checkDiopiReturnValue() {
   static bool enable =
@@ -14,7 +15,7 @@ inline bool checkTensorDevice() {
     if (env_ptr == nullptr) {
       return false;
     }
-    return std::atoi(env_ptr) > 0 ? true : false;
+    return std::atoi(env_ptr) > 0;
   }();
   return enable;
 }
@@ -206,4 +207,5 @@ static std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
   return result;
 }
 
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

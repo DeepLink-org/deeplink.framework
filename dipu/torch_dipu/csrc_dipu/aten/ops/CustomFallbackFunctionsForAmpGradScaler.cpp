@@ -46,8 +46,7 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
   TORCH_CHECK(inv_scale.numel() == 1, "inv_scale must be a 1-element tensor.");
   TORCH_CHECK(found_inf.numel() == 1, "found_inf must be a 1-element tensor.");
   for (const at::Tensor& t : scaled_grads) {
-    // NOLINTNEXTLINE: const_cast here is safe according to pytorch's source
-    // code
+    // NOLINTNEXTLINE: const_cast here is safe according to pytorch's source code
     _amp_non_finite_check_and_unscale_(const_cast<at::Tensor&>(t), found_inf,
                                        inv_scale);
   }

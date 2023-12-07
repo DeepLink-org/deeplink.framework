@@ -154,6 +154,7 @@ caffe2::TypeMeta toATenType(::diopiDtype_t dt) {
   }
 }
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 int64_t getElemSize(::diopiDtype_t dt) {
   switch (dt) {
     case diopi_dtype_int32:
@@ -181,6 +182,7 @@ int64_t getElemSize(::diopiDtype_t dt) {
       TORCH_CHECK(false, "invalid diopi type, diopi type is ", dt);
   }
 }
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 c10::DeviceType toATenDevice(::diopiDevice_t device) {
   switch (device) {

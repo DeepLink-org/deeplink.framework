@@ -153,9 +153,11 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   }
 }
 
+// NOLINTBEGIN: These should not be const variables
 std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>>
     DIPUOpRegister::dipuOpRegisterList;
 std::mutex DIPUOpRegister::mutex_;
+// NOLINTEND
 
 void DIPUOpRegister::register_op() {
   std::lock_guard<std::mutex> guard(mutex_);
@@ -291,6 +293,7 @@ at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor& self) {
   return dnative::_local_scalar_dense_dipu(self);
 }
 
+// NOLINTBEGIN(performance-unnecessary-value-param)
 at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self,
                                              at::Storage source) {
   // No device check
@@ -309,6 +312,7 @@ at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
                                     C10_AS_INTARRAYREF_SLOW(size),
                                     C10_AS_INTARRAYREF_SLOW(stride));
 }
+// NOLINTEND(performance-unnecessary-value-param)
 
 at::Tensor& wrapper_DIPU_source_Tensor_set_(at::Tensor& self,
                                             const at::Tensor& source) {

@@ -115,6 +115,7 @@ static void exportStream(py::module& m) {
              } 
              if (stream_ptr) {
                return dipu::getStreamFromExternal(
+                   // NOLINTNEXTLINE(performance-no-int-to-ptr)
                    reinterpret_cast<deviceStream_t>(stream_ptr),
                    devproxy::current_device());
              } 

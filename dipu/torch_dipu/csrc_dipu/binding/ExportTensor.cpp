@@ -77,10 +77,11 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
 // we prefer to use pybind11 to export patch func, cpython is used only patching
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
-static PyMethodDef TorchTensorMethods[] = {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static std::array<PyMethodDef, 2> TorchTensorMethods = {{
     {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
      METH_VARARGS | METH_KEYWORDS, nullptr},
-    {nullptr, nullptr, 0, nullptr}};
+    {nullptr, nullptr, 0, nullptr}}};
 
-DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods; }
+DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods.data(); }
 }  // namespace dipu
