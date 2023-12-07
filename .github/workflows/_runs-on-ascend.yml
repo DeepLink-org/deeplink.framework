@@ -74,6 +74,8 @@ jobs:
           build_shell: "
                        source dicp/scripts/ci/ascend/ci_ascend_build_env.sh && \
                        conda info --envs | grep \"*\" | awk '{print $1}' && \
+                       conda activate dipu_dev_py39 && \
+                       pip install scikit-build && \
                        pip uninstall torch_dipu -y && \
                        pip uninstall dicp -y && \
                        cd dipu && python setup.py install --user && \
