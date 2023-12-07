@@ -680,7 +680,9 @@
 - schema: "topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
-    dim = dim < 0 ? (dim + static_cast<int64_t>(output_size.size())) : dim;
+    if (dim < 0) {
+      dim = dim + static_cast<int64_t>(output_size.size());
+    }
     output_size[dim] = k;
     auto values = at::empty(output_size, self.options());
     auto indices = at::empty(output_size, self.options().dtype(at::kLong));
@@ -870,7 +872,11 @@
 
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: |
-    dim += dim < 0 ? static_cast<int64_t>(tensors[0].sizes().size()) + 1 : 0;
+    if (dim < 0) {
+      dim = static_cast<int64_t>(tensors[0].sizes().size()) + 1;
+    } else {
+      dim = 0;
+    }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -893,7 +899,11 @@
 
 - schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    dim += dim < 0 ? static_cast<int64_t>(tensors[0].sizes().size()) : 0;
+    if (dim < 0) {
+      dim = static_cast<int64_t>(tensors[0].sizes().size());
+    } else {
+      dim = 0;
+    }
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -902,19 +912,34 @@
 
 - schema: "sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)"
   custom_code_at_the_beginning: |
-    auto dim_ = dim < 0 ? (dim + static_cast<int64_t>(self.sizes().size())) : dim;
+    int64_t dim_ = 0;
+    if (dim < 0) {
+      dim_ = dim + static_cast<int64_t>(self.sizes().size());
+    } else {
+      dim_ = dim;
+    }
     auto values = at::empty(self.sizes(), self.options());
     auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
 - schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
   custom_code_at_the_beginning: |
-    auto dim_ = dim < 0 ? (dim + static_cast<int64_t>(self.sizes().size())) : dim;
+    int64_t dim_ = 0;
+    if (dim < 0) {
+      dim_ = dim + static_cast<int64_t>(self.sizes().size());
+    } else {
+      dim_ = dim;
+    }
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
 - schema: "sort.values_stable(Tensor self, *, bool? stable, int dim=-1, bool descending=False, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
   custom_code_at_the_beginning: |
-    auto dim_ = dim < 0 ? (dim + static_cast<int64_t>(self.sizes().size())) : dim;
+    int64_t dim_ = 0;
+    if (dim < 0) {
+      dim_ = dim + static_cast<int64_t>(self.sizes().size());
+    } else {
+      dim_ = dim;
+    }
     bool stable_ = stable.has_value() ? stable.value() : false;
     const bool *p = &stable_;
   interface: diopiSort(ctx, values, indices, self, dim_, descending, p)
@@ -1088,7 +1113,9 @@
     at::Tensor indices;
     if (return_inverse) {
       const auto ndims = self.sizes().size();
-      dim += (dim < 0 ? static_cast<int64_t>(ndims) : 0);
+      if (dim < 0) {
+        dim += static_cast<int64_t>(ndims);
+      }
       indices = at::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
     }
     diopiTensorHandle_t out_ptr = nullptr;
@@ -1284,7 +1311,7 @@
 - schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2, 0);
+    std::vector<int64_t> size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1297,7 +1324,7 @@
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2, 0);
+    std::vector<int64_t> size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());

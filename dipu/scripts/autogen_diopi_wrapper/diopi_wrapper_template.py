@@ -20,6 +20,7 @@ diopi_wrapper_file_template_content = \
 
 $header_include_code
 
+// NOTS: some kernels(eg. _foreach_add_.List) have custom code at the beginning with direct return, cause this warning
 // NOLINTBEGIN(readability-redundant-control-flow)
 
 namespace dipu {
