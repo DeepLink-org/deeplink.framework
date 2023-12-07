@@ -8,7 +8,6 @@ class TestRemainder(TestCase):
     def _test_remainder(self, a: torch.Tensor, b: float):
         a = a.cuda()
         out = torch.remainder(a, b)
-        #gold = a - a.div(b, rounding_mode="floor") * b
         out_cpu = torch.remainder(a.cpu(), b)
         self.assertEqual(out.cpu(), out_cpu)
 
