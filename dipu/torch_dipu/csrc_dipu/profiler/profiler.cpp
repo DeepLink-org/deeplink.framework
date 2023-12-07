@@ -190,11 +190,12 @@ class DeviceRecordsImpl final {
       }
       float t1 = 0.F;
       float t2 = 0.F;
+      constexpr double kSecondToMillisecond = 1e3;
       dipu::devproxy::eventElapsedTime(&t1, beginEvent(), r.start->get());
       dipu::devproxy::eventElapsedTime(&t2, r.start->get(), r.stop->get());
       ready_records_.push_back(
-          Record({r.name, r.opId, static_cast<size_t>(t1 * 1e3),
-                  static_cast<size_t>((t1 + t2) * 1e3), r.deviceId, r.streamId,
+          Record({r.name, r.opId, static_cast<size_t>(t1 * kSecondToMillisecond),
+                  static_cast<size_t>((t1 + t2) * kSecondToMillisecond), r.deviceId, r.streamId,
                   true, r.linkCorrelationId, r.extraInfo}));
       records_.pop_front();
     }
@@ -209,9 +210,10 @@ class DeviceRecordsImpl final {
       float ratio = trakcer.ratio();
       size_t offset = trakcer.offset();
 
+      constexpr double kMillisecondToSecond = 1e-3;
       for (auto& r : ready_records_) {
-        r.begin = static_cast<size_t>(static_cast<double>(r.begin) * 1e-3 * ratio) + offset;
-        r.end = static_cast<size_t>(static_cast<double>(r.end) * 1e-3 * ratio) + offset;
+        r.begin = static_cast<size_t>(static_cast<double>(r.begin) * kMillisecondToSecond * ratio) + offset;
+        r.end = static_cast<size_t>(static_cast<double>(r.end) * kMillisecondToSecond * ratio) + offset;
         RecordsImpl::get().addRecord(r);
       }
       ready_records_.clear();
@@ -250,10 +252,9 @@ void setProfileOpen(bool profileFlag) { gEnableFlag = profileFlag; }
 
 void FlushAllRecords() { DeviceRecordsImpl::get().flush(); }
 
+static constexpr size_t kInitModuleId = 10000;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static size_t kInitModuleId = 10000;
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::atomic<size_t> moduleId(kInitModuleId);
+std::atomic_size_t moduleId(kInitModuleId);
 
 size_t generateId() { return ++moduleId; }
 

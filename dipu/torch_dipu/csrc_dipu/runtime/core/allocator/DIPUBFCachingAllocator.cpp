@@ -79,12 +79,13 @@ class BFCachingAllocatorImpl {
       // `__builtin_ctzll` only support `uint64_t`,
       // so we have to divide
       uint64_t low_bits = map; 
-      uint64_t high_bits = map >> 64U;
+      constexpr int kLowBitWidth = 64;
+      uint64_t high_bits = map >> kLowBitWidth;
       if (low_bits) {
         return __builtin_ctzll(low_bits);
       }
       if (high_bits) {
-        return 64 + __builtin_ctzll(high_bits);
+        return kLowBitWidth + __builtin_ctzll(high_bits);
       }
       return -1;
     }
@@ -156,7 +157,8 @@ class BFCachingAllocatorImpl {
     //      [2^`bigBinIdx`, 2^(`bigBinIdx`+1)), length: 2^`bigBinIdx`
     // Split big bin into `kNumSubBins` sub bins
     size_t nBlocks = nbytes / kMinAllocationSize;
-    int bigBinIdx = 63 - __builtin_clzll(nBlocks);
+    constexpr int kMaxBinIdx = 63;
+    int bigBinIdx = kMaxBinIdx - __builtin_clzll(nBlocks);
     // If `nbytes` is so large, we just put it into the last
     if (bigBinIdx > kNumBigBins - 1) { return kNumBigBins * kNumSubBins - 1;}
     // Get the index of sub bin
@@ -441,9 +443,11 @@ class BFCachingAllocator : public CacheAllocator {
     impl = std::make_unique<BFCachingAllocatorImpl>();
 
     std::function<void*(size_t)> alloc_fn =
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
         std::bind(&BFCachingAllocator::allocate_raw, const_cast<BFCachingAllocator*>(this),
                   std::placeholders::_1);
     std::function<void(void*)> dealloc_fn =
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
         std::bind(&BFCachingAllocator::free_raw, const_cast<BFCachingAllocator*>(this),
                   std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
