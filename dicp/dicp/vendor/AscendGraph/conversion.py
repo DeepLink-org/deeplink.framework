@@ -302,6 +302,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             ascend_op.Const, ([float(p)], torch.float32, []))
         seed_op = self.get_proxy(ascend_op.Const, ([-1], torch.int64, []))
         offset_op = self.get_proxy(ascend_op.Const, ([0], torch.int64, []))
+        print("Bernoulli last but one")
         return self.get_proxy(ascend_op.StatelessBernoulli, (shape_op, prop_op, seed_op, offset_op, dtype))
 
     @register_conversion(aten.new_empty_strided.default)
@@ -400,7 +401,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.IdentityN, (real_reshape, imag_reshape))
         else:
             return self.get_proxy(ascend_op.Reshape, (x, shape))
-
+               
     @register_conversion(torch.ops.aten.where)
     def where(self, condition, x1, x2):
         # TODO(tangzhiyi): need to process scalars
@@ -989,7 +990,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
 
     @register_conversion(torch.ops.aten.amax)
-    def amax(self, x, dims, keepdim):
+    def amax(self, x, dims, keepdim=False):
         if not isinstance(dims, list):
             dims = [dims]
         return self.get_proxy(ascend_op.ReduceMaxD, (x, dims, keepdim))
