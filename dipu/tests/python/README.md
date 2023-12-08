@@ -49,3 +49,15 @@
 如果需要自动化检测 C++ 库内部的输出，可以使用 `test.python.utils.stdout_redirector.stdout_redirector` 来捕获。
 
 独立测例可以包含 print。不过，在自动生成的单元测试中，独立测例中的输出会在测试通过的情况下被消除。
+
+#### 子进程的 coverage 收集
+
+使用 `multiprocessing.Process` 创建的子进程在 CI 上跑 coverage 时不会被统计，因此使用这种测试方式（e.g. `test_allocator.py`）的独立测例需要一些特别的处理。
+
+#### C++ `gcov`
+
+在调用 `multiprocessing.Process` 之前，**必须**调用 `multiprocessing.set_start_method('spawn', force=True)` 修改 multiprocessing 的默认进程生成方式。
+
+##### Python `coverage`
+
+代码**无需**额外修改，而是需要在 coverage run 中加入额外的 flag。目前在 `run_tests.sh` 中已经配置好了。

@@ -22,25 +22,23 @@ jobs:
       - name: Checkout Code
         uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
 
-  build:
+  build_test:
     runs-on: ${{ inputs.runner }}
     needs: checkout_code
     steps:
-      - name: build on topsrider
+      - name: build and test on topsrider
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
-          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
-          job_name: "build"
+          build_shell: "
+                       source dicp/scripts/ci/tops/ci_tops_build_env.sh && \
+                       pip uninstall torch_dipu -y && \
+                       pip uninstall dicp -y && \
+                       cd dipu && python setup.py install --user && \
+                       cd ../dicp && python setup.py install --user && \
+                       cd .. && source dicp/scripts/ci/tops/ci_tops_test_env.sh /mnt/models/llama_models && \
+                       export TEST_DIR=$(pwd)/dicp/test && echo ${TEST_DIR} && \
+                       bash ${TEST_DIR}/tops_scripts/ops/run_test_ops.sh false && \
+                       bash ${TEST_DIR}/tops_scripts/models/run_test_models.sh false
+                       "
+          job_name: "build_test"
           cover_job: "0"
-
-  test:
-    runs-on: ${{ inputs.runner }}
-    needs: build
-    steps:
-      - name: build on topsrider
-        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
-        with:
-          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
-          job_name: "build"
-          cover_job: "1"
-

@@ -142,11 +142,32 @@ class Exp(Operator):
         self.torch_op = aten.exp
 
 
+class Sin(Operator):
+    def __init__(self, a):
+        super().__init__("Sin")
+        self.a = a
+        self.torch_op = aten.sin
+
+
+class Cos(Operator):
+    def __init__(self, a):
+        super().__init__("Cos")
+        self.a = a
+        self.torch_op = aten.cos
+
+
 class Relu(Operator):
     def __init__(self, a):
         super().__init__("Relu")
         self.a = a
         self.torch_op = aten.relu
+
+
+class Erf(Operator):
+    def __init__(self, a):
+        super().__init__("Erf")
+        self.a = a
+        self.torch_op = aten.erf
 
 
 class ReduceSum(Operator):
@@ -242,6 +263,14 @@ class Copy(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = torch.ops.aten.copy
+
+
+class Copy_(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Copy_")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = torch.ops.aten.copy_
 
 
 class LiftFreshCopy(Operator):
@@ -717,10 +746,11 @@ class GetTupleElement(Operator):
         if hasattr(x, 'meta'):
             x = x.meta['val']
 
-        if x.dtype in (torch.cfloat, torch.cdouble):
-            data_type = torch.double if x.dtype == torch.cdouble else torch.float
-            data_size = x.size()
-            return torch.empty(data_size, dtype=data_type)
+            if hasattr(x, 'dtype') and x.dtype in (torch.cfloat, torch.cdouble):
+                data_type = torch.double if x.dtype == torch.cdouble else torch.float
+                data_size = x.size()
+                with FakeTensorMode():
+                    return torch.empty(data_size, dtype=data_type)
 
         x = x[idx]
         if hasattr(x, 'meta'):
@@ -733,12 +763,8 @@ class MakeTuple(Operator):
         super().__init__("MakeTuple")
         self.torch_op = torch.empty_like
 
-    def __call__(self, a, b):
-        if hasattr(a, 'meta'):
-            a = a.meta['val']
-        if hasattr(b, 'meta'):
-            b = b.meta['val']
-        return a, b
+    def __call__(self, *args):
+        return (arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)
 
 
 class XlaGather(Operator):

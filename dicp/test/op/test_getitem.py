@@ -1,6 +1,6 @@
 import pytest
 import operator
-from common.utils import (
+from ..common.utils import (
     torch,
     dynamo,
     parse_args,

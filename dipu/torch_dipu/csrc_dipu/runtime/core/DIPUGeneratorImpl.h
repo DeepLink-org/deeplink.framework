@@ -11,7 +11,7 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
  public:
   // Constructors
   explicit DIPUGeneratorImpl(at::DeviceIndex device_index = -1);
-  ~DIPUGeneratorImpl() = default;
+  ~DIPUGeneratorImpl() override = default;
 
   std::shared_ptr<DIPUGeneratorImpl> clone() const;
   void set_current_seed(uint64_t seed) override;
@@ -19,7 +19,7 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  virtual void set_state(const c10::TensorImpl& state){};
+  void set_state(const c10::TensorImpl& state) override{};
   virtual void set_offset(uint64_t offset){};
   virtual uint64_t get_offset() const { return 0; };
 
