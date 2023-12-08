@@ -13,7 +13,7 @@ ProcessGroupDICL = _C.ProcessGroupDICL
 def reg_dicl(store, rank, size, timeout):
     return ProcessGroupDICL(store, rank, size, timeout)
 
-Backend.register_backend(dicl_backend, reg_dicl)
+Backend.register_backend(dicl_backend, reg_dicl, devices="cuda")
 
 
 # distributed.BackendConfig has no power to do suitable 'device_backend_map' setting 

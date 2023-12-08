@@ -5,6 +5,8 @@ diopi_wrapper_file_template_content = \
 #include <ATen/Tensor.h>
 #include <ATen/ATen.h>
 #include <ATen/Functions.h>
+#include <ATen/ExpandUtils.h>
+
 #include <type_traits>
 
 #include <torch/csrc/autograd/custom_function.h>

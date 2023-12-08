@@ -1721,6 +1721,8 @@
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_fallback: True
   custom_code_at_the_beginning: |
+    TORCH_CHECK(!indices.empty() || at::is_expandable_to(values.sizes(), self.sizes()), "shape mismatch: value tensor of shape ",
+          values.sizes(), " cannot be broadcast to indexing result of shape ", self.sizes());
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
     for (int i = 0; i < indices.size(); ++i) {
