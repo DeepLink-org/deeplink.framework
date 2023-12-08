@@ -138,6 +138,7 @@ void setAllocator(const std::string &name, c10::DeviceType device_type,
 c10::Allocator* getAllocator(c10::DeviceType device_type);
 
 namespace allocator_details {  // For internal implementation only
+
 struct AllocatorRegisterer {
   explicit AllocatorRegisterer(
       const std::string &name, c10::DeviceType device_type,
