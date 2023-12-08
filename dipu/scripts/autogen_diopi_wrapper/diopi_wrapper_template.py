@@ -20,7 +20,8 @@ diopi_wrapper_file_template_content = \
 
 $header_include_code
 
-// NOTS: some kernels(eg. _foreach_add_.List) have custom code at the beginning with direct return, cause this warning
+// NOTE: some kernels (e.g. _foreach_add_.List) have custom codes at the beginning ending with early return.
+// This is a workaround indended to skip some of the autogened codes (e.g. type cast, calling DIOPI, etc.).
 // NOLINTBEGIN(readability-redundant-control-flow)
 
 namespace dipu {

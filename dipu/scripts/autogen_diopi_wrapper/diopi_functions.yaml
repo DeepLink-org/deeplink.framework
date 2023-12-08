@@ -1598,8 +1598,8 @@
     *   '''
     */
 
-    int SameAsInputSize = 7;
-    std::vector<at::Tensor> outputs(SameAsInputSize);
+    constexpr int kSameAsInputSize = 7;
+    std::vector<at::Tensor> outputs(kSameAsInputSize);
     outputs[0] = result;
     return outputs;
 
@@ -1709,8 +1709,8 @@
     *   '''
     */
     
-    int SameAsInputSize = 7;
-    std::vector<at::Tensor> outputs(SameAsInputSize);
+    constexpr int kSameAsInputSize = 7;
+    std::vector<at::Tensor> outputs(kSameAsInputSize);
     outputs[0] = result;
     return outputs;
 
