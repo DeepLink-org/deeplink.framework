@@ -874,9 +874,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
-    } else {
-      dim += 0;
-    }
+    } 
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -901,9 +899,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size());
-    } else {
-      dim += 0;
-    }
+    } 
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -1575,8 +1571,35 @@
     at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
     at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   backward_return_code: |
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::vector<at::Tensor> outputs(7);
+    /* Note: This kernel's output size will be checked by pytorch/torch/csrc/autograd/custom_function.h
+    *
+    *  ''' custom_function.h
+    *   auto num_outputs = static_cast<int64_t>(outputs.size());
+    *   // Returning too many results is ok, but only as long as they're all
+    *   // undefined. Truncate the result vector in that case.
+    *   if (num_outputs > num_forward_inputs) {
+    *     bool all_undef = true;
+    *     for (const auto i : c10::irange(num_forward_inputs, num_outputs)) {
+    *       all_undef &= (!outputs[i].defined());
+    *     }
+    *     if (all_undef) {
+    *       outputs.resize(num_forward_inputs);
+    *       num_outputs = num_forward_inputs;
+    *     }
+    *   }
+    *
+    *   if (num_outputs != num_forward_inputs) {
+    *     std::string msg("function ");
+    *     msg += name() + " returned an incorrect number of gradients (expected ";
+    *     msg += c10::to_string(num_forward_inputs) + ", got ";
+    *     msg += c10::to_string(num_outputs) + ")";
+    *     throw std::runtime_error(msg);
+    *   }
+    *   '''
+    */
+
+    int SameAsInputSize = 7;
+    std::vector<at::Tensor> outputs(SameAsInputSize);
     outputs[0] = result;
     return outputs;
 
@@ -1659,8 +1682,35 @@
     at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
     at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   backward_return_code: |
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-    std::vector<at::Tensor> outputs(7);
+    /* Note: This kernel's output size will be checked by pytorch/torch/csrc/autograd/custom_function.h
+    *
+    *  ''' custom_function.h
+    *   auto num_outputs = static_cast<int64_t>(outputs.size());
+    *   // Returning too many results is ok, but only as long as they're all
+    *   // undefined. Truncate the result vector in that case.
+    *   if (num_outputs > num_forward_inputs) {
+    *     bool all_undef = true;
+    *     for (const auto i : c10::irange(num_forward_inputs, num_outputs)) {
+    *       all_undef &= (!outputs[i].defined());
+    *     }
+    *     if (all_undef) {
+    *       outputs.resize(num_forward_inputs);
+    *       num_outputs = num_forward_inputs;
+    *     }
+    *   }
+    *
+    *   if (num_outputs != num_forward_inputs) {
+    *     std::string msg("function ");
+    *     msg += name() + " returned an incorrect number of gradients (expected ";
+    *     msg += c10::to_string(num_forward_inputs) + ", got ";
+    *     msg += c10::to_string(num_outputs) + ")";
+    *     throw std::runtime_error(msg);
+    *   }
+    *   '''
+    */
+
+    int SameAsInputSize = 7;
+    std::vector<at::Tensor> outputs(SameAsInputSize);
     outputs[0] = result;
     return outputs;
 
