@@ -29,8 +29,8 @@ add_custom_command(
   COMMAND
     python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
-    --use_diopi_adapter False --autocompare False --print_func_call_info True
-    --print_op_arg True --fun_config_dict
+    --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
+    --print_op_arg "True" --fun_config_dict
     '{\"current_device\": \"${UsedVendor}\"}'
   DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
@@ -83,8 +83,16 @@ add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
 
 # link
 target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
-target_link_libraries(${DIPU_LIB} kineto kineto_base)
+
+# note for kineto:
+# Target kineto only contains object files. Thus we need to do something to
+# fetch header files. And kineto's public headers are also used by other
+# target, so they are marked as PUBLIC.
+target_link_libraries(${DIPU_LIB} kineto)
 target_compile_definitions(${DIPU_LIB} PRIVATE USE_KINETO)
+target_include_directories(${DIPU_LIB} SYSTEM
+  PUBLIC "${kineto_SOURCE_DIR}/include"
+  PRIVATE "${kineto_SOURCE_DIR}/src")
 
 target_link_libraries(${DIPU_LIB} diopi_impl)
 # target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
