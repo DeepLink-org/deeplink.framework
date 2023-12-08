@@ -873,9 +873,9 @@
 - schema: "stack(Tensor[] tensors, int dim=0) -> Tensor"
   custom_code_at_the_beginning: |
     if (dim < 0) {
-      dim = static_cast<int64_t>(tensors[0].sizes().size()) + 1;
+      dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
     } else {
-      dim = 0;
+      dim += 0;
     }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
@@ -900,9 +900,9 @@
 - schema: "stack.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     if (dim < 0) {
-      dim = static_cast<int64_t>(tensors[0].sizes().size());
+      dim += static_cast<int64_t>(tensors[0].sizes().size());
     } else {
-      dim = 0;
+      dim += 0;
     }
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
