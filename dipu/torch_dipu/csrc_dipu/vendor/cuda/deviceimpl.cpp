@@ -158,8 +158,7 @@ EventStatus getEventStatus(deviceEvent_t event) {
     ::cudaGetLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   }
-  TORCH_CHECK(false,
-              "unexpected event status in getEventStatus, ret = ", ret);
+  TORCH_CHECK(false, "unexpected event status in getEventStatus, ret = ", ret);
 }
 
 // =====================
