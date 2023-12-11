@@ -5,7 +5,7 @@ import os.path as osp
 import mmcls
 from mmcv import Config
 from mmcls.models import build_classifier
-from common import utils
+from ..common import utils
 import torch_dipu
 
 

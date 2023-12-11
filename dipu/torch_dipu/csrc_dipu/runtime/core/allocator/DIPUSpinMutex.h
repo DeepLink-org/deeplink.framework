@@ -6,6 +6,7 @@
 
 namespace dipu {
 
+// FIXME: someone should remove it someday.
 /// Simple spin-lock to help build thread-safe functions.
 class SpinMutex {
  private:
@@ -16,13 +17,14 @@ class SpinMutex {
 
   SpinMutex(const SpinMutex&) = delete;
 
-  void delay() const noexcept { std::this_thread::yield(); }
+  void static delay() noexcept { std::this_thread::yield(); }
 
   void lock() {
     for (bool exp = false;
          !excl_.compare_exchange_weak(exp, true, std::memory_order_acq_rel);
-         exp = false)
+         exp = false) {
       delay();
+    }
   }
 
   bool try_lock() {

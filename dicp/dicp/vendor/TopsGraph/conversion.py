@@ -148,9 +148,29 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Exp(self, *args, **kwargs):
         return self.get_proxy(tops_op.Exp, args, kwargs)
 
+    @register_conversion(aten.sin)
+    def Sin(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Sin, args, kwargs)
+
+    @register_conversion(aten.cos)
+    def Cos(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Cos, args, kwargs)
+
     @register_conversion(aten.relu)
     def Relu(self, *args, **kwargs):
         return self.get_proxy(tops_op.Relu, args, kwargs)
+
+    @register_conversion(aten.erf)
+    def Erf(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Erf, args, kwargs)
+
+    @register_conversion(aten.split.Tensor)
+    def Split(self, a, size, dim=0, **kwargs):
+        in_shape = a.node.meta["val"].shape
+        dim = dim % len(in_shape)
+        sections = (in_shape[dim] + size - 1) // size
+        splits = (self.get_proxy(tops_op.SliceInDim, (a, dim, i * size, min((i + 1) * size, in_shape[dim]), 1)) for i in range(sections))
+        return self.get_proxy(tops_op.MakeTuple, tuple(splits))
 
     @register_conversion(aten.sum)
     def ReduceSum(self, a, *args, **kwargs):
@@ -211,9 +231,13 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.Clone, args, kwargs)
 
     # Copy_ is only validated for inplace copy of input parameters in optimizer, be careful about other cases.
-    @register_conversion([aten.copy.default, aten.copy_.default])
+    @register_conversion(aten.copy.default)
     def Copy(self, *args, **kwargs):
         return self.get_proxy(tops_op.Copy, args, kwargs)
+
+    @register_conversion(aten.copy_.default)
+    def Copy_(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Copy_, args, kwargs)
 
     @register_conversion(aten.lift_fresh_copy.default)
     def LiftFreshCopy(self, *args, **kwargs):
@@ -403,11 +427,11 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten.slice_scatter.default)
     def SliceScatter(self, a, b, dim=0, start=0, end=-1, step=1):
         operand_shape = a.node.meta["val"].shape
-        dim = dim % len(operand_shape)
-        start = 0 if start is None else start
-        end = operand_shape[dim] if end is None else end
         end = end % operand_shape[dim] if end < operand_shape[dim] else operand_shape[dim]
-        assert end == operand_shape[dim] and step == 1, "limited support"
+        if end != operand_shape[dim]:
+            Warning(f"SliceScatter encounter unsupported end value: {end}, this will affect precision!")
+        if step != 1:
+            Warning(f"SliceScatter encounter unsupported step value: {step}, this will affect precision!")
         return self.get_proxy(tops_op.SliceScatter, (a, b, dim, start, end, step))
 
     @register_conversion(aten.select.int)
@@ -435,18 +459,17 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.scalar_tensor.default)
     def Scalar(self, a, **kwargs):
-        if "dtype" in kwargs:
-            real_dtype = kwargs["dtype"]
-            if real_dtype not in (torch.int64, torch.float32):
-                kwargs["dtype"] = torch.float32
-                scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
-                return self.get_proxy(tops_op.Convert(), (scalar, real_dtype))
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        if out_dtype is torch.float16:
+            kwargs["dtype"] = torch.float32
+            scalar = self.get_proxy(tops_op.Scalar, (a,), kwargs)
+            return self.get_proxy(tops_op.Convert(), (scalar, out_dtype))
         return self.get_proxy(tops_op.Scalar, (a,), kwargs)
 
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
         idx_rank = len(args[1].node.meta['val'].shape)
-        return self.get_proxy(tops_op.XlaGather, (*args, [idx_rank,], [0,], [0,], idx_rank,
+        return self.get_proxy(tops_op.XlaGather, (args[0], args[1], [idx_rank,], [0,], [0,], idx_rank,
                                                   [1, args[0].node.meta['val'].shape[1]]))
 
     @register_conversion(prims.convert_element_type)

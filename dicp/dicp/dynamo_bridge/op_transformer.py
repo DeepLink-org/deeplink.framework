@@ -39,7 +39,7 @@ class SingleOpTransformer(torch.fx.Transformer):
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()
-                    if not st in self.sym_in_args:
+                    if st not in self.sym_in_args:
                         self.sym_in_args[st] = (proxy, idx)
         return proxy
 

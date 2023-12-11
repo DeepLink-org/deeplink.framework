@@ -12,6 +12,7 @@
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/profiler/profiler_kineto.h"
 #include "csrc_dipu/profiler/profiler_python.h"
+#include "csrc_dipu/runtime/device/profilerapis.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "exportapi.h"
@@ -39,6 +40,9 @@ void exportProfiler(PyObject* module) {
     return activities;
   });
   profile::init();
+
+  m.def("_enable_profiler_api", &devapis::enableProfiler);
+  m.def("_disable_profiler_api", &devapis::disableProfiler);
 }
 
 }  // namespace dipu

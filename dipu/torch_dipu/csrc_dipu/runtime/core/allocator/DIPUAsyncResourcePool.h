@@ -45,12 +45,12 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
       return false;
     }
 
-    for (auto iter = std::get<1>(list_.front()).begin();
-         iter != std::get<1>(list_.front()).end(); iter++) {
-      if (iter->query() == false) {
+    for (auto& item : std::get<1>(list_.front())) {
+      if (!item.query()) {
         return false;
       }
     }
+
     return true;
   }
 
