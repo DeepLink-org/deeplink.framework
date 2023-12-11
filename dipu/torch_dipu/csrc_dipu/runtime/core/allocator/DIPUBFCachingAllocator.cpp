@@ -61,7 +61,7 @@ class BFCachingAllocatorImpl {
     // into 128 bits (`kNumBigBins` * `kNumSubBins`)
     __uint128_t bits = 0;
     // Virtual chunks which are the heads of the bins
-    std::array<int, static_cast<size_t>(kNumBigBins * kNumSubBins)> binHeads_{0};
+    std::array<int, static_cast<size_t>(kNumBigBins * kNumSubBins)> binHeads_{};
     // The extending size next time
     size_t currExtendSize_ = kMinExtendSize;
 

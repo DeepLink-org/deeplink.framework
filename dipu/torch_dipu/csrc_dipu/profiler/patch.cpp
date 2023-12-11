@@ -385,7 +385,6 @@ struct RawTensors {
 
   std::vector<RawTensorInfo> tensors_;
 };
-}  // namespace
 
 void FlattenToUniformRepresentation(std::vector<std::shared_ptr<Result>>& sorted_results,
      std::vector<RawTensorInfo>& tensors) {
@@ -427,6 +426,7 @@ void FlattenToUniformRepresentation(std::vector<std::shared_ptr<Result>>& sorted
   }
   tensors = std::move(raw_tensors.tensors_);
 }
+}  // namespace
 
 void calculateUniqueTensorIDs(
     std::vector<std::shared_ptr<Result>>& sorted_results) {
