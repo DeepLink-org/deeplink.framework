@@ -89,11 +89,7 @@ class Operator(ABC):
         with fake_mode:
             try:
                 if hasattr(self, "infer_result"):
-                    return (
-                        self.infer_result(*new_args, **kwargs)
-                        if self.__name__ != "Const"
-                        else self.infer_result(new_args, kwargs)
-                    )
+                    return self.infer_result(*new_args, **kwargs)
                 elif hasattr(self, "torch_op"):
                     return self.torch_op(*new_args, **kwargs)
             except Exception as e:

@@ -302,7 +302,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
             ascend_op.Const, ([float(p)], torch.float32, []))
         seed_op = self.get_proxy(ascend_op.Const, ([-1], torch.int64, []))
         offset_op = self.get_proxy(ascend_op.Const, ([0], torch.int64, []))
-        print("Bernoulli last but one")
         return self.get_proxy(ascend_op.StatelessBernoulli, (shape_op, prop_op, seed_op, offset_op, dtype))
 
     @register_conversion(aten.new_empty_strided.default)

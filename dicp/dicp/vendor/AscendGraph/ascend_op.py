@@ -254,7 +254,6 @@ class Squeeze(Operator):
                     + ": can only squeeze a dimension that is 1!"
                 )
                 shape.pop(i)
-
         x_memory_format = get_memory_format(x)
         if len(shape) < 4:
             x_memory_format = torch.contiguous_format
@@ -267,10 +266,9 @@ class Pack(Operator):
 
     def infer_result(self, x, dim):
         x0, x0_shape, x0_dim, x0_dtype = get_fake_tensor_meta_val(x[0])
-        dim = (dim + x0_dim) % x0_dim
+        dim = (dim + x0_dim + 1) % (x0_dim + 1)
         out_shape = list(x0_shape)
         out_shape.insert(dim, len(x))
-
         return torch.empty(
             out_shape, dtype=x0_dtype, memory_format=get_memory_format(x0)
         )
@@ -328,7 +326,7 @@ class Const(Operator):
     def __init__(self):
         super().__init__("Const")
 
-    def infer_result(self, new_args, kwargs):
+    def infer_result(self, *new_args, **kwargs):
         return new_args, kwargs
 
 
@@ -435,8 +433,17 @@ class Identity(Operator):
 
     def infer_result(self, x, idx=None):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        out_shape = list(x_shape[idx]) if idx is not None else list(x_shape)
-        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        out_dtype = x_dtype
+        if x_dtype == torch.complex64:  # for complex64
+            out_shape = list(x_shape)
+            if idx == 0 or idx == 1:
+                out_dtype = torch.float32
+                out_shape.append(1)
+        else:
+            out_shape = [x_shape[idx]] if idx is not None else list(x_shape)
+        return torch.empty(
+            out_shape, dtype=out_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class IdentityInp(Operator):
@@ -567,15 +574,22 @@ class SplitD(Operator):
     def __init__(self):
         super().__init__("SplitD")
 
-    def infer_result(self, x, split_dim, num_split, unknown_param):
+    # TODO: params of this op is unclear, usage in conversion.py seems to be different with definition in Huawei code
+    # current implementation regards this op ONLY being used for "view_as_complex"
+    def infer_result(self, x, out_dim, split_dim, num_split):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         split_dim = (split_dim + x_dim) % x_dim
-
         out_shape = list(x_shape)
-        out_shape[split_dim] //= num_split
-        out_shape.append(num_split)
-
-        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        del out_shape[-1]
+        return torch.empty(
+            out_shape,
+            # TODO: need more info to infer type!
+            # if this op is used in other op's decomposition, we have no idea what dtype the output should be
+            dtype=torch.complex64
+            if num_split == 2 and x_dim - 1 == out_dim
+            else x_dtype,
+            memory_format=get_memory_format(x),
+        )
 
 
 class Slice(Operator):
