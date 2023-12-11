@@ -184,6 +184,8 @@ DIPU_API void freeHost(void* p) { free(p); }
 extern "C" {
 void* br_device_malloc(uint64_t bytes);
 void br_device_free(void* ptr);
+// get physical address from ptr(virtual)
+void* get_phy_ptr(const void* ptr);
 }
 
 DIPU_API OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
@@ -206,47 +208,60 @@ DIPU_API bool isPinnedPtr(const void* p) { return false; }
 // (asynchronous) set val
 DIPU_API void memSetAsync(const deviceStream_t stream, void* ptr, int val,
                           size_t size) {
-  SUPA_CALL(suMemsetAsync(ptr, val, size, stream));
+  auto phy_gpu_addr = get_phy_ptr(ptr);
+  SUPA_CALL(suMemsetAsync(phy_gpu_addr, val, size, stream));
 }
 
 // (synchronous) copy from device to a device
 DIPU_API void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                          deviceId_t srcDevId, const void* src) {
   // SUPA uses Unified Virtual Address
-  SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyDeviceToDevice));
+  auto phy_src_gpu_addr = get_phy_ptr(src);
+  auto phy_dst_gpu_addr = get_phy_ptr(dst);
+  SUPA_CALL(suMemcpy(phy_dst_gpu_addr, phy_src_gpu_addr, nbytes,
+                     suMemcpyDeviceToDevice));
 }
 
 // (synchronous) copy from host to a device
 DIPU_API void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst,
                          /*Host srcDev,*/ const void* src) {
-  SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyHostToDevice));
+  auto phy_dst_gpu_addr = get_phy_ptr(dst);
+  SUPA_CALL(suMemcpy(phy_dst_gpu_addr, src, nbytes, suMemcpyHostToDevice));
 }
 
 // (synchronous) copy from a device to host
 DIPU_API void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
                          /*deviceId_t srcDevId,*/ const void* src) {
-  SUPA_CALL(suMemcpy(dst, src, nbytes, suMemcpyDeviceToHost));
+  auto phy_src_gpu_addr = get_phy_ptr(src);
+  SUPA_CALL(suMemcpy(dst, phy_src_gpu_addr, nbytes, suMemcpyDeviceToHost));
 }
 
 // (asynchronous) copy from device to a device
 DIPU_API void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                               deviceId_t dstDevId, void* dst,
                               deviceId_t srcDevId, const void* src) {
-  SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyDeviceToDevice));
+  auto phy_src_gpu_addr = get_phy_ptr(src);
+  auto phy_dst_gpu_addr = get_phy_ptr(dst);
+  SUPA_CALL(suMemcpyAsync(phy_dst_gpu_addr, phy_src_gpu_addr, nbytes, stream,
+                          suMemcpyDeviceToDevice));
 }
 
 // (asynchronous) copy from host to a device
 DIPU_API void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
                               /*deviceId_t dstDevId,*/ void* dst,
                               /*Host srcDev,*/ const void* src) {
-  SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyHostToDevice));
+  auto phy_dst_gpu_addr = get_phy_ptr(dst);
+  SUPA_CALL(suMemcpyAsync(phy_dst_gpu_addr, src, nbytes, stream,
+                          suMemcpyHostToDevice));
 }
 
 // (asynchronous) copy from a device to host
 DIPU_API void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
                               /*Host dstDev,*/ void* dst,
                               /*deviceId_t srcDevId,*/ const void* src) {
-  SUPA_CALL(suMemcpyAsync(dst, src, nbytes, stream, suMemcpyDeviceToHost));
+  auto phy_src_gpu_addr = get_phy_ptr(src);
+  SUPA_CALL(suMemcpyAsync(dst, phy_src_gpu_addr, nbytes, stream,
+                          suMemcpyDeviceToHost));
 }
 }  // end namespace devapis
 }  // end namespace dipu
