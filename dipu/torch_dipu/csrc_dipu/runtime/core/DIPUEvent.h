@@ -38,8 +38,8 @@ class DIPU_API DIPUEvent {
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other)  noexcept { moveHelper(std::move(other)); }
-  DIPUEvent& operator=(DIPUEvent&& other)  noexcept {
+  DIPUEvent(DIPUEvent&& other) noexcept { moveHelper(std::move(other)); }
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept {
     moveHelper(std::move(other));
     return *this;
   }
@@ -51,8 +51,8 @@ class DIPU_API DIPUEvent {
   c10::optional<at::Device> device() const {
     if (isCreated()) {
       return at::Device(dipu::DIPU_DEVICE_TYPE, device_index_);
-    }        return {};
-   
+    }
+    return {};
   }
 
   bool isCreated() const { return event_ != nullptr; }

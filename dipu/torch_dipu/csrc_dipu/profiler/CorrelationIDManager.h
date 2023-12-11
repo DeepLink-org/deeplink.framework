@@ -1,7 +1,7 @@
 #pragma once
 
-#include <deque>
 #include <cstdint>
+#include <deque>
 
 #include "DeviceActivityInterface.h"
 
@@ -27,13 +27,14 @@ class CorrelationIDManager {
   CorrelationIDManager() = default;
 
   thread_local static std::array<
-      std::deque<uint64_t>, libkineto::DeviceActivityInterface::CorrelationFlowType::End>
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+      std::deque<uint64_t>,
+      libkineto::DeviceActivityInterface::CorrelationFlowType::End>
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
       external_ids_;
-      
+
   thread_local static std::deque<
       libkineto::DeviceActivityInterface::CorrelationFlowType>
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)    
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
       type_;
 };
 

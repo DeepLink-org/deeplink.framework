@@ -37,7 +37,8 @@ class StreamTimeOffsetTracker final {
   float ratio_ = 0.F;
 
  public:
-  explicit StreamTimeOffsetTracker(deviceStream_t stream) : stream_(stream), beginOffset_(torch::profiler::impl::getTime()) {
+  explicit StreamTimeOffsetTracker(deviceStream_t stream)
+      : stream_(stream), beginOffset_(torch::profiler::impl::getTime()) {
     devproxy::recordEvent(begin_.get(), stream_);
     devproxy::waitEvent(begin_.get());
   }
@@ -167,7 +168,7 @@ class DeviceRecordsImpl final {
     }
   }
 
-  void addDeviceRecord(const DeviceRecord &record) {
+  void addDeviceRecord(const DeviceRecord& record) {
     std::lock_guard<std::mutex> lk(mtx_);
     TORCH_CHECK(pTracker_, "dipu profiler error with pTracker is not inited");
     records_.push_back(record);
@@ -193,10 +194,10 @@ class DeviceRecordsImpl final {
       constexpr double kMillisecondPerSecond = 1e3;
       dipu::devproxy::eventElapsedTime(&t1, beginEvent(), r.start->get());
       dipu::devproxy::eventElapsedTime(&t2, r.start->get(), r.stop->get());
-      ready_records_.push_back(
-          Record({r.name, r.opId, static_cast<size_t>(t1 * kMillisecondPerSecond),
-                  static_cast<size_t>((t1 + t2) * kMillisecondPerSecond), r.deviceId, r.streamId,
-                  true, r.linkCorrelationId, r.extraInfo}));
+      ready_records_.push_back(Record(
+          {r.name, r.opId, static_cast<size_t>(t1 * kMillisecondPerSecond),
+           static_cast<size_t>((t1 + t2) * kMillisecondPerSecond), r.deviceId,
+           r.streamId, true, r.linkCorrelationId, r.extraInfo}));
       records_.pop_front();
     }
   }
@@ -212,8 +213,12 @@ class DeviceRecordsImpl final {
 
       constexpr double kSecondPerMillisecond = 1e-3;
       for (auto& r : ready_records_) {
-        r.begin = static_cast<size_t>(static_cast<double>(r.begin) * kSecondPerMillisecond * ratio) + offset;
-        r.end = static_cast<size_t>(static_cast<double>(r.end) * kSecondPerMillisecond * ratio) + offset;
+        r.begin = static_cast<size_t>(static_cast<double>(r.begin) *
+                                      kSecondPerMillisecond * ratio) +
+                  offset;
+        r.end = static_cast<size_t>(static_cast<double>(r.end) *
+                                    kSecondPerMillisecond * ratio) +
+                offset;
         RecordsImpl::get().addRecord(r);
       }
       ready_records_.clear();
@@ -356,9 +361,9 @@ RecordBlockCreator::RecordBlockCreator(string_t name,
         CorrelationIDManager::instance().getCorrelationID();
     name = extraceFunction(name);
     pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
-                                         correlationId, extraInfo);
-    pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(name, stream, streamId, opId,
-                                                 correlationId, extraInfo);
+                                                   correlationId, extraInfo);
+    pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(
+        name, stream, streamId, opId, correlationId, extraInfo);
   }
 }
 

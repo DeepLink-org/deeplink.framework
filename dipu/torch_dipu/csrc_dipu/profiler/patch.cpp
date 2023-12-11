@@ -59,7 +59,8 @@ ApproximateClockToUnixTimeConverter::makeConverter() {
   for (const auto i : c10::irange(replicates)) {
     auto delta_ns = end_times[i].t_ - start_times_[i].t_;
     auto delta_approx = end_times[i].approx_t_ - start_times_[i].approx_t_;
-    scale_factors[i] = static_cast<double>(delta_ns) / static_cast<double>(delta_approx);
+    scale_factors[i] =
+        static_cast<double>(delta_ns) / static_cast<double>(delta_approx);
   }
   std::sort(scale_factors.begin(), scale_factors.end());
   long double scale_factor = scale_factors[replicates / 2 + 1];
@@ -77,14 +78,18 @@ ApproximateClockToUnixTimeConverter::makeConverter() {
   for (const auto i : c10::irange(replicates)) {
     auto dt = start_times_[i].t_ - t0;
     auto dt_approx =
-        static_cast<double>(start_times_[i].approx_t_ - t0_approx) * scale_factor;
+        static_cast<double>(start_times_[i].approx_t_ - t0_approx) *
+        scale_factor;
     t0_correction[i] = static_cast<double>(dt - static_cast<time_t>(dt_approx));
   }
   t0 += static_cast<time_t>(t0_correction[t0_correction.size() / 2 + 1]);
 
   return [=](approx_time_t t_approx) {
     // See above for why this is more stable than `A * t_approx + B`.
-    auto result = static_cast<time_t>(static_cast<double>(t_approx - t0_approx) * scale_factor) + t0;
+    auto result =
+        static_cast<time_t>(static_cast<double>(t_approx - t0_approx) *
+                            scale_factor) +
+        t0;
     return result;
   };
 }
@@ -100,11 +105,12 @@ namespace linux_perf {
  * Syscall wrapper for perf_event_open(2)
  */
 inline int64_t perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
-                            int cpu, int group_fd, uint64_t flags) {
+                               int cpu, int group_fd, uint64_t flags) {
   return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-// TODO(caikun-pjlab): sync with Kineto level abstract events in profiler/events.h
+// TODO(caikun-pjlab): sync with Kineto level abstract events in
+// profiler/events.h
 static const std::unordered_map<
     std::string, std::pair<perf_type_id, /* perf event type */ uint32_t>>
     EventTable{{"cycles",
@@ -319,7 +325,7 @@ void ActivityTraceWrapper::save(const std::string& path) {
 
 void addMetadata(const activity_t* activity, const std::string& key,
                  const std::string& value) {
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
   const_cast<activity_t*>(activity)->addMetadata(key, value);
 }
 
@@ -386,9 +392,9 @@ struct RawTensors {
   std::vector<RawTensorInfo> tensors_;
 };
 
-void FlattenToUniformRepresentation(std::vector<std::shared_ptr<Result>>& sorted_results,
-     std::vector<RawTensorInfo>& tensors) {
-
+void FlattenToUniformRepresentation(
+    std::vector<std::shared_ptr<Result>>& sorted_results,
+    std::vector<RawTensorInfo>& tensors) {
   RawTensors raw_tensors;
   // The python tracer caches values, so it's only safe to use the first case.
   ska::flat_hash_set<PyModuleSelf> seen_modules;
@@ -434,11 +440,11 @@ void calculateUniqueTensorIDs(
   // We first cluster events with a greedy index assignment, and then merge
   // groups that overlap.
   std::vector<RawTensorInfo> tensors;
- 
+
   // Flatten results to a uniform representation.
   // --------------------------------------------------------------------------
   FlattenToUniformRepresentation(sorted_results, tensors);
-  
+
   // Assign IDs to solve ABA for Storage.
   // --------------------------------------------------------------------------
   {

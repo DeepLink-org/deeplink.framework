@@ -2,12 +2,12 @@
 
 #include <IActivityProfiler.h>
 #include <chrono>
+#include <cstdint>
 #include <deque>
 #include <list>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <cstdint>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -89,7 +89,7 @@ class RecordsImpl final {
   // tid -> record list
   std::unordered_map<int32_t, std::unique_ptr<records_t>> allRecordLists_;
 
-  //NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   thread_local static records_t* pRecords;
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resourceInfo_;
