@@ -737,56 +737,60 @@ void set_in_tree_building(std::vector<result_ptr_t>& results,
   }
 }
 
+void push_event(std::shared_ptr<Result>& event,
+                ska::flat_hash_map<uint64_t, std::shared_ptr<Result>>& stacks,
+                std::priority_queue<result_ptr_t, std::vector<result_ptr_t>, 
+                                      ResultGreater>& end_events_) {
+  // Kineto builds subtrees using correlation ids and flows, so some Kineto
+  // events are already marked finished before the main tree building
+  // algorithm. It's fine to ignore them; the root event of these subtrees
+  // not a Kineto op and will be handled normally.
+  using op_fields = ExtraFields<torch::profiler::impl::EventType::TorchOp>;
+
+  if (c10::holds_alternative<
+          ExtraFields<torch::profiler::impl::EventType::Kineto>>(
+          event->extra_fields_) &&
+      event->finished_) {
+    return;
+  }
+
+  TORCH_INTERNAL_ASSERT(event->parent_.expired());
+  for (const auto& child : event->children_) {
+    TORCH_INTERNAL_ASSERT(child->finished_);
+  }
+  TORCH_INTERNAL_ASSERT(!event->finished_);
+
+  auto parent_it = stacks.find(event->start_tid_);
+  if (parent_it == stacks.end()) {
+    auto fwd_tid = event->visit(
+        c10::overloaded([](const op_fields& i) { return i.forward_tid_; },
+                        [](const auto&) -> uint64_t { return 0; }));
+    if (fwd_tid) {
+      parent_it = stacks.find(fwd_tid);
+    }
+  } else {
+    event->parent_ = parent_it->second;
+    parent_it->second->children_.push_back(event);
+  }
+
+  if (event->endTimeNS() > event->start_time_ns_) {
+    stacks[event->start_tid_] = event;
+    end_events_.push(event);
+  } else if (event->endTimeNS() == std::numeric_limits<time_t>::min()) {
+    // We use min time to indicate the lack of a termination event, so if we
+    // encounter such a case we don't push to `end_events_`.
+    stacks[event->start_tid_] = event;
+  } else {
+    mark_finished(event);
+  }
+}
+
 void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
   set_in_tree_building(sorted_events, true);
 
-  using op_fields = ExtraFields<torch::profiler::impl::EventType::TorchOp>;
   ska::flat_hash_map<uint64_t, std::shared_ptr<Result>> stacks;
   std::priority_queue<result_ptr_t, std::vector<result_ptr_t>, ResultGreater>
       end_events_;
-
-  auto push_event = [&stacks, &end_events_](std::shared_ptr<Result>& event) {
-    // Kineto builds subtrees using correlation ids and flows, so some Kineto
-    // events are already marked finished before the main tree building
-    // algorithm. It's fine to ignore them; the root event of these subtrees
-    // not a Kineto op and will be handled normally.
-    if (c10::holds_alternative<
-            ExtraFields<torch::profiler::impl::EventType::Kineto>>(
-            event->extra_fields_) &&
-        event->finished_) {
-      return;
-    }
-
-    TORCH_INTERNAL_ASSERT(event->parent_.expired());
-    for (const auto& child : event->children_) {
-      TORCH_INTERNAL_ASSERT(child->finished_);
-    }
-    TORCH_INTERNAL_ASSERT(!event->finished_);
-
-    auto parent_it = stacks.find(event->start_tid_);
-    if (parent_it == stacks.end()) {
-      auto fwd_tid = event->visit(
-          c10::overloaded([](const op_fields& i) { return i.forward_tid_; },
-                          [](const auto&) -> uint64_t { return 0; }));
-      if (fwd_tid) {
-        parent_it = stacks.find(fwd_tid);
-      }
-    } else {
-      event->parent_ = parent_it->second;
-      parent_it->second->children_.push_back(event);
-    }
-
-    if (event->endTimeNS() > event->start_time_ns_) {
-      stacks[event->start_tid_] = event;
-      end_events_.push(event);
-    } else if (event->endTimeNS() == std::numeric_limits<time_t>::min()) {
-      // We use min time to indicate the lack of a termination event, so if we
-      // encounter such a case we don't push to `end_events_`.
-      stacks[event->start_tid_] = event;
-    } else {
-      mark_finished(event);
-    }
-  };
 
   auto pop_event = [&stacks](std::shared_ptr<Result> event) {
     if (event->finished_) {
@@ -819,7 +823,7 @@ void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
       pop_event(end_events_.top());
       end_events_.pop();
     }
-    push_event(event);
+    push_event(event, stacks, end_events_);
   }
 
   // Cleanup remaining exit events.
@@ -947,6 +951,7 @@ std::pair<std::vector<std::shared_ptr<Result>>,
           std::unique_ptr<ActivityTraceWrapper>>
 DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                             uint64_t start_time_us, uint64_t end_time_us) {
+  constexpr size_t ns_per_us = 1000; 
   auto converter = [&](approx_time_t t) {
     return t == std::numeric_limits<approx_time_t>::min()
                ? std::numeric_limits<time_t>::min()
@@ -962,7 +967,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
       return convert(i.start_time_);
     }
     time_t operator()(const ExtraFields<Event::Backend>& i) const {
-      return i.start_time_us_ * 1000;
+      return i.start_time_us_ * ns_per_us;
     }
   } start_time_of{std::ref(converter)};
 
@@ -971,7 +976,6 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
   for (auto& subqueue_it : sub_queues_) {
     auto& queue = *subqueue_it.second;
     auto materialize = [&](auto& events) {
-      constexpr size_t ns_per_us = 1000;
       for (auto& i : events) {
         auto start_time_ns = start_time_of(i);
         out.emplace_back(Result::create(
@@ -1004,7 +1008,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
 
   if (python_tracer_) {
     for (const auto& i : python_tracer_->getEvents(converter, python_enters,
-                                                   static_cast<time_t>(end_time_us) * 1000)) {
+                                                   static_cast<time_t>(end_time_us) * ns_per_us)) {
       out.push_back(i);
     }
     python_tracer_.reset();
