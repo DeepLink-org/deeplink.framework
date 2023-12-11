@@ -195,7 +195,16 @@
 - schema: "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)"
   custom_code_at_the_beginning: |
     const int64_t dim_c = input.size(1);
-    auto out0 = at::empty_like(input);
+    const auto input_shape = input.sizes();
+    const int axis = input_shape.size();
+    auto out0_MemoryFormat = at::MemoryFormat::Preserve;
+    if(axis == 4 ){
+        out0_MemoryFormat = $SUGGESTED_MEMORYFORMAT;
+    }
+    if(axis == 5){
+        out0_MemoryFormat = $SUGGESTED_MEMORYFORMAT_3D;
+    }
+    auto out0 = at::empty_like(input, input.options(), out0_MemoryFormat);
     auto options = input.options().dtype(at::kFloat);
     at::Tensor out1, out2;
     if (!training) {
@@ -212,7 +221,7 @@
   custom_code_at_the_beginning: |
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
-    at::Tensor out0 = at::empty_like(input);
+    at::Tensor out0 = at::empty_like(input, input.options(), $SUGGESTED_MEMORYFORMAT);
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
@@ -494,7 +503,7 @@
     int64_t out_height = (height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1;
     int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
     c10::SmallVector<int64_t, 4> output_size = {batch_size, out_channel, out_height, out_width};
-    at::Tensor out = at::empty(output_size, input.options());
+    at::Tensor out = at::empty(output_size, input.options(),$SUGGESTED_MEMORYFORMAT);
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
@@ -506,7 +515,7 @@
     at::Tensor grad_bias;
     std::vector<int64_t> bias_sizes;
     if (output_mask[0]) {
-      grad_input = at::empty(input.sizes(), input.options());
+      grad_input = at::empty(input.sizes(), input.options(), $SUGGESTED_MEMORYFORMAT);
     }
     if (output_mask[1]) {
       grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
@@ -526,7 +535,7 @@
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
-    grad_input = at::empty(input.sizes(), input.options());
+    grad_input = at::empty(input.sizes(), input.options(), $SUGGESTED_MEMORYFORMAT);
     grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
         grad_bias = at::empty({grad_output.size(1)}, grad_output.options());
@@ -548,7 +557,7 @@
     const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
     const int64_t c_out = weight.size(1) * groups;
     auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
-    auto out = at::empty(output_shape, input.options());
+    auto out = at::empty(output_shape, input.options(), $SUGGESTED_MEMORYFORMAT);
   interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
   forward_process_code: |
     bool bias_has_value = (bias.has_value() == true) ? bias.value().requires_grad() : false;
@@ -1273,6 +1282,22 @@
     }
   interface: diopiUpsampleNearest(ctx, out, self, size);
 
+- schema: "upsample_nearest2d(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None) -> Tensor"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+    if (output_size.size() > 0) {
+      std::vector<int64_t> tmpVector(output_size.size());
+      auto symIntToInt = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
+      std::transform(output_size.cbegin(), output_size.cend(), tmpVector.begin(), symIntToInt);
+      std::copy(tmpVector.begin(), tmpVector.end(), size.begin());
+    } else {
+      size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
+      size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
+    }
+    auto out = at::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),$SUGGESTED_MEMORYFORMAT);
+  interface: diopiUpsampleNearest(ctx, out, self, size);
+
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
@@ -1284,6 +1309,23 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
+    const char* mode = "bilinear";
+  interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, mode);
+
+- schema: "upsample_bilinear2d(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None) -> Tensor"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+    if (output_size.size() > 0) {
+      std::vector<int64_t> tmpVector(output_size.size());
+      auto symIntToInt = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
+      std::transform(output_size.cbegin(), output_size.cend(), tmpVector.begin(), symIntToInt);
+      std::copy(tmpVector.begin(), tmpVector.end(), size.begin());
+    } else {
+      size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
+      size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
+    }
+    auto out = at::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),$SUGGESTED_MEMORYFORMAT);
     const char* mode = "bilinear";
   interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, mode);
 
@@ -1300,10 +1342,45 @@
     }
   interface: diopiUpsampleNearestBackward(ctx, grad_input, grad_output, size, input_size)
 
+- schema: "upsample_nearest2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None) -> Tensor grad_input"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+    auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
+    std::vector<int64_t> grad_input_shape(input_size.size());
+    std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
+    auto grad_input = at::empty(grad_input_shape,grad_output.options(),$SUGGESTED_MEMORYFORMAT);
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
+    }
+  interface: diopiUpsampleNearestBackward(ctx, grad_input, grad_output, size, input_size)
+
 - schema: "upsample_bilinear2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
     std::vector<int64_t> size(2);
+  custom_code_before_call_diopi: |
+    if (output_size.size() > 0) {
+      std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
+    } else {
+      size[0] = std::floor((*(input_sizeVector.rbegin() + 1)) * scales_h.value_or(1.0));
+      size[1] = std::floor((*(input_sizeVector.rbegin())) * scales_w.value_or(1.0));
+    }
+    const char* mode = "bilinear";
+  interface: diopiUpsampleLinearBackward(ctx, grad_input, grad_output, size, input_size, align_corners, mode)
+
+- schema: "upsample_bilinear2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, bool align_corners, float? scales_h=None, float? scales_w=None) -> Tensor grad_input"
+  size_attr: [size]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> size(2);
+    auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
+    std::vector<int64_t> grad_input_shape(input_size.size());
+    std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
+    auto grad_input = at::empty(grad_input_shape,grad_output.options(),$SUGGESTED_MEMORYFORMAT);
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1898,8 +1975,8 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat), $SUGGESTED_MEMORYFORMAT);
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat), $SUGGESTED_MEMORYFORMAT);
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
@@ -1917,8 +1994,8 @@
     at::Tensor out2;
     at::Tensor out3;
     if(input_g){
-      out0 = at::empty({shape}, input.options().dtype(at::kFloat));
-      out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+      out0 = at::empty({shape}, input.options().dtype(at::kFloat), $SUGGESTED_MEMORYFORMAT);
+      out1 = at::empty({shape}, input.options().dtype(at::kFloat), $SUGGESTED_MEMORYFORMAT);
     }
     if(weight_g){
       out2 = at::empty({shape}, input.options().dtype(at::kFloat));
@@ -1930,12 +2007,12 @@
 
 - schema: batch_norm_backward_elemt(Tensor grad_out, Tensor input, Tensor mean, Tensor invstd, Tensor? weight, Tensor sum_dy, Tensor sum_dy_xmu, Tensor count) -> Tensor
   custom_code_at_the_beginning: |
-    auto out = at::empty_like(grad_out);
+    auto out = at::empty_like(grad_out, grad_out.options(), $SUGGESTED_MEMORYFORMAT);
   interface: diopiBatchNormBackwardElemt(ctx, out, grad_out, input, mean, invstd, weight, sum_dy, sum_dy_xmu, count);
 
 - schema: batch_norm_elemt(Tensor input, Tensor? weight, Tensor? bias, Tensor mean, Tensor invstd, float eps) -> Tensor
   custom_code_at_the_beginning: |
-    auto out = at::empty_like(input);
+    auto out = at::empty_like(input, input.options(), $SUGGESTED_MEMORYFORMAT);
   interface: diopiBatchNormElemt(ctx, out, input, weight, bias, mean, invstd, eps);
 
 - schema: smooth_l1_loss.out(Tensor self, Tensor target, int reduction=Mean, float beta=1.0, *, Tensor(a!) out) -> Tensor(a!)
