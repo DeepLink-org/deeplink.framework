@@ -11,7 +11,7 @@ message(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
 
 # device related
 set(DEVICE
-    "camb"
+    "xpu"
     CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
 list(APPEND DEVICE_CUDA "CUDA" "cuda")
@@ -19,6 +19,7 @@ list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
+list(APPEND DEVICE_KUNLUNXIN "kunlunxin" "klx" "XPU" "xpu")
 
 execute_process(COMMAND git rev-parse --short HEAD
                 OUTPUT_VARIABLE DIPU_GIT_HASH)
@@ -50,6 +51,10 @@ elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
   set(USE_DROPLET ON)
   set(UsedVendor droplet)
   set(DIOPI_IMPL_OPT "droplet")
+elseif (${DEVICE} IN_LIST DEVICE_KUNLUNXIN)
+  set(USE_XPU ON)
+  set(UsedVendor kunlunxin)
+  set(DIOPI_IMPL_OPT "kunlunxin")
 else()
   message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
