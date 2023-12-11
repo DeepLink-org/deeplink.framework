@@ -669,6 +669,7 @@
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: False
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
@@ -2255,7 +2256,7 @@
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     return custom_fallback_dipu_copy_(self, src, non_blocking);
-  device: [topsrider]
+  device: [topsrider, kunlunxin]
   interface: diopiCopyInp(ctx, src, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
