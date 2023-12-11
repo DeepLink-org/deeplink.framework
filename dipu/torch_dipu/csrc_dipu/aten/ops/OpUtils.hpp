@@ -3,8 +3,8 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/Log.h>
 
-namespace dipu{
-namespace native{
+namespace dipu {
+namespace native {
 
 inline bool checkDiopiReturnValue() {
   static bool enable =

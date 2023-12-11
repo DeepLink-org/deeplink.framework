@@ -32,7 +32,7 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                            << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
-  out_cpu = at::silu_out(self_cpu, out_cpu); // NOLINT: It's the correct order
+  out_cpu = at::silu_out(self_cpu, out_cpu);  // NOLINT: It's the correct order
   out.copy_(out_cpu);
   return out;
 }
@@ -232,7 +232,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
 
   at::Tensor grad_weight;
   at::Tensor grad_weight_cpu;
-  
+
   at::Tensor grad_bias;
   at::Tensor grad_bias_cpu;
 

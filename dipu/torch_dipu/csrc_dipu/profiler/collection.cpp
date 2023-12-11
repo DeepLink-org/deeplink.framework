@@ -56,8 +56,8 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
       tags_.emplace_back(Tag::Scalar);
       // Scalars are small enough that they are stored in ivalues without an
       // extra memory alloc
-      // TODO(caikun-pjlab): further optimize this by maybe giving Profiler access to the
-      // guts of IValue.
+      // TODO(caikun-pjlab): further optimize this by maybe giving Profiler
+      // access to the guts of IValue.
       ivalues_.emplace_back(value);
     } else if (value.isTensorList()) {
       tags_.emplace_back(Tag::TensorListBegin);
@@ -247,7 +247,7 @@ struct StealOrDefault {
   typename T::Iterator::value_type operator()() {
     if (it_.exhausted()) {
       return typename T::Iterator::value_type();
-    } 
+    }
     auto result = std::move(*it_);
     ++it_;
     return result;
@@ -291,7 +291,8 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
 
   auto input_getter = inputs_outputs_.getNextShapesAndDtypes();
 
-  // TODO(caikun-pjlab): CTAD will take care of template args when we move to C++17
+  // TODO(caikun-pjlab): CTAD will take care of template args when we move to
+  // C++17
   auto jit_stack = StealOrDefault<decltype(jit_stack_)>(jit_stack_);
   auto jit_module = StealOrDefault<decltype(jit_modules_)>(jit_modules_);
   auto extra_args = StealOrDefault<decltype(extra_args_)>(extra_args_);
@@ -332,9 +333,9 @@ struct SubQueueThreadCache {
 // `sub_queue_cache_.key_` before attempting to access `ref_`, and if `key_`
 // does not match the DIPURecordQueue's *unique* `id_` it will evict
 // `sub_queue_cache_` and fall back to a different mechanism.
-//NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<uint32_t> queue_id_{0};
-//NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local SubQueueThreadCache sub_queue_cache_{0, nullptr};
 
 std::string toString(
@@ -443,10 +444,11 @@ constexpr const char* indexKey = "Ev Idx";
 
 void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
                         uint64_t start_time_us, uint64_t end_time_us) {
-  using torch::profiler::impl::kineto::TraceWrapper;
   using torch::profiler::impl::kineto::addMetadata;
+  using torch::profiler::impl::kineto::TraceWrapper;
   constexpr int64_t ns_per_us = 1000;
-  TraceWrapper cpu_trace(static_cast<int64_t>(start_time_us), "PyTorch Profiler");
+  TraceWrapper cpu_trace(static_cast<int64_t>(start_time_us),
+                         "PyTorch Profiler");
 
   // Generate Kineto events for each event recorded by the PyTorch profiler.
   for (const auto i : c10::irange(results.size())) {
@@ -669,7 +671,8 @@ class TransferEvents {
             // Flow takes priority over linked event.
             const auto it = flow_map.find(static_cast<int>(i.flow.id));
             if (it != flow_map.end() &&
-                i.flow.type == libkineto::kLinkAsyncCpuGpu && (i.flow.start == 0U)) {
+                i.flow.type == libkineto::kLinkAsyncCpuGpu &&
+                (i.flow.start == 0U)) {
               e->parent_ = it->second;
             }
 
@@ -739,8 +742,8 @@ void set_in_tree_building(std::vector<result_ptr_t>& results,
 
 void push_event(std::shared_ptr<Result>& event,
                 ska::flat_hash_map<uint64_t, std::shared_ptr<Result>>& stacks,
-                std::priority_queue<result_ptr_t, std::vector<result_ptr_t>, 
-                                      ResultGreater>& end_events_) {
+                std::priority_queue<result_ptr_t, std::vector<result_ptr_t>,
+                                    ResultGreater>& end_events_) {
   // Kineto builds subtrees using correlation ids and flows, so some Kineto
   // events are already marked finished before the main tree building
   // algorithm. It's fine to ignore them; the root event of these subtrees
@@ -869,7 +872,7 @@ int64_t adjust_durations_dfs(std::shared_ptr<Result>& r) {
                         r->name());
           }));
       return children_total_duration;
-    } 
+    }
     return original_duration;
   }
   return 0;
@@ -951,7 +954,7 @@ std::pair<std::vector<std::shared_ptr<Result>>,
           std::unique_ptr<ActivityTraceWrapper>>
 DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                             uint64_t start_time_us, uint64_t end_time_us) {
-  constexpr size_t ns_per_us = 1000; 
+  constexpr size_t ns_per_us = 1000;
   auto converter = [&](approx_time_t t) {
     return t == std::numeric_limits<approx_time_t>::min()
                ? std::numeric_limits<time_t>::min()
@@ -1007,8 +1010,9 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
   }
 
   if (python_tracer_) {
-    for (const auto& i : python_tracer_->getEvents(converter, python_enters,
-                                                   static_cast<time_t>(end_time_us) * ns_per_us)) {
+    for (const auto& i : python_tracer_->getEvents(
+             converter, python_enters,
+             static_cast<time_t>(end_time_us) * ns_per_us)) {
       out.push_back(i);
     }
     python_tracer_.reset();

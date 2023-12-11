@@ -55,8 +55,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                               \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");           \
       }                                                                      \
-      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"        \
-                                      << std::endl);                         \
+      DIPU_OP_LOG_WARNING_ONCE((opname)                                      \
+                               << " will be fallback to cpu" << std::endl);  \
     }                                                                        \
   } while (false);
 
@@ -72,15 +72,15 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                                \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");            \
       }                                                                       \
-      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"         \
-                                      << std::endl);                          \
+      DIPU_OP_LOG_WARNING_ONCE((opname)                                       \
+                               << " will be fallback to cpu" << std::endl);   \
       m.impl(opname, TORCH_FN(custom_fallback_func));                         \
     }                                                                         \
   } while (false);
 
 class DIPUOpRegister {
  public:
-  using OpRegFunPtr = void (*)(torch::Library &);
+  using OpRegFunPtr = void (*)(torch::Library&);
 
  private:
   OpRegFunPtr fun_ptr_;

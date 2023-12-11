@@ -172,12 +172,14 @@ static PyObject* dipuMockCudaTensors(PyObject* _unused, PyObject* noargs) {
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::array<PyMethodDef, 3> TorchTensorMethods = {{
-    {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
-     METH_VARARGS | METH_KEYWORDS, nullptr},
-    {"_mockCudaTensor", reinterpret_cast<PyCFunction>(dipuMockCudaTensors),
-     METH_NOARGS, nullptr},
-    {nullptr, nullptr, 0, nullptr}}};
+static std::array<PyMethodDef, 3> TorchTensorMethods = {
+    {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
+      METH_VARARGS | METH_KEYWORDS, nullptr},
+     {"_mockCudaTensor", reinterpret_cast<PyCFunction>(dipuMockCudaTensors),
+      METH_NOARGS, nullptr},
+     {nullptr, nullptr, 0, nullptr}}};
 
-DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods.data(); }
+DIPU_API PyMethodDef* exportTensorFunctions() {
+  return TorchTensorMethods.data();
+}
 }  // namespace dipu

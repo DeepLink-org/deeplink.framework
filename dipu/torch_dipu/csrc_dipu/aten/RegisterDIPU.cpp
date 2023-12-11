@@ -17,26 +17,27 @@
 using dnative = dipu::native::DIPUATenFunctions;
 
 static std::string getFallbackListContent() {
-    std::string content;
-    const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
-    if (env != nullptr) {
-        content += env;
-    }
+  std::string content;
+  const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
+  if (env != nullptr) {
+    content += env;
+  }
 
-    std::ifstream stream(".dipu_force_fallback_op_list.config",
-                         std::ios_base::in | std::ios::binary);
-    if (stream.is_open()) {
-        while (!stream.eof()) {
-            std::string line;
-            stream >> line;
-            content += "," + line;
-        }
+  std::ifstream stream(".dipu_force_fallback_op_list.config",
+                       std::ios_base::in | std::ios::binary);
+  if (stream.is_open()) {
+    while (!stream.eof()) {
+      std::string line;
+      stream >> line;
+      content += "," + line;
     }
+  }
 
-    return content;
+  return content;
 }
 
-static const std::string force_fallback_operators_list = getFallbackListContent();
+static const std::string force_fallback_operators_list =
+    getFallbackListContent();
 
 namespace dipu {
 bool get_force_fallback(const char* opname) {
@@ -100,7 +101,6 @@ void dump_fallback_op_args(const c10::OperatorHandle& op,
     }
   };
 
-  // const auto arguments_begin = stack->size() - num_arguments;
   for (const auto idx : c10::irange(arguments.size())) {
     std::cout << "\t" << name << ": \t" << schema_args[idx].name() << ": ";
     const auto& ivalue = arguments[idx];
@@ -111,7 +111,7 @@ void dump_fallback_op_args(const c10::OperatorHandle& op,
     } else if (ivalue.isTensorList()) {
       const auto& tensorlist = ivalue.toTensorList();
       std::cout << std::endl;
-      for (const auto & tensor : tensorlist) {
+      for (const auto& tensor : tensorlist) {
         std::cout << "\t";
         dumpTensor(tensor);
         std::cout << std::endl;
@@ -160,7 +160,7 @@ std::mutex DIPUOpRegister::mutex_;
 
 void DIPUOpRegister::register_op() {
   std::lock_guard<std::mutex> guard(mutex_);
-  for (auto & iter : dipuOpRegisterList) {
+  for (auto& iter : dipuOpRegisterList) {
     torch::Library* lib = std::get<0>(iter);
     DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(iter);
     fun_ptr(*lib);
@@ -307,9 +307,9 @@ at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
     c10::SymIntArrayRef size, c10::SymIntArrayRef stride) {
   // No device check
   // DeviceGuard omitted
-  return dnative::set_storage_dipu_(self, std::move(source), storage_offset.expect_int(),
-                                    C10_AS_INTARRAYREF_SLOW(size),
-                                    C10_AS_INTARRAYREF_SLOW(stride));
+  return dnative::set_storage_dipu_(
+      self, std::move(source), storage_offset.expect_int(),
+      C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride));
 }
 // NOLINTEND(performance-unnecessary-value-param)
 

@@ -17,7 +17,7 @@ at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
   // In PyTorch they would write:
   //   return reinterpret_cast<THPDtype*>(dtype_obj)->scalar_type;
   // But we do care about aliasing.
-  THPDtype dtype; // NOLINT(cppcoreguidelines-pro-type-member-init)
+  THPDtype dtype;  // NOLINT(cppcoreguidelines-pro-type-member-init)
   std::memcpy(&dtype, dtype_obj, sizeof(dtype));
   return dtype.scalar_type;
 }
@@ -75,7 +75,7 @@ struct type_caster<at::ScalarType> {
                          py::return_value_policy /* policy */,
                          py::handle /* parent */) {
     // Convert at::ScalarType to Python torch.dtype
-    return { py::handle(scalarTypeToDtype(src)) };
+    return {py::handle(scalarTypeToDtype(src))};
   }
 };
 

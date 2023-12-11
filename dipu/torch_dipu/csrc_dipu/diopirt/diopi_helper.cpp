@@ -24,7 +24,9 @@ namespace diopi_helper {
 
 ::diopiConstTensorHandle_t toDiopiTensorHandle(
     const c10::optional<at::Tensor>& tensor) {
-  if (!tensor.has_value()) { return nullptr; }
+  if (!tensor.has_value()) {
+    return nullptr;
+  }
   return toDiopiTensorHandle(tensor.value());
 }
 
@@ -36,7 +38,9 @@ namespace diopi_helper {
 
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(
     c10::optional<at::Generator>& generator) {
-  if (!generator.has_value()) { return nullptr; }
+  if (!generator.has_value()) {
+    return nullptr;
+  }
   return toDiopiGeneratorHandle(generator.value());
 }
 
@@ -73,12 +77,12 @@ namespace diopi_helper {
     result.stype = ::diopiDtype_t::diopi_dtype_int64;
     result.ival = static_cast<int64_t>(scalar.toBool());
     return result;
-  } 
+  }
   if (c10::isFloatingType(type)) {
     result.stype = ::diopiDtype_t::diopi_dtype_float64;
     result.fval = scalar.toDouble();
     return result;
-  } 
+  }
   if (c10::isIntegralType(type, false)) {
     result.stype = ::diopiDtype_t::diopi_dtype_int64;
     result.ival = static_cast<int64_t>(scalar.toLong());
@@ -215,10 +219,10 @@ c10::DeviceType toATenDevice(::diopiDevice_t device) {
   if (rounding_mode == "none" || rounding_mode == "None" ||
       rounding_mode.empty()) {
     return RoundModeNone;
-  } 
+  }
   if (rounding_mode == "floor") {
     return RoundModeFloor;
-  } 
+  }
   if (rounding_mode == "trunc") {
     return RoundModeTrunc;
   }
