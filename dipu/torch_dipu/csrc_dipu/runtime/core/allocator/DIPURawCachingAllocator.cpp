@@ -10,7 +10,7 @@ class RawCachingAllocator : public CacheAllocator {
  public:
   RawCachingAllocator() = default;
 
-  ~RawCachingAllocator () override = default;
+  ~RawCachingAllocator() override = default;
 
   class Context : public DataPtrContextBase {
    public:
@@ -19,7 +19,7 @@ class RawCachingAllocator : public CacheAllocator {
         : DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {}
     ~Context() {
       std::deque<DIPUEvent> events;
-      for (const auto & item : streams()) {
+      for (const auto& item : streams()) {
         events.emplace_back();
         events.back().record(item);
       }
@@ -56,7 +56,7 @@ class RawCachingAllocator : public CacheAllocator {
     set_memory_reserved(memory_reserved() + nbytes);
     set_memory_allocated(memory_allocated() + nbytes);
     return {ptr, new Context(this, ptr, size, nbytes),
-                        deleteRawCachingAllocatorContext, device()};
+            deleteRawCachingAllocatorContext, device()};
   }
 
   void empty_cache() const override {

@@ -50,10 +50,12 @@ std::once_flag global_init_flag;
 
 // streamid contains streamtype and/or raw stream id in DIPUStreamDevice pool
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-thread_local std::unique_ptr<std::vector<c10::StreamId>> current_streams = nullptr;
+thread_local std::unique_ptr<std::vector<c10::StreamId>> current_streams =
+    nullptr;
 
 c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
-  return (static_cast<uint32_t>(static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits)) |
+  return (static_cast<uint32_t>(static_cast<c10::StreamId>(sType)
+                                << kStreamsPerPoolBits)) |
          static_cast<c10::StreamId>(id);
 }
 
@@ -77,11 +79,13 @@ struct DIPUStreamDevice {
   }
 
   static StreamIdType getStreamIdType(c10::StreamId s) {
-    return static_cast<StreamIdType>(static_cast<uint32_t>(s) >> kStreamsPerPoolBits);
+    return static_cast<StreamIdType>(static_cast<uint32_t>(s) >>
+                                     kStreamsPerPoolBits);
   }
 
   static size_t getStreamIdIndex(c10::StreamId s) {
-    return static_cast<size_t>(static_cast<uint32_t>(s) & ((1 << kStreamsPerPoolBits) - 1));
+    return static_cast<size_t>(static_cast<uint32_t>(s) &
+                               ((1 << kStreamsPerPoolBits) - 1));
   }
   void _doInitPool() {
     DIPUGuard device_guard{devidx_};
@@ -99,10 +103,8 @@ struct DIPUStreamDevice {
   }
 
  public:
-  explicit DIPUStreamDevice(deviceId_t devidx) : next_pool_pos(0), devidx_(devidx)
-  {
-    
-  }
+  explicit DIPUStreamDevice(deviceId_t devidx)
+      : next_pool_pos(0), devidx_(devidx) {}
 
   DIPUStream getDIPUStreamfromPool() {
     const auto idx = getNextPoolIdx();
@@ -144,8 +146,9 @@ struct DIPUStreamDevice {
   }
 };
 
+std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS>
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS> streamDeviceList;
+    streamDeviceList;
 
 void initGlobalStreamState() {
   num_dipus = devproxy::getDeviceCount();
@@ -158,8 +161,7 @@ void initGlobalStreamState() {
       C10_COMPILE_TIME_MAX_DIPUS, "). Increase that and recompile.");
 
   for (int i = 0; i < num_dipus; i++) {
-    streamDeviceList[i] =
-      std::move(std::make_unique<DIPUStreamDevice>(i));
+    streamDeviceList[i] = std::move(std::make_unique<DIPUStreamDevice>(i));
   }
 }
 

@@ -21,8 +21,8 @@ void initCachedAllocator();
 
 void releaseAllDeviceMem();
 
-void recordStream(const c10::DataPtr& ptr, const DIPUStream &stream);
+void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream);
 
-void recordStream(const at::Tensor& tensor, const DIPUStream &stream);
+void recordStream(const at::Tensor& tensor, const DIPUStream& stream);
 
 }  // namespace dipu

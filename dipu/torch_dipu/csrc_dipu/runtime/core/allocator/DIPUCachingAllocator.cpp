@@ -46,8 +46,8 @@ const std::string dipu_host_memcaching_algorithm = []() {
   return env ? env : dipu_default_memcaching_algorithm;
 }();
 
-void setAllocator(const std::string &name, c10::DeviceType device_type,
-                  const std::function<c10::Allocator*(int)> &allocator_getter,
+void setAllocator(const std::string& name, c10::DeviceType device_type,
+                  const std::function<c10::Allocator*(int)>& allocator_getter,
                   uint8_t priority) {
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
   if (!gDIPURegisterdAllocatorPtr) {
@@ -104,7 +104,7 @@ c10::Allocator* getAllocator(c10::DeviceType device_type) {
 
 void emptyCachedMem() {
   auto function_name = __FUNCTION__;
-  auto empty_allocator_cache = [&function_name](auto allocator) { 
+  auto empty_allocator_cache = [&function_name](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
     DIPU_DEBUG_ALLOCATOR(8, function_name
                                 << " allocator:" << allocator
@@ -169,7 +169,7 @@ size_t maxMemoryAllocated(const c10::Device& device) {
   return 0;
 }
 
-void recordStream(const c10::DataPtr& ptr, const DIPUStream &stream) {
+void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
   void* ctx = ptr.get_context();
   if (ctx == nullptr) {
     return;
@@ -180,7 +180,7 @@ void recordStream(const c10::DataPtr& ptr, const DIPUStream &stream) {
   }
 }
 
-void recordStream(const at::Tensor& tensor, const DIPUStream &stream) {
+void recordStream(const at::Tensor& tensor, const DIPUStream& stream) {
   dipu::recordStream(tensor.storage().data_ptr(), stream);
 }
 
@@ -203,8 +203,7 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
   }
 };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-DIPUDeviceCachingProxy dipu_default_device_allocator(
-    dipu::DIPU_DEVICE_TYPE);
+DIPUDeviceCachingProxy dipu_default_device_allocator(dipu::DIPU_DEVICE_TYPE);
 };  // namespace
 
 void initCachedAllocator() {
@@ -212,7 +211,8 @@ void initCachedAllocator() {
   constexpr int kPriority = 255;
   c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator,
                     kPriority);
-  c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator, kPriority);
+  c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator,
+                    kPriority);
 }
 
 }  // namespace dipu

@@ -95,7 +95,7 @@ class BSCachingAllocator : public CacheAllocator {
                                     << " bytes, ptr:" << ptr
                                     << ",allocator:" << this);
         break;
-      } 
+      }
       try {
         auto data_ptr = raw_allocator()->allocate(nbytes);
         ptr = data_ptr.get();
@@ -167,9 +167,7 @@ class BSCachingAllocator : public CacheAllocator {
     }
   }
 
-  void empty_cache() const override {
-    empty_cache_impl();
-  }
+  void empty_cache() const override { empty_cache_impl(); }
 
   void release_all_memory_impl() const {
     DIPU_DEBUG_ALLOCATOR(
@@ -177,9 +175,7 @@ class BSCachingAllocator : public CacheAllocator {
     empty_cache();
   }
 
-  void release_all_memory() const override {
-    release_all_memory_impl();
-  }
+  void release_all_memory() const override { release_all_memory_impl(); }
 
   void flush_mem_pool() const {
     DIPU_DEBUG_ALLOCATOR(
@@ -202,7 +198,7 @@ class BSCachingAllocator : public CacheAllocator {
                                            << ", size_:" << size());
       if (allocator_->impl) {
         std::deque<DIPUEvent> events;
-        for (const auto & item : streams()) {
+        for (const auto& item : streams()) {
           events.emplace_back();
           events.back().record(item);
         }
