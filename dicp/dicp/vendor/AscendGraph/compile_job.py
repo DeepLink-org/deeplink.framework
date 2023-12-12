@@ -28,6 +28,7 @@ class AscendCompileJob(DeviceCompileJob):
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         source_path = graph_util_path + '/graph_compile.cpp'
         json_util_path = graph_util_path + '/nlohmann'
+        self.fusion_switch_file = graph_util_path + '/fusion_switch.cfg'
         self._cmd = ['/usr/bin/c++',
                      '-D_GLIBCXX_USE_CXX11_ABI=0',
                      '-fPIC',
@@ -67,7 +68,7 @@ class AscendCompileJob(DeviceCompileJob):
 
     def build_graph(self, output_path, graph_path):
         self._compile()
-        cmd = [self._lib_path, output_path, graph_path]
+        cmd = [self._lib_path, output_path, graph_path, self.fusion_switch_file]
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
