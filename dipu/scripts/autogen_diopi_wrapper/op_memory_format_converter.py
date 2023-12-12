@@ -12,12 +12,10 @@ class OpMemoryFormatConverter(object):
                 self.convert_config_yaml = yaml.load(file_data, Loader=yaml.FullLoader)
                 self.convert_config = ConvertConfig(self.convert_config_yaml)
         else:
-            self.convert_config = None
-            self.convert_config_yaml = None
+            self.convert_config_yaml = list()
+            self.convert_config = ConvertConfig(self.convert_config_yaml)
 
     def convert(self,custom_code,fun_config):
-        if not self.convert_config:
-            return custom_code
         if "interface" in fun_config and (accepted_interface == "ALL" or (fun_config['interface'] in accepted_interface)):
             return self.do_convert(custom_code,fun_config)
         else:
@@ -72,7 +70,7 @@ class ConvertConfig(object):
      
     def interface2memoryformat(self, interface):
         interface_stripped = interface.strip().split("(")[0]
-        if interface_stripped not in self.convert_dict:
+        if (interface_stripped not in self.convert_dict) or ("layout" not in self.convert_dict[interface_stripped]):
             return self.default_layout
         else:
             return self.convert_dict[interface_stripped]["layout"]
