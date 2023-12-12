@@ -98,7 +98,7 @@ class DIPURawHostAllocatorImpl final {
         if (cp >= cptr && cp < max_ptr) {
           is_pinned = true;
           break;
-        } 
+        }
         if (cp >= max_ptr) {
           break;
         }
@@ -108,7 +108,7 @@ class DIPURawHostAllocatorImpl final {
   }
 
  private:
- // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::mutex mtx_;
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::map<void*, size_t> blocks_;
@@ -124,9 +124,7 @@ namespace {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 DIPURawHostAllocatorImpl dipu_host_allocator;
 
-void DIPURawHostAllocatorDeleter(void* ctx) {
-  dipu_host_allocator.free(ctx);
-}
+void DIPURawHostAllocatorDeleter(void* ctx) { dipu_host_allocator.free(ctx); }
 
 }  // namespace
 
