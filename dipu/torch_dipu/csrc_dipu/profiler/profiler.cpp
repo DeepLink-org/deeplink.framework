@@ -1,11 +1,16 @@
 #include "profiler.h"
 
-#include <ThreadUtil.h>
 #include <cstdio>
-#include <fstream>
+#include <memory>
+#include <utility>
 
 #include <c10/util/Exception.h>
+#include <c10/util/string_view.h>
 #include <torch/csrc/profiler/util.h>
+
+#include "csrc_dipu/profiler/CorrelationIDManager.h"
+
+#include "ThreadUtil.h"
 
 namespace dipu {
 
@@ -271,22 +276,20 @@ void abandonAllRecords() {
   resetId();
 }
 
-RecordCreator::RecordCreator(const string_t& name, size_t opId,
+RecordCreator::RecordCreator(string_t name, size_t opId,
                              uint64_t linkCorrelationId,
-                             const ExtraRecordInfo& extraInfo) {
+                             ExtraRecordInfo extraInfo) {
   if (isEnable()) {
-    name_ = name;
+    name_ = std::move(name);
     opId_ = opId;
     begin_ = torch::profiler::impl::getTime();
     end_ = false;
     linkCorrelationId_ = linkCorrelationId;
-    extraInfo_ = extraInfo;
+    extraInfo_ = std::move(extraInfo);
   }
 }
 
-RecordCreator::~RecordCreator() { end(); }
-
-void RecordCreator::end() {
+void RecordCreator::end() noexcept {
   if (!end_) {
     RecordsImpl::get().addRecord(
         Record{name_, opId_, begin_,
@@ -301,12 +304,12 @@ void RecordCreator::end() {
 DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream,
                                          int streamId, size_t opId,
                                          uint64_t linkCorrelationId,
-                                         const ExtraRecordInfo& extraInfo) {
+                                         ExtraRecordInfo extraInfo) {
   if (isEnable()) {
     DeviceRecordsImpl::get().ensureSetup(stream);
     name_ = std::move(name);
     opId_ = opId;
-    extraInfo_ = extraInfo;
+    extraInfo_ = std::move(extraInfo);
     stream_ = stream;
     streamId_ = streamId;
     pStart_.reset(new DeviceEvent());
@@ -317,9 +320,7 @@ DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream,
   }
 }
 
-DeviceRecordCreator::~DeviceRecordCreator() { end(); }
-
-void DeviceRecordCreator::end() {
+void DeviceRecordCreator::end() noexcept {
   if (!end_) {
     TORCH_CHECK(pStart_, "dipu profiler error with pStart_ is not inited");
     TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
@@ -351,32 +352,18 @@ static std::string extraceFunction(const std::string& functionName) {
   return functionName.substr(start, end - start);
 }
 
-RecordBlockCreator::RecordBlockCreator(string_t name,
-                                       const ExtraRecordInfo& extraInfo,
-                                       deviceStream_t stream, int streamId,
-                                       bool enProfile) {
-  if (enProfile && isEnable()) {
-    size_t opId = generateId();
-    uint64_t correlationId =
-        CorrelationIDManager::instance().getCorrelationID();
-    name = extraceFunction(name);
-    pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
-                                                   correlationId, extraInfo);
-    pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(
-        name, stream, streamId, opId, correlationId, extraInfo);
-  }
+void RecordBlockCreator::initialize(string_t name, ExtraRecordInfo extraInfo,
+                                    deviceStream_t stream,
+                                    c10::StreamId streamId) {
+  size_t opId = generateId();
+  uint64_t correlationId = CorrelationIDManager::instance().getCorrelationID();
+  name = extraceFunction(name);
+  pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
+                                                 correlationId, extraInfo);
+  pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(
+      std::move(name), stream, streamId, opId, correlationId,
+      std::move(extraInfo));
 }
-
-void RecordBlockCreator::end() {
-  if (!finish_) {
-    pHostRecord_.reset();
-    pDeviceRecord_.reset();
-  }
-  finish_ = true;
-}
-
-RecordBlockCreator::~RecordBlockCreator() { end(); }
-
 }  // namespace profile
 
 }  // namespace dipu

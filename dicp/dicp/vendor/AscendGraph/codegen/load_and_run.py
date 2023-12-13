@@ -124,6 +124,7 @@ class MemoryPool:
 
 
 memory_pool = MemoryPool()
+zero_tensor = torch.randn(1).to(dipu_device_str)
 
 
 class AscendExecutor(object):
@@ -254,7 +255,6 @@ class AscendExecutor(object):
 
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
-        zero_tensor = torch.randn(1).to(dipu_device_str)
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():

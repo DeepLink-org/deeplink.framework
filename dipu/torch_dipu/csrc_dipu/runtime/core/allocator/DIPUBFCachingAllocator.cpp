@@ -570,7 +570,7 @@ static void deleteBFContext(void* ptr) {
   delete ctx;
 }
 
-DIPU_REGISTER_ALLOCATOR(BF, dipu::DIPU_DEVICE_TYPE, BFCachingAllocator, 0);
-DIPU_REGISTER_ALLOCATOR(BF, at::DeviceType::CPU, BFCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, 0);
 
 }  // namespace dipu

@@ -713,6 +713,13 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def Muls(name, x, y):
+        op = OP(name, "Muls")
+        op.set_input("x", x)
+        op.set_attr_float("value", float(y))
+        return op.to_node()
+
+    @staticmethod
     def IdentityN(name, *args, **kwargs):
         input_names = []
         for input in args:
