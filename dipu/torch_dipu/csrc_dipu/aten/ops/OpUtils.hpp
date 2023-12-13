@@ -35,8 +35,13 @@ inline void synchronizeIfEnable() {
 }
 
 inline int dumpOpArgLevel() {
-  const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
-  int level = env_ptr ? std::atoi(env_ptr) : 0;
+  static const int level = []() {
+    const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+    auto level = env_ptr ? std::atoi(env_ptr) : 0;
+    DIPU_LOG << "Reading environment variable `DIPU_DUMP_OP_ARGS` "
+             << "and gets level: " << level << std::endl;
+    return level;
+  }();
   return level;
 }
 
