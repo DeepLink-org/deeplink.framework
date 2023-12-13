@@ -129,18 +129,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
             param = param if isinstance(param, list) else [param]
             param = self.get_proxy(
                 ascend_op.Const, (param, type, [len(param)]))
-        shape_op = self.get_shape_proxy(target_shape)
-        param = self.get_proxy(ascend_op.BroadcastTo, (param, shape_op))
         return param
 
     def mul_scalar(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        const_dtype = torch.float32 if out_dtype == torch.float16 else out_dtype
-        y_shape = list(x.node.meta['val'].shape)
-        y_op = self.get_param_proxy(y, const_dtype, y_shape)
-        if out_dtype == torch.float16:
-            y_op = self.get_proxy(ascend_op.Cast, (y_op, "FLOAT16"))
-        return self.get_proxy(ascend_op.Mul, (x, y_op))
+        # Muls support bfloat16, int32, int16, float16, float32, complex32, complex64.
+        if out_dtype not in [torch.float, torch.float16, torch.int32]:
+            y_shape = list(x.node.meta['val'].shape)
+            y_op = self.get_param_proxy(y, out_dtype, y_shape)
+            return self.get_proxy(ascend_op.Mul, (x, y_op))
+        return self.get_proxy(ascend_op.Muls, (x, y))
 
     def mul_complex64(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -781,16 +779,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
             b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
         return self.get_proxy(ascend_op.Maximum, (a, b))
 
-    def common_process_scalar(self, x, y):
-        x_dtype = x.node.meta['val'].dtype
+    def common_process_scalar(self, y, dtype):
         need_cast = False
-        if x_dtype == torch.float16:
-            x_dtype = torch.float32
+        if dtype == torch.float16:
+            dtype = torch.float32
             need_cast = True
-        y = self.get_proxy(ascend_op.Const, (y, x_dtype))
-        y_shape = list(x.node.meta['val'].shape)
-        shape_preprocess = self.get_shape_proxy(y_shape)
-        y = self.get_proxy(ascend_op.BroadcastTo, (y, shape_preprocess))
+        y = self.get_proxy(ascend_op.Const, (y, dtype))
         if need_cast:
             y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
         return y
@@ -798,13 +792,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.sub)
     def sub(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
-            y = self.common_process_scalar(x, y)
+            y = self.common_process_scalar(y, x.node.meta['val'].dtype)
         return self.get_proxy(ascend_op.Sub, (x, y))
 
     @register_conversion(aten.rsub)
     def rsub(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
-            y = self.common_process_scalar(x, y)
+            y = self.common_process_scalar(y, x.node.meta['val'].dtype)
         return self.get_proxy(ascend_op.Sub, (y, x))
 
     @register_conversion(aten.transpose.int)
@@ -855,15 +849,22 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def mm(self, x, y):
         # TODO! MatMul not support fp32 input
         # for higher precision in some cases
-        out_dtype = fx_traceback.get_current_meta()['val'].dtype
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             x = self.get_proxy(ascend_op.Unsqueeze, (x, [0]))
             y = self.get_proxy(ascend_op.Unsqueeze, (y, [0]))
             mm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
             return self.get_proxy(ascend_op.Squeeze, (mm, [0]))
-        else:
-            mm = self.get_proxy(ascend_op.MatMul, (x, y, False, False))
-            return self.get_proxy(ascend_op.Cast, (mm, get_ascend_dtype(out_dtype)))
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        trans_x = False
+        trans_y = False
+        if isinstance(x.node.target, ascend_op.Permute) and x.node.args[1] == [1, 0]:
+            x = self.get_proxy_from_node(x.node.args[0])
+            trans_x = True
+        if isinstance(y.node.target, ascend_op.Permute) and y.node.args[1] == [1, 0]:
+            y = self.get_proxy_from_node(y.node.args[0])
+            trans_y = True
+        mm = self.get_proxy(ascend_op.MatMul, (x, y, trans_x, trans_y))
+        return self.get_proxy(ascend_op.Cast, (mm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
