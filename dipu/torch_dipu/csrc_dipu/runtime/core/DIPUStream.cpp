@@ -154,7 +154,12 @@ auto LocalStreams() -> std::vector<c10::StreamId>& {
   return streams;
 }
 
-auto const& trigger = std::make_tuple(LocalStreams());
+// TODO(lifetime): remove it someday.
+//
+// This static variable is used to initialize StreamDevice and StreamIds. As
+// BFCachingAllocator depends on them via getDefaultDIPUStream. We need to make
+// sure its lifetime longer than static BFCachingAllocator.
+auto const& force_to_initialize_streams = LocalStreams();
 
 c10::DeviceIndex setupDevice(c10::DeviceIndex device_index) {
   if (device_index == -1) {
