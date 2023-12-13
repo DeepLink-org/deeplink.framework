@@ -38,19 +38,24 @@ std::ostream& operator<<(std::ostream& stream, StreamIdType s) {
   return stream;
 }
 // follow old pytorch cuda, seems new version use an opposite strategy.
-static constexpr int kStreamsPerPoolBits = 3;
-static constexpr int kStreamsPerPool = 1 << kStreamsPerPoolBits;
+constexpr int kStreamsPerPoolBits = 3;
+constexpr int kStreamsPerPool = 1 << kStreamsPerPoolBits;
 
 // Global stream state and constants
-static c10::DeviceIndex num_dipus = -1;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+c10::DeviceIndex num_dipus = -1;
 // Default streams
-static std::once_flag global_init_flag;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::once_flag global_init_flag;
 
 // streamid contains streamtype and/or raw stream id in DIPUStreamDevice pool
-static thread_local std::unique_ptr<c10::StreamId[]> current_streams = nullptr;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+thread_local std::unique_ptr<std::vector<c10::StreamId>> current_streams =
+    nullptr;
 
-static c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
-  return ((uint32_t) static_cast<c10::StreamId>(sType) << kStreamsPerPoolBits) |
+c10::StreamId makeC10StreamId(StreamIdType sType, size_t id) {
+  return (static_cast<uint32_t>(static_cast<c10::StreamId>(sType)
+                                << kStreamsPerPoolBits)) |
          static_cast<c10::StreamId>(id);
 }
 
@@ -60,25 +65,27 @@ struct DIPUStreamDevice {
   // Default streams
   std::once_flag pool_flag;
   std::once_flag default_flag;
-  deviceId_t devidx_;
+  deviceId_t devidx_{};
   // seems pytorch 2.0 giveup default stream and enable cuda per_thread stream
   // feature at compile time. it cannot be applied to othe device.
   deviceStream_t default_stream = nullptr;
 
-  std::atomic<uint32_t> next_pool_pos;
-  std::array<deviceStream_t, kStreamsPerPool> pool_streams;
+  std::atomic<uint32_t> next_pool_pos{};
+  std::array<deviceStream_t, kStreamsPerPool> pool_streams{};
 
   inline uint32_t getNextPoolIdx() {
     auto raw_idx = next_pool_pos++;
     return raw_idx % kStreamsPerPool;
   }
 
-  inline StreamIdType getStreamIdType(c10::StreamId s) {
-    return static_cast<StreamIdType>((uint32_t)s >> kStreamsPerPoolBits);
+  static StreamIdType getStreamIdType(c10::StreamId s) {
+    return static_cast<StreamIdType>(static_cast<uint32_t>(s) >>
+                                     kStreamsPerPoolBits);
   }
 
-  inline size_t getStreamIdIndex(c10::StreamId s) {
-    return static_cast<size_t>((uint32_t)s & ((1 << kStreamsPerPoolBits) - 1));
+  static size_t getStreamIdIndex(c10::StreamId s) {
+    return static_cast<size_t>(static_cast<uint32_t>(s) &
+                               ((1 << kStreamsPerPoolBits) - 1));
   }
   void _doInitPool() {
     DIPUGuard device_guard{devidx_};
@@ -96,17 +103,15 @@ struct DIPUStreamDevice {
   }
 
  public:
-  DIPUStreamDevice(deviceId_t devidx) {
-    devidx_ = devidx;
-    next_pool_pos = 0;
-  }
+  explicit DIPUStreamDevice(deviceId_t devidx)
+      : next_pool_pos(0), devidx_(devidx) {}
 
   DIPUStream getDIPUStreamfromPool() {
     const auto idx = getNextPoolIdx();
     return DIPUStream(devidx_, makeC10StreamId(StreamIdType::POOL, idx));
   }
 
-  DIPUStream getDefaultDIPUStream() {
+  DIPUStream getDefaultDIPUStream() const {
     return DIPUStream(devidx_, makeC10StreamId(StreamIdType::DEFAULT, 0));
   }
 
@@ -141,10 +146,10 @@ struct DIPUStreamDevice {
   }
 };
 
-static std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS>
-    streamDeviceList;
+std::array<std::unique_ptr<DIPUStreamDevice>, C10_COMPILE_TIME_MAX_DIPUS>
+    streamDeviceList;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-static void initGlobalStreamState() {
+void initGlobalStreamState() {
   num_dipus = devproxy::getDeviceCount();
   // Check if the number of DIPU matches the expected compile-time max number
   // of DIPU.
@@ -155,12 +160,11 @@ static void initGlobalStreamState() {
       C10_COMPILE_TIME_MAX_DIPUS, "). Increase that and recompile.");
 
   for (int i = 0; i < num_dipus; i++) {
-    streamDeviceList[i] =
-        std::move(std::unique_ptr<DIPUStreamDevice>(new DIPUStreamDevice(i)));
+    streamDeviceList[i] = std::move(std::make_unique<DIPUStreamDevice>(i));
   }
 }
 
-static c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
+c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
   // Inits default streams (once, globally)
   std::call_once(global_init_flag, initGlobalStreamState);
 
@@ -175,11 +179,11 @@ static c10::DeviceIndex initDIPUGlobal(c10::DeviceIndex devIdx) {
   if (current_streams) {
     return devIdx;
   }
-  current_streams = std::make_unique<c10::StreamId[]>(num_dipus);
+  current_streams = std::make_unique<std::vector<c10::StreamId>>(num_dipus);
 
   // Inits current streams (thread local) to default streams
   for (const auto i : c10::irange(num_dipus)) {
-    current_streams[i] = makeC10StreamId(StreamIdType::DEFAULT, 0);
+    (*current_streams)[i] = makeC10StreamId(StreamIdType::DEFAULT, 0);
   }
   // set device default stream in init
   return devIdx;
@@ -193,21 +197,21 @@ deviceStream_t DIPUStream::rawstream() const {
       this->unwrap().id());
 }
 
-DIPUStream getDIPUStreamFromPool(c10::DeviceIndex devIdx) {
-  devIdx = initDIPUGlobal(devIdx);
+DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device_index) {
+  device_index = initDIPUGlobal(device_index);
   // Initializes the stream pools (once)
-  streamDeviceList[devIdx]->initPool();
-  return streamDeviceList[devIdx]->getDIPUStreamfromPool();
+  streamDeviceList[device_index]->initPool();
+  return streamDeviceList[device_index]->getDIPUStreamfromPool();
 }
 
-DIPUStream getDefaultDIPUStream(c10::DeviceIndex devIdx) {
-  devIdx = initDIPUGlobal(devIdx);
-  return streamDeviceList[devIdx]->getDefaultDIPUStream();
+DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index) {
+  device_index = initDIPUGlobal(device_index);
+  return streamDeviceList[device_index]->getDefaultDIPUStream();
 }
 
-DIPUStream getCurrentDIPUStream(c10::DeviceIndex devIdx) {
-  devIdx = initDIPUGlobal(devIdx);
-  return DIPUStream(devIdx, current_streams[devIdx]);
+DIPUStream getCurrentDIPUStream(c10::DeviceIndex device_index) {
+  device_index = initDIPUGlobal(device_index);
+  return DIPUStream(device_index, (*current_streams)[device_index]);
 }
 
 // copy from pytorch, not verify
@@ -220,11 +224,11 @@ DIPUStream getStreamFromExternal(deviceStream_t ext_stream,
 void setCurrentDIPUStream(DIPUStream stream) {
   auto devIdx = stream.device_index();
   initDIPUGlobal(devIdx);
-  current_streams[devIdx] = stream.unwrap().id();
+  (*current_streams)[devIdx] = stream.unwrap().id();
 }
 
-std::ostream& operator<<(std::ostream& os, const DIPUStream& stream) {
-  return os << stream.unwrap();
+std::ostream& operator<<(std::ostream& stream, const DIPUStream& s) {
+  return stream << s.unwrap();
 }
 
 }  // namespace dipu
