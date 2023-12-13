@@ -13,7 +13,8 @@
   static auto& __attribute__((unused)) MAKE_UNIQUE_VARIABLE_NAME(__func__) = \
       DIPU_LOG
 
-#define DIPU_LOG_ERROR std::cerr << __FILE__ << ":" << __LINE__ << "DIPU_ERROR:  "
+#define DIPU_LOG_ERROR \
+  std::cerr << __FILE__ << ":" << __LINE__ << "DIPU_ERROR:  "
 #define DIPU_LOG_ERROR_ONCE                                                  \
   static auto& __attribute__((unused)) MAKE_UNIQUE_VARIABLE_NAME(__func__) = \
       DIPU_LOG_ERROR
