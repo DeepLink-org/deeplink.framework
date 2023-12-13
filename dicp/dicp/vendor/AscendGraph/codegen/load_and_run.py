@@ -204,7 +204,7 @@ class AscendExecutor(object):
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WORKSPACE_SIZET, work_size)
+            config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
         check_ret("set_config_opt", ret)
 
         ret = acl.mdl.set_config_opt(
