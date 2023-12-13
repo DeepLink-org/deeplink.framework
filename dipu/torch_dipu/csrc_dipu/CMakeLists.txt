@@ -29,8 +29,8 @@ add_custom_command(
   COMMAND
     python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
-    --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "False"
-    --print_op_arg "False" --fun_config_dict
+    --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
+    --print_op_arg "True" --fun_config_dict
     '{\"current_device\": \"${UsedVendor}\"}'
   DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
