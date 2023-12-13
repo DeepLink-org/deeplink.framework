@@ -1,4 +1,5 @@
-#include <ThreadUtil.h>
+#include "profiler.h"
+
 #include <cstdio>
 #include <memory>
 #include <utility>
@@ -9,7 +10,7 @@
 
 #include "csrc_dipu/profiler/CorrelationIDManager.h"
 
-#include "profiler.h"
+#include "ThreadUtil.h"
 
 namespace dipu {
 
