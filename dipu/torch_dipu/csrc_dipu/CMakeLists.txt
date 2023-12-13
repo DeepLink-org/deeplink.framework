@@ -25,9 +25,13 @@ set(DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE
 if(${UsedVendor} STREQUAL "cuda")
   set(DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG_YAML
     "")
+  set(DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG
+      )
 else()
   set(DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG_YAML 
     "${DIPU_PATH}/../third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
+  set(DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG
+    --convert_config "${DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG_YAML}")
 endif()
 set(DIPU_AUTOGENED_KERNELS_CPP
     "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
@@ -36,7 +40,7 @@ add_custom_command(
   COMMAND
     python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
-    --convert_config "${DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG_YAML}" 
+    ${DIPU_AUTOGEN_DIOPI_CONVERT_CONFIG} 
     --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
     --print_op_arg "True" --fun_config_dict
     '{\"current_device\": \"${UsedVendor}\"}'

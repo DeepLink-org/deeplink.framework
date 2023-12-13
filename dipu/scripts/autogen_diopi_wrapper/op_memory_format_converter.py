@@ -12,12 +12,10 @@ class OpMemoryFormatConverter(object):
                 self.convert_config_yaml = yaml.load(file_data, Loader=yaml.FullLoader)
                 self.convert_config = ConvertConfig(self.convert_config_yaml)
         else:
-            self.convert_config = None
-            self.convert_config_yaml = None
+            self.convert_config_yaml = list()
+            self.convert_config = ConvertConfig(self.convert_config_yaml)
 
     def convert(self,custom_code,fun_config):
-        if not self.convert_config:
-            return custom_code
         if "interface" in fun_config and (accepted_interface == "ALL" or (fun_config['interface'] in accepted_interface)):
             return self.do_convert(custom_code,fun_config)
         else:
@@ -30,6 +28,12 @@ class OpMemoryFormatConverter(object):
             custom_code = custom_code.replace("$SUGGESTED_MEMORYFORMAT_3D","at::MemoryFormat::ChannelsLast3d").replace("$SUGGESTED_MEMORYFORMAT","at::MemoryFormat::ChannelsLast")
         elif memory_format == "contiguous":
             custom_code = custom_code.replace("$SUGGESTED_MEMORYFORMAT_3D","at::MemoryFormat::Contiguous").replace("$SUGGESTED_MEMORYFORMAT","at::MemoryFormat::Contiguous")
+        elif memory_format == "preserve":
+            custom_code = custom_code.replace("$SUGGESTED_MEMORYFORMAT_3D","at::MemoryFormat::Preserve").replace("$SUGGESTED_MEMORYFORMAT","at::MemoryFormat::Preserve")
+        elif memory_format == "empty":
+            while " $SUGGESTED_MEMORYFORMAT" in custom_code:
+                custom_code = custom_code.replace(" $SUGGESTED_MEMORYFORMAT","$SUGGESTED_MEMORYFORMAT")
+            custom_code = custom_code.replace(",$SUGGESTED_MEMORYFORMAT_3D","").replace(",$SUGGESTED_MEMORYFORMAT","")
         else:
             print("UNABLE TO RECOGNIZE MEMORY FORMAT!!!")
         return custom_code
@@ -38,7 +42,7 @@ class ConvertConfig(object):
     def __init__(self, config_yaml):
         self.convert_dict = dict()
         self.convert_config_yaml = config_yaml
-        self.default_layout = "contiguous"
+        self.default_layout = "empty"
         assert(isinstance(config_yaml, list))
         for config in config_yaml:
             assert(isinstance(config,dict))
@@ -68,11 +72,11 @@ class ConvertConfig(object):
             return "channellast"
         if "NDHWC" in layout:
             return "channellast"
-        return "contiguous"
+        return "preserve"
      
     def interface2memoryformat(self, interface):
         interface_stripped = interface.strip().split("(")[0]
-        if interface_stripped not in self.convert_dict:
+        if (interface_stripped not in self.convert_dict) or ("layout" not in self.convert_dict[interface_stripped]):
             return self.default_layout
         else:
             return self.convert_dict[interface_stripped]["layout"]

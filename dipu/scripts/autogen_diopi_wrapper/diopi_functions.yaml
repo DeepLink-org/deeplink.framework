@@ -197,12 +197,12 @@
     const int64_t dim_c = input.size(1);
     const auto input_shape = input.sizes();
     const int axis = input_shape.size();
-    auto out0_MemoryFormat = at::MemoryFormat::Preserve;
-    if(axis == 4 ){
-        out0_MemoryFormat = $SUGGESTED_MEMORYFORMAT;
+    auto out0_MemoryFormat = input.suggest_memory_format();
+    if(axis == 4){
+        out0_MemoryFormat = input.suggest_memory_format(),$SUGGESTED_MEMORYFORMAT;
     }
     if(axis == 5){
-        out0_MemoryFormat = $SUGGESTED_MEMORYFORMAT_3D;
+        out0_MemoryFormat = input.suggest_memory_format(),$SUGGESTED_MEMORYFORMAT_3D;
     }
     auto out0 = at::empty_like(input, input.options(), out0_MemoryFormat);
     auto options = input.options().dtype(at::kFloat);
@@ -221,7 +221,16 @@
   custom_code_at_the_beginning: |
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
-    at::Tensor out0 = at::empty_like(input, input.options(), $SUGGESTED_MEMORYFORMAT);
+    const auto input_shape = input.sizes();
+    const int axis = input_shape.size();
+    auto out0_MemoryFormat = input.suggest_memory_format();
+    if(axis == 4){
+        out0_MemoryFormat = input.suggest_memory_format(),$SUGGESTED_MEMORYFORMAT;
+    }
+    if(axis == 5){
+        out0_MemoryFormat = input.suggest_memory_format(),$SUGGESTED_MEMORYFORMAT_3D;
+    }
+    at::Tensor out0 = at::empty_like(input, input.options(), out0_MemoryFormat);
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
@@ -503,7 +512,8 @@
     int64_t out_height = (height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1;
     int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
     c10::SmallVector<int64_t, 4> output_size = {batch_size, out_channel, out_height, out_width};
-    at::Tensor out = at::empty(output_size, input.options(),$SUGGESTED_MEMORYFORMAT);
+    at::MemoryFormat out_MemoryFormat = (input.suggest_memory_format(),$SUGGESTED_MEMORYFORMAT);
+    at::Tensor out = at::empty(output_size, input.options(),out_MemoryFormat);
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
