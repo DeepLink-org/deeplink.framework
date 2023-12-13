@@ -129,8 +129,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
             param = param if isinstance(param, list) else [param]
             param = self.get_proxy(
                 ascend_op.Const, (param, type, [len(param)]))
-        shape_op = self.get_shape_proxy(target_shape)
-        param = self.get_proxy(ascend_op.BroadcastTo, (param, shape_op))
         return param
 
     def mul_scalar(self, x, y):
@@ -781,16 +779,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
             b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
         return self.get_proxy(ascend_op.Maximum, (a, b))
 
-    def common_process_scalar(self, x, y):
-        x_dtype = x.node.meta['val'].dtype
+    def common_process_scalar(self, y, dtype):
         need_cast = False
-        if x_dtype == torch.float16:
-            x_dtype = torch.float32
+        if dtype == torch.float16:
+            dtype = torch.float32
             need_cast = True
-        y = self.get_proxy(ascend_op.Const, (y, x_dtype))
-        y_shape = list(x.node.meta['val'].shape)
-        shape_preprocess = self.get_shape_proxy(y_shape)
-        y = self.get_proxy(ascend_op.BroadcastTo, (y, shape_preprocess))
+        y = self.get_proxy(ascend_op.Const, (y, dtype))
         if need_cast:
             y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
         return y
@@ -798,13 +792,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.sub)
     def sub(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
-            y = self.common_process_scalar(x, y)
+            y = self.common_process_scalar(y, x.node.meta['val'].dtype)
         return self.get_proxy(ascend_op.Sub, (x, y))
 
     @register_conversion(aten.rsub)
     def rsub(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
-            y = self.common_process_scalar(x, y)
+            y = self.common_process_scalar(y, x.node.meta['val'].dtype)
         return self.get_proxy(ascend_op.Sub, (y, x))
 
     @register_conversion(aten.transpose.int)
