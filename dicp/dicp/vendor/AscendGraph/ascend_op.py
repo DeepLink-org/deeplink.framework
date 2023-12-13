@@ -107,6 +107,12 @@ class Mul(Operator):
         return common_binary_op_infer(x1, x2)
 
 
+class Muls(Operator):
+    def __init__(self):
+        super().__init__("Muls")
+        self.torch_op = aten.mul
+
+
 class Div(Operator):
     def __init__(self):
         super().__init__("Div")
