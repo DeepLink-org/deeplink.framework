@@ -84,7 +84,7 @@ class DIPU_API DIPUStream {
   c10::Stream stream_;
 };
 
-DIPU_API DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device = -1);
+DIPU_API DIPUStream getDIPUStreamFromPool(c10::DeviceIndex device_index = -1);
 
 DIPU_API DIPUStream getDefaultDIPUStream(c10::DeviceIndex device_index = -1);
 
