@@ -154,6 +154,8 @@ auto LocalStreams() -> std::vector<c10::StreamId>& {
   return streams;
 }
 
+auto const& trigger = std::make_tuple(LocalStreams());
+
 c10::DeviceIndex setupDevice(c10::DeviceIndex device_index) {
   if (device_index == -1) {
     device_index = devproxy::current_device();
@@ -165,7 +167,6 @@ c10::DeviceIndex setupDevice(c10::DeviceIndex device_index) {
   // help message. We need our version.
   AT_ASSERT(0 <= device_index && device_index < number_of_device);
   device_list[device_index]->initDevice();
-
   return device_index;
 }
 
