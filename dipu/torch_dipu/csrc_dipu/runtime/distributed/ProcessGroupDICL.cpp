@@ -307,7 +307,7 @@ static inline void copyInCommStream(std::shared_ptr<DICLComm>& diclComm,
                                     const Dest& dest, const Src& src,
                                     int nums) {
   auto diclStream = diclComm->diclStream_;
-  DIPUStreamGuard guard(diclStream.unwrap());
+  DIPUStreamGuard guard(static_cast<c10::Stream>(diclStream));
   for (size_t j = 0; j < nums; ++j) {
     dest[j].copy_(src[j], true);
     if (RecordDest) {
@@ -411,7 +411,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   // todo:: dipu need support multistream guard & remove
   // work->workEvents_(future already has events ).
   {
-    DIPUStreamGuard streamGuard(diclComms[0]->diclStream_);
+    DIPUStreamGuard guard(static_cast<c10::Stream>(diclComms[0]->diclStream_));
 
     work->future_ = c10::make_intrusive<at::ivalue::Future>(
         c10::ListType::create(c10::TensorType::get()), devices);

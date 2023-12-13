@@ -4,6 +4,7 @@
 
 #include <limits>
 
+#include <c10/core/Stream.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
 
@@ -49,7 +50,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::Stream getStream(c10::Device device) const noexcept override {
-    return getCurrentDIPUStream(device.index()).unwrap();
+    return static_cast<c10::Stream>(getCurrentDIPUStream(device.index()));
   }
 
   c10::Stream exchangeStream(c10::Stream s) const noexcept override {
@@ -66,11 +67,11 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
   c10::Stream getStreamFromGlobalPool(c10::Device d,
                                       bool isHighPriority) const override {
-    return getDIPUStreamFromPool(d.index());
+    return static_cast<c10::Stream>(getDIPUStreamFromPool(d.index()));
   }
 
   c10::Stream getDefaultStream(c10::Device device) const override {
-    return getDefaultDIPUStream(device.index());
+    return static_cast<c10::Stream>(getDefaultDIPUStream(device.index()));
   }
 
   void record(void** event, const c10::Stream& s,
