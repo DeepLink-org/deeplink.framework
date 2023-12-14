@@ -198,7 +198,12 @@
     const auto input_shape = input.sizes();
     const int axis = input_shape.size();
     auto out0 = at::empty_like(input, input.options(), \
-        (axis==4?(c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):(axis==5?(c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):c10::optional<at::MemoryFormat>(c10::nullopt))));
+        (axis==4?\
+            (c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):\
+            (axis==5?\
+                (c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
+                c10::optional<at::MemoryFormat>(c10::nullopt))\
+        ));
     auto options = input.options().dtype(at::kFloat);
     at::Tensor out1, out2;
     if (!training) {
@@ -217,7 +222,13 @@
     auto options = input.options().dtype(at::kFloat);
     const auto input_shape = input.sizes();
     const int axis = input_shape.size();
-    at::Tensor out0 = at::empty_like(input, input.options(), (axis==4?(c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):(axis==5?(c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):c10::optional<at::MemoryFormat>(c10::nullopt))));
+    at::Tensor out0 = at::empty_like(input, input.options(), \
+        (axis==4?\
+             (c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):\
+             (axis==5?\
+                 (c10::optional<at::MemoryFormat>(${PREFERED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
+                  c10::optional<at::MemoryFormat>(c10::nullopt))\
+        ));
     at::Tensor out1 = at::empty({dim_c}, options);
     at::Tensor out2 = at::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
