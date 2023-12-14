@@ -95,7 +95,9 @@
     if (other.numel() == 1 && other.is_cpu()) {
         return dipu_div_scalar_out(self, other.item(), out);
     } else if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_div_scalar_out(other, self.item(), out);
+        at::Tensor selfD = at::empty_like(other);
+        dipu_fill__scalar(selfD, self.item());
+        return dipu_div_out(selfD, other, out);
     }
   interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
@@ -1174,7 +1176,9 @@
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
-    at::Tensor out = at::empty_like(self);
+    at::Tensor out = self.numel() == 1 && self.is_cpu() ? 
+        at::empty_like(other) :
+        at::empty_like(self);
     out = dipu_div_out(self,other,out);
   interface: diopiFloorInp(ctx,out)
 

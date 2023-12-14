@@ -113,8 +113,11 @@ DISABLED_TESTS_MLU = {
 
     # test_binary_ufuncs.py
     'TestBinaryUfuncsDIPU': {
-        # torch 2.1 not correct need fix:
-        # "test_div_and_floordiv_vs_python",
+        # torch 2.1 new test and failed
+        # todo: camb floor result incorrect: floor(-2.5) = -2.
+        'test_div_and_floordiv_vs_python',
+        # end
+
         # CRASHED
         'test_batch_vs_slicing',
         'test_contig_size1',
@@ -237,12 +240,15 @@ DISABLED_TESTS_MLU = {
 
     # test_torch.py
     'TestTorchDeviceTypeDIPU': {
-        # torch 2.1 change overlap copy behavior.
+        # torch 2.1 new test and failed
+        # 1. torch 2.1 change overlap copy behavior,
+        # 2. torch 2.1 has a new use_deterministic_algorithms() which dipu
+        # not support. no-need support
         'test_deterministic_empty',
         'test_deterministic_resize',
-        # torch2.1 a new op _unsafe_index.Tensor, dipu not support
-         'test_deterministic_interpolate_bilinear',
-        # dipu not support this api now
+        # torch2.1 add new op _unsafe_index.Tensor, dipu not support
+        'test_deterministic_interpolate_bilinear',
+        # dipu not support this api now, todo::
         'test_set_default_tensor_type_warnings',
         # end 2.1
 
@@ -407,6 +413,7 @@ DISABLED_TESTS_MLU = {
     'TestTensorCreationDIPU': {
         # torch 2.1 new test and failed
         # cncl not support random of int/complex
+        # todo: enhance ci to support disable specific dtype case.
         'test_cat_out_fast_path_dim0_dim1',
         # end 2.1
 
