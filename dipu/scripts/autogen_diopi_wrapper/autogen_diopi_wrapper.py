@@ -777,7 +777,6 @@ def main():
         mergeed_fun_config = dict(args.fun_config_dict)
         mergeed_fun_config.update(vars(args))
         mergeed_fun_config.update(fun_config)
-        #print(mergeed_fun_config)
         #filter for those device specific op.
         if 'device' in mergeed_fun_config:
             current_device = mergeed_fun_config.get('current_device', '')
@@ -793,7 +792,8 @@ def main():
                 continue
 
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
-
+        
+        #The class object memory_format_converter will replace the prefered memory format placeholder to the prefered memory format based on the device's convert_config.yaml
         fun_code = memory_format_converter.convert(fun_code, fun_config)
         
         functions_code += fun_code
