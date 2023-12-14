@@ -28,7 +28,7 @@ using RegisteredAllocator = std::map<
              std::tuple<std::function<c10::Allocator*(int)>, uint8_t>>>;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
+std::unique_ptr<RegisteredAllocator> gDIPURegisteredAllocatorPtr;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex dipu_register_allocator_mutex;
@@ -54,16 +54,16 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
                   const std::function<c10::Allocator*(int)>& allocator_getter,
                   uint8_t priority) {
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
-  if (!gDIPURegisterdAllocatorPtr) {
-    gDIPURegisterdAllocatorPtr = std::make_unique<RegisteredAllocator>();
+  if (!gDIPURegisteredAllocatorPtr) {
+    gDIPURegisteredAllocatorPtr = std::make_unique<RegisteredAllocator>();
   }
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
-  if (gDIPURegisterdAllocator[device_type].count(name) <= 0) {
-    gDIPURegisterdAllocator[device_type][name] =
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
+  if (gDIPURegisteredAllocator[device_type].count(name) <= 0) {
+    gDIPURegisteredAllocator[device_type][name] =
         std::make_tuple(allocator_getter, priority);
   } else {
-    if (std::get<1>(gDIPURegisterdAllocator[device_type][name]) < priority) {
-      gDIPURegisterdAllocator[device_type][name] =
+    if (std::get<1>(gDIPURegisteredAllocator[device_type][name]) < priority) {
+      gDIPURegisteredAllocator[device_type][name] =
           std::make_tuple(allocator_getter, priority);
     } else {
       TORCH_CHECK(false,
@@ -79,13 +79,13 @@ namespace {
 c10::Allocator* createAllocator(const c10::Device& device) {
   c10::DeviceType device_type = device.type();
   c10::Allocator* result = nullptr;
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
   const std::string algorithm =
       (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm
                                              : dipu_host_memcaching_algorithm);
-  if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
+  if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
-        std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
+        std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
     int device_index = 0;
     if (device_type == dipu::DIPU_DEVICE_TYPE) {
       device_index =
