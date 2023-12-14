@@ -1,10 +1,11 @@
-import acl
+import atexit
 import os
+
+import acl
 import numpy as np
 import torch
-import atexit
 import torch_dipu
-
+from torch.profiler import record_function
 
 dipu_device_str = torch_dipu.dipu.device.__diputype__
 
@@ -110,7 +111,7 @@ class MemoryPool:
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 15 * 1024 * 1024 * 1024
+            self.work_size = 18 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                                ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
@@ -253,6 +254,7 @@ class AscendExecutor(object):
 
         print("init resource success")
 
+    @record_function('load_and_run_prepare_input')
     def _prepare_input(self, images, dims):
         assert self.num_inputs == len(images)
         for i in range(self.num_inputs):
@@ -283,10 +285,14 @@ class AscendExecutor(object):
                 check_ret("acl.mdl.set_dataset_tensor_desc", ret)
                 assert (dataset == self.input_dataset)
 
-    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset):
+    @record_function('load_and_run_prepare_output')
+    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output):
         for i in range(self.num_outputs):
-            item = torch.empty(
-                self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
+            if allocated_output and i in allocated_output.keys():
+                item = allocated_output[i]
+            else:
+                item = torch.empty(
+                    self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
             # TODO! add case judgement for stride info
             # item = item.as_strided(
             #     self.output_dims[i], out_stride[i], out_storage_offset[i])
@@ -295,7 +301,8 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def _prepare_dynamic_output(self, output_tensor, output_shape, out_stride, out_storage_offset):
+    @record_function('load_and_run_prepare_dynamic_output')
+    def _prepare_dynamic_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output):
         for i in range(self.num_outputs):
             tot_size = 1
             for elem in output_shape[i]:
@@ -304,8 +311,11 @@ class AscendExecutor(object):
             tot_size *= acl.data_type_size(dtype)
             self.output_dims[i] = output_shape[i]
             self.output_size[i] = tot_size
-            item = torch.empty(
-                self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
+            if allocated_output and i in allocated_output.keys():
+                item = allocated_output[i]
+            else:
+                item = torch.empty(
+                    self.output_dims[i], dtype=self.output_dtypes[i], device=dipu_device_str)
             # TODO! add case judgement for stride info
             # item = item.as_strided(
             #     self.output_dims[i], out_stride[i], out_storage_offset[i])
@@ -315,20 +325,31 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    def run(self, images, dims=None, output_shape=None, out_stride=None, out_storage_offset=None):
+    @record_function('load_and_run_run')
+    def run(self, images, dims=None, output_shape=None,
+            out_stride=None, out_storage_offset=None,
+            allocated_output=None):
         assert len(images) > 0
         input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
                  and x.device.type != dipu_device_str else x for x in images]
+        allocated_output_tensor = None
+        if allocated_output:
+            allocated_output_tensor = {}
+            for output_index, input_index in allocated_output.items():
+                allocated_output_tensor[output_index] = input[input_index]
         self._prepare_input(input, dims)
         output = []
         if output_shape:
-            self._prepare_dynamic_output(output, output_shape, out_stride, out_storage_offset)
+            self._prepare_dynamic_output(
+                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
         else:
-            self._prepare_output(output, output_shape, out_stride, out_storage_offset)
+            self._prepare_output(
+                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
         self.forward()
         self._destroy_databuffer()
         return output
 
+    @record_function('load_and_run_forward')
     def forward(self):
         ret = acl.mdl.execute(self.model_id,
                               self.input_dataset,
@@ -348,8 +369,8 @@ class AscendModel():
         self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None, output_shape=None,
-            out_stride=None, out_storage_offset=None):
-        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset)
+            out_stride=None, out_storage_offset=None, allocated_output=None):
+        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output)
 
     def cleanup(self):
         if hasattr(self, 'exe'):
