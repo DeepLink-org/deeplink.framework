@@ -2,9 +2,13 @@
 
 #include "DIPUCachingAllocator.h"
 
+#include <array>
 #include <map>
 #include <set>
 #include <tuple>
+
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
 
 namespace dipu {
 
@@ -70,7 +74,9 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
   }
 }
 
-c10::Allocator* getAllocator(const c10::Device& device) {
+namespace {
+
+c10::Allocator* createAllocator(const c10::Device& device) {
   c10::DeviceType device_type = device.type();
   c10::Allocator* result = nullptr;
   auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
@@ -96,6 +102,26 @@ c10::Allocator* getAllocator(const c10::Device& device) {
               "No allocator found for the device using the given algorithm:",
               device_type, dipu_device_memcaching_algorithm);
   return nullptr;
+}
+
+}  // namespace
+
+c10::Allocator* getAllocator(const c10::Device& device) {
+  // allocator_lookup_table[device_type][device_index]
+  static std::array<
+      std::array<c10::Allocator*, allocator_details::kMaxDeviceNumber>,
+      static_cast<std::size_t>(c10::DeviceType::COMPILE_TIME_MAX_DEVICE_TYPES)>
+      allocator_lookup_table{};
+  auto device_type = static_cast<int>(device.type());
+  int device_index =
+      device.type() == dipu::DIPU_DEVICE_TYPE
+          ? device.has_index() ? device.index() : devproxy::current_device()
+          : 0;
+  auto& allocator = allocator_lookup_table[device_type][device_index];
+  if (allocator == nullptr) {
+    allocator = createAllocator(device);
+  }
+  return allocator;
 }
 
 c10::Allocator* getAllocator(c10::DeviceType device_type) {
