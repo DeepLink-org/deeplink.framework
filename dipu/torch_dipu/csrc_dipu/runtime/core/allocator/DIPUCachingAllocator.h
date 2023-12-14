@@ -171,8 +171,6 @@ c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
   return &cache_allocator;
 }
 
-constexpr int kMaxDeviceNumber = 16;
-
 template <class AllocatorImpl, class AsyncMemPoolImpl>
 c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
 #define DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(id)                       \
