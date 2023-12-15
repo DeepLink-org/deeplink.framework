@@ -5,12 +5,6 @@
 
 namespace dipu::native {
 
-inline bool checkDiopiReturnValue() {
-  static bool enable =
-      std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
-  return enable;
-}
-
 inline bool checkTensorDevice() {
   static bool enable = []() {
     const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
