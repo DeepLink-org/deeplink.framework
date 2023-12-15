@@ -50,7 +50,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   c10::Stream getStream(c10::Device device) const noexcept override {
-    return static_cast<c10::Stream>(getCurrentDIPUStream(device.index()));
+    return getCurrentDIPUStream(device.index()).unwrap();
   }
 
   c10::Stream exchangeStream(c10::Stream s) const noexcept override {
@@ -67,11 +67,11 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
   c10::Stream getStreamFromGlobalPool(c10::Device d,
                                       bool isHighPriority) const override {
-    return static_cast<c10::Stream>(getDIPUStreamFromPool(d.index()));
+    return getDIPUStreamFromPool(d.index()).unwrap();
   }
 
   c10::Stream getDefaultStream(c10::Device device) const override {
-    return static_cast<c10::Stream>(getDefaultDIPUStream(device.index()));
+    return getDefaultDIPUStream(device.index()).unwrap();
   }
 
   void record(void** event, const c10::Stream& s,
@@ -84,7 +84,6 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
     auto dipu_event = static_cast<deviceEvent_t>(*event);
     auto stream = DIPUStream(s);
-    auto raw_stream = stream.rawstream();
 
     // Moves to queue's device to record
     const c10::Device orig_device = this->getDevice();
@@ -94,7 +93,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     if (!dipu_event) {
       devproxy::createEvent(&dipu_event);
     }
-    devproxy::recordEvent(dipu_event, raw_stream);
+    devproxy::recordEvent(dipu_event, stream.rawstream());
     *event = dipu_event;
 
     // Resets device

@@ -29,15 +29,12 @@ class DIPU_API DIPUStream {
                                stream_id)) {}
 
   bool operator==(const DIPUStream& other) const noexcept {
-    return static_cast<c10::Stream>(*this) == static_cast<c10::Stream>(other);
+    return unwrap() == other.unwrap();
   }
 
   bool operator!=(const DIPUStream& other) const noexcept {
     return not operator==(other);
   }
-
-  explicit operator c10::Stream() const { return stream_; }
-  operator deviceStream_t() const { return rawstream(); }
 
   /// Get the device index that this stream is associated with.
   c10::DeviceIndex device_index() const { return stream_.device_index(); }
@@ -60,7 +57,8 @@ class DIPU_API DIPUStream {
     return devproxy::isStreamEmpty(rawstream());
   }
 
-  /// Explicit conversion to rtStream_t.
+  c10::Stream unwrap() const { return stream_; }
+
   deviceStream_t rawstream() const;
 };
 
@@ -77,13 +75,13 @@ DIPU_API DIPUStream getStreamFromExternal(deviceStream_t ext_stream,
 
 template <typename O>
 inline O& operator<<(O& oss, const dipu::DIPUStream& stream) {
-  oss << static_cast<c10::Stream>(stream);
+  oss << stream.unwrap();
 }
 }  // namespace dipu
 
 template <>
 struct std::hash<dipu::DIPUStream> {
   std::size_t operator()(dipu::DIPUStream const& s) const noexcept {
-    return std::hash<c10::Stream>{}(static_cast<c10::Stream>(s));
+    return std::hash<c10::Stream>{}(s.unwrap());
   }
 };

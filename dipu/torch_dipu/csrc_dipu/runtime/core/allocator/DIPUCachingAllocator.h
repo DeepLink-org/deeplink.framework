@@ -1,9 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <list>
-#include <map>
-#include <set>
+#include <unordered_set>
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
@@ -98,8 +96,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   c10::Device& device() const { return device_; }
 
   class DataPtrContextBase {
-   private:
-    std::set<DIPUStream> streams_;
+    std::unordered_set<DIPUStream> streams_;
     mutable const CacheAllocator* allocator_ = nullptr;
     void* ptr_ = nullptr;
     size_t size_ = 0;
@@ -121,7 +118,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
 
     ~DataPtrContextBase() { MemChecker::instance().erase(ptr_); }
 
-    std::set<DIPUStream>& streams() { return streams_; }
+    std::unordered_set<DIPUStream>& streams() { return streams_; }
 
     const CacheAllocator* allocator() { return allocator_; }
 

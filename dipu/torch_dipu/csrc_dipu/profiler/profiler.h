@@ -170,7 +170,7 @@ class RecordBlockCreator {
         if (!streamId) {
           streamId = dipu_stream.id();
         }
-        stream = static_cast<deviceStream_t>(dipu_stream);
+        stream = dipu_stream.rawstream();
       }
       initialize(string_t(name), std::move(*extraInfo), *stream, *streamId);
     }

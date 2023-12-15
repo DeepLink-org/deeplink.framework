@@ -74,9 +74,8 @@ struct DIPUStreamDevice {
 
   void _doInitPool() {
     DIPUGuard device_guard{devidx_};
-    for (auto i = decltype(kStreamsPerPool){0}; i < kStreamsPerPool; ++i) {
-      auto& raw_device_stream = pool_streams[i];
-      devproxy::createStream(&raw_device_stream);
+    for (auto& stream : pool_streams) {
+      devproxy::createStream(&stream);
     }
   }
 
@@ -212,7 +211,7 @@ void setCurrentDIPUStream(DIPUStream stream) {
   auto device_index = stream.device_index();
   // TODO(assert): assert(setupDevice(device_index) == device_index)
   setupDevice(device_index);
-  LocalStreams()[device_index] = static_cast<c10::Stream>(stream).id();
+  LocalStreams()[device_index] = stream.unwrap().id();
 }
 
 }  // namespace dipu
