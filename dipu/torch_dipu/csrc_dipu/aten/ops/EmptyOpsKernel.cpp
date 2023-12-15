@@ -9,9 +9,6 @@
 #include <csrc_dipu/profiler/profiler.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
-using at::Layout;
-using c10::layout_or_default;
-
 namespace dipu {
 namespace native {
 
@@ -67,7 +64,7 @@ at::Tensor DIPUATenFunctions::empty_strided(
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   auto device = c10::device_or_default(device_opt);
   AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
-  AT_ASSERT(layout_or_default(layout_opt) == Layout::Strided);
+  AT_ASSERT(c10::layout_or_default(layout_opt) == at::Layout::Strided);
   auto dtype = dtype_or_default(dtype_opt);
 
   c10::Allocator* allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);

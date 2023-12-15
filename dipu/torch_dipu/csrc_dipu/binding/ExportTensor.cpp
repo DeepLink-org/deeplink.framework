@@ -38,10 +38,8 @@ static at::Tensor dispatch_to(
 static std::array<PyObject*, 2> splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
   PyObject* newArgs = PyTuple_New(rawSize - 1);
-  std::array<PyObject*, 2> result{};
   // 0 is self
-  result[0] = PyTuple_GET_ITEM(args, 0);
-  result[1] = newArgs;
+  std::array<PyObject*, 2> result{PyTuple_GET_ITEM(args, 0), newArgs};
 
   for (int i = 1; i < rawSize; i++) {
     auto arg = PyTuple_GET_ITEM(args, i);

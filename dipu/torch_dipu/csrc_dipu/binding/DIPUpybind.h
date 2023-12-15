@@ -75,7 +75,7 @@ struct type_caster<at::ScalarType> {
                          py::return_value_policy /* policy */,
                          py::handle /* parent */) {
     // Convert at::ScalarType to Python torch.dtype
-    return {py::handle(scalarTypeToDtype(src))};
+    return {{py::handle(scalarTypeToDtype(src))}};
   }
 };
 

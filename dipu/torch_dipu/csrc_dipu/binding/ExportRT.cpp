@@ -22,7 +22,7 @@ namespace py = pybind11;
 
 namespace dipu {
 
-static constexpr size_t kMega = static_cast<const size_t>(1024 * 1024);
+static constexpr auto kMega = static_cast<const size_t>(1024 * 1024);
 using dipu::devapis::DIPUDeviceProperties;
 using dipu::devapis::DIPUDeviceStatus;
 

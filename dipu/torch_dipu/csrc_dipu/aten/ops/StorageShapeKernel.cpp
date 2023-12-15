@@ -12,15 +12,9 @@
 #include <csrc_dipu/runtime/core/MemChecker.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
-using at::IntArrayRef;
-using c10::MemoryFormat;
-using c10::StorageImpl;
-using c10::TensorImpl;
-using dipu::devproxy::current_device;
-
 namespace dipu {
 namespace native {
-void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage,
+void DIPUATenFunctions::resize_bytes_dipu(c10::StorageImpl* storage,
                                           size_t newsize_bytes) {
   TORCH_CHECK(storage->resizable(),
               "Trying to resize dipu storage that is not resizable");
@@ -28,7 +22,7 @@ void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage,
   TORCH_CHECK(allocator != nullptr,
               "Trying to resize dipu storage without an allocator");
 
-  auto device = current_device();
+  auto device = dipu::devproxy::current_device();
   dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
   if (newsize_bytes == 0) {
     storage->set_data_ptr_noswap(
@@ -51,8 +45,9 @@ void DIPUATenFunctions::resize_bytes_dipu(StorageImpl* storage,
   storage->set_nbytes(newsize_bytes);
 }
 
-static inline TensorImpl* _resize_impl_dipu_(TensorImpl* self, IntArrayRef size,
-                                             at::OptionalIntArrayRef stride) {
+static inline c10::TensorImpl* _resize_impl_dipu_(
+    c10::TensorImpl* self, at::IntArrayRef size,
+    at::OptionalIntArrayRef stride) {
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
   }
@@ -90,7 +85,7 @@ const at::Tensor& DIPUATenFunctions::resize_(
   _resize_impl_dipu_(self_, size, /*stride=*/c10::nullopt);
   if (optional_memory_format.has_value()) {
     auto memory_format = optional_memory_format.value();
-    TORCH_CHECK(memory_format != MemoryFormat::Preserve,
+    TORCH_CHECK(memory_format != at::MemoryFormat::Preserve,
                 "Unsupported memory format", memory_format);
     self_->empty_tensor_restride(memory_format);
   }

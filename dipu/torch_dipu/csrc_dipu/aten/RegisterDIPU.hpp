@@ -55,8 +55,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                               \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");           \
       }                                                                      \
-      DIPU_OP_LOG_WARNING_ONCE((opname)                                      \
-                               << " will be fallback to cpu" << std::endl);  \
+      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"        \
+                                        << "\n");                            \
     }                                                                        \
   } while (false);
 
@@ -72,8 +72,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                                \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");            \
       }                                                                       \
-      DIPU_OP_LOG_WARNING_ONCE((opname)                                       \
-                               << " will be fallback to cpu" << std::endl);   \
+      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"         \
+                                        << "\n");                             \
       m.impl(opname, TORCH_FN(custom_fallback_func));                         \
     }                                                                         \
   } while (false);
@@ -85,11 +85,11 @@ class DIPUOpRegister {
  private:
   OpRegFunPtr fun_ptr_;
   torch::Library lib_;
-  // NOLINTBEGIN: These should not be const variables
+  // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
   static std::deque<std::tuple<torch::Library*, OpRegFunPtr>>
       dipuOpRegisterList;
   static std::mutex mutex_;
-  // NOLINTEND
+  // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
  public:
   DIPUOpRegister(OpRegFunPtr fun_ptr, const char* ns,

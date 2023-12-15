@@ -16,7 +16,8 @@
 
 using dnative = dipu::native::DIPUATenFunctions;
 
-static std::string getFallbackListContent() {
+static std::vector<std::string> getFallbackList() {
+  std::vector<std::string> fallback_list;
   std::string content;
   const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
   if (env != nullptr) {
@@ -33,27 +34,35 @@ static std::string getFallbackListContent() {
     }
   }
 
-  return content;
+  std::stringstream strstream(content);
+  std::string force_fallback_pattern;
+  while (std::getline(strstream, force_fallback_pattern, ',')) {
+    fallback_list.push_back(force_fallback_pattern);
+  }
+
+  return std::move(fallback_list);
 }
 
-static const std::string force_fallback_operators_list =
-    getFallbackListContent();
+static const std::vector<std::string> force_fallback_operators_list =
+    getFallbackList();
 
 namespace dipu {
 bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.empty() || opname == nullptr) {
     return false;
   }
-  std::stringstream strstream(force_fallback_operators_list);
-  std::string force_fallback_pattern;
-  while (std::getline(strstream, force_fallback_pattern, ',')) {
-    if (force_fallback_operators_list.empty()) {
+  for (auto& force_fallback_pattern : force_fallback_operators_list) {
+    if (force_fallback_pattern.empty()) {
       continue;
     }
-    bool force_fallback =
-        std::regex_match(opname, std::regex(force_fallback_pattern));
-    if (force_fallback) {
-      return true;
+    try {
+      bool force_fallback =
+          std::regex_match(opname, std::regex(force_fallback_pattern));
+      if (force_fallback) {
+        return true;
+      }
+    } catch (const std::regex_error& e) {
+      TORCH_CHECK(false, e.what());
     }
   }
   return false;
@@ -152,11 +161,11 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   }
 }
 
-// NOLINTBEGIN: These should not be const variables
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>>
     DIPUOpRegister::dipuOpRegisterList;
 std::mutex DIPUOpRegister::mutex_;
-// NOLINTEND
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 void DIPUOpRegister::register_op() {
   std::lock_guard<std::mutex> guard(mutex_);

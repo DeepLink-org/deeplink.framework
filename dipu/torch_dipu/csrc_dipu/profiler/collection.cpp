@@ -73,7 +73,7 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
 }
 
 void DIPUInputOutputEncoder::push(const at::Tensor& t) {
-  if (t.defined() && !t.is_nested()) {  // TODO(wiryls) fix nested sizes
+  if (t.defined() && !t.is_nested()) {  // TODO(caikun-pjlab) fix nested sizes
     tags_.emplace_back(Tag::Tensor);
     tensor_metadata_.emplace_back(t);
     tensor_sizes_strides_.copy(t.sizes());
@@ -260,8 +260,8 @@ struct StealOrDefault {
 
 void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     std::vector<std::shared_ptr<Result>>& out,
-    const std::function<time_t(approx_time_t)>& time_converter,
-    const uint64_t& tid, const DeviceAndResource& kineto_info) {
+    const std::function<time_t(approx_time_t)>& time_converter, uint64_t tid,
+    const DeviceAndResource& kineto_info) {
   // Plumb Autograd info to the top level annotation.
   auto it = op_events_.begin();
   for (C10_UNUSED const auto _ :
@@ -377,7 +377,7 @@ auto kinetoEventCorrelationID(
 }
 }  // namespace
 
-DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(const uint64_t& tid,
+DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(uint64_t tid,
                                                  const ProfilerConfig& config)
     : tid_{tid}, config_{config}, kineto_info_{kineto_ids()} {
   libkineto::api().activityProfiler().recordThreadInfo();
@@ -446,8 +446,8 @@ void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
                         uint64_t start_time_us, uint64_t end_time_us) {
   using torch::profiler::impl::kineto::addMetadata;
   using torch::profiler::impl::kineto::TraceWrapper;
-  constexpr int64_t ns_per_us = 1000;
-  TraceWrapper cpu_trace(static_cast<int64_t>(start_time_us),
+  constexpr time_t ns_per_us = 1000;
+  TraceWrapper cpu_trace(static_cast<time_t>(start_time_us),
                          "PyTorch Profiler");
 
   // Generate Kineto events for each event recorded by the PyTorch profiler.
@@ -954,7 +954,7 @@ std::pair<std::vector<std::shared_ptr<Result>>,
           std::unique_ptr<ActivityTraceWrapper>>
 DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                             uint64_t start_time_us, uint64_t end_time_us) {
-  constexpr size_t ns_per_us = 1000;
+  constexpr time_t ns_per_us = 1000;
   auto converter = [&](approx_time_t t) {
     return t == std::numeric_limits<approx_time_t>::min()
                ? std::numeric_limits<time_t>::min()

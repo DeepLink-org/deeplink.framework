@@ -20,7 +20,7 @@ static void printPromptAtStartup() {
 }
 
 static void initResourceImpl() {
-  static std::atomic_bool called(false);
+  static bool called(false);
   if (called) {
     return;
   }
@@ -33,7 +33,7 @@ static void initResourceImpl() {
 }
 
 static void releaseAllResourcesImpl() {
-  static std::atomic_bool called(false);
+  static bool called(false);
   if (called) {
     return;
   }
