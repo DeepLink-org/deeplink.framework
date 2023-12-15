@@ -5,6 +5,13 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <vector>
+
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
@@ -24,7 +31,7 @@ using RegisteredAllocator = std::map<
              std::tuple<std::function<c10::Allocator*(int)>, uint8_t>>>;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
+std::unique_ptr<RegisteredAllocator> gDIPURegisteredAllocatorPtr;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex dipu_register_allocator_mutex;
@@ -50,16 +57,16 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
                   const std::function<c10::Allocator*(int)>& allocator_getter,
                   uint8_t priority) {
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
-  if (!gDIPURegisterdAllocatorPtr) {
-    gDIPURegisterdAllocatorPtr = std::make_unique<RegisteredAllocator>();
+  if (!gDIPURegisteredAllocatorPtr) {
+    gDIPURegisteredAllocatorPtr = std::make_unique<RegisteredAllocator>();
   }
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
-  if (gDIPURegisterdAllocator[device_type].count(name) <= 0) {
-    gDIPURegisterdAllocator[device_type][name] =
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
+  if (gDIPURegisteredAllocator[device_type].count(name) <= 0) {
+    gDIPURegisteredAllocator[device_type][name] =
         std::make_tuple(allocator_getter, priority);
   } else {
-    if (std::get<1>(gDIPURegisterdAllocator[device_type][name]) < priority) {
-      gDIPURegisterdAllocator[device_type][name] =
+    if (std::get<1>(gDIPURegisteredAllocator[device_type][name]) < priority) {
+      gDIPURegisteredAllocator[device_type][name] =
           std::make_tuple(allocator_getter, priority);
     } else {
       TORCH_CHECK(false,
@@ -70,21 +77,29 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
   }
 }
 
-c10::Allocator* getAllocator(const c10::Device& device) {
+namespace {
+
+int getDeviceIndex(const c10::Device& device, int host_index) {
+  if (device.is_cpu()) {
+    return host_index;
+  }
+  if (device.has_index()) {
+    return device.index();
+  }
+  return devproxy::current_device();
+}
+
+c10::Allocator* createAllocator(const c10::Device& device) {
   c10::DeviceType device_type = device.type();
   c10::Allocator* result = nullptr;
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
   const std::string algorithm =
       (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm
                                              : dipu_host_memcaching_algorithm);
-  if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
+  if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
-        std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
-    int device_index = 0;
-    if (device_type == dipu::DIPU_DEVICE_TYPE) {
-      device_index =
-          device.has_index() ? device.index() : devproxy::current_device();
-    }
+        std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
+    int device_index = getDeviceIndex(device, 0);
 
     auto allocator = allocator_geter(device_index);
     if (device_type == dipu::DIPU_DEVICE_TYPE) {
@@ -96,6 +111,22 @@ c10::Allocator* getAllocator(const c10::Device& device) {
               "No allocator found for the device using the given algorithm:",
               device_type, dipu_device_memcaching_algorithm);
   return nullptr;
+}
+
+}  // namespace
+
+c10::Allocator* getAllocator(const c10::Device& device) {
+  // allocator_lookup_table[device_index] == device allocator
+  // allocator_lookup_table[device_count] == host allocator
+  static const int device_count = devproxy::getDeviceCount();
+  static const int host_index = device_count;
+  static std::vector<c10::Allocator*> allocator_lookup_table(device_count + 1);
+  int device_index = getDeviceIndex(device, host_index);
+  auto& allocator = allocator_lookup_table[device_index];
+  if (allocator == nullptr) {
+    allocator = createAllocator(device);
+  }
+  return allocator;
 }
 
 c10::Allocator* getAllocator(c10::DeviceType device_type) {
