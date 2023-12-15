@@ -39,6 +39,23 @@ class TestConv2D(TestCase):
         )
         # print("conv2d output compare successfully")
 
+    def test_conv2d_nhwc(self):
+        device = torch.device("dipu")
+
+        m = nn.Conv2d(2, 3, 3).to(device=device, memory_format=torch.channels_last)
+        self.assertTrue(m.weight.is_contiguous(memory_format=torch.channels_last))
+
+        x = torch.rand(2, 2, 5, 5).to(device=device, memory_format=torch.channels_last)
+        x.requires_grad_()
+        self.assertTrue(x.is_contiguous(memory_format=torch.channels_last))
+
+        y = m(x)
+        self.assertTrue(y.is_contiguous(memory_format=torch.channels_last))
+
+        y.backward(torch.rand_like(y))
+        self.assertTrue(x.grad.is_contiguous(memory_format=torch.channels_last))
+        self.assertTrue(m.weight.grad.is_contiguous(memory_format=torch.channels_last))
+
 
 if __name__ == "__main__":
     run_tests()
