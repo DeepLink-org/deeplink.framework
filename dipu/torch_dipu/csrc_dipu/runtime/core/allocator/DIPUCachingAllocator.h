@@ -6,10 +6,7 @@
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
 
-#include "csrc_dipu/runtime/core/DIPUEvent.h"
-
 #include "DIPUAsyncResourcePool.h"
-#include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
 
 namespace dipu {

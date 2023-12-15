@@ -76,9 +76,7 @@ $cppsignautre {
   dipu::profile::RecordBlockCreator dipuRecorder(R"($diopi_fun_call_code)");
   ::diopiError_t ret = $diopi_fun_call_code
   dipuRecorder.end();
-  if (checkDiopiReturnValue()) {
-    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
-  }
+  TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
 
   $custom_code_before_return
 

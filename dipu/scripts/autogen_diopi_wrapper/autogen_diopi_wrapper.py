@@ -658,8 +658,9 @@ def functions_code_gen(fun_config):
         return_code = f"return std::tie({params});"
 
     custom_code_at_the_beginning = fun_config.get('custom_code_at_the_beginning', fun_config.get('custom_code', ''))
+    #strip all whitespace and divide code to different lines.
     custom_code_at_the_beginning = re.sub(';\s*$', ';\n',custom_code_at_the_beginning)
-
+    
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
@@ -738,6 +739,7 @@ def parase_args():
     import argparse
     parser = argparse.ArgumentParser(description='autogen diopi wrapper code')
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
+    parser.add_argument('--convert_config', type=str, dest = "convert_config", default="", help="path to the convert_config.yaml")
     parser.add_argument('--out', type=str, default = 'AutoGenedKernels.cpp', help='path to functions config file')
     parser.add_argument('--dummy_call_diopi', default=False, type=boolean_string, help='whether acctually call diopi interface')
     parser.add_argument('--use_diopi_adapter', default=True, type=boolean_string, help='whether use diopi adapter')
@@ -757,7 +759,9 @@ def main():
         file_data = diopi_functions_file.read()
         funcs_config = yaml.load(file_data, Loader=yaml.FullLoader)
 
-
+    from op_memory_format_converter import OpMemoryFormatConverter
+    memory_format_converter = OpMemoryFormatConverter(args.convert_config)
+    
     functions_code = ''
     op_register_code = ''
     header_include_code = ''
@@ -775,6 +779,7 @@ def main():
         mergeed_fun_config = dict(args.fun_config_dict)
         mergeed_fun_config.update(vars(args))
         mergeed_fun_config.update(fun_config)
+        #filter for those device specific op.
         if 'device' in mergeed_fun_config:
             current_device = mergeed_fun_config.get('current_device', '')
             if current_device not in (mergeed_fun_config['device'] + ['all',]):
@@ -789,6 +794,10 @@ def main():
                 continue
 
         fun_code, register_code = functions_code_gen(mergeed_fun_config)
+        
+        #The class object memory_format_converter will replace the prefered memory format placeholder to the prefered memory format based on the device's convert_config.yaml
+        fun_code = memory_format_converter.convert(fun_code, fun_config)
+        
         functions_code += fun_code
         if mergeed_fun_config.get('register_op', True) in [True, "True"]:
             if mergeed_fun_config.get('autograd', False) == True:
