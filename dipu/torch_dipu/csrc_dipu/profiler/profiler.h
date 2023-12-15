@@ -15,6 +15,7 @@
 
 #include "csrc_dipu/vendor/vendorapi.h"
 #include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/core/ObjectPool.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 #include "IActivityProfiler.h"
@@ -38,27 +39,6 @@ void setProfileOpen(bool profileFlag);
 void FlushAllRecords();
 void abandonAllRecords();
 
-struct ExtraRecordInfo {
-  string_t scope;
-  size_t opSeqId{};
-  string_t attrs;
-
-  ExtraRecordInfo& setScope(const string_t& scopeName) {
-    scope = scopeName;
-    return *this;
-  }
-
-  ExtraRecordInfo& setSeqId(size_t seqId) {
-    opSeqId = seqId;
-    return *this;
-  }
-
-  ExtraRecordInfo& setAttrs(const string_t& sAttrs) {
-    attrs = sAttrs;
-    return *this;
-  }
-};
-
 struct Record {
   string_t name;
   size_t opId;
@@ -69,7 +49,6 @@ struct Record {
   size_t threadIdx;
   bool isKernel = false;
   uint64_t linkCorrelationId = 0;
-  ExtraRecordInfo extraInfo;
 };
 
 class RecordsImpl final {
@@ -106,11 +85,10 @@ class RecordCreator final {
   size_t begin_;
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;
-  ExtraRecordInfo extraInfo_;
 
  public:
-  explicit RecordCreator(string_t name, size_t opId, uint64_t linkCorrelationId,
-                         ExtraRecordInfo extraInfo = ExtraRecordInfo());
+  RecordCreator() = default;
+  RecordCreator(string_t name, size_t opId, uint64_t linkCorrelationId);
 
   ~RecordCreator() { end(); }
 
@@ -127,7 +105,6 @@ struct DeviceRecord {
   string_t name;
   size_t opId;
   uint64_t linkCorrelationId = 0;
-  ExtraRecordInfo extraInfo;
 };
 
 class DeviceRecordCreator final {
@@ -139,12 +116,11 @@ class DeviceRecordCreator final {
   std::shared_ptr<DeviceEvent> pStart_, pStop_;
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;
-  ExtraRecordInfo extraInfo_;
 
  public:
+  DeviceRecordCreator() = default;
   DeviceRecordCreator(string_t name, deviceStream_t stream, int streamId,
-                      size_t opId, uint64_t linkCorrelationId,
-                      ExtraRecordInfo extraInfo = ExtraRecordInfo());
+                      size_t opId, uint64_t linkCorrelationId);
 
   ~DeviceRecordCreator() { end(); }
 
@@ -152,19 +128,19 @@ class DeviceRecordCreator final {
   void end() noexcept;
 };
 
+extern ObjectPool<RecordCreator> record_creator_pool;
+extern ObjectPool<DeviceRecordCreator> device_record_creator_pool;
+
 class RecordBlockCreator {
  public:
+  RecordBlockCreator() = default;
   // TODO(lljbash): maybe use std::string_view and std::optional after c++17
   explicit RecordBlockCreator(
       c10::string_view name,
-      c10::optional<ExtraRecordInfo> extraInfo = c10::nullopt,
       c10::optional<deviceStream_t> stream = c10::nullopt,
       c10::optional<c10::StreamId> streamId = c10::nullopt,
       c10::optional<bool> enProfile = c10::nullopt) {
     if (enProfile.value_or(isEnable())) {
-      if (!extraInfo) {
-        extraInfo.emplace();
-      }
       if (!stream) {
         auto dipu_stream = getCurrentDIPUStream();
         if (!streamId) {
@@ -172,7 +148,7 @@ class RecordBlockCreator {
         }
         stream = static_cast<deviceStream_t>(dipu_stream);
       }
-      initialize(string_t(name), std::move(*extraInfo), *stream, *streamId);
+      initialize(string_t(name), *stream, *streamId);
     }
   }
 
@@ -187,13 +163,31 @@ class RecordBlockCreator {
   ~RecordBlockCreator() { end(); }
 
  private:
-  void initialize(string_t name, ExtraRecordInfo extraInfo,
-                  deviceStream_t stream, c10::StreamId streamId);
+  void initialize(string_t name, deviceStream_t stream, c10::StreamId streamId);
 
-  std::unique_ptr<RecordCreator> pHostRecord_ = nullptr;
-  std::unique_ptr<DeviceRecordCreator> pDeviceRecord_ = nullptr;
+  struct RecordCreatorDeleter {
+    void operator()(RecordCreator* record) const {
+      if (record != nullptr) {
+        record_creator_pool.free(record);
+      }
+    }
+  };
+
+  struct DeviceRecordCreatorDeleter {
+    void operator()(DeviceRecordCreator* record) const {
+      if (record != nullptr) {
+        device_record_creator_pool.free(record);
+      }
+    }
+  };
+
+  std::unique_ptr<RecordCreator, RecordCreatorDeleter> pHostRecord_ = nullptr;
+  std::unique_ptr<DeviceRecordCreator, DeviceRecordCreatorDeleter>
+      pDeviceRecord_ = nullptr;
   bool finish_ = false;
 };
+
+extern ObjectPool<RecordBlockCreator> record_block_creator_pool;
 
 }  // namespace profile
 

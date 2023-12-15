@@ -7,6 +7,7 @@
 #include "csrc_dipu/profiler/profiler.h"
 
 namespace diopihelper = dipu::diopi_helper;
+using dipu::profile::record_block_creator_pool;
 using dipu::profile::RecordBlockCreator;
 
 extern "C" {
@@ -188,7 +189,9 @@ DIOPI_RT_API diopiError_t diopiGeneratorSetState(
 
 DIOPI_RT_API diopiError_t diopiRecordStart(const char* record_name,
                                            void** record) {
-  *record = new RecordBlockCreator(record_name);
+  RecordBlockCreator* creator = record_block_creator_pool.allocate();
+  new (creator) RecordBlockCreator(record_name);
+  *record = creator;
   return diopiSuccess;
 }
 
@@ -196,7 +199,7 @@ DIOPI_RT_API diopiError_t diopiRecordEnd(void** record) {
   TORCH_CHECK(record != nullptr, "invalid parameter record_function");
   auto dipu_record_block = static_cast<RecordBlockCreator*>(*record);
   dipu_record_block->end();
-  delete dipu_record_block;
+  record_block_creator_pool.free(dipu_record_block);
   *record = nullptr;
   return diopiSuccess;
 }
