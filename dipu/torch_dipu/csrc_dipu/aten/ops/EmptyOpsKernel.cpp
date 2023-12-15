@@ -7,6 +7,7 @@
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/profiler/profiler.h>
+#include <csrc_dipu/runtime/core/DIPUStorageImpl.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 namespace dipu {
@@ -29,12 +30,29 @@ at::Tensor DIPUATenFunctions::empty(
                                    dipu::DIPU_DEVICE_TYPE);
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) ==
                                    c10::Layout::Strided);
-
+  at::detail::check_size_nonnegative(size);
   c10::Allocator* allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
+  auto dtype = c10::scalarTypeToTypeMeta(c10::dtype_or_default(dtype_opt));
+  auto size_bytes =
+      at::detail::computeStorageNbytesContiguous(size, dtype.itemsize());
+  c10::intrusive_ptr<c10::StorageImpl> storage_impl =
+      c10::make_intrusive<dipu::DIPUStorageImpl>(
+          c10::StorageImpl::use_byte_size_t(), size_bytes, allocator, true);
   constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
-  return at::detail::empty_generic(size, allocator, dipu_ks,
-                                   c10::dtype_or_default(dtype_opt),
-                                   memory_format_opt);
+  auto tensor = at::detail::make_tensor<c10::TensorImpl>(
+      std::move(storage_impl), dipu_ks, dtype);
+  // Default TensorImpl has size [0]
+  if (size.size() != 1 || size[0] != 0) {
+    tensor.unsafeGetTensorImpl()->generic_set_sizes_contiguous(size);
+  }
+  if (memory_format_opt.has_value()) {
+    // Restriding a just-created empty contiguous tensor does nothing.
+    if (*memory_format_opt != c10::MemoryFormat::Contiguous) {
+      tensor.unsafeGetTensorImpl()->empty_tensor_restride(*memory_format_opt);
+    }
+  }
+  DIPUStorageImpl::GetImplPtr(tensor)->init_desc(size, memory_format_opt);
+  return tensor;
 }
 
 at::Tensor DIPUATenFunctions::empty_cpu(
@@ -55,7 +73,6 @@ at::Tensor DIPUATenFunctions::empty_cpu(
                                    memory_format_opt);
 }
 
-// use empty_generic, test
 at::Tensor DIPUATenFunctions::empty_strided(
     at::IntArrayRef size, at::IntArrayRef stride,
     c10::optional<at::ScalarType> dtype_opt,
@@ -65,12 +82,21 @@ at::Tensor DIPUATenFunctions::empty_strided(
   auto device = c10::device_or_default(device_opt);
   AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
   AT_ASSERT(c10::layout_or_default(layout_opt) == at::Layout::Strided);
-  auto dtype = dtype_or_default(dtype_opt);
-
+  at::detail::check_size_nonnegative(size);
+  auto scalar_type = dtype_or_default(dtype_opt);
   c10::Allocator* allocator = dipu::getAllocator(dipu::DIPU_DEVICE_TYPE);
   constexpr c10::DispatchKeySet dipu_ks({dipu::DIPU_DISPATCH_KEY});
-  return at::detail::empty_strided_generic(size, stride, allocator, dipu_ks,
-                                           dtype);
+  caffe2::TypeMeta dtype = c10::scalarTypeToTypeMeta(scalar_type);
+  auto size_bytes =
+      at::detail::computeStorageNbytes(size, stride, dtype.itemsize());
+  c10::intrusive_ptr<c10::StorageImpl> storage_impl =
+      c10::make_intrusive<dipu::DIPUStorageImpl>(
+          c10::StorageImpl::use_byte_size_t(), size_bytes, allocator, true);
+  auto tensor = at::detail::make_tensor<c10::TensorImpl>(
+      std::move(storage_impl), dipu_ks, dtype);
+  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  DIPUStorageImpl::GetImplPtr(tensor)->init_desc(size, c10::nullopt);
+  return tensor;
 }
 
 at::Tensor DIPUATenFunctions::empty_strided_cpu(

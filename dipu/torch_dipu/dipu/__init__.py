@@ -9,8 +9,10 @@ from .memory import *
 from .streams import *
 from .tensor import *
 from .storages import *
+from .utils import format_cast
 from . import amp
 import torch_dipu
+from torch_dipu._C import DIOPIMemoryFormat
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 
@@ -38,6 +40,8 @@ __all__ = [
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
     "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
+    # custom api
+    "format_cast", "DIOPIMemoryFormat"
     # not support mock cuda_graph now
 
 ]

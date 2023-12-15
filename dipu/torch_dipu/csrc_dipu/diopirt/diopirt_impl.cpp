@@ -4,7 +4,13 @@
 #include <mutex>
 #include <stdio.h>
 
+#include <ATen/core/TensorBody.h>
+#include <c10/util/Optional.h>
+
+#include <diopi/diopirt.h>
+
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/DIPUStorageImpl.h"
 
 namespace diopihelper = dipu::diopi_helper;
 using dipu::profile::RecordBlockCreator;
@@ -92,6 +98,29 @@ DIOPI_RT_API diopiError_t diopiGetTensorStoragePtr(diopiConstTensorHandle_t pth,
   // Support both pt2.0 and pt2.1
   *pStoragePtr = const_cast<void*>(
       (reinterpret_cast<const at::Tensor*>(pth))->storage().data());
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiGetTensorStorageDesc(
+    diopiConstTensorHandle_t pth, diopiStorageDesc_t* desc) {
+  dipu::DIPUStorageImpl::GetImplPtr(reinterpret_cast<const at::Tensor*>(pth))
+      ->get_desc(desc);
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiSetTensorStorageDesc(
+    diopiTensorHandle_t pth, const diopiStorageDesc_t& desc) {
+  dipu::DIPUStorageImpl::GetImplPtr(reinterpret_cast<const at::Tensor*>(pth))
+      ->set_desc(desc);
+  return diopiSuccess;
+}
+
+DIOPI_RT_API diopiError_t diopiCopyTensorMetaData(
+    diopiTensorHandle_t dst_pth, diopiConstTensorHandle_t src_pth) {
+  const auto* src = reinterpret_cast<const at::Tensor*>(src_pth);
+  auto* dst = reinterpret_cast<at::Tensor*>(dst_pth);
+  dst->set_(dst->storage(), src->storage_offset(), src->sizes(),
+            src->strides());
   return diopiSuccess;
 }
 
