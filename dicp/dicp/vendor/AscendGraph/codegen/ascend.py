@@ -362,14 +362,17 @@ class AscendCodegen(torch.fx.Interpreter):
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
-                                 if isinstance(args[idx], torch.Tensor):
-                                     tmp_arg = args[idx].clone()
-                                     with torch.no_grad():
-                                         args[idx].copy_(tmp_arg)
-                                     del tmp_arg
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset)']
+
+        # dealing with modified args passing back
+        allocated_output = {}
+        for item in self.assign_args:
+            input_index = item[1]
+            output_index = self.graph_output_names.index(item[0])
+            allocated_output[output_index] = input_index
+        call_body.writeline(f'allocated_output= {allocated_output}')
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output)']
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
@@ -393,10 +396,6 @@ class AscendCodegen(torch.fx.Interpreter):
             else:
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
-
-        # dealing with modified args passing back
-        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in self.assign_args]
-        call_str.extend(output_convert)
 
         if precision_check:
             for i, name in enumerate(self.py_output_names):
