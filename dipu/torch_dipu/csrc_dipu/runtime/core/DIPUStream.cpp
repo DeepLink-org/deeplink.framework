@@ -67,7 +67,7 @@ struct DIPUStreamDevice {
   std::once_flag default_flag;
   deviceId_t devidx_{};
   // seems pytorch 2.0 giveup default stream and enable cuda per_thread stream
-  // feature at compile time. it cannot be applied to othe device.
+  // feature at compile time. it cannot be applied to other device.
   deviceStream_t default_stream = nullptr;
 
   std::atomic<uint32_t> next_pool_pos{};
