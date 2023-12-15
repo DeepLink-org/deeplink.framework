@@ -2,15 +2,16 @@
 
 #include "DIPUCachingAllocator.h"
 
-#include <array>
 #include <map>
 #include <set>
 #include <tuple>
+#include <vector>
 
 #include <c10/core/Device.h>
 #include <c10/core/DeviceType.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
@@ -78,9 +79,9 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
 
 namespace {
 
-int getDeviceIndex(const c10::Device& device) {
+int getDeviceIndex(const c10::Device& device, int host_index) {
   if (device.is_cpu()) {
-    return 0;
+    return host_index;
   }
   if (device.has_index()) {
     return device.index();
@@ -98,7 +99,7 @@ c10::Allocator* createAllocator(const c10::Device& device) {
   if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
         std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
-    int device_index = getDeviceIndex(device);
+    int device_index = getDeviceIndex(device, 0);
 
     auto allocator = allocator_geter(device_index);
     if (device_type == dipu::DIPU_DEVICE_TYPE) {
@@ -115,14 +116,13 @@ c10::Allocator* createAllocator(const c10::Device& device) {
 }  // namespace
 
 c10::Allocator* getAllocator(const c10::Device& device) {
-  // allocator_lookup_table[device_type][device_index]
-  static std::array<std::array<c10::Allocator*, C10_COMPILE_TIME_MAX_DIPUS>,
-                    static_cast<std::size_t>(
-                        c10::DeviceType::COMPILE_TIME_MAX_DEVICE_TYPES)>
-      allocator_lookup_table{};
-  auto device_type = static_cast<int>(device.type());
-  int device_index = getDeviceIndex(device);
-  auto& allocator = allocator_lookup_table[device_type][device_index];
+  // allocator_lookup_table[device_index] == device allocator
+  // allocator_lookup_table[device_count] == host allocator
+  static const int device_count = devproxy::getDeviceCount();
+  static const int host_index = device_count;
+  static std::vector<c10::Allocator*> allocator_lookup_table(device_count + 1);
+  int device_index = getDeviceIndex(device, host_index);
+  auto& allocator = allocator_lookup_table[device_index];
   if (allocator == nullptr) {
     allocator = createAllocator(device);
   }
