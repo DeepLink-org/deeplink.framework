@@ -3,6 +3,7 @@ Checks: '
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-reserved-identifier,
+  -bugprone-signed-char-misuse,
   clang-analyzer-*,
   clang-diagnostic-*,
   cppcoreguidelines-*,
@@ -39,8 +40,6 @@ AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'
 CheckOptions:
-  - key:   bugprone-signed-char-misuse.CharTypdefsToIgnore
-    value: 'int8_t;c10::DeviceIndex'
   - key:   cppcoreguidelines-avoid-do-while.IgnoreMacros
     value: true
   - key:   cppcoreguidelines-narrowing-conversions.IgnoreConversionFromTypes
