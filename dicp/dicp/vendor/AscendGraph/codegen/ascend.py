@@ -1043,7 +1043,7 @@ class AscendOverrides:
         return broadcast_op.to_node()
 
     @staticmethod
-    def Empty(name, shape, dtype, layout=torch.strided, device='cpu'):
+    def Empty(name, shape, dtype, layout=torch.strided, device='cpu', memory_format=torch.contiguous_format):
         dtype = get_ascend_dtype_num(get_ascend_dtype(dtype))
         op = OP(name, "Empty")
         op.set_input("shape", shape)
@@ -1328,7 +1328,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def SplitD(name, x, dim, num_split, y):
+    def SplitD(name, x, dim, num_split, y, from_view_complex):
         split_op = OP(name, "SplitD")
         split_op.set_input("x", x)
         split_op.set_attr_int("split_dim", dim)
@@ -1365,7 +1365,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Reshape(name, x, shape):
+    def Reshape(name, x, shape, ori_op=None, params_passed=None):
         op = OP(name, "Reshape")
         op.set_input("x", x)
         op.set_input("shape", shape)

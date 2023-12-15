@@ -283,10 +283,55 @@ class Expand(Operator):
     def __init__(self):
         super().__init__("Expand")
 
+    # TODO: unfinished, need furthur test, PASS
+    def infer_result(self, x, shape_tensor):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        (
+            shape_tensor,
+            shape_tensor_shape,
+            shape_tensor_dim,
+            shape_tensor_dtype,
+        ) = get_fake_tensor_meta_val(shape_tensor, True)
+        assert x_dim > 0, self.__class__.__name__ + ": scalar"
+        shape = list(shape_tensor_shape)
+        dims = zip(shape, x_shape)
+        x_stride = list(x.stride())
+        for i, t in enumerate(dims):
+            tar_dim, cur_dim = t
+            if tar_dim != cur_dim:
+                x_stride[i] = 0
+            if tar_dim == -1:
+                shape[-(i + 1)] = cur_dim
+                continue
+            elif cur_dim == 1:
+                continue
+            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
+        # broadcast keep get_memory_format
+        return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class ExpandD(Operator):
     def __init__(self):
         super().__init__("ExpandD")
+
+    def infer_result(self, x, shape):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        assert x_dim > 0, self.__class__.__name__ + ": scalar"
+        dims = zip(shape, x_shape)
+        x_stride = list(x.stride())
+        for i, t in enumerate(dims):
+            tar_dim, cur_dim = t
+            if tar_dim != cur_dim:
+                x_stride[i] = 0
+            if tar_dim == -1:
+                shape[-(i + 1)] = cur_dim
+                continue
+            elif cur_dim == 1:
+                continue
+            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
+        res = torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        res = torch.as_strided(res, shape, x_stride, res.storage_offset())
+        return res
 
 
 class Sort(Operator):
@@ -432,7 +477,7 @@ class Identity(Operator):
         super().__init__("Identity")
 
     def infer_result(self, x, idx=None):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
         out_dtype = x_dtype
         if x_dtype == torch.complex64:  # for complex64
             out_shape = list(x_shape)
@@ -471,6 +516,18 @@ class Empty(Operator):
     def __init__(self):
         super().__init__("Empty")
 
+    def infer_result(
+        self, shape, dtype, layout, device, memory_format=torch.contiguous_format
+    ):
+        shape, _ = get_op_const_arg_kwarg(shape)
+        return torch.empty(
+            shape,
+            dtype=dtype,
+            layout=layout,
+            device=device,
+            memory_format=memory_format,
+        )
+
 
 class GatherV2(Operator):
     def __init__(self):
@@ -487,6 +544,9 @@ class GatherV2(Operator):
 class OnesLike(Operator):
     def __init__(self):
         super().__init__("OnesLike")
+
+    def infer_result(self, x):
+        return common_unary_op_infer(x)
 
 
 class Fill(Operator):
@@ -574,20 +634,14 @@ class SplitD(Operator):
     def __init__(self):
         super().__init__("SplitD")
 
-    # TODO: params of this op is unclear, usage in conversion.py seems to be different with definition in Huawei code
-    # current implementation regards this op ONLY being used for "view_as_complex"
-    def infer_result(self, x, out_dim, split_dim, num_split):
+    def infer_result(self, x, split_dim, num_split, y, from_view_complex=False):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         split_dim = (split_dim + x_dim) % x_dim
         out_shape = list(x_shape)
         del out_shape[-1]
         return torch.empty(
             out_shape,
-            # TODO: need more info to infer type!
-            # if this op is used in other op's decomposition, we have no idea what dtype the output should be
-            dtype=torch.complex64
-            if num_split == 2 and x_dim - 1 == out_dim
-            else x_dtype,
+            dtype=torch.complex64 if from_view_complex else x_dtype,
             memory_format=get_memory_format(x),
         )
 
@@ -632,30 +686,17 @@ class Reshape(Operator):
     def __init__(self):
         super().__init__("Reshape")
 
-    def infer_result(self, x, shape_const_op):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        re_shape, re_dim = get_op_const_arg_kwarg(shape_const_op)
-        # check whether stride and storage_offset are manually specified
-        # if so, x is from operators like "Slice", and the stride and storage_offset still need to modify here
+    def infer_result(self, x, shape_const_op, ori_op=None, params_passed=None):
+        x, _, _, x_dtype = get_fake_tensor_meta_val(x)
+        re_shape, _ = get_op_const_arg_kwarg(shape_const_op)
         x_stride = list(x.stride())
-        x_shape = list(x_shape)
-
-        use_x_stride = False  # if set to False(during following loop,find out it's part of op "select"), res's stride should be that of [re_shape]
-        for i in range(len(x_stride) - 2, -1, -1):
-            if x_stride[i + 1] * x_shape[i + 1] != x_stride[i]:  # x must from "Slice"!
-                del x_stride[i + 1]
-                del x_shape[i + 1]
-                use_x_stride = True
-                break
-
-        # TODO: there may be something left out...
-        # if param dim==0 in operator "select", res's stride may be identical to the result of operator "reshape" to the same final shape,
-        # only the storage_offset (in dim 0) is different, thus it can use x_storage_offset at any case
-        x_storage_offset = x.storage_offset()
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
-        res = torch.as_strided(
-            res, re_shape, x_stride if use_x_stride else res.stride(), x_storage_offset
-        )
+        if ori_op == "Select":
+            assert "sel_dim" in params_passed, (
+                self.__class__.__name__ + ':param "sel_dim" from Select missing!'
+            )
+            del x_stride[params_passed["sel_dim"]]
+            res = torch.as_strided(res, re_shape, x_stride, x.storage_offset())
         return res
 
 
