@@ -54,6 +54,16 @@ ACL_MDL_OUTPUTQ_NUM_SIZET = 11
 ACL_MDL_OUTPUTQ_ADDR_PTR = 12
 ACL_MDL_WORKSPACE_MEM_OPTIMIZE = 13
 
+ACL_DDR_MEM = 0
+ACL_HBM_MEM = 1
+ACL_DDR_MEM_HUGE = 2
+ACL_DDR_MEM_NORMAL = 3
+ACL_HBM_MEM_HUGE = 4
+ACL_HBM_MEM_NORMAL = 5
+ACL_DDR_MEM_P2P_HUGE = 6
+ACL_DDR_MEM_P2P_NORMAL = 7
+ACL_HBM_MEM_P2P_HUGE = 8
+ACL_HBM_MEM_P2P_NORMAL = 9
 
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
@@ -174,12 +184,17 @@ class AscendExecutor(object):
         if work_size == 0:
             work_size = memory_pool.work_size
         elif work_size > memory_pool.work_size:
-            memory_pool.work_size = work_size
-            memory_pool.release_memory()
-            print("Adjust memory pool allocation.")
-            memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
-                                                      ACL_MEM_MALLOC_HUGE_FIRST)
-            check_ret("acl.rt.malloc", ret)
+            free, _, ret = acl.rt.get_mem_info(ACL_HBM_MEM)
+            check_ret("acl.rt.get_mem_info", ret)
+            # If free < work_size, means that memory is insufficient.
+            # Just ignore and continue, it may be work.
+            if free > work_size:
+                memory_pool.work_size = work_size
+                memory_pool.release_memory()
+                print("Adjust memory pool allocation.")
+                memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
+                                                        ACL_MEM_MALLOC_HUGE_FIRST)
+                check_ret("acl.rt.malloc", ret)
 
         self.weight_ptr, ret = acl.rt.malloc(weight_size,
                                              ACL_MEM_MALLOC_HUGE_FIRST)
