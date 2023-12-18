@@ -1,10 +1,10 @@
 // Copyright (c) 2023, DeepLink.
 
 #include <functional>
-#include <map>
-#include <queue>
+#include <memory>
 #include <stack>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "DIPUCachingAllocator.h"
@@ -27,9 +27,9 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = 8u << 20u;  // 8MB
-  static constexpr size_t kMinExtendSize = 8u << 20u;             // 8MB
-  static constexpr size_t kMaxExtendSize = 1u << 30u;             // 1GB
+  static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
+  static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
+  static constexpr size_t kMaxExtendSize = 1U << 30U;             // 1GB
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -61,7 +61,7 @@ class BFCachingAllocatorImpl {
     // into 128 bits (`kNumBigBins` * `kNumSubBins`)
     __uint128_t bits = 0;
     // Virtual chunks which are the heads of the bins
-    int binHeads_[kNumBigBins * kNumSubBins]{0};
+    std::array<int, static_cast<size_t>(kNumBigBins* kNumSubBins)> binHeads_{};
     // The extending size next time
     size_t currExtendSize_ = kMinExtendSize;
 
@@ -78,12 +78,14 @@ class BFCachingAllocatorImpl {
       // Find the index of the first "1"
       // `__builtin_ctzll` only support `uint64_t`,
       // so we have to divide
-      uint64_t low_bits = map, high_bits = map >> 64u;
+      uint64_t low_bits = map;
+      constexpr int kLowBitWidth = 64;
+      uint64_t high_bits = map >> kLowBitWidth;
       if (low_bits) {
         return __builtin_ctzll(low_bits);
       }
       if (high_bits) {
-        return 64 + __builtin_ctzll(high_bits);
+        return kLowBitWidth + __builtin_ctzll(high_bits);
       }
       return -1;
     }
@@ -117,14 +119,16 @@ class BFCachingAllocatorImpl {
     Chunk(void* ptr, size_t size, size_t stream)
         : ptr(ptr), size(size), stream(stream) {}
 
-    bool isMonoBlock() const { return !prevChunkInMem && !nextChunkInMem; }
+    bool isMonoBlock() const {
+      return (prevChunkInMem == 0) && (nextChunkInMem == 0);
+    }
   };
 
   std::vector<Chunk> chunks_;
   // Use id recycling for better performance
   std::stack<int> recycleIds_;
 
-  typedef std::unique_ptr<StreamSet> StreamSetHandle;
+  using StreamSetHandle = std::unique_ptr<StreamSet>;
   std::vector<StreamSetHandle> streamSets_;
 
   using mutex_t = SpinMutex;
@@ -135,14 +139,14 @@ class BFCachingAllocatorImpl {
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
-    int id;
+    int id = 0;
     if (!recycleIds_.empty()) {
       id = recycleIds_.top();
       recycleIds_.pop();
       chunks_[id] = Chunk(ptr, size, stream);
     } else {
-      id = chunks_.size();
-      chunks_.emplace_back(Chunk(ptr, size, stream));
+      id = static_cast<int>(chunks_.size());
+      chunks_.emplace_back(ptr, size, stream);
     }
     if (!ptr) {
       chunks_[id].allocated = true;
@@ -155,11 +159,14 @@ class BFCachingAllocatorImpl {
     //      [2^`bigBinIdx`, 2^(`bigBinIdx`+1)), length: 2^`bigBinIdx`
     // Split big bin into `kNumSubBins` sub bins
     size_t nBlocks = nbytes / kMinAllocationSize;
-    int bigBinIdx = 63 - __builtin_clzll(nBlocks);
+    constexpr int kMaxBinIdx = 63;
+    int bigBinIdx = kMaxBinIdx - __builtin_clzll(nBlocks);
     // If `nbytes` is so large, we just put it into the last
-    if (bigBinIdx > kNumBigBins - 1) return kNumBigBins * kNumSubBins - 1;
+    if (bigBinIdx > kNumBigBins - 1) {
+      return kNumBigBins * kNumSubBins - 1;
+    }
     // Get the index of sub bin
-    int subBinIdx = nBlocks ^ (1ull << bigBinIdx);
+    int subBinIdx = static_cast<int>(nBlocks ^ (1ULL << bigBinIdx));
     subBinIdx >>= std::max(bigBinIdx - kLogNumSubBins, 0);
     return bigBinIdx * kNumSubBins + subBinIdx;
   }
@@ -385,11 +392,11 @@ class BFCachingAllocatorImpl {
   void set_mem_allocate_fn(allocate_fn_t allocate_fn,
                            deallocate_fn_t deallocate_fn) {
     DIPU_DEBUG_ALLOCATOR(4, "BFCachingAllocator: set_mem_allocate_fn ");
-    this->allocate_fn = allocate_fn;
-    this->deallocate_fn = deallocate_fn;
+    this->allocate_fn = std::move(allocate_fn);
+    this->deallocate_fn = std::move(deallocate_fn);
   }
 
-  size_t memory_reserved() { return cachedBytes; }
+  size_t memory_reserved() const { return cachedBytes; }
 };
 
 static void deleteBFContext(void* ptr);
@@ -405,7 +412,7 @@ class BFCachingAllocator : public CacheAllocator {
     while (async_mem_pool()->ready()) {
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
-      int id = std::get<1>(block);
+      int id = static_cast<int>(std::get<1>(block));
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
@@ -424,7 +431,7 @@ class BFCachingAllocator : public CacheAllocator {
       }
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
-      int id = std::get<1>(block);
+      int id = static_cast<int>(std::get<1>(block));
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
@@ -437,14 +444,16 @@ class BFCachingAllocator : public CacheAllocator {
     if (impl) {
       return;
     }
-    impl.reset(new BFCachingAllocatorImpl());
+    impl = std::make_unique<BFCachingAllocatorImpl>();
 
     std::function<void*(size_t)> alloc_fn =
-        std::bind(&BFCachingAllocator::allocate_raw, (BFCachingAllocator*)this,
-                  std::placeholders::_1);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        std::bind(&BFCachingAllocator::allocate_raw,
+                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
     std::function<void(void*)> dealloc_fn =
-        std::bind(&BFCachingAllocator::free_raw, (BFCachingAllocator*)this,
-                  std::placeholders::_1);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        std::bind(&BFCachingAllocator::free_raw,
+                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
 
@@ -546,7 +555,7 @@ class BFCachingAllocator : public CacheAllocator {
 
   BFCachingAllocator() { check_impl(); }
 
-  ~BFCachingAllocator() {
+  ~BFCachingAllocator() override {
     DIPU_DEBUG_ALLOCATOR(8, "~BFCachingAllocator allocator:" << this);
     release_all_memory();
   }
