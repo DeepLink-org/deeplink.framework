@@ -635,6 +635,7 @@ class SplitD(Operator):
         super().__init__("SplitD")
 
     def infer_result(self, x, split_dim, num_split, y, from_view_complex=False):
+        assert from_view_complex == True, self.__class__.__name__ + ": currently available only in op view_as_complex!"
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         split_dim = (split_dim + x_dim) % x_dim
         out_shape = list(x_shape)
