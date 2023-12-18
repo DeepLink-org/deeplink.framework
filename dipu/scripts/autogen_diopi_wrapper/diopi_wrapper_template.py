@@ -73,7 +73,7 @@ $cppsignautre {
 
   $custom_code_before_call_diopi
 
-  dipu::profile::RecordBlockCreator dipuRecorder(R"($diopi_fun_call_code)");
+  dipu::profile::RecordBlockCreator dipuRecorder(R"($interface_name)");
   ::diopiError_t ret = $diopi_fun_call_code
   dipuRecorder.end();
   if (checkDiopiReturnValue()) {

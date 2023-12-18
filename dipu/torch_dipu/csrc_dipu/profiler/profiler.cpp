@@ -328,28 +328,10 @@ void DeviceRecordCreator::end() noexcept {
   end_ = true;
 }
 
-static std::string extraceFunction(const std::string& functionName) {
-  auto start = functionName.find_first_not_of(':');
-  if (start == std::string::npos) {
-    return "";
-  }
-
-  auto end = functionName.find_first_of('(');
-  if (end == std::string::npos) {
-    end = functionName.size();
-  }
-
-  if (end <= start) {
-    return "";
-  }
-  return functionName.substr(start, end - start);
-}
-
 void RecordBlockCreator::initialize(string_t name, deviceStream_t stream,
                                     c10::StreamId streamId) {
   size_t opId = generateId();
   uint64_t correlationId = CorrelationIDManager::instance().getCorrelationID();
-  name = extraceFunction(name);
 
   RecordCreator* record_creator = record_creator_pool.allocate();
   new (record_creator)
