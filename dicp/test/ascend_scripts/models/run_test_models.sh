@@ -33,3 +33,5 @@ else
     echo "DYNAMIC should in (true, false, all)" >&2
     exit 1
 fi
+
+python ../../model/test_hf.py
