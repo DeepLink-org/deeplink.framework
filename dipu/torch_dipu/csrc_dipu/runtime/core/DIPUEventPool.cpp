@@ -65,7 +65,7 @@ EventPool<deviceEvent_t>* getEventPool() {
   const int index = devproxy::current_device();
 // GlobalEventPool for different cards , construct when really needed
 #define dispatch_event_pool(device_id)                               \
-  if (index == device_id) {                                          \
+  if (index == (device_id)) {                                        \
     static EventPool<deviceEvent_t> gDIPUEventPool(                  \
         [](deviceEvent_t& event) { devapis::createEvent(&event); },  \
         [](deviceEvent_t& event) { devapis::destroyEvent(event); }); \

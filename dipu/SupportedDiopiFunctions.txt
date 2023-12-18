@@ -48,6 +48,8 @@ diopiCastDtype
 diopiCat
 diopiCdist
 diopiCdistBackward
+diopiCeil
+diopiCeilInp
 diopiClamp
 diopiClampInp
 diopiClampInpScalar
@@ -135,6 +137,10 @@ diopiLog2
 diopiLog2Inp
 diopiLogicalAnd
 diopiLogicalAndInp
+diopiLogicalNot
+diopiLogicalNotInp
+diopiLogicalOr
+diopiLogicalOrInp
 diopiLogInp
 diopiLogSoftmax
 diopiLogSoftmaxBackward

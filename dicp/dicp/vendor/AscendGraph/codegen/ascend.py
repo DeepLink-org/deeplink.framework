@@ -334,34 +334,27 @@ class AscendCodegen(torch.fx.Interpreter):
             call_body.writeline(shape_str)
         else:
             call_body.writeline('''output_shape = None''')
-
-
+        
         # add stride & storage_offset info
-        out_stride_str = '''out_stride = ['''
-        out_storage_offset_str = '''out_storage_offset = ['''
+        out_strides = []
+        out_storage_offsets = []
         for elem in self.output_args:
             if hasattr(elem, 'meta'):
                 elem = elem.meta['val']
             if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
-                out_stride_str += '[1],'
-                out_storage_offset_str += '0,'
+                out_strides.append('[1]')
+                out_storage_offsets.append('0')
                 continue
             if elem.dim()==0: # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
-                out_stride_str += '[1],'
-                out_storage_offset_str += '0,'
+                out_strides.append('[1]')
+                out_storage_offsets.append('0')
                 continue
             stride = list(elem.stride())
-            if len(stride) == 0:
-                raise RuntimeError("Error handling empty output_stride")
             stride = [self.process_sym_name(str(dim)) for dim in stride]
-            out_stride_str += '[' + ','.join(map(str, stride)) + '],'
-            out_storage_offset_str += str(elem.storage_offset()) + ','
-        out_stride_str += extra_stride_str
-        out_storage_offset_str += extra_storage_offset_str
-        out_stride_str = out_stride_str[:-1] + ']'
-        out_storage_offset_str = out_storage_offset_str[:-1] + ']'
-        call_body.writeline(out_stride_str)
-        call_body.writeline(out_storage_offset_str)
+            out_strides.append(str(stride))
+            out_storage_offsets.append(elem.storage_offset())
+        call_body.writeline(f'out_stride = {out_strides}')
+        call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
 
         call_body.splice("""
                              import torch_dipu
@@ -369,14 +362,17 @@ class AscendCodegen(torch.fx.Interpreter):
                              for idx in range(len(args)):
                                  if isinstance(args[idx], int):
                                      args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
-                                 if isinstance(args[idx], torch.Tensor):
-                                     tmp_arg = args[idx].clone()
-                                     with torch.no_grad():
-                                         args[idx].copy_(tmp_arg)
-                                     del tmp_arg
                          """, strip=True)
         call_body.writeline(f"({','.join(self.args)}) = args")
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset)']
+
+        # dealing with modified args passing back
+        allocated_output = {}
+        for item in self.assign_args:
+            input_index = item[1]
+            output_index = self.graph_output_names.index(item[0])
+            allocated_output[output_index] = input_index
+        call_body.writeline(f'allocated_output= {allocated_output}')
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output)']
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
@@ -400,10 +396,6 @@ class AscendCodegen(torch.fx.Interpreter):
             else:
                 call_str.extend([f'del {name}',
                                  f'{name} = int(output_tensor[{i}])'])
-
-        # dealing with modified args passing back
-        output_convert = [f'args[{name[1]}].copy_({name[0]})' for name in self.assign_args]
-        call_str.extend(output_convert)
 
         if precision_check:
             for i, name in enumerate(self.py_output_names):
@@ -710,6 +702,13 @@ class AscendOverrides:
         op = OP(name, "Mul")
         op.set_input("x1", x)
         op.set_input("x2", y)
+        return op.to_node()
+
+    @staticmethod
+    def Muls(name, x, y):
+        op = OP(name, "Muls")
+        op.set_input("x", x)
+        op.set_attr_float("value", float(y))
         return op.to_node()
 
     @staticmethod
