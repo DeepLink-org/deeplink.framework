@@ -1,38 +1,39 @@
 # Copyright (c) 2023, DeepLink.
 diopi_wrapper_file_template_content = \
-"""
-// autogened file
-#include <ATen/Tensor.h>
+"""// autogened file
+#include <vector>
+
 #include <ATen/ATen.h>
 #include <ATen/Functions.h>
-#include <type_traits>
-
+#include <ATen/Tensor.h>
+#include <ATen/native/ReduceOpsUtils.h>
 #include <torch/csrc/autograd/custom_function.h>
 #include <torch/types.h>
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
+
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
+#include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
-#include <csrc_dipu/utils/Log.h>
+
 #include "CustomFallbackFunctions.hpp"
-#include "csrc_dipu/aten/ops/DIPUCopy.hpp"
-#include <vector>
 
 $header_include_code
 
-// NOTE: some kernels (e.g. _foreach_add_.List) have custom codes at the beginning ending with early return.
-// This is a workaround indended to skip some of the autogened codes (e.g. type cast, calling DIOPI, etc.).
+// NOTE: Some kernels (e.g. _foreach_add_.List) have custom codes at the
+// beginning ending with early return. This is a workaround intended to skip
+// some of the autogened codes (e.g. type cast, calling DIOPI, etc.).
+//
 // NOLINTBEGIN(readability-redundant-control-flow)
 
 namespace dipu {
 
 namespace native {
-    
+
 using dipu::diopi_helper::toDiopiGeneratorHandle;
 using dipu::diopi_helper::toDiopiSize;
 using dipu::diopi_helper::toDiopiRoundMode;
 
-$functions_code    
+$functions_code
 
 }  // namespace native
 }  // namespace dipu
@@ -76,9 +77,7 @@ $cppsignautre {
   dipu::profile::RecordBlockCreator dipuRecorder(R"($interface_name)");
   ::diopiError_t ret = $diopi_fun_call_code
   dipuRecorder.end();
-  if (checkDiopiReturnValue()) {
-    TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
-  }
+  TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
 
   $custom_code_before_return
 

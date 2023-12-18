@@ -59,6 +59,8 @@ class RecordsImpl final {
   mutable mutex_t mtx_;
   // tid -> record list
   std::unordered_map<int32_t, std::unique_ptr<records_t>> allRecordLists_;
+
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   thread_local static records_t* pRecords;
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resourceInfo_;
