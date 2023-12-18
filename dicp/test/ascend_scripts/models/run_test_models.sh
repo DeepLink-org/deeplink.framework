@@ -34,4 +34,4 @@ else
     exit 1
 fi
 
-python ../../model/test_hf.py
+python ${TEST_MODEL_DIR}/test_hf.py
