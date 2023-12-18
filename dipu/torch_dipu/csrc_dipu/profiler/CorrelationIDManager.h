@@ -1,8 +1,9 @@
 #pragma once
 
-#include <DeviceActivityInterface.h>
+#include <cstdint>
 #include <deque>
-#include <stdint.h>
+
+#include "DeviceActivityInterface.h"
 
 namespace dipu {
 namespace profile {
@@ -15,21 +16,25 @@ class CorrelationIDManager {
   // CorrelationIDManager designed as a singleton
   static CorrelationIDManager& instance();
 
-  void pushCorrelationID(
+  static void pushCorrelationID(
       uint64_t id,
       libkineto::DeviceActivityInterface::CorrelationFlowType type);
-  void popCorrelationID(
+  static void popCorrelationID(
       libkineto::DeviceActivityInterface::CorrelationFlowType type);
-  uint64_t getCorrelationID() const;
+  static uint64_t getCorrelationID();
 
  private:
   CorrelationIDManager() = default;
 
- private:
-  thread_local static std::deque<uint64_t> external_ids_
-      [libkineto::DeviceActivityInterface::CorrelationFlowType::End];
+  thread_local static std::array<
+      std::deque<uint64_t>,
+      libkineto::DeviceActivityInterface::CorrelationFlowType::End>
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+      external_ids_;
+
   thread_local static std::deque<
       libkineto::DeviceActivityInterface::CorrelationFlowType>
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
       type_;
 };
 
