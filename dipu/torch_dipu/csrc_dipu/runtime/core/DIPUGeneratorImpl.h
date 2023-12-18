@@ -19,13 +19,10 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  void set_state(const c10::TensorImpl& state) override{};
-  virtual void set_offset(uint64_t offset){};
-  virtual uint64_t get_offset() const { return 0; };
 
  protected:
   void set_state_flag(bool flag);
-  virtual void update_state() const {}
+  virtual void update_state() const = 0;
 
   DIPUGeneratorImpl* clone_impl() const override;
   uint64_t seed_ = c10::default_rng_seed_val;

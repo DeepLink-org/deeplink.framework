@@ -78,7 +78,7 @@ template <>
 std::string dumpArg(const at::Tensor& tensor) {
   std::stringstream stream;
   if (tensor.defined()) {
-    stream << "numel: " << tensor.numel() << ",sizes: " << tensor.sizes()
+    stream << "numel: " << tensor.numel() << ", sizes: " << tensor.sizes()
            << ", stride: " << tensor.strides()
            << ", is_view: " << tensor.is_view() << ", dtype: " << tensor.dtype()
            << ", device:" << tensor.device() << ", layout:" << tensor.layout()

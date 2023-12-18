@@ -125,7 +125,9 @@ std::shared_ptr<DIPUGeneratorImpl> DIPUGeneratorImpl::clone() const {
  * See Note [Acquire lock when using random generators]
  */
 DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
-  auto gen = new DIPUGeneratorImpl(this->device().index());
+  auto gen = dynamic_cast<DIPUGeneratorImpl*>(
+      createDIPUGenerator(this->device().index()).unsafeReleaseGeneratorImpl());
+  TORCH_CHECK(gen != nullptr);
   gen->set_current_seed(this->seed_);
   auto state = this->state_;
   const auto& state_clone = state.clone();
