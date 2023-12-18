@@ -74,7 +74,7 @@ DIPU_API DIPUStream getStreamFromExternal(deviceStream_t ext_stream,
                                           c10::DeviceIndex device_index);
 
 template <typename O>
-inline O& operator<<(O& oss, const dipu::DIPUStream& stream) {
+O& operator<<(O& oss, const dipu::DIPUStream& stream) {
   oss << stream.unwrap();
 }
 }  // namespace dipu
