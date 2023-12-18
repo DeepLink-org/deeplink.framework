@@ -1,10 +1,10 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  register_op: False # Whether generate registe code for this op, default value is True
+  register_op: False # Whether generate register code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
-  dummy_call_diopi: False # Does not generate code that actually calls the diopi function, defalut value is False
-  custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the begining*/"
+  dummy_call_diopi: False # Does not generate code that actually calls the diopi function, default value is False
+  custom_code_at_the_beginning: "/* Here can be a piece of c++ code at the beginning*/"
   custom_code_before_call_diopi: |
     std::cout << "self:" << self << std::endl;
     std::cout << "other:" << other << std::endl;
@@ -1084,7 +1084,8 @@
 
 - schema: prod(Tensor self, *, ScalarType? dtype=None) -> Tensor
   custom_code_at_the_beginning: |
-    const auto self_dtype = at::native::to(self, dtype);
+    auto promoted_dtype = at::native::get_dtype_from_self(self, dtype, /*promote_integers=*/true);
+    const auto self_dtype = at::native::to(self, promoted_dtype);
     auto out = at::empty({}, self_dtype.options());
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
   interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
@@ -2417,7 +2418,7 @@
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
-# wrap_diopi_cast_dtype has no corresponding aten op and not registed, it's just a diopi func wrapper.
+# wrap_diopi_cast_dtype has no corresponding aten op and not registered, it's just a diopi func wrapper.
 # use this tricky method to support call multiple diopi-op in one aten-op
 - schema: "wrap_diopi_cast_dtype(Tensor(a) self, ScalarType dtype) -> Tensor(a)"
   register_op: False
