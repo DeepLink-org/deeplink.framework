@@ -495,7 +495,7 @@ jobs:
 
   Build-V100:
     name: Build-dipu-v100
-    needs: checkout_code
+    needs: Rsync
     runs-on: tps-sco-ci
     steps:
       - name: Build v100
