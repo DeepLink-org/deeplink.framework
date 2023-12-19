@@ -78,6 +78,8 @@ jobs:
           ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ SCO:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ || echo "ignore sco error"
+          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ SCO:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "ignore sco error"
 
   Build-Camb:
     name: Build-dipu-camb
@@ -487,3 +489,97 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
+
+
+
+
+  Build-V100:
+    name: Build-dipu-v100
+    needs: checkout_code
+    runs-on: tps-sco-ci
+    steps:
+      - name: Build v100
+        run: |
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB} \
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-V100:
+    name: Test-dipu-v100
+    needs: [Build-V100]
+    runs-on: tps-sco-ci
+    steps:
+      - name: Run-test
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && sh tests/run_nv_tests.sh"
+
+  Test-One-Iter_V100:
+    name: Test-one-iter-v100
+    needs: [Build-V100]
+    runs-on: tps-sco-ci
+    steps:
+      - name: build some env
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c"cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && ../scripts/ci/ci_one_iter.sh build_cuda
+      - name: run-one-iter-for-tradition
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && rm -rf one_iter_data \
+          && python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
+      - name: run-one-iter-for-llm
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && rm -rf one_iter_data \
+          && python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          """
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
+
+
+  Build-V100-Latest-Target:
+    name: Build-dipu-v100-latest-target
+    needs: [Rsync]
+    runs-on: tps-sco-ci
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB} \
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+
+  Test-V100-Latest-Target:
+    name: Test-dipu-v100-latest-target
+    needs: [Build-V100-Latest-Target]
+    runs-on: tps-sco-ci
+    steps:
+      - name: Run-test
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
+          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && sh tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
