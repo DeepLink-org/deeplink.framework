@@ -3,7 +3,6 @@ import torch._dynamo as dynamo
 from transformers import LlamaTokenizer, LlamaForCausalLM
 import torch
 import torch_dipu
-from torch_deepcopy_patch import deepcopy_to_fake_tensor_hf_hook_patched
 
 models_dir = os.environ.get("LLAMA_MODEL_DIR")
 assert models_dir is not None
@@ -30,10 +29,9 @@ for prompt in prompts_list:
     tokenized_prompt = tokenizer(prompt, return_tensors="pt")
     token_promt = tokenized_prompt["input_ids"]
     print(f"tokenized_prompt: {tokenized_prompt}")
-    with deepcopy_to_fake_tensor_hf_hook_patched():
-        tokenized_response = model.generate(token_promt, temperature=1e-4,
-                                            top_k=20, do_sample=True, top_p=0.95,
-                                            max_new_tokens=256, repetition_penalty=1.1).cpu()
+    tokenized_response = model.generate(token_promt, temperature=1e-4,
+                                        top_k=20, do_sample=True, top_p=0.95,
+                                        max_new_tokens=256, repetition_penalty=1.1).cpu()
     print(f"tokenized_response: {tokenized_response}")
     response = tokenizer.decode(tokenized_response[0])
     response_list.append(response.split('\n'))
