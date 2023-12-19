@@ -45,10 +45,10 @@ class OpMemoryFormatConverter(object):
         custom_code = custom_code.split("\n")
         memory_format = self.convert_config.interface2memoryformat(interface)
         custom_code_new = list()
-        # match string like "${PREFERED_MEMORY_FORMAT_PLACHOLDER_3D:-<default>}"
-        placeholder_3d_pattern = "\$\{PREFERED_MEMORY_FORMAT_PLACEHOLDER_3D:-(?P<default>.*)\}"
-        # match string like "${PREFERED_MEMORY_FORMAT_PLACHOLDER:-<default>}"
-        placeholder_pattern = "\$\{PREFERED_MEMORY_FORMAT_PLACEHOLDER:-(?P<default>.*)\}"
+        # match string like "${PREFERRED_MEMORY_FORMAT_PLACHOLDER_3D:-<default>}"
+        placeholder_3d_pattern = "\$\{PREFERRED_MEMORY_FORMAT_PLACEHOLDER_3D:-(?P<default>.*)\}"
+        # match string like "${PREFERRED_MEMORY_FORMAT_PLACHOLDER:-<default>}"
+        placeholder_pattern = "\$\{PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-(?P<default>.*)\}"
         for line in custom_code:
             if memory_format == "channellast":
                 line = re.sub(placeholder_3d_pattern, choose_channelsLast3d, line)

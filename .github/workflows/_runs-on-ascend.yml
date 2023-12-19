@@ -12,7 +12,7 @@ on:
         description: Set up the build environment
         type: string
         required: false
-        default: "tps-ascend-ci"
+        default: "dicp-ascend-ci-910b"
 
 jobs:
   checkout_code:
@@ -22,25 +22,24 @@ jobs:
       - name: Checkout Code
         uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
 
-  build:
+  build_test:
     runs-on: ${{ inputs.runner }}
     needs: checkout_code
     steps:
-      - name: build on ascend
+      - name: build and test on ascend
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
-          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
-          job_name: "build"
+          build_shell: "
+              source dicp/scripts/ci/ascend/dipu_env.sh && \
+              pip uninstall torch_dipu -y && \
+              pip uninstall dicp -y && \
+              cd dipu && python setup.py install --user && \
+              cd ../dicp && python setup.py install --user && \
+              source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models && \
+              export TEST_DIR=$(pwd)/test && echo ${TEST_DIR} && \
+              bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
+              bash ${TEST_DIR}/ascend_scripts/models/run_test_models.sh false
+            " #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
+          job_name: "build_test"
           cover_job: "0"
           cleaner: "clean_all_if_error"
-
-  test:
-    runs-on: ${{ inputs.runner }}
-    needs: build
-    steps:
-      - name: rt test on ascend
-        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
-        with:
-          build_shell: "pwd" #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
-          job_name: "build"
-          cover_job: "1"
