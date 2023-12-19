@@ -2442,6 +2442,7 @@
     return self;
     // need add [composite] attr? the code behind this is useless.
   interface: diopiCopyInp(ctx, srcTemp, self)
+  autocompare: disable
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
@@ -2463,6 +2464,7 @@
     });
     // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
   interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), static_cast<int64_t>(self.size()), found_inf, inv_scale)
+  autocompare: disable
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
   custom_fallback: True
