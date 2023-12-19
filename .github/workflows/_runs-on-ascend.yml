@@ -31,6 +31,13 @@ jobs:
         with:
           build_shell: "
               source dicp/scripts/ci/ascend/dipu_env.sh && \
+              rm -rf /tmp/torchinductor_root/* && \
+              cd /mnt/cache/share/deeplinkci/dicp_env/transformers && \
+              pip uninstall transformers -y && \
+              patch -p1 < modeling_llama.diff && patch -p1 < utils.diff && \
+              python setup.py install --user && \
+              patch -R -p1 < modeling_llama.diff && patch -R -p1 < utils.diff && \
+              cd - && \
               pip uninstall torch_dipu -y && \
               pip uninstall dicp -y && \
               cd dipu && python setup.py install --user && \
