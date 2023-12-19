@@ -1,5 +1,9 @@
 #pragma once
 
+#include <map>
+#include <iostream>
+#include <torch/torch.h>
+
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/Log.h>
 
@@ -176,6 +180,27 @@ static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
         auto diff = at::abs(a.cpu() - b.cpu());
         auto mae = diff.mean().item<double>();
         auto max_diff = diff.max().item<double>();
+
+        at::Tensor a_cpu = a.cpu();
+        at::Tensor b_cpu = b.cpu();
+        auto mask =
+            at::logical_not(at::abs(a_cpu - b_cpu) <= (1e-4 + 1e-5 * b_cpu));
+        auto a_mismatch = at::masked_select(a_cpu, mask);
+        auto b_mismatch = at::masked_select(b_cpu, mask);
+        auto diff_mismatch = at::masked_select(diff, mask);
+
+        std::map<std::string, torch::Tensor> tensorMap;
+        tensorMap["tensor1"] = a_cpu;
+        tensorMap["tensor2"] = b_cpu;
+        tensorMap["a_mismatch"] = a_mismatch;
+        tensorMap["b_mismatch"] = b_mismatch;
+        tensorMap["diff_mismatch"] = diff_mismatch;
+        torch::serialize::OutputArchive archive;
+        for (const auto& pair : tensorMap) {
+          archive.write(pair.first, pair.second);
+        }
+        archive.save_to("multiple_tensors.pth");
+
         return "not_close, max diff: " + std::to_string(max_diff) +
                ", MAE: " + std::to_string(mae);
       }
