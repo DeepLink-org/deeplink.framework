@@ -15,7 +15,6 @@
 
 #include "csrc_dipu/vendor/vendorapi.h"
 #include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/runtime/core/ObjectPool.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
 #include "IActivityProfiler.h"
@@ -130,9 +129,6 @@ class DeviceRecordCreator final {
   void end() noexcept;
 };
 
-extern ObjectPool<RecordCreator> record_creator_pool;
-extern ObjectPool<DeviceRecordCreator> device_record_creator_pool;
-
 class RecordBlockCreator {
  public:
   RecordBlockCreator() = default;
@@ -167,29 +163,10 @@ class RecordBlockCreator {
  private:
   void initialize(string_t name, deviceStream_t stream, c10::StreamId streamId);
 
-  struct RecordCreatorDeleter {
-    void operator()(RecordCreator* record) const {
-      if (record != nullptr) {
-        record_creator_pool.free(record);
-      }
-    }
-  };
-
-  struct DeviceRecordCreatorDeleter {
-    void operator()(DeviceRecordCreator* record) const {
-      if (record != nullptr) {
-        device_record_creator_pool.free(record);
-      }
-    }
-  };
-
-  std::unique_ptr<RecordCreator, RecordCreatorDeleter> pHostRecord_ = nullptr;
-  std::unique_ptr<DeviceRecordCreator, DeviceRecordCreatorDeleter>
-      pDeviceRecord_ = nullptr;
+  std::unique_ptr<RecordCreator> pHostRecord_ = nullptr;
+  std::unique_ptr<DeviceRecordCreator> pDeviceRecord_ = nullptr;
   bool finish_ = false;
 };
-
-extern ObjectPool<RecordBlockCreator> record_block_creator_pool;
 
 }  // namespace profile
 

@@ -18,10 +18,6 @@ namespace profile {
 
 static const int32_t DEFAULT_FLUSH_READY_INTERVAL = 1000;
 
-ObjectPool<RecordCreator> record_creator_pool;
-ObjectPool<DeviceRecordCreator> device_record_creator_pool;
-ObjectPool<RecordBlockCreator> record_block_creator_pool;
-
 class DeviceEvent final {
  private:
   deviceEvent_t evt_{};
@@ -339,16 +335,10 @@ void RecordBlockCreator::initialize(string_t name, deviceStream_t stream,
   size_t opId = generateId();
   uint64_t correlationId = CorrelationIDManager::instance().getCorrelationID();
 
-  RecordCreator* record_creator = record_creator_pool.allocate();
-  new (record_creator)
-      RecordCreator("LaunchKernel_" + name, opId, correlationId);
-  pHostRecord_.reset(record_creator);
-
-  DeviceRecordCreator* device_record_creator =
-      device_record_creator_pool.allocate();
-  new (device_record_creator) DeviceRecordCreator(
+  pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
+                                                 correlationId);
+  pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(
       std::move(name), stream, streamId, opId, correlationId);
-  pDeviceRecord_.reset(device_record_creator);
 }
 
 }  // namespace profile
