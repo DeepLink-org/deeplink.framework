@@ -32,6 +32,7 @@ jobs:
           build_shell: "
               source dicp/scripts/ci/ascend/dipu_env.sh && \
               rm -rf /tmp/torchinductor_autolink/* && \
+              rm -rf /tmp/dicp_ascend/* && \
               cd /mnt/cache/share/deeplinkci/dicp_env/transformers && \
               pip uninstall transformers -y && \
               patch -p1 < modeling_llama.diff && patch -p1 < utils.diff && \
