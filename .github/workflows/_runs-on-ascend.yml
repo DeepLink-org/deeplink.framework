@@ -35,6 +35,7 @@ jobs:
               cd /mnt/cache/share/deeplinkci/dicp_env/transformers && \
               pip uninstall transformers -y && \
               patch -p1 < modeling_llama.diff && patch -p1 < utils.diff && \
+              python setup.py clean && \
               python setup.py install --user && \
               patch -R -p1 < modeling_llama.diff && patch -R -p1 < utils.diff && \
               cd - && \
