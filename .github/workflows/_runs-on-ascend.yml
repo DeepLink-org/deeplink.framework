@@ -40,6 +40,11 @@ jobs:
               python setup.py install --user && \
               patch -R -p1 < modeling_llama.diff && patch -R -p1 < utils.diff && \
               cd - && \
+              cd /mnt/cache/share/deeplinkci/dicp_env/accelerate && \
+              pip uninstall accelerate -y && \
+              python setup.py clean && \
+              python setup.py install --user && \
+              cd - && \
               pip uninstall torch_dipu -y && \
               pip uninstall dicp -y && \
               cd dipu && python setup.py install --user && \
