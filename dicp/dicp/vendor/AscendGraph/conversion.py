@@ -984,10 +984,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.sumdim(a)
 
     @register_conversion(torch.ops.aten.sum.dim_IntList)
-    def sumdim(self, x, dims=[], keepdim=False):
+    def sumdim(self, x, dims=[], keepdim=False, dtype=None):
+        x_dtype = x_dtype = x.node.meta['val'].dtype
         if not isinstance(dims, list):
             dims = [dims]
-        return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        if dtype is None or x_dtype == dtype:
+            return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        sum = self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        return self.get_proxy(ascend_op.Cast, (sum, get_ascend_dtype(dtype)))
 
     @register_conversion(torch.ops.aten.amax)
     def amax(self, x, dims, keepdim):
