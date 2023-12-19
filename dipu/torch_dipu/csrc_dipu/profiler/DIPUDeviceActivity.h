@@ -39,7 +39,6 @@ class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
  private:
   DIPUDeviceActivity() = default;
 
- private:
   std::unordered_map<uint64_t, std::unique_ptr<libkineto::GenericTraceActivity>>
       cpu_activities_;
   std::unordered_map<uint64_t, std::unique_ptr<libkineto::GenericTraceActivity>>
