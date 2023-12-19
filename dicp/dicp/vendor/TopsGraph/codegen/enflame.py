@@ -84,11 +84,13 @@ class EnflameCodegen(torch.fx.Interpreter):
 
         in_shape = self.get_shape()
         if in_shape == '{}':
-            in_shape = '{1}'
-        self.build_graph_code.writeline(
-            f"std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};")
-        self.build_graph_code.writeline(
-            f"builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});")
+            self.build_graph_code.writeline(
+                f"builder::Type {self.args_dict[name]}_input_type({type_set[data_type]});")
+        else:
+            self.build_graph_code.writeline(
+                f"std::vector<int64_t> {self.args_dict[name]}_in_shape{in_shape};")
+            self.build_graph_code.writeline(
+                f"builder::Type {self.args_dict[name]}_input_type({self.args_dict[name]}_in_shape, {type_set[data_type]});")
         self.build_graph_code.writeline(
             f"builder::Op {self.args_dict[name]} = hlir_builder->CreateInput({self.args_dict[name]}_input_type);")
         self.build_graph_code.writeline("")
@@ -807,11 +809,16 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def Expand(op_var, shape, dtype, x, new_shape, **kwargs_list):
+    def Expand(op_var, shape, dtype, x, new_shape, broadcast_dims, **kwargs_list):
         src_code, op_type = EnflameOverrides.make_type(
             op_var, dtype, new_shape)
-        src_code += f"builder::Op {op_var} = builder::BroadcastInDim({x}, {{{', '.join(map(str, range(len(shape))))}}}, {op_type});"
+        src_code += f"builder::Op {op_var} = builder::BroadcastInDim({x}, {{{', '.join(map(str, broadcast_dims))}}}, {op_type});"
         return src_code
+
+    @staticmethod
+    def Stack(op_var, shape, dtype, inputs, axis=0, **kwargs_list):
+        inputs = [inputs] if isinstance(inputs, str) else inputs
+        return f"builder::Op {op_var} = builder::Stack({{{', '.join(inputs)}}}, {axis});"
 
     @staticmethod
     def Squeeze(op_var, shape, dtype, x, y, **kwargs_list):
@@ -950,15 +957,12 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
-    def XlaGather(op_var, out_shape, out_dtype, operand, indices, offset_dims, collapsed_slice_dims,
-                  start_index_map, index_vector_dim, slice_size):
-        gather_dim_params = f"{op_var}_gather_dim_params"
-        src_code = f"auto {gather_dim_params} = builder::GatherDimensionNumbers(\n" \
-                   f"{'{'}{str(offset_dims)[1:-1]}{'}'}, {'{'}{str(collapsed_slice_dims)[1:-1]}{'}'}," \
-                   f"{'{'}{str(start_index_map)[1:-1]}{'}'}, {index_vector_dim}\n" \
-                   f");\n" \
-                   f"builder::Op {op_var} = builder::Gather(\n" \
-                   f"{operand}, {indices}, {gather_dim_params}, {'{'}{str(slice_size)[1:-1]}{'}'}\n" \
-                   f");"
-
+    def XlaGather(op_var, out_shape, out_dtype, operand, start_indices, offset_dims, collapsed_slice_dims,
+                  start_index_map, index_vector_dim, slice_sizes, *args, **kwargs_list):
+        src_code, op_type = EnflameOverrides.make_type(op_var, out_dtype, out_shape)
+        src_code += f"auto {op_var}_dimension_numbers = builder::GatherDimensionNumbers(" \
+                    f"{{{', '.join(map(str, offset_dims))}}}, {{{', '.join(map(str, collapsed_slice_dims))}}}, " \
+                    f"{{{', '.join(map(str, start_index_map))}}}, {index_vector_dim});\n" \
+                    f"builder::Op {op_var} = builder::Gather({operand}, {start_indices}, {op_var}_dimension_numbers, " \
+                    f"{{{', '.join(map(str, slice_sizes))}}}, false, {op_type});"
         return src_code

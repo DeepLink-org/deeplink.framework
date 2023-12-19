@@ -187,12 +187,52 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.index.Tensor)
     def Index(self, *args, **kwargs):
-        assert len(args[1]) == 1, "Only support aten.index with one index arg"
-        idx_rank = len(args[1][0].node.meta['val'].shape)
-        slice_size = list(args[0].node.meta['val'].shape)
-        slice_size[0] = 1
-        return self.get_proxy(tops_op.XlaGather, (args[0], args[1][0],
-                              [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+        # Prepare some info for calculating the parameters of Gather.
+        operand, indices, start_dim = args[0], args[1], 0
+        in_shape = list(operand.node.meta["val"].shape)
+        out_shape = fx_traceback.get_current_meta()["val"][0].shape
+        if len(set(indices)) == 1 and indices[0] is None:
+            return operand
+        for i in range(len(indices)):
+            if indices[i] is not None:
+                start_dim = i
+                break
+        new_indices, new_indices_shape = [], []
+        for i in range(len(indices)):
+            if indices[i] is not None:
+                new_indices.append(indices[i])
+                new_indices_shape.append(indices[i].node.meta["val"].shape)
+        broadcast_shape = torch.broadcast_shapes(*new_indices_shape)
+        # Get start_index_map of Gather.
+        num_index_dims = len(new_indices)
+        start_index_map = []
+        for i in range(num_index_dims):
+            start_index_map.append(i + start_dim)
+        # Get index_vector_dim of Gather.
+        index_vector_dim = len(broadcast_shape)
+        # Get offset_dims, collapsed_slice_dims, index_vector_dim, slice_sizes of Gather.
+        slice_sizes, offset_dims, collapsed_slice_dims = [], [], []
+        for i in range(len(in_shape)):
+            if i >= start_dim and i < start_dim + num_index_dims:
+                collapsed_slice_dims.append(i)
+                slice_sizes.append(1)
+            else:
+                slice_sizes.append(in_shape[i])
+                if i < start_dim:
+                    offset_dims.append(i)
+                else:
+                    offset_dims.append(i - num_index_dims + index_vector_dim)
+        # Get start_indices of Gather.
+        start_indices = []
+        for index in new_indices:
+            in_shape = index.node.meta["val"].shape
+            offset = len(broadcast_shape) - len(in_shape)
+            broadcast_dims = [i + offset for i in range(len(in_shape))]
+            start_indices.append(self.get_proxy(tops_op.Expand, (index, tuple(broadcast_shape), broadcast_dims)))
+        start_indices = self.get_proxy(tops_op.Stack, (start_indices, -1))
+        return self.get_proxy(tops_op.XlaGather, (operand, start_indices, offset_dims, collapsed_slice_dims,
+                                                  start_index_map, index_vector_dim, slice_sizes, out_shape))
+
 
     # tops_dropout only returns a tensor, not a tuple of tensor
     @register_conversion(aten.native_dropout.default)
@@ -318,7 +358,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten._adaptive_avg_pool2d_backward.default)
     def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
-        expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape))
+        grad_output_shape = grad_output.node.meta["val"].shape
+        offset = len(out_shape) - len(grad_output_shape)
+        broadcast_dims = [i + offset for i in range(len(grad_output_shape))]
+        expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape, broadcast_dims))
         value = out_shape[2] * out_shape[3]
         scalar = self.get_proxy(tops_op.Scalar, (value, ))
         return self.get_proxy(tops_op.Div, (expand, scalar))
@@ -383,7 +426,15 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.expand.default)
     def Expand(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Expand, args, kwargs)
+        in_shape = args[0].node.meta["val"].shape
+        out_shape = fx_traceback.get_current_meta()["val"].shape
+        offset = len(out_shape) - len(in_shape)
+        broadcast_dims = [i + offset for i in range(len(in_shape))]
+        return self.get_proxy(tops_op.Expand, (*args, broadcast_dims), kwargs)
+
+    @register_conversion(aten.stack)
+    def Stack(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Stack, args, kwargs)
 
     @register_conversion(aten.full.default)
     def Full(self, *args, **kwargs):
@@ -468,9 +519,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
+        out_shape = fx_traceback.get_current_meta()["val"].shape
         idx_rank = len(args[1].node.meta['val'].shape)
         return self.get_proxy(tops_op.XlaGather, (args[0], args[1], [idx_rank,], [0,], [0,], idx_rank,
-                                                  [1, args[0].node.meta['val'].shape[1]]))
+                                                  [1, args[0].node.meta['val'].shape[1]], out_shape))
 
     @register_conversion(prims.convert_element_type)
     def Convert(self, *args, **kwargs):
