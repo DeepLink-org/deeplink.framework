@@ -78,6 +78,7 @@ jobs:
           ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh SCO "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ SCO:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ || echo "ignore sco error"
           rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ SCO:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "ignore sco error"
 
@@ -491,8 +492,6 @@ jobs:
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
 
 
-
-
   Build-V100:
     name: Build-dipu-v100
     needs: Rsync
@@ -556,7 +555,6 @@ jobs:
         if: ${{ failure() }}
         run: exit 1
 
-
   Build-V100-Latest-Target:
     name: Build-dipu-v100-latest-target
     needs: [Rsync]
@@ -569,7 +567,6 @@ jobs:
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB} \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-
 
   Test-V100-Latest-Target:
     name: Test-dipu-v100-latest-target
