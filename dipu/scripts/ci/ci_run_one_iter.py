@@ -67,12 +67,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     if not os.path.exists(storage_path):
         os.makedirs(storage_path)
 
-    if device == 'camb':
-        base_data_src = '/mnt/lustre/share/parrotsci/github/model_baseline_data'
-    elif device == 'cuda':
-        base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
-    elif device == "ascend":
-        base_data_src = "/mnt/cache/share/deeplinkci/github/model_baseline_data"
+    base_data_src = '/mnt/cache/share/parrotsci/github/model_baseline_data'
     src = f'{base_data_src}/{p3}/baseline'
     if not os.path.exists(src):
         os.makedirs(src)
@@ -195,7 +190,11 @@ if __name__ == '__main__':
     curPath = os.path.dirname(os.path.realpath(__file__))
     yamlPath = os.path.join(curPath, selected_model_list)
     with open(yamlPath, 'r', encoding='utf-8') as f:
-        original_list = yaml.safe_load(f.read()).get(device, None)
+        if device == 'sco':
+            original_list = yaml.safe_load(f.read()).get("cuda", None)
+        else:
+            original_list = yaml.safe_load(f.read()).get(device, None)
+
         if not original_list:
             logging.warning(f"Device type: {device} is not supported!")
             exit(0)
