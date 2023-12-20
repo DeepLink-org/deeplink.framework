@@ -137,7 +137,7 @@ class DeviceRecordsImpl final {
 
   static bool enableFlushReadyEvent() {
     // There is no limit for cuda events on nv, so regular flushing is not
-    // necessary to avoid abnormal operator time consumption
+    // necessary, thus reducing operator time consumption
     static bool enable_flush_ready =
         (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr &&
          VENDOR_TYPE != devapis::VendorDeviceType::CUDA);
