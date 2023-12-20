@@ -283,7 +283,7 @@ diopi dyload init
 
 接入流程示意图：
 
-![结构图](https://deeplink.readthedocs.io/zh_CN/latest/_images/SOP_01.png)
+![结构图](https://deeplink.readthedocs.io/zh-cn/latest/_static/image/DIPU/SOP_01.png)
 
 ### 核心代码添加
 

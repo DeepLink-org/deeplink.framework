@@ -95,7 +95,7 @@ class Operator(ABC):
             except Exception as e:
                 log = logging.getLogger(__name__)
                 if hasattr(self, "infer_result"):
-                    log.warning(
+                    log.debug(
                         str(self.__name__) + ": infer shape and dtype failed,ignore"
                     )
                 elif hasattr(self, "torch_op"):
