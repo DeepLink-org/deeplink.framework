@@ -513,7 +513,7 @@ jobs:
       - name: Run-test
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && sh tests/run_nv_tests.sh"
 
@@ -525,14 +525,14 @@ jobs:
       - name: build some env
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu/mmlab_pack
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && ../scripts/ci/ci_one_iter.sh build_cuda
           """
       - name: run-one-iter-for-tradition
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu/mmlab_pack
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && rm -rf one_iter_data \
           && python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
@@ -540,7 +540,7 @@ jobs:
       - name: run-one-iter-for-llm
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu/mmlab_pack
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && rm -rf one_iter_data \
           && python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
@@ -549,7 +549,7 @@ jobs:
         if: always()
         run: |
           set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu/mmlab_pack
           rm -rf one_iter_data
           touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
       - name: Check for failure
@@ -577,7 +577,7 @@ jobs:
       - name: Run-test
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100-Latest-Target/dipu \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
-          && sh tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
+          && sh tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-V100-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
