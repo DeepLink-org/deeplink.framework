@@ -6,7 +6,6 @@ import torch_dipu
 
 models_dir = os.environ.get("LLAMA_MODEL_DIR")
 assert models_dir is not None
-
 dynamo.config.cache_size_limit = 4096
 dynamo.config.dynamic_shapes = True
 dynamo.config.assume_static_by_default = False
