@@ -31,11 +31,11 @@ jobs:
       - name: add mmlab_pack
         run: |
           set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}  && cp -R source source_main
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}  && cp -R source source-main
           cd source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ci_one_iter.sh clone
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source_main/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           
   Build-Cuda:
     name: Build-dipu-cuda
