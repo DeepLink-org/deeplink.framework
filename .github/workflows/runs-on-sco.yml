@@ -71,7 +71,7 @@ jobs:
       - name: build some env
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
           && bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
