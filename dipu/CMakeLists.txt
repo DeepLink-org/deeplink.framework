@@ -11,7 +11,7 @@ message(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
 
 # device related
 set(DEVICE
-    "xpu"
+    "camb"
     CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
 list(APPEND DEVICE_CUDA "CUDA" "cuda")
