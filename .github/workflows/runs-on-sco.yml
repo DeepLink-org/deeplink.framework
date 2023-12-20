@@ -27,7 +27,7 @@ jobs:
     runs-on: tps-sco-ci
     steps:
       - name: Checkout Code
-        uses: .github/actions/checkout-code@main
+        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
       - name: add mmlab_pack
         run: |
           set -e
