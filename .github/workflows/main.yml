@@ -515,7 +515,7 @@ jobs:
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
-          && sh tests/run_nv_tests.sh"
+          && bash tests/run_nv_tests.sh"
 
   Test-One-Iter_V100:
     name: Test-one-iter-v100
@@ -527,7 +527,7 @@ jobs:
           set -e
           srun --job-name=${GITHUB_JOB} bash -c """ cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100/dipu/mmlab_pack
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
-          && ../scripts/ci/ci_one_iter.sh build_cuda
+          && bash ../scripts/ci/ci_one_iter.sh build_cuda
           """
       - name: run-one-iter-for-tradition
         run: |
@@ -579,5 +579,5 @@ jobs:
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-V100-Latest-Target/dipu \
           && source /mnt/cache/share/deeplinkci/github/dipu_env  \
-          && sh tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-V100-Latest-Target \
+          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-V100-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
