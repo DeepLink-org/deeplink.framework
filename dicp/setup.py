@@ -35,6 +35,7 @@ def main():
             "TopsGraph/codegen/include/*.h",
             "AscendGraph/codegen/*.cpp",
             "AscendGraph/codegen/*.h",
+            "AscendGraph/codegen/*.cfg",
             "AscendGraph/codegen/nlohmann/json.hpp"
         ]},
         classifiers=[
