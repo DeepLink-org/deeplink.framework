@@ -481,9 +481,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclAllreduce",
-                                      profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclAllreduce", stream.rawstream(),
+                                      stream.id());
         return devproxy::diclAllReduce(
             input.data_ptr(), output.data_ptr(), (size_t)input.numel(),
             input.scalar_type(), opts.reduceOp, comm, stream.rawstream());
@@ -500,9 +499,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclBroadcast", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclBroadcast",
-                                      profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
+                                      stream.id());
         // only one root (root rank root device)
         const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
         return devproxy::diclBroadcast(
@@ -524,8 +522,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclReduce", profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclReduce", stream.rawstream(),
+                                      stream.id());
         const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
         return devproxy::diclReduce(
             input.data_ptr(), output.data_ptr(), (size_t)input.numel(),
@@ -553,9 +551,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclAllgather",
-                                      profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
+                                      stream.id());
 
         return devproxy::diclAllGather(
             input.data_ptr(), output.data_ptr(), (size_t)input.numel(),
@@ -597,9 +594,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather_base",
                         std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclAllgather_base",
-                                      profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclAllgather_base", stream.rawstream(),
+                                      stream.id());
         return devproxy::diclAllGather(
             input.data_ptr(), output.data_ptr(), (size_t)input.numel(),
             input.scalar_type(), comm, stream.rawstream());
@@ -628,7 +624,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
         RECORD_FUNCTION("DiclReduceScatter_base",
                         std::vector<c10::IValue>({input}));
         profile::RecordBlockCreator _("DiclReduceScatter_base",
-                                      profile::ExtraRecordInfo(),
                                       stream.rawstream(), stream.id());
         return devproxy::diclReduceScatter(
             input.data_ptr(), output.data_ptr(), (size_t)output.numel(),
@@ -652,9 +647,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduceScatter", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclReduceScatter",
-                                      profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("DiclReduceScatter", stream.rawstream(),
+                                      stream.id());
         return devproxy::diclReduceScatter(
             input.data_ptr(), output.data_ptr(), (size_t)output.numel(),
             input.scalar_type(), opts.reduceOp, comm, stream.rawstream());
@@ -682,8 +676,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::send(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("diclSend", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("diclSend", profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("diclSend", stream.rawstream(),
+                                      stream.id());
         return devproxy::diclSend(input.data_ptr(), (size_t)input.numel(),
                                   input.scalar_type(), p2pPair.second, comm,
                                   stream.rawstream());
@@ -701,8 +695,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("diclRecv", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("diclRecv", profile::ExtraRecordInfo(),
-                                      stream.rawstream(), stream.id());
+        profile::RecordBlockCreator _("diclRecv", stream.rawstream(),
+                                      stream.id());
         return devproxy::diclRecv(input.data_ptr(), (size_t)input.numel(),
                                   input.scalar_type(), p2pPair.second, comm,
                                   stream.rawstream());

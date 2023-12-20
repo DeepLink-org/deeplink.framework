@@ -660,7 +660,8 @@ def functions_code_gen(fun_config):
     custom_code_at_the_beginning = fun_config.get('custom_code_at_the_beginning', fun_config.get('custom_code', ''))
     #strip all whitespace and divide code to different lines.
     custom_code_at_the_beginning = re.sub(';\s*$', ';\n',custom_code_at_the_beginning)
-    
+
+    interface_name = re.sub(R'.*::(.*?)\(.*', R'\1', diopi_fun_call_code)
     fbody = fun_template.substitute(
             comment=[fun_config['schema']],
             cppsignautre=[create_cpp_signature_from_schema(fun_config['schema'])],
@@ -673,6 +674,7 @@ def functions_code_gen(fun_config):
             diopi_fun_call_code=[diopi_fun_call_code],
             custom_code_before_return=[fun_config.get('custom_code_before_return', '').replace('; ', ';\n')],
             return_code=[return_code],
+            interface_name=[interface_name],
     )
     diopi_interface = fun_config.get('interface', create_call_diop_interface_code_from_schema(fun_config['schema']))
 
