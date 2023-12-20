@@ -440,17 +440,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
             assert isinstance(b, int)
             b_shape = list(a.node.meta['val'].shape)
             b = self.get_param_proxy(b, torch.int64, b_shape)
+        a_dtype = a.node.meta["val"].dtype
+        b_dtype = b.node.meta["val"].dtype
+        if a_dtype != b_dtype:
+            b = self.get_proxy(ascend_op.Cast, (b, get_ascend_dtype(a_dtype)))
         return self.get_proxy(ascend_op.Equal, (a, b))
 
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
+        x_dtype = x.node.meta['val'].dtype
         if not isinstance(y, torch.fx.proxy.Proxy):
-            x_dtype = x.node.meta['val'].dtype
             const_dtype = torch.float32 if x_dtype == torch.float16 else x_dtype
             y_shape = list(x.node.meta['val'].shape)
             y = self.get_param_proxy(y, const_dtype, y_shape)
             if x_dtype == torch.float16:
                 y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
+        elif x_dtype != y.node.meta['val'].dtype:
+            y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
         return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
@@ -985,7 +991,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.sum.dim_IntList)
     def sumdim(self, x, dims=[], keepdim=False, dtype=None):
-        x_dtype = x_dtype = x.node.meta['val'].dtype
+        x_dtype = x.node.meta['val'].dtype
         if not isinstance(dims, list):
             dims = [dims]
         if dtype is None or x_dtype == dtype:
