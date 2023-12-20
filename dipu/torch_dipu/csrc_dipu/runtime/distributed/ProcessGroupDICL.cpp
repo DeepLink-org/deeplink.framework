@@ -411,7 +411,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   // todo:: dipu need support multistream guard & remove
   // work->workEvents_(future already has events ).
   {
-    DIPUStreamGuard streamGuard(diclComms[0]->diclStream_);
+    DIPUStreamGuard guard(diclComms[0]->diclStream_.unwrap());
 
     work->future_ = c10::make_intrusive<at::ivalue::Future>(
         c10::ListType::create(c10::TensorType::get()), devices);
