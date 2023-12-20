@@ -45,20 +45,19 @@ class TestIndex():
     @pytest.mark.skipif(args.backend != "topsgraph",
                         reason="This is the test case for index in topsgraph!")
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size(((10, 15), (None, [0, 2],)), ((10, 15), (None, [0, 2],))),
-                                       Size(((10, 15, 20), ([[1], [2]], [[3, 4]])),
-                                            ((15, 20), ([[1], [2]], [[3, 4]]))),
-                                       Size(((10, 15, 20, 25), (None, [[2, 2]], [[1, 3], [4, 5]], [[1], [2]])),
-                                            ((10, 25), ([[1], [2]], [5])))])
+    @pytest.mark.parametrize("sizes", [Size(((10, 15), ((2,),)), ((10, 15), ((2,),))),
+                                       Size(((10, 15, 20), (None, (1, 2), (3, 1))), ((10, 20), (None, (2,)))),
+                                       Size(((10, 15, 20, 25, 30), (None, (10, 1, 2), (10, 3, 1), None, None)),
+                                            ((25, 25), (None, (2,))))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_index_tops(self, sizes, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         input1 = torch.randn(size[0], dtype=dtype)
-        input2 = [item if item is None else torch.tensor(item) for item in size[1]]
+        input2 = [item if item is None else torch.randint(0, 2, item) for item in size[1]]
 
         dicp_input1 = input1.to(device)
-        dicp_input2 = [item if item is None else torch.tensor(item).to(device) for item in size[1]]
+        dicp_input2 = [item if item is None else item.to(device) for item in input2]
 
         output = model(input1, input2)
         dynamo.reset()

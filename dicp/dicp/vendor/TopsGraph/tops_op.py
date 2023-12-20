@@ -170,6 +170,22 @@ class Erf(Operator):
         self.torch_op = aten.erf
 
 
+class ArgMax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("ArgMax")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.argmax
+
+
+class ArgMin(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("ArgMin")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.argmin
+
+
 class ReduceSum(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("ReduceSum")
@@ -539,6 +555,7 @@ class Expand(Operator):
         new_args = args[:2]
         return super().__call__(*new_args, **kwargs)
 
+
 class Stack(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Stack")
@@ -577,6 +594,14 @@ class Pow(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.pow
+
+
+class Square(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Square")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.square
 
 
 class Sigmoid(Operator):

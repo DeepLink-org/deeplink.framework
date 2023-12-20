@@ -18,6 +18,7 @@ from dicp.dynamo_bridge.op_transformer import (
     PatternMatcherPass,
     register_backend_patterns,
 )
+from functools import reduce
 
 conversions = {}
 patterns = []
@@ -164,6 +165,14 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Erf(self, *args, **kwargs):
         return self.get_proxy(tops_op.Erf, args, kwargs)
 
+    @register_conversion(aten.argmax)
+    def ArgMax(self, x, dim=0, keepdim=False):
+        return self.get_proxy(tops_op.ArgMax, (x, dim, keepdim))
+
+    @register_conversion(aten.argmin)
+    def ArgMin(self, x, dim=0, keepdim=False):
+        return self.get_proxy(tops_op.ArgMin, (x, dim, keepdim))
+
     @register_conversion(aten.split.Tensor)
     def Split(self, a, size, dim=0, **kwargs):
         in_shape = a.node.meta["val"].shape
@@ -197,9 +206,13 @@ class AtenToTopsTransformer(SingleOpTransformer):
             if indices[i] is not None:
                 start_dim = i
                 break
-        new_indices, new_indices_shape = [], []
+        new_indices, new_indices_shape, support_index = [], [], []
         for i in range(len(indices)):
             if indices[i] is not None:
+                support_index.append(i)
+                assert (
+                    len(support_index) == 1 or support_index[-1] - support_index[-2] == 1
+                ), "Only sequential non-None indices are supported!"
                 new_indices.append(indices[i])
                 new_indices_shape.append(indices[i].node.meta["val"].shape)
         broadcast_shape = torch.broadcast_shapes(*new_indices_shape)
@@ -232,7 +245,6 @@ class AtenToTopsTransformer(SingleOpTransformer):
         start_indices = self.get_proxy(tops_op.Stack, (start_indices, -1))
         return self.get_proxy(tops_op.XlaGather, (operand, start_indices, offset_dims, collapsed_slice_dims,
                                                   start_index_map, index_vector_dim, slice_sizes, out_shape))
-
 
     # tops_dropout only returns a tensor, not a tuple of tensor
     @register_conversion(aten.native_dropout.default)
@@ -452,6 +464,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Pow(self, *args, **kwargs):
         return self.get_proxy(tops_op.Pow, args, kwargs)
 
+    @register_conversion(aten.square)
+    def Square(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Square, args, kwargs)
+
     @register_conversion(aten.sigmoid.default)
     def Sigmoid(self, *args, **kwargs):
         return self.get_proxy(tops_op.Sigmoid, args, kwargs)
@@ -564,6 +580,22 @@ class AtenToTopsTransformer(SingleOpTransformer):
             return self.get_proxy(tops_op.Add, (offset, kwargs["start"]))
         return iota
 
+    @register_conversion(aten.var_mean.correction)
+    def VarMean(self, x, dims, *args, correction=1, keepdim=False):
+        in_shape = x.node.meta["val"].shape
+        samples = [in_shape[dim] for dim in dims]
+        samples = max(0, reduce(lambda x, y: x * y, samples + [1]) - correction)
+        if dims is None:
+            dims = list(range(len(in_shape)))
+            mean1 = self.get_proxy(tops_op.ReduceMean, (x, dims, keepdim))
+        else:
+            dims = [(item + len(in_shape)) if item < 0 else item for item in dims]
+            mean1 = self.get_proxy(tops_op.ReduceMean, (x, dims, keepdim))
+        diffs = self.get_proxy(tops_op.Square, (self.get_proxy(tops_op.Sub, (x, mean1)),))
+        sum_dim = self.get_proxy(tops_op.ReduceSum, (diffs, dims, keepdim))
+        div1 = self.get_proxy(tops_op.Div, (sum_dim, samples))
+        return self.get_proxy(tops_op.MakeTuple, (div1, mean1))
+
 
 # Patterns
 tops_patterns = PatternMatcherPass()
@@ -606,28 +638,6 @@ class ReplacePatternVar(BackendPatternBase):
         sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
         x_var = torch.ops.aten.div.Tensor(sum_results, denom)
         return x_var
-
-
-# %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
-#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_aten_patterns
-class ReplacePatternVarMean(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.var_mean.correction(a, b, correction=0, keepdim=True)
-
-    @staticmethod
-    def replacement(inputs, dims):
-        keepdim = True
-        correction = 0
-        denom = 64
-        denom = denom - correction
-        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(
-            torch.ops.aten.sub.Tensor(inputs, mean1))
-        sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
-        return tops_op.ret_tuples(x_var, mean1)
 
 
 @register_aten_patterns

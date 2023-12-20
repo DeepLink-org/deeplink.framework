@@ -698,6 +698,10 @@ class EnflameOverrides(OpOverrides):
         return src_code
 
     @staticmethod
+    def Square(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Square({x});"
+
+    @staticmethod
     def Exp(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Exp({x});"
 
@@ -720,6 +724,14 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     def Erf(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Erf({x});"
+
+    @staticmethod
+    def ArgMax(op_var, shape, dtype, x, dim, keepdim, **kwargs_list):
+        return f"builder::Op {op_var} = builder::ArgMax({x}, {dim}, {keepdim});"
+
+    @staticmethod
+    def ArgMin(op_var, shape, dtype, x, dim, keepdim, **kwargs_list):
+        return f"builder::Op {op_var} = builder::ArgMin({x}, {dim}, {keepdim});"
 
     @staticmethod
     def Sigmoid(op_var, shape, dtype, x, **kwargs_list):
