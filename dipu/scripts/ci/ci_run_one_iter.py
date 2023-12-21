@@ -11,9 +11,8 @@ import logging
 log_format = '%(asctime)s - %(levelname)s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=log_format, datefmt='%Y-%m-%d %H:%M:%S')
 
-env = os.environ
 def run_cmd(cmd: str) -> None:
-    cp = sp.run(cmd, shell=True, encoding="utf-8", env=env)
+    cp = sp.run(cmd, shell=True, encoding="utf-8")
     if cp.returncode != 0:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)

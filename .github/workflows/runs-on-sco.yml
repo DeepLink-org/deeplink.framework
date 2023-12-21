@@ -79,14 +79,14 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
           && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack \
-          && rm -rf one_iter_data \
+          && rm -rf one_iter_data && cd .. \
           && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco  ${GITHUB_JOB} gpu sco && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: run-one-iter-for-llm
         run: |
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
           && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack \
-          && rm -rf one_iter_data \
+          && rm -rf one_iter_data && cd .. \
           && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco ${GITHUB_JOB} gpu sco "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: Perform cleanup one iter data
         if: always()
