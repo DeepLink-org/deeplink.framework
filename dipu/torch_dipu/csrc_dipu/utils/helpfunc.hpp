@@ -20,7 +20,7 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
       return "SUPA";
     case VendorDeviceType::DROPLET:
       return "DROPLET";
-    case VendorDeviceType::XPU:
+    case VendorDeviceType::KLX:
       return "KLX";
   }
   return "null";

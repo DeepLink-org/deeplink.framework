@@ -4,7 +4,7 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::XPU;
+DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::KLX;
 
 namespace devapis {
 
