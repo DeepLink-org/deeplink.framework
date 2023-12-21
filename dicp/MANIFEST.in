@@ -1,0 +1,6 @@
+recursive-include dicp/vendor/TopsGraph/codegen/src *.cpp
+recursive-include dicp/vendor/TopsGraph/codegen/include *.h
+recursive-include dicp/vendor/AscendGraph/codegen *.cpp
+recursive-include dicp/vendor/AscendGraph/codegen *.h
+recursive-include dicp/vendor/AscendGraph/codegen *.cfg
+recursive-include dicp/vendor/AscendGraph/codegen/nlohmann json.hpp

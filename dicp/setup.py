@@ -38,6 +38,7 @@ def main():
             "AscendGraph/codegen/*.cfg",
             "AscendGraph/codegen/nlohmann/json.hpp"
         ]},
+        include_package_data=True,
         classifiers=[
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
