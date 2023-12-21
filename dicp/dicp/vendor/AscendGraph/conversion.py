@@ -443,24 +443,28 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion([aten.eq, aten.eq.Tensor])
     def eq(self, a, b):
+        a_dtype = a.node.meta['val'].dtype
         if not isinstance(b, torch.fx.proxy.Proxy):
-            a_dtype = a.node.meta['val'].dtype
             const_dtype = torch.float32 if a_dtype == torch.float16 else a_dtype
             b_shape = list(a.node.meta['val'].shape)
             b = self.get_param_proxy(b, const_dtype, b_shape)
             if a_dtype == torch.float16:
                 b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
+        elif a_dtype != b.node.meta["val"].dtype:
+            b = self.get_proxy(ascend_op.Cast, (b, get_ascend_dtype(a_dtype)))
         return self.get_proxy(ascend_op.Equal, (a, b))
 
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
+        x_dtype = x.node.meta['val'].dtype
         if not isinstance(y, torch.fx.proxy.Proxy):
-            x_dtype = x.node.meta['val'].dtype
             const_dtype = torch.float32 if x_dtype == torch.float16 else x_dtype
             y_shape = list(x.node.meta['val'].shape)
             y = self.get_param_proxy(y, const_dtype, y_shape)
             if x_dtype == torch.float16:
                 y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
+        elif x_dtype != y.node.meta['val'].dtype:
+            y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
         return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
@@ -995,10 +999,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.sumdim(a)
 
     @register_conversion(torch.ops.aten.sum.dim_IntList)
-    def sumdim(self, x, dims=[], keepdim=False):
+    def sumdim(self, x, dims=[], keepdim=False, dtype=None):
+        x_dtype = x.node.meta['val'].dtype
         if not isinstance(dims, list):
             dims = [dims]
-        return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        if dtype is None or x_dtype == dtype:
+            return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        sum = self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
+        return self.get_proxy(ascend_op.Cast, (sum, get_ascend_dtype(dtype)))
 
     @register_conversion(torch.ops.aten.amax)
     def amax(self, x, dims, keepdim=False):
