@@ -1,4 +1,8 @@
 # Copyright (c) 2023, DeepLink.
+import os
+
+os.environ["FORCE_USE_DIPU_PROFILER"] = "True"
+
 import torch
 import torch_dipu
 import torchvision.models as models
