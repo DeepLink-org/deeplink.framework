@@ -1,20 +1,22 @@
 #pragma once
-#include <c10/util/Exception.h>
-#include <csrc_dipu/common.h>
 #include <xpu/runtime.h>
 #include <xpu/xdnn.h>
+
+#include <c10/util/Exception.h>
+
+#include <csrc_dipu/common.h>
 
 namespace xdnn = baidu::xpu::api;
 namespace dipu {
 
-#define DIPU_CALLXPU(Expr)                                             \
-  {                                                                    \
-    int ret = (Expr);                                                  \
-    if (ret != 0) {                                                    \
-      printf("call a xpu function (%s) failed. return code=%d", #Expr, \
-              ret);                                                    \
-      throw std::runtime_error("dipu device error");                   \
-    }                                                                  \
+#define DIPU_CALLXPU_ERROR(Expr) \
+  { throw std::runtime_error(#Expr); }
+
+#define DIPU_CALLXPU(Expr)                                           \
+  {                                                                  \
+    int ret = (Expr);                                                \
+    TORCH_CHECK(ret == XPU_SUCCESS, "call ku error, expr = ", #Expr, \
+                ", ret = ", ret);                                    \
   }
 
 using deviceId_t = int;

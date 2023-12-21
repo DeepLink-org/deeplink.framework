@@ -32,13 +32,13 @@ typedef int32_t enum_t;
 namespace devapis {
 
 enum class VendorDeviceType : enum_t {
-  MLU,       // camb
-  NPU,       // ascend
-  CUDA,      // cuda
-  GCU,       // gcu
-  SUPA,      // Biren
-  DROPLET,   // droplet
-  XPU,       // Kunlunxin
+  MLU,      // camb
+  NPU,      // ascend
+  CUDA,     // cuda
+  GCU,      // gcu
+  SUPA,     // Biren
+  DROPLET,  // droplet
+  XPU,      // Kunlunxin
 };
 
 enum class EventStatus : enum_t { PENDING, RUNNING, DEFERRED, READY };
