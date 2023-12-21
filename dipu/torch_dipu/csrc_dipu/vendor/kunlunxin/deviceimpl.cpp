@@ -53,7 +53,6 @@ int getDeviceCount() {
 }
 
 void getDriverVersion(int* version) {
-  std::cout << "cyliu getDriverVersion" << std::endl;
   uint32_t major;
   uint32_t minor;
   DIPU_CALLXPU(xpu_get_driver_version(&major, &minor));
@@ -61,7 +60,6 @@ void getDriverVersion(int* version) {
 }
 
 void getRuntimeVersion(int* version) {
-  std::cout << "cyliu getRuntimeVersion" << std::endl;
   uint32_t major;
   uint32_t minor;
   DIPU_CALLXPU(xpu_get_runtime_version(&major, &minor));
@@ -154,7 +152,7 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
 
 void freeDevice(void* p) { DIPU_CALLXPU(xpu_free(p)) }
 
-bool isPinnedPtr(const void* p) { return true; }
+bool isPinnedPtr(const void* p) { return false; }
 
 static int _xpuMemset(void* ptr, int value, size_t count,
                       deviceStream_t stream) {

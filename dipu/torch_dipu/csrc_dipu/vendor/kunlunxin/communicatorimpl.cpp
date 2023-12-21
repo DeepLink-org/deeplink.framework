@@ -2,9 +2,6 @@
 #include <string>
 
 #include <c10/core/ScalarType.h>
-#ifdef USE_PCCL
-#include <pccl.h>
-#endif  // USE_PCCL
 #include <torch/csrc/distributed/c10d/Types.hpp>
 
 #include <csrc_dipu/common.h>

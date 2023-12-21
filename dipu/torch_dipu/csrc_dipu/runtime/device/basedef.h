@@ -38,7 +38,7 @@ enum class VendorDeviceType : enum_t {
   GCU,      // gcu
   SUPA,     // Biren
   DROPLET,  // droplet
-  XPU,      // Kunlunxin
+  KLX,      // Kunlunxin
 };
 
 enum class EventStatus : enum_t { PENDING, RUNNING, DEFERRED, READY };
