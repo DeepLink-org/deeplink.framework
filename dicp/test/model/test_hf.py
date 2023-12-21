@@ -4,6 +4,18 @@ from transformers import LlamaTokenizer, LlamaForCausalLM
 import torch
 import torch_dipu
 
+
+import importlib
+tmp_variable_torch_module = importlib.import_module("torch._dynamo.variables.torch")
+tmp_torch_variable = getattr(tmp_variable_torch_module, "TorchVariable")
+origin_torch_variable_python_type = getattr(tmp_torch_variable, "python_type")
+def new_torch_variable_python_type(self):
+    if isinstance(self.value, torch.device):
+        return type(self.value)
+    else:
+        return origin_torch_variable_python_type(self)
+setattr(tmp_torch_variable, "python_type", new_torch_variable_python_type)
+
 models_dir = os.environ.get("LLAMA_MODEL_DIR")
 assert models_dir is not None
 dynamo.config.cache_size_limit = 4096
