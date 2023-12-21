@@ -1,4 +1,7 @@
 # Copyright (c) 2023, DeepLink.
+import os
+os.environ["FORCE_USE_DIPU_PROFILER"] = "True"
+
 import tempfile
 import torch
 import torch_dipu
@@ -9,7 +12,6 @@ from torch_dipu.testing._internal.local_eviron import local_eviron
 
 
 class TestProfiler(TestCase):
-    @onlyOn("CUDA")
     def test_profiler(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
@@ -29,13 +31,10 @@ class TestProfiler(TestCase):
         profile_output = prof.key_averages(group_by_input_shape=True).table(
             sort_by="self_cuda_time_total", row_limit=1000
         )
-        self.assertNotIn("diopiConvolution2dBackward", profile_output)
-        self.assertNotIn("dipu_convolution_", profile_output)
-        self.assertNotIn("LaunchKernel_dipu", profile_output)
-        self.assertNotIn("LaunchKernel_diopi", profile_output)
-        self.assertIn("aten::cudnn_convolution", profile_output)
-        self.assertIn("aten::add", profile_output)
-        self.assertIn("vectorized_elementwise_kernel", profile_output)
+        self.assertIn("diopiConvolution2dBackward", profile_output)
+        self.assertIn("dipu_convolution_", profile_output)
+        self.assertIn("LaunchKernel_dipu", profile_output)
+        self.assertIn("LaunchKernel_diopi", profile_output)
         self.assertIn("Self CPU time total", profile_output)
         self.assertIn("Self CUDA time total", profile_output)
         self.assertIn("5, 3, 224, 224", profile_output)
@@ -53,7 +52,7 @@ class TestProfiler(TestCase):
         self.assertIn("Kb", profile_memory_output)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            prof.export_chrome_trace(f"{tmpdir}/resnet18_profiler.json")
+            prof.export_chrome_trace(f"{tmpdir}/dipu_resnet18_profiler.json")
 
 
 if __name__ == "__main__":
