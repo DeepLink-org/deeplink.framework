@@ -31,7 +31,7 @@ jobs:
       - name: add mmlab_pack
         run: |
           set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}  && cp -R source source-main
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}  &&rm -rf source-main && cp -R source source-main
           cd source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ci_one_iter.sh clone
