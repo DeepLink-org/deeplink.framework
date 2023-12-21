@@ -479,11 +479,11 @@ class BFCachingAllocator : public CacheAllocator {
       if (allocator_->impl) {
         if (ptr()) {
           std::deque<DIPUEvent> events;
-          for (auto iter = streams().begin(); iter != streams().end(); iter++) {
+          for (auto const& stream : streams()) {
             events.emplace_back();
             DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: record to stream:"
-                                        << iter->rawstream());
-            events.back().record(*iter);
+                                        << stream.rawstream());
+            events.back().record(stream);
           }
           allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_),
                                             events);

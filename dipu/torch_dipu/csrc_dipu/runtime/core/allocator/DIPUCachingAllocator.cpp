@@ -201,13 +201,9 @@ size_t maxMemoryAllocated(const c10::Device& device) {
 }
 
 void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
-  void* ctx = ptr.get_context();
-  if (ctx == nullptr) {
-    return;
-  }
-  auto base_cxt = static_cast<CacheAllocator::DataPtrContextBase*>(ctx);
-  if (base_cxt) {
-    base_cxt->streams().insert(stream);
+  using pointer = CacheAllocator::DataPtrContextBase*;
+  if (auto ctx = static_cast<pointer>(ptr.get_context())) {
+    ctx->streams().insert(stream);
   }
 }
 

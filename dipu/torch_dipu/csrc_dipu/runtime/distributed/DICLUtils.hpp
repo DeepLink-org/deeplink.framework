@@ -5,6 +5,8 @@
 
 #include <c10/core/Device.h>
 
+#include <csrc_dipu/runtime/core/DIPUEvent.h>
+#include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 #include <csrc_dipu/runtime/devproxy/diclproxy.h>
 
