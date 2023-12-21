@@ -136,8 +136,11 @@ class DeviceRecordsImpl final {
   DeviceRecordsImpl() {}
 
   static bool enableFlushReadyEvent() {
+    // There is no limit for cuda events on nv, so regular flushing is not
+    // necessary, thus reducing operator time consumption
     static bool enable_flush_ready =
-        (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr);
+        (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr &&
+         VENDOR_TYPE != devapis::VendorDeviceType::CUDA);
     return enable_flush_ready;
   }
 
@@ -202,7 +205,7 @@ class DeviceRecordsImpl final {
       ready_records_.push_back(Record(
           {r.name, r.opId, static_cast<size_t>(t1 * kMillisecondPerSecond),
            static_cast<size_t>((t1 + t2) * kMillisecondPerSecond), r.deviceId,
-           r.streamId, true, r.linkCorrelationId, r.extraInfo}));
+           r.streamId, true, r.linkCorrelationId}));
       records_.pop_front();
     }
   }
@@ -232,7 +235,7 @@ class DeviceRecordsImpl final {
         RecordsImpl::get().addRecord(
             Record({r.name, r.opId, getTime(*r.start, ratio, offset),
                     getTime(*r.stop, ratio, offset), r.deviceId, r.streamId,
-                    true, r.linkCorrelationId, r.extraInfo}));
+                    true, r.linkCorrelationId}));
       }
       records_.clear();
     }
@@ -277,15 +280,13 @@ void abandonAllRecords() {
 }
 
 RecordCreator::RecordCreator(string_t name, size_t opId,
-                             uint64_t linkCorrelationId,
-                             ExtraRecordInfo extraInfo) {
+                             uint64_t linkCorrelationId) {
   if (isEnable()) {
     name_ = std::move(name);
     opId_ = opId;
     begin_ = torch::profiler::impl::getTime();
     end_ = false;
     linkCorrelationId_ = linkCorrelationId;
-    extraInfo_ = std::move(extraInfo);
   }
 }
 
@@ -296,20 +297,18 @@ void RecordCreator::end() noexcept {
                static_cast<size_t>(torch::profiler::impl::getTime()),
                static_cast<size_t>(libkineto::processId()),
                static_cast<size_t>(libkineto::systemThreadId()), false,
-               linkCorrelationId_, extraInfo_});
+               linkCorrelationId_});
   }
   end_ = true;
 }
 
 DeviceRecordCreator::DeviceRecordCreator(string_t name, deviceStream_t stream,
                                          int streamId, size_t opId,
-                                         uint64_t linkCorrelationId,
-                                         ExtraRecordInfo extraInfo) {
+                                         uint64_t linkCorrelationId) {
   if (isEnable()) {
     DeviceRecordsImpl::get().ensureSetup(stream);
     name_ = std::move(name);
     opId_ = opId;
-    extraInfo_ = std::move(extraInfo);
     stream_ = stream;
     streamId_ = streamId;
     pStart_.reset(new DeviceEvent());
@@ -326,44 +325,25 @@ void DeviceRecordCreator::end() noexcept {
     TORCH_CHECK(pStop_, "dipu profiler error with pStop_ is not inited");
     dipu::devproxy::recordEvent(pStop_->get(), stream_);
     auto deviceId = dipu::devproxy::current_device();
-    DeviceRecordsImpl::get().addDeviceRecord(
-        DeviceRecord{pStart_, pStop_, static_cast<size_t>(deviceId),
-                     static_cast<size_t>(streamId_), name_, opId_,
-                     linkCorrelationId_, extraInfo_});
+    DeviceRecordsImpl::get().addDeviceRecord(DeviceRecord{
+        pStart_, pStop_, static_cast<size_t>(deviceId),
+        static_cast<size_t>(streamId_), name_, opId_, linkCorrelationId_});
     RecordsImpl::get().recordStream(deviceId, streamId_);
   }
   end_ = true;
 }
 
-static std::string extraceFunction(const std::string& functionName) {
-  auto start = functionName.find_first_not_of(':');
-  if (start == std::string::npos) {
-    return "";
-  }
-
-  auto end = functionName.find_first_of('(');
-  if (end == std::string::npos) {
-    end = functionName.size();
-  }
-
-  if (end <= start) {
-    return "";
-  }
-  return functionName.substr(start, end - start);
-}
-
-void RecordBlockCreator::initialize(string_t name, ExtraRecordInfo extraInfo,
-                                    deviceStream_t stream,
+void RecordBlockCreator::initialize(string_t name, deviceStream_t stream,
                                     c10::StreamId streamId) {
   size_t opId = generateId();
   uint64_t correlationId = CorrelationIDManager::instance().getCorrelationID();
-  name = extraceFunction(name);
+
   pHostRecord_ = std::make_unique<RecordCreator>("LaunchKernel_" + name, opId,
-                                                 correlationId, extraInfo);
+                                                 correlationId);
   pDeviceRecord_ = std::make_unique<DeviceRecordCreator>(
-      std::move(name), stream, streamId, opId, correlationId,
-      std::move(extraInfo));
+      std::move(name), stream, streamId, opId, correlationId);
 }
+
 }  // namespace profile
 
 }  // namespace dipu

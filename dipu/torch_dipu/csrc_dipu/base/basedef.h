@@ -6,8 +6,6 @@
 
 #include <csrc_dipu/runtime/device/basedef.h>
 
-auto static constexpr C10_COMPILE_TIME_MAX_DIPUS = 16;
-
 #define DIPU_DEVICE_TYPE_MACRO XPU
 #define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO \
   C10_CONCATENATE(Autograd, DIPU_DEVICE_TYPE_MACRO)
