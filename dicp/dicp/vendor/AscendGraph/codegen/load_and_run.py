@@ -237,7 +237,6 @@ class AscendExecutor(object):
 
     def init_resource(self):
         print("init resource stage:")
-
         self.load_model()
         self.num_inputs = acl.mdl.get_num_inputs(self.model_desc)
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
@@ -271,7 +270,7 @@ class AscendExecutor(object):
 
     @record_function('load_and_run_prepare_input')
     def _prepare_input(self, images, dims):
-        assert self.num_inputs == len(images)
+        # assert self.num_inputs == len(images) # for ops like 'empty_like' which has a tensor image but not being real input(in current comprehension)
         for i in range(self.num_inputs):
             buffer_size = self.input_size[i]
             if dims is not None and i in dims.keys():
@@ -344,7 +343,7 @@ class AscendExecutor(object):
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
             allocated_output=None):
-        assert len(images) > 0
+        # assert len(images) > 0  # for ops like 'full' which has no images?(in current comprehension)
         input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
                  and x.device.type != dipu_device_str else x for x in images]
         allocated_output_tensor = None

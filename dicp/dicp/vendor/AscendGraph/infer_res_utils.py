@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Union
 from dicp.dynamo_bridge.utils import get_memory_format
 
 import torch
+import math
 
 """parse and get val"""
 
@@ -36,32 +37,16 @@ def get_fake_tensor_meta_val(
 
 def get_op_const_arg_kwarg(const_arg):
     """
-    if some operator uses Const as an input, call this func to get the input (args and kwargs) of the input op.
-    Some operators like "reshape" need a tensor's value(shape), so for operators like "Const" we directly pass its input
-    (including value and shape) instead of constructing a fakeTensor, which will neglect a tensor's value.
-    input:
-        - const_arg: Tuple (new_args,kwargs)
-            - new_args: Tuple, identical to input-"new_args" of operator Const
-            - kwargs: dict, identical to input-"kwargs" of operator Const
-
-    output:
-        - arg0: list, value of "Const"'s input
-        - arg2: list, shape of "Const"'s input
-    """
-    new_args = const_arg[0]
-    arg0 = new_args[0]
-    arg2 = new_args[2]
-    return arg0, arg2
-
-
-def get_op_const_arg_kwarg(const_arg):
-    """
     similar to get_op_const_arg_kwarg()
     """
     new_args = const_arg[0]
-    shape = new_args[0]
-    dim = new_args[2]
-    return shape, dim
+    len_args = len(new_args)
+    assert (
+        len_args >= 2 and len_args <= 3
+    ), " :currently, op 'Const' support only 2 or 3 params passed!"
+    arg0, dtype = new_args[0], new_args[1]
+    shape = new_args[2] if len(new_args) == 3 else None
+    return arg0, dtype, shape
 
 
 """analyze dtype,format"""
@@ -200,3 +185,10 @@ def reduce_op_infer(x, dims, keepdim) -> torch.tensor:
     x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
     out_shape = reduce_ops_output_size(x_shape, x_dim, dims, keepdim)
     return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
+"""other common utils"""
+
+
+def close2(num, tar=0, rtol=0.00001):
+    return math.fabs(num - tar) < rtol
