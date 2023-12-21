@@ -155,6 +155,26 @@ class AscendCodegen(torch.fx.Interpreter):
         pass
 
     def output(self, name, target, args, kwargs):
+        for n in self.graph.graph.nodes: # for ops like 'empty_like' which has placerholders while not being the real entry of graph
+            for arg in n.args:
+                arg = [arg] if not isinstance(arg, (list,tuple)) else arg
+                for a in arg:
+                    if a in self.input_args:
+                        break
+                else:
+                    continue
+                break
+            else:
+                continue
+            break
+        else:
+            self.graph_input_names =[]   # if placeholder isn't in any node's arglist, the placeholder shouldn't be an entry('const' instead)
+        if self.graph_input_names == []: # for ops like 'Fill' which has no placerholder and can't create acl graph input in func 'placeholder'
+            # rough and empirical method
+            for n in self.graph.graph.nodes:
+                op_name = n.name
+                if "const" in op_name:
+                    self.graph_input_names.append(op_name)
         for arg in args:
             self.output_args.extend(arg)
 
@@ -831,6 +851,15 @@ class AscendOverrides:
         mean_op.set_input("axes", axes)
         mean_op.set_attr_bool("keep_dims", keepdim)
         return mean_op.to_node()
+    
+    @staticmethod
+    def ReduceMeanD(name, x, axes, keepdim=False, noop_with_empty_axes=False):
+        mean_op = OP(name, "ReduceMeanD")
+        mean_op.set_input("x", x)
+        mean_op.set_input("axes", axes)
+        mean_op.set_attr_bool("keep_dims", keepdim)
+        mean_op.set_attr_bool("noop_with_empty_axes", noop_with_empty_axes)
+        return mean_op.to_node()
 
     @staticmethod
     def GreaterEqual(name, x, y):
@@ -1026,7 +1055,7 @@ class AscendOverrides:
     def Const(name, x, dtype, dims=None, format="ND"):
         if not isinstance(x, list):
             x = [x]
-        assert len(x) > 0
+        # assert len(x) > 0 # mean's param has '[]' for empty dim
         ascend_dtype = get_ascend_dtype(dtype)
         cpp_dtype = get_cpp_dtype(dtype)
         const_op = OP(name, "Const")
@@ -1047,6 +1076,7 @@ class AscendOverrides:
         op = OP(name, "Empty")
         op.set_input("shape", shape)
         op.set_attr_int("dtype", dtype)
+        op.set_attr_bool("init", False)
         return op.to_node()
 
     @staticmethod
@@ -1195,7 +1225,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Range(name, end, start, step):
+    def Range(name, start, end, step):
         op = OP(name, "Range")
         op.set_input("start", start)
         op.set_input("limit", end)
@@ -1462,4 +1492,12 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_input("mask", mask)
         op.set_input("keep_prob", keep_prob)
+        return op.to_node()
+    
+    @staticmethod
+    def GatherElements(name, x, index, dim):
+        op = OP(name, "GatherElements")
+        op.set_input("x", x)
+        op.set_input("index", index)
+        op.set_attr_int("dim", dim)
         return op.to_node()

@@ -56,7 +56,6 @@ class BroadcastTo(Operator):
             elif cur_dim == 1:
                 continue
             assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
-
         # broadcast keep get_memory_format
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
@@ -64,6 +63,32 @@ class BroadcastTo(Operator):
 class Range(Operator):
     def __init__(self):
         super().__init__("Range")
+
+    def infer_result(self, start, limit=None, delta=None):
+        start, start_dtype, _ = get_op_const_arg_kwarg(start)
+        limit, limit_dtype, _ = get_op_const_arg_kwarg(limit)
+        delta, delta_dtype, _ = get_op_const_arg_kwarg(delta)
+
+        assert start is not None, (
+            self.__class__.__name__ + ": input 'start' can't be None!"
+        )
+        if limit is None:
+            limit = start
+            start = 0.0
+        delta = float(delta) if delta is not None else 1.0
+        assert not close2(delta, 0), self.__class__.__name__ + "step must be nonzero"
+        assert (delta > 0 and limit > start) or (delta < 0 and limit < start), (
+            self.__class__.__name__
+            + "upper bound and larger bound inconsistent with step sign"
+        )
+
+        seq_len = math.ceil((limit - start) / delta)
+
+        return torch.empty(
+            [seq_len],
+            dtype=get_cast_dtype(start_dtype, limit_dtype),
+            memory_format=torch.contiguous_format,
+        )
 
 
 class Cumsum(Operator):
@@ -359,6 +384,17 @@ class ReduceMean(Operator):
     def __init__(self):
         super().__init__("ReduceMean")
 
+    def infer_result(self, x, axes, keepdim=False):
+        return reduce_op_infer(x, axes, keepdim)
+
+
+class ReduceMeanD(Operator):
+    def __init__(self):
+        super().__init__("ReduceMeanD")
+
+    def infer_result(self, x, axes, keepdim=False, noop_with_empty_axes=True):
+        return reduce_op_infer(x, axes, keepdim)
+
 
 class ReduceStdV2Update(Operator):
     def __init__(self):
@@ -396,7 +432,7 @@ class Pow(Operator):
     def infer_result(self, base, expo):
         base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base)
         if isinstance(expo, Tuple):  # Const
-            expo, expo_shape = get_op_const_arg_kwarg(expo)
+            expo, _, expo_shape = get_op_const_arg_kwarg(expo)
             expo_dtype = type(expo[0]) if len(expo) > 0 else base_dtype
         else:  # fake Tensor
             expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(expo)
@@ -525,7 +561,7 @@ class Empty(Operator):
     def infer_result(
         self, shape, dtype, layout, device, memory_format=torch.contiguous_format
     ):
-        shape, _ = get_op_const_arg_kwarg(shape)
+        shape, _, _ = get_op_const_arg_kwarg(shape)
         return torch.empty(
             shape,
             dtype=dtype,
@@ -547,6 +583,16 @@ class GatherV2(Operator):
         return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
+class GatherElements(Operator):
+    def __init__(self):
+        super().__init__("GatherElements")
+
+    def infer_result(self, x, index, axis):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
 class OnesLike(Operator):
     def __init__(self):
         super().__init__("OnesLike")
@@ -558,6 +604,13 @@ class OnesLike(Operator):
 class Fill(Operator):
     def __init__(self):
         super().__init__("Fill")
+
+    def infer_result(self, dims, value):
+        _, value_dtype, _ = get_op_const_arg_kwarg(value)
+        shape, _, _ = get_op_const_arg_kwarg(dims)
+        return torch.empty(
+            shape, dtype=value_dtype, memory_format=torch.contiguous_format
+        )
 
 
 class Conv2DBackpropInput(Operator):
@@ -641,7 +694,10 @@ class SplitD(Operator):
         super().__init__("SplitD")
 
     def infer_result(self, x, split_dim, num_split, y, from_view_complex=False):
-        assert from_view_complex == True, self.__class__.__name__ + ": currently available only in op view_as_complex!"
+        assert from_view_complex == True, (
+            self.__class__.__name__
+            + ": currently available only in op view_as_complex!"
+        )
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         split_dim = (split_dim + x_dim) % x_dim
         out_shape = list(x_shape)
@@ -659,8 +715,8 @@ class Slice(Operator):
 
     def infer_result(self, x, offset, size):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        new_shape, _ = get_op_const_arg_kwarg(size)
-        offset, _ = get_op_const_arg_kwarg(offset)
+        new_shape, _, _ = get_op_const_arg_kwarg(size)
+        offset, _, _ = get_op_const_arg_kwarg(offset)
         _, storage_offset = cal_stride_offset(new_shape, offset, x)
         res = torch.as_strided(x, new_shape, x.stride(), storage_offset)
         return res
@@ -688,6 +744,16 @@ class MaskedFill(Operator):
     def __init__(self):
         super().__init__("MaskedFill")
 
+    def infer_result(self, x, mask, value):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        _, _, _, value_dtype = get_fake_tensor_meta_val(value)
+        _, mask_shape, _, _ = get_fake_tensor_meta_val(mask)
+        return torch.empty(
+            get_broadcast_res_two_shape(x_shape, mask_shape),
+            dtype=get_cast_dtype(x_dtype, value_dtype),
+            memory_format=get_memory_format(x),
+        )
+
 
 class Reshape(Operator):
     def __init__(self):
@@ -695,7 +761,7 @@ class Reshape(Operator):
 
     def infer_result(self, x, shape_const_op, ori_op=None, params_passed=None):
         x, _, _, x_dtype = get_fake_tensor_meta_val(x)
-        re_shape, _ = get_op_const_arg_kwarg(shape_const_op)
+        re_shape, _, _ = get_op_const_arg_kwarg(shape_const_op)
         x_stride = list(x.stride())
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
         if ori_op == "Select":

@@ -435,7 +435,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             step = self.get_proxy(ascend_op.Const, (step, out_dtype))
         elif step.node.meta['val'] != out_dtype:
             step = self.get_proxy(ascend_op.Cast, (step, get_ascend_dtype(out_dtype)), {})
-        return self.get_proxy(ascend_op.Range, (end, start, step))
+        return self.get_proxy(ascend_op.Range, (start, end, step))
 
     @register_conversion(aten.arange.start)
     def arange_start(self, start, end, step=1, dtype=None, device=None, layout=None, pin_memory=False):
@@ -898,7 +898,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def mean(self, x, dims=[], keepdim=False):
         axes = self.get_proxy(
             ascend_op.Const, (dims, torch.int32, [] if len(dims) == 0 else [len(dims)]))
+        # if not isinstance(dims, list):
+        #     dims = [dims]
         return self.get_proxy(ascend_op.ReduceMean, (x, axes, keepdim))
+        # return self.get_proxy(ascend_op.ReduceMeanD, (x, dims, keepdim, True))
 
     @register_conversion(torch.ops.aten.cumsum.default)
     def cumsum(self, x, dim, dtype=None):
@@ -966,9 +969,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.gather)
     def gather(self, x, dim, index):
-        dim = [dim] if not isinstance(dim, list) else dim
-        axis = self.get_proxy(ascend_op.Const, (dim, torch.int32, [len(dim)]))
-        return self.get_proxy(ascend_op.GatherV2, (x, index, axis))
+        return self.get_proxy(ascend_op.GatherElements, (x, index, dim))
 
     @register_conversion(aten.t.default)
     def t(self, input):
