@@ -52,7 +52,10 @@ jobs:
               source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models && \
               export TEST_DIR=$(pwd)/test && echo ${TEST_DIR} && \
               bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
-              bash ${TEST_DIR}/ascend_scripts/models/run_test_models.sh false
+              export ASCEND_GLOBAL_LOG_LEVEL=0 && \
+              rm -rf ~/ascend/log/* && \
+              bash ${TEST_DIR}/ascend_scripts/models/run_test_models.sh false && \
+              unset ASCEND_GLOBAL_LOG_LEVEL
             " #Write the script you want to execute here，If you don't know which parameters to fill in, you can refer to the actions/code-build-test
           job_name: "build_test"
           cover_job: "0"
