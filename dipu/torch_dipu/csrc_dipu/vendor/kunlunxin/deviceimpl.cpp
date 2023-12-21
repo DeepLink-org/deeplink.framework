@@ -4,8 +4,7 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE =
-    devapis::VendorDeviceType::XPU;
+DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::XPU;
 
 namespace devapis {
 
@@ -27,30 +26,6 @@ deviceId_t current_device() {
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   DIPUDeviceProperties prop;
-  // xpuDeviceProp prop;
-  // #define __GET_XPU_ATTR_CHECK(member, attr)                                     \
-  //   do {                                                                       \
-  //       uint64_t val = -1;                                                     \
-  //       int xpu_error = xpu_device_get_attr(&val, XPUDeviceAttr::attr, devid); \
-  //       if (xpu_error != XPUError_t::XPU_SUCCESS)                              \
-  //           return ret;                                                        \
-  //       prop.member = val;                                                     \
-  //   } while (0)
-
-  //   __GET_XPU_ATTR_CHECK(pci_address, XPUATTR_PCI_ADDRESS);
-  //   __GET_XPU_ATTR_CHECK(boardid, XPUATTR_BOARDID);
-  //   __GET_XPU_ATTR_CHECK(onboardid, XPUATTR_ONBOARDID);
-  //   __GET_XPU_ATTR_CHECK(model, XPUATTR_MODEL);
-  //   strncpy(prop.name, xpu_device_model_str(static_cast<int>(prop.model)), 255);
-  //   __GET_XPU_ATTR_CHECK(mem_main_capacity, XPUATTR_MEM_MAIN_CAPACITY);
-  //   __GET_XPU_ATTR_CHECK(mem_L3_capacity, XPUATTR_MEM_L3_CAPACITY);
-  //   __GET_XPU_ATTR_CHECK(num_cluster, XPUATTR_NUM_CLUSTER);
-  //   __GET_XPU_ATTR_CHECK(num_sdnn, XPUATTR_NUM_SDNN);
-  //   __GET_XPU_ATTR_CHECK(num_dmach, XPUATTR_NUM_DMACH);
-  //   __GET_XPU_ATTR_CHECK(num_hwq, XPUATTR_NUM_HWQ);
-  //   __GET_XPU_ATTR_CHECK(num_enc, XPUATTR_NUM_ENC);
-  //   __GET_XPU_ATTR_CHECK(num_dec, XPUATTR_NUM_DEC);
-  //   __GET_XPU_ATTR_CHECK(num_imgproc, XPUATTR_NUM_IMGPROC);
   return prop;
 }
 
@@ -61,15 +36,15 @@ void setDevice(deviceId_t devId) {
 }
 
 void resetDevice(deviceId_t devId) {
-  // DIPU_CALLXPU(::tangDeviceReset())
+  DIPU_CALLXPU_ERROR("[kunlunxin]resetDevice is not implemented")
 }
 
-void syncDevice() { 
-  DIPU_CALLXPU(xpu_wait());
-}
+void syncDevice() { DIPU_CALLXPU(xpu_wait()); }
 
 // check last launch succ or not, throw if fail
-void checkLastError() {}
+void checkLastError() {
+  DIPU_CALLXPU_ERROR("[kunlunxin]checkLastError is not implemented")
+}
 
 int getDeviceCount() {
   int num = -1;
@@ -78,11 +53,19 @@ int getDeviceCount() {
 }
 
 void getDriverVersion(int* version) {
-  // DIPU_CALLXPU(::tangDriverGetVersion(version))
+  std::cout << "cyliu getDriverVersion" << std::endl;
+  uint32_t major;
+  uint32_t minor;
+  DIPU_CALLXPU(xpu_get_driver_version(&major, &minor));
+  *version = static_cast<int32_t>(major);
 }
 
 void getRuntimeVersion(int* version) {
-  // DIPU_CALLXPU(::tangRuntimeGetVersion(version))
+  std::cout << "cyliu getRuntimeVersion" << std::endl;
+  uint32_t major;
+  uint32_t minor;
+  DIPU_CALLXPU(xpu_get_runtime_version(&major, &minor));
+  *version = static_cast<int32_t>(major);
 }
 
 // =====================
@@ -106,66 +89,39 @@ void destroyStream(deviceStream_t stream, deviceId_t devId) {
   destroyStream(stream);
 }
 
-void releaseStream() { 
-  return; 
-}
+void releaseStream() { return; }
 
-bool streamNotNull(deviceStream_t stream) {
-  return stream != nullptr;
-  // return (stream != nullptr && stream != tangStreamLegacy && stream !=
-  // tangStreamPerThread);
-}
+bool streamNotNull(deviceStream_t stream) { return stream != nullptr; }
 
-void syncStream(deviceStream_t stream) {
-  DIPU_CALLXPU(xpu_wait(stream));
-}
+void syncStream(deviceStream_t stream) { DIPU_CALLXPU(xpu_wait(stream)); }
 
 void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
   DIPU_CALLXPU(xpu_stream_wait_event(stream, event))
 }
 
 bool isStreamEmpty(deviceStream_t stream) {
-  // auto err = tangStreamQuery(stream);
-  // if (err == ::tangSuccess) {
-  //   return true;
-  // }
-  return false;
+  DIPU_CALLXPU_ERROR("[kunlunxin]isStreamEmpty is not implemented")
 }
 
 // =====================
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event) {
-  DIPU_CALLXPU(xpu_event_create(event))
-}
+void createEvent(deviceEvent_t* event) { DIPU_CALLXPU(xpu_event_create(event)) }
 
 void destroyEvent(deviceEvent_t event) {
   DIPU_CALLXPU(xpu_event_destroy(event))
 }
 
-void waitEvent(deviceEvent_t event) {
-  DIPU_CALLXPU(xpu_event_wait(event))
-}
+void waitEvent(deviceEvent_t event) { DIPU_CALLXPU(xpu_event_wait(event)) }
 
 void recordEvent(deviceEvent_t event, deviceStream_t stream) {
   DIPU_CALLXPU(xpu_event_record(event, stream))
 }
 
-void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end){
-  //DIPU_CALLXPU(tangEventElapsedTime(time, start, end))
-}
+void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end) {}
 
 EventStatus getEventStatus(deviceEvent_t event) {
-  // ::tangError_t ret = ::tangEventQuery(event);
-  // if (ret == ::tangSuccess) {
-  //   return devapis::EventStatus::READY;
-  // } else if (ret == ::tangErrorNotReady) {
-  //   ::tangGetLastError(); /* reset internal error state*/
-  //   return devapis::EventStatus::PENDING;
-  // } else {
-  //   throw std::runtime_error("dipu device error");
-  // }
   return devapis::EventStatus::READY;
 }
 
@@ -176,9 +132,7 @@ void mallocHost(void** p, size_t nbytes) {
   DIPU_CALLXPU(xpu_host_alloc(p, nbytes, 0))
 }
 
-void freeHost(void* p){
-  DIPU_CALLXPU(xpu_host_free(p))
-}
+void freeHost(void* p){DIPU_CALLXPU(xpu_host_free(p))}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   if (nbytes == 0) {
@@ -198,29 +152,27 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void* p) {
-  DIPU_CALLXPU(xpu_free(p))
-}
+void freeDevice(void* p) { DIPU_CALLXPU(xpu_free(p)) }
 
-bool isPinnedPtr(const void* p) {
-  return true;
-}
+bool isPinnedPtr(const void* p) { return true; }
 
-static int _xpuMemset(void *ptr, int value, size_t count, deviceStream_t stream) {
+static int _xpuMemset(void* ptr, int value, size_t count,
+                      deviceStream_t stream) {
   if (count == 0) {
-      // skip if nothing to write.
-      return 0;
+    // skip if nothing to write.
+    return 0;
   }
   if (ptr == nullptr) {
-      return -1;
+    return -1;
   }
 
   void* ptr_host = nullptr;
   ptr_host = malloc(count);
   if (ptr_host == nullptr) {
-      return -1;
+    return -1;
   }
-  int ret = xpu_memcpy(ptr, ptr_host, static_cast<uint64_t>(count), XPU_HOST_TO_DEVICE);
+  int ret = xpu_memcpy(ptr, ptr_host, static_cast<uint64_t>(count),
+                       XPU_HOST_TO_DEVICE);
   free(ptr_host);
   return ret;
 }
@@ -234,8 +186,8 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
   if (dstDevId == srcDevId) {
     DIPU_CALLXPU(xpu_memcpy(dst, src, nbytes, XPU_DEVICE_TO_DEVICE))
   } else {
-    DIPU_CALLXPU(xpu_memcpy_peer(dstDevId, dst, srcDevId, src, static_cast<uint64_t>(nbytes)))
-
+    DIPU_CALLXPU(xpu_memcpy_peer(dstDevId, dst, srcDevId, src,
+                                 static_cast<uint64_t>(nbytes)))
   }
 }
 
