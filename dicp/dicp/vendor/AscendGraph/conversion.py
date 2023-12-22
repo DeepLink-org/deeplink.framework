@@ -281,10 +281,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
         dim = int(dim)
-        start = int(start)
+        start = int(start) if start is not None else 0
         start = start if start >= 0 else x_shape[dim] + start
-        assert dim >= 0 and dim < len(x_shape)
-        assert start >= 0 and start < x_shape[dim]
+        assert dim == -1 or dim >= 0 and dim < len(x_shape)
+        assert start is None or start >= 0 and start < x_shape[dim]
         offset = [0] * len(x_shape)
         offset[dim] = start
         offset = self.get_shape_proxy(offset)
@@ -454,6 +454,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
             b = self.get_proxy(ascend_op.Cast, (b, get_ascend_dtype(a_dtype)))
         return self.get_proxy(ascend_op.Equal, (a, b))
 
+    @register_conversion(aten.ne.Scalar)
+    def ne(self, a, b):
+        if not isinstance(b, torch.fx.proxy.Proxy):
+            a_dtype = a.node.meta['val'].dtype
+            const_dtype = torch.float32 if a_dtype == torch.float16 else a_dtype
+            b_shape = list(a.node.meta['val'].shape)
+            b = self.get_param_proxy(b, const_dtype, b_shape)
+            if a_dtype == torch.float16:
+                b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
+        return self.get_proxy(ascend_op.NotEqual, (a, b))
+
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
         x_dtype = x.node.meta['val'].dtype
@@ -479,7 +490,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             value = self.get_proxy(ascend_op.Cast, (value, "FLOAT16"))
         return self.get_proxy(ascend_op.MaskedFill, (x, mask, value))
 
-    @register_conversion(torch.ops.aten.scatter.src)
+    @register_conversion(torch.ops.aten.scatter.value)
     def scatter(self, var, dim, index, value):
         assert isinstance(dim, int)
         index_shape = list(index.node.meta['val'].shape)
@@ -715,7 +726,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
             padding = [0, 0, 0, 0, padding[0],
                        padding[0], padding[1], padding[1]]
             paddings_const = self.get_proxy(
-                ascend_op.Const, (padding, [4, 2], torch.int32, "NCHW"))
+                # ascend_op.Const, (padding, [4, 2], torch.int32, "NCHW"))
+                ascend_op.Const, (padding, torch.int32, [4, 2]))
             x = self.get_proxy(ascend_op.PadV3, (x, paddings_const))
         fwd_out_op = self.get_proxy(
             ascend_op.MaxPool, (x, ksize, strides, "VALID", "NCHW"))
@@ -900,12 +912,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.mean)
     def mean(self, x, dims=[], keepdim=False):
-        axes = self.get_proxy(
-            ascend_op.Const, (dims, torch.int32, [] if len(dims) == 0 else [len(dims)]))
-        # if not isinstance(dims, list):
-        #     dims = [dims]
-        return self.get_proxy(ascend_op.ReduceMean, (x, axes, keepdim))
-        # return self.get_proxy(ascend_op.ReduceMeanD, (x, dims, keepdim, True))
+        if not isinstance(dims, list):
+            dims = [dims]
+        return self.get_proxy(ascend_op.ReduceMeanD, (x, dims, keepdim, False))
 
     @register_conversion(torch.ops.aten.cumsum.default)
     def cumsum(self, x, dim, dtype=None):

@@ -379,13 +379,8 @@ class ScatterElements(Operator):
     def __init__(self):
         super().__init__("ScatterElements")
 
-
-class ReduceMean(Operator):
-    def __init__(self):
-        super().__init__("ReduceMean")
-
-    def infer_result(self, x, axes, keepdim=False):
-        return reduce_op_infer(x, axes, keepdim)
+    def infer_result(self, var, index, value, dim):
+        return common_unary_op_infer(var)
 
 
 class ReduceMeanD(Operator):
@@ -478,6 +473,14 @@ class Less(Operator):
 class Equal(Operator):
     def __init__(self):
         super().__init__("Equal")
+
+    def infer_result(self, x1, x2):
+        return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class NotEqual(Operator):
+    def __init__(self):
+        super().__init__("NotEqual")
 
     def infer_result(self, x1, x2):
         return common_binary_op_infer(x1, x2, torch.bool)
@@ -845,6 +848,16 @@ class DropOutGenMaskV4(Operator):
 class DropOutDoMaskV3(Operator):
     def __init__(self):
         super().__init__("DropOutDoMaskV3")
+
+
+class MaxPool(Operator):
+    def __init__(self):
+        super().__init__("MaxPool")
+
+
+class PadV3(Operator):
+    def __init__(self):
+        super().__init__("PadV3")
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
