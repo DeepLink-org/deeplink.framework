@@ -87,7 +87,7 @@ void destroyStream(deviceStream_t stream, deviceId_t devId) {
   destroyStream(stream);
 }
 
-void releaseStream() { return; }
+void releaseStream() {}
 
 bool streamNotNull(deviceStream_t stream) { return stream != nullptr; }
 

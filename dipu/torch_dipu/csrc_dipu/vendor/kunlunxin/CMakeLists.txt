@@ -1,11 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 
-# option(DIST "whether to use PCCL to implement communicator" OFF)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(cmake/FindXpuRuntime.cmake)
-#find_package(XPURT REQUIRED)
 
 message(STATUS XPURT_INCLUDE_DIR ${XPURT_INCLUDE_DIR})
 
