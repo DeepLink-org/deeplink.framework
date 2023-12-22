@@ -139,7 +139,7 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   int r = xpu_malloc(p, nbytes);
   if (r != 0) {
     if (throwExcepion) {
-      printf("call a xpurt function failed. return code=%d %d", r, nbytes);
+      DIPU_LOGE("call xpu_malloc function failed.");
       throw std::runtime_error("alloc failed in dipu");
     } else if (r == XPUERR_NOMEM) {
       return OpStatus::ERR_NOMEM;
