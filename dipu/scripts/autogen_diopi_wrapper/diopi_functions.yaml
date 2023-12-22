@@ -2087,8 +2087,8 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
