@@ -49,14 +49,13 @@ pair<int, int> mapPGRank2P2P(int myRank, int peer) {
 // one comm endpoint can bind with either device. so use rank as comm key is
 // enough.
 std::string getP2PRankIds(int myRank, int peer,
-                                 const std::vector<at::Device>& devices) {
+                          const std::vector<at::Device>& devices) {
   int lowRank = myRank < peer ? myRank : peer;
   int highRank = myRank < peer ? peer : myRank;
   return std::to_string(lowRank) + ":" + std::to_string(highRank);
 }
 
-std::vector<at::Device> getDeviceList(
-    const std::vector<at::Tensor>& tensors) {
+std::vector<at::Device> getDeviceList(const std::vector<at::Tensor>& tensors) {
   std::vector<at::Device> res;
   res.reserve(tensors.size());
   for (auto& tensor : tensors) {
@@ -299,8 +298,8 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 }
 
 template <bool RecordDest, typename Dest, typename Src>
-void copyInCommStream(std::shared_ptr<DICLComm>& diclComm,
-                             const Dest& dest, const Src& src, int nums) {
+void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const Dest& dest,
+                      const Src& src, int nums) {
   auto diclStream = diclComm->diclStream_;
   DIPUStreamGuard guard(diclStream.unwrap());
   for (size_t j = 0; j < nums; ++j) {
@@ -314,8 +313,8 @@ void copyInCommStream(std::shared_ptr<DICLComm>& diclComm,
 }
 
 void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm,
-                                const std::vector<at::Tensor>& dest,
-                                const at::Tensor& src) {
+                         const std::vector<at::Tensor>& dest,
+                         const at::Tensor& src) {
   auto diclStream = diclComm->diclStream_;
   auto currStream = dipu::getCurrentDIPUStream(diclStream.device_index());
   diclComm->preCopyEvent_.record(diclStream);
@@ -497,8 +496,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclBroadcast", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _(
-            "DiclBroadcast", stream.rawstream(), static_cast<int>(stream.id()));
+        profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
         // only one root (root rank root device)
         const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
         return devproxy::diclBroadcast(
@@ -522,8 +521,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclReduce",
-                                      stream.rawstream(),
+        profile::RecordBlockCreator _("DiclReduce", stream.rawstream(),
                                       static_cast<int>(stream.id()));
         const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
         return devproxy::diclReduce(
@@ -555,8 +553,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _(
-            "DiclAllgather", stream.rawstream(), static_cast<int>(stream.id()));
+        profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
 
         return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
                                        static_cast<size_t>(input.numel()),
@@ -600,9 +598,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather_base",
                         std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _(
-            "DiclAllgather_base", stream.rawstream(),
-            static_cast<int>(stream.id()));
+        profile::RecordBlockCreator _("DiclAllgather_base", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
         return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), comm,
@@ -632,9 +629,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduceScatter_base",
                         std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _(
-            "DiclReduceScatter_base", stream.rawstream(),
-            static_cast<int>(stream.id()));
+        profile::RecordBlockCreator _("DiclReduceScatter_base",
+                                      stream.rawstream(),
+                                      static_cast<int>(stream.id()));
         return devproxy::diclReduceScatter(input.data_ptr(), output.data_ptr(),
                                            static_cast<size_t>(output.numel()),
                                            input.scalar_type(), opts.reduceOp,
@@ -659,9 +656,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduceScatter", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _(
-            "DiclReduceScatter", stream.rawstream(),
-            static_cast<int>(stream.id()));
+        profile::RecordBlockCreator _("DiclReduceScatter", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
         return devproxy::diclReduceScatter(input.data_ptr(), output.data_ptr(),
                                            static_cast<size_t>(output.numel()),
                                            input.scalar_type(), opts.reduceOp,
