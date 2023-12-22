@@ -65,7 +65,7 @@ void checkLastError() { DIPU_CALLCUDA(::cudaGetLastError()) }
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLCUDA(::cudaGetDeviceCount(reinterpret_cast<int*>(&num)))
+  DIPU_CALLCUDA(::cudaGetDeviceCount(&num))
   return num;
 }
 

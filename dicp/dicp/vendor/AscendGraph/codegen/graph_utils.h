@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "acl/acl.h"
 #include "all_ops.h"
 #include "ascend_string.h"
 #include "ge_api.h"
@@ -81,12 +82,14 @@ ge::Operator genInput(const std::string op_name,
 
 class AclgraphBuilder {
  public:
-  explicit AclgraphBuilder() {
+  explicit AclgraphBuilder(const std::string& fusion_switch_file)
+      : _fusion_switch_file(fusion_switch_file) {
     // 1. system init
-    std::string kSocVersion = "Ascend910ProB";
+    auto kSocVersion = aclrtGetSocName();
     std::map<AscendString, AscendString> global_options = {
-        {AscendString(ge::ir_option::SOC_VERSION),
-         AscendString(kSocVersion.c_str())},
+        {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
+        {AscendString(ge::ir_option::FUSION_SWITCH_FILE),
+         AscendString(_fusion_switch_file.c_str())},
         {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
@@ -122,6 +125,9 @@ class AclgraphBuilder {
     aclgrphBuildFinalize();
     std::cout << "aclgrphBuildFinalize success!" << std::endl;
   }
+
+ private:
+  std::string _fusion_switch_file;
 };
 
 ge::Format get_ascend_format(const std::string& format) {

@@ -15,25 +15,29 @@ using c10::DeviceIndex;
 using dipu::devapis::DIPUDeviceProperties;
 using std::shared_ptr;
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 DeviceIndex num_gpus = -1;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 c10::once_flag init_flag;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::deque<c10::once_flag> device_flags;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::vector<shared_ptr<DIPUDeviceProperties>> device_properties;
 
-static void initDIPUContextVectors() {
+void initDIPUContextVectors() {
   num_gpus = dipu::devproxy::getDeviceCount();
   device_flags.resize(num_gpus);
   device_properties.resize(num_gpus);
 }
 
-static void initDeviceProperty(DeviceIndex device_index) {
+void initDeviceProperty(DeviceIndex device_index) {
   DIPUDeviceProperties device_prop =
       dipu::devproxy::getDeviceProperties(device_index);
   device_properties[device_index] =
       std::make_shared<DIPUDeviceProperties>(device_prop);
 }
 
-static inline void checkDevice(int32_t device_index) {
+inline void checkDevice(int32_t device_index) {
   c10::call_once(init_flag, initDIPUContextVectors);
   if (device_index == -1) {
     device_index = dipu::devproxy::current_device();

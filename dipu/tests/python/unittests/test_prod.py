@@ -25,12 +25,12 @@ class TestProd(TestCase):
         input_arrays = [[True, True], [True, False], [False, False]]
         for input_array in input_arrays:
             input_tensor = torch.tensor(input_array)
-            out = torch.prod(input_tensor).item()
-            out_cuda = torch.prod(input_tensor.cuda()).item()
-            self.assertEqual(out, out_cuda)
+            out = torch.prod(input_tensor)
+            out_cuda = torch.prod(input_tensor.cuda())
+            self.assertEqual(out, out_cuda, exact_dtype=True)
 
     def test_prod_dtype(self):
-        test_dtypes = [torch.float16, torch.float32]
+        test_dtypes = [torch.float16, torch.float32, torch.int16, torch.int32, torch.int64]
         for input_dtype in test_dtypes:
             input_tensor = torch.tensor(
                 [[1, 2, 3], [4, 5, 6]], dtype=input_dtype, device="dipu"
@@ -45,6 +45,20 @@ class TestProd(TestCase):
                 )
                 out = torch.prod(input_tensor, 1, dtype=output_dtype)
                 self.assertEqual(out, expected_output, exact_dtype=True)
+
+    def test_prod_integer_promotion(self):
+        test_dtypes = [torch.int8, torch.int16, torch.int32]
+        for input_dtype in test_dtypes:
+            input_tensor = torch.tensor(
+                [[1, 2, 3], [4, 5, 6]], dtype=input_dtype, device="dipu"
+            )
+            expected_output = torch.tensor(720, dtype=torch.int64, device="dipu")
+            out = torch.prod(input_tensor)
+            self.assertEqual(out, expected_output, exact_dtype=True)
+
+            expected_output = torch.tensor([6, 120], dtype=torch.int64, device="dipu")
+            out = torch.prod(input_tensor, 1)
+            self.assertEqual(out, expected_output, exact_dtype=True)
 
 
 if __name__ == "__main__":

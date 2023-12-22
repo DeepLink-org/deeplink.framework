@@ -28,12 +28,14 @@ class AscendCompileJob(DeviceCompileJob):
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         source_path = graph_util_path + '/graph_compile.cpp'
         json_util_path = graph_util_path + '/nlohmann'
+        self.fusion_switch_file = graph_util_path + '/fusion_switch.cfg'
         self._cmd = ['/usr/bin/c++',
                      '-D_GLIBCXX_USE_CXX11_ABI=0',
                      '-fPIC',
                      '-std=c++11',
                      '-O3',
                      '-Wall',
+                     '-I/usr/local/Ascend/ascend-toolkit/latest/include',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_proto/inc',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/include/graph',
                      '-I/usr/local/Ascend/ascend-toolkit/latest/include/ge',
@@ -46,10 +48,10 @@ class AscendCompileJob(DeviceCompileJob):
                      '-lge_runner',
                      source_path,
                      '-o' + self._lib_path,
-                     '-Wl,-rpath,/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                      '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libgraph.so',
                      '/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub/libge_runner.so',
-                     '/usr/local/Ascend/ascend-toolkit/latest/lib64/libgraph_base.so']
+                     '/usr/local/Ascend/ascend-toolkit/latest/lib64/libgraph_base.so',
+                     '/usr/local/Ascend/ascend-toolkit/latest/runtime/lib64/stub/libascendcl.so',]
 
     def _compile(self):
         if not os.path.exists(self._lib_path):
@@ -66,7 +68,7 @@ class AscendCompileJob(DeviceCompileJob):
 
     def build_graph(self, output_path, graph_path):
         self._compile()
-        cmd = [self._lib_path, output_path, graph_path]
+        cmd = [self._lib_path, output_path, graph_path, self.fusion_switch_file]
         try:
             subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:

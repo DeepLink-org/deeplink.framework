@@ -41,7 +41,10 @@ void syncDevice() { return devapis::syncDevice(); }
 // check last launch succ or not, throw if fail
 void checkLastError() { return devapis::checkLastError(); }
 
-int getDeviceCount() { return devapis::getDeviceCount(); }
+int getDeviceCount() {
+  static int device_count = devapis::getDeviceCount();
+  return device_count;
+}
 
 void getDriverVersion(int* version) {
   return devapis::getDriverVersion(version);

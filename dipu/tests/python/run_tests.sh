@@ -2,7 +2,15 @@
 
 function run_coverage {
   if [ "$USE_COVERAGE" == "ON" ]; then
-    coverage run --source="$TORCH_DIPU_DIR" -p "$@"
+    # We need to add "--concurrency=multiprocessing" to collect coverage data from
+    # `multiprocessing.Process`. This flag requires all other configurations in
+    # `.coveragerc`.
+    cat << EOF > .coveragerc
+[run]
+  source = ${TORCH_DIPU_DIR}
+  parallel = True
+EOF
+    coverage run --concurrency=multiprocessing "$@"
   else
     python "$@"
   fi

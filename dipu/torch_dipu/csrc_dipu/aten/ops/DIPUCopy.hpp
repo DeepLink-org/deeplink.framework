@@ -4,6 +4,7 @@
 #include <ATen/ATen.h>
 #include <ATen/MemoryOverlap.h>
 #include <ATen/Tensor.h>
+#include <c10/core/Stream.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/aten/ops/OpUtils.hpp>
@@ -15,12 +16,12 @@ namespace dipu {
 namespace native {
 // NOTICE: these 2 func defined in AutoGenedKernels.cpp
 // if dipu autogen support header file gen, remove this
-at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& src,
+at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& self,
                                       at::ScalarType dtype);
 
 // if dipu autogen support proxy one torch op to multiple diopi op, remove
 // this.
-at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst, const at::Tensor& src,
+at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& self, const at::Tensor& src,
                                      bool non_blocking);
 
 }  // namespace native
@@ -44,10 +45,9 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
 
 inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
-  if (tensor.is_cpu() && tensor.options().pinned_memory()) {
-    tensor.record_stream(curStream);
-  } else if (!is_default_stream) {
-    tensor.record_stream(curStream);
+  if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
+      !is_default_stream) {
+    tensor.record_stream(curStream.unwrap());
   }
 }
 
@@ -56,9 +56,11 @@ inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
   bool isDstDevice = dipu::isDeviceTensor(dst);
   if (!isSrcDevice) {
     return DIPUCopyType::H2D;  // this op not handle h2h, dest always device
-  } else if (!isDstDevice) {
+  }
+  if (!isDstDevice) {
     return DIPUCopyType::D2H;  // here src always device
-  } else if (src.device().index() != dst.device().index()) {
+  }
+  if (src.device().index() != dst.device().index()) {
     return DIPUCopyType::D2OtherD;
   }
   return DIPUCopyType::D2Self;
@@ -71,10 +73,12 @@ inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
     TORCH_CHECK(false, "mem copy with different tensor size is not allowed");
   }
   if (nonOverlappingAndDense) {
-    return dst.nbytes();
+    return static_cast<int64_t>(dst.nbytes());
   }
-  int64_t dstBytes = dst.unsafeGetTensorImpl()->unsafe_storage().nbytes();
-  int64_t srcBytes = src.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+  auto dstBytes = static_cast<int64_t>(
+      dst.unsafeGetTensorImpl()->unsafe_storage().nbytes());
+  auto srcBytes = static_cast<int64_t>(
+      src.unsafeGetTensorImpl()->unsafe_storage().nbytes());
   return std::min(srcBytes, dstBytes);
 }
 
@@ -267,17 +271,16 @@ class DIPUCopyInplace : public DIPUCopyBase {
       auto sameAsSrc = at::empty(src.sizes(), src.options().device(newDevice),
                                  src.suggest_memory_format());
       return sameAsSrc;
-    } else {
-      // empty_strided is much expensive than empty_memory_format().
-      // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
-      auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),
-                                         src.options().device(newDevice));
-      // prefill newTensor to support backfill in future.
-      if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
-        doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
-      }
-      return sameAsSrc;
     }
+    // empty_strided is much expensive than empty_memory_format().
+    // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
+    auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),
+                                       src.options().device(newDevice));
+    // prefill newTensor to support backfill in future.
+    if (willBackfillSrc && !src.is_non_overlapping_and_dense()) {
+      doDirectMemFill(sameAsSrc, src, curStream, getCopyType(sameAsSrc, src));
+    }
+    return sameAsSrc;
   }
 
   // NOTICE: this func maximize leverage device copy (D2Self)
@@ -486,7 +489,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     at::Tensor tmpSrc = src;
     if (!info.sameSize_) {
       tmpSrc = src.expand_as(dst);
-      info.recomputeTensorsInfo(tmpSrc, dst);
+      info.recomputeTensorsInfo(dst, tmpSrc);
     }
     if (info.directMemCopy_) {
       doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,

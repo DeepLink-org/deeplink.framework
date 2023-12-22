@@ -1,5 +1,5 @@
 # !/bin/bash
-set -e
+set -eo pipefail
 echo "pwd: $(pwd)"
 
 function build_diopi_lib() {
