@@ -1,1 +1,2 @@
+recursive-include dicp/vendor/TopsGraph/codegen *
 recursive-include dicp/vendor/AscendGraph/codegen *
