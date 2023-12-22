@@ -9,10 +9,10 @@
 namespace xdnn = baidu::xpu::api;
 namespace dipu {
 
-#define DIPU_CALLXPU_ERROR(Expr) \
+#define DIPU_CALLKLX_ERROR(Expr) \
   { throw std::runtime_error(#Expr); }
 
-#define DIPU_CALLXPU(Expr)                                           \
+#define DIPU_CALLKLX(Expr)                                           \
   {                                                                  \
     int ret = (Expr);                                                \
     TORCH_CHECK(ret == XPU_SUCCESS, "call ku error, expr = ", #Expr, \

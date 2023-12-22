@@ -8,7 +8,7 @@ DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::KLX;
 
 namespace devapis {
 
-using xpu_deviceId = int;
+using klx_deviceId = int;
 
 // =====================
 //  Device class related
@@ -19,8 +19,8 @@ void initializeVendor() {}
 void finalizeVendor() {}
 
 deviceId_t current_device() {
-  xpu_deviceId devId_;
-  DIPU_CALLXPU(xpu_current_device(&devId_))
+  klx_deviceId devId_;
+  DIPU_CALLKLX(xpu_current_device(&devId_))
   return static_cast<deviceId_t>(devId_);
 }
 
@@ -31,38 +31,38 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
-  xpu_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLXPU(xpu_set_device(devId_))
+  klx_deviceId devId_ = static_cast<deviceId_t>(devId);
+  DIPU_CALLKLX(xpu_set_device(devId_))
 }
 
 void resetDevice(deviceId_t devId) {
-  DIPU_CALLXPU_ERROR("[kunlunxin]resetDevice is not implemented")
+  DIPU_CALLKLX_ERROR("[kunlunxin]resetDevice is not implemented")
 }
 
-void syncDevice() { DIPU_CALLXPU(xpu_wait()); }
+void syncDevice() { DIPU_CALLKLX(xpu_wait()); }
 
 // check last launch succ or not, throw if fail
 void checkLastError() {
-  DIPU_CALLXPU_ERROR("[kunlunxin]checkLastError is not implemented")
+  DIPU_CALLKLX_ERROR("[kunlunxin]checkLastError is not implemented")
 }
 
 int getDeviceCount() {
   int num = -1;
-  DIPU_CALLXPU(xpu_device_count(reinterpret_cast<int*>(&num)))
+  DIPU_CALLKLX(xpu_device_count(reinterpret_cast<int*>(&num)))
   return num;
 }
 
 void getDriverVersion(int* version) {
   uint32_t major;
   uint32_t minor;
-  DIPU_CALLXPU(xpu_get_driver_version(&major, &minor));
+  DIPU_CALLKLX(xpu_get_driver_version(&major, &minor));
   *version = static_cast<int32_t>(major);
 }
 
 void getRuntimeVersion(int* version) {
   uint32_t major;
   uint32_t minor;
-  DIPU_CALLXPU(xpu_get_runtime_version(&major, &minor));
+  DIPU_CALLKLX(xpu_get_runtime_version(&major, &minor));
   *version = static_cast<int32_t>(major);
 }
 
@@ -75,11 +75,11 @@ void createStream(deviceStream_t* stream, bool prior) {
         "kunlunxin device doesn't support prior queue(stream)."
         " Fall back on creating queue without priority.");
   }
-  DIPU_CALLXPU(xpu_stream_create(stream));
+  DIPU_CALLKLX(xpu_stream_create(stream));
 }
 
 void destroyStream(deviceStream_t stream) {
-  DIPU_CALLXPU(xpu_stream_destroy(stream))
+  DIPU_CALLKLX(xpu_stream_destroy(stream))
 }
 
 void destroyStream(deviceStream_t stream, deviceId_t devId) {
@@ -91,30 +91,30 @@ void releaseStream() {}
 
 bool streamNotNull(deviceStream_t stream) { return stream != nullptr; }
 
-void syncStream(deviceStream_t stream) { DIPU_CALLXPU(xpu_wait(stream)); }
+void syncStream(deviceStream_t stream) { DIPU_CALLKLX(xpu_wait(stream)); }
 
 void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
-  DIPU_CALLXPU(xpu_stream_wait_event(stream, event))
+  DIPU_CALLKLX(xpu_stream_wait_event(stream, event))
 }
 
 bool isStreamEmpty(deviceStream_t stream) {
-  DIPU_CALLXPU_ERROR("[kunlunxin]isStreamEmpty is not implemented")
+  DIPU_CALLKLX_ERROR("[kunlunxin]isStreamEmpty is not implemented")
 }
 
 // =====================
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event) { DIPU_CALLXPU(xpu_event_create(event)) }
+void createEvent(deviceEvent_t* event) { DIPU_CALLKLX(xpu_event_create(event)) }
 
 void destroyEvent(deviceEvent_t event) {
-  DIPU_CALLXPU(xpu_event_destroy(event))
+  DIPU_CALLKLX(xpu_event_destroy(event))
 }
 
-void waitEvent(deviceEvent_t event) { DIPU_CALLXPU(xpu_event_wait(event)) }
+void waitEvent(deviceEvent_t event) { DIPU_CALLKLX(xpu_event_wait(event)) }
 
 void recordEvent(deviceEvent_t event, deviceStream_t stream) {
-  DIPU_CALLXPU(xpu_event_record(event, stream))
+  DIPU_CALLKLX(xpu_event_record(event, stream))
 }
 
 void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end) {}
@@ -127,10 +127,10 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 void mallocHost(void** p, size_t nbytes) {
-  DIPU_CALLXPU(xpu_host_alloc(p, nbytes, 0))
+  DIPU_CALLKLX(xpu_host_alloc(p, nbytes, 0))
 }
 
-void freeHost(void* p){DIPU_CALLXPU(xpu_host_free(p))}
+void freeHost(void* p){DIPU_CALLKLX(xpu_host_free(p))}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   if (nbytes == 0) {
@@ -150,7 +150,7 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   return OpStatus::SUCCESS;
 }
 
-void freeDevice(void* p) { DIPU_CALLXPU(xpu_free(p)) }
+void freeDevice(void* p) { DIPU_CALLKLX(xpu_free(p)) }
 
 bool isPinnedPtr(const void* p) { return false; }
 
@@ -176,27 +176,27 @@ static int _xpuMemset(void* ptr, int value, size_t count,
 }
 
 void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
-  DIPU_CALLXPU(_xpuMemset(ptr, val, size, stream))
+  DIPU_CALLKLX(_xpuMemset(ptr, val, size, stream))
 }
 
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
   if (dstDevId == srcDevId) {
-    DIPU_CALLXPU(xpu_memcpy(dst, src, nbytes, XPU_DEVICE_TO_DEVICE))
+    DIPU_CALLKLX(xpu_memcpy(dst, src, nbytes, XPU_DEVICE_TO_DEVICE))
   } else {
-    DIPU_CALLXPU(xpu_memcpy_peer(dstDevId, dst, srcDevId, src,
+    DIPU_CALLKLX(xpu_memcpy_peer(dstDevId, dst, srcDevId, src,
                                  static_cast<uint64_t>(nbytes)))
   }
 }
 
 // (synchronous) copy from host to a DROPLET device
 void memCopyH2D(size_t nbytes, void* dst, const void* src) {
-  DIPU_CALLXPU(xpu_memcpy(dst, src, nbytes, XPU_HOST_TO_DEVICE))
+  DIPU_CALLKLX(xpu_memcpy(dst, src, nbytes, XPU_HOST_TO_DEVICE))
 }
 
 // (synchronous) copy from a DROPLET device to host
 void memCopyD2H(size_t nbytes, void* dst, const void* src) {
-  DIPU_CALLXPU(xpu_memcpy(dst, src, nbytes, XPU_DEVICE_TO_HOST))
+  DIPU_CALLKLX(xpu_memcpy(dst, src, nbytes, XPU_DEVICE_TO_HOST))
 }
 
 // (asynchronous) copy from device to a device
