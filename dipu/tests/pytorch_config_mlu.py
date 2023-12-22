@@ -114,7 +114,7 @@ DISABLED_TESTS_MLU = {
     # test_binary_ufuncs.py
     'TestBinaryUfuncsDIPU': {
         # torch 2.1 new test and failed
-        # todo: camb floor result incorrect: floor(-2.5) = -2.
+        # both cuda and camb infer incorrect type.
         'test_div_and_floordiv_vs_python',
         # end
 
