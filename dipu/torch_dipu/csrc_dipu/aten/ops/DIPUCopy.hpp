@@ -4,6 +4,7 @@
 #include <ATen/ATen.h>
 #include <ATen/MemoryOverlap.h>
 #include <ATen/Tensor.h>
+#include <c10/core/Stream.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/aten/ops/OpUtils.hpp>
@@ -15,12 +16,12 @@ namespace dipu {
 namespace native {
 // NOTICE: these 2 func defined in AutoGenedKernels.cpp
 // if dipu autogen support header file gen, remove this
-at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& src,
+at::Tensor dipu_wrap_diopi_cast_dtype(const at::Tensor& self,
                                       at::ScalarType dtype);
 
 // if dipu autogen support proxy one torch op to multiple diopi op, remove
 // this.
-at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& dst, const at::Tensor& src,
+at::Tensor& dipu_wrap_diopi_copy_inp(at::Tensor& self, const at::Tensor& src,
                                      bool non_blocking);
 
 }  // namespace native
@@ -47,7 +48,7 @@ inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
   if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
       !is_default_stream) {
-    tensor.record_stream(curStream);
+    tensor.record_stream(curStream.unwrap());
   }
 }
 

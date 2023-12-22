@@ -16,7 +16,6 @@ namespace dipu {
 
 static void DIPURawDeviceAllocatorDeleter(void* ptr) {
   if (ptr) {
-    auto device = devproxy::current_device();
     DIPU_DEBUG_ALLOCATOR(2, "devproxy::freeDevice: free " << ptr);
     // When only one stream is involved, in order to improve performance and
     // memory usage, we actually do not use events for synchronization. The
@@ -30,7 +29,7 @@ static void DIPURawDeviceAllocatorDeleter(void* ptr) {
   }
 }
 
-DIPURawDeviceAllocator::DIPURawDeviceAllocator() {}
+DIPURawDeviceAllocator::DIPURawDeviceAllocator() = default;
 
 c10::DataPtr DIPURawDeviceAllocator::allocate(size_t size) const {
   auto idx = devproxy::current_device();
@@ -41,6 +40,7 @@ c10::DeleterFnPtr DIPURawDeviceAllocator::raw_deleter() const {
   return &DIPURawDeviceAllocatorDeleter;
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 c10::DataPtr DIPURawDeviceAllocator::allocate(
     size_t nbytes, c10::DeviceIndex device_index) const {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -56,7 +56,7 @@ c10::DataPtr DIPURawDeviceAllocator::allocate(
 
 class DIPURawHostAllocatorImpl final {
  public:
-  std::pair<void*, void*> allocate(size_t size) {
+  static std::pair<void*, void*> allocate(size_t size) {
     if (size == 0) {
       return {nullptr, nullptr};
     }
@@ -72,7 +72,7 @@ class DIPURawHostAllocatorImpl final {
     return {data, data};
   }
 
-  void free(void* ctx) {
+  static void free(void* ctx) {
     if (ctx == nullptr) {
       return;
     }
@@ -86,7 +86,7 @@ class DIPURawHostAllocatorImpl final {
     ctx = nullptr;
   }
 
-  bool isPinnedPtr(const void* p) {
+  static bool isPinnedPtr(const void* p) {
     bool is_pinned = false;
     {
       std::lock_guard<std::mutex> lck(mtx_);
@@ -99,10 +99,9 @@ class DIPURawHostAllocatorImpl final {
         if (cp >= cptr && cp < max_ptr) {
           is_pinned = true;
           break;
-        } else {
-          if (cp >= max_ptr) {
-            break;
-          }
+        }
+        if (cp >= max_ptr) {
+          break;
         }
       }
     }
@@ -110,20 +109,23 @@ class DIPURawHostAllocatorImpl final {
   }
 
  private:
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::mutex mtx_;
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::map<void*, size_t> blocks_;
 };
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::map<void*, size_t> DIPURawHostAllocatorImpl::blocks_;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex DIPURawHostAllocatorImpl::mtx_;
 
 namespace {
 
-static DIPURawHostAllocatorImpl dipu_host_allocator;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPURawHostAllocatorImpl dipu_host_allocator;
 
-static void DIPURawHostAllocatorDeleter(void* ctx) {
-  dipu_host_allocator.free(ctx);
-}
+void DIPURawHostAllocatorDeleter(void* ctx) { dipu_host_allocator.free(ctx); }
 
 }  // namespace
 

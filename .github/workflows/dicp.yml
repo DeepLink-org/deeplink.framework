@@ -1,6 +1,8 @@
 name: dicp ci
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '10 23 * * *'
   push:
     branches:
       - main

@@ -959,21 +959,27 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                ? std::numeric_limits<time_t>::min()
                : time_converter(t);
   };
+
+  // Used as a replacement of if-constexpr (C++ 17) to implement static
+  // polymorphism.
+  struct {
+    std::reference_wrapper<decltype(converter)> convert;
+    using Event = torch::profiler::impl::EventType;
+    time_t operator()(const ExtraFields<Event::OutOfMemory>& i) const {
+      return convert(i.start_time_);
+    }
+    time_t operator()(const ExtraFields<Event::Backend>& i) const {
+      return i.start_time_us_ * 1000;
+    }
+  } start_time_of{std::ref(converter)};
+
   std::vector<std::shared_ptr<Result>> out;
   std::vector<CompressedEvent> python_enters;
   for (auto& subqueue_it : sub_queues_) {
     auto& queue = *subqueue_it.second;
     auto materialize = [&](auto& events) {
       for (auto& i : events) {
-        time_t start_time_ns;
-        if constexpr (std::is_same<
-                          std::remove_reference_t<decltype(i)>,
-                          ExtraFields<torch::profiler::impl::EventType::
-                                          Backend>>::value) {
-          start_time_ns = i.start_time_us_ * 1000;
-        } else {
-          start_time_ns = converter(i.start_time_);
-        }
+        auto start_time_ns = start_time_of(i);
         out.emplace_back(Result::create(
             /*start_time_ns_=*/start_time_ns,
             /*start_tid_=*/queue.tid(),

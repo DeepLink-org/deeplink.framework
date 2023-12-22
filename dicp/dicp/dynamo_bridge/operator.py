@@ -89,19 +89,14 @@ class Operator(ABC):
         with fake_mode:
             try:
                 if hasattr(self, "infer_result"):
-                    info: TensorInfo = self.infer_result(*new_args, **kwargs)
-                    return torch.empty(
-                        info.shape, dtype=info.dtype, memory_format=info.memory_format
-                    )
+                    return self.infer_result(*new_args, **kwargs)
                 elif hasattr(self, "torch_op"):
                     return self.torch_op(*new_args, **kwargs)
             except Exception as e:
-                print("torch_op: ", self.torch_op if hasattr(self, "torch_op") else "")
-                print(new_args, kwargs)
-                print(e.args)
-                print(traceback.format_exc())
                 log = logging.getLogger(__name__)
                 if hasattr(self, "infer_result"):
-                    log.warning("infer shape and dtype failed")
+                    log.debug(
+                        str(self.__name__) + ": infer shape and dtype failed,ignore"
+                    )
                 elif hasattr(self, "torch_op"):
-                    log.warning("torch_op error")
+                    log.warning("torch_op error: " + str(self.torch_op.__name__))

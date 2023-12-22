@@ -5,9 +5,17 @@
 #include <map>
 #include <set>
 #include <tuple>
+#include <vector>
+
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex DIPURawDeviceAllocator::mutex_;
 
 namespace {
@@ -22,41 +30,44 @@ using RegisteredAllocator = std::map<
     std::map<std::string,
              std::tuple<std::function<c10::Allocator*(int)>, uint8_t>>>;
 
-static std::unique_ptr<RegisteredAllocator> gDIPURegisterdAllocatorPtr;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::unique_ptr<RegisteredAllocator> gDIPURegisteredAllocatorPtr;
 
-static std::mutex dipu_register_allocator_mutex;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::mutex dipu_register_allocator_mutex;
 
-static std::set<c10::Allocator*> used_allocator;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
 
 constexpr const char* dipu_default_memcaching_algorithm = "BF";
 
-std::string dipu_device_memcaching_algorithm = []() {
+const std::string dipu_device_memcaching_algorithm = []() {
   const char* env = std::getenv("DIPU_DEVICE_MEMCACHING_ALGORITHM");
   return env ? env : dipu_default_memcaching_algorithm;
 }();
 
-std::string dipu_host_memcaching_algorithm = []() {
+const std::string dipu_host_memcaching_algorithm = []() {
   const char* env = std::getenv("DIPU_HOST_MEMCACHING_ALGORITHM");
   return env ? env : dipu_default_memcaching_algorithm;
 }();
 
-void setAllocator(const std::string name, c10::DeviceType device_type,
-                  std::function<c10::Allocator*(int)> allocator_geter,
+void setAllocator(const std::string& name, c10::DeviceType device_type,
+                  const std::function<c10::Allocator*(int)>& allocator_getter,
                   uint8_t priority) {
   std::lock_guard<std::mutex> lock(dipu_register_allocator_mutex);
-  if (!gDIPURegisterdAllocatorPtr) {
-    gDIPURegisterdAllocatorPtr = std::make_unique<RegisteredAllocator>();
+  if (!gDIPURegisteredAllocatorPtr) {
+    gDIPURegisteredAllocatorPtr = std::make_unique<RegisteredAllocator>();
   }
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
-  if (gDIPURegisterdAllocator[device_type].count(name) <= 0) {
-    gDIPURegisterdAllocator[device_type][name] =
-        std::make_tuple(allocator_geter, priority);
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
+  if (gDIPURegisteredAllocator[device_type].count(name) <= 0) {
+    gDIPURegisteredAllocator[device_type][name] =
+        std::make_tuple(allocator_getter, priority);
   } else {
-    if (std::get<1>(gDIPURegisterdAllocator[device_type][name]) < priority) {
-      gDIPURegisterdAllocator[device_type][name] =
-          std::make_tuple(allocator_geter, priority);
+    if (std::get<1>(gDIPURegisteredAllocator[device_type][name]) < priority) {
+      gDIPURegisteredAllocator[device_type][name] =
+          std::make_tuple(allocator_getter, priority);
     } else {
       TORCH_CHECK(false,
                   "A higher priority allocator is already registered for the "
@@ -66,21 +77,29 @@ void setAllocator(const std::string name, c10::DeviceType device_type,
   }
 }
 
-c10::Allocator* getAllocator(const c10::Device& device) {
+namespace {
+
+int getDeviceIndex(const c10::Device& device, int host_index) {
+  if (device.is_cpu()) {
+    return host_index;
+  }
+  if (device.has_index()) {
+    return device.index();
+  }
+  return devproxy::current_device();
+}
+
+c10::Allocator* createAllocator(const c10::Device& device) {
   c10::DeviceType device_type = device.type();
   c10::Allocator* result = nullptr;
-  auto& gDIPURegisterdAllocator = *gDIPURegisterdAllocatorPtr;
+  auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
   const std::string algorithm =
       (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm
                                              : dipu_host_memcaching_algorithm);
-  if (gDIPURegisterdAllocator[device_type].count(algorithm) > 0) {
+  if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
-        std::get<0>(gDIPURegisterdAllocator[device_type][algorithm]);
-    int device_index = 0;
-    if (device_type == dipu::DIPU_DEVICE_TYPE) {
-      device_index =
-          device.has_index() ? device.index() : devproxy::current_device();
-    }
+        std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
+    int device_index = getDeviceIndex(device, 0);
 
     auto allocator = allocator_geter(device_index);
     if (device_type == dipu::DIPU_DEVICE_TYPE) {
@@ -94,14 +113,31 @@ c10::Allocator* getAllocator(const c10::Device& device) {
   return nullptr;
 }
 
+}  // namespace
+
+c10::Allocator* getAllocator(const c10::Device& device) {
+  // allocator_lookup_table[device_index] == device allocator
+  // allocator_lookup_table[device_count] == host allocator
+  static const int device_count = devproxy::getDeviceCount();
+  static const int host_index = device_count;
+  static std::vector<c10::Allocator*> allocator_lookup_table(device_count + 1);
+  int device_index = getDeviceIndex(device, host_index);
+  auto& allocator = allocator_lookup_table[device_index];
+  if (allocator == nullptr) {
+    allocator = createAllocator(device);
+  }
+  return allocator;
+}
+
 c10::Allocator* getAllocator(c10::DeviceType device_type) {
   return getAllocator(c10::Device(device_type));
 }
 
 void emptyCachedMem() {
-  auto empty_allocator_cache = [](auto allocator) {
+  auto function_name = __FUNCTION__;
+  auto empty_allocator_cache = [&function_name](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
-    DIPU_DEBUG_ALLOCATOR(8, __FUNCTION__
+    DIPU_DEBUG_ALLOCATOR(8, function_name
                                 << " allocator:" << allocator
                                 << ", cached_allocator:" << cached_allocator);
     if (cached_allocator != nullptr) {
@@ -164,18 +200,14 @@ size_t maxMemoryAllocated(const c10::Device& device) {
   return 0;
 }
 
-void recordStream(const c10::DataPtr& ptr, DIPUStream stream) {
-  void* ctx = ptr.get_context();
-  if (ctx == nullptr) {
-    return;
-  }
-  auto base_cxt = static_cast<CacheAllocator::DataPtrContextBase*>(ctx);
-  if (base_cxt) {
-    base_cxt->streams().insert(stream);
+void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
+  using pointer = CacheAllocator::DataPtrContextBase*;
+  if (auto ctx = static_cast<pointer>(ptr.get_context())) {
+    ctx->streams().insert(stream);
   }
 }
 
-void recordStream(const at::Tensor& tensor, DIPUStream stream) {
+void recordStream(const at::Tensor& tensor, const DIPUStream& stream) {
   dipu::recordStream(tensor.storage().data_ptr(), stream);
 }
 
@@ -184,12 +216,12 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
   c10::DeviceType device_type_;
 
  public:
-  DIPUDeviceCachingProxy(c10::DeviceType device_type)
+  explicit DIPUDeviceCachingProxy(c10::DeviceType device_type)
       : device_type_(device_type) {}
 
-  ~DIPUDeviceCachingProxy() {}
+  ~DIPUDeviceCachingProxy() override = default;
 
-  c10::DataPtr allocate(size_t size) const {
+  c10::DataPtr allocate(size_t size) const override {
     return getAllocator(device_type_)->allocate(size);
   }
 
@@ -197,15 +229,17 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
     return getAllocator(device_type_)->raw_deleter();
   }
 };
-static DIPUDeviceCachingProxy dipu_default_device_allocator(
-    dipu::DIPU_DEVICE_TYPE);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DIPUDeviceCachingProxy dipu_default_device_allocator(dipu::DIPU_DEVICE_TYPE);
 };  // namespace
 
 void initCachedAllocator() {
   // Make the c10::GetAllocator interface available
+  constexpr int kPriority = 255;
   c10::SetAllocator(dipu::DIPU_DEVICE_TYPE, &dipu_default_device_allocator,
-                    255);
-  c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator, 255);
+                    kPriority);
+  c10::SetAllocator(c10::DeviceType::CUDA, &dipu_default_device_allocator,
+                    kPriority);
 }
 
 }  // namespace dipu

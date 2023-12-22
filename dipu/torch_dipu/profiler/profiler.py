@@ -1,3 +1,4 @@
+import os
 import torch
 from torch_dipu import _C
 from operator import attrgetter
@@ -20,7 +21,7 @@ from torch.autograd.profiler_util import (
 def dipu_kineto_available():
     return True
 
-class DIPUProfile(torch.autograd.profiler.profile):
+class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
         # result.events() has most of the events - PyTorch op-level and device-level events
 
@@ -411,6 +412,12 @@ def dipu_build_table(
 
 
 def apply_profiler_patch():
+    # The data collected by dipu profiler differs significantly from pytorch profiler,
+    # making it difficult to align during performance analysis.
+    # Reuse pytorch profiler logic on NV, while providing environment variables to switch to dipu profiler.
+    if _C.dipu_vendor == 'CUDA' and os.environ.get("FORCE_USE_DIPU_PROFILER", 'False').lower() == 'false' :
+        return
+
     setattr(torch.profiler.profiler, 'kineto_available', dipu_kineto_available)
     setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
     setattr(torch.autograd.profiler, '_prepare_profiler', _C._prepare_profiler)
@@ -421,4 +428,28 @@ def apply_profiler_patch():
     setattr(torch.autograd, '_supported_activities', _C._supported_activities)
     setattr(torch.autograd, '_add_metadata_json', _C._add_metadata_json)
     setattr(torch.autograd.profiler_util, '_build_table', dipu_build_table)
-    torch.autograd.profiler.profile = DIPUProfile
+    torch.autograd.profiler.profile = TorchProfile
+
+
+class NativeProfile(object):
+    def __init__(self, profiler_result_path="./", with_stack=False, record_shapes=False, profile_memory=False):
+        self.result_path = profiler_result_path
+        self.with_stack = with_stack
+        self.record_shapes = record_shapes
+        self.profile_memory = profile_memory
+        self.entered = False
+        try:
+            os.makedirs(self.result_path, exist_ok=True)
+        except Exception:
+            raise ValueError("the path of '%s' is invaild." % (self.result_path))
+
+    def __enter__(self):
+        if self.entered:
+            raise RuntimeError("native profile traces are not reentrant")
+
+        self.entered = True
+        _C._enable_profiler_api(self.result_path, self.with_stack, self.record_shapes, self.profile_memory)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _C._disable_profiler_api()

@@ -5,7 +5,8 @@
 #include <ATen/Dispatch.h>
 #include <ATen/Tensor.h>
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 
 struct DIPUATenFunctions {
   // dipu native func
@@ -57,4 +58,5 @@ struct DIPUATenFunctions {
   // diopi function defined in AutoGenedKernels.cpp,
 };
 
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

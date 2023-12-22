@@ -39,7 +39,7 @@ class SingleOpTransformer(torch.fx.Transformer):
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()
-                    if not st in self.sym_in_args:
+                    if st not in self.sym_in_args:
                         self.sym_in_args[st] = (proxy, idx)
         return proxy
 
@@ -47,6 +47,9 @@ class SingleOpTransformer(torch.fx.Transformer):
         proxy = self.tracer.create_proxy(
             'call_function', target.get_singleton(), args, kwargs)
         return proxy
+
+    def get_proxy_from_node(self, node):
+        return self.tracer.proxy(node)
 
     def call_function(self, target: Target, args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         if target in self._conversions:

@@ -154,6 +154,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         return
 
     def output(self, name, target, args, kwargs):
+        self.inplace_dict = kwargs
         for i in range(0, len(args[0])):
             self.output_args.append(args[0][i])
 
@@ -413,7 +414,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         for i in range(len(self.output_args)):
             if not isinstance(self.output_args[i], type(None)):
                 bufs.append(self.output_args[i].name)
-                if self.output_args[i] not in self.input_args:
+                if self.output_args[i] not in self.input_args and bufs[-1] not in self.inplace_dict.keys():
                     otensor = self.output_args[i].meta['val']
                     call_body.writeline(bufs[-1] + " = " + self.gen_empty_tensor(otensor))
             else:
@@ -421,6 +422,8 @@ class EnflameCodegen(torch.fx.Interpreter):
                 none_bufs.append(bufs[-1])
                 call_body.writeline(
                     bufs[-1] + " = " + ("empty_strided((), ())"))
+        for i in range(len(bufs) - len(self.inplace_dict), len(bufs)):
+            bufs[i] = self.inplace_dict[bufs[i]]
 
         call_body.writeline("")
 
@@ -473,7 +476,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         if dipu_flag:
             call_body.writeline(f"torch_dipu.current_stream({self.device_id}).synchronize()")
 
-        call_body.writeline(f"return ({', '.join(bufs)})")
+        call_body.writeline(f"return ({', '.join(bufs[:len(bufs)-len(self.inplace_dict)])})")
 
         call_func = IndentedBuffer()
         call_func.writeline("def call(args):")
@@ -493,8 +496,7 @@ class EnflameCodegen(torch.fx.Interpreter):
         main_body.writeline("")
         for i in range(0, len(self.input_args)):
             itensor = self.input_args[i].meta['val']
-            main_body.writeline('arg' + str(i) + ' = ' +
-                                self.gen_random_tensor(itensor))
+            main_body.writeline('arg' + str(i) + ' = ' + self.gen_random_tensor(itensor))
 
         args = []
         for i in range(len(self.input_args)):
@@ -569,6 +571,10 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = {y};"
 
     @staticmethod
+    def Copy_(op_var, shape, dtype, x, y, **kwargs_list):
+        return f"builder::Op {op_var} = {y};"
+
+    @staticmethod
     def LiftFreshCopy(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = {x};"
 
@@ -577,14 +583,18 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Abs({x});"
 
     @staticmethod
-    def make_const_if_scalar(op_var, value, dtype=torch.float32, count=0):
+    def make_const(op_var, value, dtype=torch.float32, count=0):
+        assert isinstance(value, (numbers.Number, list, tuple, str))
         src_code = ""
-        if isinstance(value, numbers.Number):
-            src_code = f"{cxx_type_set[dtype]} {op_var}_const_value{count} = static_cast<{cxx_type_set[dtype]}>({value});\n"
-            value = f"{op_var}_const{count}"
-            src_code += f"builder::Type {op_var}_const_type{count}({{1}}, {type_set[dtype]});\n"
-            src_code += f"builder::Op {value} = builder::Const(hlir_builder, static_cast<void *>(&{op_var}_const_value{count}), {op_var}_const_type{count});\n"
-        return src_code, value
+        if isinstance(value, str):
+            return src_code, value
+        elif isinstance(value, numbers.Number):
+            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, static_cast<{cxx_type_set[dtype]}>({value}), builder::Type({{1}}, {type_set[dtype]}));\n"
+        elif isinstance(value, (list, tuple)):
+            src_code += f"std::vector<{cxx_type_set[dtype]}> {op_var}_const_value{count} = {{{', '.join(map(str, value))}}};\n"
+            src_code += f"builder::Op {op_var}_const{count} = builder::Const<{cxx_type_set[dtype]}>(hlir_builder, {op_var}_const_value{count}, builder::Type({{{len(value)}}}, {type_set[dtype]}));\n"
+
+        return src_code, f"{op_var}_const{count}"
 
     @staticmethod
     def make_type(op_var, dtype, shape=[1], count=0):
@@ -596,7 +606,7 @@ class EnflameOverrides(OpOverrides):
     @staticmethod
     # TODO mul + add scaled_y should handle in conversion
     def Add(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, dtype)
+        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Add({x}, {y});"
         return src_code
 
@@ -608,19 +618,21 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Div(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, dtype)
+        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Div({x}, {y});"
         return src_code
 
     @staticmethod
     def Sub(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, dtype)
+        src_code_x, x = EnflameOverrides.make_const(op_var, x, dtype)
+        src_code_y, y = EnflameOverrides.make_const(op_var, y, dtype)
+        src_code = src_code_x + src_code_y
         src_code += f"builder::Op {op_var} = builder::Sub({x}, {y});"
         return src_code
 
     @staticmethod
     def Mul(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y, dtype)
+        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Mul({x}, {y});"
         return src_code
 
@@ -652,19 +664,19 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Equal(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code, y = EnflameOverrides.make_const(op_var, y)
         src_code += f"builder::Op {op_var} = builder::Equal({x}, {y});"
         return src_code
 
     @staticmethod
     def LessEqual(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code, y = EnflameOverrides.make_const(op_var, y)
         src_code += f"builder::Op {op_var} = builder::LessEqual({x}, {y});"
         return src_code
 
     @staticmethod
     def NotEqual(op_var, shape, dtype, data_type, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(
+        src_code, y = EnflameOverrides.make_const(
             op_var, y, data_type)
         src_code += f"builder::Op {op_var} = builder::NotEqual({x}, {y});"
         return src_code
@@ -679,7 +691,7 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Pow(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(op_var, y)
+        src_code, y = EnflameOverrides.make_const(op_var, y, dtype)
         src_code += f"builder::Op {op_var} = builder::Pow({x}, {y});"
         return src_code
 
@@ -692,8 +704,20 @@ class EnflameOverrides(OpOverrides):
         return f"builder::Op {op_var} = builder::Sqrt({x});"
 
     @staticmethod
+    def Sin(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Sin({x});"
+
+    @staticmethod
+    def Cos(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Cos({x});"
+
+    @staticmethod
     def Relu(op_var, shape, dtype, x, **kwargs_list):
         return f"builder::Op {op_var} = builder::Relu({x});"
+
+    @staticmethod
+    def Erf(op_var, shape, dtype, x, **kwargs_list):
+        return f"builder::Op {op_var} = builder::Erf({x});"
 
     @staticmethod
     def Sigmoid(op_var, shape, dtype, x, **kwargs_list):
@@ -761,7 +785,8 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def FullLike(op_var, shape, dtype, x, value, **kwargs_list):
-        return f"builder::Op {op_var} = builder::FullLike({x}, {value});"
+        src_code = f"builder::Op {op_var} = builder::FullLike({x}, {value}, {type_set[dtype]}, {{{str(shape).split('[')[-1].split(']')[0]}}});"
+        return src_code
 
     @staticmethod
     def Transpose(op_var, shape, dtype, x, permution=[0, 1], **kwargs_list):
@@ -790,14 +815,14 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def Squeeze(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(
+        src_code, y = EnflameOverrides.make_const(
             op_var, y, torch.int64)
         src_code += f"builder::Op {op_var} = builder::Squeeze({x}, {y});"
         return src_code
 
     @staticmethod
     def Unsqueeze(op_var, shape, dtype, x, y, **kwargs_list):
-        src_code, y = EnflameOverrides.make_const_if_scalar(
+        src_code, y = EnflameOverrides.make_const(
             op_var, y, torch.int64)
         src_code += f"builder::Op {op_var} = builder::Unsqueeze({x}, {y});"
         return src_code
@@ -835,9 +860,9 @@ class EnflameOverrides(OpOverrides):
 
     @staticmethod
     def SliceScatter(op_var, shape, dtype, x, y, dim, start, end, step, **kwargs_list):
-        src_code_index, op_start_index = EnflameOverrides.make_const_if_scalar(
+        src_code_index, op_start_index = EnflameOverrides.make_const(
             op_var, 0, torch.int64, 0)
-        src_code_index_dim, op_start_index_dim = EnflameOverrides.make_const_if_scalar(
+        src_code_index_dim, op_start_index_dim = EnflameOverrides.make_const(
             op_var, start, torch.int64, 1)
         src_code = src_code_index + src_code_index_dim
         src_code += f"builder::Op {op_var} = builder::DynamicUpdateSlice({x}, {y}, {{{', '.join([op_start_index_dim if i == dim else op_start_index for i in range(len(shape))])}}});"

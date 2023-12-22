@@ -96,7 +96,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
       workEvents_.resize(diclComms_.size());
     }  // NOLINT
 
-    virtual ~WorkDICL() {}
+    ~WorkDICL() override = default;
 
     // Checks if request has completed. In this specific case of DICL, it checks
     // if the DICL operation has completed on the DIPU in its own DICL queue.
@@ -108,8 +108,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
     void record();
 
     // Same as calling synchronize() for DICL work.
-    bool wait(
-        std::chrono::milliseconds timeout = kBackendDefaultTimeout) override;
+    bool wait(std::chrono::milliseconds timeout /* = kBackendDefaultTimeout */)
+        override;
 
     // Let current stream wait on the completing of the DICL work
     // Throws on exceptions
@@ -172,7 +172,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
   // communicator. These DICL communicators are cached and reused if possible.
   ProcessGroupDICL(const c10::intrusive_ptr<Store>& store, int rank, int size);
 
-  virtual ~ProcessGroupDICL();
+  ~ProcessGroupDICL() override;
 
   const std::string getBackendName() const override {
     return DICL_BACKEND_NAME;
@@ -180,38 +180,39 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
-      const BroadcastOptions& opts = BroadcastOptions()) override;
+      const BroadcastOptions& opts /* = BroadcastOptions() */) override;
 
   c10::intrusive_ptr<Work> allreduce(
       std::vector<at::Tensor>& tensors,
+      // FIXME: stop using default argument later
       const AllreduceOptions& opts = AllreduceOptions()) override;
 
   c10::intrusive_ptr<Work> reduce(
       std::vector<at::Tensor>& tensors,
-      const ReduceOptions& opts = ReduceOptions()) override;
+      const ReduceOptions& opts /* = ReduceOptions() */) override;
 
   c10::intrusive_ptr<Work> gather(
       std::vector<std::vector<at::Tensor>>& outputTensors,
       std::vector<at::Tensor>& inputTensors,
-      const GatherOptions& opts = GatherOptions()) override;
+      const GatherOptions& opts /* = GatherOptions() */) override;
 
   c10::intrusive_ptr<Work> allgather(
       std::vector<std::vector<at::Tensor>>& output_tensors,
       std::vector<at::Tensor>& input_tensors,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
+      const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> _allgather_base(
       at::Tensor& output_tensor, at::Tensor& input_tensor,
-      const AllgatherOptions& opts = AllgatherOptions()) override;
+      const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce_scatter(
       std::vector<at::Tensor>& outputs,
       std::vector<std::vector<at::Tensor>>& inputs,
-      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+      const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> _reduce_scatter_base(
       at::Tensor& outputs, at::Tensor& inputs,
-      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+      const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
                                 int tag) override;
@@ -220,7 +221,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
                                 int tag) override;
 
   c10::intrusive_ptr<Work> barrier(
-      const BarrierOptions& opts = BarrierOptions()) override;
+      const BarrierOptions& opts /* = BarrierOptions() */) override;
 
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
