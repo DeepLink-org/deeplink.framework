@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-include(cmake/FindXpuRuntime.cmake)
+include(cmake/FindKLXRuntime.cmake)
 
 message(STATUS XPURT_INCLUDE_DIR ${XPURT_INCLUDE_DIR})
 

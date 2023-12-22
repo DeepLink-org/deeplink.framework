@@ -12,9 +12,9 @@ namespace dipu {
 
 // just an example
 // not implemented now
-class XPUGeneratorImpl : public dipu::DIPUGeneratorImpl {
+class KLXGeneratorImpl : public dipu::DIPUGeneratorImpl {
  public:
-  XPUGeneratorImpl(at::DeviceIndex device_index)
+  KLXGeneratorImpl(at::DeviceIndex device_index)
       : dipu::DIPUGeneratorImpl(device_index) {}
 
   void set_state(const c10::TensorImpl& state) override {}
@@ -23,7 +23,7 @@ class XPUGeneratorImpl : public dipu::DIPUGeneratorImpl {
 };
 
 const at::Generator vendorMakeGenerator(at::DeviceIndex device_index) {
-  return at::make_generator<XPUGeneratorImpl>(device_index);
+  return at::make_generator<KLXGeneratorImpl>(device_index);
 }
 
 }  // namespace dipu
