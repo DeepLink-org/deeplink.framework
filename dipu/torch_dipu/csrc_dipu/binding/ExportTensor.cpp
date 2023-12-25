@@ -35,11 +35,22 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
-static std::array<PyObject*, 2> splitArgs(PyObject* args) {
+// TODO(fandaoyi): check memory leak
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
   PyObject* newArgs = PyTuple_New(rawSize - 1);
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+  std::shared_ptr<PyObject* [2]> result(new PyObject*[2], [](PyObject** p) {
+    // if (p[1]) {    // cause segfault, why?
+    //   Py_DECREF(p[1]);
+    // }
+    delete[] p;
+    p = nullptr;
+  });
   // 0 is self
-  std::array<PyObject*, 2> result{PyTuple_GET_ITEM(args, 0), newArgs};
+  result[0] = PyTuple_GET_ITEM(args, 0);
+  result[1] = newArgs;
 
   for (int i = 1; i < rawSize; i++) {
     auto arg = PyTuple_GET_ITEM(args, i);

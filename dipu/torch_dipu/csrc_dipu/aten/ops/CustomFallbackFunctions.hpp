@@ -32,7 +32,7 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                            << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
-  // NOLINTNEXTLINE(readability-suspicious-call-argument)
+  // NOLINTNEXTLINE(readability-suspicious-call-argument):It's the correct order
   out_cpu = at::silu_out(self_cpu, out_cpu);
   out.copy_(out_cpu);
   return out;

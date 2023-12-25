@@ -16,37 +16,39 @@
 
 using dnative = dipu::native::DIPUATenFunctions;
 
-static std::vector<std::string> getFallbackList() {
-  std::vector<std::string> fallback_list;
-  std::string content;
-  const char* env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST");
-  if (env != nullptr) {
-    content += env;
-  }
+namespace dipu {
+namespace {
 
-  std::ifstream stream(".dipu_force_fallback_op_list.config",
-                       std::ios_base::in | std::ios::binary);
-  if (stream.is_open()) {
-    while (!stream.eof()) {
-      std::string line;
-      stream >> line;
-      content += "," + line;
+void read_comma_separated_list(std::istream& input,
+                               std::vector<std::string>& output) {
+  auto line = std::string();
+  while (std::getline(input, line)) {
+    auto buffer = std::stringstream(line);
+    auto value = std::string();
+    while (std::getline(buffer, value, ',')) {
+      output.push_back(std::move(value));
     }
   }
-
-  std::stringstream strstream(content);
-  std::string force_fallback_pattern;
-  while (std::getline(strstream, force_fallback_pattern, ',')) {
-    fallback_list.push_back(force_fallback_pattern);
-  }
-
-  return std::move(fallback_list);
 }
 
-static const std::vector<std::string> force_fallback_operators_list =
+std::vector<std::string> getFallbackList() {
+  auto fallback_list = std::vector<std::string>();
+  if (auto env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST")) {
+    auto iss = std::stringstream(env);
+    read_comma_separated_list(iss, fallback_list);
+  }
+  auto file = std::ifstream(".dipu_force_fallback_op_list.config",
+                            std::ios_base::in | std::ios::binary);
+  read_comma_separated_list(file, fallback_list);
+
+  return fallback_list;
+}
+
+const std::vector<std::string> force_fallback_operators_list =
     getFallbackList();
 
-namespace dipu {
+}  // end of namespace
+
 bool get_force_fallback(const char* opname) {
   if (force_fallback_operators_list.empty() || opname == nullptr) {
     return false;

@@ -446,16 +446,16 @@ void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
                         uint64_t start_time_us, uint64_t end_time_us) {
   using torch::profiler::impl::kineto::addMetadata;
   using torch::profiler::impl::kineto::TraceWrapper;
-  constexpr time_t ns_per_us = 1000;
   TraceWrapper cpu_trace(static_cast<time_t>(start_time_us),
                          "PyTorch Profiler");
 
   // Generate Kineto events for each event recorded by the PyTorch profiler.
+  constexpr time_t kNsPerUs = 1000;
   for (const auto i : c10::irange(results.size())) {
     const auto& e = results[i];
     const auto* activity = cpu_trace.addCPUActivity(
         e->name(), e->kinetoType(), e->kineto_info_, e->correlationID(),
-        e->start_time_ns_ / ns_per_us, e->endTimeNS() / ns_per_us);
+        e->start_time_ns_ / kNsPerUs, e->endTimeNS() / kNsPerUs);
 
     TORCH_INTERNAL_ASSERT(activity || !kKinetoAvailable);
     if (activity) {
@@ -563,15 +563,15 @@ class TransferEvents {
 
   static std::shared_ptr<Result> resultFromActivity(const itrace_t* activity) {
     TORCH_INTERNAL_ASSERT(activity != nullptr);
-    constexpr size_t ns_per_us = 1000;
 
     // Kineto is inconsistent with types, so we have to cast to int32.
     torch::profiler::impl::kineto::DeviceAndResource device_and_resource{
         static_cast<int32_t>(activity->deviceId()),
         static_cast<int32_t>(activity->resourceId())};
 
+    constexpr size_t kNsPerUs = 1000;
     auto event = Result::create(
-        activity->timestamp() * ns_per_us,
+        activity->timestamp() * kNsPerUs,
         noTID,  // Placeholder
         device_and_resource,
         ExtraFields<torch::profiler::impl::EventType::Kineto>{
@@ -954,7 +954,6 @@ std::pair<std::vector<std::shared_ptr<Result>>,
           std::unique_ptr<ActivityTraceWrapper>>
 DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
                             uint64_t start_time_us, uint64_t end_time_us) {
-  constexpr time_t ns_per_us = 1000;
   auto converter = [&](approx_time_t t) {
     return t == std::numeric_limits<approx_time_t>::min()
                ? std::numeric_limits<time_t>::min()
@@ -963,6 +962,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
 
   // Used as a replacement of if-constexpr (C++ 17) to implement static
   // polymorphism.
+  constexpr time_t kNsPerUs = 1000;
   struct {
     std::reference_wrapper<decltype(converter)> convert;
     using Event = torch::profiler::impl::EventType;
@@ -970,7 +970,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
       return convert(i.start_time_);
     }
     time_t operator()(const ExtraFields<Event::Backend>& i) const {
-      return i.start_time_us_ * ns_per_us;
+      return i.start_time_us_ * kNsPerUs;
     }
   } start_time_of{std::ref(converter)};
 
@@ -1012,7 +1012,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
   if (python_tracer_) {
     for (const auto& i : python_tracer_->getEvents(
              converter, python_enters,
-             static_cast<time_t>(end_time_us) * ns_per_us)) {
+             static_cast<time_t>(end_time_us) * kNsPerUs)) {
       out.push_back(i);
     }
     python_tracer_.reset();

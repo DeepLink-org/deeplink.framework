@@ -17,7 +17,7 @@ at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
   // In PyTorch they would write:
   //   return reinterpret_cast<THPDtype*>(dtype_obj)->scalar_type;
   // But we do care about aliasing.
-  THPDtype dtype;  // NOLINT(cppcoreguidelines-pro-type-member-init)
+  THPDtype dtype{};
   std::memcpy(&dtype, dtype_obj, sizeof(dtype));
   return dtype.scalar_type;
 }
