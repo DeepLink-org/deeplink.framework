@@ -314,7 +314,7 @@ class Expand(Operator):
     def __init__(self):
         super().__init__("Expand")
 
-    # TODO: unfinished, need furthur test, PASS
+    # TODO: unfinished, need furthur test
     def infer_result(self, x, shape_tensor):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
         (

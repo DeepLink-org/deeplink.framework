@@ -160,6 +160,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
         out = self.get_proxy(ascend_op.IdentityN, (ac_bd, ad_bc))
         return out
 
+    def binary_cmp_cast_input(self, x, y):
+        if not isinstance(y, torch.fx.proxy.Proxy):
+            x_dtype = x.node.meta["val"].dtype
+            const_dtype = torch.float32 if x_dtype == torch.float16 else x_dtype
+            y_shape = list(x.node.meta["val"].shape)
+            y = self.get_param_proxy(y, const_dtype, y_shape)
+            if x_dtype == torch.float16:
+                y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
+        return x, y
+
     @register_conversion(torch.ops.aten.mul)
     def mul(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -221,12 +231,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.le)
     def le(self, a, b):
-        if isinstance(b, torch.fx.proxy.Proxy):
-            return self.get_proxy(ascend_op.LessEqual, (a, b), {})
-        x2 = self.get_proxy(ascend_op.Const, ([b], torch.float32, []))
-        if a.node.meta['val'].dtype == torch.float16:
-            x2 = self.get_proxy(ascend_op.Cast, (x2, "FLOAT16"), {})
-        return self.get_proxy(ascend_op.LessEqual, (a, x2), {})
+        a, b = self.binary_cmp_cast_input(a, b)
+        return self.get_proxy(ascend_op.LessEqual, (a, b), {})
 
     @register_conversion(aten.view_as_real)
     def view_as_real(self, x):
@@ -443,39 +449,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion([aten.eq, aten.eq.Tensor])
     def eq(self, a, b):
-        a_dtype = a.node.meta['val'].dtype
-        if not isinstance(b, torch.fx.proxy.Proxy):
-            const_dtype = torch.float32 if a_dtype == torch.float16 else a_dtype
-            b_shape = list(a.node.meta['val'].shape)
-            b = self.get_param_proxy(b, const_dtype, b_shape)
-            if a_dtype == torch.float16:
-                b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
-        elif a_dtype != b.node.meta["val"].dtype:
-            b = self.get_proxy(ascend_op.Cast, (b, get_ascend_dtype(a_dtype)))
+        a, b = self.binary_cmp_cast_input(a, b)
         return self.get_proxy(ascend_op.Equal, (a, b))
 
     @register_conversion(aten.ne.Scalar)
     def ne(self, a, b):
-        if not isinstance(b, torch.fx.proxy.Proxy):
-            a_dtype = a.node.meta['val'].dtype
-            const_dtype = torch.float32 if a_dtype == torch.float16 else a_dtype
-            b_shape = list(a.node.meta['val'].shape)
-            b = self.get_param_proxy(b, const_dtype, b_shape)
-            if a_dtype == torch.float16:
-                b = self.get_proxy(ascend_op.Cast, (b, "FLOAT16"))
+        a, b = self.binary_cmp_cast_input(a, b)
         return self.get_proxy(ascend_op.NotEqual, (a, b))
 
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
-        x_dtype = x.node.meta['val'].dtype
-        if not isinstance(y, torch.fx.proxy.Proxy):
-            const_dtype = torch.float32 if x_dtype == torch.float16 else x_dtype
-            y_shape = list(x.node.meta['val'].shape)
-            y = self.get_param_proxy(y, const_dtype, y_shape)
-            if x_dtype == torch.float16:
-                y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
-        elif x_dtype != y.node.meta['val'].dtype:
-            y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
+        x, y = self.binary_cmp_cast_input(x, y)
         return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)

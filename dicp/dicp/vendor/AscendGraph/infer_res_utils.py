@@ -35,9 +35,18 @@ def get_fake_tensor_meta_val(
     return x, x_shape, x_dim, x_dtype
 
 
-def get_op_const_arg_kwarg(const_arg):
+def get_op_const_arg_kwarg(
+    const_arg,
+) -> Tuple[list, torch.dtype, Union[list, None]]:
     """
-    similar to get_op_const_arg_kwarg()
+    input:
+        - const_arg: Tuple (new_args,kwargs)
+            - new_args: Tuple, identical to input-"new_args" of operator Const (has 2 or 3 params currently)
+            - kwargs: dict, identical to input-"kwargs" of operator Const
+    output:
+        - arg0: list, input attr such as axes,shape
+        - arg1: torch dtype , e.g. torch.int32
+        - arg2: list(optional), shape of arg0
     """
     new_args = const_arg[0]
     len_args = len(new_args)
