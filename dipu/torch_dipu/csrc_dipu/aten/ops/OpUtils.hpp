@@ -6,12 +6,6 @@
 namespace dipu {
 namespace native {
 
-inline bool checkDiopiReturnValue() {
-  static bool enable =
-      std::getenv("DIPU_DISABLE_CHECK_DIOPI_RETURN_VALUE") == nullptr;
-  return enable;
-}
-
 inline bool checkTensorDevice() {
   static bool enable = []() {
     const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
@@ -35,8 +29,8 @@ inline void synchronizeIfEnable() {
 }
 
 inline int dumpOpArgLevel() {
-  const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
-  int level = env_ptr ? std::atoi(env_ptr) : 0;
+  static const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+  static int level = env_ptr ? std::atoi(env_ptr) : 0;
   return level;
 }
 

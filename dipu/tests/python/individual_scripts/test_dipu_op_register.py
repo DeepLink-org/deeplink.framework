@@ -1,6 +1,6 @@
 # Copyright (c) 2023, DeepLink.
 from multiprocessing import Process, set_start_method
-from tests.python.utils.local_eviron import local_eviron
+from local_eviron import local_eviron
 
 
 def _test_op_register(mode):

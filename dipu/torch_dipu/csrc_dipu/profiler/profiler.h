@@ -1,23 +1,23 @@
 #pragma once
 
-#include <IActivityProfiler.h>
-#include <chrono>
-#include <deque>
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <stdint.h>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
+#include <c10/core/Stream.h>
+#include <c10/util/Optional.h>
+#include <c10/util/string_view.h>
+
+#include "csrc_dipu/vendor/vendorapi.h"
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
-#include "CorrelationIDManager.h"
+#include "IActivityProfiler.h"
 
 namespace dipu {
 namespace profile {
@@ -38,29 +38,6 @@ void setProfileOpen(bool profileFlag);
 void FlushAllRecords();
 void abandonAllRecords();
 
-struct ExtraRecordInfo {
-  string_t scope;
-  size_t opSeqId;
-  string_t attrs;
-
-  ExtraRecordInfo() : scope(""), opSeqId(0), attrs("") {}
-
-  ExtraRecordInfo& setScope(const string_t& scopeName) {
-    scope = scopeName;
-    return *this;
-  }
-
-  ExtraRecordInfo& setSeqId(size_t seqId) {
-    opSeqId = seqId;
-    return *this;
-  }
-
-  ExtraRecordInfo& setAttrs(const string_t& sAttrs) {
-    attrs = sAttrs;
-    return *this;
-  }
-};
-
 struct Record {
   string_t name;
   size_t opId;
@@ -71,7 +48,6 @@ struct Record {
   size_t threadIdx;
   bool isKernel = false;
   uint64_t linkCorrelationId = 0;
-  ExtraRecordInfo extraInfo;
 };
 
 class RecordsImpl final {
@@ -82,11 +58,12 @@ class RecordsImpl final {
   mutable mutex_t mtx_;
   // tid -> record list
   std::unordered_map<int32_t, std::unique_ptr<records_t>> allRecordLists_;
+
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   thread_local static records_t* pRecords;
 
   std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo> resourceInfo_;
 
- private:
   RecordsImpl() = default;
 
  public:
@@ -109,17 +86,15 @@ class RecordCreator final {
   size_t begin_;
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;
-  ExtraRecordInfo extraInfo_;
 
  public:
-  explicit RecordCreator(const string_t& name, size_t opId,
-                         uint64_t linkCorrelationId,
-                         const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
+  RecordCreator() = default;
+  RecordCreator(string_t name, size_t opId, uint64_t linkCorrelationId);
 
-  ~RecordCreator();
+  ~RecordCreator() { end(); }
 
  private:
-  void end();
+  void end() noexcept;
 };
 
 class DeviceEvent;
@@ -131,7 +106,6 @@ struct DeviceRecord {
   string_t name;
   size_t opId;
   uint64_t linkCorrelationId = 0;
-  ExtraRecordInfo extraInfo;
 };
 
 class DeviceRecordCreator final {
@@ -143,32 +117,52 @@ class DeviceRecordCreator final {
   std::shared_ptr<DeviceEvent> pStart_, pStop_;
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;
-  ExtraRecordInfo extraInfo_;
 
  public:
+  DeviceRecordCreator() = default;
   DeviceRecordCreator(string_t name, deviceStream_t stream, int streamId,
-                      size_t opId, uint64_t linkCorrelationId,
-                      const ExtraRecordInfo& extraInfo = ExtraRecordInfo());
+                      size_t opId, uint64_t linkCorrelationId);
 
-  ~DeviceRecordCreator();
+  ~DeviceRecordCreator() { end(); }
 
  private:
-  void end();
+  void end() noexcept;
 };
 
 class RecordBlockCreator {
  public:
+  RecordBlockCreator() = default;
+  // TODO(lljbash): maybe use std::string_view and std::optional after c++17
   explicit RecordBlockCreator(
-      string_t name, const ExtraRecordInfo& extraInfo = ExtraRecordInfo(),
-      deviceStream_t stream = dipu::getCurrentDIPUStream(),
-      int streamId = dipu::getCurrentDIPUStream().id(),
-      bool enProfile = isEnable());
+      c10::string_view name,
+      c10::optional<deviceStream_t> stream = c10::nullopt,
+      c10::optional<c10::StreamId> streamId = c10::nullopt,
+      c10::optional<bool> enProfile = c10::nullopt) {
+    if (enProfile.value_or(isEnable())) {
+      if (!stream) {
+        auto dipu_stream = getCurrentDIPUStream();
+        if (!streamId) {
+          streamId = dipu_stream.id();
+        }
+        stream = dipu_stream.rawstream();
+      }
+      initialize(string_t(name), *stream, *streamId);
+    }
+  }
 
-  void end();
+  void end() noexcept {
+    if (!finish_) {
+      pHostRecord_.reset();
+      pDeviceRecord_.reset();
+      finish_ = true;
+    }
+  }
 
-  ~RecordBlockCreator();
+  ~RecordBlockCreator() { end(); }
 
  private:
+  void initialize(string_t name, deviceStream_t stream, c10::StreamId streamId);
+
   std::unique_ptr<RecordCreator> pHostRecord_ = nullptr;
   std::unique_ptr<DeviceRecordCreator> pDeviceRecord_ = nullptr;
   bool finish_ = false;

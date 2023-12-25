@@ -42,6 +42,24 @@ class BroadcastTo(Operator):
     def __init__(self):
         super().__init__("BroadcastTo")
 
+    def infer_result(self, x, shape):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
+        shape = shape_shape
+        dims = zip(reversed(shape), reversed(x_shape))
+
+        for i, t in enumerate(dims):
+            tar_dim, cur_dim = t
+            if tar_dim == -1:
+                shape[-(i + 1)] = cur_dim
+                continue
+            elif cur_dim == 1:
+                continue
+            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
+
+        # broadcast keep get_memory_format
+        return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class Range(Operator):
     def __init__(self):
@@ -105,6 +123,12 @@ class Mul(Operator):
 
     def infer_result(self, x1, x2):
         return common_binary_op_infer(x1, x2)
+
+
+class Muls(Operator):
+    def __init__(self):
+        super().__init__("Muls")
+        self.torch_op = aten.mul
 
 
 class Div(Operator):
@@ -236,7 +260,6 @@ class Squeeze(Operator):
                     + ": can only squeeze a dimension that is 1!"
                 )
                 shape.pop(i)
-
         x_memory_format = get_memory_format(x)
         if len(shape) < 4:
             x_memory_format = torch.contiguous_format
@@ -246,6 +269,15 @@ class Squeeze(Operator):
 class Pack(Operator):
     def __init__(self):
         super().__init__("Pack")
+
+    def infer_result(self, x, dim):
+        x0, x0_shape, x0_dim, x0_dtype = get_fake_tensor_meta_val(x[0])
+        dim = (dim + x0_dim + 1) % (x0_dim + 1)
+        out_shape = list(x0_shape)
+        out_shape.insert(dim, len(x))
+        return torch.empty(
+            out_shape, dtype=x0_dtype, memory_format=get_memory_format(x0)
+        )
 
 
 class Permute(Operator):
@@ -257,10 +289,55 @@ class Expand(Operator):
     def __init__(self):
         super().__init__("Expand")
 
+    # TODO: unfinished, need furthur test
+    def infer_result(self, x, shape_tensor):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        (
+            shape_tensor,
+            shape_tensor_shape,
+            shape_tensor_dim,
+            shape_tensor_dtype,
+        ) = get_fake_tensor_meta_val(shape_tensor, True)
+        assert x_dim > 0, self.__class__.__name__ + ": scalar"
+        shape = list(shape_tensor_shape)
+        dims = zip(shape, x_shape)
+        x_stride = list(x.stride())
+        for i, t in enumerate(dims):
+            tar_dim, cur_dim = t
+            if tar_dim != cur_dim:
+                x_stride[i] = 0
+            if tar_dim == -1:
+                shape[-(i + 1)] = cur_dim
+                continue
+            elif cur_dim == 1:
+                continue
+            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
+        # broadcast keep get_memory_format
+        return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
 
 class ExpandD(Operator):
     def __init__(self):
         super().__init__("ExpandD")
+
+    def infer_result(self, x, shape):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x, True)
+        assert x_dim > 0, self.__class__.__name__ + ": scalar"
+        dims = zip(shape, x_shape)
+        x_stride = list(x.stride())
+        for i, t in enumerate(dims):
+            tar_dim, cur_dim = t
+            if tar_dim != cur_dim:
+                x_stride[i] = 0
+            if tar_dim == -1:
+                shape[-(i + 1)] = cur_dim
+                continue
+            elif cur_dim == 1:
+                continue
+            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
+        res = torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        res = torch.as_strided(res, shape, x_stride, res.storage_offset())
+        return res
 
 
 class Sort(Operator):
@@ -300,7 +377,7 @@ class Const(Operator):
     def __init__(self):
         super().__init__("Const")
 
-    def infer_result(self, new_args, kwargs):
+    def infer_result(self, *new_args, **kwargs):
         return new_args, kwargs
 
 
@@ -318,14 +395,11 @@ class Pow(Operator):
 
     def infer_result(self, base, expo):
         base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base)
-
         if isinstance(expo, Tuple):  # Const
             expo, expo_shape = get_op_const_arg_kwarg(expo)
             expo_dtype = type(expo[0]) if len(expo) > 0 else base_dtype
         else:  # fake Tensor
-            expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(
-                expo
-            )
+            expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(expo)
 
         out_shape = get_broadcast_res_two_shape(base_shape, expo_shape)
         dtype = get_cast_dtype(base_dtype, expo_dtype)
@@ -337,7 +411,7 @@ class Select(Operator):
     def __init__(self):
         super().__init__("Select")
 
-    def infer_result(self, x1, x2, condition):
+    def infer_result(self, condition, x1, x2):
         x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
         x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
         _, c_shape, _, _ = get_fake_tensor_meta_val(condition)
@@ -409,9 +483,18 @@ class Identity(Operator):
         super().__init__("Identity")
 
     def infer_result(self, x, idx=None):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        out_shape = list(x_shape[idx]) if idx is not None else list(x_shape)
-        return torch.empty(out_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        out_dtype = x_dtype
+        if x_dtype == torch.complex64:  # for complex64
+            out_shape = list(x_shape)
+            if idx == 0 or idx == 1:
+                out_dtype = torch.float32
+                out_shape.append(1)
+        else:
+            out_shape = [x_shape[idx]] if idx is not None else list(x_shape)
+        return torch.empty(
+            out_shape, dtype=out_dtype, memory_format=get_memory_format(x)
+        )
 
 
 class IdentityInp(Operator):
@@ -439,6 +522,18 @@ class Empty(Operator):
     def __init__(self):
         super().__init__("Empty")
 
+    def infer_result(
+        self, shape, dtype, layout, device, memory_format=torch.contiguous_format
+    ):
+        shape, _ = get_op_const_arg_kwarg(shape)
+        return torch.empty(
+            shape,
+            dtype=dtype,
+            layout=layout,
+            device=device,
+            memory_format=memory_format,
+        )
+
 
 class GatherV2(Operator):
     def __init__(self):
@@ -455,6 +550,9 @@ class GatherV2(Operator):
 class OnesLike(Operator):
     def __init__(self):
         super().__init__("OnesLike")
+
+    def infer_result(self, x):
+        return common_unary_op_infer(x)
 
 
 class Fill(Operator):
@@ -542,10 +640,30 @@ class SplitD(Operator):
     def __init__(self):
         super().__init__("SplitD")
 
+    def infer_result(self, x, split_dim, num_split, y, from_view_complex=False):
+        assert from_view_complex == True, self.__class__.__name__ + ": currently available only in op view_as_complex!"
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        split_dim = (split_dim + x_dim) % x_dim
+        out_shape = list(x_shape)
+        del out_shape[-1]
+        return torch.empty(
+            out_shape,
+            dtype=torch.complex64 if from_view_complex else x_dtype,
+            memory_format=get_memory_format(x),
+        )
+
 
 class Slice(Operator):
     def __init__(self):
         super().__init__("Slice")
+
+    def infer_result(self, x, offset, size):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        new_shape, _ = get_op_const_arg_kwarg(size)
+        offset, _ = get_op_const_arg_kwarg(offset)
+        _, storage_offset = cal_stride_offset(new_shape, offset, x)
+        res = torch.as_strided(x, new_shape, x.stride(), storage_offset)
+        return res
 
 
 class ConcatD(Operator):
@@ -575,28 +693,17 @@ class Reshape(Operator):
     def __init__(self):
         super().__init__("Reshape")
 
-    # TODO:conflict in solving stride between "view" and "select"
-    def infer_result(self, x, shape_const_op):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        re_shape, re_dim = get_op_const_arg_kwarg(shape_const_op)
-        # check whether stride and storage_offset are manually specified
-        # if so, x is from operators like "Slice", and the stride and storage_offset still need to modify here
+    def infer_result(self, x, shape_const_op, ori_op=None, params_passed=None):
+        x, _, _, x_dtype = get_fake_tensor_meta_val(x)
+        re_shape, _ = get_op_const_arg_kwarg(shape_const_op)
         x_stride = list(x.stride())
-        x_shape = list(x_shape)
-
-        for i in range(len(x_stride) - 2, -1, -1):
-            if x_stride[i + 1] * x_shape[i + 1] != x_stride[i]:
-                del x_stride[i + 1]
-                del x_shape[i + 1]
-                break
-        else:
-            if len(x_shape) != len(re_shape):
-                del x_stride[0]
-                del x_shape[0]
-
-        x_storage_offset = x.storage_offset()
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
-        res = torch.as_strided(res, re_shape, x_stride, x_storage_offset)
+        if ori_op == "Select":
+            assert "sel_dim" in params_passed, (
+                self.__class__.__name__ + ':param "sel_dim" from Select missing!'
+            )
+            del x_stride[params_passed["sel_dim"]]
+            res = torch.as_strided(res, re_shape, x_stride, x.storage_offset())
         return res
 
 
@@ -633,7 +740,6 @@ class Shape(Operator):
         super().__init__("Shape")
 
     def infer_result(self, x):
-        # like Const, we won't use this function, but it should exist as a flag for triggering inference of resinfo
         return common_unary_op_infer(x, spec_format=torch.contiguous_format)
 
 

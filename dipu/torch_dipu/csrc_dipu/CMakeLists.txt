@@ -29,12 +29,15 @@ add_custom_command(
   COMMAND
     python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
     "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
+    "$<$<NOT:$<STREQUAL:${UsedVendor},cuda>>:--convert_config=${CMAKE_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml>"
     --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
     --print_op_arg "True" --fun_config_dict
     '{\"current_device\": \"${UsedVendor}\"}'
   DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
-          ${DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE})
+          ${DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE}
+          "$<$<NOT:$<STREQUAL:${UsedVendor},cuda>>:${CMAKE_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml>"
+)
 add_custom_target(autogen_diopi_kernels_cpp
                   DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
 add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)

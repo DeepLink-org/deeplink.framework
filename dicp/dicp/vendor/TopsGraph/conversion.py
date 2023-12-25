@@ -148,9 +148,29 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Exp(self, *args, **kwargs):
         return self.get_proxy(tops_op.Exp, args, kwargs)
 
+    @register_conversion(aten.sin)
+    def Sin(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Sin, args, kwargs)
+
+    @register_conversion(aten.cos)
+    def Cos(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Cos, args, kwargs)
+
     @register_conversion(aten.relu)
     def Relu(self, *args, **kwargs):
         return self.get_proxy(tops_op.Relu, args, kwargs)
+
+    @register_conversion(aten.erf)
+    def Erf(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Erf, args, kwargs)
+
+    @register_conversion(aten.split.Tensor)
+    def Split(self, a, size, dim=0, **kwargs):
+        in_shape = a.node.meta["val"].shape
+        dim = dim % len(in_shape)
+        sections = (in_shape[dim] + size - 1) // size
+        splits = (self.get_proxy(tops_op.SliceInDim, (a, dim, i * size, min((i + 1) * size, in_shape[dim]), 1)) for i in range(sections))
+        return self.get_proxy(tops_op.MakeTuple, tuple(splits))
 
     @register_conversion(aten.sum)
     def ReduceSum(self, a, *args, **kwargs):

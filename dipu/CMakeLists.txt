@@ -19,6 +19,7 @@ list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
+list(APPEND DEVICE_KUNLUNXIN "kunlunxin" "klx")
 
 execute_process(COMMAND git rev-parse --short HEAD
                 OUTPUT_VARIABLE DIPU_GIT_HASH)
@@ -44,12 +45,16 @@ elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
 elseif (${DEVICE} IN_LIST DEVICE_SUPA)
   set(USE_SUPA ON)
   set(UsedVendor supa)
-  set(DIOPI_IMPL_OPT "")
+  set(DIOPI_IMPL_OPT "supa")
   #SUPA DEVICE DOES NOT NEED TO BUILD DIOPI, so set the target to "" to control the workflow.
 elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
   set(USE_DROPLET ON)
   set(UsedVendor droplet)
   set(DIOPI_IMPL_OPT "droplet")
+elseif (${DEVICE} IN_LIST DEVICE_KUNLUNXIN)
+  set(USE_KUNLUNXIN ON)
+  set(UsedVendor kunlunxin)
+  set(DIOPI_IMPL_OPT "kunlunxin")
 else()
   message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
@@ -81,14 +86,14 @@ if(NOT DEFINED DIPU_ABI_V)
     OUTPUT_VARIABLE DIPU_ABI_V)
 endif()
 
-if(NOT DEFINED DIPU_COMPILED_WITH_CXX11_ABI)    
+if(NOT DEFINED DIPU_COMPILED_WITH_CXX11_ABI)
   execute_process(
     COMMAND
       sh -x -c
       "python -c 'import torch;print(1 if torch.compiled_with_cxx11_abi() else 0)'"
     OUTPUT_VARIABLE DIPU_COMPILED_WITH_CXX11_ABI)
 endif()
-    
+
 if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
   set(DIPU_COMPILED_WITH_CXX11_ABI 1)
 else()
