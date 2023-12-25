@@ -412,6 +412,12 @@ def dipu_build_table(
 
 
 def apply_profiler_patch():
+    # The data collected by dipu profiler differs significantly from pytorch profiler,
+    # making it difficult to align during performance analysis.
+    # Reuse pytorch profiler logic on NV, while providing environment variables to switch to dipu profiler.
+    if _C.dipu_vendor == 'CUDA' and os.environ.get("FORCE_USE_DIPU_PROFILER", 'False').lower() == 'false' :
+        return
+
     setattr(torch.profiler.profiler, 'kineto_available', dipu_kineto_available)
     setattr(torch.autograd.profiler, 'kineto_available', dipu_kineto_available)
     setattr(torch.autograd.profiler, '_prepare_profiler', _C._prepare_profiler)

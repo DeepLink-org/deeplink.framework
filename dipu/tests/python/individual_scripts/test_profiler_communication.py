@@ -1,5 +1,8 @@
 import os
+os.environ["FORCE_USE_DIPU_PROFILER"] = "True"
+
 import random
+import tempfile
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -56,7 +59,8 @@ def demo_basic_ddp(rank, world_size, port):
     )
     assert("c10d::allreduce_" in profile_output)
     assert("LaunchKernel_DiclAllreduce" in profile_output)
-    prof.export_chrome_trace(f"./dipu_resnet18_profiler_{rank}.json")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        prof.export_chrome_trace(f"{tmpdir}/dipu_resnet18_profiler_{rank}.json")
     cleanup()
 
 def test_profiler_communication():
