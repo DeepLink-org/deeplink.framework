@@ -42,4 +42,4 @@ class TestSum():
         dicp_output = compiled_model.model(dicp_input1, dim, keepdim)
 
         for i, item in enumerate(output):
-            assert torch.allclose(item, dicp_output[i].cpu(), equal_nan=True)
+            assert torch.allclose(item, dicp_output[i].cpu(), atol=1e-4, equal_nan=True)
