@@ -17,7 +17,7 @@ static c10::optional<at::Tensor> dipu_to_cpu(
   return cpu_tensor;
 }
 
-static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
+static at::Tensor to_cpu_with_half_to_float(const at::Tensor& devtensor) {
   auto cpu_tensor = devtensor.cpu();
   auto intype = devtensor.options().dtype_opt()->toScalarType();
   if (intype == at::ScalarType::Half) {
@@ -31,8 +31,8 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                                                  at::Tensor& out) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out"
                            << std::endl);
-  auto self_cpu = to_cpu_no_half(self);
-  auto out_cpu = to_cpu_no_half(self);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = to_cpu_with_half_to_float(self);
   out_cpu = at::silu_out(self_cpu, out_cpu);
   out.copy_(out_cpu);
   return out;
@@ -333,10 +333,10 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
 static at::Tensor& custom_fallback_dipu_addmm_out(
     const at::Tensor& self, const at::Tensor& mat1, const at::Tensor& mat2,
     const at::Scalar& beta, const at::Scalar& alpha, at::Tensor& out) {
-  auto self_cpu = to_cpu_no_half(self);
-  auto mat1_cpu = to_cpu_no_half(mat1);
-  auto mat2_cpu = to_cpu_no_half(mat2);
-  auto out_cpu = to_cpu_no_half(out);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat1_cpu = to_cpu_with_half_to_float(mat1);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
   out_cpu = at::addmm_out(out_cpu, self_cpu, mat1_cpu, mat2_cpu, beta, alpha);
   out.copy_(out_cpu);
   return out;
@@ -345,9 +345,9 @@ static at::Tensor& custom_fallback_dipu_addmm_out(
 static at::Tensor& custom_fallback_dipu_bmm_out(const at::Tensor& self,
                                                 const at::Tensor& mat2,
                                                 at::Tensor& out) {
-  auto self_cpu = to_cpu_no_half(self);
-  auto mat2_cpu = to_cpu_no_half(mat2);
-  auto out_cpu = to_cpu_no_half(out);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
   out_cpu = at::bmm_out(out_cpu, self_cpu, mat2_cpu);
   out.copy_(out_cpu);
   return out;
@@ -356,9 +356,9 @@ static at::Tensor& custom_fallback_dipu_bmm_out(const at::Tensor& self,
 static at::Tensor& custom_fallback_dipu_mm_out(const at::Tensor& self,
                                                const at::Tensor& mat2,
                                                at::Tensor& out) {
-  auto self_cpu = to_cpu_no_half(self);
-  auto mat2_cpu = to_cpu_no_half(mat2);
-  auto out_cpu = to_cpu_no_half(out);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
   out_cpu = at::mm_out(out_cpu, self_cpu, mat2_cpu);
   out.copy_(out_cpu);
   return out;
@@ -367,8 +367,8 @@ static at::Tensor& custom_fallback_dipu_mm_out(const at::Tensor& self,
 static at::Tensor custom_fallback_dipu_linear(
     const at::Tensor& input, const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias) {
-  auto input_cpu = to_cpu_no_half(input);
-  auto weight_cpu = to_cpu_no_half(weight);
+  auto input_cpu = to_cpu_with_half_to_float(input);
+  auto weight_cpu = to_cpu_with_half_to_float(weight);
   c10::optional<at::Tensor> bias_cpu = c10::nullopt;
 
   at::Tensor out;
