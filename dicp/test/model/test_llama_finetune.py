@@ -288,10 +288,10 @@ class TestLlamaFinetune():
         compiler_module = "torch._inductor.compile_fx" if is_inductor \
             else "dicp.dynamo_bridge.compile_fx"
 
-        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        res = trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
         model.save_pretrained(output_dir)
 
-        print(
-            "\n If there's a warning about missing keys above, please disregard :)"
-        )
+        assert res.training_loss > 0
+        assert res.training_loss < 20
+        assert res.metrics["train_runtime"] < 200
