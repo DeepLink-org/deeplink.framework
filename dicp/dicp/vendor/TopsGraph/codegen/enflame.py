@@ -944,7 +944,12 @@ class EnflameOverrides(OpOverrides):
     def Concatenate(op_var, out_shape, out_dtype, tensors, dim):
         return f"builder::Op {op_var} = builder::Concatenate({'{' + ', '.join(tensors) + '}'}, {dim});"
 
-    # Add an additional true flag for accuration in tops softmax.
+    """
+    Add an additional true flag for accuration in hlir_builder Softmax.
+    The third parameter, half_to_float, in aten._softmax represents whether cast
+    inputs from float16 to float32 or not, while the third parameter ,accurate,
+    in hlir_builder represents whether precision calculation is performed.
+    """
     @staticmethod
     def Softmax(op_var, out_shape, out_dtype, x, y):
         return f"builder::Op {op_var} = builder::Softmax({x}, {y}, true);"

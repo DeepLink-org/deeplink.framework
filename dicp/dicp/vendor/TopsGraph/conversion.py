@@ -400,6 +400,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def BatchNormBackward(*args, **kwargs):
         return tops_op.BatchNormBackward(*args, **kwargs)
 
+    """
+    Add an additional true flag for accuration in hlir_builder Softmax.
+    The third parameter, half_to_float, in aten._softmax represents whether cast
+    inputs from float16 to float32 or not, while the third parameter ,accurate,
+    in hlir_builder represents whether precision calculation is performed.
+    """
     @register_conversion(aten._softmax)
     def Softmax(self, a, dim, half_to_float):
         out_shape = fx_traceback.get_current_meta()["val"].shape

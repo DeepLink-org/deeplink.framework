@@ -551,6 +551,7 @@ class Expand(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.expand.default
 
+    # The third parameter broadcast_dims is only required in hlir_builder Expand.
     def __call__(self, *args, **kwargs):
         new_args = args[:2]
         return super().__call__(*new_args, **kwargs)
