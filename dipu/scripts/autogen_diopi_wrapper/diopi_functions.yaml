@@ -481,6 +481,7 @@
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   custom_code_at_the_beginning: |
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
@@ -744,6 +745,7 @@
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
+  custom_fallback: True
   device: [all, -cuda]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
@@ -1470,6 +1472,7 @@
   interface: diopiCosInp(ctx, self)
 
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   interface: diopiBmm(ctx, out, self, mat2)
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1484,6 +1487,7 @@
   interface: diopiNormalInp(ctx, self, mean, std, generator)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
@@ -2434,6 +2438,7 @@
 
 # this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  autocompare: disable
   dummy_call_diopi: True
   custom_fallback: True
   device: [cuda, camb, ascend, droplet, supa]
@@ -2445,6 +2450,7 @@
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  autocompare: disable
   custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
@@ -2453,6 +2459,7 @@
   interface: diopiCopyInp(ctx, src, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
+  autocompare: disable
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
