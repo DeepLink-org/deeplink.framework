@@ -72,6 +72,7 @@ DIPU_API diclResult_t diclAllReduce(const void* sendbuff, void* recvbuff,
                                     size_t count, at::ScalarType datatype,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
+  // TODO(wanglei): add .find() != .end() check.
   NCCL_THROW(ncclAllReduce(sendbuff, recvbuff, count, ncclDataType.at(datatype),
                            ncclOp.at(reduceOp), comm, stream));
   return DICL_SUCCESS;
