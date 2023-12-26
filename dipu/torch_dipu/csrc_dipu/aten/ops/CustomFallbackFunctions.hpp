@@ -22,9 +22,8 @@ static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
   auto intype = devtensor.options().dtype_opt()->toScalarType();
   if (intype == at::ScalarType::Half) {
     return cpu_tensor.to(at::ScalarType::Float);
-  } else {
-    return cpu_tensor;
   }
+  return cpu_tensor;
 }
 
 static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
@@ -33,6 +32,7 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                            << std::endl);
   auto self_cpu = to_cpu_no_half(self);
   auto out_cpu = to_cpu_no_half(self);
+  // NOLINTNEXTLINE(readability-suspicious-call-argument): It's the correct order
   out_cpu = at::silu_out(self_cpu, out_cpu);
   out.copy_(out_cpu);
   return out;
@@ -153,7 +153,9 @@ custom_fallback_dipu_convolution_backward_overrideable(
       grad_output_cpu, input_cpu, weight_cpu, c10::nullopt, stride, padding,
       dilation, transposed, output_padding, groups, output_mask_temp);
 
-  at::Tensor grad_input, grad_weight, grad_bias;
+  at::Tensor grad_input;
+  at::Tensor grad_weight;
+  at::Tensor grad_bias;
 
   if (output_mask[0]) {
     grad_input = std::get<0>(result).to(device);
@@ -226,8 +228,15 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   auto grad_output_cpu = grad_output.cpu();
   auto weight_cpu = weight.cpu();
 
-  at::Tensor grad_input_cpu, grad_weight_cpu, grad_bias_cpu;
-  at::Tensor grad_input, grad_weight, grad_bias;
+  at::Tensor grad_input;
+  at::Tensor grad_input_cpu;
+
+  at::Tensor grad_weight;
+  at::Tensor grad_weight_cpu;
+
+  at::Tensor grad_bias;
+  at::Tensor grad_bias_cpu;
+
   int64_t dims = input.dim();
   const auto device = input.device();
 

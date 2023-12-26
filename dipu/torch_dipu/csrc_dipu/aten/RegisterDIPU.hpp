@@ -18,6 +18,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                    torch::jit::Stack* stack);
 
 // Print the warning message only once for one process.
+// NOLINTBEGIN(bugprone-macro-parentheses): x cannot be in parentheses
 #define DIPU_LOG_WARNING_ONCE(x)     \
   do {                               \
     static bool should_print = true; \
@@ -26,6 +27,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       should_print = false;          \
     }                                \
   } while (0)
+// NOLINTEND(bugprone-macro-parentheses)
 
 // Check the environment variable and call the DIPU_LOG_WARNING_ONCE
 #define DIPU_OP_LOG_WARNING_ONCE(...)                      \
@@ -53,8 +55,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                               \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");           \
       }                                                                      \
-      DIPU_OP_LOG_WARNING_ONCE(opname << " will be fallback to cpu"          \
-                                      << std::endl);                         \
+      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"        \
+                                        << "\n");                            \
     }                                                                        \
   } while (false);
 
@@ -62,7 +64,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                                         wapper_func, custom_fallback_func)    \
   do {                                                                        \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
-        !(force_fallback || dipu::get_force_fallback(opname))) {              \
+        !((force_fallback) || dipu::get_force_fallback(opname))) {            \
       m.impl(opname, TORCH_FN(wapper_func));                                  \
     } else {                                                                  \
       if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {                 \
@@ -70,22 +72,24 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                                \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, ");            \
       }                                                                       \
-      DIPU_OP_LOG_WARNING_ONCE(opname << " will be fallback to cpu"           \
-                                      << std::endl);                          \
+      DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"         \
+                                        << "\n");                             \
       m.impl(opname, TORCH_FN(custom_fallback_func));                         \
     }                                                                         \
   } while (false);
 
 class DIPUOpRegister {
  public:
-  typedef void (*OpRegFunPtr)(torch::Library&);
+  using OpRegFunPtr = void (*)(torch::Library&);
 
  private:
   OpRegFunPtr fun_ptr_;
   torch::Library lib_;
+  // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
   static std::deque<std::tuple<torch::Library*, OpRegFunPtr>>
       dipuOpRegisterList;
   static std::mutex mutex_;
+  // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
  public:
   DIPUOpRegister(OpRegFunPtr fun_ptr, const char* ns,
@@ -97,7 +101,7 @@ class DIPUOpRegister {
       fun_ptr_(lib_);
     } else {
       std::lock_guard<std::mutex> guard(mutex_);
-      dipuOpRegisterList.push_back(std::make_tuple(&lib_, fun_ptr_));
+      dipuOpRegisterList.emplace_back(&lib_, fun_ptr_);
     }
   }
 
@@ -105,8 +109,6 @@ class DIPUOpRegister {
 };
 
 }  // namespace at
-
-namespace {
 
 #define DIPU_LIBRARY_IMPL(ns, k, m) _DIPU_LIBRARY_IMPL(ns, k, m, C10_UID)
 
@@ -124,6 +126,4 @@ namespace {
           []() { return [](torch::Library&) -> void {}; }),               \
       #ns, c10::make_optional(c10::DispatchKey::k), __FILE__, __LINE__);  \
   void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,              \
-                       uid)(torch::Library & m)
-
-}  // namespace
+                       uid)(torch::Library & (m))
