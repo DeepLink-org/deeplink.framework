@@ -31,23 +31,18 @@ constexpr bool kKinetoAvailable{true};
 
 using torch::profiler::perf_counters_t;
 using torch::profiler::impl::ActivityType;
-using torch::profiler::impl::AppendOnlyList;
 using torch::profiler::impl::approx_time_t;
 using torch::profiler::impl::ExtraFields;
 using torch::profiler::impl::KinetoObserverContext;
 using torch::profiler::impl::op_input_t;
 using torch::profiler::impl::ProfilerConfig;
-using torch::profiler::impl::ProfilerState;
-using torch::profiler::impl::RawTensorMetadata;
 using torch::profiler::impl::Result;
-using torch::profiler::impl::stacksToStr;
 using torch::profiler::impl::TensorMetadata;
 using torch::profiler::impl::kineto::ActivityTraceWrapper;
 using torch::profiler::impl::kineto::DeviceAndResource;
 using torch::profiler::impl::kineto::interface_trace_t;
 using torch::profiler::impl::kineto::kineto_ids;
 using torch::profiler::impl::python_tracer::CompressedEvent;
-using torch::profiler::impl::python_tracer::PythonTracerBase;
 
 using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
 using trace_ptr_t =
@@ -61,8 +56,8 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
       tags_.emplace_back(Tag::Scalar);
       // Scalars are small enough that they are stored in ivalues without an
       // extra memory alloc
-      // TODO: further optimize this by maybe giving Profiler access to the
-      // guts of IValue.
+      // TODO(caikun-pjlab): further optimize this by maybe giving Profiler
+      // access to the guts of IValue.
       ivalues_.emplace_back(value);
     } else if (value.isTensorList()) {
       tags_.emplace_back(Tag::TensorListBegin);
@@ -78,7 +73,7 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
 }
 
 void DIPUInputOutputEncoder::push(const at::Tensor& t) {
-  if (t.defined() && !t.is_nested()) {  // TODO fix nested sizes
+  if (t.defined() && !t.is_nested()) {  // TODO(caikun-pjlab) fix nested sizes
     tags_.emplace_back(Tag::Tensor);
     tensor_metadata_.emplace_back(t);
     tensor_sizes_strides_.copy(t.sizes());
@@ -196,8 +191,8 @@ uint64_t DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<
 // ---------------------------------
 std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
     const at::RecordFunction& fn) {
-  KinetoObserverContext::Event* event;
-  uint64_t corr_id;
+  KinetoObserverContext::Event* event = nullptr;
+  uint64_t corr_id = 0;
   std::tie(event, corr_id) = torch_ops_.op_events_.emplace_back(
       fn.seqNr(), fn.forwardThreadId(), fn.scope(), fn.isAsync(),
       fn.debugHandle(), fn.name());
@@ -212,7 +207,7 @@ std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
   }
 
   // backward nodes source range corresponds to the forward node
-  // TODO: consider using C++ stack trace
+  // TODO(caikun-pjlab): consider using C++ stack trace
   if (config_.with_stack && fn.scope() != at::RecordScope::BACKWARD_FUNCTION) {
     auto cs =
         torch::profiler::impl::prepareCallstack(torch::jit::currentCallstack());
@@ -244,7 +239,7 @@ std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
 namespace {
 template <typename T>
 struct StealOrDefault {
-  StealOrDefault(T& container)
+  explicit StealOrDefault(T& container)
       : container_{container}, it_{container.begin()} {}
 
   ~StealOrDefault() { container_.get().clear(); }
@@ -252,11 +247,10 @@ struct StealOrDefault {
   typename T::Iterator::value_type operator()() {
     if (it_.exhausted()) {
       return typename T::Iterator::value_type();
-    } else {
-      auto result = std::move(*it_);
-      ++it_;
-      return result;
     }
+    auto result = std::move(*it_);
+    ++it_;
+    return result;
   }
 
   std::reference_wrapper<T> container_;
@@ -266,8 +260,8 @@ struct StealOrDefault {
 
 void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     std::vector<std::shared_ptr<Result>>& out,
-    const std::function<time_t(approx_time_t)> time_converter,
-    const uint64_t tid, const DeviceAndResource& kineto_info) {
+    const std::function<time_t(approx_time_t)>& time_converter, uint64_t tid,
+    const DeviceAndResource& kineto_info) {
   // Plumb Autograd info to the top level annotation.
   auto it = op_events_.begin();
   for (C10_UNUSED const auto _ :
@@ -297,7 +291,8 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
 
   auto input_getter = inputs_outputs_.getNextShapesAndDtypes();
 
-  // TODO: CTAD will take care of template args when we move to C++17
+  // TODO(caikun-pjlab): CTAD will take care of template args when we move to
+  // C++17
   auto jit_stack = StealOrDefault<decltype(jit_stack_)>(jit_stack_);
   auto jit_module = StealOrDefault<decltype(jit_modules_)>(jit_modules_);
   auto extra_args = StealOrDefault<decltype(extra_args_)>(extra_args_);
@@ -342,7 +337,9 @@ struct SubQueueThreadCache {
 // `sub_queue_cache_.key_` before attempting to access `ref_`, and if `key_`
 // does not match the DIPURecordQueue's *unique* `id_` it will evict
 // `sub_queue_cache_` and fall back to a different mechanism.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<uint32_t> queue_id_{0};
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local SubQueueThreadCache sub_queue_cache_{0, nullptr};
 
 std::string toString(
@@ -384,7 +381,7 @@ auto kinetoEventCorrelationID(
 }
 }  // namespace
 
-DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(const uint64_t tid,
+DIPUThreadLocalSubqueue::DIPUThreadLocalSubqueue(uint64_t tid,
                                                  const ProfilerConfig& config)
     : tid_{tid}, config_{config}, kineto_info_{kineto_ids()} {
   libkineto::api().activityProfiler().recordThreadInfo();
@@ -404,7 +401,7 @@ DIPURecordQueue::DIPURecordQueue(const ProfilerConfig& config,
 }
 
 bool DIPURecordQueue::tracePython() const {
-  return config_.with_stack && activities_.count(ActivityType::CPU);
+  return config_.with_stack && (activities_.count(ActivityType::CPU) != 0U);
 }
 
 DIPUThreadLocalSubqueue* DIPURecordQueue::getSubqueue() {
@@ -447,19 +444,22 @@ void mark_finished(std::shared_ptr<Result>& r) {
   TORCH_INTERNAL_ASSERT(r->endTimeNS() >= r->start_time_ns_, r->name());
 }
 
-static constexpr const char* indexKey = "Ev Idx";
+constexpr const char* indexKey = "Ev Idx";
 
 void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
                         uint64_t start_time_us, uint64_t end_time_us) {
-  using namespace torch::profiler::impl::kineto;
-  TraceWrapper cpu_trace(start_time_us, "PyTorch Profiler");
+  using torch::profiler::impl::kineto::addMetadata;
+  using torch::profiler::impl::kineto::TraceWrapper;
+  TraceWrapper cpu_trace(static_cast<time_t>(start_time_us),
+                         "PyTorch Profiler");
 
   // Generate Kineto events for each event recorded by the PyTorch profiler.
+  constexpr time_t kNsPerUs = 1000;
   for (const auto i : c10::irange(results.size())) {
     const auto& e = results[i];
     const auto* activity = cpu_trace.addCPUActivity(
         e->name(), e->kinetoType(), e->kineto_info_, e->correlationID(),
-        e->start_time_ns_ / 1000, e->endTimeNS() / 1000);
+        e->start_time_ns_ / kNsPerUs, e->endTimeNS() / kNsPerUs);
 
     TORCH_INTERNAL_ASSERT(activity || !kKinetoAvailable);
     if (activity) {
@@ -468,7 +468,7 @@ void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
   }
 
   // Kineto adds the events that it collected.
-  cpu_trace.transferCpuTrace(end_time_us);
+  cpu_trace.transferCpuTrace(static_cast<int64_t>(end_time_us));
 }
 
 // There are two mechanisms that we use to connect Profiler and Kineto events.
@@ -512,7 +512,7 @@ class TransferEvents {
   }
 
  private:
-  static long long extractIndex(const std::string& metadata_json) {
+  static int64_t extractIndex(const std::string& metadata_json) {
     static const auto prefix = fmt::format("\"{}\": ", indexKey);
     auto pos = metadata_json.find(prefix);
     return (pos == std::string::npos) ? unmatchedIndex : [&]() {
@@ -565,7 +565,7 @@ class TransferEvents {
     }
   }
 
-  std::shared_ptr<Result> resultFromActivity(const itrace_t* activity) {
+  static std::shared_ptr<Result> resultFromActivity(const itrace_t* activity) {
     TORCH_INTERNAL_ASSERT(activity != nullptr);
 
     // Kineto is inconsistent with types, so we have to cast to int32.
@@ -573,8 +573,9 @@ class TransferEvents {
         static_cast<int32_t>(activity->deviceId()),
         static_cast<int32_t>(activity->resourceId())};
 
+    constexpr size_t kNsPerUs = 1000;
     auto event = Result::create(
-        activity->timestamp() * 1000,
+        activity->timestamp() * kNsPerUs,
         noTID,  // Placeholder
         device_and_resource,
         ExtraFields<torch::profiler::impl::EventType::Kineto>{
@@ -584,7 +585,7 @@ class TransferEvents {
             activity->type(),
             {/*id=*/static_cast<uint32_t>(activity->flowId()),
              /*type=*/static_cast<uint32_t>(activity->flowType()),
-             /*start=*/activity->flowStart()}});
+             /*start=*/static_cast<uint32_t>(activity->flowStart())}});
 
     // NB: It's tempting to set `event->kineto_activity_`; however we can only
     // guarantee that the events we passed to Kineto are of type
@@ -672,9 +673,10 @@ class TransferEvents {
       e->visit(c10::overloaded(
           [&](const ExtraFields<torch::profiler::impl::EventType::Kineto>& i) {
             // Flow takes priority over linked event.
-            const auto it = flow_map.find(i.flow.id);
+            const auto it = flow_map.find(static_cast<int>(i.flow.id));
             if (it != flow_map.end() &&
-                i.flow.type == libkineto::kLinkAsyncCpuGpu && !i.flow.start) {
+                i.flow.type == libkineto::kLinkAsyncCpuGpu &&
+                (i.flow.start == 0U)) {
               e->parent_ = it->second;
             }
 
@@ -696,7 +698,7 @@ class TransferEvents {
     }
   }
 
-  static constexpr long long unmatchedIndex = -1;
+  static constexpr int64_t unmatchedIndex = -1;
   static constexpr auto noTID = std::numeric_limits<uint64_t>::max();
   std::reference_wrapper<std::vector<std::shared_ptr<Result>>> results_;
   std::vector<const itrace_t*> trace_activities_;
@@ -710,7 +712,6 @@ ActivityTraceWrapper stopTrace() {
 trace_ptr_t addKinetoEvents(std::vector<std::shared_ptr<Result>>& results,
                             uint64_t start_time_us, uint64_t end_time_us,
                             const ProfilerConfig& config) {
-  using namespace torch::profiler::impl::kineto;
   passEventsToKineto(results, start_time_us, end_time_us);
 
   // In on demand mode kineto is directly controlled by other machinery.
@@ -743,58 +744,60 @@ void set_in_tree_building(std::vector<result_ptr_t>& results,
   }
 }
 
+void push_event(std::shared_ptr<Result>& event,
+                ska::flat_hash_map<uint64_t, std::shared_ptr<Result>>& stacks,
+                std::priority_queue<result_ptr_t, std::vector<result_ptr_t>,
+                                    ResultGreater>& end_events_) {
+  // Kineto builds subtrees using correlation ids and flows, so some Kineto
+  // events are already marked finished before the main tree building
+  // algorithm. It's fine to ignore them; the root event of these subtrees
+  // not a Kineto op and will be handled normally.
+  using op_fields = ExtraFields<torch::profiler::impl::EventType::TorchOp>;
+
+  if (c10::holds_alternative<
+          ExtraFields<torch::profiler::impl::EventType::Kineto>>(
+          event->extra_fields_) &&
+      event->finished_) {
+    return;
+  }
+
+  TORCH_INTERNAL_ASSERT(event->parent_.expired());
+  for (const auto& child : event->children_) {
+    TORCH_INTERNAL_ASSERT(child->finished_);
+  }
+  TORCH_INTERNAL_ASSERT(!event->finished_);
+
+  auto parent_it = stacks.find(event->start_tid_);
+  if (parent_it == stacks.end()) {
+    auto fwd_tid = event->visit(
+        c10::overloaded([](const op_fields& i) { return i.forward_tid_; },
+                        [](const auto&) -> uint64_t { return 0; }));
+    if (fwd_tid) {
+      parent_it = stacks.find(fwd_tid);
+    }
+  } else {
+    event->parent_ = parent_it->second;
+    parent_it->second->children_.push_back(event);
+  }
+
+  if (event->endTimeNS() > event->start_time_ns_) {
+    stacks[event->start_tid_] = event;
+    end_events_.push(event);
+  } else if (event->endTimeNS() == std::numeric_limits<time_t>::min()) {
+    // We use min time to indicate the lack of a termination event, so if we
+    // encounter such a case we don't push to `end_events_`.
+    stacks[event->start_tid_] = event;
+  } else {
+    mark_finished(event);
+  }
+}
+
 void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
   set_in_tree_building(sorted_events, true);
 
-  using op_fields = ExtraFields<torch::profiler::impl::EventType::TorchOp>;
   ska::flat_hash_map<uint64_t, std::shared_ptr<Result>> stacks;
   std::priority_queue<result_ptr_t, std::vector<result_ptr_t>, ResultGreater>
       end_events_;
-
-  auto push_event = [&stacks, &end_events_](std::shared_ptr<Result>& event) {
-    // Kineto builds subtrees using correlation ids and flows, so some Kineto
-    // events are already marked finished before the main tree building
-    // algorithm. It's fine to ignore them; the root event of these subtrees
-    // not a Kineto op and will be handled normally.
-    if (c10::holds_alternative<
-            ExtraFields<torch::profiler::impl::EventType::Kineto>>(
-            event->extra_fields_) &&
-        event->finished_) {
-      return;
-    }
-
-    TORCH_INTERNAL_ASSERT(event->parent_.expired());
-    for (const auto& child : event->children_) {
-      TORCH_INTERNAL_ASSERT(child->finished_);
-    }
-    TORCH_INTERNAL_ASSERT(!event->finished_);
-
-    auto parent_it = stacks.find(event->start_tid_);
-    if (parent_it == stacks.end()) {
-      auto fwd_tid = event->visit(
-          c10::overloaded([](const op_fields& i) { return i.forward_tid_; },
-                          [](const auto&) -> uint64_t { return 0; }));
-      if (fwd_tid) {
-        parent_it = stacks.find(fwd_tid);
-      }
-    }
-
-    if (parent_it != stacks.end()) {
-      event->parent_ = parent_it->second;
-      parent_it->second->children_.push_back(event);
-    }
-
-    if (event->endTimeNS() > event->start_time_ns_) {
-      stacks[event->start_tid_] = event;
-      end_events_.push(event);
-    } else if (event->endTimeNS() == std::numeric_limits<time_t>::min()) {
-      // We use min time to indicate the lack of a termination event, so if we
-      // encounter such a case we don't push to `end_events_`.
-      stacks[event->start_tid_] = event;
-    } else {
-      mark_finished(event);
-    }
-  };
 
   auto pop_event = [&stacks](std::shared_ptr<Result> event) {
     if (event->finished_) {
@@ -827,7 +830,7 @@ void build_tree(std::vector<std::shared_ptr<Result>>& sorted_events) {
       pop_event(end_events_.top());
       end_events_.pop();
     }
-    push_event(event);
+    push_event(event, stacks, end_events_);
   }
 
   // Cleanup remaining exit events.
@@ -873,12 +876,10 @@ int64_t adjust_durations_dfs(std::shared_ptr<Result>& r) {
                         r->name());
           }));
       return children_total_duration;
-    } else {
-      return original_duration;
     }
-  } else {
-    return 0;
+    return original_duration;
   }
+  return 0;
 }
 
 /**
@@ -965,6 +966,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
 
   // Used as a replacement of if-constexpr (C++ 17) to implement static
   // polymorphism.
+  constexpr time_t kNsPerUs = 1000;
   struct {
     std::reference_wrapper<decltype(converter)> convert;
     using Event = torch::profiler::impl::EventType;
@@ -972,7 +974,7 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
       return convert(i.start_time_);
     }
     time_t operator()(const ExtraFields<Event::Backend>& i) const {
-      return i.start_time_us_ * 1000;
+      return i.start_time_us_ * kNsPerUs;
     }
   } start_time_of{std::ref(converter)};
 
@@ -1012,8 +1014,9 @@ DIPURecordQueue::getRecords(std::function<time_t(approx_time_t)> time_converter,
   }
 
   if (python_tracer_) {
-    for (const auto& i : python_tracer_->getEvents(converter, python_enters,
-                                                   end_time_us * 1000)) {
+    for (const auto& i : python_tracer_->getEvents(
+             converter, python_enters,
+             static_cast<time_t>(end_time_us) * kNsPerUs)) {
       out.push_back(i);
     }
     python_tracer_.reset();

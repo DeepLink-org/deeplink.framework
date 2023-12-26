@@ -2,4 +2,4 @@
 Language: Cpp
 BasedOnStyle: Google
 DerivePointerAlignment: false
-InsertNewlineAtEOF: true
+# InsertNewlineAtEOF: true

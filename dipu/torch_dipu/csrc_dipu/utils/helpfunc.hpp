@@ -2,10 +2,9 @@
 #pragma once
 #include <csrc_dipu/base/basedef.h>
 
-using dipu::devapis::VendorDeviceType;
-
 namespace dipu {
 
+using dipu::devapis::VendorDeviceType;
 constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
   switch (t) {
     case VendorDeviceType::MLU:
@@ -20,6 +19,8 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
       return "SUPA";
     case VendorDeviceType::DROPLET:
       return "DROPLET";
+    case VendorDeviceType::KLX:
+      return "KLX";
   }
   return "null";
 }

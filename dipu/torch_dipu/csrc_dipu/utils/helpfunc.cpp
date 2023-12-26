@@ -12,6 +12,7 @@ bool isDeviceTensor(const at::Tensor& tensor) {
   return tensor.unsafeGetTensorImpl()->device_type() == dipu::DIPU_DEVICE_TYPE;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool in_bad_fork = false;
 bool is_in_bad_fork() { return in_bad_fork; }
 
