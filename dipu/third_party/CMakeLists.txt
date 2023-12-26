@@ -68,6 +68,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
+		      BUILD_ALWAYS TRUE
                       INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
 
   ## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
