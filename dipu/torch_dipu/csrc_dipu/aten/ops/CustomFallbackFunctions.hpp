@@ -384,7 +384,7 @@ static at::Tensor custom_fallback_dipu_linear(
   }
 
   out_cpu = at::linear(input_cpu, weight_cpu, bias_cpu);
-  out = out_cpu.to(input.device());
+  out = out_cpu.to(input.device()).to(input.options().dtype_opt()->toScalarType());
   return out;
 }
 
