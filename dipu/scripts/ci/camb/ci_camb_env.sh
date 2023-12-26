@@ -14,7 +14,7 @@ export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PLATFORM}/dep/DIOPI_pytorch/pytorch2.0:${PYTHONPATH}
-export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PATH}
+export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/lcov-1.14/bin:${PATH}
 export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
 
 
