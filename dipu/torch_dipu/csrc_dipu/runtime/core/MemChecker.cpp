@@ -73,11 +73,15 @@ int32_t MemChecker::log_interval() {
 
 std::string MemChecker::current_state() const {
   std::stringstream stream;
-  stream << "current block num = " << blocks_.size()
-         << ", total_size = " << (total_size_ >> 20) << "MB"
-         << ", insert count = " << insert_cnt_
-         << ", max block num = " << max_block_num()
-         << ", log interval = " << log_interval();
+  stream
+      << "current block num = "
+      << blocks_.size()
+      // convert B to MB
+      // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+      << ", total_size = " << (total_size_ >> 20) << "MB"
+      << ", insert count = " << insert_cnt_
+      << ", max block num = " << max_block_num()
+      << ", log interval = " << log_interval();
   return stream.str();
 }
 
