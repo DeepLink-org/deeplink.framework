@@ -3,7 +3,8 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/Log.h>
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 
 inline bool checkTensorDevice() {
   static bool enable = []() {
@@ -11,7 +12,7 @@ inline bool checkTensorDevice() {
     if (env_ptr == nullptr) {
       return false;
     }
-    return std::atoi(env_ptr) > 0 ? true : false;
+    return std::atoi(env_ptr) > 0;
   }();
   return enable;
 }
@@ -25,7 +26,6 @@ inline void synchronizeIfEnable() {
                   << std::endl;
     dipu::getCurrentDIPUStream().synchronize();
   }
-  return;
 }
 
 inline int dumpOpArgLevel() {
@@ -90,19 +90,19 @@ std::string dumpArg(const at::Tensor& tensor) {
 }
 
 template <>
-std::string dumpArg(const at::Scalar& scalar) {
+std::string dumpArg(const at::Scalar& t) {
   std::stringstream stream;
-  stream << scalar;
+  stream << t;
   return stream.str();
 }
 
 template <>
-std::string dumpArg(const c10::string_view& str) {
-  return dumpArg(std::string(str.data()));
+std::string dumpArg(const c10::string_view& t) {
+  return dumpArg(std::string(t.data()));
 }
 
 template <>
-std::string dumpArg(const at::Generator& generator) {
+std::string dumpArg(const at::Generator& t) {
   return "";
 }
 
@@ -136,7 +136,7 @@ static std::vector<int64_t> infer_reduce_op_shape(
     const container1<T1>& input_shape, const container2<T2>& dims,
     bool keepdim) {
   if (dims.size() <= 0) {
-    return std::vector<int64_t>();
+    return {};
   }
   if (keepdim) {
     std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
@@ -146,48 +146,48 @@ static std::vector<int64_t> infer_reduce_op_shape(
       output_shape[dim] = 1;
     }
     return output_shape;
-  } else {
-    std::vector<int64_t> output_shape;
-    output_shape.reserve(input_shape.size() - dims.size());
-    for (int i = 0; i < input_shape.size(); ++i) {
-      bool reduce_dim = false;
-      for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
-        auto dim = *iter;
-        dim += dim < 0 ? input_shape.size() : 0;
-        if (dim == i) {
-          reduce_dim = true;
-          break;
-        }
-      }
-      if (reduce_dim == false) {
-        output_shape.push_back(input_shape.at(i));
+  }
+  std::vector<int64_t> output_shape;
+  output_shape.reserve(input_shape.size() - dims.size());
+  for (int i = 0; i < input_shape.size(); ++i) {
+    bool reduce_dim = false;
+    for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
+      auto dim = *iter;
+      dim += dim < 0 ? input_shape.size() : 0;
+      if (dim == i) {
+        reduce_dim = true;
+        break;
       }
     }
-    return output_shape;
+    if (!reduce_dim) {
+      output_shape.push_back(input_shape.at(i));
+    }
   }
+  return output_shape;
 }
 
 static std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
   if (a.defined() && b.defined()) {
     try {
-      if (at::allclose(a.cpu(), b.cpu(), 1e-4, 1e-5, true)) {
+      constexpr double tolerance_absolute = 1e-4;
+      constexpr double tolerance_relative = 1e-5;
+      if (at::allclose(a.cpu(), b.cpu(), tolerance_absolute, tolerance_relative,
+                       true)) {
         return "allclose";
-      } else {
-        auto diff = at::abs(a.cpu() - b.cpu());
-        auto mae = diff.mean().item<double>();
-        auto max_diff = diff.max().item<double>();
-        return "not_close, max diff: " + std::to_string(max_diff) +
-               ", MAE: " + std::to_string(mae);
       }
+      auto diff = at::abs(a.cpu() - b.cpu());
+      auto mae = diff.mean().item<double>();
+      auto max_diff = diff.max().item<double>();
+      return "not_close, max diff: " + std::to_string(max_diff) +
+             ", MAE: " + std::to_string(mae);
     } catch (...) {
       return "compare_error: not_close";
     }
   } else {
     if (a.defined() != b.defined()) {
       return "not_close, one of tensor inputs is empty";
-    } else {
-      return "allclose";
     }
+    return "allclose";
   }
 }
 
@@ -203,4 +203,5 @@ static std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
   return result;
 }
 
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

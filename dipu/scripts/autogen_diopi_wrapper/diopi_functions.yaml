@@ -2441,7 +2441,7 @@
   autocompare: disable
   dummy_call_diopi: True
   custom_fallback: True
-  device: [cuda, camb, ascend, droplet, supa]
+  device: [cuda, camb, ascend, droplet, supa, kunlunxin]
   custom_code_at_the_beginning: |
     dipu::getDipuCopyInstance()->run(self, src, non_blocking);
     return self;

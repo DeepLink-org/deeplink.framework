@@ -237,8 +237,10 @@ DIPU_DEFINE_CAST_POLICY_CONVERSION(kPromote, promote);
 
 // This function will throw an error message when
 // torch.nn.functional.binary_cross_entropy is called within an autocast block
-Tensor DipuBinaryCrossEntropyBanned(const Tensor&, const Tensor&,
-                                    const c10::optional<Tensor>&, int64_t) {
+Tensor DipuBinaryCrossEntropyBanned(const Tensor& /*unused*/,
+                                    const Tensor& /*unused*/,
+                                    const c10::optional<Tensor>& /*unused*/,
+                                    int64_t /*unused*/) {
   AT_ERROR(
       R"(torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.
 Many models use a sigmoid layer right before the binary cross entropy layer.

@@ -35,6 +35,7 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
+// TODO(fandaoyi): check memory leak
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
@@ -179,13 +180,15 @@ static PyObject* dipuMockCudaTensors(PyObject* _unused, PyObject* noargs) {
 // we prefer to use pybind11 to export patch func, cpython is used only patching
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-non-const-global-variables)
-static PyMethodDef TorchTensorMethods[] = {
-    {"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
-     METH_VARARGS | METH_KEYWORDS, nullptr},
-    {"_mockCudaTensor", reinterpret_cast<PyCFunction>(dipuMockCudaTensors),
-     METH_NOARGS, nullptr},
-    {nullptr, nullptr, 0, nullptr}};
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static std::array<PyMethodDef, 3> TorchTensorMethods = {
+    {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
+      METH_VARARGS | METH_KEYWORDS, nullptr},
+     {"_mockCudaTensor", reinterpret_cast<PyCFunction>(dipuMockCudaTensors),
+      METH_NOARGS, nullptr},
+     {nullptr, nullptr, 0, nullptr}}};
 
-DIPU_API PyMethodDef* exportTensorFunctions() { return TorchTensorMethods; }
+DIPU_API PyMethodDef* exportTensorFunctions() {
+  return TorchTensorMethods.data();
+}
 }  // namespace dipu

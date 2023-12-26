@@ -8,7 +8,8 @@
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/runtime/rthelper.h>
 
-namespace dipu::native {
+namespace dipu {
+namespace native {
 
 bool DIPUATenFunctions::is_pinned(const at::Tensor& self,
                                   c10::optional<at::Device> device) {
@@ -27,8 +28,8 @@ at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self,
   auto allocator = dipu::getAllocator(at::DeviceType::CPU);
   auto storage =
       c10::Storage(c10::Storage::use_byte_size_t(),
-                   at::detail::computeStorageNbytes(
-                       self.sizes(), self.strides(), self.dtype().itemsize()),
+                   static_cast<int64_t>(at::detail::computeStorageNbytes(
+                       self.sizes(), self.strides(), self.dtype().itemsize())),
                    allocator, false);
   auto tensor = at::cpu::empty({0}, self.options())
                     .set_(storage, 0, self.sizes(), self.strides());
@@ -36,4 +37,5 @@ at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self,
   return tensor;
 }
 
-}  // namespace dipu::native
+}  // namespace native
+}  // namespace dipu

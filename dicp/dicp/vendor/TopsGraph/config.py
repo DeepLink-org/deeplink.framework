@@ -22,7 +22,7 @@ decomp_del_keys = [aten._native_batch_norm_legit_functional.default,
                    aten.hardswish.default, aten.gelu_backward.default,
                    aten.hardswish_backward.default, aten.dot.default,
                    aten.zeros_like.default, aten.ones_like.default,
-                   aten.bmm.default, aten.copy.default]
+                   aten.bmm.default, aten.copy.default, aten.stack.default]
 
 
 def get_decomp():
