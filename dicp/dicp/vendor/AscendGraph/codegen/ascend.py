@@ -729,14 +729,14 @@ class AscendOverrides:
         return id_op.to_node()
 
     @staticmethod
-    def adds(name, x, y):
+    def Adds(name, x, y):
         adds_op = OP(name, "Adds")
         adds_op.set_input("x", x)
         adds_op.set_attr_float("value", float(y))
         return adds_op.to_node()
 
     @staticmethod
-    def add(name, x, y):
+    def Add(name, x, y):
         add_op = OP(name, "Add")
         add_op.set_input("x1", x)
         add_op.set_input("x2", y)
@@ -768,12 +768,6 @@ class AscendOverrides:
         transpose_op.set_input("x", input)
         transpose_op.set_input("perm", perm)
         return transpose_op.to_node()
-
-    @staticmethod
-    def reciprocal(name, x):
-        op = OP(name, "Reciprocal")
-        op.set_input("x", x)
-        return op.to_node()
 
     @staticmethod
     def Sqrt(name, x):
