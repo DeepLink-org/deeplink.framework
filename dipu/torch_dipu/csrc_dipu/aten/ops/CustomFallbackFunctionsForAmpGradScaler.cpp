@@ -53,6 +53,15 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
   }
 }
 
+// growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a size=1 tensor.
+void inline set_growth_tracker(at::Tensor& growth_tracker, int value) {
+#ifdef DIPU_TORCH200
+  growth_tracker[0] = value;
+#else
+  growth_tracker.fill_(c10::Scalar(value));
+#endif
+}
+
 // Updates the scale tensor in place.
 //
 // Args:
@@ -87,17 +96,16 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
               "found_inf must be a float tensor.");
   if (static_cast<bool>(found_inf.item<float>())) {
     current_scale *= backoff_factor;
-    growth_tracker.fill_(c10::Scalar(0));
+    set_growth_tracker(growth_tracker, 0);
   } else {
     // Entering this branch means we just carried out a successful step,
     // so growth_tracker is incremented before comparing to growth_interval.
     auto successful = growth_tracker.item<int>() + 1;
     if (successful == growth_interval) {
       current_scale *= growth_factor;
-      growth_tracker.fill_(c10::Scalar(0));
+      set_growth_tracker(growth_tracker, 0);
     } else {
-      //growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a size=1 tensor.
-      growth_tracker.fill_(c10::Scalar(successful));
+      set_growth_tracker(growth_tracker, successful);
     }
   }
   return current_scale;

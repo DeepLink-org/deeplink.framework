@@ -42,7 +42,10 @@ using torch::autograd::profiler::KinetoEvent;
 using torch::autograd::profiler::post_process_t;
 using torch::autograd::profiler::ProfilerResult;
 using torch::profiler::impl::ActiveProfilerType;
-// using torch::profiler::impl::dtypesToStr;
+#ifdef DIPU_TORCH200
+using torch::profiler::impl::dtypesToStr;
+#else
+#endif
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;
 using torch::profiler::impl::op_input_t;
@@ -161,10 +164,12 @@ struct AddGenericMetadata : public MetadataBase {
     if (!shapes_and_dtypes.first.empty()) {
       addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
     }
-
-    // if (!shapes_and_dtypes.second.empty()) {
-    //   addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
-    // }
+#ifdef DIPU_TORCH200
+    if (!shapes_and_dtypes.second.empty()) {
+      addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
+    }
+#else
+#endif
 
     if (config_ && !config_->experimental_config.performance_events.empty()) {
       auto& event_names = config_->experimental_config.performance_events;

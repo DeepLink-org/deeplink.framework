@@ -63,7 +63,11 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-    const c10::optional<at::Tensor>& sparse_indices, int64_t timeout) {
+#ifdef DIPU_TORCH200
+#else
+    const c10::optional<at::Tensor>& sparse_indices,
+#endif
+    int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)

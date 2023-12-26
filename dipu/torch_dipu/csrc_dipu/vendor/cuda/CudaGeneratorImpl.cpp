@@ -4,8 +4,11 @@
 #include <csrc_dipu/runtime/core/DIPUGeneratorImpl.h>
 
 namespace dipu {
-
-static const size_t states_size = 0; // 200 * sizeof(4120);
+#ifdef DIPU_TORCH200
+static const size_t states_size = 200 * sizeof(4120);
+#else
+static const size_t states_size = 0;
+#endif
 static const size_t seed_size = sizeof(uint64_t);
 static const size_t offset_size = sizeof(int64_t);
 static const size_t total_size = states_size + seed_size + offset_size;

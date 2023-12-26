@@ -39,8 +39,12 @@ enum class DIPUCopyType {
 
 // Align with pytorch's behavior, see TensorIterator.cpp compute_mem_overlaps()
 inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
-  // seems torch2.1 not check overlap
-  // assert_no_internal_overlap(dst);
+#ifdef DIPU_TORCH200
+  assert_no_internal_overlap(dst);
+#else
+  // seems torch2.1.1 not check internal overlap
+#endif
+
   assert_no_partial_overlap(dst, src);
 }
 

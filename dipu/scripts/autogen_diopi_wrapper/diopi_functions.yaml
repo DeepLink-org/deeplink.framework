@@ -1,5 +1,7 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
+  device: [camb]  # op gen only on these device.
+  torch_version: [200,]  # op gen only on these torch version.
   register_op: False # Whether generate register code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
