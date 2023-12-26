@@ -799,9 +799,8 @@ class GetTupleElement(Operator):
 
 
 class MakeTuple(Operator):
-    def __init__(self, a, b):
+    def __init__(self, *args):
         super().__init__("MakeTuple")
-        self.torch_op = torch.empty_like
 
     def __call__(self, *args):
         return (arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)

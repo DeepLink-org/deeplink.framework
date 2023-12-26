@@ -2,11 +2,18 @@ import torch
 import torch.fx
 from torch.fx import replace_pattern
 from torch.fx.node import Argument, Target
+from typing import Optional
+from torch._subclasses import FakeTensor, FakeTensorMode
+from torch.utils._pytree import tree_map, tree_flatten
 import torch.fx.traceback as fx_traceback
 from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.codegen.utils import symint_in_shape
+from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
+from contextlib import nullcontext
+from torch._functorch import config
+from torch.fx.experimental.symbolic_shapes import ShapeEnv
 
 
 class OpSetTransformer:
@@ -138,10 +145,63 @@ if is_torch_210:
             lazy_register_backend_patterns(
                 self._patterns, tuple(patterns_cls_list))
 
+        # TODO refine code
+        def infer_shape_dtype(self, module: torch.fx.GraphModule):
+            def make_tensor_meta(x) -> Optional[TensorMetadata]:
+                if isinstance(x, FakeTensor):
+                    return _extract_tensor_metadata(x)
+                else:
+                    return None
+
+            def get_fake_mode_from_args(args):
+                shape_env = ShapeEnv() if torch._dynamo.config.dynamic_shapes else None
+                fake_mode = None
+                tmp_args, _ = tree_flatten(args)
+                for arg in tmp_args:
+                    if isinstance(arg, FakeTensor):
+                        fake_mode = arg.fake_mode
+                        break
+                fake_mode = (FakeTensorMode(shape_env=shape_env) if config.fake_tensor_allow_meta else nullcontext()) if fake_mode is None else fake_mode
+                return fake_mode
+
+            def get_meta_val(node, *args, **kwargs):
+                def get_meta(x):
+                    return x if not hasattr(x, "meta") else x.meta["val"]
+                new_args = tree_map(get_meta, args)
+
+                fake_mode = get_fake_mode_from_args(new_args)
+
+                def make_faketensor(x):
+                    if not isinstance(x, torch.Tensor) or (isinstance(x, FakeTensor) and x.fake_mode == fake_mode):
+                        return x
+                    if isinstance(x, FakeTensor):
+                        x.fake_mode = fake_mode
+                        return x
+                    return FakeTensor.from_tensor(x, fake_mode)
+                new_args = tree_map(make_faketensor, new_args)
+
+                def make_cpu(x):
+                    if isinstance(x, torch.Tensor):
+                        return x.to("cpu")
+                    return x
+                new_args = tree_map(make_cpu, new_args)
+
+                with fake_mode:
+                    try:
+                        return node.target(*new_args, **kwargs)
+                    except Exception as e:
+                        raise RuntimeError("infer shape and dtype failed")
+
+            for n in module.graph.nodes:
+                if n.op == "call_function" and "val" not in n.meta and "tuple" not in n.name:
+                    n.meta["val"] = get_meta_val(n, *n.args, **n.kwargs)
+                    n.meta["tensor_meta"] = make_tensor_meta(n.meta["val"])
+
         def transform(self, module: torch.fx.GraphModule):
             match_count = self._patterns.apply(module)
             if match_count:
                 stable_topological_sort(module.graph)
                 module.graph.lint()
                 module.recompile()
+                self.infer_shape_dtype(module)
             return module

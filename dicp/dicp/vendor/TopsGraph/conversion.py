@@ -191,7 +191,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(operator.getitem)
     def GetTupleElement(self, a, dim, **kwargs):
-        dim = dim % len(a.node.meta["val"])
+        dim = dim % len(a.node.args) if "ret_tuples" in a.node.name else dim % len(a.node.meta["val"])
         return self.get_proxy(tops_op.GetTupleElement, (a, dim), kwargs)
 
     @register_conversion(aten.index.Tensor)
@@ -308,7 +308,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         in_shape = a.node.meta["val"].shape
         if dim is None:
             dim = list(range(len(in_shape)))
-            return self.get_proxy(tops_op.ReduceMean, (a, dim))
+            return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 

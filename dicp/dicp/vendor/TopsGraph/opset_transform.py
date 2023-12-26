@@ -20,7 +20,7 @@ class HandleInplaceCopyPass():
         inplace_dict = {}
         for node in reversed(nodes):
             if node.op not in ["placeholder", "output"] and not isinstance(node.target, str):
-                if node.target.name() == "Copy_":
+                if hasattr(node.target, "name") and node.target.name() == "Copy_":
                     if node.args[0].op == "placeholder" and node.args[0].name not in inplace_dict.values():
                         inplace_outputs.append(node.args[1])
                         inplace_dict[node.args[1].name] = node.args[0].name
