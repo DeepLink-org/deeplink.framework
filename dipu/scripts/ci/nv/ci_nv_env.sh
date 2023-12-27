@@ -45,4 +45,10 @@ export DIPU_HOST_MEMCACHING_ALGORITHM=BF
 export DIPU_PATCH_CUDA_CACHED_ALLOCATOR=0
 export DIPU_CHECK_TENSOR_DEVICE=1
 
+# Setting OMP_NUM_THREADS environment variable for each process in default,
+# to avoid your system being overloaded, please further tune the variable
+# for optimal performance in your application as needed.
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+
 source activate $ENV_NAME
