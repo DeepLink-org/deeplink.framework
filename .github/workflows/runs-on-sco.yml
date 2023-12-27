@@ -12,9 +12,9 @@ on:
       - ".git*"
       - "CODE_OF_CONDUCT**"
 
-concurrency:
-  group: sco-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+#concurrency:
+#  group: sco-${{ github.head_ref || github.ref }}
+#  cancel-in-progress: true
 
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
