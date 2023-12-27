@@ -31,10 +31,24 @@ jobs:
         with:
           build_shell: "
               source dicp/scripts/ci/ascend/dipu_env.sh && \
+              rm -rf /tmp/torchinductor_autolink/* && \
+              rm -rf /tmp/dicp_ascend/* && \
+              cd /mnt/cache/share/deeplinkci/dicp_env/transformers && \
+              pip uninstall transformers -y && \
+              patch -p1 < modeling_llama.diff && patch -p1 < utils.diff && \
+              python setup.py clean && \
+              python setup.py install --user && \
+              patch -R -p1 < modeling_llama.diff && patch -R -p1 < utils.diff && \
+              cd - && \
+              cd /mnt/cache/share/deeplinkci/dicp_env/accelerate && \
+              pip uninstall accelerate -y && \
+              python setup.py clean && \
+              python setup.py install --user && \
+              cd - && \
               pip uninstall torch_dipu -y && \
               pip uninstall dicp -y && \
-              cd dipu && python setup.py install --user && \
-              cd ../dicp && python setup.py install --user && \
+              cd dipu && python setup.py clean && python setup.py install --user && \
+              cd ../dicp && python setup.py clean && python setup.py install --user && \
               source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models && \
               export TEST_DIR=$(pwd)/test && echo ${TEST_DIR} && \
               bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
