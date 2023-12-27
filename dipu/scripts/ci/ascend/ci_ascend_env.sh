@@ -14,6 +14,9 @@ export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${ASCEND_TORCH_DIR}
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
 
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 ARCH=$(uname -m)
