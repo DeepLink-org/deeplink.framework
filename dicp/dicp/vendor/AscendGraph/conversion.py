@@ -474,7 +474,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             value = self.get_proxy(ascend_op.Cast, (value, "FLOAT16"))
         return self.get_proxy(ascend_op.MaskedFill, (x, mask, value))
 
-    @register_conversion(torch.ops.aten.scatter.value)
+    @register_conversion([torch.ops.aten.scatter.src, torch.ops.aten.scatter.value])
     def scatter(self, var, dim, index, value):
         assert isinstance(dim, int)
         index_shape = list(index.node.meta['val'].shape)
