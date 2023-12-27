@@ -710,8 +710,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             padding = [0, 0, 0, 0, padding[0],
                        padding[0], padding[1], padding[1]]
             paddings_const = self.get_proxy(
-                # ascend_op.Const, (padding, [4, 2], torch.int32, "NCHW"))
-                ascend_op.Const, (padding, torch.int32, [4, 2]))
+                ascend_op.Const, (padding, [4, 2], torch.int32, "NCHW"))
             x = self.get_proxy(ascend_op.PadV3, (x, paddings_const))
         fwd_out_op = self.get_proxy(
             ascend_op.MaxPool, (x, ksize, strides, "VALID", "NCHW"))
