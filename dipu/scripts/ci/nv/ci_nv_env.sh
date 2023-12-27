@@ -1,5 +1,7 @@
 PLATFORM=/mnt/cache/share/platform
 ENV_NAME=pt2.0_diopi
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 export PATH=`python ${PLATFORM}/env/clear_path.py PATH`
 export LD_LIBRARY_PATH=`python ${PLATFORM}/env/clear_path.py LD_LIBRARY_PATH`
 GCC_ROOT=${PLATFORM}/dep/gcc-10.2
