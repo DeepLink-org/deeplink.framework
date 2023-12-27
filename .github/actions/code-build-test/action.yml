@@ -81,6 +81,10 @@ runs:
         else
           export CI=true
           source ~/.bashrc
-          cd ${WORK_PATH} && rm -rf ${JOB_NAME}  && cp -R source ${JOB_NAME} && cd ${JOB_NAME}
+          cd ${WORK_PATH} 
+          if [ "${{ inputs.cover_job }}" == "0" ];then
+              rm -rf ${JOB_NAME}  && cp -R source ${JOB_NAME}
+          fi
+          cd ${JOB_NAME}
           ${{ inputs.build_shell }} ${cleaner_shell}
         fi
