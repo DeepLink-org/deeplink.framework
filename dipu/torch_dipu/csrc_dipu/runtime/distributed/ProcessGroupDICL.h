@@ -174,6 +174,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   ~ProcessGroupDICL() override;
 
+  // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
   const std::string getBackendName() const override {
     return DICL_BACKEND_NAME;
   }
@@ -184,8 +185,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Work> allreduce(
       std::vector<at::Tensor>& tensors,
-      // FIXME: stop using default argument later
-      const AllreduceOptions& opts = AllreduceOptions()) override;
+      const AllreduceOptions& opts /* = AllreduceOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce(
       std::vector<at::Tensor>& tensors,
@@ -197,12 +197,12 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const GatherOptions& opts /* = GatherOptions() */) override;
 
   c10::intrusive_ptr<Work> allgather(
-      std::vector<std::vector<at::Tensor>>& output_tensors,
-      std::vector<at::Tensor>& input_tensors,
+      std::vector<std::vector<at::Tensor>>& outputTensors,
+      std::vector<at::Tensor>& inputTensors,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> _allgather_base(
-      at::Tensor& output_tensor, at::Tensor& input_tensor,
+      at::Tensor& outputTensor, at::Tensor& inputTensor,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce_scatter(
@@ -211,7 +211,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> _reduce_scatter_base(
-      at::Tensor& outputs, at::Tensor& inputs,
+      at::Tensor& outputTensor, at::Tensor& inputTensor,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
@@ -236,7 +236,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
   // Helper that either looks up the cached DICL communicators or creates
   // a new set of DICL communicators as a cache entry
   virtual std::vector<std::shared_ptr<DICLComm>>& getDICLComms(
-      const std::string& devicesKey, const std::vector<at::Device>& devices,
+      const std::string& localCommsKey, const std::vector<at::Device>& devices,
       int commsRank, OpType opType);
 
   template <typename Fn>

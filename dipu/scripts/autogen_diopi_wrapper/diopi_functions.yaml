@@ -1,7 +1,8 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
-  device: [camb]  # op gen only on these device.
-  torch_version: [200,]  # op gen only on these torch version.
+  # op gen only on these torch version. use it only if op has different signature on different torch.
+  # if it's only different on implementation , please use compile macro DIPU_TORCHXXX.
+  torch_ver: ["200",]
   register_op: False # Whether generate register code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
@@ -716,7 +717,24 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self_dtype_diopi, diopi_size);
 
+- schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
+  torch_ver: ["200",]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    auto out = at::empty(output_shape, self.options());
+    bool unbiased = correction.value_or(1) == 1;
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
+- schema: "std.correction_out(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
+  torch_ver: ["200",]
+  custom_code_at_the_beginning: |
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+    bool unbiased = correction.value_or(1) == 1;
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
+  torch_ver: ["211",]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = at::empty(output_shape, self.options());
@@ -725,6 +743,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
+  torch_ver: ["211",]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     bool unbiased = correction.value_or(1).toLong() == 1;

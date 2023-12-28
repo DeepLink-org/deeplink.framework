@@ -66,7 +66,7 @@ if(DIPU_MODIFY_LEN GREATER 0)
   set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
 endif()
 message(STATUS "DIPU_GIT_HASH: " ${DIPU_GIT_HASH})
-add_compile_options(-DDIPU_GIT_HASH="${DIPU_GIT_HASH}")
+add_compile_definitions(DIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
 # Automatically generate a list of supported diopi functions
 execute_process(
@@ -106,7 +106,7 @@ list(GET CHECK_TORCH_OUT_LIST 3 TORCH_CMAKE_PREFIX)
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
 
 message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
-add_definitions(-fabi-version=${DIPU_ABI_V})
+add_compile_options(-fabi-version=${DIPU_ABI_V})
 message(STATUS "CMAKE_PREFIX_PATH: " ${CMAKE_PREFIX_PATH})
 
 if(DIPU_COMPILED_WITH_CXX11_ABI GREATER 0)
@@ -118,7 +118,6 @@ endif()
 set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
 )
-add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
 
 execute_process(
@@ -144,6 +143,7 @@ else()
 
     string(REPLACE "." "" Torch_VERSION ${Torch_VERSION})
     add_compile_definitions(DIPU_TORCH${Torch_VERSION})
+    add_compile_definitions(DIPU_TORCH_VERSION="${Torch_VERSION}")
 
     link_directories(${PYTORCH_DIR}/torch/lib)
 endif()

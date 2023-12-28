@@ -737,7 +737,7 @@ def boolean_string(s):
         raise ValueError('Not a valid boolean string')
     return s == 'True'
 
-def parase_args():
+def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='autogen diopi wrapper code')
     parser.add_argument('--config', type=str, default = 'diopi_functions.yaml', help='path to functions config file')
@@ -755,7 +755,7 @@ def parase_args():
     return args
 
 def main():
-    args = parase_args()
+    args = parse_args()
 
     with open(args.config) as diopi_functions_file:
         file_data = diopi_functions_file.read()
@@ -778,31 +778,37 @@ def main():
     autograd_op_register_code = ''
 
     for fun_config in funcs_config:
-        mergeed_fun_config = dict(args.fun_config_dict)
-        mergeed_fun_config.update(vars(args))
-        mergeed_fun_config.update(fun_config)
+        merged_fun_config = dict(args.fun_config_dict)
+        merged_fun_config.update(vars(args))
+        merged_fun_config.update(fun_config)
         #filter for those device specific op.
-        if 'device' in mergeed_fun_config:
-            current_device = mergeed_fun_config.get('current_device', '')
-            if current_device not in (mergeed_fun_config['device'] + ['all',]):
-                create_for_this_device = 'all' in mergeed_fun_config['device']
-                for device in mergeed_fun_config['device']:
+        if 'device' in merged_fun_config:
+            current_device = merged_fun_config.get('current_device', '')
+            if current_device not in (merged_fun_config['device'] + ['all',]):
+                create_for_this_device = 'all' in merged_fun_config['device']
+                for device in merged_fun_config['device']:
                     if ('-' + device) == current_device:
                         create_for_this_device = False
                         break
                 if create_for_this_device == False:
                     continue
-            if ('-' + current_device) in (mergeed_fun_config['device']):
+            if ('-' + current_device) in (merged_fun_config['device']):
                 continue
 
-        fun_code, register_code = functions_code_gen(mergeed_fun_config)
+        # filter torch version
+        in_torch_vers = merged_fun_config.get('torch_ver', None)
+        cur_torch_ver = merged_fun_config.get('current_torch_ver', None)
+        if in_torch_vers is not None and cur_torch_ver not in in_torch_vers:
+          continue
+
+        fun_code, register_code = functions_code_gen(merged_fun_config)
         
         #The class object memory_format_converter will replace the prefered memory format placeholder to the prefered memory format based on the device's convert_config.yaml
         fun_code = memory_format_converter.convert(fun_code, fun_config)
         
         functions_code += fun_code
-        if mergeed_fun_config.get('register_op', True) in [True, "True"]:
-            if mergeed_fun_config.get('autograd', False) == True:
+        if merged_fun_config.get('register_op', True) in [True, "True"]:
+            if merged_fun_config.get('autograd', False) == True:
                 autograd_op_register_code += register_code
             op_register_code += register_code
 

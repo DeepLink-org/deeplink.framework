@@ -1,5 +1,8 @@
 # Copyright (c) 2023, DeepLink.
 
+import torch
+from torch_dipu import _C
+import warnings
 import os
 import traceback
 import threading
@@ -10,6 +13,17 @@ _queued_calls = []  # don't invoke these until initialization occurs
 _in_bad_fork = False  # this global is also used in torch.manual_seed
 _original_pid = False
 
+
+def get_compile_torch_ver():
+  return _C.get_compiled_torch_version()
+
+# support compiled torch version 
+def check_torch_compatiable():
+  if not torch.__version__.replace(".", "").startswith(get_compile_torch_ver()):
+    print("\n !!!!! torch {0} is different with dipu compiled {1} !!!!! \n".format(
+                  torch.__version__, get_compile_torch_ver()), flush=True)
+
+check_torch_compatiable()
 
 def is_initialized():
     r"""Returns whether PyTorch's dipu state has been initialized."""
