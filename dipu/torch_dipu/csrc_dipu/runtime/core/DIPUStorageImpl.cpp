@@ -2,6 +2,7 @@
 #include "DIPUStorageImpl.h"
 
 #include <csrc_dipu/diopirt/diopirt_impl.h>
+#include <diopi/diopirt.h>
 
 namespace dipu {
 DIPUStorageImpl::DIPUStorageImpl(use_byte_size_t use_byte_size,
@@ -14,18 +15,14 @@ void DIPUStorageImpl::release_resources() { StorageImpl::release_resources(); }
 void DIPUStorageImpl::init_desc(
     c10::IntArrayRef size, c10::optional<at::MemoryFormat> memory_format_opt) {
   storage_sizes_.set_sizes(size);
-  bool is_contiguous = true;
-  if (memory_format_opt.has_value()) {
-    is_contiguous = *memory_format_opt == c10::MemoryFormat::Contiguous;
-  }
-  if (!is_contiguous) {
-    format_ = ::diopiMemoryFormat_t::Undefined;
-  } else if (size.size() == 5) {
-    format_ = diopiMemoryFormat_t::NCDHW;
-  } else if (size.size() == 4) {
-    format_ = diopiMemoryFormat_t::NCHW;
-  } else {
+  if (!memory_format_opt.has_value() || *memory_format_opt == c10::MemoryFormat::Contiguous) {
     format_ = diopiMemoryFormat_t::Contiguous;
+  } else if (*memory_format_opt == c10::MemoryFormat::ChannelsLast) {
+    format_ = diopiMemoryFormat_t::ChannelsLast;
+  } else if (*memory_format_opt == c10::MemoryFormat::ChannelsLast3d) {
+    format_ = diopiMemoryFormat_t::ChannelsLast3d;
+  } else {
+    format_ = diopiMemoryFormat_t::Undefined;
   }
 }
 

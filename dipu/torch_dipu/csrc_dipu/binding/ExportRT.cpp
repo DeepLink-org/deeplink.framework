@@ -298,6 +298,7 @@ static void exportMemoryFormat(py::module& m) {
       .value("Preserve", diopiMemoryFormat_t::Preserve)
       .value("ChannelsLast1d", diopiMemoryFormat_t::ChannelsLast1d)
       .value("NCHW", diopiMemoryFormat_t::NCHW)
+      .value("ND", diopiMemoryFormat_t::ND)
       .value("NC1HWC0", diopiMemoryFormat_t::NC1HWC0)
       .value("FRACTAL_Z", diopiMemoryFormat_t::FRACTAL_Z)
       .value("NC1HWC0_C04", diopiMemoryFormat_t::NC1HWC0_C04)
