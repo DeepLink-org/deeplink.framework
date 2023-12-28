@@ -16,4 +16,7 @@ export VENDOR_INCLUDE_DIRS=/usr/include/tops
 export DIOPI_PATH=${DIPU_LOCAL_DIR}/third_party/DIOPI/proto
 export DIPU_PATH=${DIPU_ROOT}
 
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+
 # source activate $ENV_NAME
