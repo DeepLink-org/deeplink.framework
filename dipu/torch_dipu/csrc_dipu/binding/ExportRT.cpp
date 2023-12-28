@@ -3,12 +3,10 @@
 
 #include <ATen/autocast_mode.h>
 #include <c10/core/Device.h>
-#include <c10/core/TensorImpl.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/utils/pybind.h>
 
 #include <pybind11/chrono.h>
-#include <pybind11/pybind11.h>
 
 #include <diopi/diopirt.h>
 
@@ -290,25 +288,28 @@ static void patchTensor(py::module& m) {
 }
 
 static void exportMemoryFormat(py::module& m) {
-  py::enum_<diopiMemoryFormat_t>(m, "DIOPIMemoryFormat")
-      .value("Undefined", diopiMemoryFormat_t::Undefined)
-      .value("Contiguous", diopiMemoryFormat_t::Contiguous)
-      .value("ChannelsLast", diopiMemoryFormat_t::ChannelsLast)
-      .value("ChannelsLast3d", diopiMemoryFormat_t::ChannelsLast3d)
-      .value("Preserve", diopiMemoryFormat_t::Preserve)
-      .value("ChannelsLast1d", diopiMemoryFormat_t::ChannelsLast1d)
-      .value("NCHW", diopiMemoryFormat_t::NCHW)
-      .value("ND", diopiMemoryFormat_t::ND)
-      .value("NC1HWC0", diopiMemoryFormat_t::NC1HWC0)
-      .value("FRACTAL_Z", diopiMemoryFormat_t::FRACTAL_Z)
-      .value("NC1HWC0_C04", diopiMemoryFormat_t::NC1HWC0_C04)
-      .value("HWCN", diopiMemoryFormat_t::HWCN)
-      .value("NDHWC", diopiMemoryFormat_t::NDHWC)
-      .value("FRACTAL_NZ", diopiMemoryFormat_t::FRACTAL_NZ)
-      .value("NCDHW", diopiMemoryFormat_t::NCDHW)
-      .value("NDC1HWC0", diopiMemoryFormat_t::NDC1HWC0)
-      .value("FRACTAL_Z_3D", diopiMemoryFormat_t::FRACTAL_Z_3D)
-      .export_values();
+  py::enum_<diopiMemoryFormat_t>& formats =
+      py::enum_<diopiMemoryFormat_t>(m, "DIOPIMemoryFormat")
+          .value("Undefined", diopiMemoryFormat_t::Undefined)
+          .value("Contiguous", diopiMemoryFormat_t::Contiguous)
+          .value("ChannelsLast", diopiMemoryFormat_t::ChannelsLast)
+          .value("ChannelsLast3d", diopiMemoryFormat_t::ChannelsLast3d)
+          .value("Preserve", diopiMemoryFormat_t::Preserve)
+          .value("ChannelsLast1d", diopiMemoryFormat_t::ChannelsLast1d);
+  if (VENDOR_TYPE == VendorDeviceType::NPU) {
+    formats.value("NCHW", diopiMemoryFormat_t::NCHW)
+        .value("ND", diopiMemoryFormat_t::ND)
+        .value("NC1HWC0", diopiMemoryFormat_t::NC1HWC0)
+        .value("FRACTAL_Z", diopiMemoryFormat_t::FRACTAL_Z)
+        .value("NC1HWC0_C04", diopiMemoryFormat_t::NC1HWC0_C04)
+        .value("HWCN", diopiMemoryFormat_t::HWCN)
+        .value("NDHWC", diopiMemoryFormat_t::NDHWC)
+        .value("FRACTAL_NZ", diopiMemoryFormat_t::FRACTAL_NZ)
+        .value("NCDHW", diopiMemoryFormat_t::NCDHW)
+        .value("NDC1HWC0", diopiMemoryFormat_t::NDC1HWC0)
+        .value("FRACTAL_Z_3D", diopiMemoryFormat_t::FRACTAL_Z_3D)
+        .export_values();
+  }
 
   m.def("diopi_format", [](at::Tensor self) -> diopiMemoryFormat_t {
     return dipu::get_format(self);

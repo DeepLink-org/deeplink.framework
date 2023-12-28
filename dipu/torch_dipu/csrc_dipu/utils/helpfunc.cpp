@@ -3,14 +3,11 @@
 
 #include <c10/core/TensorImpl.h>
 
-#include <Python.h>
-
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>
 
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/runtime/core/DIPUStorageImpl.h"
-
 #ifndef WIN32
 #include <mutex>
 #include <pthread.h>
@@ -38,11 +35,7 @@ at::Tensor format_cast(at::Tensor tensor, diopiMemoryFormat_t target_format) {
   ::diopiTensorHandle_t input = dipu::diopi_helper::toDiopiTensorHandle(tensor);
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
   ::diopiTensorHandle_t out = nullptr;
-  if (PyGILState_Check() != 0) {
-    Py_BEGIN_ALLOW_THREADS ::diopiFormatCast(&context, &out, input,
-                                             target_format);
-    Py_END_ALLOW_THREADS
-  }
+  ::diopiFormatCast(&context, &out, input, target_format);
   return *(reinterpret_cast<at::Tensor*>(out));
 }
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
