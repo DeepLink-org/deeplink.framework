@@ -1,8 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #include "DIPUStorageImpl.h"
 
-#include <csrc_dipu/diopirt/diopirt_impl.h>
 #include <diopi/diopirt.h>
+
+#include <csrc_dipu/diopirt/diopirt_impl.h>
 
 namespace dipu {
 DIPUStorageImpl::DIPUStorageImpl(use_byte_size_t use_byte_size,
@@ -15,7 +16,8 @@ void DIPUStorageImpl::release_resources() { StorageImpl::release_resources(); }
 void DIPUStorageImpl::init_desc(
     c10::IntArrayRef size, c10::optional<at::MemoryFormat> memory_format_opt) {
   storage_sizes_.set_sizes(size);
-  if (!memory_format_opt.has_value() || *memory_format_opt == c10::MemoryFormat::Contiguous) {
+  if (!memory_format_opt.has_value() ||
+      *memory_format_opt == c10::MemoryFormat::Contiguous) {
     format_ = diopiMemoryFormat_t::Contiguous;
   } else if (*memory_format_opt == c10::MemoryFormat::ChannelsLast) {
     format_ = diopiMemoryFormat_t::ChannelsLast;
