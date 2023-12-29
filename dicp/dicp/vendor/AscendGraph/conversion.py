@@ -472,14 +472,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(y, torch.fx.proxy.Proxy):
             y_shape = list(y.node.meta['val'].shape)
         x_shape = list(x.node.meta['val'].shape)
-        out_shape = list(fx_traceback.get_current_meta()['val'].shape)
+        out = list(fx_traceback.get_current_meta()['val'].shape)
+        out_shape = self.get_shape_proxy(out)
         x, y = self.binary_cmp_cast_input(x, y)
 
-        if self.shape_prod(x_shape) < self.shape_prod(out_shape):
-            out_shape = self.get_shape_proxy(out_shape)
+        if self.shape_prod(x_shape) < self.shape_prod(out):
             x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
-        if self.shape_prod(y_shape) < self.shape_prod(out_shape):
-            out_shape = self.get_shape_proxy(out_shape)
+        if self.shape_prod(y_shape) < self.shape_prod(out):
             y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
         return self.get_proxy(ascend_op.Less, (x, y))
 
