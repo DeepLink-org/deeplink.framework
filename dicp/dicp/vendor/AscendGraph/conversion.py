@@ -481,7 +481,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if self.shape_prod(y_shape) < self.shape_prod(out_shape):
             out_shape = self.get_shape_proxy(out_shape)
             y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
-       return self.get_proxy(ascend_op.Less, (x, y))
+        return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
     def masked_fill(self, x, mask, value):
