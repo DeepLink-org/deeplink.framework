@@ -89,6 +89,7 @@ const at::Tensor& DIPUATenFunctions::resize_(
                 "Unsupported memory format", memory_format);
     self_->empty_tensor_restride(memory_format);
   }
+  DIPUStorageImpl::GetImplPtr(self)->init_desc(size, optional_memory_format);
   return self;
 }
 

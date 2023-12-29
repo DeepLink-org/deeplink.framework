@@ -4,9 +4,6 @@
 #include <mutex>
 #include <stdio.h>
 
-#include <ATen/core/TensorBody.h>
-#include <c10/util/Optional.h>
-
 #include <diopi/diopirt.h>
 
 #include "csrc_dipu/profiler/profiler.h"
