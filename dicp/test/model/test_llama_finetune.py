@@ -23,7 +23,7 @@ from ..common.accelerate_dynamo_backend import extend_dynamo_plugin_backend
 torch._dynamo.config.suppress_errors = True
 torch._dynamo.config.cache_size_limit = 256
 
-models_dir = os.environ.get("LLAMA_FINETUNE_MODELS_DIR", "/mnt/models/llama_finetune_models")
+models_dir = os.environ.get("LLAMA_FINETUNE_DIR", "/home/cse/projects/pujiang/llama_finetune")
 
 
 class TestLlamaFinetune():

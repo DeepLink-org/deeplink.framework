@@ -7,7 +7,7 @@ import json
 import os.path as osp
 from typing import Union
 
-models_dir = os.environ.get("LLAMA_FINETUNE_MODELS_DIR", "/mnt/models/llama_finetune_models")
+models_dir = os.environ.get("LLAMA_FINETUNE_DIR", "/home/cse/projects/pujiang/llama_finetune")
 
 
 class Prompter(object):
