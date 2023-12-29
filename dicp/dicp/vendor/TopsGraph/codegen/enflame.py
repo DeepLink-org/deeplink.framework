@@ -54,6 +54,7 @@ def process_name(name, target):
 class EnflameCodegen(torch.fx.Interpreter):
     def __init__(self, graph, origin_graph=None, folder=None, graph_key=None):
         self.name = 'topsgraph'
+        self.device_name = "cuda" if os.environ.get("DIPU_MOCK_CUDA") == "True" else "dipu"
         self.device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
 
         self.import_code = IndentedBuffer()
@@ -386,7 +387,7 @@ class EnflameCodegen(torch.fx.Interpreter):
 
     def gen_tensor(self, prefix, tensor):
         if dipu_flag:
-            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='cuda:{self.device_id}', dtype={tensor.dtype})"
+            res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{self.device_name}:{self.device_id}', dtype={tensor.dtype})"
         else:
             res = f"{prefix}({tuple(tensor.shape)}, {tensor.stride()}, device='{tensor.device.type}', dtype={tensor.dtype})"
         # makes a copy of the tensor for view ops
