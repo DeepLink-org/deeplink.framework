@@ -1,5 +1,4 @@
 # Copyright (c) 2023, DeepLink.
-from torch_dipu.testing._internal import common_utils
 
 TEST_PRECISIONS = {
     # test_name : floating_precision,
@@ -453,5 +452,3 @@ DISABLED_TESTS_CUDA = {
         'test_convTranspose_empty',
     },
 }
-
-DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CUDA)

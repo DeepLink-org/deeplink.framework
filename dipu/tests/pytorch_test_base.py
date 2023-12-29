@@ -1,39 +1,50 @@
 # Copyright (c) 2023, DeepLink.
 
 import copy
-import os
-import re
-import sys
-import runpy
+from typing import Dict, Set
 import torch
 from torch_dipu import dipu
 from torch_dipu.testing._internal import common_utils
+from tests.pytorch_config_global import (
+    DISABLED_TESTS_GLOBAL as DISABLED_TESTS,
+    TEST_PRECISIONS as _TEST_PRECISIONS,
+    DEFAULT_FLOATING_PRECISION as _DEFAULT_FLOATING_PRECISION
+)
 
-_DEFAULT_FLOATING_PRECISION = 1e-3
-_DISABLED_TESTS = dict()
-_TEST_PRECISIONS = dict()
-device_unsupported_dtypes = {torch.complex32, torch.complex64, torch.complex128}
+
+def _merge_disabled_tests(original: Dict[str, Set[str]], new: Dict[str, Set[str]]) -> None:
+    '''Add disabled tests from new to original'''
+    empty_set = set()
+    for key, value in new.items():
+        original.setdefault(key, empty_set).update(value)
+
+
+device_unsupported_dtypes = {
+    torch.complex32, torch.complex64, torch.complex128}
 
 if dipu.vendor_type == "MLU":
-    from tests.pytorch_config_mlu import DISABLED_TESTS, TEST_PRECISIONS
-    _DISABLED_TESTS = DISABLED_TESTS
-    _TEST_PRECISIONS = TEST_PRECISIONS
+    from tests.pytorch_config_mlu import DISABLED_TESTS_MLU, TEST_PRECISIONS
+    _merge_disabled_tests(DISABLED_TESTS, DISABLED_TESTS_MLU)
+    _TEST_PRECISIONS.update(TEST_PRECISIONS)
     device_unsupported_dtypes = {
         torch.complex32, torch.complex64, torch.complex128, torch.bfloat16,
-        torch.float64, torch.long, torch.int64 # temporary disable
+        torch.float64, torch.long, torch.int64  # temporary disable
     }
 elif dipu.vendor_type == "GCU":
-    from tests.pytorch_config_gcu import DISABLED_TESTS, TEST_PRECISIONS
-    _DISABLED_TESTS = DISABLED_TESTS
-    _TEST_PRECISIONS = TEST_PRECISIONS
+    from tests.pytorch_config_gcu import DISABLED_TESTS_GCU, TEST_PRECISIONS
+    _merge_disabled_tests(DISABLED_TESTS, DISABLED_TESTS_GCU)
+    _TEST_PRECISIONS.update(TEST_PRECISIONS)
 elif dipu.vendor_type == "CUDA":
-    from tests.pytorch_config_cuda import DISABLED_TESTS, TEST_PRECISIONS
-    _DISABLED_TESTS = DISABLED_TESTS
-    _TEST_PRECISIONS = TEST_PRECISIONS
+    from tests.pytorch_config_cuda import DISABLED_TESTS_CUDA, TEST_PRECISIONS
+    _merge_disabled_tests(DISABLED_TESTS, DISABLED_TESTS_CUDA)
+    _TEST_PRECISIONS.update(TEST_PRECISIONS)
     device_unsupported_dtypes = {
         torch.complex32, torch.complex64, torch.complex128, torch.chalf,
         torch.bfloat16,
     }
+
+_DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS)
+print(DISABLED_TESTS['TestConvolutionNNDeviceTypeDIPU'])
 
 
 class DIPUTestBase(DeviceTypeTestBase):
@@ -61,6 +72,7 @@ class DIPUTestBase(DeviceTypeTestBase):
         for dtype in dtype_combination:
             if dtype in cls.unsupported_dtypes:
                 reason = 'DIPU does not support dtype {0}'.format(str(dtype))
+
                 @wraps(test)
                 def skipped_test(self, *args, reason=reason, **kwargs):
                     raise unittest.SkipTest(reason)
@@ -92,6 +104,7 @@ class DIPUTestBase(DeviceTypeTestBase):
     # and correctly on DIPU.
     @classmethod
     def instantiate_test(cls, name, test, *, generic_cls):
+        cls.device_type = 'dipu'
         test_name = name + '_' + cls.device_type
         class_name = cls.__name__
 
@@ -125,6 +138,8 @@ class DIPUTestBase(DeviceTypeTestBase):
                 if len(dipu_dtypes) != 0:
                     test.dtypes[cls.device_type] = dipu_dtypes
                     super().instantiate_test(name, test, generic_cls=generic_cls)
+
+        cls.device_type = 'cuda'
 
     @classmethod
     def get_primary_device(cls):
