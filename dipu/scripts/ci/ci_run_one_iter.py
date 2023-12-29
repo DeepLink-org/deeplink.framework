@@ -81,7 +81,10 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     rtol = precision.get('rtol', 1e-4)
     metric = precision.get('metric', 1e-2)
     logging.info(f'Using pricision: atol-{atol}, rtol-{rtol}, metric-{metric}')
-
+    env_vars = os.environ
+    print(env_vars)
+    for key, value in env_vars.items():
+    print(f"{key}: {value}")
     if device == 'cuda':
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh"
