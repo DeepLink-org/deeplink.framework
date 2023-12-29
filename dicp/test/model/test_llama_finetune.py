@@ -17,11 +17,15 @@ from peft import (
 )
 from transformers import LlamaForCausalLM, LlamaTokenizer
 
+from ..common import utils
 from ..common.prompter import Prompter
 from ..common.accelerate_dynamo_backend import extend_dynamo_plugin_backend
 
 torch._dynamo.config.suppress_errors = True
 torch._dynamo.config.cache_size_limit = 256
+
+device = utils.get_device()
+torch_dipu.dipu.set_device(device)
 
 models_dir = os.environ.get("LLAMA_FINETUNE_DIR", "/home/cse/projects/pujiang/llama_finetune")
 
@@ -237,9 +241,7 @@ class TestLlamaFinetune():
             model.is_parallelizable = True
             model.model_parallel = True
 
-        torch.set_default_device("cuda:0")
-        torch_dipu.set_device("cuda:0")
-        model = model.to("cuda:0")
+        model = model.to(device)
 
         with extend_dynamo_plugin_backend(["topsgraph", "ascendgraph", "compile_profiler"]):
             trainer = transformers.Trainer(
