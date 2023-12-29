@@ -14,6 +14,7 @@ DYNAMIC=$1
 CONFIG_STATIC=${CONFIG_DIR}/static.ini
 CONFIG_DYNAMIC=${CONFIG_DIR}/dynamic.ini
 
+export TEST_DICP_INFER=1
 cd ${TEST_OP_DIR}
 if [ ${DYNAMIC} == false ]; then
     pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
@@ -24,5 +25,7 @@ elif [ ${DYNAMIC} == all ]; then
     pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic true
 else
     echo "DYNAMIC should in (true, false, all)" >&2
+    unset TEST_DICP_INFER
     exit 1
 fi
+unset TEST_DICP_INFER

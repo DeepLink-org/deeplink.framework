@@ -825,11 +825,12 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def ReduceMean(name, x, axes, keepdim=False):
-        mean_op = OP(name, "ReduceMean")
+    def ReduceMeanD(name, x, axes, keepdim=False, noop_with_empty_axes=False):
+        mean_op = OP(name, "ReduceMeanD")
         mean_op.set_input("x", x)
-        mean_op.set_input("axes", axes)
+        mean_op.set_attr_list_int("axes", axes)
         mean_op.set_attr_bool("keep_dims", keepdim)
+        mean_op.set_attr_bool("noop_with_empty_axes", noop_with_empty_axes)
         return mean_op.to_node()
 
     @staticmethod
@@ -1047,6 +1048,7 @@ class AscendOverrides:
         op = OP(name, "Empty")
         op.set_input("shape", shape)
         op.set_attr_int("dtype", dtype)
+        op.set_attr_bool("init", False)
         return op.to_node()
 
     @staticmethod
@@ -1195,7 +1197,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Range(name, end, start, step):
+    def Range(name, start, end, step):
         op = OP(name, "Range")
         op.set_input("start", start)
         op.set_input("limit", end)
@@ -1205,6 +1207,13 @@ class AscendOverrides:
     @staticmethod
     def Equal(name, a, b):
         eq_op = OP(name, "Equal")
+        eq_op.set_input("x1", a)
+        eq_op.set_input("x2", b)
+        return eq_op.to_node()
+
+    @staticmethod
+    def NotEqual(name, a, b):
+        eq_op = OP(name, "NotEqual")
         eq_op.set_input("x1", a)
         eq_op.set_input("x2", b)
         return eq_op.to_node()
@@ -1462,4 +1471,12 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_input("mask", mask)
         op.set_input("keep_prob", keep_prob)
+        return op.to_node()
+    
+    @staticmethod
+    def GatherElements(name, x, index, dim):
+        op = OP(name, "GatherElements")
+        op.set_input("x", x)
+        op.set_input("index", index)
+        op.set_attr_int("dim", dim)
         return op.to_node()

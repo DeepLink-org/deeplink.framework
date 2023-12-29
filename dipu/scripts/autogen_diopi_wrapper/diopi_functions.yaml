@@ -279,7 +279,15 @@
     auto options = input.options();
     auto save_mean = at::empty(stats_shape, options);
     auto save_invstd = at::empty(stats_shape, options);
-    auto out = at::empty_like(input);
+    auto out = at::empty_like(
+      input,
+      c10::nullopt /* dtype */,
+      c10::nullopt /* layout */,
+      c10::nullopt /* device */,
+      c10::nullopt /* pin_memory */,
+      // maybe we don't want ChannelsLast -> Contiguous here, but just align with pytorch
+      // https://github.com/pytorch/pytorch/blob/v2.0.0/aten/src/ATen/native/cuda/layer_norm_kernel.cu#L1340-L1346
+      LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
 - schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
