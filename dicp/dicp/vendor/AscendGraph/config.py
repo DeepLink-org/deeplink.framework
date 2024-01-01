@@ -12,3 +12,9 @@ def get_decomp():
 
 
 decomp = get_decomp()
+
+enable_aot_operations = False
+aot_operations_prefix = "dicp.vendor.AscendGraph.ascend_op."
+aot_operations = {
+    "DIOPIRMSNorm": None,
+}

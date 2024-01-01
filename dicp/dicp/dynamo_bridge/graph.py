@@ -6,8 +6,9 @@ from typing import Optional
 from torch._dynamo.utils import dynamo_timed
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._inductor.codecache import cache_dir
-from dicp.dynamo_bridge.utils import save_cpu_gm
+from dicp.dynamo_bridge.utils import save_cpu_gm, AotOperatorUnsupport
 from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
+from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ class GraphTransformer:
         self.backend = backend
         self.folder = cache_dir()
         self.cpu_gm, self.graph_key = save_cpu_gm(gm, self.folder)
+        self.aot_operations = dict()
+        self.aot_operations_prefix = ''
         if backend == 'topsgraph':
             from dicp.vendor.TopsGraph.opset_transform import topsgraph_opset_transform
             self.backend_opset_transform = topsgraph_opset_transform
@@ -32,6 +35,11 @@ class GraphTransformer:
             self.backend_opset_transform = ascendgraph_opset_convert
             from dicp.vendor.AscendGraph.codegen.ascend import AscendCodegen
             self.backend_codegen = AscendCodegen
+            from dicp.vendor.AscendGraph.config import enable_aot_operations, \
+                aot_operations, aot_operations_prefix
+            if enable_aot_operations:
+                self.aot_operations = aot_operations
+                self.aot_operations_prefix = aot_operations_prefix
 
     def transform(self):
         self.gm = self.backend_opset_transform(self.gm)
@@ -71,6 +79,16 @@ class GraphTransformer:
 
     def codegen(self):
         return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen()
+
+    def partition_graph_with_aot_op(self):
+        if not self.aot_operations:
+            return
+        operator_support = AotOperatorUnsupport(self.aot_operations, self.aot_operations_prefix)
+        partitioner = CapabilityBasedPartitioner(self.gm, operator_support,
+                                                 allows_single_node_partition=True)
+        partitions = partitioner.propose_partitions()
+        fused_graph = partitioner.fuse_partitions(partitions)
+        self.gm = fused_graph
 
     @dynamo_timed
     def compile_to_module(self):

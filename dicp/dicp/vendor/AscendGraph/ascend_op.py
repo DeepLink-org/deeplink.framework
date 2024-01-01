@@ -2,6 +2,7 @@ import torch
 from typing import Tuple
 from dicp.dynamo_bridge.operator import Operator
 from dicp.vendor.AscendGraph.infer_res_utils import *
+from dicp.vendor.AscendGraph.config import enable_aot_operations
 
 from dicp.dynamo_bridge.utils import get_memory_format
 
@@ -100,6 +101,33 @@ class MatMul(Operator):
     def __init__(self):
         super().__init__("MatMul")
 
+    def infer_result(self, x1, x2, trans_x1=False, trans_x2=False):
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+
+        assert x1_dim == 2 and x2_dim == 2, (
+            self.__class__.__name__ + ": MatMul's inputs must be 2D tensor!"
+        )  # no broadcast
+        assert x1_dtype == x2_dtype, (
+            self.__class__.__name__ + ": expect same input type!"
+        )  # no dtype cast
+
+        if trans_x1:
+            x1_shape = (x1_shape[1], x1_shape[0])
+        if trans_x2:
+            x2_shape = (x2_shape[1], x2_shape[0])
+        assert x1_shape[1] == x2_shape[0], (
+            self.__class__.__name__ + ": matmul shape mismatch!"
+        )
+        out_shape = (x1_shape[0], x2_shape[1])
+        return torch.empty(
+            out_shape, dtype=x1_dtype, memory_format=get_memory_format(x1)
+        )
+    
+    def real_call(self, x1, x2, trans_x1=False, trans_x2=False):
+        new_x1 = x1.transpose(1, 0) if trans_x1 else x1
+        new_x2 = x2.transpose(1, 0) if trans_x2 else x2
+        return new_x1 @ new_x2
 
 class BatchMatMul(Operator):
     def __init__(self):
@@ -131,6 +159,11 @@ class BatchMatMul(Operator):
         return torch.empty(
             out_shape, dtype=x1_dtype, memory_format=get_memory_format(x1)
         )
+    
+    def real_call(self, x1, x2, adj_x1=False, adj_x2=False):
+        new_x1 = x1.transpose(2, 1) if adj_x1 else x1
+        new_x2 = x2.transpose(2, 1) if adj_x2 else x2
+        return new_x1 @ new_x2
 
 
 class Sub(Operator):
@@ -849,6 +882,25 @@ class DropOutDoMaskV3(Operator):
     def __init__(self):
         super().__init__("DropOutDoMaskV3")
 
+if enable_aot_operations:
+    class DIOPIRMSNorm(Operator):
+        def __init__(self):
+            super().__init__("DIOPIRMSNorm")
+
+        def infer_result(self, input_x, weight, eps):
+            return common_unary_op_infer(input_x)
+
+        def real_call(self, input_x, weight, eps):
+            _to_copy = torch.ops.aten._to_copy.default(input_x, dtype=torch.float32)
+            pow_1 = torch.ops.aten.pow.Tensor_Scalar(_to_copy, 2)
+            mean = torch.ops.aten.mean.dim(pow_1, [-1], True)
+            add = torch.ops.aten.add.Tensor(mean, eps)
+            rsqrt = torch.ops.aten.rsqrt.default(add)
+            mul = torch.ops.aten.mul.Tensor(_to_copy, rsqrt)
+            _to_copy_1 = torch.ops.aten._to_copy.default(mul, dtype=torch.float16,
+                                                         layout=torch.strided, device=input_x.device)
+            mul_1 = torch.ops.aten.mul.Tensor(_to_copy_1, weight)
+            return mul_1
 
 class MaxPool(Operator):
     def __init__(self):

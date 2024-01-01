@@ -5,7 +5,7 @@ from torch.fx.node import Argument, Target
 import torch.fx.traceback as fx_traceback
 from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
-from dicp.dynamo_bridge.compile_fx import is_torch_210
+from dicp.dynamo_bridge.compile_fx import is_torch_210, get_fake_mode_from_tensors
 from dicp.vendor.AscendGraph.codegen.utils import symint_in_shape
 
 
@@ -65,9 +65,10 @@ class SingleOpTransformer(torch.fx.Transformer):
                 return out
             proxy = self.tracer.create_proxy(
                 'call_function', out, args, kwargs)
-            proxy.node.meta = fx_traceback.get_current_meta()
-            return proxy
-        return super().call_function(target, args, kwargs)
+        else:
+            proxy = super().call_function(target, args, kwargs)
+        proxy.node.meta = fx_traceback.get_current_meta()
+        return proxy
 
     def get_attr(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         proxy = super().get_attr(target, args, kwargs)
@@ -88,9 +89,6 @@ if is_torch_210:
         register_replacement,
     )
 
-    def symbolic_trace_ignore_args(fn, args):
-        return torch.fx.symbolic_trace(fn)
-
     class BackendPatternBase:
         @staticmethod
         def pattern(*args, **kwargs):
@@ -108,6 +106,11 @@ if is_torch_210:
         def check_fn(match):
             return True
 
+        @staticmethod
+        def trace_fn(fn, args):
+            # symbolic_trace with arguments ignored
+            return torch.fx.symbolic_trace(fn)
+
         @classmethod
         @functools.lru_cache(None)
         def register(cls, backend_patterns):
@@ -115,7 +118,7 @@ if is_torch_210:
                 cls.pattern,
                 cls.replacement,
                 cls.gen_args(),
-                symbolic_trace_ignore_args,
+                cls.trace_fn,
                 backend_patterns,
                 extra_check=cls.check_fn,
             )
@@ -139,9 +142,15 @@ if is_torch_210:
                 self._patterns, tuple(patterns_cls_list))
 
         def transform(self, module: torch.fx.GraphModule):
-            match_count = self._patterns.apply(module)
-            if match_count:
-                stable_topological_sort(module.graph)
-                module.graph.lint()
-                module.recompile()
-            return module
+            fake_mode_from_input = get_fake_mode_from_tensors(
+                [n.meta['val'] for n in module.graph.nodes if n.op == "placeholder" \
+                    and hasattr(n, "meta") and "val" in n.meta])
+            assert fake_mode_from_input is not None
+
+            with fake_mode_from_input:
+                match_count = self._patterns.apply(module)
+                if match_count:
+                    stable_topological_sort(module.graph)
+                    module.graph.lint()
+                    module.recompile()
+                return module
