@@ -92,7 +92,7 @@ jobs:
         if: always()
         run: |
           set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack \
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
           rm -rf one_iter_data
           touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
       - name: Check for failure
