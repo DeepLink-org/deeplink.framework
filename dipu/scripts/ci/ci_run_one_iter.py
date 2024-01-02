@@ -17,7 +17,6 @@ def run_cmd(cmd: str) -> None:
         error = f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         raise Exception(error)
 
-
 def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     begin_time = time.time()
 
@@ -188,6 +187,16 @@ if __name__ == '__main__':
     # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  # 0.2 by default
     curPath = os.path.dirname(os.path.realpath(__file__))
     yamlPath = os.path.join(curPath, selected_model_list)
+    file_path = os.path.join(curPath, "environment_exported")
+    env_variables = os.environ
+    keywords_to_filter = ['DIPU', 'ONE_ITER']
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    with open("environment_exported", "w") as file:
+        file.write("pwd\n")
+        for key, value in env_variables.items():
+            if any(keyword in key for keyword in keywords_to_filter):
+                file.write(f'export {key}="{value}"\n')
     with open(yamlPath, 'r', encoding='utf-8') as f:
         if device == 'sco':
             original_list = yaml.safe_load(f.read()).get("cuda", None)
