@@ -87,7 +87,7 @@ def run_individual_test_cases(
             `(func, {"args": [...], "kwargs": {...}})`.
         `in_parallel`: Whether to run test cases in parallel.
     """
-    set_start_method("spawn", force=True)
+    set_start_method("spawn", force=True)  # this is required for gcov to work
     uniform_entry_points: Iterable[Tuple[Callable, Args]] = map(
         lambda x: x if isinstance(x, tuple) else (x, {}), entry_points
     )
