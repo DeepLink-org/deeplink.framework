@@ -48,12 +48,12 @@ def stdout_redirector(stream):
         _redirect_stdout(tfile.fileno())
         # Yield to caller, then redirect stdout back to the saved fd
         yield
+    finally:
         _redirect_stdout(saved_stdout_fd)
         # Copy contents of temporary file to the given stream
         tfile.flush()
         tfile.seek(0, io.SEEK_SET)
         stream.write(tfile.read())
-    finally:
         tfile.close()
         os.close(saved_stdout_fd)
 
