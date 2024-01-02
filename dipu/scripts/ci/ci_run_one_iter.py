@@ -95,14 +95,14 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     elif device == 'sco':
         current_path = os.getcwd()
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && cd .. && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
             cmd_cp_one_iter = ""
         elif ('infer' in p2 and 'infer' in p3):
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && source /mnt/cache/share/deeplinkci/github/dipu_env && python {current_path}/{train_path}" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && cd .. && source /mnt/cache/share/deeplinkci/github/dipu_env && python {current_path}/{train_path}" """
             cmd_cp_one_iter = ""
         else:
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}" """
-            cmd_cp_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && cd .. && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}" """
+            cmd_cp_one_iter = f"""srun --job-name={job_name} bash -c "cd {current_path} && source environment_exported && cd .. && source /mnt/cache/share/deeplinkci/github/dipu_env && bash {current_path}/SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}" """
     elif device == "camb" :
         # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
         if ('infer' in p2 and 'infer' in p3):
