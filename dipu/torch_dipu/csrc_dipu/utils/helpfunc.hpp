@@ -1,5 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
+#include <diopi/diopirt.h>
+
 #include <csrc_dipu/base/basedef.h>
 
 namespace dipu {
@@ -26,6 +28,10 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
 }
 
 DIPU_API bool isDeviceTensor(const at::Tensor& tensor);
+
+diopiCustomFormat_t get_format(at::Tensor tensor);
+
+at::Tensor format_cast(at::Tensor tensor, diopiCustomFormat_t format);
 
 DIPU_API bool is_in_bad_fork();
 void poison_fork();
