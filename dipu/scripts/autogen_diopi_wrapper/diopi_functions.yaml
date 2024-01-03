@@ -1496,7 +1496,7 @@
 
 - schema: "mm(Tensor self, Tensor mat2) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = nodispatch::empty({self.sizes()[0], mat2.sizes()[0]}, self.options());
+    auto out = nodispatch::empty({self.sizes()[0], mat2.sizes()[1]}, self.options());
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
