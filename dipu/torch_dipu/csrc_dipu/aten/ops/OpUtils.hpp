@@ -27,7 +27,7 @@ namespace dipu {
 namespace native {
 
 inline bool checkTensorDevice() {
-  bool enable = []() {
+  static bool enable = []() {
     const char* env_ptr = std::getenv("DIPU_CHECK_TENSOR_DEVICE");
     if (env_ptr == nullptr) {
       return false;
@@ -38,7 +38,7 @@ inline bool checkTensorDevice() {
 }
 
 inline void synchronizeIfEnable() {
-  const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
+  static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
   if (mode != nullptr) {
     DIPU_LOG_ONCE << "The synchronous operation is performed after "
                   << "the diopi function call because the DIPU_SYNC_EXEC_MODE "
@@ -49,8 +49,8 @@ inline void synchronizeIfEnable() {
 }
 
 inline int dumpOpArgLevel() {
-  const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
-  int level = env_ptr ? std::atoi(env_ptr) : 0;
+  static const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
+  static int level = env_ptr ? std::atoi(env_ptr) : 0;
   return level;
 }
 
