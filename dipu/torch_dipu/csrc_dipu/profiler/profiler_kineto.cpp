@@ -20,7 +20,6 @@
 #include "csrc_dipu/utils/Log.h"
 
 #include "collection.h"
-#include "profiler.h"
 
 namespace dipu {
 namespace profile {
@@ -507,12 +506,6 @@ void enableProfiler(
 
   if (!config.global()) {
     libkineto::api().activityProfiler().startTrace();
-  }
-
-  const auto has_device =
-      activities.count(torch::profiler::impl::ActivityType::CUDA);
-  if (has_device) {
-    setProfileOpen(true);
   }
 }
 

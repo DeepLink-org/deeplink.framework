@@ -5,16 +5,15 @@
 #include <memory>
 
 namespace dipu {
-namespace profile {
 
-class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
+class CambDeviceActivity : public libkineto::DeviceActivityInterface {
  public:
-  ~DIPUDeviceActivity() override;
-  DIPUDeviceActivity(const DIPUDeviceActivity&) = delete;
-  DIPUDeviceActivity& operator=(const DIPUDeviceActivity&) = delete;
+  ~CambDeviceActivity() override;
+  CambDeviceActivity(const CambDeviceActivity&) = delete;
+  CambDeviceActivity& operator=(const CambDeviceActivity&) = delete;
 
-  // DIPUDeviceActivity designed as a singleton
-  static DIPUDeviceActivity& instance();
+  // CambDeviceActivity designed as a singleton
+  static CambDeviceActivity& instance();
 
   void pushCorrelationID(
       uint64_t id,
@@ -41,10 +40,7 @@ class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
   void setMaxBufferSize(int32_t size) override;
 
  private:
-  DIPUDeviceActivity() = default;
+  CambDeviceActivity() = default;
 };
 
-void setDeviceActivity(libkineto::DeviceActivityInterface* ptr);
-
-}  // namespace profile
 }  // namespace dipu

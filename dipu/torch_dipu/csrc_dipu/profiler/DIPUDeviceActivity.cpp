@@ -8,9 +8,17 @@
 #include "CorrelationIDManager.h"
 #include "profiler.h"
 
+namespace libkineto {
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DeviceActivityInterface* device_activity_singleton = nullptr;
+
+}  // namespace libkineto
+
 namespace dipu {
 namespace profile {
 
+using libkineto::DeviceActivityInterface;
 using libkineto::GenericTraceActivity;
 
 DIPUDeviceActivity::~DIPUDeviceActivity() {
@@ -36,18 +44,9 @@ void DIPUDeviceActivity::enableActivities(
     const std::set<libkineto::ActivityType>& selected_activities) {}
 
 void DIPUDeviceActivity::disableActivities(
-    const std::set<libkineto::ActivityType>& selected_activities) {
-  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
-      selected_activities.end()) {
-    setProfileOpen(false);
-  }
-}
+    const std::set<libkineto::ActivityType>& selected_activities) {}
 
-void DIPUDeviceActivity::clearActivities() {
-  abandonAllRecords();
-  cpu_activities_.clear();
-  device_activities_.clear();
-}
+void DIPUDeviceActivity::clearActivities() { abandonAllRecords(); }
 
 int32_t DIPUDeviceActivity::processActivities(
     libkineto::ActivityLogger& logger,
@@ -88,17 +87,45 @@ int32_t DIPUDeviceActivity::processActivities(
   return static_cast<int32_t>(records.size());
 }
 
+void DIPUDeviceActivity::startTrace(
+    const std::set<libkineto::ActivityType>& selected_activities) {
+  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
+      selected_activities.end()) {
+    setProfileOpen(true);
+  }
+}
+
+void DIPUDeviceActivity::stopTrace(
+    const std::set<libkineto::ActivityType>& selected_activities) {
+  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
+      selected_activities.end()) {
+    setProfileOpen(false);
+  }
+}
+
 void DIPUDeviceActivity::teardownContext() {}
 
 void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static DeviceActivityInterface* default_device_activity =
+    &DIPUDeviceActivity::instance();
+
+void setDeviceActivity(DeviceActivityInterface* ptr) {
+  if (libkineto::device_activity_singleton == nullptr) {
+    libkineto::device_activity_singleton = ptr;
+    return;
+  }
+
+  if (libkineto::device_activity_singleton == default_device_activity) {
+    libkineto::device_activity_singleton = ptr;
+  }
+}
+
+const static int32_t default_device_activity_init = []() {
+  setDeviceActivity(default_device_activity);
+  return 1;
+}();
+
 }  // namespace profile
 }  // namespace dipu
-
-namespace libkineto {
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-DeviceActivityInterface* device_activity_singleton =
-    &dipu::profile::DIPUDeviceActivity::instance();
-
-}  // namespace libkineto
