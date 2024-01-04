@@ -1484,7 +1484,7 @@
   interface: diopiBmm(ctx, out, self, mat2)
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
-  # custom_fallback: True
+  custom_fallback: True
   interface: diopiSilu(ctx, out, self)
 
 - schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
