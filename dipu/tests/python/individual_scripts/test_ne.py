@@ -30,8 +30,8 @@ class TestLogicalNe(TestCase):
         x = torch.randn(5, 5)
         s = torch.rand(1).item()
 
-        res_on_cpu = torch.ne(s, x)
-        res_on_npu = torch.ne(s, x.to(self.device))
+        res_on_cpu = torch.ne(x, s)
+        res_on_npu = torch.ne(x.to(self.device), s)
         self.assertEqual(res_on_cpu, res_on_npu.cpu())
 
     def test_ne_tensor_scalar_like(self):
