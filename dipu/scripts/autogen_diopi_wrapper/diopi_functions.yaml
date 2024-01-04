@@ -365,11 +365,11 @@
 
 - schema: "ne.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1) {
-        return dipu_ne_scalar_out(self, other.cpu().item(), out);
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_ne_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1) {
-        return dipu_ne_scalar_out(other, self.cpu().item(), out);
+    if (self.numel() == 1 && self.is_cpu()) {
+        return dipu_ne_scalar_out(other, self.item(), out);
     }
   interface: diopiNe(ctx, out, self, other)
 
