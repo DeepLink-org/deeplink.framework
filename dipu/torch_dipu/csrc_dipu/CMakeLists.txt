@@ -67,7 +67,7 @@ add_custom_command(
   DEPENDS "${GENERATED_KERNELS_SCRIPT}"
   "${GENERATED_KERNELS_CONFIG}"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Generate file ${GENERATED_KERNELS} in ${CMAKE_CURRENT_SOURCE_DIR}"
+  COMMENT "Generate file ${GENERATED_KERNELS}"
   VERBATIM)
 
 # Collect source files.
@@ -140,32 +140,32 @@ target_link_libraries(torch_dipu PRIVATE diopi_impl)
 target_link_libraries(torch_dipu PRIVATE Python3::Python c10 torch torch_cpu)
 target_link_libraries(torch_dipu PRIVATE Threads::Threads)
 
-#[[ Target: torch_dipu_pybind ]]
+#[[ Target: torch_dipu_python ]]
 set(TORCH_DIPU_PYBIND_SOURCE
   binding/ExportRT.cpp
   binding/ExportProfiler.cpp
   binding/patchCsrcDevice.cpp
   binding/ExportTensor.cpp)
 
-add_library(torch_dipu_pybind ${TORCH_DIPU_PYBIND_SOURCE})
+Python3_add_library(torch_dipu_python SHARED ${TORCH_DIPU_PYBIND_SOURCE})
 
 # TODO: default hidden setting scope is incorrect and cannot open now because it
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
-set_target_properties(torch_dipu_pybind PROPERTIES CXX_VISIBILITY_PRESET hidden)
-target_link_libraries(torch_dipu_pybind Python3::Python torch kineto torch_dipu)
-target_include_directories(torch_dipu_pybind SYSTEM PUBLIC ..)
+set_target_properties(torch_dipu_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
+target_link_libraries(torch_dipu_python PUBLIC torch_dipu PRIVATE kineto)
+target_include_directories(torch_dipu_python SYSTEM PRIVATE ..)
 
 #[[ Target: torch_dipu_cpython_extension ]]
 Python3_add_library(torch_dipu_cpython_extension SHARED stub.cpp)
-target_include_directories(torch_dipu_cpython_extension SYSTEM PUBLIC ..)
-target_link_libraries(torch_dipu_cpython_extension PRIVATE torch torch_dipu_pybind torch_dipu)
+target_include_directories(torch_dipu_cpython_extension SYSTEM PRIVATE ..)
+target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE torch_python)
 target_compile_options(torch_dipu_cpython_extension PRIVATE -fstack-protector-all)
 set_target_properties(torch_dipu_cpython_extension PROPERTIES
   OUTPUT_NAME "_C.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}-${CMAKE_SYSTEM_PROCESSOR}-linux-gnu"
   PREFIX "")
 
-set_target_properties(torch_dipu torch_dipu_pybind torch_dipu_cpython_extension
+set_target_properties(torch_dipu torch_dipu_python torch_dipu_cpython_extension
   PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
 
 # TODO(lljbash,lihuayi): set the lib output dir like pytorch

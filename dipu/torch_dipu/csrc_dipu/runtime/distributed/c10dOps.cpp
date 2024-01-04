@@ -171,7 +171,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
 }
 
 c10::intrusive_ptr<Work> barrier_dipu(
-    const at::Tensor& /* unused */,
+    at::Tensor /* unused */,  // NOLINT(performance-unnecessary-value-param)
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const std::vector<int64_t>& device_ids, int64_t timeout) {
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)

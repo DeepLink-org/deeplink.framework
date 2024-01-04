@@ -181,7 +181,8 @@ at::Tensor get_rng_state(at::DeviceIndex idx) {
  * set rng state
  *
  **/
-void set_rng_state(at::DeviceIndex idx, at::Tensor const& state) {
+// NOLINTNEXTLINE(performance-unnecessary-value-param) - see: ExportRT.cpp
+void set_rng_state(at::DeviceIndex idx, at::Tensor state) {
   auto pointer = state.getIntrusivePtr();
   TORCH_CHECK_NOTNULL(pointer);
 
