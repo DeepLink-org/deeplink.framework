@@ -5,7 +5,7 @@
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/library.h>
 
-#include <csrc_dipu/base/basedef.h>
+#include "csrc_dipu/base/basedef.h"
 
 namespace c10d {
 namespace ops {
@@ -39,9 +39,8 @@ c10::intrusive_ptr<Work> reduce_dipu_(
     int64_t root_tensor, int64_t timeout) {
   auto tensor_vec = tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-      ->reduce(tensor_vec,
-               ReduceOptions{*reduce_op.get(), root_rank, root_tensor,
-                             std::chrono::milliseconds(timeout)});
+      ->reduce(tensor_vec, ReduceOptions{*reduce_op, root_rank, root_tensor,
+                                         std::chrono::milliseconds(timeout)});
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
@@ -55,8 +54,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
                       BroadcastOptions{root_rank, root_tensor,
                                        std::chrono::milliseconds(timeout)});
 
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(tensor_vec), work);
+  return {std::move(tensor_vec), work};
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
@@ -66,15 +64,14 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
   auto tensor_vec = tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-          ->allreduce(tensor_vec,
-                      AllreduceOptions{*reduce_op.get(),
-                                       std::chrono::milliseconds(timeout)});
+          ->allreduce(
+              tensor_vec,
+              AllreduceOptions{*reduce_op, std::chrono::milliseconds(timeout)});
 
   // Return input tensors as output tensors to make inplace allreduce look like
   // a functional API, so that make_fx can correctly build the dependencies in
   // the graph later.
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(tensor_vec), work);
+  return {std::move(tensor_vec), work};
 }
 
 std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>
@@ -86,14 +83,15 @@ allgather_dipu_(const std::vector<std::vector<at::Tensor>>& output_tensors,
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->allgather(
+              // ?
+              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
               const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
               input_tensors_vec,
               AllgatherOptions{std::chrono::milliseconds(timeout)});
 
   // Copy output tensors (not storage) so that this can be used in a functional
   // manner
-  return std::tuple<std::vector<std::vector<at::Tensor>>,
-                    c10::intrusive_ptr<Work>>(output_tensors, work);
+  return {output_tensors, work};
 }
 
 // refer to distributed/c10d/Ops.cpp
@@ -103,7 +101,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
                   ->_allgather_base(output_tensor, input_tensor);
 
-  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+  return {output_tensor, work};
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
@@ -117,12 +115,13 @@ reduce_scatter_dipu_(const at::TensorList& output_tensors,
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->reduce_scatter(
               output_tensors_vec,
+              // ?
+              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
-              ReduceScatterOptions{*reduce_op.get(),
+              ReduceScatterOptions{*reduce_op,
                                    std::chrono::milliseconds(timeout)});
 
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      output_tensors_vec, work);
+  return {output_tensors_vec, work};
 }
 
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
@@ -132,10 +131,10 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
                   ->_reduce_scatter_base(
                       output_tensor, input_tensor,
-                      ReduceScatterOptions{*reduce_op.get(),
+                      ReduceScatterOptions{*reduce_op,
                                            std::chrono::milliseconds(timeout)});
 
-  return std::tuple<at::Tensor, c10::intrusive_ptr<Work>>(output_tensor, work);
+  return {output_tensor, work};
 }
 
 c10::intrusive_ptr<Work> gather_dipu_(
@@ -146,6 +145,8 @@ c10::intrusive_ptr<Work> gather_dipu_(
   auto input_tensors_vec = input_tensors.vec();
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
       ->gather(
+          // ?
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
           const_cast<std::vector<std::vector<at::Tensor>>&>(output_tensors),
           input_tensors_vec,
           GatherOptions{root_rank, std::chrono::milliseconds(timeout)});
@@ -161,15 +162,16 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->scatter(
               output_tensors_vec,
+              // ?
+              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ScatterOptions{root_rank, std::chrono::milliseconds(timeout)});
 
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(output_tensors_vec), work);
+  return {std::move(output_tensors_vec), work};
 }
 
 c10::intrusive_ptr<Work> barrier_dipu(
-    at::Tensor /* unused */,
+    const at::Tensor& /* unused */,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const std::vector<int64_t>& device_ids, int64_t timeout) {
   return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)

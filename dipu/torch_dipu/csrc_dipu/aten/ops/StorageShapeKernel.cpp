@@ -8,9 +8,9 @@
 #include <c10/util/Exception.h>
 #include <c10/util/accumulate.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/runtime/core/MemChecker.h>
-#include <csrc_dipu/runtime/rthelper.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/runtime/core/MemChecker.h"
+#include "csrc_dipu/runtime/rthelper.h"
 
 namespace dipu {
 namespace native {

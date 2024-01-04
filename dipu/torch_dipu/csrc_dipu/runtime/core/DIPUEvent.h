@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <utility>
 
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "DIPUGuard.h"
 #include "DIPUStream.h"

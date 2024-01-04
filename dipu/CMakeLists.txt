@@ -109,11 +109,6 @@ set(CMAKE_CXX_FLAGS
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI})
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
 
-execute_process(
-  COMMAND sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)"
-  OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
-message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
-
 if(NOT DEFINED PYTORCH_DIR)
   execute_process(
     COMMAND sh -c "dirname $(python -c 'import torch;print(torch.__path__[0])')"

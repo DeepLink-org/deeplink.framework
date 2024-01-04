@@ -6,11 +6,9 @@
 #include <ATen/Tensor.h>
 #include <c10/core/Stream.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/aten/ops/OpUtils.hpp>
-#include <csrc_dipu/profiler/profiler.h>
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/helpfunc.hpp>
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
+#include "csrc_dipu/runtime/rthelper.h"
+#include "csrc_dipu/utils/helpfunc.hpp"
 
 namespace dipu {
 namespace native {

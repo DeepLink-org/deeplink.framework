@@ -1,9 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include <Python.h>
 
-#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/device/basedef.h>
 
 namespace dipu {
 DIPU_API PyMethodDef* exportTensorFunctions();

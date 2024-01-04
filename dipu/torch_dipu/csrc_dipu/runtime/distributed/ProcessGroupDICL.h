@@ -10,12 +10,12 @@
 #include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
-#include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/runtime/core/DIPUEvent.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/vendor/vendorapi.h>
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/vendor/vendorapi.h"
 
-#include "./DICLUtils.hpp"
+#include "DICLUtils.hpp"
 
 namespace dipu {
 
@@ -180,25 +180,24 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Work> allreduce(
       std::vector<at::Tensor>& tensors,
-      // FIXME: stop using default argument later
-      const AllreduceOptions& opts = AllreduceOptions()) override;
+      const AllreduceOptions& opts /* = AllreduceOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce(
       std::vector<at::Tensor>& tensors,
       const ReduceOptions& opts /* = ReduceOptions() */) override;
 
   c10::intrusive_ptr<Work> gather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
+      std::vector<std::vector<at::Tensor>>& outputs,
+      std::vector<at::Tensor>& inputs,
       const GatherOptions& opts /* = GatherOptions() */) override;
 
   c10::intrusive_ptr<Work> allgather(
-      std::vector<std::vector<at::Tensor>>& output_tensors,
-      std::vector<at::Tensor>& input_tensors,
+      std::vector<std::vector<at::Tensor>>& outputs,
+      std::vector<at::Tensor>& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> _allgather_base(
-      at::Tensor& output_tensor, at::Tensor& input_tensor,
+      at::Tensor& outputs, at::Tensor& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce_scatter(
@@ -207,7 +206,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> _reduce_scatter_base(
-      at::Tensor& outputs, at::Tensor& inputs,
+      at::Tensor& output, at::Tensor& input,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
@@ -232,7 +231,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
   // Helper that either looks up the cached DICL communicators or creates
   // a new set of DICL communicators as a cache entry
   virtual std::vector<std::shared_ptr<DICLComm>>& getDICLComms(
-      const std::string& devicesKey, const std::vector<at::Device>& devices,
+      const std::string& localCommsKey, const std::vector<at::Device>& devices,
       int commsRank, OpType opType);
 
   template <typename Fn>

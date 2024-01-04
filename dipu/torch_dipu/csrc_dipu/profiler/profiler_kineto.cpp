@@ -1,5 +1,6 @@
 #include "profiler_kineto.h"
 
+#include <algorithm>
 #include <libkineto.h>
 
 #include <c10/macros/Export.h>
@@ -26,7 +27,10 @@ namespace dipu {
 namespace profile {
 
 namespace {
-inline int64_t getTimeUs() { return torch::profiler::impl::getTime() / 1000; }
+inline int64_t getTimeUs() {
+  auto constexpr scale = int64_t{1000};
+  return torch::profiler::impl::getTime(true) / scale;
+}
 
 const std::set<libkineto::ActivityType> kCpuTypes{
     libkineto::ActivityType::CPU_OP,
@@ -81,7 +85,7 @@ auto shapesAndDtypes(const std::vector<op_input_t>& inputs) {
 }
 
 struct MetadataBase {
-  MetadataBase(const std::shared_ptr<Result>& result)
+  explicit MetadataBase(const std::shared_ptr<Result>& result)
       : kineto_activity_{result->kineto_activity_} {
     if (c10::holds_alternative<ExtraFields<EventType::Kineto>>(
             result->extra_fields_)) {
@@ -140,7 +144,7 @@ struct AddTensorboardFields : public MetadataBase {
   }
 
   template <typename T>
-  void operator()(const T&) {}
+  void operator()(const T& /*unused*/) {}
 };
 
 struct AddGenericMetadata : public MetadataBase {
@@ -189,7 +193,8 @@ struct AddGenericMetadata : public MetadataBase {
   }
 
   void operator()(const ExtraFields<EventType::Allocation>& alloc) {
-    addMetadata("Device Type", std::to_string((int8_t)alloc.device_type_));
+    addMetadata("Device Type",
+                std::to_string(static_cast<int8_t>(alloc.device_type_)));
     addMetadata("Device Id", std::to_string(alloc.device_index_));
     addMetadata("Addr", std::to_string(reinterpret_cast<intptr_t>(alloc.ptr_)));
     addMetadata("Bytes", std::to_string(alloc.alloc_size_));
@@ -198,7 +203,8 @@ struct AddGenericMetadata : public MetadataBase {
   }
 
   void operator()(const ExtraFields<EventType::OutOfMemory>& alloc) {
-    addMetadata("Device Type", std::to_string((int8_t)alloc.device_type_));
+    addMetadata("Device Type",
+                std::to_string(static_cast<int8_t>(alloc.device_type_)));
     addMetadata("Device Id", std::to_string(alloc.device_index_));
     addMetadata("Bytes", std::to_string(alloc.alloc_size_));
     addMetadata("Total Allocated", std::to_string(alloc.total_allocated_));
@@ -206,7 +212,7 @@ struct AddGenericMetadata : public MetadataBase {
   }
 
   template <typename T>
-  void operator()(const T&) {}
+  void operator()(const T& /*unused*/) {}
 
  private:
   /* To get names of the performance events */
@@ -214,8 +220,10 @@ struct AddGenericMetadata : public MetadataBase {
 };
 // Assumption: Total threads number will not exceed 2^16-1, and total ops will
 // not exceed 2^48 -1.
-static inline uint64_t getForwardThreadKey(uint64_t tid, uint64_t seqNr) {
-  return (((tid) << 48) | ((seqNr) & (((uint64_t)1 << 48) - 1)));
+inline uint64_t getForwardThreadKey(uint64_t tid, uint64_t seqNr) {
+  auto constexpr shift = 48;
+  auto constexpr mask = (uint64_t{1} << shift) - 1;
+  return (tid << shift) | (seqNr & mask);
 }
 
 struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
@@ -316,7 +324,7 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
     }
   }
 
-  void generateForwardBackwardLink(
+  static void generateForwardBackwardLink(
       const KinetoEvent& kineto_event, uint64_t& fwd_bwd_link_id,
       libkineto::GenericTraceActivity& activity,
       std::unordered_map<uint64_t, libkineto::GenericTraceActivity*>&
@@ -435,10 +443,10 @@ static void prepareTrace(
   }
 
   std::set<libkineto::ActivityType> k_activities;
-  if (activities.count(torch::profiler::impl::ActivityType::CPU)) {
+  if (activities.count(torch::profiler::impl::ActivityType::CPU) != 0U) {
     k_activities.insert(kCpuTypes.begin(), kCpuTypes.end());
   }
-  if (activities.count(torch::profiler::impl::ActivityType::CUDA)) {
+  if (activities.count(torch::profiler::impl::ActivityType::CUDA) != 0U) {
     k_activities.insert(libkineto::ActivityType::CONCURRENT_KERNEL);
   }
   libkineto::api().activityProfiler().prepareTrace(k_activities);
@@ -466,12 +474,9 @@ void prepareProfiler(
      * valid?
      */
     auto is_standard_event = [](const std::string& event) -> bool {
-      for (auto e : torch::profiler::ProfilerPerfEvents) {
-        if (!std::strcmp(event.c_str(), e)) {
-          return true;
-        }
-      }
-      return false;
+      auto equal = [&event](const char* str) { return event == str; };
+      return std::any_of(torch::profiler::ProfilerPerfEvents.begin(),
+                         torch::profiler::ProfilerPerfEvents.end(), equal);
     };
 
     for (const auto& e : config.experimental_config.performance_events) {

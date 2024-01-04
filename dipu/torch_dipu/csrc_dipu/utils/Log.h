@@ -1,8 +1,10 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <cstdio>
 #include <iostream>
-#include <stdio.h>
+
+// TODO(log) - replace those code with a logger library.
 
 #define CONCAT_(prefix, suffix) prefix##suffix
 #define CONCAT(prefix, suffix) CONCAT_(prefix, suffix)

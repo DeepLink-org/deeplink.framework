@@ -13,9 +13,8 @@
 #include <c10/util/Optional.h>
 #include <c10/util/string_view.h>
 
+#include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/vendor/vendorapi.h"
-#include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/runtime/rthelper.h>
 
 #include "IActivityProfiler.h"
 
@@ -82,8 +81,8 @@ class RecordsImpl final {
 class RecordCreator final {
  private:
   string_t name_;
-  size_t opId_;
-  size_t begin_;
+  size_t opId_{};
+  size_t begin_{};
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;
 
@@ -111,9 +110,9 @@ struct DeviceRecord {
 class DeviceRecordCreator final {
  private:
   string_t name_;
-  size_t opId_;
-  deviceStream_t stream_;
-  int streamId_;
+  size_t opId_{};
+  deviceStream_t stream_{};
+  int streamId_{};
   std::shared_ptr<DeviceEvent> pStart_, pStop_;
   bool end_ = true;
   uint64_t linkCorrelationId_ = 0;

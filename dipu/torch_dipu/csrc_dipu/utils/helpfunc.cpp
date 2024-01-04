@@ -1,5 +1,5 @@
 // Copyright (c) 2023, DeepLink.
-#include "./helpfunc.hpp"
+#include "helpfunc.hpp"
 
 #ifndef WIN32
 #include <mutex>

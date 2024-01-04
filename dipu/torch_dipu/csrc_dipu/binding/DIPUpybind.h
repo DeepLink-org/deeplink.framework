@@ -1,14 +1,15 @@
 #pragma once
 
-#include <torch/python.h>
+#include <torch/csrc/Dtype.h>
+#include <torch/torch.h>
 #include <torch/types.h>  // for at::ScalarType
 
-#include <pybind11/pybind11.h>
+#include <pybind11/cast.h>
+#include <pybind11/detail/descr.h>
+#include <pybind11/pytypes.h>
 
 namespace pybind11 {
 namespace detail {
-
-namespace py = pybind11;
 
 at::ScalarType dtypeToScalarType(PyObject* dtype_obj) {
   TORCH_INTERNAL_ASSERT(THPDtype_Check(dtype_obj));
@@ -59,23 +60,24 @@ bool isDtype(PyObject* obj) { return THPDtype_Check(obj); }
 template <>
 struct type_caster<at::ScalarType> {
  public:
-  PYBIND11_TYPE_CASTER(at::ScalarType, _("torch.dtype"));
+  PYBIND11_TYPE_CASTER(at::ScalarType, const_name("torch.dtype"));
 
-  bool load(py::handle src, bool /*unused*/) {
+  // See: https://pybind11.readthedocs.io/en/stable/advanced/cast/custom.html
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  bool load(handle src, bool /*unused*/) {
     // Convert Python torch.dtype to at::ScalarType
-    PyObject* obj = src.ptr();
-    if (isDtype(obj)) {
-      value = dtypeToScalarType(obj);
-      return true;
+    auto object = src.ptr();
+    auto result = isDtype(object);
+    if (result) {
+      value = dtypeToScalarType(object);
     }
-    return false;
+    return result;
   }
 
-  static py::handle cast(const at::ScalarType& src,
-                         py::return_value_policy /* policy */,
-                         py::handle /* parent */) {
+  static handle cast(const at::ScalarType& src,
+                     return_value_policy /* policy */, handle /* parent */) {
     // Convert at::ScalarType to Python torch.dtype
-    return {{py::handle(scalarTypeToDtype(src))}};
+    return {{handle(scalarTypeToDtype(src))}};
   }
 };
 

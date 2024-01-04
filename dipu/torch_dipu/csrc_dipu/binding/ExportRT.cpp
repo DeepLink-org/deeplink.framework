@@ -13,7 +13,6 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
-#include "DIPUpybind.h"
 #include "exportapi.h"
 
 using dipu::DIPUEvent;

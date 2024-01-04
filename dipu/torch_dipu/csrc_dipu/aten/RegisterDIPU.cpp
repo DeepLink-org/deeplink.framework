@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 
+#include <ios>
 #include <iostream>
 #include <regex>
 
@@ -9,65 +10,59 @@
 #include <ATen/native/CPUFallback.h>
 #include <c10/core/Storage.h>
 #include <c10/util/Exception.h>
+#include <c10/util/irange.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/profiler/profiler.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 
 using dnative = dipu::native::DIPUATenFunctions;
 
 namespace dipu {
 namespace {
 
-void read_comma_separated_list(std::istream& input,
-                               std::vector<std::string>& output) {
-  auto line = std::string();
-  while (std::getline(input, line)) {
-    auto buffer = std::stringstream(line);
-    auto value = std::string();
-    while (std::getline(buffer, value, ',')) {
-      output.push_back(std::move(value));
+std::vector<std::regex> load_fallback_matcher() {
+  auto constexpr env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
+  auto constexpr file_name = ".dipu_force_fallback_op_list.config";
+
+  auto append = [](std::istream& input, std::vector<std::regex>& output) {
+    auto pattern = std::string();
+    while (std::getline(input, pattern, ',')) {
+      if (pattern.empty()) {
+        continue;
+      }
+      try {
+        output.emplace_back(pattern);
+      } catch (const std::regex_error& e) {
+        TORCH_CHECK(false, e.what());
+      }
     }
+  };
+
+  auto list = std::vector<std::regex>();
+  if (auto env = std::getenv(env_name)) {
+    auto iss = std::istringstream(env);
+    append(iss, list);
   }
+  if (auto file = std::ifstream(file_name, std::ios::binary)) {
+    append(file, list);
+  }
+  return list;
 }
 
-std::vector<std::string> getFallbackList() {
-  auto fallback_list = std::vector<std::string>();
-  if (auto env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST")) {
-    auto iss = std::stringstream(env);
-    read_comma_separated_list(iss, fallback_list);
-  }
-  auto file = std::ifstream(".dipu_force_fallback_op_list.config",
-                            std::ios_base::in | std::ios::binary);
-  read_comma_separated_list(file, fallback_list);
-
-  return fallback_list;
-}
-
-const std::vector<std::string> force_fallback_operators_list =
-    getFallbackList();
+auto const force_fallback_matchers = load_fallback_matcher();
 
 }  // end of namespace
 
 bool get_force_fallback(const char* opname) {
-  if (force_fallback_operators_list.empty() || opname == nullptr) {
+  if (force_fallback_matchers.empty() || opname == nullptr) {
     return false;
   }
-  for (auto& force_fallback_pattern : force_fallback_operators_list) {
-    if (force_fallback_pattern.empty()) {
-      continue;
-    }
-    try {
-      bool force_fallback =
-          std::regex_match(opname, std::regex(force_fallback_pattern));
-      if (force_fallback) {
-        return true;
-      }
-    } catch (const std::regex_error& e) {
-      TORCH_CHECK(false, e.what());
-    }
-  }
-  return false;
+
+  return std::any_of(
+      force_fallback_matchers.begin(), force_fallback_matchers.end(),
+      [&opname](auto& matcher) { return std::regex_match(opname, matcher); });
 }
 
 namespace native {

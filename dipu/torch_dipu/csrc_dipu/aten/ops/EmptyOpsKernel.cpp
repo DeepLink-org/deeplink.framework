@@ -5,9 +5,9 @@
 #include <c10/core/TensorOptions.h>
 #include <c10/util/accumulate.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/profiler/profiler.h>
-#include <csrc_dipu/runtime/rthelper.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/rthelper.h"
 
 namespace dipu {
 namespace native {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/Log.h>
+#include "csrc_dipu/runtime/rthelper.h"
+#include "csrc_dipu/utils/Log.h"
 
 namespace dipu {
 namespace native {
@@ -20,10 +20,11 @@ inline bool checkTensorDevice() {
 inline void synchronizeIfEnable() {
   static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
   if (mode != nullptr) {
+    // TODO(log) - use a logger library to do this.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     DIPU_LOG_ONCE << "The synchronous operation is performed after "
                   << "the diopi function call because the DIPU_SYNC_EXEC_MODE "
-                     "environment variable is set"
-                  << std::endl;
+                     "environment variable is set\n";
     dipu::getCurrentDIPUStream().synchronize();
   }
 }

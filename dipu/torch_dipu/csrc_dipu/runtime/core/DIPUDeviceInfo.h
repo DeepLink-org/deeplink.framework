@@ -1,5 +1,9 @@
 // Copyright (c) 2023, DeepLink.
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+
+#include <cstdint>
+#include <memory>
+
+#include "csrc_dipu/runtime/device/basedef.h"
 
 namespace dipu {
 using dipu::devapis::DIPUDeviceProperties;

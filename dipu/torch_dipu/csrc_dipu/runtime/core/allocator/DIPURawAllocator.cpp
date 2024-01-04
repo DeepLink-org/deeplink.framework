@@ -6,10 +6,9 @@
 #include <unordered_set>
 #include <utility>
 
-#include <csrc_dipu/common.h>
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
-
-#include "../DIPUStream.h"
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
