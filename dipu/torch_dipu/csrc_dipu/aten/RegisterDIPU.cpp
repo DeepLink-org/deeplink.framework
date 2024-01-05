@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 
+#include <algorithm>
 #include <ios>
 #include <iostream>
 #include <regex>
@@ -27,15 +28,21 @@ std::vector<std::regex> load_fallback_matcher() {
   auto constexpr file_name = ".dipu_force_fallback_op_list.config";
 
   auto append = [](std::istream& input, std::vector<std::regex>& output) {
-    auto pattern = std::string();
-    while (std::getline(input, pattern, ',')) {
-      if (pattern.empty()) {
-        continue;
-      }
-      try {
-        output.emplace_back(pattern);
-      } catch (const std::regex_error& e) {
-        TORCH_CHECK(false, e.what());
+    auto constexpr separator = ',';
+
+    auto line = std::string();
+    while (std::getline(input, line)) {
+      auto buffer = std::istringstream(line);
+      auto pattern = std::string();
+      while (std::getline(buffer, pattern, separator)) {
+        if (pattern.empty()) {
+          continue;
+        }
+        try {
+          output.emplace_back(pattern);
+        } catch (const std::regex_error& e) {
+          TORCH_CHECK(false, e.what());
+        }
       }
     }
   };
