@@ -7,7 +7,6 @@
 #include <torch/csrc/utils/pybind.h>
 
 #include <pybind11/chrono.h>
-#include <diopi/diopirt.h>
 
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/base/DIPUGlobals.h>
@@ -286,31 +285,32 @@ static void patchTensor(py::module& m) {
   });
 }
 
-static void exportMemoryFormat(py::module& m) {
-  py::enum_<diopiCustomFormat_t>& formats =
-      py::enum_<diopiCustomFormat_t>(m, "DIOPICustomFormat")
-          .value("Undefined", diopiCustomFormat_t::Undefined);
+static void exportCustomFormat(py::module& m) {
   if (VENDOR_TYPE == VendorDeviceType::NPU) {
-    formats.value("NCHW", diopiCustomFormat_t::NCHW)
-        .value("ND", diopiCustomFormat_t::ND)
-        .value("NC1HWC0", diopiCustomFormat_t::NC1HWC0)
-        .value("FRACTAL_Z", diopiCustomFormat_t::FRACTAL_Z)
-        .value("NC1HWC0_C04", diopiCustomFormat_t::NC1HWC0_C04)
-        .value("HWCN", diopiCustomFormat_t::HWCN)
-        .value("NDHWC", diopiCustomFormat_t::NDHWC)
-        .value("FRACTAL_NZ", diopiCustomFormat_t::FRACTAL_NZ)
-        .value("NCDHW", diopiCustomFormat_t::NCDHW)
-        .value("NDC1HWC0", diopiCustomFormat_t::NDC1HWC0)
-        .value("FRACTAL_Z_3D", diopiCustomFormat_t::FRACTAL_Z_3D)
-        .export_values();
+    py::enum_<CustomFormat_t>& formats =
+        py::enum_<CustomFormat_t>(m, "CustomFormat")
+            .value("UNDEFINED", CustomFormat_t::UNDEFINED)
+            .value("NCHW", CustomFormat_t::NCHW)
+            .value("NHWC", CustomFormat_t::NHWC)
+            .value("ND", CustomFormat_t::ND)
+            .value("NC1HWC0", CustomFormat_t::NC1HWC0)
+            .value("FRACTAL_Z", CustomFormat_t::FRACTAL_Z)
+            .value("NC1HWC0_C04", CustomFormat_t::NC1HWC0_C04)
+            .value("HWCN", CustomFormat_t::HWCN)
+            .value("NDHWC", CustomFormat_t::NDHWC)
+            .value("FRACTAL_NZ", CustomFormat_t::FRACTAL_NZ)
+            .value("NCDHW", CustomFormat_t::NCDHW)
+            .value("NDC1HWC0", CustomFormat_t::NDC1HWC0)
+            .value("FRACTAL_Z_3D", CustomFormat_t::FRACTAL_Z_3D)
+            .export_values();
   }
 
-  m.def("diopi_format", [](at::Tensor& self) -> diopiCustomFormat_t {
+  m.def("get_format", [](const at::Tensor& self) -> CustomFormat_t {
     return dipu::get_format(self);
   });
 
   m.def("format_cast",
-        [](at::Tensor& tensor, diopiCustomFormat_t format) -> at::Tensor {
+        [](at::Tensor& tensor, CustomFormat_t format) -> at::Tensor {
           return dipu::format_cast(tensor, format);
         });
 }
@@ -364,7 +364,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportMemCaching(m);
   patchStorage(m);
   patchTensor(m);
-  exportMemoryFormat(m);
+  exportCustomFormat(m);
   exportGenerator(m);
   exportAutocast(m);
 }

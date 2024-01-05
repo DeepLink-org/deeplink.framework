@@ -43,7 +43,6 @@ def apply_tensor_method_patch():
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = property(_C.is_dipu)
-    torch.Tensor.diopi_format = property(_C.diopi_format)
 
     # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp 
     # THPVariable_record_stream() will loss. so we currently replace in the python layer.

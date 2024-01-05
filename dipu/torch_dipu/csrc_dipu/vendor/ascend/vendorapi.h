@@ -37,4 +37,5 @@ using deviceHandle_t = aclrtContext*;
 
 using diclComm_t = HcclComm;
 using commUniqueId = HcclRootInfo;
+
 }  // namespace dipu
