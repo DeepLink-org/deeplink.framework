@@ -2,7 +2,8 @@
 #pragma once
 
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
-#include "csrc_dipu/runtime/rthelper.h"
+
+#include "OpUtils.hpp"
 
 namespace dipu {
 namespace native {

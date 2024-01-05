@@ -62,14 +62,13 @@ add_custom_command(
     "--print_op_arg=True"
     "--use_diopi_adapter=False"
     "--print_func_call_info=True"
-    "--fun_config_dict={\"current_device\":\"${UsedVendor}\"}"
+    "--fun_config_dict={\\\"current_device\\\":\\\"${UsedVendor}\\\"}"
     "$<$<BOOL:${GENERATED_KERNELS_VENDOR}>:--convert_config=${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
     "${GENERATED_KERNELS_CONFIG}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
-  VERBATIM)
+  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 
 # Collect source files.
 # Tou may use: find . -name "*.cpp" to update.

@@ -7,6 +7,7 @@
 #include <c10/core/StreamGuard.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/guardimpl/DIPUGuardImpl.h"
 
 namespace dipu {
 

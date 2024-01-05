@@ -13,6 +13,7 @@
 #include <c10/util/Optional.h>
 #include <c10/util/string_view.h>
 
+#include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/vendor/vendorapi.h"
 

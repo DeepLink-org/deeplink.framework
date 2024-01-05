@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 #include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/runtime/device/basedef.h"
 
 namespace dipu {
 

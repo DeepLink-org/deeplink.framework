@@ -2,8 +2,9 @@
 #pragma once
 
 #include <Python.h>
+#include <pybind11/pybind11.h>
 
-#include <csrc_dipu/runtime/device/basedef.h>
+#include <csrc_dipu/base/basedef.h>
 
 namespace dipu {
 DIPU_API PyMethodDef* exportTensorFunctions();

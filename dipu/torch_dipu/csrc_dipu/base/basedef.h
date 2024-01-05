@@ -4,6 +4,8 @@
 #include <ATen/Utils.h>
 #include <c10/core/DispatchKey.h>
 
+#include "csrc_dipu/runtime/device/basedef.h"
+
 #define DIPU_DEVICE_TYPE_MACRO XPU
 #define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO \
   C10_CONCATENATE(Autograd, DIPU_DEVICE_TYPE_MACRO)
