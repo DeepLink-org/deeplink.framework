@@ -53,8 +53,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
           ->broadcast(tensor_vec,
                       BroadcastOptions{root_rank, root_tensor,
                                        std::chrono::milliseconds(timeout)});
-
-  return {std::move(tensor_vec), work};
+  return {std::move(tensor_vec), std::move(work)};
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
@@ -71,7 +70,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
   // Return input tensors as output tensors to make inplace allreduce look like
   // a functional API, so that make_fx can correctly build the dependencies in
   // the graph later.
-  return {std::move(tensor_vec), work};
+  return {std::move(tensor_vec), std::move(work)};
 }
 
 std::tuple<std::vector<std::vector<at::Tensor>>, c10::intrusive_ptr<Work>>
@@ -91,7 +90,7 @@ allgather_dipu_(const std::vector<std::vector<at::Tensor>>& output_tensors,
 
   // Copy output tensors (not storage) so that this can be used in a functional
   // manner
-  return {output_tensors, work};
+  return {output_tensors, std::move(work)};
 }
 
 // refer to distributed/c10d/Ops.cpp
@@ -101,7 +100,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
                   ->_allgather_base(output_tensor, input_tensor);
 
-  return {output_tensor, work};
+  return {output_tensor, std::move(work)};
 }
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
@@ -121,7 +120,7 @@ reduce_scatter_dipu_(const at::TensorList& output_tensors,
               ReduceScatterOptions{*reduce_op,
                                    std::chrono::milliseconds(timeout)});
 
-  return {output_tensors_vec, work};
+  return {output_tensors_vec, std::move(work)};
 }
 
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
@@ -134,7 +133,7 @@ std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
                       ReduceScatterOptions{*reduce_op,
                                            std::chrono::milliseconds(timeout)});
 
-  return {output_tensor, work};
+  return {output_tensor, std::move(work)};
 }
 
 c10::intrusive_ptr<Work> gather_dipu_(
@@ -167,7 +166,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
               ScatterOptions{root_rank, std::chrono::milliseconds(timeout)});
 
-  return {std::move(output_tensors_vec), work};
+  return {std::move(output_tensors_vec), std::move(work)};
 }
 
 c10::intrusive_ptr<Work> barrier_dipu(
