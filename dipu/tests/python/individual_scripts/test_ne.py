@@ -14,7 +14,6 @@ class TestLogicalNe(TestCase):
 
         res_on_cpu = torch.ne(x, o)
         res_on_npu = torch.ne(x.to(self.device), o.to(self.device))
-        res_on_cpu = res_on_cpu
         self.assertEqual(res_on_cpu, res_on_npu.cpu())
 
         s = torch.randn(1)
