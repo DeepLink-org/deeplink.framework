@@ -22,19 +22,19 @@ set(VENDOR_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dist/include")
 set(VENDOR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
 set(VENDOR_OUTPUT_HEADER "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendorapi.h")
 add_custom_command(
-  OUTPUT ${VENDOR_OUTPUT_HEADER}
-  COMMAND mkdir -p ${VENDOR_DIST_DIR}/csrc_dipu/vendor
+  OUTPUT "${VENDOR_OUTPUT_HEADER}"
+  COMMAND mkdir -p "${VENDOR_DIST_DIR}/csrc_dipu/vendor"
   COMMAND cmake -E create_symlink
-  ${VENDOR_SOURCE_DIR}/vendorapi.h
-  ${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendorapi.h
+    "${VENDOR_SOURCE_DIR}/vendorapi.h"
+    "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendorapi.h"
   VERBATIM)
 
 if(EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
   add_custom_command(
-    OUTPUT ${VENDOR_OUTPUT_HEADER}
+    OUTPUT "${VENDOR_OUTPUT_HEADER}"
     COMMAND cmake -E create_symlink
-    ${VENDOR_SOURCE_DIR}/vendor_autocast.h
-    ${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendor_autocast.h
+      "${VENDOR_SOURCE_DIR}/vendor_autocast.h"
+      "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendor_autocast.h"
     APPEND
     VERBATIM)
 endif()
@@ -55,19 +55,20 @@ endif()
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
   COMMAND "${Python3_EXECUTABLE}"
-  "${GENERATED_KERNELS_SCRIPT}"
-  --out=${GENERATED_KERNELS}
-  --config=${GENERATED_KERNELS_CONFIG}
-  --autocompare=False
-  --print_op_arg=True
-  --use_diopi_adapter=False
-  --print_func_call_info=True
-  --fun_config_dict={\"current_device\":\"${UsedVendor}\"}
-  $<$<BOOL:GENERATED_KERNELS_VENDOR>:--convert_config=${GENERATED_KERNELS_VENDOR}>
-  DEPENDS "${GENERATED_KERNELS_SCRIPT}"
-  "${GENERATED_KERNELS_CONFIG}"
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Generate file ${GENERATED_KERNELS}"
+    "${GENERATED_KERNELS_SCRIPT}"
+    "--out=${GENERATED_KERNELS}"
+    "--config=${GENERATED_KERNELS_CONFIG}"
+    "--autocompare=False"
+    "--print_op_arg=True"
+    "--use_diopi_adapter=False"
+    "--print_func_call_info=True"
+    "--fun_config_dict={\"current_device\":\"${UsedVendor}\"}"
+    "$<$<BOOL:${GENERATED_KERNELS_VENDOR}>:--convert_config=${GENERATED_KERNELS_VENDOR}>"
+  DEPENDS
+    "${GENERATED_KERNELS_SCRIPT}"
+    "${GENERATED_KERNELS_CONFIG}"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   VERBATIM)
 
 # Collect source files.
