@@ -300,7 +300,7 @@ static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
     grad_input =
         at::sum_to(at::matmul(grad_out_cpu, other_cpu.transpose(-1, -2)),
                    input.sizes())
-            .to(device);
+            .to(device, input.dtype());
   }
 
   if (mask[1]) {
@@ -309,7 +309,8 @@ static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
     if (other.dim() == 1) {
       grad_other_cpu.squeeze_(-1);
     }
-    grad_other = at::sum_to(grad_other_cpu, other.sizes()).to(device);
+    grad_other =
+        at::sum_to(grad_other_cpu, other.sizes()).to(device, other.dtype());
   }
 
   return {grad_input, grad_other};
