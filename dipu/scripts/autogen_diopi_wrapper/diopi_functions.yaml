@@ -1541,6 +1541,19 @@
   device: [droplet]
   interface: diopiMatmul(ctx, out, self, other)
 
+- schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
+  device: [droplet]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input, grad_other;
+    if (mask[0]) {
+      grad_input = at::native::empty_like(input);
+    }
+    if (mask[1]) {
+      grad_other = at::native::empty_like(other);
+    }
+  interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
+
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
