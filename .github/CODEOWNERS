@@ -1,4 +1,31 @@
 # IMPORTANT:
 # This file is ONLY used to merge PRs. Approvals from people in this file are required for merging.
+#
+# WARNING: The last matching pattern takes the most precedence and OVERWRITES previous rules.
+#          Please be very careful when adding new patterns.
 
-/dipu/tests/python @lljbash @mrdanielw
+# ---------- base ----------
+
+*               @mrdanielw
+/.github/       @mrdanielw @wugeshui
+**/scripts/ci/  @mrdanielw @wugeshui
+
+# ---------- dipu ----------
+
+### directories & files
+/dipu/torch_dipu/csrc_dipu/                                   @mrdanielw @fandaoyi @lljbash
+/dipu/tests/python/                                           @mrdanielw @lljbash
+/dipu/scripts/autogen_diopi_wrapper/                          @mrdanielw @lljbash
+/dipu/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py  @mrdanielw @zhaoguochun1995
+
+### build & linter
+/dipu/**/CMakeLists.txt  @mrdanielw @lljbash @wiryls @Wrench-Git
+/dipu/**/*.cmake         @mrdanielw @lljbash @wiryls @Wrench-Git
+/dipu/.clang*            @mrdanielw @lljbash @wiryls
+
+### languages
+/dipu/**/*.cpp  @mrdanielw @lljbash
+/dipu/**/*.hpp  @mrdanielw @lljbash
+/dipu/**/*.h    @mrdanielw @lljbash
+
+# ---------- dicp ----------
