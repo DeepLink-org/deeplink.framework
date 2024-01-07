@@ -101,8 +101,8 @@ def apply_torch_function_patch():
 
 # temp solution, need redesign storage
 def apply_temp_patch():
-    def script_wrapper(*args, **kwargs):
-        pass
+    def script_wrapper(obj, **kwargs):
+        return obj
     torch.jit.script = script_wrapper
 
 
