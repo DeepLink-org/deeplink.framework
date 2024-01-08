@@ -1,7 +1,13 @@
 // Copyright (c) 2023, DeepLink.
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/aten/RegisterDIPU.hpp>
-#include <csrc_dipu/base/basedef.h>
+#include <cstdint>
+
+#include <ATen/core/ATen_fwd.h>
+#include <ATen/core/TensorBody.h>
+#include <ATen/ops/_cudnn_rnn_flatten_weight_native.h>
+#include <c10/core/CompileTimeFunctionPointer.h>
+
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
+#include "csrc_dipu/base/basedef.h"
 
 namespace at {
 

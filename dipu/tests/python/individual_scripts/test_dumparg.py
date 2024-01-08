@@ -1,7 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 import io
-from stdout_redirector import stdout_redirector
-from local_eviron import local_eviron
+from utils.stdout_redirector import stdout_redirector
+from utils.local_eviron import local_eviron
 
 
 def _test_copy_dumparg():
