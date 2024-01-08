@@ -3,11 +3,13 @@
 
 #include <DeviceActivityInterface.h>
 #include <GenericTraceActivity.h>
+#include <IActivityProfiler.h>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <stdint.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <cnpapi.h>
@@ -43,7 +45,7 @@ using CnpapiActivityBufferMap =
 
 class CambDeviceActivity : public libkineto::DeviceActivityInterface {
  public:
-  ~CambDeviceActivity() override;
+  ~CambDeviceActivity() override = default;
   CambDeviceActivity(const CambDeviceActivity&) = delete;
   CambDeviceActivity& operator=(const CambDeviceActivity&) = delete;
 
@@ -77,62 +79,72 @@ class CambDeviceActivity : public libkineto::DeviceActivityInterface {
  private:
   CambDeviceActivity();
 
-  void bufferRequested(uint64_t** buffer, size_t* size, size_t* maxNumRecords);
-  void bufferCompleted(uint64_t* buffer, size_t size, size_t validSize);
+  void bufferRequested(uint64_t** buffer, size_t* size, size_t* max_record_num);
+  void bufferCompleted(uint64_t* buffer, size_t size, size_t valid_size);
   std::unique_ptr<CnpapiActivityBufferMap> activityBuffers();
+  const libkineto::ITraceActivity* linkedActivity(
+      uint64_t correlation_id,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity);
+  void recordStream(uint64_t device_index, uint64_t stream_id,
+                    const std::string& postfix = "");
+
   void handleCnpapiActivity(
       const cnpapiActivity* record, libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleRuntimeActivity(
       const cnpapiActivityAPI* activity, libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleKernelActivity(
       const cnpapiActivityKernel* activity, libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleMemsetActivity(
       const cnpapiActivityMemset* activity, libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleMemcpyActivity(
       const cnpapiActivityMemcpy* activity, libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleMemcpyPtoPActivity(
       const cnpapiActivityMemcpyPtoP* activity,
       libkineto::ActivityLogger& logger,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
+      const std::function<const libkineto::ITraceActivity*(int32_t)>&
+          linked_activity,
       int64_t start_time, int64_t end_time);
   void handleCorrelationActivity(
       const cnpapiActivityExternalCorrelation* activity);
-  const libkineto::ITraceActivity* linkedActivity(
-      uint64_t correlationId,
-      std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity);
 
   static void bufferRequestedTrampoline(uint64_t** buffer, size_t* size,
-                                        size_t* maxNumRecords);
+                                        size_t* max_record_num);
   static void bufferCompletedTrampoline(uint64_t* buffer, size_t size,
-                                        size_t validSize);
+                                        size_t valid_size);
   static bool nextActivityRecord(uint8_t* buffer, size_t valid_size,
                                  cnpapiActivity** record);
-  static bool outOfRange(int64_t captureWindowStartTime,
-                         int64_t captureWindowEndTime, int64_t activity_start,
-                         int64_t activity_end);
+  static bool outOfRange(int64_t profile_start_time, int64_t profile_end_time,
+                         int64_t activity_start, int64_t activity_end);
 
-  // TODO(caikun): naming?
   std::mutex mutex_;
-  bool externalCorrelationEnabled_ = false;
-  int maxMluBufferCount_ = 0;
-  CnpapiActivityBufferMap allocatedMluTraceBuffers_;
-  std::unique_ptr<CnpapiActivityBufferMap> readyMluTraceBuffers_;
+  bool cnpapi_inited_ = false;
+  bool external_correlation_enable_ = false;
+  int32_t max_buffer_count_ = 0;
+  CnpapiActivityBufferMap allocated_trace_buffers_;
+  std::unique_ptr<CnpapiActivityBufferMap> ready_trace_buffers_;
   // cuda runtime id -> pytorch op id
   // cnpapi provides a mechanism for correlating mlu events to arbitrary
   // external events, e.g.operator activities from PyTorch.
-  std::unordered_map<int64_t, int64_t> cpuCorrelationMap_;
-  std::unordered_map<int64_t, int64_t> userCorrelationMap_;
-
+  std::unordered_map<uint64_t, uint64_t> cpu_correlations_;
+  std::unordered_map<uint64_t, uint64_t> user_correlations_;
+  std::map<std::pair<int64_t, int64_t>, libkineto::ResourceInfo>
+      resource_infos_;
   int64_t time_gap_ = 0;
 };
 
