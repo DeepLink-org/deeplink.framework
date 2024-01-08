@@ -27,7 +27,8 @@ torch._dynamo.config.cache_size_limit = 256
 device = utils.get_device()
 torch_dipu.dipu.set_device(device)
 
-models_dir = os.environ.get("LLAMA_FINETUNE_DIR", "/home/cse/projects/pujiang/llama_finetune")
+models_dir = os.environ.get("LLAMA_FINETUNE_DIR")
+assert models_dir is not None
 
 
 class TestLlamaFinetune():
