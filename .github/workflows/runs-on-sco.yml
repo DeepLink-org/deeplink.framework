@@ -71,7 +71,7 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda
           ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source ${ENV_PATH}/pt2.0_diopi
+          source /mnt/cache/share/platform/env/pt2.0_diopi
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
 
   Test-One-Iter_Cuda:
