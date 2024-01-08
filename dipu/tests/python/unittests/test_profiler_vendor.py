@@ -5,7 +5,7 @@ import torch_dipu
 import torchvision.models as models
 from torch.profiler import profile, ProfilerActivity
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
-from torch_dipu.testing._internal.local_eviron import local_eviron
+from utils.local_eviron import local_eviron
 
 
 class TestProfiler(TestCase):

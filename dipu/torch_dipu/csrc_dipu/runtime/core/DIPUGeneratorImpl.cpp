@@ -74,6 +74,7 @@ at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
 DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
     : c10::GeneratorImpl{at::Device(dipu::DIPU_DEVICE_TYPE, device_index),
                          at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)},
+      offset_(0),
       state_need_reset_(true) {}
 
 /**
