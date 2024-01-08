@@ -285,33 +285,33 @@ static void patchTensor(py::module& m) {
   });
 }
 
-static void exportCustomFormat(py::module& m) {
-  if (VENDOR_TYPE == VendorDeviceType::NPU) {
-    py::enum_<CustomFormat_t>& formats =
-        py::enum_<CustomFormat_t>(m, "CustomFormat")
-            .value("UNDEFINED", CustomFormat_t::UNDEFINED)
-            .value("NCHW", CustomFormat_t::NCHW)
-            .value("NHWC", CustomFormat_t::NHWC)
-            .value("ND", CustomFormat_t::ND)
-            .value("NC1HWC0", CustomFormat_t::NC1HWC0)
-            .value("FRACTAL_Z", CustomFormat_t::FRACTAL_Z)
-            .value("NC1HWC0_C04", CustomFormat_t::NC1HWC0_C04)
-            .value("HWCN", CustomFormat_t::HWCN)
-            .value("NDHWC", CustomFormat_t::NDHWC)
-            .value("FRACTAL_NZ", CustomFormat_t::FRACTAL_NZ)
-            .value("NCDHW", CustomFormat_t::NCDHW)
-            .value("NDC1HWC0", CustomFormat_t::NDC1HWC0)
-            .value("FRACTAL_Z_3D", CustomFormat_t::FRACTAL_Z_3D)
-            .export_values();
-  }
+static void exportNativeMemoryFormat(py::module& m) {
+#if DIPU_DEVICE == ascend
+  py::enum_<NativeMemoryFormat_t>& formats =
+      py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat")
+          .value("UNDEFINED", NativeMemoryFormat_t::UNDEFINED)
+          .value("NCHW", NativeMemoryFormat_t::NCHW)
+          .value("NHWC", NativeMemoryFormat_t::NHWC)
+          .value("ND", NativeMemoryFormat_t::ND)
+          .value("NC1HWC0", NativeMemoryFormat_t::NC1HWC0)
+          .value("FRACTAL_Z", NativeMemoryFormat_t::FRACTAL_Z)
+          .value("NC1HWC0_C04", NativeMemoryFormat_t::NC1HWC0_C04)
+          .value("HWCN", NativeMemoryFormat_t::HWCN)
+          .value("NDHWC", NativeMemoryFormat_t::NDHWC)
+          .value("FRACTAL_NZ", NativeMemoryFormat_t::FRACTAL_NZ)
+          .value("NCDHW", NativeMemoryFormat_t::NCDHW)
+          .value("NDC1HWC0", NativeMemoryFormat_t::NDC1HWC0)
+          .value("FRACTAL_Z_3D", NativeMemoryFormat_t::FRACTAL_Z_3D)
+          .export_values();
+#endif
 
-  m.def("get_format", [](const at::Tensor& self) -> CustomFormat_t {
-    return dipu::get_format(self);
+  m.def("get_native_memory_format", [](const at::Tensor& self) -> NativeMemoryFormat_t {
+    return dipu::get_native_memory_format(self);
   });
 
-  m.def("format_cast",
-        [](at::Tensor& tensor, CustomFormat_t format) -> at::Tensor {
-          return dipu::format_cast(tensor, format);
+  m.def("native_memory_format_cast",
+        [](at::Tensor& tensor, NativeMemoryFormat_t format) -> at::Tensor {
+          return dipu::native_memory_format_cast(tensor, format);
         });
 }
 
@@ -364,7 +364,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportMemCaching(m);
   patchStorage(m);
   patchTensor(m);
-  exportCustomFormat(m);
+  exportNativeMemoryFormat(m);
   exportGenerator(m);
   exportAutocast(m);
 }

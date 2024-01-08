@@ -11,9 +11,9 @@ from .tensor import *
 from .storages import *
 from . import amp
 import torch_dipu
-from torch_dipu._C import CustomFormat
-from torch_dipu._C import format_cast
-from torch_dipu._C import get_format
+from torch_dipu._C import NativeMemoryFormat
+from torch_dipu._C import native_memory_format_cast
+from torch_dipu._C import get_native_memory_format
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 
@@ -42,7 +42,7 @@ __all__ = [
     "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
     # custom api
-    "CustomFormat", "format_cast", "get_format"
+    "NativeMemoryFormat", "native_memory_format_cast", "get_native_memory_format"
     # not support mock cuda_graph now
 
 ]

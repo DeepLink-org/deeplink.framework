@@ -31,6 +31,7 @@ namespace dipu {
 
 namespace diopi_helper {
 
+at::Tensor* fromDiopiTensorHandle(::diopiTensorHandle_t tensor);
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor& tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor);

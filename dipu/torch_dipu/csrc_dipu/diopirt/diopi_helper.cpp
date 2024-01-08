@@ -7,6 +7,10 @@ namespace dipu {
 
 namespace diopi_helper {
 
+at::Tensor* fromDiopiTensorHandle(::diopiTensorHandle_t tensor) {
+  return reinterpret_cast<at::Tensor*>(tensor);
+}
+
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
   return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor)
                           : nullptr;

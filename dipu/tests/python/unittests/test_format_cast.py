@@ -15,9 +15,9 @@ class TestFormatCast(TestCase):
         input = np.random.uniform(minvalue, maxvalue, shape).astype(dtype)
         return torch.from_numpy(input).to(device_dipu)
         
-    def check_and_get_format_tensor(self, a, memory_format):
-        b = torch_dipu.format_cast(a, memory_format)
-        self.assertEqual(torch_dipu.get_format(b), memory_format)
+    def check_and_get_format_tensor(self, a, native_memory_format):
+        b = torch_dipu.native_memory_format_cast(a, native_memory_format)
+        self.assertEqual(torch_dipu.get_native_memory_format(b), native_memory_format)
         return b
 
     @onlyOn("NPU")
@@ -28,36 +28,36 @@ class TestFormatCast(TestCase):
         dipu_tensor2 = self.create_single_tensor(shape_format2, 1, 5)
        
         
-        dipu_format_list = [torch_dipu.CustomFormat.NCHW,
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.NCHW,
-                            torch_dipu.CustomFormat.FRACTAL_Z,
-                            torch_dipu.CustomFormat.NCHW,
-                            torch_dipu.CustomFormat.FRACTAL_NZ,
-                            torch_dipu.CustomFormat.NCHW,
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.FRACTAL_Z,
-                            torch_dipu.CustomFormat.NCHW,     
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.FRACTAL_NZ,
-                            torch_dipu.CustomFormat.NCHW,
-                            torch_dipu.CustomFormat.NC1HWC0]
+        dipu_format_list = [torch_dipu.NativeMemoryFormat.NCHW,
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.NCHW,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_Z,
+                            torch_dipu.NativeMemoryFormat.NCHW,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_NZ,
+                            torch_dipu.NativeMemoryFormat.NCHW,
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_Z,
+                            torch_dipu.NativeMemoryFormat.NCHW,     
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_NZ,
+                            torch_dipu.NativeMemoryFormat.NCHW,
+                            torch_dipu.NativeMemoryFormat.NC1HWC0]
         
         for dipu_format in dipu_format_list:
             dipu_tensor1 = self.check_and_get_format_tensor(dipu_tensor1, dipu_format)
     
-        dipu_format_list = [torch_dipu.CustomFormat.NCDHW,
-                            torch_dipu.CustomFormat.FRACTAL_Z_3D,
-                            torch_dipu.CustomFormat.NCDHW,
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.FRACTAL_Z_3D,
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.NCDHW,
-                            torch_dipu.CustomFormat.NDC1HWC0,
-                            torch_dipu.CustomFormat.NCDHW,
-                            torch_dipu.CustomFormat.ND,
-                            torch_dipu.CustomFormat.NDC1HWC0,
-                            torch_dipu.CustomFormat.ND]
+        dipu_format_list = [torch_dipu.NativeMemoryFormat.NCDHW,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_Z_3D,
+                            torch_dipu.NativeMemoryFormat.NCDHW,
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.FRACTAL_Z_3D,
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.NCDHW,
+                            torch_dipu.NativeMemoryFormat.NDC1HWC0,
+                            torch_dipu.NativeMemoryFormat.NCDHW,
+                            torch_dipu.NativeMemoryFormat.ND,
+                            torch_dipu.NativeMemoryFormat.NDC1HWC0,
+                            torch_dipu.NativeMemoryFormat.ND]
         for dipu_format in dipu_format_list:
             dipu_tensor2 = self.check_and_get_format_tensor(dipu_tensor2, dipu_format)
 
