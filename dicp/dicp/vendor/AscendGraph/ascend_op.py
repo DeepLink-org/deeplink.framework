@@ -24,7 +24,7 @@ def negative_in_shape(shape):
 
 class Adds(Operator):
     def __init__(self):
-        super().__init__("adds")
+        super().__init__("Adds")
 
     def infer_result(self, x1, x2):
         return common_binary_op_infer(x1, x2)
@@ -32,7 +32,7 @@ class Adds(Operator):
 
 class Add(Operator):
     def __init__(self):
-        super().__init__("add")
+        super().__init__("Add")
 
     def infer_result(self, x1, x2):
         return common_binary_op_infer(x1, x2)
