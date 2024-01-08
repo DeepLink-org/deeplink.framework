@@ -32,6 +32,11 @@ class TestLt():
         input1 = torch.randn(size1, dtype=dtype)
         input2 = torch.randn(size2, dtype=dtype)
 
+        # for case number 4
+        if size1 != size2:
+            input1 = torch.tensor([0, 1, 2, 3])
+            input2 = torch.tensor([[1], [2], [3], [4]])
+
         dicp_input1 = input1.to(device)
         dicp_input2 = input2.to(device)
 
