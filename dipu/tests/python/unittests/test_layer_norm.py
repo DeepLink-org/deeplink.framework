@@ -76,6 +76,21 @@ class TestLayerNorm(TestCase):
         )
         self._run_layer_norm()
 
+    # maybe we don't want ChannelsLast -> Contiguous here, but just align with pytorch
+    # https://github.com/pytorch/pytorch/blob/v2.0.0/aten/src/ATen/native/cuda/layer_norm_kernel.cu#L1340-L1346
+    def test_layer_norm_out_format(self):
+        l = torch.nn.LayerNorm(4).cuda()
+        xs = [
+            torch.rand(2, 3, 5, 4, device='cuda').to(memory_format=torch.channels_last),
+            torch.rand(2, 4, 3, device='cuda').permute([0, 2, 1]),
+            torch.rand(2, 6, device='cuda')[:, 1:5],
+        ]
+        for x in xs:
+            y = l(x)
+            # seems can't get LEGACY_CONTIGUOUS_MEMORY_FORMAT in python,
+            # just assume it's MemoryFormat::Contiguous
+            self.assertTrue(y.is_contiguous())
+
 
 if __name__ == "__main__":
     run_tests()

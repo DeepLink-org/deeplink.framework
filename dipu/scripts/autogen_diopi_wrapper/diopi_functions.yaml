@@ -273,7 +273,15 @@
     auto options = input.options();
     auto save_mean = at::empty(stats_shape, options);
     auto save_invstd = at::empty(stats_shape, options);
-    auto out = at::empty_like(input);
+    auto out = at::empty_like(
+      input,
+      c10::nullopt /* dtype */,
+      c10::nullopt /* layout */,
+      c10::nullopt /* device */,
+      c10::nullopt /* pin_memory */,
+      // maybe we don't want ChannelsLast -> Contiguous here, but just align with pytorch
+      // https://github.com/pytorch/pytorch/blob/v2.0.0/aten/src/ATen/native/cuda/layer_norm_kernel.cu#L1340-L1346
+      LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
 - schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
@@ -1486,6 +1494,11 @@
   autocompare: disable
   interface: diopiNormalInp(ctx, self, mean, std, generator)
 
+- schema: "mm(Tensor self, Tensor mat2) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty({self.sizes()[0], mat2.sizes()[1]}, self.options());
+  interface: diopiMm(ctx, out, self, mat2)
+
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
@@ -2091,8 +2104,8 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
