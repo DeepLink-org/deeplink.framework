@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
-project(TorchDIPU)
+project(TorchDIPU LANGUAGES CXX)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "use cpp_17")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "default build type is Release")
 option(TESTS "Whether to build unit tests" OFF)
@@ -125,6 +130,7 @@ execute_process(
   OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
+# if add new version, please also update dipu/__init__.py torch_ver_XX
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.1")
 
 find_package(Torch REQUIRED)
