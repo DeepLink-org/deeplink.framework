@@ -12,6 +12,9 @@
 
 # ---------- dipu ----------
 
+### base
+/dipu/  @mrdanielw
+
 ### directories & files
 /dipu/torch_dipu/csrc_dipu/                                   @mrdanielw @fandaoyi @lljbash
 /dipu/tests/python/                                           @mrdanielw @lljbash
