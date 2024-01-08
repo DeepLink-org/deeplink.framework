@@ -18,7 +18,7 @@
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 
-using dnative = dipu::native::DIPUATenFunctions;
+namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
 namespace {
