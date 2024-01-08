@@ -13,6 +13,7 @@
 #include <csrc_dipu/aten/DIPUATenFunctions.h>
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 using dnative = dipu::native::DIPUATenFunctions;
 
@@ -428,20 +429,8 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("record_stream", TORCH_FN(wrapper_DIPU__record_stream));
 }
 
-class IgnoreWarningHandler : public c10::WarningHandler {
- public:
-  void process(const c10::Warning& warning) override {
-    // do nothing
-  }
-};
-
-c10::WarningHandler* getIgnoreHandler() {
-  static IgnoreWarningHandler handler_ = IgnoreWarningHandler();
-  return &handler_;
-}
-
 DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
-  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
+  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
   m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"),
          TORCH_FN(wrapper_BackendSelect_is_pinned));
   m.impl(TORCH_SELECTIVE_NAME("aten::_pin_memory"),
@@ -451,7 +440,7 @@ DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
 // override CPU operator
 DIPU_LIBRARY_IMPL(aten, CPU, m) {
   // disable override warning log
-  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
+  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
   m.impl("empty.memory_format", TORCH_FN(wrapper_CPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }

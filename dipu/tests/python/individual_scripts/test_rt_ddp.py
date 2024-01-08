@@ -159,6 +159,7 @@ def demo_allgather(rank, world_size, port):
     ]
     for i in range(1, 3):
         dist.all_gather(dests, src1)
+    dist.barrier()
     assert torch.allclose(src1, dests[0])
     print(dests[0])
     cleanup()

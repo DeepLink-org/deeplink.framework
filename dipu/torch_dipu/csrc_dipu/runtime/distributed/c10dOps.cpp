@@ -6,6 +6,7 @@
 #include <torch/library.h>
 
 #include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 namespace c10d {
 namespace ops {
@@ -195,6 +196,16 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
 
   // unregistered op, we expect it can fallback to cpu, but it not work now
   // (hard to sync).
+}
+
+TORCH_LIBRARY_IMPL(c10d, CPU, m) {
+  /*
+  align with barrier op backendType_ = NCCL, see
+  distributed/c10d/ProcessGroup.hpp
+   */
+  // disable override warning log
+  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
+  m.impl("barrier", barrier_dipu);
 }
 
 }  // namespace ops
