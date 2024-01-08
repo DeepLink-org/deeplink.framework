@@ -20,8 +20,13 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
 
+#ifdef DIPU_TORCH200
   virtual void set_offset(uint64_t offset) { offset_ = offset; }
   virtual uint64_t get_offset() const { return offset_; }
+#else  // # DIPU_TORCH211 or higher
+  void set_offset(uint64_t offset) override { offset_ = offset; }
+  uint64_t get_offset() const override { return offset_; }
+#endif
 
  protected:
   void set_state_flag(bool flag);
