@@ -191,7 +191,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(operator.getitem)
     def GetTupleElement(self, a, dim, **kwargs):
-        dim = dim % len(a.node.args) if "ret_tuples" in a.node.name else dim % len(a.node.meta["val"])
+        dim = dim % len(a.node.meta["val"])
         return self.get_proxy(tops_op.GetTupleElement, (a, dim), kwargs)
 
     @register_conversion(aten.index.Tensor)
@@ -239,8 +239,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
         start_indices = []
         for index in new_indices:
             in_shape = index.node.meta["val"].shape
-            offset = len(broadcast_shape) - len(in_shape)
-            broadcast_dims = [i + offset for i in range(len(in_shape))]
+            rank_diff = len(broadcast_shape) - len(in_shape)
+            broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
             start_indices.append(self.get_proxy(tops_op.Expand, (index, tuple(broadcast_shape), broadcast_dims)))
         start_indices = self.get_proxy(tops_op.Stack, (start_indices, -1))
         return self.get_proxy(tops_op.XlaGather, (operand, start_indices, offset_dims, collapsed_slice_dims,
@@ -371,8 +371,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
         grad_output_shape = grad_output.node.meta["val"].shape
-        offset = len(out_shape) - len(grad_output_shape)
-        broadcast_dims = [i + offset for i in range(len(grad_output_shape))]
+        rank_diff = len(out_shape) - len(grad_output_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(grad_output_shape))]
         expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape, broadcast_dims))
         value = out_shape[2] * out_shape[3]
         scalar = self.get_proxy(tops_op.Scalar, (value, ))
@@ -446,8 +446,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Expand(self, *args, **kwargs):
         in_shape = args[0].node.meta["val"].shape
         out_shape = fx_traceback.get_current_meta()["val"].shape
-        offset = len(out_shape) - len(in_shape)
-        broadcast_dims = [i + offset for i in range(len(in_shape))]
+        rank_diff = len(out_shape) - len(in_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
         return self.get_proxy(tops_op.Expand, (*args, broadcast_dims), kwargs)
 
     @register_conversion(aten.stack)
