@@ -1,8 +1,9 @@
+import itertools
 import os
-from multiprocessing import Process, set_start_method
+from utils.test_in_subprocess import run_individual_test_cases
 
 
-def test_mem_stats(algorithm, log_mask):
+def test_mem_stats(algorithm: str, log_mask: int):
     os.environ["DIPU_DEVICE_MEMCACHING_ALGORITHM"] = algorithm
     os.environ["DIPU_DEBUG_ALLOCATOR"] = str(log_mask)
     print("allocator algorithm:", algorithm)
@@ -13,7 +14,7 @@ def test_mem_stats(algorithm, log_mask):
     ins = []
     pin_ins = []
     real_allocated = 0
-    for i in range(100):
+    for _ in range(100):
         numel = random.randint(0, 1 << 20)
         x = torch.randn(numel).to(torch.device("cuda:0"))
         y = torch.randn(numel).pin_memory()
@@ -37,7 +38,7 @@ def test_mem_stats(algorithm, log_mask):
 
     real_max_allocate = real_allocated
 
-    for i in range(len(ins)):
+    for _ in range(len(ins)):
         numel = ins[0].numel()
         real_allocated -= ((numel * 4 - 1) | 511) + 1
         ins.pop(0)
@@ -61,25 +62,14 @@ def test_mem_stats(algorithm, log_mask):
 
 
 if __name__ == "__main__":
-    set_start_method('spawn', force=True)
-    p1 = Process(
-        target=test_mem_stats,
-        args=("BF", 0),
+    run_individual_test_cases(
+        itertools.product(
+            (test_mem_stats,),
+            (
+                {"args": ("BF", 0)},
+                {"args": ("BS", 0)},
+                {"args": ("RAW", 0)},
+            ),
+        ),
+        in_parallel=False,
     )
-    p1.start()
-    p1.join()
-
-    p2 = Process(
-        target=test_mem_stats,
-        args=("BS", 0),
-    )
-    p2.start()
-    p2.join()
-
-    p3 = Process(target=test_mem_stats, args=("RAW", 0))
-    p3.start()
-    p3.join()
-
-    assert p1.exitcode == 0
-    assert p2.exitcode == 0
-    assert p3.exitcode == 0
