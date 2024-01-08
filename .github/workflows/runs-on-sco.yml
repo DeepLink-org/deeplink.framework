@@ -20,6 +20,7 @@ env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
   REQUIRE_COVERAGE: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
+  ENV_PATH: '/mnt/cache/share/deeplinkci/github'
 
 jobs:
   checkout_code:
@@ -47,7 +48,7 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && source ${ENV_PATH}/dipu_env  \
           && rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/ \
           && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
@@ -60,7 +61,7 @@ jobs:
         run: |
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && source ${ENV_PATH}/dipu_env  \
           && bash tests/run_nv_tests.sh"
           if [ "${ALL_COVERAGE}" = "ON" ]; then
           bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${BUILD_TEST1} ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
@@ -71,7 +72,7 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda
           ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source /mnt/cache/share/platform/env/pt2.0_diopi
+          source ${ENV_PATH}/dipu_env
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
 
   Test-One-Iter_Cuda:
@@ -83,20 +84,20 @@ jobs:
         run: |
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
           && bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_one_iter.sh build_cuda"
       - name: run-one-iter-for-tradition
         run: |
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
           && rm -rf one_iter_data \
           && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco  ${GITHUB_JOB} gpu sco && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: run-one-iter-for-llm
         run: |
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
           && rm -rf one_iter_data \
           && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco ${GITHUB_JOB} gpu sco "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: Perform cleanup one iter data
@@ -120,7 +121,7 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && source ${ENV_PATH}/dipu_env  \
           && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Cuda-Latest-Target:
@@ -132,6 +133,6 @@ jobs:
         run: |
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
-          && source /mnt/cache/share/deeplinkci/github/dipu_env  \
+          && source ${ENV_PATH}/dipu_env  \
           && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
