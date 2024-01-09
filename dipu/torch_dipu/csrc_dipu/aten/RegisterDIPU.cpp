@@ -14,7 +14,7 @@
 #include <csrc_dipu/base/basedef.h>
 #include <csrc_dipu/profiler/profiler.h>
 
-using dnative = dipu::native::DIPUATenFunctions;
+namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
 namespace {

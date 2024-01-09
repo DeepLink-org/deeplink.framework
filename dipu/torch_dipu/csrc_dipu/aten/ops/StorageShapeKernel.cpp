@@ -14,8 +14,9 @@
 
 namespace dipu {
 namespace native {
-void DIPUATenFunctions::resize_bytes_dipu(c10::StorageImpl* storage,
-                                          size_t newsize_bytes) {
+namespace dipu_aten {
+
+void resize_bytes_dipu(c10::StorageImpl* storage, size_t newsize_bytes) {
   TORCH_CHECK(storage->resizable(),
               "Trying to resize dipu storage that is not resizable");
   auto allocator = storage->allocator();
@@ -68,13 +69,12 @@ static inline c10::TensorImpl* _resize_impl_dipu_(
   const c10::Storage& storage = self->unsafe_storage();
   TORCH_CHECK(storage, "Tensor: invalid null storage");
   if (self->numel() > 0 && new_storage_size > storage.nbytes()) {
-    DIPUATenFunctions::resize_bytes_dipu(storage.unsafeGetStorageImpl(),
-                                         new_storage_size);
+    resize_bytes_dipu(storage.unsafeGetStorageImpl(), new_storage_size);
   }
   return self;
 }
 
-const at::Tensor& DIPUATenFunctions::resize_(
+const at::Tensor& resize_(
     const at::Tensor& self, at::IntArrayRef size,
     c10::optional<at::MemoryFormat> optional_memory_format) {
   if (self.has_names()) {
@@ -92,11 +92,9 @@ const at::Tensor& DIPUATenFunctions::resize_(
   return self;
 }
 
-at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result,
-                                                 c10::Storage storage,
-                                                 int64_t storage_offset,
-                                                 at::IntArrayRef size,
-                                                 at::IntArrayRef stride) {
+at::Tensor& set_storage_dipu_(at::Tensor& result, c10::Storage storage,
+                              int64_t storage_offset, at::IntArrayRef size,
+                              at::IntArrayRef stride) {
   at::native::checkSetStorage(result, std::move(storage), storage_offset, size,
                               stride);
 
@@ -107,13 +105,15 @@ at::Tensor& DIPUATenFunctions::set_storage_dipu_(at::Tensor& result,
   return result;
 }
 
-at::Tensor& DIPUATenFunctions::set_dipu_(at::Tensor& self) {
+at::Tensor& set_dipu_(at::Tensor& self) {
   caffe2::TypeMeta dtype = self.dtype();
   c10::Storage storage(c10::Storage::use_byte_size_t(), 0,
                        dipu::getAllocator(dipu::DIPU_DEVICE_TYPE), true);
-  DIPUATenFunctions::set_storage_dipu_(self, storage, 0, {0}, {});
+  set_storage_dipu_(self, storage, 0, {0}, {});
   TORCH_INTERNAL_ASSERT(dtype == self.dtype());
   return self;
 }
+
+}  // namespace dipu_aten
 }  // namespace native
 }  // namespace dipu
