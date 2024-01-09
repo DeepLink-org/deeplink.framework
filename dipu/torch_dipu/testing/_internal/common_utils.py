@@ -30,7 +30,7 @@ def is_iterable(obj):
 cpu = "cpu"
 dipu = torch.device("dipu")
 
-def merge_disable_dist(dict_self, dict_other):
+def merge_disable_dict(dict_self, dict_other):
     for tclass in dict_self:
       if dict_other.get(tclass):
         dict_self.get(tclass).update(dict_other.get(tclass))

@@ -56,6 +56,6 @@ DISABLED_TESTS_CUDA = {
 }
 
 # merge cuda disable with mlu
-common_utils.merge_disable_dist(DISABLED_TESTS_CUDA, DISABLED_TESTS_MLU)
+common_utils.merge_disabled_dict(DISABLED_TESTS_CUDA, DISABLED_TESTS_MLU)
 
 DISABLED_TESTS = common_utils.prepare_match_set(DISABLED_TESTS_CUDA)
