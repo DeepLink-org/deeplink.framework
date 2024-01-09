@@ -153,6 +153,25 @@ def _test_dipu_convolution_overrideable_fallback():
         ["custom fallback to cpu, name=convolution_overrideable"],
     )
 
+def _test_dipu_silu_fallback():
+    def fn():
+        m = torch.nn.SiLU().cuda()
+        input_dipu = torch.tensor([1, 2, 3, 4]).cuda()
+        out_dipu = m(input_dipu)
+
+        m = m.cpu()
+        input_cpu = input_dipu.cpu()
+        out_cpu = m(input_cpu)
+
+        assert torch.allclose(out_dipu.cpu(), out_cpu)
+
+    test_fallback(
+        ["silu.out"],
+        ["diopiSilu"],
+        fn,
+        ["custom fallback to cpu, name=silu.out"],
+    )
+
 
 if __name__ == "__main__":
     set_start_method("spawn", force=True)
@@ -179,3 +198,7 @@ if __name__ == "__main__":
     p6 = Process(target=_test_dipu_convolution_overrideable_fallback)
     p6.start()
     p6.join()
+    
+    p7 = Process(target=_test_dipu_silu_fallback)
+    p7.start()
+    p7.join()
