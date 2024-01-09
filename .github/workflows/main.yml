@@ -20,6 +20,7 @@ env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
+  CLUSTER_KLX: KUNLUNXIN
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
@@ -69,15 +70,19 @@ jobs:
           fi
       - name: Rsync to Server
         run: |
-          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" 
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to camb"
+          ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
+          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
+          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
+
 
   Build-Camb:
     name: Build-dipu-camb
@@ -487,3 +492,79 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
+
+  Build-Kunlunxin:
+    name: Build-Kunlunxin
+    needs: [Rsync]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          echo "build and test, you can refer to the Ascend" \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Kunlunxin:
+    name: Test-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+  Test-One-Iter-Kunlunxin:
+    name: Test-One-Iter-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
+
+  Build-Kunlunxin-Latest-Target:
+    name: Build-dipu-kunlunxin-latest-target
+    needs: [Rsync]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build dipu diopi-latest-target
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          echo "build and test, you can refer to the Ascend" \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Kunlunxin-Latest-Target:
+    name: Test-dipu-kunlunxin-latest-target
+    needs: [Build-Kunlunxin-Latest-Target]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin-Latest-Target/dipu
+          echo "test and clean, you can refer to the Ascend" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Kunlunxin-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Kunlunxin-Latest-Target && exit 1 )
