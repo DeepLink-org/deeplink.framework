@@ -154,6 +154,7 @@ else()
     link_directories(${PYTORCH_DIR}/torch/lib)
 endif()
 
+set(DIPU_TORCH_VERSION ${Torch_VERSION})
 
 # config
 include(cmake/BaseFuncions.cmake)

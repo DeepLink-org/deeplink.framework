@@ -63,6 +63,7 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
                         "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
                         "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
+                        "-DDIPU_TORCH_VERSION=${DIPU_TORCH_VERSION}"
                       BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
                       INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
 
