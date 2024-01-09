@@ -1,8 +1,5 @@
 #include <bitset>
 #include <bkcl.h>
-#include <cstdio>
-#include <cstdlib>  //注意。itoa函数要包含这个头文件
-#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -105,8 +102,8 @@ DIPU_API diclResult_t diclBroadcast(const void* sendbuff, void* recvbuff,
                                     int root, diclComm_t comm,
                                     deviceStream_t stream) {
   auto dtype = getBKCLDataType(datatype);
-  XCCL_THROW(bkcl_broadcast(comm, sendbuff, recvbuff, count, dtype,
-			    root, stream));
+  XCCL_THROW(bkcl_broadcast(comm, sendbuff, recvbuff, count,
+			    dtype, root, stream));
   return DICL_SUCCESS;
 }
 
