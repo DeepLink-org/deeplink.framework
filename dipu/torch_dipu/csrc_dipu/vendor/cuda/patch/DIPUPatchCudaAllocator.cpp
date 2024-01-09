@@ -5,11 +5,7 @@
 
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 
-namespace c10 {
-
-namespace cuda {
-
-namespace CUDACachingAllocator {
+namespace c10::cuda::CUDACachingAllocator {
 
 #define DIPU_PATCH_CUDA_ALLOCATOR(x)                                  \
   std::cout << __FUNCTION__ << ":" << __LINE__                        \
@@ -42,25 +38,8 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
   }
   void resetPeakStats(int device) override { DIPU_PATCH_CUDA_ALLOCATOR(); }
   SnapshotInfo snapshot() override { DIPU_PATCH_CUDA_ALLOCATOR(); }
-  void notifyCaptureBegin(int device, CaptureId_t graph_id,
-                          MempoolId_t mempool_id) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
-  void notifyCaptureAboutToEnd(int device, CaptureId_t graph_id) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
-  void notifyCaptureEnded(int device, CaptureId_t graph_id) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
-  void notifyCaptureDestroy(int device, MempoolId_t mempool_id) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
+
   std::shared_ptr<void> getIpcDevPtr(std::string handle) override {
-    DIPU_PATCH_CUDA_ALLOCATOR();
-  }
-  void recordHistory(bool enabled, CreateContextFn context_recorder,
-                     size_t alloc_trace_max_entries,
-                     bool alloc_trace_record_context) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
   void attachOutOfMemoryObserver(OutOfMemoryObserver observer) override {
@@ -90,11 +69,6 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
 
   void emptyCache() override { dipu::emptyCachedMem(); }
 
-  bool needsPoolSpecificPeerAccess() override {
-    // DIPU_PATCH_CUDA_ALLOCATOR();
-    return false;
-  }
-
   DataPtr allocate(size_t n) const override {
     // DIPU_PATCH_CUDA_ALLOCATOR();
     auto data_ptr = c10::GetAllocator(dipu::DIPU_DEVICE_TYPE)->allocate(n);
@@ -102,35 +76,59 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
         c10::Device(c10::DeviceType::CUDA, data_ptr.device().index()));
     return data_ptr;
   }
-#ifdef DIPU_TORCH211
-  void beginAllocateStreamToPool(int device, cudaStream_t stream,
-                                 MempoolId_t mempool_id) {}
-  void endAllocateStreamToPool(int device, cudaStream_t stream) {}
+#ifdef DIPU_TORCH200
+  void notifyCaptureBegin(int device, CaptureId_t graph_id,
+                          MempoolId_t mempool_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  void notifyCaptureAboutToEnd(int device, CaptureId_t graph_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  void notifyCaptureEnded(int device, CaptureId_t graph_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  void notifyCaptureDestroy(int device, MempoolId_t mempool_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
 
   void recordHistory(bool enabled, CreateContextFn context_recorder,
-                     size_t alloc_trace_max_entries, RecordContext when) {}
-  void releasePool(int device, MempoolId_t mempool_id) {}
+                     size_t alloc_trace_max_entries,
+                     bool alloc_trace_record_context) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  bool needsPoolSpecificPeerAccess() override {
+    // DIPU_PATCH_CUDA_ALLOCATOR();
+    return false;
+  }
 
-  void enablePeerAccess(int dev, int dev_to_access) {}
+#else  // # DIPU_TORCH211 or higher
+  void beginAllocateStreamToPool(int device, cudaStream_t stream,
+                                 MempoolId_t mempool_id) override {}
+  void endAllocateStreamToPool(int device, cudaStream_t stream) override {}
+
+  void recordHistory(bool enabled, CreateContextFn context_recorder,
+                     size_t alloc_trace_max_entries,
+                     RecordContext when) override {}
+  void releasePool(int device, MempoolId_t mempool_id) override {}
+
+  void enablePeerAccess(int dev, int dev_to_access) override {}
 
   cudaError_t memcpyAsync(void* dst, int dstDevice, const void* src,
                           int srcDevice, size_t count, cudaStream_t stream,
-                          bool p2p_enabled) {}
+                          bool p2p_enabled) override {
+    return cudaSuccess;
+  }
   std::shared_ptr<AllocatorState> getCheckpointState(int device,
-                                                     MempoolId_t id) {}
-  CheckpointDelta setCheckpointPoolState(int device,
-                                         std::shared_ptr<AllocatorState> pps) {
-    return CheckpointDelta();
+                                                     MempoolId_t id) override {}
+  CheckpointDelta setCheckpointPoolState(
+      int device, std::shared_ptr<AllocatorState> pps) override {
+    return {};
   }
 #endif
 
 };  // namespace CUDACachingAllocator
 
-}  // namespace CUDACachingAllocator
-
-}  // namespace cuda
-
-}  // namespace c10
+}  // namespace c10::cuda::CUDACachingAllocator
 
 namespace dipu {
 
