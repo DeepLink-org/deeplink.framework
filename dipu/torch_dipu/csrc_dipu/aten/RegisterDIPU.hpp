@@ -65,17 +65,6 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 #define DIOPI_ATEN_FUNC_CUSTOM_FALLBACK(opname, diopi_func, force_fallback,   \
                                         wapper_func, custom_fallback_func)    \
   do {                                                                        \
-    const static std::vector<std::string> disable_custom_fallback_ops_list{   \
-        "linear",                                                             \
-    };                                                                        \
-    auto iter = std::find(disable_custom_fallback_ops_list.cbegin(),          \
-                          disable_custom_fallback_ops_list.cend(),            \
-                          std::string(opname));                               \
-    const char* env = std::getenv("DIPU_DISABLE_CUSTOM_FALLBACK");            \
-    int env_value = (env != nullptr) ? std::atoi(env) : 0;                    \
-    if (env_value >= 1 && iter != disable_custom_fallback_ops_list.cend()) {  \
-      break;                                                                  \
-    }                                                                         \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
         !((force_fallback) || dipu::get_force_fallback(opname))) {            \
       m.impl(opname, TORCH_FN(wapper_func));                                  \
@@ -87,6 +76,12 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       }                                                                       \
       DIPU_OP_LOG_WARNING_ONCE((opname) << " will be fallback to cpu"         \
                                         << "\n");                             \
+      const char* env = std::getenv("DIPU_DISABLE_CUSTOM_FALLBACK_OPS");      \
+      if ((env != nullptr) &&                                                 \
+          ((std::string(env) + ',').find(std::string(opname) + ',') <         \
+           (strlen(env) - 1))) {                                              \
+        break;                                                                \
+      }                                                                       \
       m.impl(opname, TORCH_FN(custom_fallback_func));                         \
     }                                                                         \
   } while (false);
