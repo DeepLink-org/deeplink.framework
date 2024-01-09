@@ -3,8 +3,7 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE =
-    devapis::VendorDeviceType::SUPA;
+
 namespace devapis {
 
 #define SUPA_CALL(Expr)                                                 \

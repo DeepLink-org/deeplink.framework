@@ -1,14 +1,13 @@
 // Copyright (c) 2023, DeepLink.
-#include "./helpfunc.hpp"
+#include "helpfunc.hpp"
 
-#include <bits/stdint-intn.h>
+#include <mutex>
+#include <pthread.h>
+
 #include <diopi/functions_ext.h>
 
 #include "csrc_dipu/diopirt/diopirt_impl.h"
-#ifndef WIN32
-#include <mutex>
-#include <pthread.h>
-#endif
+#include "csrc_dipu/vendor/vendorapi.h"  // IWYU pragma: keep
 
 namespace dipu {
 bool isDeviceTensor(const at::Tensor& tensor) {
@@ -16,7 +15,8 @@ bool isDeviceTensor(const at::Tensor& tensor) {
   return tensor.unsafeGetTensorImpl()->device_type() == dipu::DIPU_DEVICE_TYPE;
 }
 
-at::Tensor native_memory_format_cast(at::Tensor tensor, NativeMemoryFormat_t format) {
+at::Tensor native_memory_format_cast(at::Tensor tensor,
+                                     NativeMemoryFormat_t format) {
   TORCH_CHECK(isDeviceTensor(tensor), "only device tensor support this api.");
   TORCH_CHECK(::diopiCustomFormatCast, "diopi not support this api.");
   ::diopiTensorHandle_t in = diopi_helper::toDiopiTensorHandle(tensor);
@@ -32,7 +32,7 @@ NativeMemoryFormat_t get_native_memory_format(const at::Tensor& tensor) {
   ::diopiConstTensorHandle_t input = diopi_helper::toDiopiTensorHandle(tensor);
   int64_t format = -1;
   ::diopiGetCustomFormat(&context, input, &format);
-  return NativeMemoryFormat_t(format);
+  return static_cast<NativeMemoryFormat_t>(format);
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)

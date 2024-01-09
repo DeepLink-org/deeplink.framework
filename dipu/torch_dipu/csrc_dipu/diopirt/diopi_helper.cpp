@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
-#include <cstdio>
 
-#include "./diopirt_impl.h"
+#include "diopirt_impl.h"
 
 namespace dipu {
 

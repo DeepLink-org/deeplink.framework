@@ -3,15 +3,15 @@
 
 #include <cstring>
 
-#include <csrc_dipu/vendor/vendorapi.h>
+#include "csrc_dipu/utils/vender_helper.hpp"
+#include "csrc_dipu/vendor/vendorapi.h"
 
 #include "./basedef.h"
 
 namespace dipu {
 
-// FIXME: refactor it someday.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern devapis::VendorDeviceType VENDOR_TYPE;
+constexpr devapis::VendorDeviceType kDipuVendorDeviceType =
+    VendorNameToDeviceType(DIPU_STRINGIFY_AFTER_EXPANSION(DIPU_VENDOR_NAME));
 
 namespace devapis {
 

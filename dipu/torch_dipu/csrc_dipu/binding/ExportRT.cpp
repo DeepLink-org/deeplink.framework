@@ -13,7 +13,7 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
-#include "DIPUpybind.h"
+#include "DIPUpybind.h"  // IWYU pragma: keep
 #include "exportapi.h"
 
 using dipu::DIPUEvent;
@@ -62,7 +62,8 @@ static void exportDevices(py::module& m) {
   registerDIPUDeviceProperties(m);
   registerDIPUDeviceStatus(m);
   // Device Management.
-  m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
+  // dipu_vendor should be dipu_vendor_device, but we keep it for compatibility
+  m.attr("dipu_vendor") = dipu::VendorDeviceTypeToStr(kDipuVendorDeviceType);
   m.attr("dipu_device_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
@@ -286,7 +287,7 @@ static void patchTensor(py::module& m) {
 }
 
 static void exportNativeMemoryFormat(py::module& m) {
-#if DIPU_DEVICE == ascend
+#if DIPU_VENDOR_NAME_ASCEND
   py::enum_<NativeMemoryFormat_t>& formats =
       py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat")
           .value("UNDEFINED", NativeMemoryFormat_t::UNDEFINED)
@@ -305,9 +306,10 @@ static void exportNativeMemoryFormat(py::module& m) {
           .export_values();
 #endif
 
-  m.def("get_native_memory_format", [](const at::Tensor& self) -> NativeMemoryFormat_t {
-    return dipu::get_native_memory_format(self);
-  });
+  m.def("get_native_memory_format",
+        [](const at::Tensor& self) -> NativeMemoryFormat_t {
+          return dipu::get_native_memory_format(self);
+        });
 
   m.def("native_memory_format_cast",
         [](at::Tensor& tensor, NativeMemoryFormat_t format) -> at::Tensor {

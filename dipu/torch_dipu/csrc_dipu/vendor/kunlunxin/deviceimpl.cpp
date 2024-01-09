@@ -1,10 +1,8 @@
-
-
+// Copyright (c) 2023, DeepLink.
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::KLX;
 
 namespace devapis {
 

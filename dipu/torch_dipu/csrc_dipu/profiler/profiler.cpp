@@ -140,7 +140,7 @@ class DeviceRecordsImpl final {
     // necessary, thus reducing operator time consumption
     static bool enable_flush_ready =
         (std::getenv("DIPU_DISABLE_FLUSH_READY_EVENT") == nullptr &&
-         VENDOR_TYPE != devapis::VendorDeviceType::CUDA);
+         kDipuVendorDeviceType != devapis::VendorDeviceType::CUDA);
     return enable_flush_ready;
   }
 
