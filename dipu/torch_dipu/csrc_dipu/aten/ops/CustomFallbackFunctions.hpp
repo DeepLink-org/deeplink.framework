@@ -1,6 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <algorithm>
+#include <iterator>
+
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 
 #include "OpUtils.hpp"
@@ -45,12 +48,11 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   indices_cpu.reserve(indices.size());
   // input as x[1:2, [1, 2]], Slice by first dimension already executed before
   // this index(), in this case, indices[0] is an undefinedTensor.
-  for (int i = 0; i < indices.size(); ++i) {  // NOLINT(modernize-loop-convert)
-    indices_cpu.push_back(
-        (indices[i].has_value() && indices[i].value().defined())
-            ? indices[i].value().to("cpu")
-            : at::Tensor());
-  }
+  std::transform(
+      indices.begin(), indices.end(), std::back_inserter(indices_cpu),
+      [](const c10::optional<at::Tensor>& tensor) {
+        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      });
   return indices_cpu;
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
