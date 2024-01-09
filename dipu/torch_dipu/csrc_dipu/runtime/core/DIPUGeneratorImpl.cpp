@@ -74,6 +74,7 @@ at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
 DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
     : c10::GeneratorImpl{at::Device(dipu::DIPU_DEVICE_TYPE, device_index),
                          at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)},
+      offset_(0),
       state_need_reset_(true) {}
 
 /**
@@ -125,7 +126,9 @@ std::shared_ptr<DIPUGeneratorImpl> DIPUGeneratorImpl::clone() const {
  * See Note [Acquire lock when using random generators]
  */
 DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
-  auto gen = new DIPUGeneratorImpl(this->device().index());
+  auto gen = dynamic_cast<DIPUGeneratorImpl*>(
+      createDIPUGenerator(this->device().index()).unsafeReleaseGeneratorImpl());
+  TORCH_CHECK(gen != nullptr);
   gen->set_current_seed(this->seed_);
   auto state = this->state_;
   const auto& state_clone = state.clone();

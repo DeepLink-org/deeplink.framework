@@ -1,8 +1,15 @@
+import itertools
 import os
-from multiprocessing import Process, set_start_method
+from utils.test_in_subprocess import run_individual_test_cases
 
 
-def test_allocator(max_allocate, step, algorithm, log_mask, test_pin_memory=True):
+def test_allocator(
+    max_allocate: int,
+    step: int,
+    algorithm: str,
+    log_mask: int,
+    test_pin_memory: bool = True,
+):
     os.environ["DIPU_DEVICE_MEMCACHING_ALGORITHM"] = algorithm
     os.environ["DIPU_DEBUG_ALLOCATOR"] = str(log_mask)
     os.environ["DIPU_MEM_CHECK"] = "1"
@@ -67,35 +74,16 @@ def test_allocator(max_allocate, step, algorithm, log_mask, test_pin_memory=True
 
 
 if __name__ == "__main__":
-    set_start_method('spawn', force=True)
-    max_allocate = 1 << 15
-    p1 = Process(
-        target=test_allocator,
-        args=(max_allocate, 1, "BF", 0),
+    MAX_ALLOCATE = 1 << 15
+    run_individual_test_cases(
+        itertools.product(
+            (test_allocator,),
+            (
+                {"args": (MAX_ALLOCATE, 1, "BF", 0)},
+                {"args": (MAX_ALLOCATE, 1, "BS", 0)},
+                {"args": (MAX_ALLOCATE, 1, "RAW", 0)},
+                {"args": (MAX_ALLOCATE, 17919, "BF", 3, False)},
+            ),
+        ),
+        in_parallel=False,
     )
-    p1.start()
-    p1.join()
-
-    p2 = Process(
-        target=test_allocator,
-        args=(max_allocate, 1, "BS", 0),
-    )
-    p2.start()
-    p2.join()
-
-    p3 = Process(target=test_allocator, args=(max_allocate, 1, "RAW", 0))
-    p3.start()
-    p3.join()
-
-    max_allocate = 1 << 30
-    p4 = Process(
-        target=test_allocator,
-        args=(max_allocate, 17919, "BF", 3, False),
-    )
-    p4.start()
-    p4.join()
-
-    assert p1.exitcode == 0
-    assert p2.exitcode == 0
-    assert p3.exitcode == 0
-    assert p4.exitcode == 0

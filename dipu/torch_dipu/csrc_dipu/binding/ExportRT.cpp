@@ -272,7 +272,7 @@ static void patchStorage(py::module& m) {
                         "support other device type ",
                         stor.device_type());
           } else {
-            dipu::native::DIPUATenFunctions::resize_bytes_dipu(
+            dipu::native::dipu_aten::resize_bytes_dipu(
                 stor.unsafeGetStorageImpl(), newsize);
             return stor;
           }
