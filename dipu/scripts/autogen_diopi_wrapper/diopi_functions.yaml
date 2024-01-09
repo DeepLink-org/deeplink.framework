@@ -1494,6 +1494,45 @@
   autocompare: disable
   interface: diopiNormalInp(ctx, self, mean, std, generator)
 
+- schema: normal.Tensor_float_out(Tensor mean, float std=1, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_float(Tensor mean, float std=1, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(mean);
+  interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
+
+- schema: normal.float_Tensor_out(float mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
+
+- schema: normal.float_Tensor(float mean, Tensor std, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(std);
+  interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_Tensor_out(Tensor mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalTensor(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_Tensor(Tensor mean, Tensor std, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(mean);
+  interface: diopiNormalTensor(ctx, out, mean, std, generator)
+
+- schema: normal.float_float_out(float mean, float std, SymInt[] size, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormal(ctx, out, mean, std, generator)
+
+- schema: "mm(Tensor self, Tensor mat2) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty({self.sizes()[0], mat2.sizes()[1]}, self.options());
+  interface: diopiMm(ctx, out, self, mat2)
+
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
@@ -1540,6 +1579,19 @@
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   device: [droplet]
   interface: diopiMatmul(ctx, out, self, other)
+
+- schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
+  device: [droplet]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input, grad_other;
+    if (mask[0]) {
+      grad_input = at::native::empty_like(input);
+    }
+    if (mask[1]) {
+      grad_other = at::native::empty_like(other);
+    }
+  interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -2099,8 +2151,8 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)

@@ -1,19 +1,23 @@
 # Copyright (c) 2023, DeepLink.
 import io
+from typing import Callable, List
 import torch
-from stdout_redirector import stdout_redirector
-from local_eviron import local_eviron
-from multiprocessing import Process, set_start_method
+from utils.stdout_redirector import stdout_redirector
+from utils.local_eviron import local_eviron
+from utils.test_in_subprocess import run_individual_test_cases
 
 
 def test_fallback(
-    op_name: list, diopi_proto: list, test_fn: callable, other_check_item: list = None
-) -> str:
+    op_names: List[str],
+    diopi_protos: List[str],
+    test_fn: Callable[[], None],
+    extra_check_str_in_output: List[str] = [],
+) -> None:
     captured = io.BytesIO()
     with stdout_redirector(captured):
         with local_eviron(
             {
-                "DIPU_FORCE_FALLBACK_OPS_LIST": ",".join(op_name),
+                "DIPU_FORCE_FALLBACK_OPS_LIST": ",".join(op_names),
                 "DIPU_DUMP_OP_ARGS": "1",
                 "DIPU_LOG_FALLBACK_INFO": "1",
             }
@@ -22,14 +26,14 @@ def test_fallback(
 
             test_fn()
     output = captured.getvalue().decode()
-    print(output)
+    print(output, end="")
     assert all(
         f"force fallback has been set, {name} will be fallback to cpu" in output
-        for name in op_name
+        for name in op_names
     )
-    assert all(item not in output for item in diopi_proto)
-    if other_check_item is not None:
-        assert all(item in output for item in other_check_item)
+    assert all(item not in output for item in diopi_protos)
+    if extra_check_str_in_output is not None:
+        assert all(item in output for item in extra_check_str_in_output)
 
 
 def _test_dipu_fallback():
@@ -156,7 +160,7 @@ def _test_dipu_convolution_overrideable_fallback():
 def _test_dipu_silu_fallback():
     def fn():
         m = torch.nn.SiLU().cuda()
-        input_dipu = torch.tensor([1, 2, 3, 4]).cuda()
+        input_dipu = torch.tensor([1.0, 2.0, 3.0, 4.0]).cuda()
         out_dipu = m(input_dipu)
 
         m = m.cpu()
@@ -174,31 +178,14 @@ def _test_dipu_silu_fallback():
 
 
 if __name__ == "__main__":
-    set_start_method("spawn", force=True)
-    p1 = Process(target=_test_dipu_fallback)
-    p1.start()
-    p1.join()
-
-    p2 = Process(target=_test_cpu_fallback)
-    p2.start()
-    p2.join()
-
-    p3 = Process(target=_test_dipu_index_put_impl_fallback)
-    p3.start()
-    p3.join()
-
-    p4 = Process(target=_test_dipu_copy_fallback_)
-    p4.start()
-    p4.join()
-
-    p5 = Process(target=_test_dipu_convolution_backward_overrideable_fallback)
-    p5.start()
-    p5.join()
-
-    p6 = Process(target=_test_dipu_convolution_overrideable_fallback)
-    p6.start()
-    p6.join()
-    
-    p7 = Process(target=_test_dipu_silu_fallback)
-    p7.start()
-    p7.join()
+    run_individual_test_cases(
+        [
+            _test_dipu_fallback,
+            _test_cpu_fallback,
+            _test_dipu_index_put_impl_fallback,
+            _test_dipu_copy_fallback_,
+            _test_dipu_convolution_backward_overrideable_fallback,
+            _test_dipu_convolution_overrideable_fallback,
+        ],
+        in_parallel=True,
+    )

@@ -274,6 +274,47 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   return std::make_tuple(grad_input, grad_weight, grad_bias);
 }
 
+static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
+    const at::Tensor& grad_out, const at::Tensor& input,
+    const at::Tensor& other, ::std::array<bool, 2> mask) {
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=matmul_backward\n");
+  auto grad_out_cpu = to_cpu_with_half_to_float(grad_out);
+  auto input_cpu = to_cpu_with_half_to_float(input);
+  auto other_cpu = to_cpu_with_half_to_float(other);
+
+  if (other.dim() == 1) {
+    other_cpu.unsqueeze_(-1);
+    grad_out_cpu.unsqueeze_(-1);
+  }
+
+  if (input.dim() == 1) {
+    input_cpu.unsqueeze_(0);
+    grad_out_cpu.unsqueeze_(-2);
+  }
+
+  const auto device = input.device();
+  at::Tensor grad_input, grad_other;
+
+  if (mask[0]) {
+    grad_input =
+        at::sum_to(at::matmul(grad_out_cpu, other_cpu.transpose(-1, -2)),
+                   input.sizes())
+            .to(device, input.dtype());
+  }
+
+  if (mask[1]) {
+    at::Tensor grad_other_cpu =
+        at::matmul(input_cpu.transpose(-1, -2), grad_out_cpu);
+    if (other.dim() == 1) {
+      grad_other_cpu.squeeze_(-1);
+    }
+    grad_other =
+        at::sum_to(grad_other_cpu, other.sizes()).to(device, other.dtype());
+  }
+
+  return {grad_input, grad_other};
+}
+
 static std::tuple<at::Tensor, at::Tensor, at::Tensor>
 custom_fallback_dipu_native_batch_norm_backward(
     const at::Tensor& grad_out, const at::Tensor& input,
