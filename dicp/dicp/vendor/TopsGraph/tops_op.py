@@ -430,11 +430,14 @@ class BatchNormBackward(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.native_batch_norm_backward.default
 
-
+"""
+Enlarge torch_op scope to adjust args for aten._softmax.default,
+because the parameter half_to_float isn't needed in hlir_builder Softmax.
+"""
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
-        self.torch_op = aten._softmax.default
+        self.torch_op = aten.softmax
 
 
 class Bmm(Operator):
