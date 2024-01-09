@@ -544,27 +544,3 @@ jobs:
       - name: Check for failure
         if: ${{ failure() }}
         run: exit 1
-
-  Build-Kunlunxin-Latest-Target:
-    name: Build-dipu-kunlunxin-latest-target
-    needs: [Rsync]
-    runs-on: tps-klx-ci
-    steps:
-      - name: Build dipu diopi-latest-target
-        run: |
-          set -ex
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          echo "build and test, you can refer to the Ascend" \
-          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-
-  Test-Kunlunxin-Latest-Target:
-    name: Test-dipu-kunlunxin-latest-target
-    needs: [Build-Kunlunxin-Latest-Target]
-    runs-on: tps-klx-ci
-    steps:
-      - name: Run a test
-        run: |
-          set -ex
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin-Latest-Target/dipu
-          echo "test and clean, you can refer to the Ascend" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Kunlunxin-Latest-Target \
-          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Kunlunxin-Latest-Target && exit 1 )
