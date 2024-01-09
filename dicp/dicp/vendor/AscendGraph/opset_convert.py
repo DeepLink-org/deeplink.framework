@@ -1,4 +1,5 @@
 import torch
+import torch_dipu
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
@@ -12,16 +13,20 @@ if is_torch_210:
     )
 
 
-# 该pass需要在FuseTransposeMatmul之后
 class ArgsTransDataPass:
     def transform(self, gm: torch.fx.graph_module):
         for n in gm.graph.nodes:
-            if n.op != 'call_function':
-                continue
-            if type(n.target) in [MatMul]:
-                for arg in n.args:
-                    if arg.op == 'placeholder':
-                        arg.meta['format'] = 'FRACTAL_NZ'
+            if n.op == 'placeholder':
+                fake_tensor = n.meta['val']
+                if not hasattr(torch_dipu, 'get_native_memory_format'):
+                    n.meta['native_memory_format'] = 'ND'
+                    continue
+                memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo     
+                for key in memo:
+                    if id(memo[key].fake_device) == id(fake_tensor.fake_device):
+                        memory_format = torch_dipu.get_native_memory_format(key())
+                        n.meta['native_memory_format'] = str(memory_format.value)
+                        break
         return gm
 
 
@@ -88,5 +93,6 @@ def ascendgraph_opset_convert(
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
     gm = OutputMarkPass().transform(gm)
+    # uncomment this after DIOPI support pytorch2.1.1
     # gm = ArgsTransDataPass().transform(gm)
     return gm
