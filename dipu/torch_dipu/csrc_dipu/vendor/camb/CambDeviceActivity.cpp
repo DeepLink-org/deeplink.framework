@@ -5,7 +5,9 @@
 #include <cstdlib>
 #include <output_base.h>
 #include <time_since_epoch.h>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <c10/util/Exception.h>
 
@@ -23,6 +25,22 @@ static const std::unordered_set<int32_t> kCnrtBlackCallbackIds{
     30, 103, 113, 215, 227, 228, 236};
 static const std::unordered_set<int32_t> kCndrvBlackCallbackIds{
     4, 5, 15, 61, 65, 68, 86, 89, 97};
+
+static const std::unordered_map<libkineto::ActivityType,
+                                std::vector<cnpapiActivityType>>
+    kActivityTypeMapping{
+        {libkineto::ActivityType::GPU_MEMCPY, {CNPAPI_ACTIVITY_TYPE_MEMCPY}},
+        {libkineto::ActivityType::GPU_MEMSET, {CNPAPI_ACTIVITY_TYPE_MEMSET}},
+        {libkineto::ActivityType::CONCURRENT_KERNEL,
+         {CNPAPI_ACTIVITY_TYPE_KERNEL}},
+        {libkineto::ActivityType::EXTERNAL_CORRELATION,
+         {CNPAPI_ACTIVITY_TYPE_EXTERNAL_CORRELATION}},
+        {libkineto::ActivityType::CUDA_RUNTIME,
+         {CNPAPI_ACTIVITY_TYPE_CNNL_API, CNPAPI_ACTIVITY_TYPE_KERNEL,
+          CNPAPI_ACTIVITY_TYPE_MEMCPY, CNPAPI_ACTIVITY_TYPE_MEMSET,
+          CNPAPI_ACTIVITY_TYPE_CNDRV_API, CNPAPI_ACTIVITY_TYPE_CNCL_API,
+          CNPAPI_ACTIVITY_TYPE_RESERVED_3}},
+        {libkineto::ActivityType::OVERHEAD, {CNPAPI_ACTIVITY_TYPE_OVERHEAD}}};
 
 CambDeviceActivity::CambDeviceActivity() {
   uint64_t t0 = cnpapiGetTimestamp();
@@ -92,32 +110,15 @@ void CambDeviceActivity::enableActivities(
                                                   bufferCompletedTrampoline));
 
   external_correlation_enable_ = false;
-  for (const auto& activity : selected_activities) {
-    if (activity == libkineto::ActivityType::GPU_MEMCPY) {
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_MEMCPY));
-    }
-    if (activity == libkineto::ActivityType::GPU_MEMSET) {
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_MEMSET));
-    }
-    if (activity == libkineto::ActivityType::CONCURRENT_KERNEL) {
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_KERNEL));
-    }
-    if (activity == libkineto::ActivityType::EXTERNAL_CORRELATION) {
-      DIPU_CALLCNPAPI(
-          cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_EXTERNAL_CORRELATION));
-      external_correlation_enable_ = true;
-    }
-    if (activity == libkineto::ActivityType::CUDA_RUNTIME) {
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_CNNL_API));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_KERNEL));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_MEMCPY));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_MEMSET));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_CNDRV_API));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_CNCL_API));
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_RESERVED_3));
-    }
-    if (activity == libkineto::ActivityType::OVERHEAD) {
-      DIPU_CALLCNPAPI(cnpapiActivityEnable(CNPAPI_ACTIVITY_TYPE_OVERHEAD));
+  for (const auto& activity_type : selected_activities) {
+    const auto& iter = kActivityTypeMapping.find(activity_type);
+    if (iter != kActivityTypeMapping.end()) {
+      for (const auto& type : iter->second) {
+        DIPU_CALLCNPAPI(cnpapiActivityEnable(type));
+      }
+      if (activity_type == libkineto::ActivityType::EXTERNAL_CORRELATION) {
+        external_correlation_enable_ = true;
+      }
     }
   }
   stopCollection = false;
@@ -125,33 +126,15 @@ void CambDeviceActivity::enableActivities(
 
 void CambDeviceActivity::disableActivities(
     const std::set<libkineto::ActivityType>& selected_activities) {
-  for (const auto& activity : selected_activities) {
-    if (activity == libkineto::ActivityType::GPU_MEMCPY) {
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_MEMCPY));
-    }
-    if (activity == libkineto::ActivityType::GPU_MEMSET) {
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_MEMSET));
-    }
-    if (activity == libkineto::ActivityType::CONCURRENT_KERNEL) {
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_KERNEL));
-    }
-    if (activity == libkineto::ActivityType::EXTERNAL_CORRELATION) {
-      DIPU_CALLCNPAPI(
-          cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_EXTERNAL_CORRELATION));
-    }
-    if (activity == libkineto::ActivityType::CUDA_RUNTIME) {
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_CNNL_API));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_KERNEL));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_MEMCPY));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_MEMSET));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_CNDRV_API));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_CNCL_API));
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_RESERVED_3));
-    }
-    if (activity == libkineto::ActivityType::OVERHEAD) {
-      DIPU_CALLCNPAPI(cnpapiActivityDisable(CNPAPI_ACTIVITY_TYPE_OVERHEAD));
+  for (const auto& activity_type : selected_activities) {
+    const auto& iter = kActivityTypeMapping.find(activity_type);
+    if (iter != kActivityTypeMapping.end()) {
+      for (const auto& type : iter->second) {
+        DIPU_CALLCNPAPI(cnpapiActivityDisable(type));
+      }
     }
   }
+
   external_correlation_enable_ = false;
   DIPU_CALLCNPAPI(cnpapiActivityRegisterCallbacks(nullptr, nullptr));
 }
@@ -343,7 +326,7 @@ void CambDeviceActivity::handleKernelActivity(
   recordStream(activity->device_id, activity->queue_id);
 }
 
-const char* memcpyKindString(cnpapiActivityMemcpyType kind) {
+constexpr const char* memcpyKindString(cnpapiActivityMemcpyType kind) noexcept {
   switch (kind) {
     case CNPAPI_ACTIVITY_MEMCPY_TYPE_HTOD:
       return "HtoD";
@@ -468,6 +451,12 @@ void CambDeviceActivity::handleCnpapiActivity(
     case CNPAPI_ACTIVITY_TYPE_CNDRV_API:
     case CNPAPI_ACTIVITY_TYPE_CNCL_API:
     case CNPAPI_ACTIVITY_TYPE_CNNL_EXTRA_API:
+      // when calling cnpapiActivityGetNextRecord to parse profiler data
+      // generated by cnpapi, we will get record in struct cnpapiActivity which
+      // contains cnpapiActivityType field. Then we need cast cnpapiActivity to
+      // actual struct according to cnpapiActivityType field. All cnpapiActivity
+      // related structs have cnpapiActivityType field in first place, it is
+      // safety to cast.
       handleRuntimeActivity(reinterpret_cast<const cnpapiActivityAPI*>(record),
                             logger, linked_activity, start_time, end_time);
       break;
@@ -502,12 +491,15 @@ void CambDeviceActivity::handleCnpapiActivity(
   }
 }
 
+// override pure virtual function, do nothing
 void CambDeviceActivity::startTrace(
     const std::set<libkineto::ActivityType>& selected_activities) {}
 
+// override pure virtual function, do nothing
 void CambDeviceActivity::stopTrace(
     const std::set<libkineto::ActivityType>& selected_activities) {}
 
+// override pure virtual function, do nothing
 void CambDeviceActivity::teardownContext() {}
 
 void CambDeviceActivity::setMaxBufferSize(int32_t size) {
@@ -576,15 +568,26 @@ std::unique_ptr<CnpapiActivityBufferMap> CambDeviceActivity::activityBuffers() {
   return std::move(ready_trace_buffers_);
 }
 
+std::string streamName(int64_t stream_id, const std::string& postfix) {
+  std::string name("stream ");
+  name += std::to_string(stream_id);
+  if (!postfix.empty()) {
+    name += " ";
+    name += postfix;
+  }
+  return name;
+}
+
 void CambDeviceActivity::recordStream(uint64_t device_index, uint64_t stream_id,
                                       const std::string& postfix) {
   auto device = static_cast<int64_t>(device_index);
   auto stream = static_cast<int64_t>(stream_id);
-  if (resource_infos_.find({device, stream}) == resource_infos_.end()) {
-    resource_infos_.emplace(
-        std::make_pair(device, stream),
+  auto iter = resource_infos_.find({device, stream});
+  if (iter == resource_infos_.end()) {
+    resource_infos_.emplace_hint(
+        iter, std::make_pair(device, stream),
         libkineto::ResourceInfo(device, stream, stream,
-                                fmt::format("stream {} {}", stream, postfix)));
+                                streamName(stream, postfix)));
   }
 }
 
