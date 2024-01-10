@@ -22,6 +22,15 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
   }
 }
 
+// growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a dim=1 tensor.
+void set_growth_tracker(at::Tensor& growth_tracker, int value) {
+  if (growth_tracker.ndimension() == 1) {
+    growth_tracker[0] = value;
+  } else {
+    growth_tracker.fill_(c10::Scalar(value));
+  }
+}
+
 }  // anonymous namespace
 
 // Multiplies each tensor in scaled_grads by inv_scale in-place.
@@ -50,15 +59,6 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
     _amp_non_finite_check_and_unscale_(const_cast<at::Tensor&>(t), found_inf,
                                        inv_scale);
   }
-}
-
-// growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a size=1 tensor.
-void inline set_growth_tracker(at::Tensor& growth_tracker, int value) {
-#if DIPU_TORCH_VERSION == 20000
-  growth_tracker[0] = value;
-#else
-  growth_tracker.fill_(c10::Scalar(value));
-#endif
 }
 
 // Updates the scale tensor in place.
