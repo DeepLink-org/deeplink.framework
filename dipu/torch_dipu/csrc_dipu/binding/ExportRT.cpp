@@ -306,15 +306,9 @@ static void exportNativeMemoryFormat(py::module& m) {
           .export_values();
 #endif
 
-  m.def("get_native_memory_format",
-        [](const at::Tensor& self) -> NativeMemoryFormat_t {
-          return dipu::get_native_memory_format(self);
-        });
+  m.def("get_native_memory_format", dipu::get_native_memory_format);
 
-  m.def("native_memory_format_cast",
-        [](at::Tensor& tensor, NativeMemoryFormat_t format) -> at::Tensor {
-          return dipu::native_memory_format_cast(tensor, format);
-        });
+  m.def("native_memory_format_cast", dipu::native_memory_format_cast);
 }
 
 static void exportGenerator(py::module& m) {

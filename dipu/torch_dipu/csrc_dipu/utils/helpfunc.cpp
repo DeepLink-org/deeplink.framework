@@ -18,20 +18,21 @@ bool isDeviceTensor(const at::Tensor& tensor) {
 at::Tensor native_memory_format_cast(at::Tensor tensor,
                                      NativeMemoryFormat_t format) {
   TORCH_CHECK(isDeviceTensor(tensor), "only device tensor support this api.");
-  TORCH_CHECK(::diopiCustomFormatCast, "diopi not support this api.");
+  TORCH_CHECK(::diopiNativeMemoryFormatCast, "diopi not support this api.");
   ::diopiTensorHandle_t in = diopi_helper::toDiopiTensorHandle(tensor);
   ::diopiContext context(getCurrentDIPUStream().rawstream());
   ::diopiTensorHandle_t out = nullptr;
-  ::diopiCustomFormatCast(&context, &out, in, static_cast<int64_t>(format));
+  ::diopiNativeMemoryFormatCast(&context, &out, in,
+                                static_cast<int64_t>(format));
   return *(diopi_helper::fromDiopiTensorHandle(out));
 }
 
 NativeMemoryFormat_t get_native_memory_format(const at::Tensor& tensor) {
-  TORCH_CHECK(::diopiGetCustomFormat, "diopi not support this api.");
+  TORCH_CHECK(::diopiGetNativeMemoryFormat, "diopi not support this api.");
   ::diopiContext context(getCurrentDIPUStream().rawstream());
   ::diopiConstTensorHandle_t input = diopi_helper::toDiopiTensorHandle(tensor);
   int64_t format = -1;
-  ::diopiGetCustomFormat(&context, input, &format);
+  ::diopiGetNativeMemoryFormat(&context, input, &format);
   return static_cast<NativeMemoryFormat_t>(format);
 }
 
