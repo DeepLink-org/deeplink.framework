@@ -76,7 +76,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
         c10::Device(c10::DeviceType::CUDA, data_ptr.device().index()));
     return data_ptr;
   }
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
   void notifyCaptureBegin(int device, CaptureId_t graph_id,
                           MempoolId_t mempool_id) override {
     DIPU_PATCH_CUDA_ALLOCATOR();
@@ -101,7 +101,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     return false;
   }
 
-#else  // # DIPU_TORCH211 or higher
+#else  // # DIPU_TORCH20101 or higher
   void beginAllocateStreamToPool(int device, cudaStream_t stream,
                                  MempoolId_t mempool_id) override {}
   void endAllocateStreamToPool(int device, cudaStream_t stream) override {}
@@ -119,7 +119,9 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     return cudaSuccess;
   }
   std::shared_ptr<AllocatorState> getCheckpointState(int device,
-                                                     MempoolId_t id) override {}
+                                                     MempoolId_t id) override {
+    return {};
+  }
   CheckpointDelta setCheckpointPoolState(
       int device, std::shared_ptr<AllocatorState> pps) override {
     return {};

@@ -5,7 +5,7 @@
 
 namespace dipu {
 
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
 static const size_t states_size = 200 * sizeof(decltype(4120));
 #else
 static const size_t states_size = 0;

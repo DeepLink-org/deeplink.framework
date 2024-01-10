@@ -54,7 +54,7 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
 
 // growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a size=1 tensor.
 void inline set_growth_tracker(at::Tensor& growth_tracker, int value) {
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
   growth_tracker[0] = value;
 #else
   growth_tracker.fill_(c10::Scalar(value));

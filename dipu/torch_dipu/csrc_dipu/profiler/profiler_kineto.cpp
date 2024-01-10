@@ -42,7 +42,7 @@ using torch::autograd::profiler::KinetoEvent;
 using torch::autograd::profiler::post_process_t;
 using torch::autograd::profiler::ProfilerResult;
 using torch::profiler::impl::ActiveProfilerType;
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
 using torch::profiler::impl::dtypesToStr;
 #else
 #endif
@@ -164,7 +164,7 @@ struct AddGenericMetadata : public MetadataBase {
     if (!shapes_and_dtypes.first.empty()) {
       addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
     }
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
     if (!shapes_and_dtypes.second.empty()) {
       addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
     }

@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU LANGUAGES CXX)
 
-set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "use cpp_17")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -76,14 +75,14 @@ add_compile_definitions(DIPU_GIT_HASH="${DIPU_GIT_HASH}")
 # Automatically generate a list of supported diopi functions
 execute_process(
   COMMAND
-    sh -x -c
+    sh -c
     "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
 )
 
 # abi_v, torch dir, abi flag, cmake path
 execute_process(
 COMMAND
-  sh -x -c
+  sh -c
   "python -c 'import torch, builtins; from pathlib import Path;  \
       print(next(item[-4:-2] for item in dir(builtins) \
       if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item)); \
@@ -130,6 +129,10 @@ execute_process(
   OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
+# config
+include(cmake/BaseFuncions.cmake)
+_set_cpp_flags()
+
 # if add new version, please also update dipu/__init__.py torch_ver_XX
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.1")
 
@@ -147,18 +150,21 @@ else()
     message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
     message(STATUS "Torch TORCH_CXX_FLAGS:  ${TORCH_CXX_FLAGS}")
 
-    string(REPLACE "." "" Torch_VERSION ${Torch_VERSION})
-    add_compile_definitions(DIPU_TORCH${Torch_VERSION})
-    add_compile_definitions(DIPU_TORCH_VERSION="${Torch_VERSION}")
+    string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_MINOR "0000${Torch_VERSION_MINOR}")
+    string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_PATCH "0000${Torch_VERSION_PATCH}")
+
+    string(CONCAT Torch_VERSION ${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH})
+    # expand to pattern XYYZZ by leading zero on minor and patch ver
+    message(STATUS "change to dipu Torch Version: ${Torch_VERSION}")
+  
+    # add_compile_definitions(DIPU_TORCH${Torch_VERSION})
+    add_compile_definitions(DIPU_TORCH_VERSION=${Torch_VERSION})
 
     link_directories(${PYTORCH_DIR}/torch/lib)
 endif()
 
 set(DIPU_TORCH_VERSION ${Torch_VERSION})
 
-# config
-include(cmake/BaseFuncions.cmake)
-_set_cpp_flags()
 
 if(ENABLE_COVERAGE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")

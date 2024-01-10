@@ -100,7 +100,7 @@
         return dipu_div_scalar_out(self, other.item(), out);
     }
     if (self.numel() == 1 && self.is_cpu()) {
-        // temp solution, need using a complete type promotion strategy
+        // todo:(wentao) temp solution, need using a type promotion strategy
         at::Tensor selfD = at::empty_like(other);
         dipu_fill__scalar(selfD, self.item());
         return dipu_div_out(selfD, other, out);
@@ -1310,7 +1310,7 @@
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
-    // temp solution, need using a complete type promotion strategy
+    // todo:(wentao) temp solution, need using a type promotion strategy
     at::Tensor out = self.numel() == 1 && self.is_cpu() ? 
         at::empty_like(other) :
         at::empty_like(self);
@@ -1996,7 +1996,7 @@
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_fallback: True
   custom_code_at_the_beginning: |
-    // add clearly check to pass torch 2.1 new test
+    // add TORCH_CHECK for torch 2.1 new test which check if runtime exception throwed in this case.
     TORCH_CHECK(!indices.empty() || at::is_expandable_to(values.sizes(), self.sizes()), "shape mismatch: value tensor of shape ",
           values.sizes(), " cannot be broadcast to indexing result of shape ", self.sizes());
     std::vector<at::Tensor> indices_tensor_vec(indices.size());

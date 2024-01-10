@@ -1,10 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 
-# supported torch ver, refer to DIPU_SUPPORT_TORCHS in cmake
-torch_ver_200="200"
-torch_ver_211="211"
-
-from .utils import is_initialized, get_compile_torch_ver
+from .utils import is_initialized, get_dipu_torch_version, \
+                   check_dipu_torch_compatiable, torch_ver_200, torch_ver_211
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type
 from .device import devicectx

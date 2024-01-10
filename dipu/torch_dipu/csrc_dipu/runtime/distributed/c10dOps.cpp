@@ -63,7 +63,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const c10::intrusive_ptr<ReduceOp>& reduce_op,
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
 #else
     const c10::optional<at::Tensor>& sparse_indices,
 #endif

@@ -14,10 +14,10 @@ ProcessGroupDICL = _C.ProcessGroupDICL
 def reg_dicl(store, rank, size, timeout):
     return ProcessGroupDICL(store, rank, size, timeout)
 
-if dipu.get_compile_torch_ver() == dipu.torch_ver_200:
+if dipu.get_dipu_torch_version() == dipu.torch_ver_200:
   Backend.register_backend(dicl_backend, reg_dicl)
 else:
-  Backend.register_backend(dicl_backend, reg_dicl, devices="cuda")
+  Backend.register_backend(dicl_backend, reg_dicl, devices= "cuda" if mockcuda else dipu.diputype)
 
 
 # distributed.BackendConfig has no power to do suitable 'device_backend_map' setting 

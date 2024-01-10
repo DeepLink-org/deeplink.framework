@@ -117,9 +117,9 @@ struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
-#ifdef DIPU_TORCH200
+#if DIPU_TORCH_VERSION == 20000
     at::ScalarType out_type = type_from_firstarg(at::kFloat, args...);
-#else  // # DIPU_TORCH211 or higher
+#else  // # DIPU_TORCH20101 or higher
     at::ScalarType out_type =
         type_from_firstarg(device_type, at::kFloat, args...);
 #endif
