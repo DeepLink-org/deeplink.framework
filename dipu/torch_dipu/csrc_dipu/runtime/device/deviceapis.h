@@ -10,7 +10,8 @@
 
 namespace dipu {
 
-constexpr devapis::VendorDeviceType kDipuVendorDeviceType =
+// constexpr is not support in ci
+const devapis::VendorDeviceType kDipuVendorDeviceType =
     VendorNameToDeviceType(DIPU_STRINGIFY_AFTER_EXPANSION(DIPU_VENDOR_NAME));
 
 namespace devapis {
