@@ -173,7 +173,7 @@ def _test_dipu_silu_fallback():
         ["silu.out"],
         ["diopiSilu"],
         fn,
-        ["custom fallback to cpu, name=silu.out"],
+        ["custom fallback to cpu, name=silu_out"],
     )
 
 
