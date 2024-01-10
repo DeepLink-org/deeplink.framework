@@ -287,24 +287,24 @@ static void patchTensor(py::module& m) {
 }
 
 static void exportNativeMemoryFormat(py::module& m) {
+  py::enum_<NativeMemoryFormat_t> formats =
+      py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat");
 #if DIPU_VENDOR_NAME_ASCEND
-  py::enum_<NativeMemoryFormat_t>& formats =
-      py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat")
-          .value("UNDEFINED", NativeMemoryFormat_t::UNDEFINED)
-          .value("NCHW", NativeMemoryFormat_t::NCHW)
-          .value("NHWC", NativeMemoryFormat_t::NHWC)
-          .value("ND", NativeMemoryFormat_t::ND)
-          .value("NC1HWC0", NativeMemoryFormat_t::NC1HWC0)
-          .value("FRACTAL_Z", NativeMemoryFormat_t::FRACTAL_Z)
-          .value("NC1HWC0_C04", NativeMemoryFormat_t::NC1HWC0_C04)
-          .value("HWCN", NativeMemoryFormat_t::HWCN)
-          .value("NDHWC", NativeMemoryFormat_t::NDHWC)
-          .value("FRACTAL_NZ", NativeMemoryFormat_t::FRACTAL_NZ)
-          .value("NCDHW", NativeMemoryFormat_t::NCDHW)
-          .value("NDC1HWC0", NativeMemoryFormat_t::NDC1HWC0)
-          .value("FRACTAL_Z_3D", NativeMemoryFormat_t::FRACTAL_Z_3D)
-          .export_values();
+  formats.value("UNDEFINED", NativeMemoryFormat_t::UNDEFINED)
+      .value("NCHW", NativeMemoryFormat_t::NCHW)
+      .value("NHWC", NativeMemoryFormat_t::NHWC)
+      .value("ND", NativeMemoryFormat_t::ND)
+      .value("NC1HWC0", NativeMemoryFormat_t::NC1HWC0)
+      .value("FRACTAL_Z", NativeMemoryFormat_t::FRACTAL_Z)
+      .value("NC1HWC0_C04", NativeMemoryFormat_t::NC1HWC0_C04)
+      .value("HWCN", NativeMemoryFormat_t::HWCN)
+      .value("NDHWC", NativeMemoryFormat_t::NDHWC)
+      .value("FRACTAL_NZ", NativeMemoryFormat_t::FRACTAL_NZ)
+      .value("NCDHW", NativeMemoryFormat_t::NCDHW)
+      .value("NDC1HWC0", NativeMemoryFormat_t::NDC1HWC0)
+      .value("FRACTAL_Z_3D", NativeMemoryFormat_t::FRACTAL_Z_3D);
 #endif
+  formats.export_values();
 
   m.def("get_native_memory_format", dipu::get_native_memory_format);
 
