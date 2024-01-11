@@ -56,6 +56,10 @@ jobs:
               git checkout ${{ github.sha }}
             fi
           fi
+          # Some tools to run clang tidy.
+          # Reuse ${REPO} to avoid modify rsync commands.
+          git clone --depth=1 https://github.com/lljbash/clangd-tidy.git ${GITHUB_WORKSPACE}/${REPO}/tools/clangd-tidy
+          # Update submodules.
           cd ${GITHUB_WORKSPACE}/${REPO}/dipu && rm -rf third_party/kineto
           git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git third_party/kineto
           git submodule update --init && cd third_party/kineto && git submodule update --init 
@@ -86,7 +90,7 @@ jobs:
 
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Rsync]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -198,7 +202,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -207,7 +211,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Rsync]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -242,23 +246,33 @@ jobs:
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Latest-Target && exit 1 )
           """
 
-  Build-Cuda:
-    name: Build-dipu-cuda
+  Build-Cuda-And-Run-Tidy:
+    name: Build DIPU (cuda) and run clang tidy
     needs: [Rsync]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
     steps:
-      - name: Build dipu
+      - name: Build DIPU
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
           export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+      - name: Run Clang Tidy
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -eo pipefail
+          WORK=$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB
+          export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$WORK/tools/clangd-tidy:$PATH
+          cd $WORK/dipu
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $(git ls-files) \
+          || (rm -rf "$WORK" && exit 1)
           """
 
   Test-Cuda:
@@ -345,7 +359,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -354,7 +368,7 @@ jobs:
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
-    needs: [Rsync]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -388,7 +402,7 @@ jobs:
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Rsync]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
@@ -461,7 +475,7 @@ jobs:
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
 
       - name: Check for failure
         if: ${{ failure() }}
@@ -495,7 +509,7 @@ jobs:
 
   Build-Kunlunxin:
     name: Build-Kunlunxin
-    needs: [Rsync]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: tps-klx-ci
     steps:
       - name: Build dipu
@@ -539,7 +553,7 @@ jobs:
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
 
       - name: Check for failure
         if: ${{ failure() }}
