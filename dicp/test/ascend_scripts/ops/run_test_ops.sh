@@ -17,9 +17,9 @@ CONFIG_DYNAMIC=${CONFIG_DIR}/dynamic.ini
 export TEST_DICP_INFER=1
 cd ${TEST_OP_DIR}
 if [ ${DYNAMIC} == false ]; then
-    output=$(pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic ${DYNAMIC}  | tee /dev/tty )
+    pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
 elif [ ${DYNAMIC} == true ]; then
-    output=$(pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic ${DYNAMIC}  | tee /dev/tty)
+    pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
 elif [ ${DYNAMIC} == all ]; then
     pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic false && \
     pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic true
