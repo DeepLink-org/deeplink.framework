@@ -4,6 +4,8 @@ cuda:
     # transformers
     - model_cfg: "transformers examples/pytorch/language-modeling/llama_7b_infer.py workdirs_transformers_llama_infer"
     - model_cfg: "transformers examples/pytorch/language-modeling/internlm_7b_infer.py workdirs_transformers_internlm_infer"
+    # lightllm
+    - model_cfg: "lightllm llama_7b_via_lightllm_infer.py workdirs_lightllm_llama_infer"
 
 
 camb:
