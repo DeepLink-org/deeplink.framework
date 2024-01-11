@@ -349,6 +349,10 @@ static void exportAutocast(py::module& m) {
   });
 }
 
+static void exportUtils(py::module& m) {
+  m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
+}
+
 extern void patchTorchCsrcDevice(PyObject* module);
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
@@ -364,5 +368,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportNativeMemoryFormat(m);
   exportGenerator(m);
   exportAutocast(m);
+  exportUtils(m);
 }
 }  // namespace dipu

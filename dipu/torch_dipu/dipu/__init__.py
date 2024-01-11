@@ -1,5 +1,7 @@
 # Copyright (c) 2023, DeepLink.
-from .utils import is_initialized
+
+from .utils import is_initialized, get_dipu_torch_version, \
+                   check_dipu_torch_compatiable, torch_ver_200, torch_ver_211
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type
 from .device import devicectx

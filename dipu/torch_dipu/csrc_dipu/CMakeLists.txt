@@ -32,7 +32,7 @@ add_custom_command(
     "$<$<NOT:$<STREQUAL:${UsedVendor},cuda>>:--convert_config=${CMAKE_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml>"
     --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
     --print_op_arg "True" --fun_config_dict
-    '{\"current_device\": \"${UsedVendor}\"}'
+    '{\"current_device\": \"${UsedVendor}\", \"current_torch_ver\": \"${Torch_VERSION}\"}'
   DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
           ${DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE}
