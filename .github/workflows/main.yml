@@ -90,7 +90,7 @@ jobs:
 
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -211,7 +211,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -246,8 +246,8 @@ jobs:
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Latest-Target && exit 1 )
           """
 
-  Build-Cuda-And-Run-Tidy:
-    name: Build DIPU (CUDA) and run clang tidy
+  Build-Cuda:
+    name: Build DIPU (cuda) and run clang tidy
     needs: [Rsync]
     runs-on: github-poc-ci
     env:
@@ -268,16 +268,15 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -eo pipefail
-          WORK=$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB
-          export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$WORK/tools/clangd-tidy:$PATH
-          cd $WORK/dipu \
+          export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB/tools/clangd-tidy:$PATH
+          cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB/dipu \
           && srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $(git ls-files) \
-          || (rm -rf "$WORK" && exit 1)
+          || (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB" && exit 1)
           """
 
   Test-Cuda:
     name: Test-dipu-cuda
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -308,7 +307,7 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -368,7 +367,7 @@ jobs:
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -385,7 +384,7 @@ jobs:
 
   Test-Cuda-Latest-Target:
     name: Test-dipu-cuda-latest-target
-    needs: [Build-Cuda-Latest-Target]
+    needs: [Build-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -402,7 +401,7 @@ jobs:
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
@@ -509,7 +508,7 @@ jobs:
 
   Build-Kunlunxin:
     name: Build-Kunlunxin
-    needs: [Build-Cuda-And-Run-Tidy]
+    needs: [Build-Cuda]
     runs-on: tps-klx-ci
     steps:
       - name: Build dipu
