@@ -1,12 +1,7 @@
 
 function(_set_cpp_flags)
-
-  set(CMAKE_C_STANDARD 11 PARENT_SCOPE)
-  set(CMAKE_CXX_STANDARD 14 PARENT_SCOPE)
   # symbol hidden, cannot open now
   set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-
-  set(CXX_STANDARD_REQUIRED ON PARENT_SCOPE)
 
   # open flags cause many prpblem, fix return-type err and re-close
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC" PARENT_SCOPE)

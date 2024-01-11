@@ -27,7 +27,7 @@ export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${PLATFORM}/dep/DIOPI_pytorch/pytorch2.0_cu118
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
-export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
+export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:/usr/sbin:${PATH}
 export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
