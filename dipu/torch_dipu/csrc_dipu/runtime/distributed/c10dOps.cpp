@@ -6,6 +6,7 @@
 #include <torch/library.h>
 
 #include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/utils/Log.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
 namespace c10d {
@@ -173,8 +174,16 @@ c10::intrusive_ptr<Work> barrier_dipu(
     at::Tensor /* unused */,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const std::vector<int64_t>& device_ids, int64_t timeout) {
-  return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-      ->barrier(BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  try {
+    return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  } catch (c10::Error& e) {
+    DIPU_LOG << "Warnning::" + e.msg() + "!! \n";
+    return process_group->getBackend(at::DeviceType::CPU)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  }
 }
 
 // register functions to dispatcher
