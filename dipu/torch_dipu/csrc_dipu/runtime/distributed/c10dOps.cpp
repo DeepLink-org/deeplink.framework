@@ -6,6 +6,8 @@
 #include <torch/library.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/utils/Log.h"
+#include "csrc_dipu/utils/helpfunc.hpp"
 
 namespace c10d {
 namespace ops {
@@ -59,7 +61,12 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> allreduce_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op, int64_t timeout) {
+    const c10::intrusive_ptr<ReduceOp>& reduce_op,
+#if DIPU_TORCH_VERSION == 20000
+#else
+    const c10::optional<at::Tensor>& sparse_indices,
+#endif
+    int64_t timeout) {
   auto tensor_vec = tensors.vec();
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
@@ -173,8 +180,16 @@ c10::intrusive_ptr<Work> barrier_dipu(
     at::Tensor /* unused */,  // NOLINT(performance-unnecessary-value-param)
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const std::vector<int64_t>& device_ids, int64_t timeout) {
-  return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-      ->barrier(BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  try {
+    return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  } catch (c10::Error& e) {
+    DIPU_LOG << "Warnning::" + e.msg() + "!! \n";
+    return process_group->getBackend(at::DeviceType::CPU)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  }
 }
 
 // register functions to dispatcher
@@ -196,6 +211,16 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
 
   // unregistered op, we expect it can fallback to cpu, but it not work now
   // (hard to sync).
+}
+
+TORCH_LIBRARY_IMPL(c10d, CPU, m) {
+  /*
+  align with barrier op backendType_ = NCCL, see
+  distributed/c10d/ProcessGroup.hpp
+   */
+  // disable override warning log
+  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
+  m.impl("barrier", barrier_dipu);
 }
 
 }  // namespace ops

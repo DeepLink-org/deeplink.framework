@@ -174,6 +174,11 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   ~ProcessGroupDICL() override;
 
+  // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
+  const std::string getBackendName() const override {
+    return DICL_BACKEND_NAME;
+  }
+
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;

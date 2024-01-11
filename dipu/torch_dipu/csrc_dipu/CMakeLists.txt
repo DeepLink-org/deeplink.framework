@@ -62,7 +62,7 @@ add_custom_command(
     "--print_op_arg=True"
     "--use_diopi_adapter=False"
     "--print_func_call_info=True"
-    "--fun_config_dict={\\\"current_device\\\":\\\"${UsedVendor}\\\"}"
+    "--fun_config_dict='{\"current_device\":\"${UsedVendor}\",\"current_torch_ver\":\"${Torch_VERSION}\"}'"
     "$<$<BOOL:${GENERATED_KERNELS_VENDOR}>:--convert_config=${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
@@ -71,7 +71,7 @@ add_custom_command(
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 
 # Collect source files.
-# Tou may use: find . -name "*.cpp" to update.
+# You may use: find . -name "*.cpp" to update list.
 set(TORCH_DIPU_SOURCE
   aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
   aten/ops/DIPUCopy.cpp

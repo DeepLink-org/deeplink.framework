@@ -316,6 +316,10 @@ static void exportAutocast(py::module& m) {
   m.def("set_autocast_dipu_dtype", at::autocast::set_autocast_xpu_dtype);
 }
 
+static void exportUtils(py::module& m) {
+  m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
+}
+
 extern void patchTorchCsrcDevice(PyObject* module);
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
@@ -330,5 +334,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   patchTensor(m);
   exportGenerator(m);
   exportAutocast(m);
+  exportUtils(m);
 }
 }  // namespace dipu

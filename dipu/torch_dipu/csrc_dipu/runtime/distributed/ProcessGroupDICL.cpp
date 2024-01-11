@@ -541,15 +541,15 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
-    std::vector<std::vector<at::Tensor>>& outputs,
-    std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
-  checkDeviceTensors(inputs);
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors, const AllgatherOptions& opts) {
+  checkDeviceTensors(inputTensors);
   // output = input * ranks, no inplace. every ranks use both in&out.
   auto outputFlattened =
-      flatten_for_scatter_gather(outputs, inputs, this->size_);
+      flatten_for_scatter_gather(outputTensors, inputTensors, this->size_);
 
   auto work = collective(
-      inputs, outputFlattened,
+      inputTensors, outputFlattened,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
@@ -564,12 +564,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
         // Copy the flattened output tensors to the outputs.
-        for (size_t i = 0; i < outputs.size(); ++i) {
+        for (size_t i = 0; i < outputTensors.size(); ++i) {
           // warnning & todo:: copy in comm stream,
           // record dest tensor outputs, because src tensor outputFlattened
           // already recorded in collective.
-          copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
-                                 static_cast<int>(outputs[i].size()));
+          copyInCommStream<true>(diclComms[i], outputTensors[i],
+                                 outputFlattened[i],
+                                 static_cast<int>(outputTensors[i].size()));
           // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
         }
       },

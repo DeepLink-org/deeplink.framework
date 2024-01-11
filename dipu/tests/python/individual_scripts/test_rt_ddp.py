@@ -159,6 +159,7 @@ def demo_allgather(rank, world_size, port):
     ]
     for i in range(1, 3):
         dist.all_gather(dests, src1)
+    dist.barrier()
     assert torch.allclose(src1, dests[0])
     print(dests[0])
     cleanup()
@@ -269,6 +270,25 @@ def run_demo(demo_fn, world_size, port):
     )
 
 
+# check if our modification destory gloo pg, especially on dist.barrier()
+# seems only work when DIPU_PYTHON_DEVICE_AS_CUDA" = 'True' now.
+def demo_allgather_gloo(rank, world_size, port):
+    import torch_dipu
+
+    print(f"Running basic DDP example on gloo cpu and rank {rank} ")
+    setup(rank, world_size, port, backend="gloo")
+
+    src1 = torch.ones((2, 4))
+    dests = torch.zeros((world_size * 2, 4))
+    dests = [
+        *dests.chunk(world_size, 0),
+    ]
+    for i in range(1, 3):
+        dist.all_gather(dests, src1)
+    dist.barrier()
+    cleanup()
+
+
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
     # world_size = 1
@@ -283,6 +303,8 @@ if __name__ == "__main__":
     run_demo(demo_reduce, world_size, port)
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
+
+    run_demo(demo_allgather_gloo, world_size, port)
 
     # need 2 card to run
     # run_demo(demo_p2p, world_size, port)

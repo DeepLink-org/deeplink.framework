@@ -46,7 +46,10 @@ using torch::autograd::profiler::KinetoEvent;
 using torch::autograd::profiler::post_process_t;
 using torch::autograd::profiler::ProfilerResult;
 using torch::profiler::impl::ActiveProfilerType;
+#if DIPU_TORCH_VERSION == 20000
 using torch::profiler::impl::dtypesToStr;
+#else
+#endif
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;
 using torch::profiler::impl::op_input_t;
@@ -165,10 +168,12 @@ struct AddGenericMetadata : public MetadataBase {
     if (!shapes_and_dtypes.first.empty()) {
       addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
     }
-
+#if DIPU_TORCH_VERSION == 20000
     if (!shapes_and_dtypes.second.empty()) {
       addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
     }
+#else
+#endif
 
     if (config_ && !config_->experimental_config.performance_events.empty()) {
       auto& event_names = config_->experimental_config.performance_events;
@@ -421,9 +426,9 @@ void pushProfilingCallbacks(const std::unordered_set<at::RecordScope>& scopes) {
           .needsInputs(registration_state_ptr->config().report_input_shapes)
           .scopes(scopes);
 
-  auto handle = c10::guts::if_constexpr<use_global_callback>(
-      [&] { return at::addGlobalCallback(recordFunctionCallback); },
-      [&] { return at::addThreadLocalCallback(recordFunctionCallback); });
+  auto handle = use_global_callback
+                    ? at::addGlobalCallback(recordFunctionCallback)
+                    : at::addThreadLocalCallback(recordFunctionCallback);
   registration_state_ptr->setCallbackHandle(handle);
 }
 
