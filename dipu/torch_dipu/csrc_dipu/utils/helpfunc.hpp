@@ -39,6 +39,9 @@ class IgnoreOpRegWarningHandler : public c10::WarningHandler {
   }
 };
 
-c10::WarningHandler* getIgnoreHandler();
+inline c10::WarningHandler* getIgnoreHandler() {
+  static IgnoreOpRegWarningHandler handler_ = IgnoreOpRegWarningHandler();
+  return &handler_;
+}
 
 }  // namespace dipu
