@@ -455,6 +455,17 @@ jobs:
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
+      - name: run-one-iter-for-llm
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
       - name: Perform cleanup one iter data
         if: always()
         run: |
