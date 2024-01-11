@@ -37,6 +37,15 @@ def get_reduction_str(r):
         raise RuntimeError("not supported yet!")
 
 
+def try_to_get_dtype(x):
+    if isinstance(x, torch.fx.proxy.Proxy):
+        if hasattr(x.node, "meta") and "val" in x.node.meta.keys():
+            return x.node.meta['val'].dtype
+        else:
+            return None
+    return None
+
+
 def register_conversion(aten_fn):
     """
     Shim to support decorator syntax.
@@ -208,6 +217,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
         return self.get_proxy(ascend_op.Mul, (x, y), {})
 
+    def promote_dtype(self, *args, target_dtype):
+        result = []
+        ascend_dtype = get_ascend_dtype(target_dtype)
+        for arg in args:
+            if isinstance(arg, torch.fx.proxy.Proxy):
+                current_dtype = try_to_get_dtype(arg)
+                if current_dtype and current_dtype == target_dtype:
+                    result.append(arg)
+                    continue
+                # do cast if:
+                # 1. unable to get tensor dtype
+                # 2. current_dtype != target_dtype
+                result.append(self.get_proxy(ascend_op.Cast, (arg, ascend_dtype)))
+            else:
+                raise RuntimeError("Not implemented")
+        return tuple(result) if len(result) > 1 else result[0]
+
     @register_conversion(torch.ops.aten.add.Tensor)
     def add(self, x, y, alpha: Optional[Number] = 1):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -218,15 +244,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
             else:
                 y = self.get_proxy(ascend_op.Const, ([y], out_dtype, []))
         else:
-            x_dtype = x.node.meta['val'].dtype
-            y_dtype = y.node.meta['val'].dtype
             y = self.mul(y, alpha)
-            if x_dtype != out_dtype:
-                x = self.get_proxy(
-                    ascend_op.Cast, (x, get_ascend_dtype(out_dtype)), {})
-            if y_dtype != out_dtype:
-                y = self.get_proxy(
-                    ascend_op.Cast, (y, get_ascend_dtype(out_dtype)), {})
+            x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
         return self.get_proxy(ascend_op.AddV2, (x, y), {})
 
     @register_conversion(torch.ops.aten.add.Scalar)
@@ -807,7 +826,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.Pow, (x, exp))
         # exp is scalar
         dtype = fx_traceback.get_current_meta()['val'].dtype
-        exp_const = self.get_proxy(ascend_op.Const, ([exp], dtype, []))
+        if dtype == torch.float16:
+            exp_const = self.get_proxy(ascend_op.Const, ([exp], torch.float32, []))
+            exp_const = self.get_proxy(ascend_op.Cast, (exp_const, "FLOAT16"))
+        else:
+            exp_const = self.get_proxy(ascend_op.Const, ([exp], dtype, []))
         return self.get_proxy(ascend_op.Pow, (x, exp_const))
 
     @register_conversion(aten.maximum.default)
@@ -1153,3 +1176,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
             cast = self.get_proxy(ascend_op.Cast, (prob, "FLOAT16"))
             prob_op = cast
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
+
+    @register_conversion(torch.ops.aten.tril.default)
+    def Tril(self, x, diagonal=0):
+        return self.get_proxy(ascend_op.Tril, (x, diagonal))
+

@@ -1474,3 +1474,11 @@ class AscendOverrides:
         op.set_input("index", index)
         op.set_attr_int("dim", dim)
         return op.to_node()
+
+    @staticmethod
+    def Tril(name, x, diagonal=0):
+        op = OP(name, "Tril")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diagonal)
+        return op.to_node()
+
