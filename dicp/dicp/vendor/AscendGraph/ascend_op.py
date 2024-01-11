@@ -43,6 +43,11 @@ class BroadcastTo(Operator):
         super().__init__("BroadcastTo")
 
     def infer_result(self, x, shape):
+        # current implementation of conversion.py doesn't require "BroadcastTo" to infer_shape_dtype
+        # for "BroadcastTo" now is only used as an intermediate node in converted graph, 
+        # and the original input is enough to infer final node's shape and dtype
+        return x
+        '''
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
         if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
             shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
@@ -57,6 +62,7 @@ class BroadcastTo(Operator):
             self.__class__.__name__ + "can't broadcast x to specified shape!"
         )
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
+        '''
 
 
 class Range(Operator):
