@@ -568,8 +568,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
           // warnning & todo:: copy in comm stream,
           // record dest tensor outputs, because src tensor outputFlattened
           // already recorded in collective.
-          copyInCommStream<true>(diclComms[i], outputs[i],
-                                 outputFlattened[i],
+          copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
                                  static_cast<int>(outputs[i].size()));
           // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
         }
