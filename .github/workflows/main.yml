@@ -97,6 +97,7 @@ jobs:
           ssh ${CUDA_CLUSTER} """
           set -eo pipefail
           export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/tools/clangd-tidy:$PATH
+          export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib:$LD_LIBRARY_PATH # libstdc++.so.6
           cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu \
           && ( srun --job-name=${GITHUB_RUN_NUMBER}_Build-Cuda --partition=$CUDA_PARTATION --time=20 find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | xargs clangd-tidy -v -j4 ) \
           || ( rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1 )
