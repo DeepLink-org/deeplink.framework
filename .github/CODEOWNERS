@@ -6,26 +6,28 @@
 
 # ---------- base ----------
 
-*               @mrdanielw
-/.github/       @mrdanielw @wugeshui
-**/scripts/ci/  @mrdanielw @wugeshui
+*                    @mrdanielw @jinminxi104
+/.github/            @mrdanielw @wugeshui
+/.github/CODEOWNERS  @mrdanielw @jinminxi104
 
 # ---------- dipu ----------
+
+### base
+/dipu/  @mrdanielw
 
 ### directories & files
 /dipu/torch_dipu/csrc_dipu/                                   @mrdanielw @fandaoyi @lljbash
 /dipu/tests/python/                                           @mrdanielw @lljbash
 /dipu/scripts/autogen_diopi_wrapper/                          @mrdanielw @lljbash
 /dipu/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py  @mrdanielw @zhaoguochun1995
+/dipu/scripts/ci/                                             @mrdanielw @wugeshui
 
 ### build & linter
 /dipu/**/CMakeLists.txt  @mrdanielw @lljbash @wiryls @Wrench-Git
 /dipu/**/*.cmake         @mrdanielw @lljbash @wiryls @Wrench-Git
 /dipu/.clang*            @mrdanielw @lljbash @wiryls
 
-### languages
-/dipu/**/*.cpp  @mrdanielw @lljbash
-/dipu/**/*.hpp  @mrdanielw @lljbash
-/dipu/**/*.h    @mrdanielw @lljbash
-
 # ---------- dicp ----------
+
+/dicp/             @jinminxi104
+/dicp/scripts/ci/  @jinminxi104 @wugeshui
