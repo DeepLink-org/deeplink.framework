@@ -247,7 +247,7 @@ jobs:
           """
 
   Build-Cuda-And-Run-Tidy:
-    name: Build DIPU (cuda) and run clang tidy
+    name: Build DIPU (CUDA) and run clang tidy
     needs: [Rsync]
     runs-on: github-poc-ci
     env:
@@ -270,8 +270,8 @@ jobs:
           set -eo pipefail
           WORK=$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB
           export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$WORK/tools/clangd-tidy:$PATH
-          cd $WORK/dipu
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $(git ls-files) \
+          cd $WORK/dipu \
+          && srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $(git ls-files) \
           || (rm -rf "$WORK" && exit 1)
           """
 
