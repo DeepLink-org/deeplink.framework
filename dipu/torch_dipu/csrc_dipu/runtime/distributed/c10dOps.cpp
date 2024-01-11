@@ -6,6 +6,8 @@
 #include <torch/library.h>
 
 #include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/utils/Log.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 namespace c10d {
 namespace ops {
@@ -177,8 +179,16 @@ c10::intrusive_ptr<Work> barrier_dipu(
     at::Tensor /* unused */,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
     const std::vector<int64_t>& device_ids, int64_t timeout) {
-  return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-      ->barrier(BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  try {
+    return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  } catch (c10::Error& e) {
+    DIPU_LOG << "Warnning::" + e.msg() + "!! \n";
+    return process_group->getBackend(at::DeviceType::CPU)
+        ->barrier(
+            BarrierOptions{device_ids, std::chrono::milliseconds(timeout)});
+  }
 }
 
 // register functions to dispatcher
@@ -200,6 +210,16 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
 
   // unregistered op, we expect it can fallback to cpu, but it not work now
   // (hard to sync).
+}
+
+TORCH_LIBRARY_IMPL(c10d, CPU, m) {
+  /*
+  align with barrier op backendType_ = NCCL, see
+  distributed/c10d/ProcessGroup.hpp
+   */
+  // disable override warning log
+  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
+  m.impl("barrier", barrier_dipu);
 }
 
 }  // namespace ops

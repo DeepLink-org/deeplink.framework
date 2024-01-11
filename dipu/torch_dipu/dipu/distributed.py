@@ -29,6 +29,11 @@ def _wrapped_register_backend(self, device, backend_type, backend):
       backend = ProcessGroupGloo(backend.store(), backend.rank(), backend.size(), timeout=backend.timeout())
       backend_type = ProcessGroup.BackendType.GLOO
 
+    # if mock_cuda=true and "DIPU_PYTHON_DEVICE_AS_CUDA" = 'True'. the python layer
+    # device.cuda is actually device.xpu(dipu) in cpp layer, so this func reg a 
+    # backend to xpu(dipu), but if the backend is gloo or mpi which not support dipu.
+    # call of any comm func (except pg.barrier()) on xpu tensor will fail, it same as 
+    # the original meaning of gloo pg which not support device tensor.
     _raw_register_backend(self, device, backend_type, backend)
 
 
