@@ -146,7 +146,7 @@ class RecordBlockCreator {
         }
         stream = dipu_stream.rawstream();
       }
-      initialize(string_t(name), *stream, *streamId);
+      initialize(string_t{name}, *stream, *streamId);
     }
   }
 

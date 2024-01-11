@@ -270,8 +270,8 @@ jobs:
           set -eo pipefail
           export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB/tools/clangd-tidy:$PATH
           cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB/dipu \
-          && srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $(git ls-files) \
-          || (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB" && exit 1)
+          && srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --time=20 clangd-tidy -j4 $( find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) ) \
+          || ( rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/$GITHUB_JOB" && exit 1 )
           """
 
   Test-Cuda:

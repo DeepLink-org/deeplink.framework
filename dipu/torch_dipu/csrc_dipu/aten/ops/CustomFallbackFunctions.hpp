@@ -295,7 +295,8 @@ static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
   }
 
   const auto device = input.device();
-  at::Tensor grad_input, grad_other;
+  at::Tensor grad_input;
+  at::Tensor grad_other;
 
   if (mask[0]) {
     grad_input =
