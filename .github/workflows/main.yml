@@ -277,7 +277,7 @@ jobs:
 
   Test-Cuda:
     name: Test-dipu-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -308,7 +308,7 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda-And-Run-Tidy]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
