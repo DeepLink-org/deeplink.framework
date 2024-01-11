@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(TorchDIPU LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "use cpp_17")
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -137,33 +137,31 @@ _set_cpp_flags()
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.1")
 
 find_package(Torch REQUIRED)
-if (NOT Torch_FOUND)
-    message(FATAL_ERROR "libtorch is required but not found")
-else()
-    message(STATUS "Found Torch Version: ${Torch_VERSION}")
-    if (NOT ${Torch_VERSION} IN_LIST DIPU_SUPPORT_TORCHS)
-      message(FATAL_ERROR "this torch version is not supported by DIPU ${DIPU_SUPPORT_TORCHS}")
-    endif()
 
-    # message(STATUS "Torch TORCH_LIBRARY: ${TORCH_LIBRARY}")
-    include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
-    message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
-    message(STATUS "Torch TORCH_CXX_FLAGS:  ${TORCH_CXX_FLAGS}")
-
-    string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_MINOR "0000${Torch_VERSION_MINOR}")
-    string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_PATCH "0000${Torch_VERSION_PATCH}")
-
-    string(CONCAT Torch_VERSION ${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH})
-    # expand to pattern XYYZZ by leading zero on minor and patch ver
-    message(STATUS "change to dipu Torch Version: ${Torch_VERSION}")
-  
-    # add_compile_definitions(DIPU_TORCH${Torch_VERSION})
-    add_compile_definitions(DIPU_TORCH_VERSION=${Torch_VERSION})
-
-    link_directories(${PYTORCH_DIR}/torch/lib)
+message(STATUS "Found Torch Version: ${Torch_VERSION}")
+if (NOT ${Torch_VERSION} IN_LIST DIPU_SUPPORT_TORCHS)
+  message(FATAL_ERROR "this torch version is not supported by DIPU ${DIPU_SUPPORT_TORCHS}")
 endif()
 
+# message(STATUS "Torch TORCH_LIBRARY: ${TORCH_LIBRARY}")
+include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
+message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
+message(STATUS "Torch TORCH_CXX_FLAGS:  ${TORCH_CXX_FLAGS}")
+
+string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_MINOR "0000${Torch_VERSION_MINOR}")
+string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_PATCH "0000${Torch_VERSION_PATCH}")
+
+string(CONCAT Torch_VERSION ${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH})
+# expand to pattern XYYZZ by leading zero on minor and patch ver
+message(STATUS "change to dipu Torch Version: ${Torch_VERSION}")
+
+# add_compile_definitions(DIPU_TORCH${Torch_VERSION})
+add_compile_definitions(DIPU_TORCH_VERSION=${Torch_VERSION})
+
+link_directories(${PYTORCH_DIR}/torch/lib)
 set(DIPU_TORCH_VERSION ${Torch_VERSION})
+
+# end torch find
 
 
 if(ENABLE_COVERAGE)
