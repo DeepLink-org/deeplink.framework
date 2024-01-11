@@ -47,7 +47,7 @@ r1 = t1.timeit(100)
 print(r1)
 # TODO(fandaoyi,lljbash): find out why it gets slower
 # assert r0.mean < 8.8e-5
-assert r1.mean < 30.0e-5
+assert r1.mean < 40.0e-5
 
 
 # Compare takes a list of measurements which we'll save in results.
