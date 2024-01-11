@@ -8,10 +8,11 @@
 
 #include <pybind11/chrono.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/base/DIPUGlobals.h>
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/helpfunc.hpp>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/base/DIPUGlobals.h"
+#include "csrc_dipu/runtime/rthelper.h"
+#include "csrc_dipu/utils/helpfunc.hpp"
+#include "csrc_dipu/utils/vender_helper.hpp"
 
 #include "DIPUpybind.h"  // IWYU pragma: keep
 #include "exportapi.h"

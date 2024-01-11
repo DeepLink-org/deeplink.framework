@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include <ATen/core/TensorBody.h>
+
 #include "csrc_dipu/runtime/device/basedef.h"
 
 namespace dipu {

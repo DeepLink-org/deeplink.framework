@@ -1,12 +1,20 @@
 // Copyright (c) 2023, DeepLink.
 #include "helpfunc.hpp"
 
+#include <cstdint>
 #include <mutex>
 #include <pthread.h>
 
+#include <ATen/core/TensorBody.h>
+#include <c10/util/Exception.h>
+
+#include <diopi/diopirt.h>
+#include <diopi/functions.h>
 #include <diopi/functions_ext.h>
 
+#include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/vendor/vendorapi.h"  // IWYU pragma: keep
 
 namespace dipu {

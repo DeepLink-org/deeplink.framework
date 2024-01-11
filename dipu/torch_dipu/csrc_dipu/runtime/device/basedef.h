@@ -6,8 +6,6 @@
 
 #include <c10/core/Device.h>
 
-#include <csrc_dipu/base/basedef.h>
-
 // todo: move out deice dir to diopi
 namespace dipu {
 

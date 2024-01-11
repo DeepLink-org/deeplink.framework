@@ -3,16 +3,16 @@
 
 #include <cstring>
 
-#include "csrc_dipu/utils/vender_helper.hpp"
 #include "csrc_dipu/vendor/vendorapi.h"
 
-#include "./basedef.h"
+#include "basedef.h"
 
 namespace dipu {
 
-// constexpr is not support in ci
-const devapis::VendorDeviceType kDipuVendorDeviceType =
-    VendorNameToDeviceType(DIPU_STRINGIFY_AFTER_EXPANSION(DIPU_VENDOR_NAME));
+// TODO(fandaoyi,lljbash): Add config.h where all macros are correctly defined.
+// As a workaround, the definition of kDipuVendorDeviceType is moved to
+// deviceapis.cpp. Move it back here as a constexpr when config.h is added
+extern const devapis::VendorDeviceType kDipuVendorDeviceType;
 
 namespace devapis {
 

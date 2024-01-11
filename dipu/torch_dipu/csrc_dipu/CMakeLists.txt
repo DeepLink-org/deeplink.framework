@@ -52,7 +52,8 @@ file(
   runtime/core/DIPU*.cpp
   runtime/core/MemChecker.cpp
   runtime/distributed/*.cpp
-  runtime/devproxy/*.cpp)
+  runtime/devproxy/*.cpp
+  runtime/device/deviceapis.cpp)
 
 file(
   GLOB
