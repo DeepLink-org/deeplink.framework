@@ -562,7 +562,7 @@ class Empty(Operator):
         super().__init__("Empty")
 
     def infer_result(
-        self, shape, dtype, layout, device, memory_format=torch.contiguous_format
+        self, shape, dtype, layout=torch.strided, device='cpu', memory_format=torch.contiguous_format
     ):
         shape, _, _ = get_op_const_arg_kwarg(shape)
         return torch.empty(

@@ -337,11 +337,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def empty_like(self, x, dtype=torch.float32, layout=torch.strided,
                    device='cpu', pin_memory=False, memory_format=torch.preserve_format):
         dtype = x.node.meta['val'].dtype
-        shape = list(x.node.meta['val'].shape)
-        shape_op = self.get_proxy(
-            ascend_op.Const, (shape, torch.int32, [len(shape)]))
-        new_memory_format=x.node.meta['tensor_meta'].memory_format if memory_format is torch.preserve_format else memory_format
-        return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device, new_memory_format))
+        shape_op = self.get_proxy(ascend_op.Shape, (x,))
+        if memory_format is not None and memory_format != torch.contiguous_format \
+                and memory_format != torch.preserve_format:
+            raise NotImplementedError("torch.ops.aten.empty_like.default is only supported "
+                    "contiguous_format and preserve_format now.")
+        return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout))
 
     @register_conversion(aten.select.int)
     def select(self, x, dim, index):
