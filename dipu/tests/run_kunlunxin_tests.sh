@@ -6,8 +6,7 @@ source tests/common.sh
 function run_dipu_tests {
   unset DIPU_DUMP_OP_ARGS
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
-  ${CDIR}/python/run_tests.sh
-  #run_test tests/python/unittests/test_add.py
+  run_test tests/python/unittests/test_add.py
 }
 
 if [ "$LOGFILE" != "" ]; then

@@ -532,7 +532,7 @@ jobs:
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          source scripts/ci/ascend/ci_kunlunxin_env.sh
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
           basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_kunlunxin ${basic_path}
           cd mmlab_pack
