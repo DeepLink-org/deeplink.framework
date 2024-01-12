@@ -87,26 +87,9 @@ jobs:
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
 
-  Run-Tidy:
-    name: Run tidy
-    needs: [Build-Cuda]
-    runs-on: github-poc-ci
-    steps:
-      - name: Clang tidy (CUDA)
-        run: |
-          ssh ${CUDA_CLUSTER} """
-          set -eo pipefail
-          # Warning: $ PATH and LD_LIBRARY_PATH are from host machine and may not work.
-          export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/tools/clangd-tidy:$PATH
-          export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib:$LD_LIBRARY_PATH # require libstdc++.so.6 on 1988
-          cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu \
-          && ( srun --job-name=${GITHUB_RUN_NUMBER}_Build-Cuda --partition=$CUDA_PARTATION --time=20 find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | xargs clangd-tidy -j4 ) \
-          || ( rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1 )
-          """
-
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Run-Tidy]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -227,7 +210,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Run-Tidy]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -281,9 +264,26 @@ jobs:
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
+  Tidy-Cuda:
+    name: Run tidy (cuda)
+    needs: [Build-Cuda]
+    runs-on: github-poc-ci
+    steps:
+      - name: clang-tidy
+        run: |
+          ssh ${CUDA_CLUSTER} """
+          set -eo pipefail
+          # Warning: $ PATH and LD_LIBRARY_PATH are from host machine and may not work.
+          export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/tools/clangd-tidy:$PATH
+          export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib:$LD_LIBRARY_PATH # require libstdc++.so.6 on 1988
+          cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu \
+          && ( srun --job-name=${GITHUB_RUN_NUMBER}_Build-Cuda --partition=$CUDA_PARTATION --time=20 find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | xargs clangd-tidy -j4 ) \
+          || ( rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1 )
+          """
+
   Test-Cuda:
     name: Test-dipu-cuda
-    needs: [Build-Cuda, Run-Tidy]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -314,7 +314,7 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda, Run-Tidy]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -374,7 +374,7 @@ jobs:
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
-    needs: [Run-Tidy]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -408,7 +408,7 @@ jobs:
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Run-Tidy]
+    needs: [Tidy-Cuda]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
@@ -515,7 +515,7 @@ jobs:
 
   Build-Kunlunxin:
     name: Build-Kunlunxin
-    needs: [Run-Tidy]
+    needs: [Tidy-Cuda]
     runs-on: tps-klx-ci
     steps:
       - name: Build dipu
