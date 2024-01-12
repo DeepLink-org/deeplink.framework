@@ -215,7 +215,7 @@ function build_dataset(){
         ln -s /mnt/cache/share/datasets/imagenet data/imagenet
 
     else
-        echo "Invalid parameter. Please specify 'cuda' 'camb' or 'ascend'."
+        echo "Invalid parameter. Please specify 'cuda' 'camb' 'ascend' or 'kunlunxin'."
         exit 1
     fi
 }
