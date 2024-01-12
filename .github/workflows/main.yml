@@ -58,7 +58,7 @@ jobs:
           fi
           # Some tools to run clang tidy.
           # Reuse ${REPO} to avoid modify rsync commands.
-          git clone --depth=1 https://github.com/lljbash/clangd-tidy.git ${GITHUB_WORKSPACE}/${REPO}/tools/clangd-tidy
+          git -c advice.detachedHead=false clone --depth 1 -b v0.1.0 https://github.com/lljbash/clangd-tidy.git ${GITHUB_WORKSPACE}/${REPO}/tools/clangd-tidy
           # Update submodules.
           cd ${GITHUB_WORKSPACE}/${REPO}/dipu && rm -rf third_party/kineto
           git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git third_party/kineto
