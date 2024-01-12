@@ -87,13 +87,8 @@ function build_needed_repo_ascend() {
 }
 
 function build_needed_repo_kunlunxin() {
-    echo "done"
+    echo "skip"
 }
-#function build_needed_repo_kunlunxin() {
-#    cd mmcv
-#    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
-#    cd ..
-#}
 
 
 function export_repo_pythonpath(){

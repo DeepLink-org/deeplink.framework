@@ -502,7 +502,8 @@ jobs:
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          echo "build and test, you can refer to the Ascend" \
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
+          python setup.py build_ext -i \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Kunlunxin:
@@ -514,7 +515,7 @@ jobs:
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          echo "test and clean, you can refer to the Ascend"
+          bash tests/run_kunlunxin_tests.sh
 
   Test-One-Iter-Kunlunxin:
     name: Test-One-Iter-Kunlunxin
