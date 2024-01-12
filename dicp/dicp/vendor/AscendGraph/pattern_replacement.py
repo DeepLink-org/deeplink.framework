@@ -55,7 +55,9 @@ class FuseBmmTransposeRhsPattern(BackendPatternBase):
         return BatchMatMul(x1, reshape, adj_x1=False, adj_x2=True)
 
 
-@register_ascend_pattern
+# @pandaoxin negotiate with @tangzhiyi
+# another submit would implement
+# @register_ascend_pattern
 class FuseMatMulTransePoseRhsPattern(BackendPatternBase):
     @staticmethod
     def pattern(x1, x2):
