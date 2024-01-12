@@ -32,12 +32,10 @@ class TestStableDiffusion():
         dicp_pipe.unet = torch.compile(dicp_pipe.unet, backend=backend)
         dicp_image = dicp_pipe(prompt, num_inference_steps=num_inference_steps).images[0]
         if backend == "ascendgraph":
-            with open("stable_diffusion/topsgraph_output.txt", "r") as f:
-                standard_output = eval(f.read())
+            standard_output = torch.load("stable_diffusion/ascendgraph_output.pt")
         elif backend == "topsgraph":
-            with open("stable_diffusion/topsgraph_output.txt", "r") as f:
-                standard_output = eval(f.read())
+            standard_output = torch.load("stable_diffusion/topsgraph_output.pt")
         else:
             raise ValueError("backend should in (ascendgrap, topsgraph)")
-        dicp_output = list(dicp_image.getdata())
-        assert dicp_output == standard_output
+        dicp_output = torch.tensor(list(dicp_image.getdata()))
+        assert torch.allclose(dicp_output, standard_output, equal_nan=True)
