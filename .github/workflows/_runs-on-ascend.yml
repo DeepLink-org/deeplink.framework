@@ -47,6 +47,7 @@ jobs:
               cd - && \
               pip uninstall torch_dipu -y && \
               pip uninstall dicp -y && \
+              export PYTHONPATH=/mnt/cache/share/deeplinkci/dicp_env/pytorch-aa8dcab1:$PYTHONPATH && \
               cd dipu && python setup.py clean && python setup.py install --user && \
               cd ../dicp && python setup.py clean && python setup.py install --user && \
               source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models && \
