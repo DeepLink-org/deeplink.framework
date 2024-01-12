@@ -86,6 +86,15 @@ function build_needed_repo_ascend() {
     cd ..
 }
 
+function build_needed_repo_kunlunxin() {
+    echo "done"
+}
+#function build_needed_repo_kunlunxin() {
+#    cd mmcv
+#    MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i 
+#    cd ..
+#}
+
 
 function export_repo_pythonpath(){
     basic_path="$2"
@@ -101,8 +110,10 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "ascend" ]; then
         echo "Executing ASCEND operation in pythonpath..."
+    elif [ "$1" = "kunlunxin" ]; then
+        echo "Executing KUNLUNXIN operation in pythonpath..."
     else
-        echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
+        echo "Invalid parameter. Please specify 'cuda', 'camb' 'ascend' or 'kunlunxin'."
         exit 1
     fi
     export PYTHONPATH=${basic_path}:$PYTHONPATH
@@ -197,6 +208,11 @@ function build_dataset(){
         ln -s /mnt/cache/share/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/cache/share/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/cache/share/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+    elif [ "$1" = "kunlunxin" ]; then
+        echo "Executing KUNLUNXIN operation in build dataset..."
+        rm -rf data
+        mkdir data
+        ln -s /mnt/cache/share/datasets/imagenet data/imagenet
 
     else
         echo "Invalid parameter. Please specify 'cuda' 'camb' or 'ascend'."
@@ -220,12 +236,17 @@ case $1 in
     build_ascend910b)
         build_needed_repo_ascend
         build_dataset ascend910b;;
+    build_kunlunxin)
+        build_needed_repo_kunlunxin
+        build_dataset kunlunxin;;
     export_pythonpath_camb)
         export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)
         export_repo_pythonpath cuda $2;;
     export_pythonpath_ascend)
         export_repo_pythonpath ascend $2;;
+    export_pythonpath_kunlunxin)
+        export_repo_pythonpath kunlunxin $2;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac

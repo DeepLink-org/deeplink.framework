@@ -1,7 +1,3 @@
-set(XPURT_TOOLKIT_ROOT /workspace/xpu_toolchain/xpurt)
-set(XDNN_TOOLKIT_ROOT /workspace/xpu_toolchain/xdnn)
-set(XCCL_TOOLKIT_ROOT /workspace/xpu_toolchain/xccl)
-
 include(FindPackageHandleStandardArgs)
 
 ## xdnn
