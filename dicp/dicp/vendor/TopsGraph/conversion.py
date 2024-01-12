@@ -602,83 +602,16 @@ class AtenToTopsTransformer(SingleOpTransformer):
         div1 = self.get_proxy(tops_op.Div, (sum_dim, samples))
         return self.get_proxy(tops_op.MakeTuple, (div1, mean1))
 
+    @register_conversion(aten.addmm)
+    def Addmm(self, x, mat1, mat2):
+        dot = self.get_proxy(tops_op.Dot, (mat1, mat2))
+        return self.get_proxy(tops_op.Add, (x, dot))
 
 # Patterns
 tops_patterns = PatternMatcherPass()
-aten_patterns_cls_list = []
-register_aten_patterns = functools.partial(
-    register_backend_patterns, aten_patterns_cls_list)
 tops_patterns_cls_list = []
 register_tops_patterns = functools.partial(
     register_backend_patterns, tops_patterns_cls_list)
-
-
-@register_aten_patterns
-class ReplacePatternAddmm(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b, c):
-        return torch.ops.aten.addmm.default(a, b, c)
-
-    @staticmethod
-    def replacement(a, b, c):
-        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
-
-
-# %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
-#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_aten_patterns
-class ReplacePatternVar(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
-
-    @staticmethod
-    def replacement(inputs, dims):
-        keepdim = True
-        correction = 0
-        denom = 64
-        denom = denom - correction
-        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(
-            torch.ops.aten.sub.Tensor(inputs, mean1))
-        sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
-        return x_var
-
-
-@register_aten_patterns
-class ReplacePatternT(BackendPatternBase):
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.t.default(a)
-
-    @staticmethod
-    def replacement(inputs):
-        return torch.ops.aten.transpose(inputs, 0, 1)
-
-
-@register_aten_patterns
-class ReplacePatternRsub(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.rsub.Scalar(a, b)
-
-    @staticmethod
-    def replacement(a, b):
-        return torch.ops.aten.sub.Scalar(b, a)
-
-
-@register_aten_patterns
-class ReplacePatternSiLU(BackendPatternBase):
-    # silu(x) = x / (1+exp(-x)) = x*sigmoid(x)
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.silu.default(a)
-
-    @staticmethod
-    def replacement(a):
-        return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
-
 
 if is_torch_210:
     Dot = torch.fx.wrap(tops_op.Dot.get_singleton())
