@@ -10,6 +10,7 @@ from torch.types import (
 )
 import numpy as np
 import torch.fx.traceback as fx_traceback
+from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.vendor.AscendGraph.codegen.utils import (
@@ -131,10 +132,19 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 ascend_op.Const, (param, type, [len(param)]))
         return param
 
+    def shape_prod(self, shape):
+        prod = 1
+        for e in shape:
+            if isinstance(e, torch.SymInt):
+                prod *= e.node.hint
+            else:
+                prod *= e
+        return prod
+
     def mul_scalar(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         # Muls support bfloat16, int32, int16, float16, float32, complex32, complex64.
-        if out_dtype not in [torch.float, torch.float16, torch.int32]:
+        if out_dtype not in [torch.float, torch.float32, torch.float16, torch.int32]:
             y_shape = list(x.node.meta['val'].shape)
             y_op = self.get_param_proxy(y, out_dtype, y_shape)
             return self.get_proxy(ascend_op.Mul, (x, y_op))
@@ -243,6 +253,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
         a, b = self.binary_cmp_cast_input(a, b)
         return self.get_proxy(ascend_op.LessEqual, (a, b), {})
 
+    @register_conversion(aten.argmax.default)
+    def argmax(self, x, dim):
+        dim = self.get_proxy(ascend_op.Const, ([dim], torch.int32, []))
+        return self.get_proxy(ascend_op.ArgMax, (x, dim))
+
     @register_conversion(aten.view_as_real)
     def view_as_real(self, x):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -289,6 +304,15 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if out_dtype == torch.float16:
             y_op = self.get_proxy(ascend_op.Cast, (y_op, "FLOAT16"), {})
         return self.get_proxy(ascend_op.Div, (x, y_op), {})
+
+    @register_conversion(aten.split.Tensor)
+    def split(self, x, split_size, dim=0):
+        splitD_kw = { "from_view_complex": False }
+        shape = list(x.node.meta['val'].shape)
+        if dim < 0:
+            dim += len(shape)
+        num_split = int(shape[dim] / split_size)
+        return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
     @register_conversion(aten.slice.Tensor)
     def slice(self, x, dim=0, start=None, end=None, step=1):
@@ -530,6 +554,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                                       weight, total_weight,
                                                       reduction_str, ignore_index))
 
+    @register_conversion(torch.ops.aten.sin.default)
+    def sin(self, x):
+        return self.get_proxy(ascend_op.Sin, (x,))
+
+    @register_conversion(torch.ops.aten.cos.default)
+    def cos(self, x):
+        return self.get_proxy(ascend_op.Cos, (x,))
+
     @register_conversion(torch.ops.aten.cat.default)
     def cat(self, x, dim=0):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -602,21 +634,126 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     def index_base(self, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
-        if isinstance(index, list):
-            assert len(index) == 1
-            index = index[0]
-        assert dim[0] == 0
         dim_op = self.get_proxy(
             ascend_op.Const, (dim, torch.int32, [len(dim)]))
         return self.get_proxy(ascend_op.GatherV2, (x, index, dim_op))
 
     @register_conversion(torch.ops.aten.index.Tensor)
     def index(self, x, index):
+        if isinstance(index, list):
+            if len(index) == 1:
+                index = index[0]
+                return self.index_base(x, 0, index)
+            else:
+                bcast_shape = []
+                first_not_none = 0
+                not_none_len = 0
+                status = 0
+
+                # calc for first_not_none & not_none_len
+                for i, elem in enumerate(index):
+                    if status == 0:
+                        if elem is None:
+                            status = 1
+                        else:
+                            break
+                    elif status == 1:
+                        if elem is not None:
+                            status = 2
+                            first_not_none = i
+                    elif status == 2:
+                        if elem is not None:
+                            not_none_len = i - first_not_none + 1
+                        else:
+                            status = 3
+                    elif status == 3:
+                        # not support now!
+                        assert elem is None
+                index_tmp = [e for e in index]
+
+                # insert transpose op
+                if status > 0:
+                    x_shape = list(x.node.meta['val'].shape)
+                    perm = [num for num in range(len(x_shape))]
+                    for i in range(not_none_len):
+                        index_tmp[i] = index_tmp[first_not_none + i]
+                        index_tmp[first_not_none + i] = None
+                        perm[i] = first_not_none + i
+                        perm[first_not_none + i] = i
+                    perm = self.get_proxy(ascend_op.Const, (perm, torch.int32, [len(perm)]))
+                    x = self.get_proxy(ascend_op.Transpose, (x, perm))
+
+                # get broadcast shape
+                bcast_flag = False
+                for elem in index_tmp:
+                    if elem is not None:
+                        shape = list(elem.node.meta['val'].shape)
+                        bcast_shape.append(shape)
+                bcast_shape = list(torch.broadcast_shapes(*bcast_shape))
+
+                for elem in index_tmp:
+                    if elem is not None:
+                        shape = list(elem.node.meta['val'].shape)
+                        if not self.shape_prod(shape) == self.shape_prod(bcast_shape) or not len(shape) == len(bcast_shape):
+                            bcast_flag = True
+
+                # insert broadcast op
+                if bcast_flag:
+                    bcast_shape = self.get_proxy(ascend_op.Const, (bcast_shape, torch.int32, [len(bcast_shape)]))
+                    for i, elem in enumerate(index_tmp):
+                        if elem is not None:
+                            index_tmp[i] = self.get_proxy(ascend_op.BroadcastTo, (elem, bcast_shape))
+
+                # core gather calc
+                if status > 0:
+                    index = immutable_list(index_tmp[:not_none_len])
+                else:
+                    index = immutable_list(index_tmp)
+                indices = self.get_proxy(ascend_op.Pack, (index, -1))
+                gather = self.get_proxy(ascend_op.GatherNd, (x, indices))
+                if status > 0:
+                    return self.get_proxy(ascend_op.Transpose, (gather, perm))
+                return gather
+
         return self.index_base(x, 0, index)
 
     @register_conversion(torch.ops.aten.index_select.default)
     def index_arg3_(self, x, dim, index):
         return self.index_base(x, dim, index)
+
+    @register_conversion(torch.ops.aten.native_layer_norm.default)
+    def native_layer_norm(self, x, shape, weight, bias, eps):
+        input_shape = x.node.meta['val'].shape
+        input_ndim = len(input_shape)
+        normalized_ndim = len(shape)
+        axis = input_ndim - normalized_ndim
+        M = 1
+        for idx in range(axis):
+            M *= input_shape[idx]
+        N = 1
+        for idx in range(axis, input_ndim):
+            N *= input_shape[idx]
+
+        weight_numel = weight.node.meta['val'].numel()
+        bias_numel = bias.node.meta['val'].numel()
+        assert weight_numel == N and bias_numel == N
+
+        numels = 1
+        begin_dim = 0
+        for idx in range(len(input_shape)):
+            numels *= input_shape[idx]
+            if numels == M:
+                begin_dim = idx + 1
+                weight_dims = list(input_shape[idx + 1:])
+                break
+        weight_dims = self.get_shape_proxy(weight_dims)
+        weight = self.get_proxy(ascend_op.Reshape, (weight, weight_dims))
+
+        return self.get_proxy(ascend_op.LayerNorm, (x, begin_dim, weight, bias, eps))
+
+    @register_conversion(torch.ops.aten.native_group_norm.default)
+    def native_group_norm(self, x, weight, bias, N, C, HxW, group, eps):
+        return self.get_proxy(ascend_op.GroupNorm, (x, weight, bias, N, C, HxW, group, eps))
 
     @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
     def _native_batch_norm_legit_functional(self, x, weight, bias, running_mean, running_var,
@@ -1047,6 +1184,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.relu)
     def relu(self, a):
         return self.get_proxy(ascend_op.Relu, (a,))
+
+    @register_conversion(torch.ops.aten.gelu)
+    def gelu(self, a):
+        return self.get_proxy(ascend_op.Gelu, (a,))
 
     @register_conversion(torch.ops.aten.silu)
     def silu(self, a):
