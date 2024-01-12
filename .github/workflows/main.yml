@@ -536,8 +536,8 @@ jobs:
       - name: Build some env
         run: |
           set -ex
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          bash scripts/ci/ci_one_iter.sh build_kunlunxin
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_kunlunxin
 
       - name: Run one iter tools
         run: |
