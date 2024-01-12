@@ -1482,3 +1482,10 @@ class AscendOverrides:
         op.set_attr_int("diagonal", diagonal)
         return op.to_node()
 
+    @staticmethod
+    def Tile(name, x, repeats):
+        op = OP(name, "Tile")
+        op.set_input("x", x)
+        op.set_input("multiples", repeats)
+        return op.to_node()
+

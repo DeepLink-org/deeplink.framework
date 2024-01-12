@@ -133,7 +133,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(
                 ascend_op.Const, (shape, torch.int32, [len(shape)]))
 
-    def get_param_proxy(self, param, type, target_shape):
+    def get_param_proxy(self, param, type, target_shape=None):
         if not isinstance(param, torch.fx.proxy.Proxy) and not isinstance(param, FakeTensor):
             param = param if isinstance(param, list) else [param]
             param = self.get_proxy(
@@ -1180,4 +1180,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.tril.default)
     def Tril(self, x, diagonal=0):
         return self.get_proxy(ascend_op.Tril, (x, diagonal))
+
+    @register_conversion(torch.ops.aten.repeat.default)
+    def Repeat(self, x, repeats):
+        if not isinstance(repeats, torch.fx.proxy.Proxy):
+            assert isinstance(repeats, list)
+            repeats = self.get_param_proxy(repeats, torch.int32)
+        return self.get_proxy(ascend_op.Tile, (x, repeats))
 
