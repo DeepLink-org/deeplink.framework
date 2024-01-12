@@ -2,9 +2,9 @@
 
 #include "DIPUAmp.hpp"
 
-#include "ATen/Operators.h"
-#include "ATen/autocast_mode.h"
-#include "torch/library.h"
+#include <ATen/Operators.h>
+#include <ATen/autocast_mode.h>
+#include <torch/library.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/device/basedef.h"

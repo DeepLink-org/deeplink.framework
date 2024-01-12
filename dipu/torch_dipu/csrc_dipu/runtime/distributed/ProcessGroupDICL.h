@@ -10,12 +10,12 @@
 #include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
-#include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/runtime/core/DIPUEvent.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/vendor/vendorapi.h>
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/vendor/vendorapi.h"
 
-#include "./DICLUtils.hpp"
+#include "DICLUtils.hpp"
 
 namespace dipu {
 
@@ -192,17 +192,17 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const ReduceOptions& opts /* = ReduceOptions() */) override;
 
   c10::intrusive_ptr<Work> gather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
+      std::vector<std::vector<at::Tensor>>& outputs,
+      std::vector<at::Tensor>& inputs,
       const GatherOptions& opts /* = GatherOptions() */) override;
 
   c10::intrusive_ptr<Work> allgather(
-      std::vector<std::vector<at::Tensor>>& outputTensors,
-      std::vector<at::Tensor>& inputTensors,
+      std::vector<std::vector<at::Tensor>>& outputs,
+      std::vector<at::Tensor>& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> _allgather_base(
-      at::Tensor& outputTensor, at::Tensor& inputTensor,
+      at::Tensor& outputs, at::Tensor& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce_scatter(
@@ -211,7 +211,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> _reduce_scatter_base(
-      at::Tensor& outputTensor, at::Tensor& inputTensor,
+      at::Tensor& output, at::Tensor& input,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
