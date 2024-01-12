@@ -88,17 +88,17 @@ jobs:
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
 
   Run-Tidy:
-    name: Run tidy (CUDA)
+    name: Run tidy
     needs: [Build-Cuda]
     runs-on: github-poc-ci
     steps:
-      - name: Clang tidy
+      - name: Clang tidy (CUDA)
         run: |
           ssh ${CUDA_CLUSTER} """
           set -eo pipefail
           # Warning: $ PATH and LD_LIBRARY_PATH are from host machine and may not work.
           export PATH=/mnt/lustre/share/platform/dep/clang-16/bin:$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/tools/clangd-tidy:$PATH
-          export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib:$LD_LIBRARY_PATH # libstdc++.so.6 on 1988
+          export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib:$LD_LIBRARY_PATH # require libstdc++.so.6 on 1988
           cd $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu \
           && ( srun --job-name=${GITHUB_RUN_NUMBER}_Build-Cuda --partition=$CUDA_PARTATION --time=20 find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | xargs clangd-tidy -j4 ) \
           || ( rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1 )

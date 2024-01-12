@@ -4,6 +4,7 @@
 #include "csrc_dipu/binding/exportapi.h"
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+//
 static std::vector<PyMethodDef> methods;
 
 static void AddPyMethodDefs(std::vector<PyMethodDef>& vector,
