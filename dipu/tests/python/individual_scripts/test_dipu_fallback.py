@@ -190,6 +190,24 @@ def _test_dipu_silu_fallback():
         ["custom fallback to cpu, name=silu_out"],
     )
 
+def _test_dipu_linear_fallback():
+    def fn():
+        m = torch.nn.Linear(10, 5).cuda()
+        input_dipu = torch.randn(2, 10).cuda()
+        output_dipu = m(input_dipu)
+
+        m = m.cpu()
+        input_cpu = input_dipu.cpu()
+        output_cpu = m(input_cpu)
+
+        assert torch.allclose(output_dipu.cpu(), output_cpu)
+
+    test_fallback(
+        ["linear"],
+        ["diopiLinear"],
+        fn,
+        ["custom fallback to cpu, name=linear"],
+    )
 
 if __name__ == "__main__":
     run_individual_test_cases(
@@ -201,6 +219,7 @@ if __name__ == "__main__":
             _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
             _test_dipu_silu_fallback,
+            _test_dipu_linear_fallback,
         ],
         in_parallel=True,
     )
