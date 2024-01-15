@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include "../device/diclapis.h"
+#include "csrc_dipu/runtime/device/diclapis.h"
 
 namespace dipu {
 // need enhance return status.

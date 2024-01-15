@@ -11,7 +11,7 @@
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>
 
-#include <csrc_dipu/runtime/rthelper.h>
+#include "csrc_dipu/runtime/rthelper.h"
 
 using deviceStream_t = dipu::deviceStream_t;
 

@@ -7,9 +7,9 @@
 #include <torch/torch.h>
 
 #include "csrc_dipu/profiler/profiler.h"
-#include <csrc_dipu/runtime/core/DIPUGuard.h>
-#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
-#include <csrc_dipu/utils/helpfunc.hpp>
+#include "csrc_dipu/runtime/core/DIPUGuard.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
+#include "csrc_dipu/utils/helpfunc.hpp"
 
 namespace dipu {
 
@@ -534,22 +534,22 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
-    std::vector<at::Tensor>& inputTensors, const GatherOptions& opts) {
+    std::vector<std::vector<at::Tensor>>& outputs,
+    std::vector<at::Tensor>& inputs, const GatherOptions& opts) {
   TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
-    std::vector<at::Tensor>& inputTensors, const AllgatherOptions& opts) {
-  checkDeviceTensors(inputTensors);
+    std::vector<std::vector<at::Tensor>>& outputs,
+    std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
+  checkDeviceTensors(inputs);
   // output = input * ranks, no inplace. every ranks use both in&out.
   auto outputFlattened =
-      flatten_for_scatter_gather(outputTensors, inputTensors, this->size_);
+      flatten_for_scatter_gather(outputs, inputs, this->size_);
 
   auto work = collective(
-      inputTensors, outputFlattened,
+      inputs, outputFlattened,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
@@ -564,13 +564,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
         // Copy the flattened output tensors to the outputs.
-        for (size_t i = 0; i < outputTensors.size(); ++i) {
+        for (size_t i = 0; i < outputs.size(); ++i) {
           // warnning & todo:: copy in comm stream,
           // record dest tensor outputs, because src tensor outputFlattened
           // already recorded in collective.
-          copyInCommStream<true>(diclComms[i], outputTensors[i],
-                                 outputFlattened[i],
-                                 static_cast<int>(outputTensors[i].size()));
+          copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
+                                 static_cast<int>(outputs[i].size()));
           // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
         }
       },
@@ -580,18 +579,17 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
-    at::Tensor& outputTensor, at::Tensor& inputTensor,
-    const AllgatherOptions& opts) {
+    at::Tensor& output, at::Tensor& input, const AllgatherOptions& opts) {
   // output = input * ranks.
-  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(),
+  TORCH_CHECK(input.dtype() == output.dtype(),
               "output tensor must have the same type as input tensor");
   TORCH_CHECK(
-      inputTensor.numel() * this->size_ == outputTensor.numel(),
+      input.numel() * this->size_ == output.numel(),
       "output tensor size must be equal to world_size times input tensor size");
 
   // just a wrapper to fit the collective interface
-  auto inputs = std::vector<at::Tensor>{inputTensor};
-  auto outputs = std::vector<at::Tensor>{outputTensor};
+  auto inputs = std::vector<at::Tensor>{input};
+  auto outputs = std::vector<at::Tensor>{output};
 
   return collective(
       inputs, outputs,
@@ -611,18 +609,17 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
-    at::Tensor& outputTensor, at::Tensor& inputTensor,
-    const ReduceScatterOptions& opts) {
+    at::Tensor& output, at::Tensor& input, const ReduceScatterOptions& opts) {
   // input = output * ranks, no inplace, output = reduced(input)[rank]
 
-  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(),
+  TORCH_CHECK(input.dtype() == output.dtype(),
               "output tensor must have the same type as input tensor");
   TORCH_CHECK(
-      inputTensor.numel() == this->size_ * outputTensor.numel(),
+      input.numel() == this->size_ * output.numel(),
       "input tensor must be the same size as output size times world size")
 
-  auto inputs = std::vector<at::Tensor>{inputTensor};
-  auto outputs = std::vector<at::Tensor>{outputTensor};
+  auto inputs = std::vector<at::Tensor>{input};
+  auto outputs = std::vector<at::Tensor>{output};
 
   return collective(
       inputs, outputs,
