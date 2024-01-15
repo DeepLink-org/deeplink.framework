@@ -1,15 +1,14 @@
 name: dicp ci
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '10 23 * * *'
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - ".github/ISSUE_TEMPLATE/**"
-      - ".git*"
-      - "CODE_OF_CONDUCT**"
+    paths:
+      - ".github/workflows/dicp.yml"
+      - ".github/workflows/_runs-on-ascend.yml"
+      - ".github/workflows/_runs-on-topsrider.yml"
+      - "dicp/**"
 
 env:
   ENV_PATH: '/mnt/cache/share/platform/env'

@@ -1,5 +1,8 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   autocompare: disable
+  # op gen only on these torch version. use it only if op has different signature on different torch.
+  # if it's only different on implementation , please use compile macro DIPU_TORCHXXX.
+  torch_ver: ["200",]
   register_op: False # Whether generate register code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
@@ -97,7 +100,10 @@
         return dipu_div_scalar_out(self, other.item(), out);
     }
     if (self.numel() == 1 && self.is_cpu()) {
-        return dipu_div_scalar_out(other, self.item(), out);
+        // todo:(wentao) temp solution, need using a type promotion strategy
+        at::Tensor selfD = at::empty_like(other);
+        dipu_fill__scalar(selfD, self.item());
+        return dipu_div_out(selfD, other, out);
     }
   interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
@@ -273,7 +279,15 @@
     auto options = input.options();
     auto save_mean = at::empty(stats_shape, options);
     auto save_invstd = at::empty(stats_shape, options);
-    auto out = at::empty_like(input);
+    auto out = at::empty_like(
+      input,
+      c10::nullopt /* dtype */,
+      c10::nullopt /* layout */,
+      c10::nullopt /* device */,
+      c10::nullopt /* pin_memory */,
+      // maybe we don't want ChannelsLast -> Contiguous here, but just align with pytorch
+      // https://github.com/pytorch/pytorch/blob/v2.0.0/aten/src/ATen/native/cuda/layer_norm_kernel.cu#L1340-L1346
+      LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   interface: diopiLayerNorm(ctx,  out,  save_mean,  save_invstd,  input,  weight,  bias, normalized_shape, eps);
 
 - schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
@@ -481,6 +495,7 @@
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   custom_code_at_the_beginning: |
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
@@ -712,6 +727,7 @@
   interface: diopiMean(ctx, out, self_dtype_diopi, diopi_size);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
+  torch_ver: ["200",]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = at::empty(output_shape, self.options());
@@ -720,9 +736,26 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
+  torch_ver: ["200",]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     bool unbiased = correction.value_or(1) == 1;
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
+- schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
+  torch_ver: ["211",]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    auto out = at::empty(output_shape, self.options());
+    bool unbiased = correction.value_or(1).toLong() == 1;
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+
+- schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
+  torch_ver: ["211",]
+  custom_code_at_the_beginning: |
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+    bool unbiased = correction.value_or(1).toLong() == 1;
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
@@ -744,6 +777,7 @@
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
+  custom_fallback: True
   device: [all, -cuda]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
@@ -1276,7 +1310,10 @@
 - schema: "floor_divide(Tensor self, Tensor other) -> Tensor"
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
-    at::Tensor out = at::empty_like(self);
+    // todo:(wentao) temp solution, need using a type promotion strategy
+    at::Tensor out = self.numel() == 1 && self.is_cpu() ? 
+        at::empty_like(other) :
+        at::empty_like(self);
     out = dipu_div_out(self,other,out);
   interface: diopiFloorInp(ctx,out)
 
@@ -1470,6 +1507,7 @@
   interface: diopiCosInp(ctx, self)
 
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   interface: diopiBmm(ctx, out, self, mat2)
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1483,7 +1521,47 @@
   autocompare: disable
   interface: diopiNormalInp(ctx, self, mean, std, generator)
 
+- schema: normal.Tensor_float_out(Tensor mean, float std=1, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_float(Tensor mean, float std=1, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(mean);
+  interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
+
+- schema: normal.float_Tensor_out(float mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
+
+- schema: normal.float_Tensor(float mean, Tensor std, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(std);
+  interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_Tensor_out(Tensor mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormalTensor(ctx, out, mean, std, generator)
+
+- schema: normal.Tensor_Tensor(Tensor mean, Tensor std, *, Generator? generator=None) -> Tensor
+  autocompare: disable
+  custom_code_at_the_beginning: |
+      auto out = at::empty_like(mean);
+  interface: diopiNormalTensor(ctx, out, mean, std, generator)
+
+- schema: normal.float_float_out(float mean, float std, SymInt[] size, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
+  autocompare: disable
+  interface: diopiNormal(ctx, out, mean, std, generator)
+
+- schema: "mm(Tensor self, Tensor mat2) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty({self.sizes()[0], mat2.sizes()[1]}, self.options());
+  interface: diopiMm(ctx, out, self, mat2)
+
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
+  custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
@@ -1528,6 +1606,19 @@
 - schema: "matmul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   device: [droplet]
   interface: diopiMatmul(ctx, out, self, other)
+
+- schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
+  device: [droplet]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input, grad_other;
+    if (mask[0]) {
+      grad_input = at::native::empty_like(input);
+    }
+    if (mask[1]) {
+      grad_other = at::native::empty_like(other);
+    }
+  interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
 - schema: "cumsum.out(Tensor self, int dim, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -1952,6 +2043,9 @@
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_fallback: True
   custom_code_at_the_beginning: |
+    // add TORCH_CHECK for torch 2.1 new test which check if runtime exception throwed in this case.
+    TORCH_CHECK(!indices.empty() || at::is_expandable_to(values.sizes(), self.sizes()), "shape mismatch: value tensor of shape ",
+          values.sizes(), " cannot be broadcast to indexing result of shape ", self.sizes());
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
     for (int i = 0; i < indices.size(); ++i) {
@@ -2087,8 +2181,8 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
@@ -2434,9 +2528,10 @@
 
 # this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  autocompare: disable
   dummy_call_diopi: True
   custom_fallback: True
-  device: [cuda, camb, ascend, droplet, supa]
+  device: [cuda, camb, ascend, droplet, supa, kunlunxin]
   custom_code_at_the_beginning: |
     dipu::getDipuCopyInstance()->run(self, src, non_blocking);
     return self;
@@ -2445,6 +2540,7 @@
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  autocompare: disable
   custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
@@ -2453,6 +2549,7 @@
   interface: diopiCopyInp(ctx, src, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
+  autocompare: disable
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);

@@ -2,9 +2,9 @@
 
 #include "DIPUAmp.hpp"
 
-#include "ATen/Operators.h"
-#include "ATen/autocast_mode.h"
-#include "torch/library.h"
+#include <ATen/Operators.h>
+#include <ATen/autocast_mode.h>
+#include <torch/library.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/device/basedef.h"
@@ -117,7 +117,12 @@ struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
+#if DIPU_TORCH_VERSION == 20000
     at::ScalarType out_type = type_from_firstarg(at::kFloat, args...);
+#else  // # DIPU_TORCH20101 or higher
+    at::ScalarType out_type =
+        type_from_firstarg(device_type, at::kFloat, args...);
+#endif
     return (*F)(args..., out_type);
   }
 };
@@ -237,8 +242,10 @@ DIPU_DEFINE_CAST_POLICY_CONVERSION(kPromote, promote);
 
 // This function will throw an error message when
 // torch.nn.functional.binary_cross_entropy is called within an autocast block
-Tensor DipuBinaryCrossEntropyBanned(const Tensor&, const Tensor&,
-                                    const c10::optional<Tensor>&, int64_t) {
+Tensor DipuBinaryCrossEntropyBanned(const Tensor& /*unused*/,
+                                    const Tensor& /*unused*/,
+                                    const c10::optional<Tensor>& /*unused*/,
+                                    int64_t /*unused*/) {
   AT_ERROR(
       R"(torch.nn.functional.binary_cross_entropy and torch.nn.BCELoss are unsafe to autocast.
 Many models use a sigmoid layer right before the binary cross entropy layer.

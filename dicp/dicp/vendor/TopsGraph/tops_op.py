@@ -170,6 +170,22 @@ class Erf(Operator):
         self.torch_op = aten.erf
 
 
+class ArgMax(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("ArgMax")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.argmax
+
+
+class ArgMin(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("ArgMin")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.argmin
+
+
 class ReduceSum(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("ReduceSum")
@@ -414,11 +430,14 @@ class BatchNormBackward(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.native_batch_norm_backward.default
 
-
+"""
+Enlarge torch_op scope to adjust args for aten._softmax.default,
+because the parameter half_to_float isn't needed in hlir_builder Softmax.
+"""
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
-        self.torch_op = aten._softmax.default
+        self.torch_op = aten.softmax
 
 
 class Bmm(Operator):
@@ -535,6 +554,19 @@ class Expand(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.expand.default
 
+    # The third parameter broadcast_dims is only required in hlir_builder Expand.
+    def __call__(self, *args, **kwargs):
+        new_args = args[:2]
+        return super().__call__(*new_args, **kwargs)
+
+
+class Stack(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Stack")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.stack
+
 
 class Full(Operator):
     def __init__(self, *args, **kwargs):
@@ -566,6 +598,14 @@ class Pow(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.pow
+
+
+class Square(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("Square")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.square
 
 
 class Sigmoid(Operator):
@@ -759,9 +799,8 @@ class GetTupleElement(Operator):
 
 
 class MakeTuple(Operator):
-    def __init__(self, a, b):
+    def __init__(self, *args):
         super().__init__("MakeTuple")
-        self.torch_op = torch.empty_like
 
     def __call__(self, *args):
         return (arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)
@@ -769,18 +808,10 @@ class MakeTuple(Operator):
 
 class XlaGather(Operator):
     def __init__(self, operand, indices, offset_dims, collapsed_slice_dims,
-                 start_index_map, index_vector_dim, slice_size):
+                 start_index_map, index_vector_dim, slice_size, out_shape):
         super().__init__("XlaGather")
 
     def __call__(self, operand, indices, offset_dims, collapsed_slice_dims,
-                 start_index_map, index_vector_dim, slice_size):
-        out_shape = indices.meta['val'].shape + operand.meta['val'].shape[1:]
-
+                 start_index_map, index_vector_dim, slice_size, out_shape):
         with operand.meta['val'].fake_mode:
             return aten.empty(out_shape, device=operand.meta["val"].device)
-
-
-# TODO check if we need this wrap
-@torch.fx.wrap
-def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
-    return a, b

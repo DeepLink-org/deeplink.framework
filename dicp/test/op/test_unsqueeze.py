@@ -23,13 +23,15 @@ compiled_model = compile_model(model, args.backend, args.dynamic)
 
 class TestUnsqueeze():
     @pytest.mark.parametrize("dtype", [torch.float32])
-    @pytest.mark.parametrize("sizes", [Size((5,), (5, 3)), Size((3, 5), (5, 3)), Size((2, 3, 4), (2, 4))])
+    @pytest.mark.parametrize("sizes", [Size(5, (2, 4)), Size((5,), (5, 3)),
+                                       Size((3, 5), (5, 3)), Size((2, 3, 4), (2, 4))])
     @pytest.mark.parametrize("dim", [0, 1, -1])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_unsqueeze(self, sizes, dim, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
-        input1 = torch.randn(size, dtype=dtype)
+        input1 = torch.randn(size, dtype=dtype) if isinstance(size, tuple) else torch.tensor(size, dtype=dtype)
+        dim = dim if isinstance(size, tuple) else min(dim, 0)
 
         dicp_input1 = input1.to(device)
 

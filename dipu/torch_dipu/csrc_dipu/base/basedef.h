@@ -4,9 +4,7 @@
 #include <ATen/Utils.h>
 #include <c10/core/DispatchKey.h>
 
-#include <csrc_dipu/runtime/device/basedef.h>
-
-auto static constexpr C10_COMPILE_TIME_MAX_DIPUS = 16;
+#include "csrc_dipu/runtime/device/basedef.h"
 
 #define DIPU_DEVICE_TYPE_MACRO XPU
 #define DIPU_AUTOGRAD_DEVICE_TYPE_MACRO \

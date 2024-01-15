@@ -446,14 +446,16 @@ class BFCachingAllocator : public CacheAllocator {
     }
     impl = std::make_unique<BFCachingAllocatorImpl>();
 
-    std::function<void*(size_t)> alloc_fn =
+    auto alloc_fn =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        std::bind(&BFCachingAllocator::allocate_raw,
-                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
-    std::function<void(void*)> dealloc_fn =
+        [pointer = const_cast<BFCachingAllocator*>(this)](std::size_t PH1) {
+          return pointer->allocate_raw(PH1);
+        };
+    auto dealloc_fn =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        std::bind(&BFCachingAllocator::free_raw,
-                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
+        [pointer = const_cast<BFCachingAllocator*>(this)](void* PH1) {
+          pointer->free_raw(PH1);
+        };
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
 
@@ -479,11 +481,11 @@ class BFCachingAllocator : public CacheAllocator {
       if (allocator_->impl) {
         if (ptr()) {
           std::deque<DIPUEvent> events;
-          for (auto iter = streams().begin(); iter != streams().end(); iter++) {
+          for (auto const& stream : streams()) {
             events.emplace_back();
             DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: record to stream:"
-                                        << iter->rawstream());
-            events.back().record(*iter);
+                                        << stream.rawstream());
+            events.back().record(stream);
           }
           allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_),
                                             events);
@@ -570,7 +572,10 @@ static void deleteBFContext(void* ptr) {
   delete ctx;
 }
 
+// TODO(allocator) - Refactor it!
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator, 0);
 DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, 0);
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu

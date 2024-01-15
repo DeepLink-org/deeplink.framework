@@ -27,8 +27,7 @@ export DIPU_PATH=${DIPU_ROOT}
 export PYTORCH_DIR=${PLATFORM}/dep/DIOPI_pytorch/pytorch2.0_cu118
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 export PYTHONPATH=${PYTORCH_DIR}:${PYTHONPATH}
-export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:${PATH}
-export LD_PRELOAD=${GCC_ROOT}/lib64/libstdc++.so.6
+export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PLATFORM}/dep/binutils-2.27/bin:/usr/sbin:${PATH}
 export PYTORCH_TEST_DIR=${PLATFORM}/env/miniconda3.8/envs/pt2.0_diopi/pytorch2.0
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
@@ -44,5 +43,11 @@ export DIPU_DEVICE_MEMCACHING_ALGORITHM=BF
 export DIPU_HOST_MEMCACHING_ALGORITHM=BF
 export DIPU_PATCH_CUDA_CACHED_ALLOCATOR=0
 export DIPU_CHECK_TENSOR_DEVICE=1
+
+# Setting OMP_NUM_THREADS environment variable for each process in default,
+# to avoid your system being overloaded, please further tune the variable
+# for optimal performance in your application as needed.
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 
 source activate $ENV_NAME

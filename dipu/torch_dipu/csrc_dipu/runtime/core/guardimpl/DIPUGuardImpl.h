@@ -4,13 +4,15 @@
 
 #include <limits>
 
+#include <c10/core/Stream.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
 
-#include <csrc_dipu/base/basedef.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
-#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h>
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
+
 namespace dipu {
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;
@@ -66,11 +68,11 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
   c10::Stream getStreamFromGlobalPool(c10::Device d,
                                       bool isHighPriority) const override {
-    return getDIPUStreamFromPool(d.index());
+    return getDIPUStreamFromPool(d.index()).unwrap();
   }
 
   c10::Stream getDefaultStream(c10::Device device) const override {
-    return getDefaultDIPUStream(device.index());
+    return getDefaultDIPUStream(device.index()).unwrap();
   }
 
   void record(void** event, const c10::Stream& s,
@@ -83,7 +85,6 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
 
     auto dipu_event = static_cast<deviceEvent_t>(*event);
     auto stream = DIPUStream(s);
-    auto raw_stream = stream.rawstream();
 
     // Moves to queue's device to record
     const c10::Device orig_device = this->getDevice();
@@ -93,7 +94,7 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
     if (!dipu_event) {
       devproxy::createEvent(&dipu_event);
     }
-    devproxy::recordEvent(dipu_event, raw_stream);
+    devproxy::recordEvent(dipu_event, stream.rawstream());
     *event = dipu_event;
 
     // Resets device

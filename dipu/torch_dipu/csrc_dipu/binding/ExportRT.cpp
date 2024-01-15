@@ -13,16 +13,16 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
-#include "DIPUpybind.h"
+#include "DIPUpybind.h"  // IWYU pragma: keep
 #include "exportapi.h"
+
 using dipu::DIPUEvent;
 using dipu::DIPUStream;
-using dipu::getDIPUStreamFromPool;
 namespace py = pybind11;
 
 namespace dipu {
 
-static constexpr size_t kMega = 1024 * 1024;
+static constexpr auto kMega = static_cast<const size_t>(1024 * 1024);
 using dipu::devapis::DIPUDeviceProperties;
 using dipu::devapis::DIPUDeviceStatus;
 
@@ -112,13 +112,14 @@ static void exportStream(py::module& m) {
                              dipu::DIPU_DEVICE_TYPE);
                }
                return DIPUStream(device_index, stream_id);
-             } else if (stream_ptr) {
+             }
+             if (stream_ptr) {
                return dipu::getStreamFromExternal(
+                   // NOLINTNEXTLINE(performance-no-int-to-ptr)
                    reinterpret_cast<deviceStream_t>(stream_ptr),
                    devproxy::current_device());
-             } else {
-               return getDIPUStreamFromPool();
              }
+             return getDIPUStreamFromPool();
            }),
            py::arg("priority") = 0, py::arg("stream_id") = 0,
            py::arg("device_index") = 0, py::arg("device_type") = 0,
@@ -149,10 +150,11 @@ static void exportStream(py::module& m) {
           [](DIPUStream& stream) -> int64_t {
             return static_cast<int64_t>(stream.device().type());
           })
-      .def_property_readonly("dipu_stream",
-                             [](DIPUStream& stream) -> uint64_t {
-                               return (uint64_t)stream.rawstream();
-                             })
+      .def_property_readonly(
+          "dipu_stream",
+          [](DIPUStream& stream) -> uint64_t {
+            return reinterpret_cast<uint64_t>(stream.rawstream());
+          })
       // use type_caster<at::Device>
       .def_property_readonly("device", [](DIPUStream& stream) -> at::Device {
         return stream.device();
@@ -202,7 +204,9 @@ static void exportEvent(py::module& m) {
 
       .def_property_readonly(
           "dipu_event",
-          [](DIPUEvent& self) { return (uint64_t)self.rawevent(); })
+          [](DIPUEvent& self) {
+            return reinterpret_cast<uint64_t>(self.rawevent());
+          })
       .def_property_readonly("device", [](DIPUEvent& self) {
         auto device = self.device().value();
         return device;
@@ -268,7 +272,7 @@ static void patchStorage(py::module& m) {
                         "support other device type ",
                         stor.device_type());
           } else {
-            dipu::native::DIPUATenFunctions::resize_bytes_dipu(
+            dipu::native::dipu_aten::resize_bytes_dipu(
                 stor.unsafeGetStorageImpl(), newsize);
             return stor;
           }
@@ -276,8 +280,9 @@ static void patchStorage(py::module& m) {
 }
 
 static void patchTensor(py::module& m) {
-  m.def("is_dipu",
-        [](at::Tensor self) -> bool { return dipu::isDeviceTensor(self); });
+  m.def("is_dipu", [](const at::Tensor& self) -> bool {
+    return dipu::isDeviceTensor(self);
+  });
 }
 
 static void exportGenerator(py::module& m) {
@@ -293,28 +298,26 @@ static void exportGenerator(py::module& m) {
         [](at::DeviceIndex idx) -> at::Tensor { return get_rng_state(idx); });
 
   m.def("_set_rng_state", [](at::DeviceIndex idx, at::Tensor state) {
-    set_rng_state(idx, state);
+    set_rng_state(idx, std::move(state));
   });
 
   m.def("_is_in_bad_fork", []() -> bool { return is_in_bad_fork(); });
 
   m.def("_create_dipu_generator", [](int idx) -> at::Generator {
-    at::DeviceIndex index = static_cast<at::DeviceIndex>(idx);
+    auto index = static_cast<at::DeviceIndex>(idx);
     return createDIPUGenerator(index);
   });
 }
 
 static void exportAutocast(py::module& m) {
-  m.def("get_autocast_dipu_dtype", []() -> at::ScalarType {
-    return at::autocast::get_autocast_xpu_dtype();
-  });
-  m.def("is_autocast_dipu_enabled",
-        []() -> bool { return at::autocast::is_xpu_enabled(); });
-  m.def("set_autocast_dipu_enabled",
-        [](bool enabled) { at::autocast::set_xpu_enabled(enabled); });
-  m.def("set_autocast_dipu_dtype", [](at::ScalarType dtype) {
-    at::autocast::set_autocast_xpu_dtype(dtype);
-  });
+  m.def("get_autocast_dipu_dtype", at::autocast::get_autocast_xpu_dtype);
+  m.def("is_autocast_dipu_enabled", at::autocast::is_xpu_enabled);
+  m.def("set_autocast_dipu_enabled", at::autocast::set_xpu_enabled);
+  m.def("set_autocast_dipu_dtype", at::autocast::set_autocast_xpu_dtype);
+}
+
+static void exportUtils(py::module& m) {
+  m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
 extern void patchTorchCsrcDevice(PyObject* module);
@@ -331,5 +334,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   patchTensor(m);
   exportGenerator(m);
   exportAutocast(m);
+  exportUtils(m);
 }
 }  // namespace dipu

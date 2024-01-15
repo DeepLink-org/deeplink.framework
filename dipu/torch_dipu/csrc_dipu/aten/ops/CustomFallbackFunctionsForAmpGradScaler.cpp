@@ -18,7 +18,16 @@ void _amp_non_finite_check_and_unscale_(at::Tensor& scaled_grad,
                                         const at::Tensor& inv_scale) {
   scaled_grad *= inv_scale.item();
   if (!scaled_grad.isfinite().all().item<bool>()) {
-    found_inf[0] = 1.f;
+    found_inf[0] = 1.F;
+  }
+}
+
+// growth_tracker in torch 2.1 is a scalar tensor. in 2.0 is a dim=1 tensor.
+void set_growth_tracker(at::Tensor& growth_tracker, int value) {
+  if (growth_tracker.ndimension() == 1) {
+    growth_tracker[0] = value;
+  } else {
+    growth_tracker.fill_(c10::Scalar(value));
   }
 }
 
@@ -46,8 +55,7 @@ void custom_fallback_dipu__amp_foreach_non_finite_check_and_unscale_(
   TORCH_CHECK(inv_scale.numel() == 1, "inv_scale must be a 1-element tensor.");
   TORCH_CHECK(found_inf.numel() == 1, "found_inf must be a 1-element tensor.");
   for (const at::Tensor& t : scaled_grads) {
-    // NOLINTNEXTLINE: const_cast here is safe according to pytorch's source
-    // code
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): const_cast here is safe according to pytorch's source code
     _amp_non_finite_check_and_unscale_(const_cast<at::Tensor&>(t), found_inf,
                                        inv_scale);
   }
@@ -87,16 +95,16 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
               "found_inf must be a float tensor.");
   if (static_cast<bool>(found_inf.item<float>())) {
     current_scale *= backoff_factor;
-    growth_tracker[0] = 0;
+    set_growth_tracker(growth_tracker, 0);
   } else {
     // Entering this branch means we just carried out a successful step,
     // so growth_tracker is incremented before comparing to growth_interval.
     auto successful = growth_tracker.item<int>() + 1;
     if (successful == growth_interval) {
       current_scale *= growth_factor;
-      growth_tracker[0] = 0;
+      set_growth_tracker(growth_tracker, 0);
     } else {
-      growth_tracker[0] = successful;
+      set_growth_tracker(growth_tracker, successful);
     }
   }
   return current_scale;

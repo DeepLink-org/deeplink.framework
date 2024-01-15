@@ -1,9 +1,9 @@
 // Copyright (c) 2023, DeepLink.
-#include "./deviceproxy.h"
+#include "deviceproxy.h"
 
-#include "../core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/DIPUEventPool.h"
+
 namespace dipu {
-
 namespace devproxy {
 
 void initializeVendor() {
@@ -28,7 +28,7 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   if (devapis::getDeviceStatus) {
     return devapis::getDeviceStatus(device_index);
   }
-  return DIPUDeviceStatus();
+  return {};
 }
 
 // set current device given device according to id

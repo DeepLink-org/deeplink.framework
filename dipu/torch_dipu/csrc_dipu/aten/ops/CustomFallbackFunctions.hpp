@@ -1,6 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <algorithm>
+#include <iterator>
+
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 
 #include "OpUtils.hpp"
@@ -17,23 +20,23 @@ static c10::optional<at::Tensor> dipu_to_cpu(
   return cpu_tensor;
 }
 
-static at::Tensor to_cpu_no_half(const at::Tensor& devtensor) {
+static at::Tensor to_cpu_with_half_to_float(const at::Tensor& devtensor) {
   auto cpu_tensor = devtensor.cpu();
   auto intype = devtensor.options().dtype_opt()->toScalarType();
   if (intype == at::ScalarType::Half) {
     return cpu_tensor.to(at::ScalarType::Float);
-  } else {
-    return cpu_tensor;
   }
+  return cpu_tensor;
 }
 
 static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
                                                  at::Tensor& out) {
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out"
                            << std::endl);
-  auto self_cpu = to_cpu_no_half(self);
-  auto out_cpu = to_cpu_no_half(self);
-  out_cpu = at::silu_out(self_cpu, out_cpu);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = to_cpu_with_half_to_float(out);
+
+  out_cpu = at::silu_out(out_cpu, self_cpu);
   out.copy_(out_cpu);
   return out;
 }
@@ -44,12 +47,11 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   indices_cpu.reserve(indices.size());
   // input as x[1:2, [1, 2]], Slice by first dimension already executed before
   // this index(), in this case, indices[0] is an undefinedTensor.
-  for (int i = 0; i < indices.size(); ++i) {
-    indices_cpu.push_back(
-        (indices[i].has_value() && indices[i].value().defined())
-            ? indices[i].value().to("cpu")
-            : at::Tensor());
-  }
+  std::transform(
+      indices.begin(), indices.end(), std::back_inserter(indices_cpu),
+      [](const c10::optional<at::Tensor>& tensor) {
+        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      });
   return indices_cpu;
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
@@ -153,7 +155,9 @@ custom_fallback_dipu_convolution_backward_overrideable(
       grad_output_cpu, input_cpu, weight_cpu, c10::nullopt, stride, padding,
       dilation, transposed, output_padding, groups, output_mask_temp);
 
-  at::Tensor grad_input, grad_weight, grad_bias;
+  at::Tensor grad_input;
+  at::Tensor grad_weight;
+  at::Tensor grad_bias;
 
   if (output_mask[0]) {
     grad_input = std::get<0>(result).to(device);
@@ -226,8 +230,15 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   auto grad_output_cpu = grad_output.cpu();
   auto weight_cpu = weight.cpu();
 
-  at::Tensor grad_input_cpu, grad_weight_cpu, grad_bias_cpu;
-  at::Tensor grad_input, grad_weight, grad_bias;
+  at::Tensor grad_input;
+  at::Tensor grad_input_cpu;
+
+  at::Tensor grad_weight;
+  at::Tensor grad_weight_cpu;
+
+  at::Tensor grad_bias;
+  at::Tensor grad_bias_cpu;
+
   int64_t dims = input.dim();
   const auto device = input.device();
 
@@ -263,6 +274,48 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   }
 
   return std::make_tuple(grad_input, grad_weight, grad_bias);
+}
+
+static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
+    const at::Tensor& grad_out, const at::Tensor& input,
+    const at::Tensor& other, ::std::array<bool, 2> mask) {
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=matmul_backward\n");
+  auto grad_out_cpu = to_cpu_with_half_to_float(grad_out);
+  auto input_cpu = to_cpu_with_half_to_float(input);
+  auto other_cpu = to_cpu_with_half_to_float(other);
+
+  if (other.dim() == 1) {
+    other_cpu.unsqueeze_(-1);
+    grad_out_cpu.unsqueeze_(-1);
+  }
+
+  if (input.dim() == 1) {
+    input_cpu.unsqueeze_(0);
+    grad_out_cpu.unsqueeze_(-2);
+  }
+
+  const auto device = input.device();
+  at::Tensor grad_input;
+  at::Tensor grad_other;
+
+  if (mask[0]) {
+    grad_input =
+        at::sum_to(at::matmul(grad_out_cpu, other_cpu.transpose(-1, -2)),
+                   input.sizes())
+            .to(device, input.dtype());
+  }
+
+  if (mask[1]) {
+    at::Tensor grad_other_cpu =
+        at::matmul(input_cpu.transpose(-1, -2), grad_out_cpu);
+    if (other.dim() == 1) {
+      grad_other_cpu.squeeze_(-1);
+    }
+    grad_other =
+        at::sum_to(grad_other_cpu, other.sizes()).to(device, other.dtype());
+  }
+
+  return {grad_input, grad_other};
 }
 
 static std::tuple<at::Tensor, at::Tensor, at::Tensor>
@@ -329,6 +382,65 @@ at::Tensor& custom_fallback_dipu__amp_update_scale_(at::Tensor& current_scale,
                                                     double growth_factor,
                                                     double backoff_factor,
                                                     int64_t growth_interval);
+
+static at::Tensor& custom_fallback_dipu_addmm_out(
+    const at::Tensor& self, const at::Tensor& mat1, const at::Tensor& mat2,
+    const at::Scalar& beta, const at::Scalar& alpha, at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat1_cpu = to_cpu_with_half_to_float(mat1);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
+  out_cpu = at::addmm_out(out_cpu, self_cpu, mat1_cpu, mat2_cpu, beta, alpha);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor& custom_fallback_dipu_bmm_out(const at::Tensor& self,
+                                                const at::Tensor& mat2,
+                                                at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
+  out_cpu = at::bmm_out(out_cpu, self_cpu, mat2_cpu);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor& custom_fallback_dipu_mm_out(const at::Tensor& self,
+                                               const at::Tensor& mat2,
+                                               at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  auto out_cpu = to_cpu_with_half_to_float(out);
+  out_cpu = at::mm_out(out_cpu, self_cpu, mat2_cpu);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor custom_fallback_dipu_linear(
+    const at::Tensor& input, const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias) {
+  auto input_cpu = to_cpu_with_half_to_float(input);
+  auto weight_cpu = to_cpu_with_half_to_float(weight);
+  c10::optional<at::Tensor> bias_cpu = c10::nullopt;
+
+  at::Tensor out;
+  at::Tensor out_cpu;
+
+  if (bias.has_value() && bias.value().defined()) {
+    if (bias.value().options().dtype_opt()->toScalarType() ==
+        at::ScalarType::Half) {
+      bias_cpu = bias.value().to(at::ScalarType::Float).cpu();
+    } else {
+      bias_cpu = bias.value().cpu();
+    }
+  }
+
+  out_cpu = at::linear(input_cpu, weight_cpu, bias_cpu);
+  out = out_cpu.to(input.device())
+            .to(input.options().dtype_opt()->toScalarType());
+  return out;
+}
 
 }  // namespace native
 }  // namespace dipu

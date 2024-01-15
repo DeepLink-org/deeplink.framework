@@ -43,6 +43,8 @@ function clone_needed_repo() {
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
+    LIGHTLLM=dipu_one_iter_tool
+    DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -58,12 +60,17 @@ function clone_needed_repo() {
     check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
     check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
+    check_and_clone_repository "lightllm" ${LIGHTLLM}
+    check_and_clone_repository "DeepLinkExt" ${DEEPLINKEXT}
     cd ..
 }
 
 function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
+    cd ..
+    cd DeepLinkExt
+    python setup.py build_ext -i
     cd ..
 }
 
@@ -98,6 +105,7 @@ function export_repo_pythonpath(){
         echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
         exit 1
     fi
+    export PYTHONPATH=${basic_path}:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
@@ -109,6 +117,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/lightllm:$PYTHONPATH
 
     # set the environment variable for the transformers repository
     export HF_HOME=${basic_path}/huggingface

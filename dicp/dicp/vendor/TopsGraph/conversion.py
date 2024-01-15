@@ -18,6 +18,7 @@ from dicp.dynamo_bridge.op_transformer import (
     PatternMatcherPass,
     register_backend_patterns,
 )
+from functools import reduce
 
 conversions = {}
 patterns = []
@@ -164,6 +165,14 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Erf(self, *args, **kwargs):
         return self.get_proxy(tops_op.Erf, args, kwargs)
 
+    @register_conversion(aten.argmax)
+    def ArgMax(self, x, dim=0, keepdim=False):
+        return self.get_proxy(tops_op.ArgMax, (x, dim, keepdim))
+
+    @register_conversion(aten.argmin)
+    def ArgMin(self, x, dim=0, keepdim=False):
+        return self.get_proxy(tops_op.ArgMin, (x, dim, keepdim))
+
     @register_conversion(aten.split.Tensor)
     def Split(self, a, size, dim=0, **kwargs):
         in_shape = a.node.meta["val"].shape
@@ -187,12 +196,55 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.index.Tensor)
     def Index(self, *args, **kwargs):
-        assert len(args[1]) == 1, "Only support aten.index with one index arg"
-        idx_rank = len(args[1][0].node.meta['val'].shape)
-        slice_size = list(args[0].node.meta['val'].shape)
-        slice_size[0] = 1
-        return self.get_proxy(tops_op.XlaGather, (args[0], args[1][0],
-                              [idx_rank,], [0,], [0,], idx_rank, [1, args[0].node.meta['val'].shape[1]]))
+        # Prepare some info for calculating the parameters of Gather.
+        operand, indices, start_dim = args[0], args[1], 0
+        in_shape = list(operand.node.meta["val"].shape)
+        out_shape = fx_traceback.get_current_meta()["val"][0].shape
+        if len(set(indices)) == 1 and indices[0] is None:
+            return operand
+        for i in range(len(indices)):
+            if indices[i] is not None:
+                start_dim = i
+                break
+        new_indices, new_indices_shape, support_index = [], [], []
+        for i in range(len(indices)):
+            if indices[i] is not None:
+                support_index.append(i)
+                assert (
+                    len(support_index) == 1 or support_index[-1] - support_index[-2] == 1
+                ), "Only sequential non-None indices are supported!"
+                new_indices.append(indices[i])
+                new_indices_shape.append(indices[i].node.meta["val"].shape)
+        broadcast_shape = torch.broadcast_shapes(*new_indices_shape)
+        # Get start_index_map of Gather.
+        num_index_dims = len(new_indices)
+        start_index_map = []
+        for i in range(num_index_dims):
+            start_index_map.append(i + start_dim)
+        # Get index_vector_dim of Gather.
+        index_vector_dim = len(broadcast_shape)
+        # Get offset_dims, collapsed_slice_dims, index_vector_dim, slice_sizes of Gather.
+        slice_sizes, offset_dims, collapsed_slice_dims = [], [], []
+        for i in range(len(in_shape)):
+            if i >= start_dim and i < start_dim + num_index_dims:
+                collapsed_slice_dims.append(i)
+                slice_sizes.append(1)
+            else:
+                slice_sizes.append(in_shape[i])
+                if i < start_dim:
+                    offset_dims.append(i)
+                else:
+                    offset_dims.append(i - num_index_dims + index_vector_dim)
+        # Get start_indices of Gather.
+        start_indices = []
+        for index in new_indices:
+            in_shape = index.node.meta["val"].shape
+            rank_diff = len(broadcast_shape) - len(in_shape)
+            broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
+            start_indices.append(self.get_proxy(tops_op.Expand, (index, tuple(broadcast_shape), broadcast_dims)))
+        start_indices = self.get_proxy(tops_op.Stack, (start_indices, -1))
+        return self.get_proxy(tops_op.XlaGather, (operand, start_indices, offset_dims, collapsed_slice_dims,
+                                                  start_index_map, index_vector_dim, slice_sizes, out_shape))
 
     # tops_dropout only returns a tensor, not a tuple of tensor
     @register_conversion(aten.native_dropout.default)
@@ -256,7 +308,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         in_shape = a.node.meta["val"].shape
         if dim is None:
             dim = list(range(len(in_shape)))
-            return self.get_proxy(tops_op.ReduceMean, (a, dim))
+            return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
@@ -318,7 +370,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion(aten._adaptive_avg_pool2d_backward.default)
     def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
-        expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape))
+        grad_output_shape = grad_output.node.meta["val"].shape
+        rank_diff = len(out_shape) - len(grad_output_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(grad_output_shape))]
+        expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape, broadcast_dims))
         value = out_shape[2] * out_shape[3]
         scalar = self.get_proxy(tops_op.Scalar, (value, ))
         return self.get_proxy(tops_op.Div, (expand, scalar))
@@ -345,6 +400,12 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def BatchNormBackward(*args, **kwargs):
         return tops_op.BatchNormBackward(*args, **kwargs)
 
+    """
+    Add an additional true flag for accuration in hlir_builder Softmax.
+    The third parameter, half_to_float, in aten._softmax represents whether cast
+    inputs from float16 to float32 or not, while the third parameter ,accurate,
+    in hlir_builder represents whether precision calculation is performed.
+    """
     @register_conversion(aten._softmax)
     def Softmax(self, a, dim, half_to_float):
         out_shape = fx_traceback.get_current_meta()["val"].shape
@@ -383,7 +444,15 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.expand.default)
     def Expand(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Expand, args, kwargs)
+        in_shape = args[0].node.meta["val"].shape
+        out_shape = fx_traceback.get_current_meta()["val"].shape
+        rank_diff = len(out_shape) - len(in_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
+        return self.get_proxy(tops_op.Expand, (*args, broadcast_dims), kwargs)
+
+    @register_conversion(aten.stack)
+    def Stack(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Stack, args, kwargs)
 
     @register_conversion(aten.full.default)
     def Full(self, *args, **kwargs):
@@ -400,6 +469,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
     @register_conversion([aten.pow.Tensor_Scalar, aten.pow.Tensor_Tensor])
     def Pow(self, *args, **kwargs):
         return self.get_proxy(tops_op.Pow, args, kwargs)
+
+    @register_conversion(aten.square)
+    def Square(self, *args, **kwargs):
+        return self.get_proxy(tops_op.Square, args, kwargs)
 
     @register_conversion(aten.sigmoid.default)
     def Sigmoid(self, *args, **kwargs):
@@ -468,9 +541,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.embedding)
     def Embedding(self, *args, **kwargs):
+        out_shape = fx_traceback.get_current_meta()["val"].shape
         idx_rank = len(args[1].node.meta['val'].shape)
         return self.get_proxy(tops_op.XlaGather, (args[0], args[1], [idx_rank,], [0,], [0,], idx_rank,
-                                                  [1, args[0].node.meta['val'].shape[1]]))
+                                                  [1, args[0].node.meta['val'].shape[1]], out_shape))
 
     @register_conversion(prims.convert_element_type)
     def Convert(self, *args, **kwargs):
@@ -512,105 +586,32 @@ class AtenToTopsTransformer(SingleOpTransformer):
             return self.get_proxy(tops_op.Add, (offset, kwargs["start"]))
         return iota
 
+    @register_conversion(aten.var_mean.correction)
+    def VarMean(self, x, dims, *args, correction=1, keepdim=False):
+        in_shape = x.node.meta["val"].shape
+        samples = [in_shape[dim] for dim in dims]
+        samples = max(0, reduce(lambda x, y: x * y, samples + [1]) - correction)
+        if dims is None:
+            dims = list(range(len(in_shape)))
+            mean1 = self.get_proxy(tops_op.ReduceMean, (x, dims, keepdim))
+        else:
+            dims = [(item + len(in_shape)) if item < 0 else item for item in dims]
+            mean1 = self.get_proxy(tops_op.ReduceMean, (x, dims, keepdim))
+        diffs = self.get_proxy(tops_op.Square, (self.get_proxy(tops_op.Sub, (x, mean1)),))
+        sum_dim = self.get_proxy(tops_op.ReduceSum, (diffs, dims, keepdim))
+        div1 = self.get_proxy(tops_op.Div, (sum_dim, samples))
+        return self.get_proxy(tops_op.MakeTuple, (div1, mean1))
+
+    @register_conversion(aten.addmm)
+    def Addmm(self, x, mat1, mat2):
+        dot = self.get_proxy(tops_op.Dot, (mat1, mat2))
+        return self.get_proxy(tops_op.Add, (x, dot))
 
 # Patterns
 tops_patterns = PatternMatcherPass()
-aten_patterns_cls_list = []
-register_aten_patterns = functools.partial(
-    register_backend_patterns, aten_patterns_cls_list)
 tops_patterns_cls_list = []
 register_tops_patterns = functools.partial(
     register_backend_patterns, tops_patterns_cls_list)
-
-
-@register_aten_patterns
-class ReplacePatternAddmm(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b, c):
-        return torch.ops.aten.addmm.default(a, b, c)
-
-    @staticmethod
-    def replacement(a, b, c):
-        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
-
-
-# %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
-#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_aten_patterns
-class ReplacePatternVar(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
-
-    @staticmethod
-    def replacement(inputs, dims):
-        keepdim = True
-        correction = 0
-        denom = 64
-        denom = denom - correction
-        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(
-            torch.ops.aten.sub.Tensor(inputs, mean1))
-        sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
-        return x_var
-
-
-# %var_mean_correction_4 : [#users=2] = call_function[target=torch.ops.aten.var_mean.correction]
-#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_aten_patterns
-class ReplacePatternVarMean(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.var_mean.correction(a, b, correction=0, keepdim=True)
-
-    @staticmethod
-    def replacement(inputs, dims):
-        keepdim = True
-        correction = 0
-        denom = 64
-        denom = denom - correction
-        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(
-            torch.ops.aten.sub.Tensor(inputs, mean1))
-        sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
-        return tops_op.ret_tuples(x_var, mean1)
-
-
-@register_aten_patterns
-class ReplacePatternT(BackendPatternBase):
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.t.default(a)
-
-    @staticmethod
-    def replacement(inputs):
-        return torch.ops.aten.transpose(inputs, 0, 1)
-
-
-@register_aten_patterns
-class ReplacePatternRsub(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.rsub.Scalar(a, b)
-
-    @staticmethod
-    def replacement(a, b):
-        return torch.ops.aten.sub.Scalar(b, a)
-
-
-@register_aten_patterns
-class ReplacePatternSiLU(BackendPatternBase):
-    # silu(x) = x / (1+exp(-x)) = x*sigmoid(x)
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.silu.default(a)
-
-    @staticmethod
-    def replacement(a):
-        return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
-
 
 if is_torch_210:
     Dot = torch.fx.wrap(tops_op.Dot.get_singleton())

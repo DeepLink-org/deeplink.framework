@@ -1,3 +1,4 @@
+import os
 import argparse
 import torch
 import random
@@ -29,7 +30,10 @@ def update_dynamo_config(dynamic=False):
 
 
 def get_device():
-    device_name = torch_dipu.dipu.device.__dipu__
+    if os.environ.get("DIPU_MOCK_CUDA") == "True":
+        device_name = "cuda"
+    else:
+        device_name = torch_dipu.dipu.device.__dipu__
     device_index = "0"
     device = f"{device_name}:{device_index}"
     return device

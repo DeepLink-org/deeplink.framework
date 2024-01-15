@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <utility>
 
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "DIPUGuard.h"
 #include "DIPUStream.h"
@@ -81,14 +81,14 @@ class DIPU_API DIPUEvent {
                 device_index_, " does not match recording stream's device ",
                 stream.device_index(), ".");
     DIPUGuard guard(device_index_);
-    devproxy::recordEvent(event_, stream);
+    devproxy::recordEvent(event_, stream.rawstream());
     was_recorded_ = true;
   }
 
   void wait(const DIPUStream& stream) {
     if (isCreated()) {
       DIPUGuard guard(stream.device_index());
-      devproxy::streamWaitEvent(stream, event_);
+      devproxy::streamWaitEvent(stream.rawstream(), event_);
     }
   }
 

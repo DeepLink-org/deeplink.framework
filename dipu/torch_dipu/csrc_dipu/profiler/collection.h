@@ -43,7 +43,7 @@ class DIPUInputOutputEncoder final {
   enum class Tag {
     Tensor = 0,
     UndefinedTensor,
-    TensorListBegin,  // TODO: generalize to other lists.
+    TensorListBegin,  // TODO(caikun-pjlab): generalize to other lists.
     Scalar,
     Other,
     TERMINATOR
@@ -68,7 +68,7 @@ class DIPUInputOutputEncoder final {
 
 class DIPUThreadLocalSubqueue {
  public:
-  DIPUThreadLocalSubqueue(const uint64_t tid,
+  DIPUThreadLocalSubqueue(uint64_t tid,
                           const torch::profiler::impl::ProfilerConfig& config);
 
   std::unique_ptr<torch::profiler::impl::KinetoObserverContext> begin_op(
@@ -124,9 +124,9 @@ class DIPUThreadLocalSubqueue {
     // NB: This is a destructive operation.
     void materialize(
         std::vector<std::shared_ptr<torch::profiler::impl::Result>>& out,
-        const std::function<time_t(torch::profiler::impl::approx_time_t)>
+        const std::function<time_t(torch::profiler::impl::approx_time_t)>&
             time_converter,
-        const uint64_t tid,
+        uint64_t tid,
         const torch::profiler::impl::kineto::DeviceAndResource& kineto_info);
 
     template <typename T, size_t ChunkSize>

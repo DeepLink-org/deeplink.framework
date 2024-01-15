@@ -3,21 +3,28 @@
 
 #include <ATen/ATen.h>
 #include <ATen/Utils.h>
+#include <c10/util/logging_is_not_google_glog.h>
 
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
+// TODO(global) - Stop using non const global variables.
+
 // Ensures call initDIPUGenerator once
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::once_flag dipu_init_flag;
 
 // Total number of dipu in the system.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static int64_t num_dipu;
 
 // Ensures default_gens_dipu is initialized once.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::deque<std::once_flag> dipu_gens_init_flag;
 
 // Default, global dipu generators, one per dipu.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<at::Generator> default_gens_dipu;
 
 /*
@@ -74,6 +81,7 @@ at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
 DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
     : c10::GeneratorImpl{at::Device(dipu::DIPU_DEVICE_TYPE, device_index),
                          at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)},
+      offset_(0),
       state_need_reset_(true) {}
 
 /**
@@ -125,11 +133,13 @@ std::shared_ptr<DIPUGeneratorImpl> DIPUGeneratorImpl::clone() const {
  * See Note [Acquire lock when using random generators]
  */
 DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
-  auto gen = new DIPUGeneratorImpl(this->device().index());
+  auto gen = dynamic_cast<DIPUGeneratorImpl*>(
+      createDIPUGenerator(this->device().index()).unsafeReleaseGeneratorImpl());
+  TORCH_CHECK(gen != nullptr);
   gen->set_current_seed(this->seed_);
   auto state = this->state_;
   const auto& state_clone = state.clone();
-  gen->set_state(*(state_clone.getIntrusivePtr().get()));
+  gen->set_state(*state_clone.getIntrusivePtr());
   gen->set_state_flag(this->state_need_reset_);
   return gen;
 }
@@ -171,12 +181,16 @@ at::Tensor get_rng_state(at::DeviceIndex idx) {
  * set rng state
  *
  **/
+// NOLINTNEXTLINE(performance-unnecessary-value-param) - see: ExportRT.cpp
 void set_rng_state(at::DeviceIndex idx, at::Tensor state) {
+  auto pointer = state.getIntrusivePtr();
+  TORCH_CHECK_NOTNULL(pointer);
+
   auto gen = getDefaultDIPUGenerator(idx);
   auto gen_impl = at::get_generator_or_default<DIPUGeneratorImpl>(
       gen, getDefaultDIPUGenerator());
   std::lock_guard<std::mutex> lock(gen_impl->mutex_);
-  gen_impl->set_state(*(state.getIntrusivePtr().get()));
+  gen_impl->set_state(*pointer);
 }
 
 /**

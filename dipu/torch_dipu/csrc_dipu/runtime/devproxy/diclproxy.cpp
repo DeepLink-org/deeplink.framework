@@ -1,6 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
-#include "./diclproxy.h"
+#include "diclproxy.h"
 
 namespace dipu {
 // need enhance return status.
