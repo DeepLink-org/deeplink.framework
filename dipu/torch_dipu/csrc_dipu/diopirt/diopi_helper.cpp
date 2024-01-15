@@ -1,11 +1,14 @@
 // Copyright (c) 2023, DeepLink.
-#include <cstdio>
 
 #include "diopirt_impl.h"
 
 namespace dipu {
 
 namespace diopi_helper {
+
+at::Tensor* fromDiopiTensorHandle(::diopiTensorHandle_t tensor) {
+  return reinterpret_cast<at::Tensor*>(tensor);
+}
 
 ::diopiTensorHandle_t toDiopiTensorHandle(at::Tensor& tensor) {
   return tensor.defined() ? reinterpret_cast<::diopiTensorHandle_t>(&tensor)

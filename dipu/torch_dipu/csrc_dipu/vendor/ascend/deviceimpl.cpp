@@ -8,8 +8,6 @@
 
 namespace dipu {
 
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::NPU;
-
 namespace devapis {
 
 void initializeVendor() {}
