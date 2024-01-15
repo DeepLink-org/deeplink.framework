@@ -14,7 +14,7 @@ repo=$(cd $self && git rev-parse --show-toplevel)
 
 # Try finding clangd and libstdc++.so.6 on 1988.
 # Note: ":+:" is used to handle unbound variable.
-[ -d /mnt/lustre/share/platform/dep/clang-16/bin ] &&
+[ -d /mnt/cache/share/platform/dep/clang-16/bin ] &&
     export PATH=/mnt/cache/share/platform/dep/clang-16/bin${PATH:+:$PATH}
 [ -d /mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib ] &&
     export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
