@@ -61,10 +61,11 @@ class TestResnet50():
         cpu_model.train()
         dicp_model.train()
 
-        for _, (cpu_image, cpu_target) in enumerate(cpu_train_loader):
+        for i, (cpu_image, cpu_target) in enumerate(cpu_train_loader):
             # CPU
             cpu_loss = cpu_model_forward(cpu_image, cpu_target)
             cpu_real_loss = cpu_loss["loss"]
+            print(i,"--CPU: ", cpu_real_loss)
             cpu_optimizer.zero_grad()
             cpu_real_loss.backward()
             cpu_optimizer.step()
@@ -76,8 +77,10 @@ class TestResnet50():
             dicp_loss = dicp_compiled(dicp_image, dicp_target)
             torch_dipu.current_stream().synchronize()
             dicp_real_loss = dicp_loss["loss"]
+            print(i,"--DICP: ", dicp_real_loss)
             dicp_optimizer.zero_grad()
             dicp_real_loss.backward()
             dicp_optimizer.step()
 
-            assert torch.allclose(cpu_real_loss.detach(), dicp_real_loss.cpu().detach(), atol=1e-01, equal_nan=True)
+            # assert torch.allclose(cpu_real_loss.detach(), dicp_real_loss.cpu().detach(), atol=1e-01, equal_nan=True)
+            assert torch.allclose(cpu_real_loss.repeat(1).detach(), dicp_real_loss.repeat(1).cpu().detach(), atol=1e-01, equal_nan=True)
