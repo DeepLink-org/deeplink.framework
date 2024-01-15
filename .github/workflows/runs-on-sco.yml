@@ -1,16 +1,7 @@
-name: runs on sco
+name: runs on 1424
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths-ignore:
-      - "**.md"
-      - ".github/ISSUE_TEMPLATE/**"
-      - ".git*"
-      - "CODE_OF_CONDUCT**"
 
 #concurrency:
 #  group: sco-${{ github.head_ref || github.ref }}
