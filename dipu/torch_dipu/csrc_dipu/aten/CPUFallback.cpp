@@ -1,5 +1,5 @@
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
-#include <sstream>
+#include <iostream>
 
 #include <ATen/core/dispatch/Dispatcher.h>
 #include <ATen/core/ivalue.h>
