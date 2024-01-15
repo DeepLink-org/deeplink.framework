@@ -11,7 +11,6 @@
 
 #include <c10/util/Exception.h>
 
-#include "csrc_dipu/profiler/DIPUDeviceActivity.h"
 #include "csrc_dipu/utils/Log.h"
 #include "csrc_dipu/vendor/camb/defines.h"
 
@@ -231,34 +230,40 @@ void CambDeviceActivity::handleRuntimeActivity(
   char* name = nullptr;
   switch (activity->type) {
     case CNPAPI_ACTIVITY_TYPE_CNDRV_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNDRV_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNDRV_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     case CNPAPI_ACTIVITY_TYPE_CNRT_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNRT_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNRT_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     case CNPAPI_ACTIVITY_TYPE_CNML_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNML_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNML_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     case CNPAPI_ACTIVITY_TYPE_CNNL_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNNL_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNNL_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     case CNPAPI_ACTIVITY_TYPE_CNCL_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNCL_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNCL_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     case CNPAPI_ACTIVITY_TYPE_CNNL_EXTRA_API:
-      DIPU_CALLCNPAPI(cnpapiGetCallbackName(CNPAPI_CB_DOMAIN_CNNL_EXTRA_API,
-                                            activity->cbid,
-                                            const_cast<const char**>(&name)));
+      DIPU_CALLCNPAPI(cnpapiGetCallbackName(
+          CNPAPI_CB_DOMAIN_CNNL_EXTRA_API, activity->cbid,
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+          const_cast<const char**>(&name)));
       break;
     default:
       TORCH_CHECK(false, "unexpect activity type, type: ", activity->type);
@@ -591,6 +596,7 @@ void CambDeviceActivity::recordStream(uint64_t device_index, uint64_t stream_id,
   }
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-interfaces-global-init)
 const static int32_t camb_device_activity_init = []() {
   const char* env = std::getenv("FORCE_USE_DIPU_PROFILER");
   if ((env == nullptr) || (strncmp(env, "false", strlen("false")) == 0) ||

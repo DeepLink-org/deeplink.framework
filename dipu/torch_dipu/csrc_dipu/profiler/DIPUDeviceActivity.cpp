@@ -21,7 +21,6 @@ DeviceActivityInterface* device_activity_singleton = nullptr;
 namespace dipu {
 namespace profile {
 
-using libkineto::DeviceActivityInterface;
 using libkineto::GenericTraceActivity;
 
 DIPUDeviceActivity::~DIPUDeviceActivity() {
@@ -34,12 +33,12 @@ DIPUDeviceActivity& DIPUDeviceActivity::instance() {
 }
 
 void DIPUDeviceActivity::pushCorrelationID(
-    uint64_t id, DeviceActivityInterface::CorrelationFlowType type) {
+    uint64_t id, libkineto::DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().pushCorrelationID(id, type);
 }
 
 void DIPUDeviceActivity::popCorrelationID(
-    DeviceActivityInterface::CorrelationFlowType type) {
+    libkineto::DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().popCorrelationID(type);
 }
 
