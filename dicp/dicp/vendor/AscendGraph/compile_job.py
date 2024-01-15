@@ -77,11 +77,8 @@ class AscendCompileJob(DeviceCompileJob):
     def get_compile_result(self):
         if (not os.path.exists(self._model_path[0]) and not os.path.exists(self._model_path[1])):
             self.build_graph(self._output_graph_path, self._input_path)
-        origin_graph_path = self._output_graph_path
         if not os.path.exists(self._output_graph_path + '.om'):
-            self._output_graph_path = origin_graph_path + '_linux_x86_64'
-        if not os.path.exists(self._output_graph_path + '.om'):
-            self._output_graph_path = origin_graph_path + '_linux_aarch64'
+            self._output_graph_path += '_linux_x86_64'
         assert (os.path.exists(self._output_graph_path + '.om'))
         from dicp.vendor.AscendGraph.codegen.load_and_run import AscendModel
         return AscendModel(self._local_rank, self._output_graph_path + '.om')

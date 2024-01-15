@@ -46,12 +46,8 @@ endif()
 # compile DIOPI if use internal one
 if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-    execute_process(
-      COMMAND
-        sh -x -c
-        "python -c 'import torch;print(torch.utils.cmake_prefix_path)'"
-      OUTPUT_VARIABLE DIOPI_CMAKE_PREFIX_PATH
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(DIOPI_CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
+    message(STATUS "DIOPI_CMAKE_PREFIX_PATH: ${DIOPI_CMAKE_PREFIX_PATH}")
   endif()
 
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")

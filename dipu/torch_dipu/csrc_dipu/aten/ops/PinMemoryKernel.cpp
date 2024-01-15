@@ -5,8 +5,8 @@
 #include <c10/core/Storage.h>
 #include <c10/core/TensorImpl.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/runtime/rthelper.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/runtime/rthelper.h"
 
 namespace dipu {
 namespace native {
