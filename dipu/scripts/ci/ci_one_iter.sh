@@ -43,7 +43,7 @@ function clone_needed_repo() {
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
-    LIGHTLLM=dipu_one_iter_tool
+    LIGHTLLM=wx_test_lightllm
     DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
