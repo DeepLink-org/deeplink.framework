@@ -8,13 +8,12 @@
 
 #include <pybind11/chrono.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/base/DIPUGlobals.h"
-#include "csrc_dipu/runtime/rthelper.h"
-#include "csrc_dipu/utils/helpfunc.hpp"
-#include "csrc_dipu/utils/vender_helper.hpp"
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
+#include <csrc_dipu/base/DIPUGlobals.h>
+#include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
-#include "DIPUpybind.h"  // IWYU pragma: keep
+#include "DIPUpybind.h"
 #include "exportapi.h"
 
 using dipu::DIPUEvent;
@@ -63,8 +62,7 @@ static void exportDevices(py::module& m) {
   registerDIPUDeviceProperties(m);
   registerDIPUDeviceStatus(m);
   // Device Management.
-  // dipu_vendor should be dipu_vendor_device, but we keep it for compatibility
-  m.attr("dipu_vendor") = dipu::VendorDeviceTypeToStr(kDipuVendorDeviceType);
+  m.attr("dipu_vendor") = dipu::VendorTypeToStr(VENDOR_TYPE);
   m.attr("dipu_device_type") = DeviceTypeName(DIPU_DEVICE_TYPE, true);
   m.attr("dicl_backend") = DICL_BACKEND_NAME;
 
@@ -287,31 +285,6 @@ static void patchTensor(py::module& m) {
   });
 }
 
-static void exportNativeMemoryFormat(py::module& m) {
-  py::enum_<NativeMemoryFormat_t> formats =
-      py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat");
-#if DIPU_VENDOR_NAME_ASCEND
-  formats.value("UNDEFINED", NativeMemoryFormat_t::UNDEFINED)
-      .value("NCHW", NativeMemoryFormat_t::NCHW)
-      .value("NHWC", NativeMemoryFormat_t::NHWC)
-      .value("ND", NativeMemoryFormat_t::ND)
-      .value("NC1HWC0", NativeMemoryFormat_t::NC1HWC0)
-      .value("FRACTAL_Z", NativeMemoryFormat_t::FRACTAL_Z)
-      .value("NC1HWC0_C04", NativeMemoryFormat_t::NC1HWC0_C04)
-      .value("HWCN", NativeMemoryFormat_t::HWCN)
-      .value("NDHWC", NativeMemoryFormat_t::NDHWC)
-      .value("FRACTAL_NZ", NativeMemoryFormat_t::FRACTAL_NZ)
-      .value("NCDHW", NativeMemoryFormat_t::NCDHW)
-      .value("NDC1HWC0", NativeMemoryFormat_t::NDC1HWC0)
-      .value("FRACTAL_Z_3D", NativeMemoryFormat_t::FRACTAL_Z_3D);
-#endif
-  formats.export_values();
-
-  m.def("get_native_memory_format", dipu::get_native_memory_format);
-
-  m.def("native_memory_format_cast", dipu::native_memory_format_cast);
-}
-
 static void exportGenerator(py::module& m) {
   m.def("_manual_seed",
         [](at::DeviceIndex idx, uint64_t seed) { manual_seed(idx, seed); });
@@ -337,14 +310,16 @@ static void exportGenerator(py::module& m) {
 }
 
 static void exportAutocast(py::module& m) {
-  m.def("get_autocast_dipu_dtype", at::autocast::get_autocast_xpu_dtype);
-  m.def("is_autocast_dipu_enabled", at::autocast::is_xpu_enabled);
-  m.def("set_autocast_dipu_enabled", at::autocast::set_xpu_enabled);
-  m.def("set_autocast_dipu_dtype", at::autocast::set_autocast_xpu_dtype);
-}
-
-static void exportUtils(py::module& m) {
-  m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
+  m.def("get_autocast_dipu_dtype", []() -> at::ScalarType {
+    return at::autocast::get_autocast_xpu_dtype();
+  });
+  m.def("is_autocast_dipu_enabled",
+        []() -> bool { return at::autocast::is_xpu_enabled(); });
+  m.def("set_autocast_dipu_enabled",
+        [](bool enabled) { at::autocast::set_xpu_enabled(enabled); });
+  m.def("set_autocast_dipu_dtype", [](at::ScalarType dtype) {
+    at::autocast::set_autocast_xpu_dtype(dtype);
+  });
 }
 
 extern void patchTorchCsrcDevice(PyObject* module);
@@ -359,9 +334,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportMemCaching(m);
   patchStorage(m);
   patchTensor(m);
-  exportNativeMemoryFormat(m);
   exportGenerator(m);
   exportAutocast(m);
-  exportUtils(m);
 }
 }  // namespace dipu

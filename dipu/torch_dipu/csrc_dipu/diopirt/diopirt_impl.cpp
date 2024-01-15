@@ -1,9 +1,8 @@
 // Copyright (c) 2023, DeepLink.
-#include "diopirt_impl.h"
+#include "./diopirt_impl.h"
 
-#include <cstdio>
 #include <mutex>
-#include <string>
+#include <stdio.h>
 
 #include "csrc_dipu/profiler/profiler.h"
 
@@ -12,11 +11,16 @@ using dipu::profile::RecordBlockCreator;
 
 extern "C" {
 
+static char diopiVersion[256] = {0};
+
 DIOPI_RT_API const char* diopiGetVersion() {
-  auto static const version =
-      std::string("DIOPI Version: ") + std::to_string(DIOPI_VER_MAJOR) + "." +
-      std::to_string(DIOPI_VER_MINOR) + "." + std::to_string(DIOPI_VER_PATCH);
-  return version.c_str();
+  static bool inited = false;
+  if (!inited) {
+    inited = true;
+    snprintf(diopiVersion, sizeof(diopiVersion), "DIOPI Version: %d.%d.%d",
+             DIOPI_VER_MAJOR, DIOPI_VER_MINOR, DIOPI_VER_PATCH);
+  }
+  return diopiVersion;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorData(diopiTensorHandle_t pth,
@@ -33,14 +37,14 @@ DIOPI_RT_API diopiError_t diopiGetTensorDataConst(diopiConstTensorHandle_t pth,
 
 DIOPI_RT_API diopiError_t diopiGetTensorShape(diopiConstTensorHandle_t pth,
                                               diopiSize_t* size) {
-  auto ptr = reinterpret_cast<const at::Tensor*>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *size = diopiSize_t{ptr->sizes().data(), static_cast<int64_t>(ptr->dim())};
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth,
                                                diopiSize_t* stride) {
-  auto ptr = reinterpret_cast<const at::Tensor*>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *stride =
       diopiSize_t{ptr->strides().data(), static_cast<int64_t>(ptr->dim())};
   return diopiSuccess;
@@ -48,14 +52,14 @@ DIOPI_RT_API diopiError_t diopiGetTensorStride(diopiConstTensorHandle_t pth,
 
 DIOPI_RT_API diopiError_t diopiGetTensorDtype(diopiConstTensorHandle_t pth,
                                               diopiDtype_t* dtype) {
-  auto ptr = reinterpret_cast<const at::Tensor*>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *dtype = diopihelper::toDiopiDtype(ptr->scalar_type());
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorDevice(diopiConstTensorHandle_t pth,
                                                diopiDevice_t* device) {
-  auto ptr = reinterpret_cast<const at::Tensor*>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *device = (ptr->is_cpu() ? diopi_host : diopi_device);
   return diopiSuccess;
 }
@@ -67,30 +71,27 @@ DIOPI_RT_API diopiError_t diopiGetTensorNumel(diopiConstTensorHandle_t pth,
     return diopiSuccess;
   }
 
-  auto ptr = reinterpret_cast<const at::Tensor*>(pth);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
   *numel = ptr->numel();
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiGetTensorElemSize(diopiConstTensorHandle_t th,
-                                                 int64_t* itemsize) {
-  auto ptr = reinterpret_cast<const at::Tensor*>(th);
-  auto dtype = diopiDtype_t{};
-  auto ret = diopiGetTensorDtype(th, &dtype);
-  if (ret != diopiSuccess) {
-    return ret;
-  }
+DIOPI_RT_API diopiError_t diopiGetTensorElemSize(diopiConstTensorHandle_t pth,
+                                                 int64_t* elemsize) {
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(pth);
+  diopiDtype_t dtype;
+  auto ret = diopiGetTensorDtype(pth, &dtype);
+  if (ret != diopiSuccess) return ret;
 
-  *itemsize = diopihelper::getElemSize(dtype);
+  *elemsize = diopihelper::getElemSize(dtype);
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGetTensorStoragePtr(diopiConstTensorHandle_t pth,
                                                    void** pStoragePtr) {
-  auto tensor = reinterpret_cast<const at::Tensor*>(pth);
   // Support both pt2.0 and pt2.1
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-  *pStoragePtr = const_cast<void*>(tensor->storage().data());
+  *pStoragePtr = const_cast<void*>(
+      (reinterpret_cast<const at::Tensor*>(pth))->storage().data());
   return diopiSuccess;
 }
 
@@ -154,9 +155,10 @@ DIOPI_RT_API diopiError_t diopiRequireBuffer(diopiContextHandle_t ctx,
 
 DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx,
                                                  diopiConstGeneratorHandle_t th,
-                                                 diopiTensorHandle_t* data) {
-  auto generator = reinterpret_cast<const at::Generator*>(th);
-  auto gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+                                                 diopiTensorHandle_t* state) {
+  const at::Generator* generator = reinterpret_cast<const at::Generator*>(th);
+  dipu::DIPUGeneratorImpl* gen_impl =
+      at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
 
   at::Tensor tensor;
   {
@@ -165,15 +167,16 @@ DIOPI_RT_API diopiError_t diopiGeneratorGetState(diopiContextHandle_t ctx,
   }
 
   ctx->arrays.emplace_back(std::move(tensor));
-  *data = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
+  *state = reinterpret_cast<diopiTensorHandle_t>(&(ctx->arrays.back()));
   return diopiSuccess;
 }
 
 DIOPI_RT_API diopiError_t diopiGeneratorSetState(
     diopiGeneratorHandle_t th, diopiConstTensorHandle_t new_state) {
-  auto generator = reinterpret_cast<at::Generator*>(th);
-  auto gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
-  auto ptr = reinterpret_cast<const at::Tensor*>(new_state);
+  at::Generator* generator = reinterpret_cast<at::Generator*>(th);
+  dipu::DIPUGeneratorImpl* gen_impl =
+      at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
+  const at::Tensor* ptr = reinterpret_cast<const at::Tensor*>(new_state);
 
   {
     std::lock_guard<std::mutex> lock(gen_impl->mutex_);

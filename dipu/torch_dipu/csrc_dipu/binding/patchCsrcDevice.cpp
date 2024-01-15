@@ -1,13 +1,11 @@
 // Copyright (c) 2023, DeepLink.
 
-#include <array>
 #include <cstring>
 #include <limits>
 #include <sstream>
 
 #include <ATen/Device.h>
 #include <c10/util/Exception.h>
-#include <c10/util/Optional.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/Exceptions.h>
 #include <torch/csrc/Export.h>
@@ -20,20 +18,14 @@
 
 #include <structmember.h>
 
-#include <csrc_dipu/base/basedef.h>
+#include "exportapi.h"
 
 namespace dipu {
 
-static bool python_device_as_cuda(c10::optional<bool> enable = c10::nullopt) {
-  auto static value = false;
-  if (enable) {
-    value = *enable;
-  }
-  return value;
-}
+static bool PythonDeviceAsCuda = false;
 
 static at::DeviceType _get_dipu_python_type(const at::Device& device) {
-  if (device.type() == DIPU_DEVICE_TYPE && python_device_as_cuda()) {
+  if (device.type() == DIPU_DEVICE_TYPE && PythonDeviceAsCuda) {
     return at::DeviceType::CUDA;
   }
   return device.type();
@@ -52,8 +44,9 @@ PyObject* _THPDevice_index(THPDevice* self, PyObject* noargs) {
   HANDLE_TH_ERRORS
   if (self->device.has_index()) {
     return THPUtils_packInt64(self->device.index());
+  } else {
+    Py_RETURN_NONE;
   }
-  Py_RETURN_NONE;
   END_HANDLE_TH_ERRORS
 }
 
@@ -76,12 +69,10 @@ PyObject* DIPU_THPDevice_str(THPDevice* self) {
   return THPUtils_packString(oss.str().c_str());
 }
 
-// TODO(global) - Stop using non const global variables.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-auto static DIPU_THPDevice_properties = std::array<struct PyGetSetDef, 3>{
-    {{"type", reinterpret_cast<getter>(_THPDevice_type)},
-     {"index", reinterpret_cast<getter>(_THPDevice_index)},
-     {}}};
+static struct PyGetSetDef DIPU_THPDevice_properties[] = {
+    {"type", (getter)_THPDevice_type, nullptr, nullptr, nullptr},
+    {"index", (getter)_THPDevice_index, nullptr, nullptr, nullptr},
+    {nullptr}};
 
 /*
 why use this method to patch csrc.Device: because
@@ -97,9 +88,9 @@ void patchTorchCsrcDevice(PyObject* module) {
   // https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_dict
   THPDeviceType.tp_dict = nullptr;
   // change Type properties
-  THPDeviceType.tp_getset = DIPU_THPDevice_properties.data();
-  THPDeviceType.tp_repr = reinterpret_cast<reprfunc>(DIPU_THPDevice_repr);
-  THPDeviceType.tp_str = reinterpret_cast<reprfunc>(DIPU_THPDevice_str);
+  THPDeviceType.tp_getset = DIPU_THPDevice_properties;
+  THPDeviceType.tp_repr = (reprfunc)DIPU_THPDevice_repr;
+  THPDeviceType.tp_str = (reprfunc)DIPU_THPDevice_str;
 
   // change THPDeviceType as an overriable class need add some other prperties
   // in PyTypeObject, It may cause problems and seem un-necessary, so we keep
@@ -115,10 +106,10 @@ void patchTorchCsrcDevice(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
 
   m.def("_get_python_device_as_cuda",
-        []() -> bool { return python_device_as_cuda(); });
+        []() -> bool { return PythonDeviceAsCuda; });
 
   m.def("_set_python_device_as_cuda",
-        [](bool as_cuda) -> void { python_device_as_cuda(as_cuda); });
+        [](bool as_cuda) -> void { PythonDeviceAsCuda = as_cuda; });
 
   // not really 'export' new type but change original THPDeviceType is enough
   // if (PyModule_AddObject(module, "device", (PyObject*)&THPDeviceType) != 0) {

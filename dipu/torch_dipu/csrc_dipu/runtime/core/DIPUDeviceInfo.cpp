@@ -1,14 +1,11 @@
 // Copyright (c) 2023, DeepLink.
-#include "DIPUDeviceInfo.h"
+#include "./DIPUDeviceInfo.h"
 
 #include <deque>
 #include <vector>
 
 #include <c10/core/Device.h>
 #include <c10/util/CallOnce.h>
-
-#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
-
 namespace dipu {
 
 // anonymous ns
@@ -28,7 +25,7 @@ std::deque<c10::once_flag> device_flags;
 std::vector<shared_ptr<DIPUDeviceProperties>> device_properties;
 
 void initDIPUContextVectors() {
-  num_gpus = static_cast<DeviceIndex>(dipu::devproxy::getDeviceCount());
+  num_gpus = dipu::devproxy::getDeviceCount();
   device_flags.resize(num_gpus);
   device_properties.resize(num_gpus);
 }

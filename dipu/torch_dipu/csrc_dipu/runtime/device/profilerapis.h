@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "basedef.h"
+#include "./basedef.h"
 
 namespace dipu {
 namespace devapis {

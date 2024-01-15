@@ -6,8 +6,8 @@
 #include <c10/core/Stream.h>
 #include <c10/util/Exception.h>
 
-#include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 namespace dipu {
 

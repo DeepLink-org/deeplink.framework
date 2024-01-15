@@ -6,11 +6,11 @@
 #include <ATen/Tensor.h>
 #include <c10/core/Stream.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/aten/ops/OpUtils.hpp"
-#include "csrc_dipu/profiler/profiler.h"
-#include "csrc_dipu/runtime/rthelper.h"
-#include "csrc_dipu/utils/helpfunc.hpp"
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
+#include <csrc_dipu/aten/ops/OpUtils.hpp>
+#include <csrc_dipu/profiler/profiler.h>
+#include <csrc_dipu/runtime/rthelper.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 namespace dipu {
 namespace native {
@@ -39,12 +39,7 @@ enum class DIPUCopyType {
 
 // Align with pytorch's behavior, see TensorIterator.cpp compute_mem_overlaps()
 inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
-#if DIPU_TORCH_VERSION == 20000
   assert_no_internal_overlap(dst);
-#else
-  // seems torch2.1.1 not check internal overlap
-#endif
-
   assert_no_partial_overlap(dst, src);
 }
 
@@ -271,30 +266,12 @@ class DIPUCopyInplace : public DIPUCopyBase {
   at::Tensor makeSameStrideTensor(const at::Tensor& src, DIPUStream& curStream,
                                   at::Device newDevice,
                                   bool willBackfillSrc = false) {
-    /*
-      1. src.is_contiguous() & contiguous_nhwc is not suitable here, if size of
-       dim0 =1 and other dims are contiguous. it return true No matter what
-       value the stride of dim0 is but create a new tensor with stride of dim0
-       re-computed as contiguous.
-      eg: src size [1, 3, 2, 2], with stride [any_value < 12, 1, 6, 3] is
-       considered as channel last contiguous. and create new Tensor sameAsSrc
-       has stride [12, 1, 6, 3].
-
-      2. another problem: tensor.suggest_memory_format() is inconsistent with
-       tensor.is_contiguous(c10::MemoryFormat::ChannelsLast) in above case.
-       because the TensorImpl.is_channels_last_ and is_channels_last_contiguous_
-       has differenet logic.
-    */
-
-    // if (src.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
-    //     src.is_contiguous()) {
-    //   auto sameAsSrc =
-    //       at::empty(src.sizes(), src.options().device(newDevice),
-    //                 src.is_contiguous() ? c10::MemoryFormat::Contiguous
-    //                                     : c10::MemoryFormat::ChannelsLast);
-    //   return sameAsSrc;
-    // }
-
+    if (src.is_contiguous(c10::MemoryFormat::ChannelsLast) ||
+        src.is_contiguous()) {
+      auto sameAsSrc = at::empty(src.sizes(), src.options().device(newDevice),
+                                 src.suggest_memory_format());
+      return sameAsSrc;
+    }
     // empty_strided is much expensive than empty_memory_format().
     // see src/ATen/EmptyTensor.cpp computeStorageNbytes()
     auto sameAsSrc = at::empty_strided(src.sizes(), src.strides(),

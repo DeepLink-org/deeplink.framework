@@ -446,16 +446,14 @@ class BFCachingAllocator : public CacheAllocator {
     }
     impl = std::make_unique<BFCachingAllocatorImpl>();
 
-    auto alloc_fn =
+    std::function<void*(size_t)> alloc_fn =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        [pointer = const_cast<BFCachingAllocator*>(this)](std::size_t PH1) {
-          return pointer->allocate_raw(PH1);
-        };
-    auto dealloc_fn =
+        std::bind(&BFCachingAllocator::allocate_raw,
+                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
+    std::function<void(void*)> dealloc_fn =
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        [pointer = const_cast<BFCachingAllocator*>(this)](void* PH1) {
-          pointer->free_raw(PH1);
-        };
+        std::bind(&BFCachingAllocator::free_raw,
+                  const_cast<BFCachingAllocator*>(this), std::placeholders::_1);
     impl->set_mem_allocate_fn(alloc_fn, dealloc_fn);
   }
 
@@ -572,10 +570,7 @@ static void deleteBFContext(void* ptr) {
   delete ctx;
 }
 
-// TODO(allocator) - Refactor it!
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator, 0);
 DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, 0);
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu

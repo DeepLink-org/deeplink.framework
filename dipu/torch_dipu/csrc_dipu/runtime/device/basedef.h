@@ -2,9 +2,9 @@
 #pragma once
 
 // todo:: dev api will remove pytorch dependency
-#include <cstdint>
-
 #include <c10/core/Device.h>
+
+#include <csrc_dipu/base/basedef.h>
 
 // todo: move out deice dir to diopi
 namespace dipu {
@@ -19,7 +19,6 @@ namespace dipu {
 using enum_t = int32_t;
 
 #define DIPU_STRING(x) #x
-#define DIPU_STRINGIFY_AFTER_EXPANSION(x) DIPU_STRING(x)
 #define DIPU_CODELOC __FILE__ " (" DIPU_STRING(__LINE__) ")"
 
 #define DIPU_LOGE(fmt, ...)                                              \

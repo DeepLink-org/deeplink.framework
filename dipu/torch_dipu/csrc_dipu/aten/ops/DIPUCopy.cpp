@@ -6,7 +6,7 @@
 
 #include <c10/util/Exception.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
 
 namespace dipu {
 

@@ -6,8 +6,7 @@
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/StreamGuard.h>
 
-#include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/runtime/core/guardimpl/DIPUGuardImpl.h"
+#include "./guardimpl/DIPUGuardImpl.h"
 
 namespace dipu {
 

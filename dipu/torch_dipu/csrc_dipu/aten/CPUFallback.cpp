@@ -1,5 +1,5 @@
 #define TORCH_ASSERT_ONLY_METHOD_OPERATORS
-#include <iostream>
+#include <sstream>
 
 #include <ATen/core/dispatch/Dispatcher.h>
 #include <ATen/core/ivalue.h>
@@ -49,27 +49,24 @@ std::vector<at::Tensor> to_cpu(const at::TensorList& tensors) {
 
 c10::optional<c10::Device> compute_target_device(
     std::vector<at::Tensor>& t_args,
-    const std::vector<c10::List<at::Tensor>>& tlist_args) {
+    std::vector<c10::List<at::Tensor>> tlist_args) {
   // Decide what device to move the output tensor(s) to.
   // The current convention is that we use the first tensor arg to pick the
   // device Barring that, we take the first tensor from a TensorList arg.
   if (!t_args.empty()) {
     return t_args[0].device();
-  }
-
-  // We need to loop through all of the (potentially multiple) TensorList
-  // arguments In case, e.g. the first one is empty but the second is not.
-  for (auto& tens_list : tlist_args) {
-    for (const auto i : c10::irange(tens_list.size())) {
-      return tens_list.get(i).device();
+  } else {
+    // We need to loop through all of the (potentially multiple) TensorList
+    // arguments In case, e.g. the first one is empty but the second is not.
+    for (auto& tens_list : tlist_args) {
+      for (const auto i : c10::irange(tens_list.size())) {
+        return tens_list.get(i).device();
+      }
     }
   }
-
   return c10::nullopt;
 }
 
-// We may need to refactor this function.
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   auto& schema_args = op.schema().arguments();
   const auto num_arguments = schema_args.size();
@@ -77,11 +74,11 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   const auto arguments_begin = stack->size() - num_arguments;
 
   std::vector<at::Tensor> tensor_args;
-  std::vector<std::size_t> tensor_args_indices;
+  std::vector<int> tensor_args_indices;
 
   std::vector<c10::List<at::Tensor>> tensorlist_args;
   std::vector<c10::List<at::Tensor>> cpu_tensorlist_args;
-  std::vector<std::size_t> tensorlist_args_indices;
+  std::vector<int> tensorlist_args_indices;
 
   static bool log_fallback_detail =
       std::getenv("DIPU_LOG_FALLBACK_INFO") != nullptr;

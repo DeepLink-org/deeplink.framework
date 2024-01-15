@@ -8,11 +8,10 @@
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
 
-#include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/runtime/core/DIPUStream.h"
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
-#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
-
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/runtime/core/DIPUStream.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h>
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 namespace dipu {
 struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   static constexpr at::DeviceType static_type = dipu::DIPU_DEVICE_TYPE;

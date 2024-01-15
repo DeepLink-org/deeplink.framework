@@ -1,9 +1,9 @@
 // Copyright (c) 2023, DeepLink.
-#include "deviceproxy.h"
+#include "./deviceproxy.h"
 
-#include "csrc_dipu/runtime/core/DIPUEventPool.h"
-
+#include "../core/DIPUEventPool.h"
 namespace dipu {
+
 namespace devproxy {
 
 void initializeVendor() {

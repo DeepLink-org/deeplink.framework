@@ -96,17 +96,6 @@ def _test_dipu_copy_fallback_():
 
         assert torch.allclose(target_tensor, target_dipu.cpu())
 
-        N, C, H, W = 1, 3, 2, 2
-        x = torch.empty(N, C, H, W)
-        x1 = x.to(memory_format=torch.channels_last).cuda()
-        x2stride = list(x1.stride())
-        x2stride[0] = 4
-        x2 = x.as_strided(x1.size(), tuple(x2stride)).cuda()
-        y = torch.empty(N, C, H, W).cuda()
-        y.copy_(x2)
-
-        assert torch.allclose(y, x2)
-
     test_fallback(
         ["copy_"],
         ["diopiCopyInp"],

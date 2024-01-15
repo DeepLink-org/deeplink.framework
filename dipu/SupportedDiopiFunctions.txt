@@ -154,7 +154,6 @@ diopiMaskedFillInpScalar
 diopiMaskedFillScalar
 diopiMaskedSelect
 diopiMatmul
-diopiMatmulBackward
 diopiMax
 diopiMaxAll
 diopiMaximum
@@ -183,11 +182,7 @@ diopiNLLLoss
 diopiNLLLossBackward
 diopiNonzero
 diopiNorm
-diopiNormal
 diopiNormalInp
-diopiNormalScalarTensor
-diopiNormalTensor
-diopiNormalTensorScalar
 diopiPolar
 diopiPow
 diopiPowInp

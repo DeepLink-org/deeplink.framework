@@ -1,7 +1,6 @@
 CompileFlags:
   Remove: -fabi*
+# Enable these parameters after iwyu
 # Diagnostics:
-  # Available in clangd-14
-  # UnusedIncludes: Strict
-  # Require clangd-17
-  # MissingIncludes: Strict
+#   UnusedIncludes: Strict
+#   MissingIncludes: Strict

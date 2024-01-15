@@ -6,7 +6,6 @@
 #include <c10/util/flat_hash_map.h>
 
 #include "DIPUAsyncResourcePool.h"
-#include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
 
 namespace dipu {

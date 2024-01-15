@@ -12,6 +12,7 @@
 // use header file as common is weird. change to use base class in future.
 // only vendor deviceimpl.cpp can include this header
 namespace dipu {
+DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::MLU;
 
 namespace devapis {
 

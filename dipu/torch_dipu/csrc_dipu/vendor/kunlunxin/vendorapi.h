@@ -1,5 +1,4 @@
 #pragma once
-#include <bkcl.h>
 #include <xpu/runtime.h>
 #include <xpu/xdnn.h>
 
@@ -25,7 +24,10 @@ using deviceStream_t = XPUStream;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = XPUEvent;
 using deviceHandle_t = xdnn::Context*;
-using diclComm_t = BKCLContext_t;
-using commUniqueId = BKCLUniqueId;
+
+class pcclComm_t {};
+using diclComm_t = pcclComm_t*;
+class pcclUniqueId {};
+using commUniqueId = pcclUniqueId;
 
 }  // namespace dipu

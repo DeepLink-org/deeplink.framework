@@ -28,8 +28,6 @@ Checks: '
   misc-unused-alias-decls,
   misc-unused-using-decls,
   modernize-*,
-  -modernize-concat-nested-namespaces,
-  -modernize-use-nodiscard,
   -modernize-use-trailing-return-type,
   performance-*,
   readability-*,
@@ -38,8 +36,6 @@ Checks: '
   -readability-qualified-auto,
   -readability-static-accessed-through-instance'
   # TODO: #446 - enable readability-identifier-naming
-  # TODO: C++17 - enable modernize-concat-nested-namespaces
-  # TODO: C++17 - enable modernize-use-nodiscard?
 AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'

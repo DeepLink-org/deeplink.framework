@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include "csrc_dipu/runtime/device/deviceapis.h"
+#include "../device/deviceapis.h"
 
 namespace dipu {
 

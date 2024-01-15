@@ -22,5 +22,4 @@ using deviceEvent_t = topsEvent_t;
 
 using diclComm_t = ecclComm_t;
 using commUniqueId = ecclUniqueId;
-
 }  // namespace dipu

@@ -1,7 +1,5 @@
 #include "CorrelationIDManager.h"
 
-#include <DeviceActivityInterface.h>
-
 namespace dipu {
 namespace profile {
 

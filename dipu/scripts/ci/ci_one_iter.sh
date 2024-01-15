@@ -135,15 +135,15 @@ function build_dataset(){
         echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
-        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
-        ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400 
-        ln -s /mnt/lustre/share_data/PAT/datasets/icdar2015 data/icdar2015
-        ln -s /mnt/lustre/share_data/PAT/datasets/mjsynth data/mjsynth
-        ln -s /mnt/lustre/share_data/PAT/datasets/kitti data/kitti
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
-        ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
+        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400 
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
+        ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/parrots.tester.s.03/models_code/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
@@ -152,7 +152,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
         ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
         ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/mmdet3d_kitti data/kitti
+        ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth

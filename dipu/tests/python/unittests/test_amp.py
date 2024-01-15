@@ -8,21 +8,6 @@ from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 
 
 class TestAmp(TestCase):
-    # https://github.com/DeepLink-org/deeplink.framework/issues/535
-    def test_amp_update_scalar_tensor(self):
-      scale_ = torch.tensor(65536.0, device='cuda')
-      growth_tracker_ = torch.tensor(0, device='cuda', dtype=torch.int32)
-      found_inf_combined = torch.tensor(0.0, device='cuda')
-
-      growth_factor_ = 2.0
-      backoff_factor_ = 0.5
-      growth_interval_ = 2000
-      torch._amp_update_scale_(scale_, growth_tracker_, found_inf_combined, growth_factor_, \
-                                backoff_factor_, growth_interval_)
-
-      expected_growth_result = torch.tensor(1, dtype=torch.int32)
-      self.assertEqual(growth_tracker_.cpu(), expected_growth_result)
-
     def test_autocast(self):
         # Creates some tensors in default dtype (here assumed to be float32)
         a_float32 = torch.rand((8, 8), device="cuda")

@@ -2,19 +2,18 @@
 #pragma once
 
 #include <iostream>
-#include <mutex>
 #include <thread>
 
 #include <c10/core/Allocator.h>
 #include <c10/core/Device.h>
 
-#include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/runtime/core/MemChecker.h"
-#include "csrc_dipu/runtime/device/deviceapis.h"
+#include <csrc_dipu/common.h>
+#include <csrc_dipu/runtime/core/MemChecker.h>
+#include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
 
-// TODO(allocator): refactor it someday.
+// FIXME: refactor it someday.
 // NOLINTBEGIN(bugprone-macro-parentheses)
 #define DIPU_DEBUG_ALLOCATOR(mask, x)                                          \
   {                                                                            \
@@ -37,7 +36,7 @@ class DIPU_API DIPURawDeviceAllocator : public c10::Allocator {
   c10::DeleterFnPtr raw_deleter() const override;
 
  private:
-  // TODO(allocator): refactor it someday.
+  // FIXME: refactor is someday.
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::mutex mutex_;
   c10::DataPtr allocate(size_t nbytes, c10::DeviceIndex device_index) const;

@@ -8,7 +8,6 @@
 
 #include <csrc_dipu/runtime/core/DIPUGeneratorImpl.h>
 #include <csrc_dipu/runtime/core/DIPUGuard.h>
-#include <csrc_dipu/runtime/core/DIPUStream.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {

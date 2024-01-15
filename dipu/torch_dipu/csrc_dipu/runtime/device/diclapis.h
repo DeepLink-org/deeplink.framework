@@ -3,9 +3,9 @@
 #include <c10/core/ScalarType.h>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 
-#include "csrc_dipu/vendor/vendorapi.h"
+#include <csrc_dipu/vendor/vendorapi.h>
 
-#include "deviceapis.h"
+#include "./deviceapis.h"
 
 namespace dipu {
 

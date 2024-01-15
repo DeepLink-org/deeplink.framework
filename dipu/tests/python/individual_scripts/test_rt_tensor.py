@@ -4,7 +4,7 @@ import torch
 from typing import cast
 
 
-def test_empty_tensor():
+def empty1():
     import torch_dipu
 
     # dev1 = torch_dipu.diputype
@@ -207,16 +207,10 @@ def test_dipu_as_cuda_type():
   gen.manual_seed(1)
   assert gen.device.type == "cuda"
 
-def test_torch_ver():
-  from torch_dipu import dipu
-  # torch version must be compatible
-  assert dipu.check_dipu_torch_compatiable() == True
-
 
 if __name__ == "__main__":
     for i in range(1, 2):
-        test_torch_ver()
-        test_empty_tensor()
+        empty1()
         testdevice()
         testDeviceProperties()
         test_mem_get_info()

@@ -7,8 +7,7 @@
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/core/DIPUGeneratorImpl.h"
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
-
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 namespace dipu {
 
 const char* getDipuCommitId() { return DIPU_GIT_HASH; }

@@ -1,8 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 
-#include <algorithm>
-#include <ios>
 #include <iostream>
 #include <regex>
 
@@ -11,65 +9,65 @@
 #include <ATen/native/CPUFallback.h>
 #include <c10/core/Storage.h>
 #include <c10/util/Exception.h>
-#include <c10/util/irange.h>
 
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/base/basedef.h"
-#include "csrc_dipu/profiler/profiler.h"
-#include "csrc_dipu/utils/helpfunc.hpp"
+#include <csrc_dipu/aten/DIPUATenFunctions.h>
+#include <csrc_dipu/base/basedef.h>
+#include <csrc_dipu/profiler/profiler.h>
 
 namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
 namespace {
 
-std::vector<std::regex> load_fallback_matcher() {
-  auto constexpr env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
-  auto constexpr file_name = ".dipu_force_fallback_op_list.config";
-
-  auto append = [](std::istream& input, std::vector<std::regex>& output) {
-    auto constexpr separator = ',';
-
-    auto line = std::string();
-    while (std::getline(input, line)) {
-      auto buffer = std::istringstream(line);
-      auto pattern = std::string();
-      while (std::getline(buffer, pattern, separator)) {
-        if (pattern.empty()) {
-          continue;
-        }
-        try {
-          output.emplace_back(pattern);
-        } catch (const std::regex_error& e) {
-          TORCH_CHECK(false, e.what());
-        }
-      }
+void read_comma_separated_list(std::istream& input,
+                               std::vector<std::string>& output) {
+  auto line = std::string();
+  while (std::getline(input, line)) {
+    auto buffer = std::stringstream(line);
+    auto value = std::string();
+    while (std::getline(buffer, value, ',')) {
+      output.push_back(std::move(value));
     }
-  };
-
-  auto list = std::vector<std::regex>();
-  if (auto env = std::getenv(env_name)) {
-    auto iss = std::istringstream(env);
-    append(iss, list);
   }
-  if (auto file = std::ifstream(file_name, std::ios::binary)) {
-    append(file, list);
-  }
-  return list;
 }
 
-auto const force_fallback_matchers = load_fallback_matcher();
+std::vector<std::string> getFallbackList() {
+  auto fallback_list = std::vector<std::string>();
+  if (auto env = std::getenv("DIPU_FORCE_FALLBACK_OPS_LIST")) {
+    auto iss = std::stringstream(env);
+    read_comma_separated_list(iss, fallback_list);
+  }
+  auto file = std::ifstream(".dipu_force_fallback_op_list.config",
+                            std::ios_base::in | std::ios::binary);
+  read_comma_separated_list(file, fallback_list);
+
+  return fallback_list;
+}
+
+const std::vector<std::string> force_fallback_operators_list =
+    getFallbackList();
 
 }  // end of namespace
 
 bool get_force_fallback(const char* opname) {
-  if (force_fallback_matchers.empty() || opname == nullptr) {
+  if (force_fallback_operators_list.empty() || opname == nullptr) {
     return false;
   }
-
-  return std::any_of(
-      force_fallback_matchers.begin(), force_fallback_matchers.end(),
-      [&opname](auto& matcher) { return std::regex_match(opname, matcher); });
+  for (auto& force_fallback_pattern : force_fallback_operators_list) {
+    if (force_fallback_pattern.empty()) {
+      continue;
+    }
+    try {
+      bool force_fallback =
+          std::regex_match(opname, std::regex(force_fallback_pattern));
+      if (force_fallback) {
+        return true;
+      }
+    } catch (const std::regex_error& e) {
+      TORCH_CHECK(false, e.what());
+    }
+  }
+  return false;
 }
 
 namespace native {
@@ -430,8 +428,20 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("record_stream", TORCH_FN(wrapper_DIPU__record_stream));
 }
 
+class IgnoreWarningHandler : public c10::WarningHandler {
+ public:
+  void process(const c10::Warning& warning) override {
+    // do nothing
+  }
+};
+
+c10::WarningHandler* getIgnoreHandler() {
+  static IgnoreWarningHandler handler_ = IgnoreWarningHandler();
+  return &handler_;
+}
+
 DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
-  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
+  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
   m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"),
          TORCH_FN(wrapper_BackendSelect_is_pinned));
   m.impl(TORCH_SELECTIVE_NAME("aten::_pin_memory"),
@@ -441,7 +451,7 @@ DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
 // override CPU operator
 DIPU_LIBRARY_IMPL(aten, CPU, m) {
   // disable override warning log
-  c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
+  c10::WarningUtils::WarningHandlerGuard guard(getIgnoreHandler());
   m.impl("empty.memory_format", TORCH_FN(wrapper_CPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }

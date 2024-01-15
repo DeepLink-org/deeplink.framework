@@ -15,7 +15,6 @@ diopi_wrapper_file_template_content = \
 
 #include <ATen/ExpandUtils.h>
 #include <ATen/Functions.h>
-#include <ATen/ExpandUtils.h>
 #include <ATen/Tensor.h>
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/Generator.h>
@@ -41,7 +40,6 @@ diopi_wrapper_file_template_content = \
 #include <torch/csrc/autograd/custom_function.h>
 #include <torch/csrc/autograd/generated/variable_factories.h>
 #include <torch/types.h>
-#include <type_traits>
 
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>

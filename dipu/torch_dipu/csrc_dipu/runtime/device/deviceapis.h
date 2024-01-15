@@ -3,16 +3,15 @@
 
 #include <cstring>
 
-#include "csrc_dipu/vendor/vendorapi.h"
+#include <csrc_dipu/vendor/vendorapi.h>
 
-#include "basedef.h"
+#include "./basedef.h"
 
 namespace dipu {
 
-// TODO(fandaoyi,lljbash): Add config.h where all macros are correctly defined.
-// As a workaround, the definition of kDipuVendorDeviceType is moved to
-// deviceapis.cpp. Move it back here as a constexpr when config.h is added
-extern const devapis::VendorDeviceType kDipuVendorDeviceType;
+// FIXME: refactor it someday.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern devapis::VendorDeviceType VENDOR_TYPE;
 
 namespace devapis {
 

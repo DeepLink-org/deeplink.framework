@@ -1,8 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-// TODO(vendor) - should deviceEvent_t be provided by vendor?
-#include "csrc_dipu/runtime/devproxy/deviceproxy.h"  // IWYU pragma: keep
+#include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 namespace dipu {
 

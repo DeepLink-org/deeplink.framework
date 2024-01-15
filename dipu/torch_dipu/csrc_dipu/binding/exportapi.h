@@ -1,7 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <Python.h>
 #include <pybind11/pybind11.h>
 
 #include <csrc_dipu/base/basedef.h>

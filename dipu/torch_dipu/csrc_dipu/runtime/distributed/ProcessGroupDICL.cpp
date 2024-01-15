@@ -7,9 +7,9 @@
 #include <torch/torch.h>
 
 #include "csrc_dipu/profiler/profiler.h"
-#include "csrc_dipu/runtime/core/DIPUGuard.h"
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
-#include "csrc_dipu/utils/helpfunc.hpp"
+#include <csrc_dipu/runtime/core/DIPUGuard.h>
+#include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
+#include <csrc_dipu/utils/helpfunc.hpp>
 
 namespace dipu {
 
@@ -534,8 +534,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
-    std::vector<std::vector<at::Tensor>>& outputs,
-    std::vector<at::Tensor>& inputs, const GatherOptions& opts) {
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors, const GatherOptions& opts) {
   TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
 
@@ -579,17 +579,18 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
-    at::Tensor& output, at::Tensor& input, const AllgatherOptions& opts) {
+    at::Tensor& outputTensor, at::Tensor& inputTensor,
+    const AllgatherOptions& opts) {
   // output = input * ranks.
-  TORCH_CHECK(input.dtype() == output.dtype(),
+  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(),
               "output tensor must have the same type as input tensor");
   TORCH_CHECK(
-      input.numel() * this->size_ == output.numel(),
+      inputTensor.numel() * this->size_ == outputTensor.numel(),
       "output tensor size must be equal to world_size times input tensor size");
 
   // just a wrapper to fit the collective interface
-  auto inputs = std::vector<at::Tensor>{input};
-  auto outputs = std::vector<at::Tensor>{output};
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  auto outputs = std::vector<at::Tensor>{outputTensor};
 
   return collective(
       inputs, outputs,
@@ -609,17 +610,18 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
-    at::Tensor& output, at::Tensor& input, const ReduceScatterOptions& opts) {
+    at::Tensor& outputTensor, at::Tensor& inputTensor,
+    const ReduceScatterOptions& opts) {
   // input = output * ranks, no inplace, output = reduced(input)[rank]
 
-  TORCH_CHECK(input.dtype() == output.dtype(),
+  TORCH_CHECK(inputTensor.dtype() == outputTensor.dtype(),
               "output tensor must have the same type as input tensor");
   TORCH_CHECK(
-      input.numel() == this->size_ * output.numel(),
+      inputTensor.numel() == this->size_ * outputTensor.numel(),
       "input tensor must be the same size as output size times world size")
 
-  auto inputs = std::vector<at::Tensor>{input};
-  auto outputs = std::vector<at::Tensor>{output};
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  auto outputs = std::vector<at::Tensor>{outputTensor};
 
   return collective(
       inputs, outputs,
@@ -740,7 +742,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::barrier(const BarrierOptions& opts) {
         at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(at::kFloat)));
   }
 
-  auto work = allreduce(barrierTensors, AllreduceOptions());
+  auto work = allreduce(barrierTensors);
   auto diclWork = dynamic_cast<ProcessGroupDICL::WorkDICL*>(work.get());
   diclWork->barrier_ = true;
 

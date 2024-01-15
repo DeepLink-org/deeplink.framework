@@ -2,8 +2,6 @@
 #pragma once
 
 #include <deque>
-#include <fstream>
-#include <iostream>
 #include <mutex>
 
 #include <torch/library.h>
@@ -114,14 +112,18 @@ class DIPUOpRegister {
 
 #define DIPU_LIBRARY_IMPL(ns, k, m) _DIPU_LIBRARY_IMPL(ns, k, m, C10_UID)
 
-#define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                                \
-  static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,      \
-                              uid)(torch::Library&);                     \
-  static const ::at::DIPUOpRegister C10_CONCATENATE(                     \
-      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                 \
-      (c10::impl::dispatch_key_allowlist_check(c10::DispatchKey::k)      \
-           ? &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid) \
-           : [](torch::Library&) -> void {}),                            \
-      #ns, c10::make_optional(c10::DispatchKey::k), __FILE__, __LINE__); \
-  void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,             \
+#define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                                 \
+  static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,       \
+                              uid)(torch::Library&);                      \
+  static const ::at::DIPUOpRegister C10_CONCATENATE(                      \
+      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                  \
+      c10::guts::if_constexpr<c10::impl::dispatch_key_allowlist_check(    \
+          c10::DispatchKey::k)>(                                          \
+          []() {                                                          \
+            return &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, \
+                                    uid);                                 \
+          },                                                              \
+          []() { return [](torch::Library&) -> void {}; }),               \
+      #ns, c10::make_optional(c10::DispatchKey::k), __FILE__, __LINE__);  \
+  void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,              \
                        uid)(torch::Library & (m))
