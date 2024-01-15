@@ -56,10 +56,10 @@ using torch::profiler::impl::python_tracer::CompressedEvent;
 using torch::profiler::impl::python_tracer::PythonTracerBase;
 
 namespace {
-enum CallType { PyCall = 0, PyModuleCall, PyCCall, PyOptimizerCall };
-static constexpr size_t CallTypeSize = 4;
 using no_ephemeral_t = std::tuple<>;
-static constexpr uint64_t NoTID = std::numeric_limits<uint64_t>::max();
+enum CallType { PyCall = 0, PyModuleCall, PyCCall, PyOptimizerCall };
+constexpr std::size_t CallTypeSize = 4;
+constexpr uint64_t NoTID = std::numeric_limits<uint64_t>::max();
 
 // ============================================================================
 // == Miscellaneous structs and utils =========================================
@@ -96,7 +96,7 @@ PyCodeObject* getCode<CallType::PyModuleCall>() {
                    .attr("__code__")
                    .ptr();
     TORCH_INTERNAL_ASSERT(PyCode_Check(res));
-    return (PyCodeObject*)res;
+    return reinterpret_cast<PyCodeObject*>(res);
   }();
   return module_call_code;
 };
@@ -111,7 +111,7 @@ PyCodeObject* getCode<CallType::PyOptimizerCall>() {
                    .attr("__code__")
                    .ptr();
     TORCH_INTERNAL_ASSERT(PyCode_Check(res));
-    return (PyCodeObject*)res;
+    return reinterpret_cast<PyCodeObject*>(res);
   }();
   return optimizer_step_code;
 };
@@ -142,8 +142,8 @@ class CallTypeHelper final {
   static constexpr size_t End = CallTypeSize;
 
   template <size_t... I>
-  static constexpr std::tuple<ClassT<(CallType)I>...> make_tuple_impl(
-      std::index_sequence<I...>);
+  static constexpr std::tuple<ClassT<static_cast<CallType>(I)>...>
+      make_tuple_impl(std::index_sequence<I...>);
 
   template <size_t C, typename T, typename FunctorT, typename... Args>
   static void map(T& t, FunctorT& f, Args&&... args) {
@@ -311,9 +311,9 @@ class ValueCache {
         caller.frame_state_, load<C>(callsite.value_)};
   }
 
-  c10::optional<TensorMetadata> recordIfTensor(py::handle p);
-  std::vector<std::pair<std::string, TensorMetadata>> unpackTensorMap(
-      py::dict tensor_map);
+  static c10::optional<TensorMetadata> recordIfTensor(py::handle p);
+  static std::vector<std::pair<std::string, TensorMetadata>> unpackTensorMap(
+      const py::dict& tensor_map);
   void trimPrefixes();
 
  private:
@@ -339,7 +339,8 @@ typename Config<C>::cls_t set_class(
     value_cache->store<CallType::PyCall>(*cache.location_, no_ephemeral_t());
   }
 
-  auto cls_handle = py::handle((PyObject*)key).attr("__class__");
+  auto cls_handle =
+      static_cast<py::handle>(static_cast<PyObject*>(key)).attr("__class__");
   auto cls = typename Config<C>::cls_t(cls_handle.ptr());
   if (cache.cls_names_.find(cls) == cache.cls_names_.end()) {
     cache.cls_names_[cls] =
@@ -364,7 +365,7 @@ c10::optional<TensorMetadata> ValueCache::recordIfTensor(py::handle p) {
 }
 
 std::vector<std::pair<std::string, TensorMetadata>> ValueCache::unpackTensorMap(
-    py::dict tensor_map) {
+    const py::dict& tensor_map) {
   std::vector<std::pair<std::string, TensorMetadata>> out;
   for (auto& it : tensor_map) {
     auto* value = it.second.ptr();
@@ -377,7 +378,8 @@ std::vector<std::pair<std::string, TensorMetadata>> ValueCache::unpackTensorMap(
 }
 
 template <>
-void ValueCache::store<CallType::PyCall>(const PyCallKey& key, no_ephemeral_t) {
+void ValueCache::store<CallType::PyCall>(const PyCallKey& key,
+                                         no_ephemeral_t /*unused*/) {
   auto& locations = std::get<CallType::PyCall>(state_);
   if (C10_UNLIKELY(locations.find(key) == locations.end())) {
     locations[key] = {key.line_number_, at::StringView(key.filename_),
@@ -400,7 +402,8 @@ void ValueCache::store<CallType::PyModuleCall>(
                    cache.cls_and_parameters_.end())) {
     auto cls = set_class<CallType::PyModuleCall>(this, cache, key, frame);
 
-    py::dict params = py::handle((PyObject*)key).attr("_parameters");
+    py::dict params =
+        py::handle(static_cast<PyObject*>(key)).attr("_parameters");
     std::vector<NNModuleInfo::ParameterInfo> params_;
     for (auto& it : params) {
       auto* p = it.second.ptr();
@@ -437,10 +440,10 @@ void ValueCache::store<CallType::PyOptimizerCall>(
   if (C10_UNLIKELY(cache.cls_and_parameters_.find(key) ==
                    cache.cls_and_parameters_.end())) {
     auto cls = set_class<CallType::PyOptimizerCall>(this, cache, key, frame);
-    const py::handle self{(PyObject*)key};
+    const py::handle self{static_cast<PyObject*>(key)};
     std::vector<OptimizerInfo::ParameterInfo> params;
 
-    for (const auto& i : (py::list)self.attr("param_groups")) {
+    for (const auto& i : py::list(self.attr("param_groups"))) {
       for (auto& param : py::cast<py::dict>(i).attr("get")("params")) {
         if (THPVariable_CheckExact(param.ptr())) {
           // While `self.state` is permitted to store data in an arbitrary way,
@@ -490,7 +493,7 @@ ExtraFields<EventType::PyCCall>::args_t ValueCache::load<CallType::PyCCall>(
   return std::get<CallType::PyCCall>(state_).at(key);
 }
 
-// TODO: Use re2.
+// TODO(caikun-pjlab): Use re2.
 void ValueCache::trimPrefixes() {
   static const auto prefixes = []() {
     pybind11::gil_scoped_acquire gil;
@@ -562,7 +565,8 @@ struct TraceContext {
 };
 
 // CPython boilerplate to define `TraceContext` as a proper python object.
-static PyTypeObject TraceContextType = {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+PyTypeObject TraceContextType = {
     PyVarObject_HEAD_INIT(nullptr, 0) "TraceContext", /* tp_name */
     sizeof(TraceContext),                             /* tp_basicsize */
     0,                                                /* tp_itemsize */
@@ -606,8 +610,7 @@ static PyTypeObject TraceContextType = {
 
 class gil_and_restore_thread {
  public:
-  gil_and_restore_thread()
-      : gil_(), initial_thread_state_{PyThreadState_Get()} {}
+  gil_and_restore_thread() : initial_thread_state_{PyThreadState_Get()} {}
   ~gil_and_restore_thread() {
     PyThreadState_Swap(initial_thread_state_);
 
@@ -633,7 +636,8 @@ struct ThreadLocalResults {
   ThreadLocalResults(PyThreadState* thread_state, ValueCache* value_cache,
                      DIPUPythonTracer* active_tracer)
       : thread_state_{thread_state},
-        ctx_{(TraceContext*)TraceContextType.tp_alloc(&TraceContextType, 0)},
+        ctx_{reinterpret_cast<TraceContext*>(
+            TraceContextType.tp_alloc(&TraceContextType, 0))},
         value_cache_{value_cache},
         active_tracer_{active_tracer} {
     ctx_->thread_local_results_ = this;
@@ -645,7 +649,7 @@ struct ThreadLocalResults {
   ThreadLocalResults& operator=(const ThreadLocalResults&) = delete;
   ThreadLocalResults& operator=(const ThreadLocalResults&&) = delete;
 
-  ~ThreadLocalResults() { Py_DECREF((PyObject*)ctx_); }
+  ~ThreadLocalResults() { Py_DECREF(reinterpret_cast<PyObject*>(ctx_)); }
 
   template <CallType C, EventType E, typename Ephemeral, typename... Args>
   TraceKey intern(Ephemeral ephemeral, Args... args) {
@@ -672,7 +676,7 @@ struct ThreadLocalResults {
 // ============================================================================
 class DIPUPythonTracer final : public PythonTracerBase {
  public:
-  DIPUPythonTracer(DIPURecordQueue* queue);
+  explicit DIPUPythonTracer(DIPURecordQueue* queue);
   ~DIPUPythonTracer() override;
 
   static int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what,
@@ -685,7 +689,7 @@ class DIPUPythonTracer final : public PythonTracerBase {
 
   struct StartFrame {
     TraceKey trace_key_;
-    approx_time_t start_time;
+    approx_time_t start_time{};
   };
 
  private:
@@ -695,13 +699,13 @@ class DIPUPythonTracer final : public PythonTracerBase {
   void recordCCall(ThreadLocalResults& tls, PyFrameObject* frame,
                    PyObject* arg);
 
-  const std::vector<PyThreadState*> interpreterThreads() const;
+  std::vector<PyThreadState*> interpreterThreads() const;
 
   std::atomic<bool> active_lock_{false};
   bool active_{false};
 
   DIPURecordQueue* queue_;
-  PyInterpreterState* interpreter_;
+  PyInterpreterState* interpreter_{};
   PyCodeObject* module_call_code_;
   PyCodeObject* optimizer_hook_;
 
@@ -710,7 +714,7 @@ class DIPUPythonTracer final : public PythonTracerBase {
   ValueCache value_cache_;
 };
 
-const std::vector<PyThreadState*> DIPUPythonTracer::interpreterThreads() const {
+std::vector<PyThreadState*> DIPUPythonTracer::interpreterThreads() const {
   pybind11::gil_scoped_acquire gil;
   std::vector<PyThreadState*> out;
   if (SOFT_ASSERT(interpreter_)) {
@@ -725,7 +729,6 @@ const std::vector<PyThreadState*> DIPUPythonTracer::interpreterThreads() const {
 
 DIPUPythonTracer::DIPUPythonTracer(DIPURecordQueue* queue)
     : queue_(queue),
-      interpreter_(nullptr),
       module_call_code_(getCode<CallType::PyModuleCall>()),
       optimizer_hook_(getCode<CallType::PyOptimizerCall>()) {
   TORCH_CHECK(queue_ != nullptr);
@@ -764,8 +767,9 @@ DIPUPythonTracer::DIPUPythonTracer(DIPURecordQueue* queue)
 
     size_t depth = 0;  // Make sure we can't infinite loop.
     while (frame != nullptr) {
+      auto constexpr max_depth = std::size_t{128};
       current_stack.emplace_back(frame);
-      if (++depth == 128) {
+      if (++depth == max_depth) {
         break;
       }
 
@@ -785,7 +789,8 @@ DIPUPythonTracer::DIPUPythonTracer(DIPURecordQueue* queue)
     // Note:
     //   This profile will not compose with other CPython profilers, and
     //   cannot be round tripped via `sys.settrace(sys.gettrace())`
-    PyEval_SetProfile(DIPUPythonTracer::pyProfileFn, (PyObject*)ctx);
+    PyEval_SetProfile(DIPUPythonTracer::pyProfileFn,
+                      reinterpret_cast<PyObject*>(ctx));
   }
 };
 
@@ -835,7 +840,9 @@ void DIPUPythonTracer::recordPyCall(ThreadLocalResults& tls,
       TORCH_INTERNAL_ASSERT(back != nullptr);
       return tls.intern<CallType::PyModuleCall, E>(frame, self.get(),
                                                    back.get());
-    } else if (code.get() == optimizer_hook_) {
+    }
+
+    if (code.get() == optimizer_hook_) {
       auto locals = THPObjectPtr(PyFrame_GetLocals(frame));
       auto self = THPObjectPtr(PyDict_GetItemString(locals, "self"));
       Py_INCREF(self.get());
@@ -843,11 +850,11 @@ void DIPUPythonTracer::recordPyCall(ThreadLocalResults& tls,
       TORCH_INTERNAL_ASSERT(back != nullptr);
       return tls.intern<CallType::PyOptimizerCall, E>(frame, self.get(),
                                                       back.get());
-    } else {
-      auto back = THPFrameObjectPtr(PyFrame_GetBack(frame));
-      auto f_back = (back.get() != nullptr) ? back.get() : frame;
-      return tls.intern<CallType::PyCall, E>(no_ephemeral_t(), frame, f_back);
     }
+
+    auto back = THPFrameObjectPtr(PyFrame_GetBack(frame));
+    auto f_back = (back.get() != nullptr) ? back.get() : frame;
+    return tls.intern<CallType::PyCall, E>(no_ephemeral_t(), frame, f_back);
   }();
   const auto time = getApproximateTime();
   is_startup_frame ? start_frames_.push_back({key, time})
@@ -862,7 +869,7 @@ void DIPUPythonTracer::recordCCall(ThreadLocalResults& tls,
   // NB: For C calls a new frame is not created, so we use `frame` rather than
   //     `frame->f_back`.
   auto key = tls.intern<CallType::PyCCall, EventType::PyCCall>(
-      arg, (void*)(fn->m_ml), frame);
+      arg, static_cast<void*>(fn->m_ml), frame);
   queue_->getSubqueue()->emplace_py_call(key, getApproximateTime());
 }
 
@@ -937,7 +944,7 @@ class PostProcess {
     using stack_t = std::vector<std::shared_ptr<Result>>;
     const auto initial_size = out.size();
     auto pop = [](stack_t& stack, time_t t) {
-      TORCH_INTERNAL_ASSERT(stack.size(), "Python replay stack is empty.");
+      TORCH_INTERNAL_ASSERT(not stack.empty(), "Python replay stack is empty.");
       c10::get<ExtraFields<E>>(stack.back()->extra_fields_).end_time_ns_ = t;
       stack.pop_back();
     };
@@ -1017,7 +1024,7 @@ struct PythonIDVisitor {
   }
 
   template <typename T>
-  void operator()(T&) {}
+  void operator()(T& /*unused*/) {}
 
   size_t current_python_id_{0};
   ska::flat_hash_map<PyModuleCls, ska::flat_hash_map<PyModuleSelf, size_t>>

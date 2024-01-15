@@ -1,7 +1,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "c10/cuda/CUDACachingAllocator.h"
+#include <c10/cuda/CUDACachingAllocator.h>
 
 #include <csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h>
 

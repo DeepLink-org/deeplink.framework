@@ -6,7 +6,7 @@ from dicp.dynamo_bridge.compile_fx import is_torch_210
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
-    from dicp.vendor.TopsGraph.conversion import tops_patterns, aten_patterns_cls_list, tops_patterns_cls_list
+    from dicp.vendor.TopsGraph.conversion import tops_patterns, tops_patterns_cls_list
 
 
 class HandleInplaceCopyPass():
@@ -20,7 +20,7 @@ class HandleInplaceCopyPass():
         inplace_dict = {}
         for node in reversed(nodes):
             if node.op not in ["placeholder", "output"] and not isinstance(node.target, str):
-                if node.target.name() == "Copy_":
+                if hasattr(node.target, "name") and node.target.name() == "Copy_":
                     if node.args[0].op == "placeholder" and node.args[0].name not in inplace_dict.values():
                         inplace_outputs.append(node.args[1])
                         inplace_dict[node.args[1].name] = node.args[0].name
@@ -34,11 +34,6 @@ class HandleInplaceCopyPass():
 def topsgraph_opset_transform(
     gm: torch.fx.GraphModule,
 ):
-
-    # 1aten to Naten
-    if is_torch_210:
-        gm = BackendPatternMatcherTransformer(
-            tops_patterns, aten_patterns_cls_list).transform(gm)
 
     # 1aten to Ntops
     gm = AtenToTopsTransformer(gm).transform()

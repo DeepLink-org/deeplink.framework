@@ -5,8 +5,7 @@
 #include <mutex>
 #include <tuple>
 
-#include "../DIPUEvent.h"
-#include "DIPUSpinMutex.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
 
 namespace dipu {
 
