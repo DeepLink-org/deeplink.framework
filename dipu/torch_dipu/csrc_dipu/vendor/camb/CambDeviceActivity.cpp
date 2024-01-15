@@ -13,7 +13,7 @@
 
 #include "csrc_dipu/profiler/DIPUDeviceActivity.h"
 #include "csrc_dipu/utils/Log.h"
-#include "csrc_dipu/vendor/vendorapi.h"
+#include "csrc_dipu/vendor/camb/defines.h"
 
 namespace dipu {
 
@@ -595,7 +595,7 @@ const static int32_t camb_device_activity_init = []() {
   const char* env = std::getenv("FORCE_USE_DIPU_PROFILER");
   if ((env == nullptr) || (strncmp(env, "false", strlen("false")) == 0) ||
       (strncmp(env, "False", strlen("False")) == 0)) {
-    profile::setDeviceActivity(&CambDeviceActivity::instance());
+    libkineto::device_activity_singleton = &CambDeviceActivity::instance();
     return 1;
   }
   return 0;

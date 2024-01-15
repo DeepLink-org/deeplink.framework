@@ -33,13 +33,6 @@ namespace dipu {
                 "call cnnl error, expr = ", #Expr, ", ret = ", ret); \
   }
 
-#define DIPU_CALLCNPAPI(Expr)                                               \
-  do {                                                                      \
-    cnpapiResult ret = Expr;                                                \
-    TORCH_CHECK(ret == CNPAPI_SUCCESS, "call cnpapi error, expr = ", #Expr, \
-                ", ret = ", ret);                                           \
-  } while (0)
-
 using deviceStream_t = cnrtQueue_t;
 #define deviceDefaultStreamLiteral nullptr
 using deviceEvent_t = cnrtNotifier_t;

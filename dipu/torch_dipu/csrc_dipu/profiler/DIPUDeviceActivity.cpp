@@ -10,6 +10,9 @@
 
 namespace libkineto {
 
+// device_activity_singleton declared in
+// https://github.com/DeepLink-org/kineto/blob/2923b3002a179d6dfe202e6d032567bb2816eae7/libkineto/include/DeviceActivityInterface.h
+// and used in kineto/libkineto/src/ActivityProfilerProxy.cpp.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 DeviceActivityInterface* device_activity_singleton = nullptr;
 
@@ -107,24 +110,15 @@ void DIPUDeviceActivity::teardownContext() {}
 
 void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static DeviceActivityInterface* default_device_activity =
-    &DIPUDeviceActivity::instance();
-
-void setDeviceActivity(DeviceActivityInterface* ptr) {
-  if (libkineto::device_activity_singleton == nullptr) {
-    libkineto::device_activity_singleton = ptr;
-    return;
-  }
-
-  if (libkineto::device_activity_singleton == default_device_activity) {
-    libkineto::device_activity_singleton = ptr;
-  }
-}
-
 const static int32_t default_device_activity_init = []() {
-  setDeviceActivity(default_device_activity);
-  return 1;
+  // Vendor device activity implementation has higher priority.
+  // If device_activity_singleton is not nullptr, it must have been set as the
+  // implementation of vendor and do not need set as default implementation.
+  if (libkineto::device_activity_singleton == nullptr) {
+    libkineto::device_activity_singleton = &DIPUDeviceActivity::instance();
+    return 1;
+  }
+  return 0;
 }();
 
 }  // namespace profile

@@ -44,7 +44,5 @@ class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
   DIPUDeviceActivity() = default;
 };
 
-void setDeviceActivity(libkineto::DeviceActivityInterface* ptr);
-
 }  // namespace profile
 }  // namespace dipu
