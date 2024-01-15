@@ -3,7 +3,6 @@
 #include <DeviceActivityInterface.h>
 #include <GenericTraceActivity.h>
 #include <memory>
-#include <unordered_map>
 
 namespace dipu {
 namespace profile {
@@ -33,16 +32,16 @@ class DIPUDeviceActivity : public libkineto::DeviceActivityInterface {
       std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
       int64_t start_time, int64_t end_time) override;
 
+  void startTrace(
+      const std::set<libkineto::ActivityType>& selected_activities) override;
+  void stopTrace(
+      const std::set<libkineto::ActivityType>& selected_activities) override;
+
   void teardownContext() override;
   void setMaxBufferSize(int32_t size) override;
 
  private:
   DIPUDeviceActivity() = default;
-
-  std::unordered_map<uint64_t, std::unique_ptr<libkineto::GenericTraceActivity>>
-      cpu_activities_;
-  std::unordered_map<uint64_t, std::unique_ptr<libkineto::GenericTraceActivity>>
-      device_activities_;
 };
 
 }  // namespace profile
