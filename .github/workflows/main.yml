@@ -16,7 +16,7 @@ env:
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd' }}
-  CUDA_CLUSTER: SH1988
+  CUDA_CLUSTER: SCO
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
