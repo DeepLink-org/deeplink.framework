@@ -18,6 +18,7 @@ env:
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd' }}
   CUDA_CLUSTER: SCO
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  ENV_PATH: '/mnt/cache/share/deeplinkci/github'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
   CLUSTER_KLX: KUNLUNXIN
