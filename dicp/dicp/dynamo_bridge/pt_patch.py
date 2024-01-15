@@ -23,7 +23,6 @@ import re
 
 
 def python_type_bar(self):
-    raise ValueError("monkey success")
     return type(self.value)
 
 
