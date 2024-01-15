@@ -1,8 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
+
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/base/basedef.h>
+#include "csrc_dipu/base/basedef.h"
 
 namespace dipu {
 
@@ -28,7 +29,6 @@ constexpr const char* VendorTypeToStr(VendorDeviceType t) noexcept {
 }
 
 DIPU_API bool isDeviceTensor(const at::Tensor& tensor);
-
 DIPU_API bool is_in_bad_fork();
 void poison_fork();
 

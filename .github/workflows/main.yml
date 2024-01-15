@@ -83,10 +83,9 @@ jobs:
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
 
-
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -198,7 +197,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -207,7 +206,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -254,16 +253,30 @@ jobs:
           ssh ${CUDA_CLUSTER} """
           set -e
           export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
+  Tidy-Cuda:
+    name: Run tidy (cuda)
+    needs: [Build-Cuda]
+    runs-on: github-poc-ci
+    steps:
+      - name: clang-tidy
+        run: |
+          ssh $CUDA_CLUSTER """
+          set -eo pipefail
+          source ~/.bashrc
+          (bash $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh srun --job-name=${GITHUB_RUN_NUMBER}_$GITHUB_JOB --partition=$CUDA_PARTATION --time=20) ||\
+          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1)
+          """
+
   Test-Cuda:
     name: Test-dipu-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -294,7 +307,7 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -345,7 +358,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -354,7 +367,7 @@ jobs:
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -388,7 +401,7 @@ jobs:
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
@@ -444,7 +457,7 @@ jobs:
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend910b
 
-      - name: Run one iter tools
+      - name: run-one-iter-for-tradition
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
@@ -455,13 +468,24 @@ jobs:
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
+      - name: run-one-iter-for-llm
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
       - name: Perform cleanup one iter data
         if: always()
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
 
       - name: Check for failure
         if: ${{ failure() }}
@@ -495,7 +519,7 @@ jobs:
 
   Build-Kunlunxin:
     name: Build-Kunlunxin
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: tps-klx-ci
     steps:
       - name: Build dipu
@@ -539,7 +563,7 @@ jobs:
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
 
       - name: Check for failure
         if: ${{ failure() }}

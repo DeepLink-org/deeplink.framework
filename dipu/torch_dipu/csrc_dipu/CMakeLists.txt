@@ -1,175 +1,171 @@
-set(DIPU_LIB torch_dipu)
-set(DIPU_PYTHON_LIB torch_dipu_python)
-set(DIPU_AUTOGENED_KERNELS torch_dipu_autogened_kernels)
+#[[ Dependencies ]]
 
-# python path
-include_directories(SYSTEM ${PYTHON_INCLUDE_DIR})
+# Import Python3::Python, Python3_EXECUTABLE
+# Also see https://cmake.org/cmake/help/latest/module/FindPython3.html
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
-# dipu include path
-set(DIPU_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../)
-include_directories(${DIPU_PATH})
+# See https://pybind11.readthedocs.io/en/stable/cmake/index.html
+# Note: It seems strange that we are not using pybind11.
+# find_package(pybind11 CONFIG REQUIRED HINTS "${Python3_SITELIB}")
 
-set(DIST_DIR ${DIPU_PATH}/dist/include)
-include_directories(${DIST_DIR})
+# See https://cmake.org/cmake/help/latest/module/FindThreads.html
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
-# ---------------------- autogen kernel codes ----------------------------------
-add_custom_target(${DIPU_AUTOGENED_KERNELS})
-set(DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR
-    "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper")
-set(DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT
-    "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/autogen_diopi_wrapper.py")
-set(DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG
-    "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/diopi_functions.yaml")
-set(DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE
-    "${DIPU_AUTOGEN_DIOPI_WRAPPER_SOURCE_DIR}/diopi_wrapper_template.py")
-set(DIPU_AUTOGENED_KERNELS_CPP
-    "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
+# Vendor
+# Import VENDOR_INCLUDE_DIRS, VENDOR_LIB_DIRS, VENDOR_FILES, DIPU_VENDOR_LIB (optional)
+# TODO(vendor) - make vendor targets.
+add_subdirectory(vendor/${UsedVendor})
+
+# TODO(vendor) - Refactor those command after vendor is ready.
+set(VENDOR_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dist/include")
+set(VENDOR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
+set(VENDOR_OUTPUT_HEADER "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendorapi.h")
 add_custom_command(
-  OUTPUT "${DIPU_AUTOGENED_KERNELS_CPP}"
-  COMMAND
-    python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
-    "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
-    "$<$<NOT:$<STREQUAL:${UsedVendor},cuda>>:--convert_config=${CMAKE_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml>"
-    --use_diopi_adapter "False" --autocompare "False" --print_func_call_info "True"
-    --print_op_arg "True" --fun_config_dict
-    '{\"current_device\": \"${UsedVendor}\", \"current_torch_ver\": \"${Torch_VERSION}\"}'
-  DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
-          ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}
-          ${DIPU_AUTOGEN_DIOPI_WRAPPER_TEMPLATE}
-          "$<$<NOT:$<STREQUAL:${UsedVendor},cuda>>:${CMAKE_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml>"
-)
-add_custom_target(autogen_diopi_kernels_cpp
-                  DEPENDS ${DIPU_AUTOGENED_KERNELS_CPP})
-add_dependencies(${DIPU_AUTOGENED_KERNELS} autogen_diopi_kernels_cpp)
-# ------------------------------------------------------------------------------
+  OUTPUT "${VENDOR_OUTPUT_HEADER}"
+  COMMAND mkdir -p "${VENDOR_DIST_DIR}/csrc_dipu/vendor"
+  COMMAND cmake -E create_symlink
+    "${VENDOR_SOURCE_DIR}/vendorapi.h"
+    "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendorapi.h"
+  VERBATIM)
 
-# src
-file(
-  GLOB
-  RT_SRC_FILES
-  runtime/core/guardimpl/*.cpp
-  runtime/core/allocator/*.cpp
-  runtime/core/DIPU*.cpp
-  runtime/core/MemChecker.cpp
-  runtime/distributed/*.cpp
-  runtime/devproxy/*.cpp)
+if(EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
+  add_custom_command(
+    OUTPUT "${VENDOR_OUTPUT_HEADER}"
+    COMMAND cmake -E create_symlink
+      "${VENDOR_SOURCE_DIR}/vendor_autocast.h"
+      "${VENDOR_DIST_DIR}/csrc_dipu/vendor/vendor_autocast.h"
+    APPEND
+    VERBATIM)
+endif()
 
-file(
-  GLOB
-  OP_SRC_FILES
+#[[ Target: torch_dipu ]]
+
+# Auto generated code.
+# Consider moving it to other files.
+set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
+set(GENERATED_KERNELS_SCRIPT "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
+set(GENERATED_KERNELS_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
+set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
+
+if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
+  unset(GENERATED_KERNELS_VENDOR)
+endif()
+
+add_custom_command(
+  OUTPUT "${GENERATED_KERNELS}"
+  COMMAND "${Python3_EXECUTABLE}"
+    "${GENERATED_KERNELS_SCRIPT}"
+    "--out=${GENERATED_KERNELS}"
+    "--config=${GENERATED_KERNELS_CONFIG}"
+    "--autocompare=False"
+    "--print_op_arg=True"
+    "--use_diopi_adapter=False"
+    "--print_func_call_info=True"
+    "--fun_config_dict='{\"current_device\":\"${UsedVendor}\",\"current_torch_ver\":\"${Torch_VERSION}\"}'"
+    "$<$<BOOL:${GENERATED_KERNELS_VENDOR}>:--convert_config=${GENERATED_KERNELS_VENDOR}>"
+  DEPENDS
+    "${GENERATED_KERNELS_SCRIPT}"
+    "${GENERATED_KERNELS_CONFIG}"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
+
+# Collect source files.
+# You may use: find . -name "*.cpp" to update list.
+set(TORCH_DIPU_SOURCE
+  aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
+  aten/ops/DIPUCopy.cpp
+  aten/ops/StorageShapeKernel.cpp
+  aten/ops/DIPUAmp.cpp
+  aten/ops/PinMemoryKernel.cpp
+  aten/ops/EmptyOpsKernel.cpp
+  aten/ops/CustomFallbackFunctionsForCopy.cpp
   aten/RegisterDIPU.cpp
   aten/CPUFallback.cpp
-  aten/util/*.cpp
-  aten/ops/*.cpp)
 
-file(GLOB BASE_FILES base/*.cpp)
-file(GLOB UTILS_FILES utils/*.cpp)
-file(GLOB DIOPI_RT_FILES diopirt/*.cpp)
-file(GLOB PROFILER_FILES profiler/*.cpp)
+  base/DIPUGlobals.cpp
 
-# vendor src
-add_subdirectory(vendor/${UsedVendor})
-include_directories(SYSTEM ${VENDOR_INCLUDE_DIRS})
-link_directories(${VENDOR_LIB_DIRS})
+  diopirt/diopirt_impl.cpp
+  diopirt/diopi_helper.cpp
 
-set(SOURCE_FILES
-    ${RT_SRC_FILES}
-    ${OP_SRC_FILES}
-    ${DIPU_AUTOGENED_KERNELS_CPP}
-    ${DIOPI_RT_FILES}
-    ${BASE_FILES}
-    ${UTILS_FILES}
-    ${VENDOR_FILES}
-    ${PROFILER_FILES})
+  profiler/collection.cpp
+  profiler/CorrelationIDManager.cpp
+  profiler/profiler.cpp
+  profiler/profiler_python.cpp
+  profiler/profiler_kineto.cpp
+  profiler/DIPUDeviceActivity.cpp
+  profiler/patch.cpp
 
-add_library(${DIPU_LIB} SHARED ${SOURCE_FILES})
+  runtime/distributed/ProcessGroupDICL.cpp
+  runtime/distributed/c10dOps.cpp
+  runtime/devproxy/deviceproxy.cpp
+  runtime/devproxy/diclproxy.cpp
+  runtime/core/DIPUEventPool.cpp
+  runtime/core/DIPUDeviceInfo.cpp
+  runtime/core/allocator/DIPURawCachingAllocator.cpp
+  runtime/core/allocator/DIPURawAllocator.cpp
+  runtime/core/allocator/DIPUCachingAllocator.cpp
+  runtime/core/allocator/DIPUBFCachingAllocator.cpp
+  runtime/core/allocator/DIPUBSCachingAllocator.cpp
+  runtime/core/MemChecker.cpp
+  runtime/core/guardimpl/DIPUGuardImpl.cpp
+  runtime/core/DIPUGeneratorImpl.cpp
+  runtime/core/DIPUStream.cpp
 
-# link
-target_link_libraries(${DIPU_LIB} ${DIPU_VENDOR_LIB})
+  utils/helpfunc.cpp)
 
-# note for kineto:
+add_library(torch_dipu SHARED ${TORCH_DIPU_SOURCE} ${GENERATED_KERNELS} ${VENDOR_FILES} ${VENDOR_OUTPUT_HEADER})
+target_include_directories(torch_dipu PUBLIC ..)
+
+# TODO(vendor) - replace those code with target_link_libraries.
+target_include_directories(torch_dipu SYSTEM PUBLIC ${VENDOR_INCLUDE_DIRS} ${VENDOR_DIST_DIR})
+target_link_directories(torch_dipu PRIVATE ${VENDOR_LIB_DIRS})
+target_link_libraries(torch_dipu PRIVATE ${DIPU_VENDOR_LIB})
+
+if(NOT EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
+  target_compile_definitions(torch_dipu PRIVATE DIPU_NO_VENDOR_AUTOCAST)
+endif()
+
+# Note for kineto:
 # Target kineto only contains object files. Thus we need to do something to
 # fetch header files. And kineto's public headers are also used by other
 # target, so they are marked as PUBLIC.
-target_link_libraries(${DIPU_LIB} kineto)
-target_compile_definitions(${DIPU_LIB} PRIVATE USE_KINETO)
-target_include_directories(${DIPU_LIB} SYSTEM
+target_link_libraries(torch_dipu PRIVATE kineto)
+target_compile_definitions(torch_dipu PRIVATE USE_KINETO)
+target_include_directories(torch_dipu SYSTEM
   PUBLIC "${kineto_SOURCE_DIR}/include"
   PRIVATE "${kineto_SOURCE_DIR}/src")
 
-target_link_libraries(${DIPU_LIB} diopi_impl)
-# target_link_libraries(${DIPU_LIB} -Wl,--no-as-needed diopi_impl -Wl,--as-needed)
+target_link_libraries(torch_dipu PRIVATE diopi_impl)
+target_link_libraries(torch_dipu PRIVATE Python3::Python c10 torch torch_cpu)
+target_link_libraries(torch_dipu PRIVATE Threads::Threads)
 
+#[[ Target: torch_dipu_python ]]
+set(TORCH_DIPU_PYBIND_SOURCE
+  binding/ExportRT.cpp
+  binding/ExportProfiler.cpp
+  binding/patchCsrcDevice.cpp
+  binding/ExportTensor.cpp)
 
-target_link_libraries(${DIPU_LIB} c10 torch torch_cpu)
+Python3_add_library(torch_dipu_python SHARED ${TORCH_DIPU_PYBIND_SOURCE})
 
-set(CMAKE_THREAD_PREFER_PTHREAD ON)
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-target_link_libraries(${DIPU_LIB} Threads::Threads)
-
-# copy vendor header file
-set(VENDOR_DIST "${DIST_DIR}/csrc_dipu/vendor/")
-set(VENDOR_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
-add_custom_command(
-  OUTPUT vendor_include
-  COMMAND mkdir -p ${VENDOR_DIST}
-  COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendorapi.h
-          ${VENDOR_DIST}/vendorapi.h)
-if(EXISTS "${VENDOR_HEADER_DIR}/vendor_autocast.h"
-   AND NOT IS_DIRECTORY "${VENDOR_HEADER_DIR}/vendor_autocast.h")
-  add_custom_command(
-    OUTPUT vendor_include
-    APPEND
-    COMMAND cmake -E create_symlink ${VENDOR_HEADER_DIR}/vendor_autocast.h
-            ${VENDOR_DIST}/vendor_autocast.h)
-else()
-  target_compile_definitions(${DIPU_LIB} PRIVATE DIPU_NO_VENDOR_AUTOCAST)
-endif()
-add_custom_target(copy_include DEPENDS vendor_include)
-add_dependencies(${DIPU_LIB} copy_include)
-add_dependencies(${DIPU_LIB} ${DIPU_AUTOGENED_KERNELS})
-# ---------------------- build bind in python ----------------------------------
-file(GLOB BIND_SRC_FILES binding/Export*.cpp binding/patch*.cpp)
-set(BIND_FILES ${BIND_SRC_FILES})
-add_library(${DIPU_PYTHON_LIB} SHARED ${BIND_SRC_FILES})
 # TODO: default hidden setting scope is incorrect and cannot open now because it
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
-set_target_properties(${DIPU_PYTHON_LIB} PROPERTIES CXX_VISIBILITY_PRESET
-                                                    hidden)
-target_link_libraries(${DIPU_PYTHON_LIB} ${DIPU_LIB})
-# ------------------------------------------------------------------------------
+set_target_properties(torch_dipu_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
+target_link_libraries(torch_dipu_python PUBLIC torch_dipu PRIVATE kineto)
+target_include_directories(torch_dipu_python SYSTEM PRIVATE ..)
 
-# -------------------- build _C.python extension -------------------------------
-execute_process(
-  COMMAND uname -m
-  OUTPUT_VARIABLE DIPU_C_PYTHON_EXT_ARCH
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-find_package(PythonInterp REQUIRED)
+#[[ Target: torch_dipu_cpython_extension ]]
+Python3_add_library(torch_dipu_cpython_extension SHARED stub.cpp)
+target_include_directories(torch_dipu_cpython_extension SYSTEM PRIVATE ..)
+target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE torch_python)
+target_compile_options(torch_dipu_cpython_extension PRIVATE -fstack-protector-all)
+set_target_properties(torch_dipu_cpython_extension PROPERTIES
+  OUTPUT_NAME "_C.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}-${CMAKE_SYSTEM_PROCESSOR}-linux-gnu"
+  PREFIX "")
 
-string(CONCAT DIPU_C_PYTHON_EXT_LIB
-              "_C.cpython-${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}-"
-              "${DIPU_C_PYTHON_EXT_ARCH}-linux-gnu")
-add_library(${DIPU_C_PYTHON_EXT_LIB} SHARED stub.cpp)
-set_target_properties(${DIPU_C_PYTHON_EXT_LIB} PROPERTIES PREFIX "")
-target_link_libraries(${DIPU_C_PYTHON_EXT_LIB} ${DIPU_PYTHON_LIB} torch_python)
-target_compile_options(${DIPU_C_PYTHON_EXT_LIB} PRIVATE -fstack-protector-all)
-# ------------------------------------------------------------------------------
-
-# ----------------- setup library output directory -----------------------------
-set_target_properties(
-  ${DIPU_LIB} ${DIPU_PYTHON_LIB} ${DIPU_C_PYTHON_EXT_LIB}
+set_target_properties(torch_dipu torch_dipu_python torch_dipu_cpython_extension
   PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
 
 # TODO(lljbash,lihuayi): set the lib output dir like pytorch
-# ~~~
-# Directories are organized like PyTorch.
-# set_target_properties(
-#  ${DIPU_LIB} ${DIPU_PYTHON_LIB}
-#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu/lib")
-# set_target_properties(
-#  ${DIPU_C_PYTHON_EXT_LIB}
-#  PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/torch_dipu")
-# ~~~
-# ------------------------------------------------------------------------------

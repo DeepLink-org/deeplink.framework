@@ -178,6 +178,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y = self.get_param_proxy(y, const_dtype, y_shape)
             if x_dtype == torch.float16:
                 y = self.get_proxy(ascend_op.Cast, (y, "FLOAT16"))
+        else:
+            x_dtype = x.node.meta["val"].dtype
+            y_dtype = y.node.meta["val"].dtype
+            if x_dtype != y_dtype:
+                y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
         return x, y
 
     def shape_prod(self, shape):

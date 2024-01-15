@@ -1,5 +1,7 @@
 // Copyright (c) 2023, DeepLink.
-#include <csrc_dipu/binding/exportapi.h>
+#include <Python.h>
+
+#include "csrc_dipu/binding/exportapi.h"
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<PyMethodDef> methods;
