@@ -2,9 +2,9 @@
 
 #include "DIPUAmp.hpp"
 
-#include "ATen/Operators.h"
-#include "ATen/autocast_mode.h"
-#include "torch/library.h"
+#include <ATen/Operators.h>
+#include <ATen/autocast_mode.h>
+#include <torch/library.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/device/basedef.h"
@@ -117,7 +117,12 @@ struct WrapFunction_<CastPolicy::fp32_append_dtype, device_type, Redispatch, F,
   static Ret call(Args... args) {
     c10::impl::ExcludeDispatchKeyGuard no_autocast(
         get_autocast_dispatch_key_from_device_type(device_type));
+#if DIPU_TORCH_VERSION == 20000
     at::ScalarType out_type = type_from_firstarg(at::kFloat, args...);
+#else  // # DIPU_TORCH20101 or higher
+    at::ScalarType out_type =
+        type_from_firstarg(device_type, at::kFloat, args...);
+#endif
     return (*F)(args..., out_type);
   }
 };

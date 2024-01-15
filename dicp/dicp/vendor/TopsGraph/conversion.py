@@ -239,8 +239,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
         start_indices = []
         for index in new_indices:
             in_shape = index.node.meta["val"].shape
-            offset = len(broadcast_shape) - len(in_shape)
-            broadcast_dims = [i + offset for i in range(len(in_shape))]
+            rank_diff = len(broadcast_shape) - len(in_shape)
+            broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
             start_indices.append(self.get_proxy(tops_op.Expand, (index, tuple(broadcast_shape), broadcast_dims)))
         start_indices = self.get_proxy(tops_op.Stack, (start_indices, -1))
         return self.get_proxy(tops_op.XlaGather, (operand, start_indices, offset_dims, collapsed_slice_dims,
@@ -308,7 +308,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         in_shape = a.node.meta["val"].shape
         if dim is None:
             dim = list(range(len(in_shape)))
-            return self.get_proxy(tops_op.ReduceMean, (a, dim))
+            return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
         dim = [(item + len(in_shape)) if item < 0 else item for item in dim]
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
@@ -371,8 +371,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Adaptive_avg_pool2d_backward(self, grad_output, inputs):
         out_shape = fx_traceback.get_current_meta()["val"].shape
         grad_output_shape = grad_output.node.meta["val"].shape
-        offset = len(out_shape) - len(grad_output_shape)
-        broadcast_dims = [i + offset for i in range(len(grad_output_shape))]
+        rank_diff = len(out_shape) - len(grad_output_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(grad_output_shape))]
         expand = self.get_proxy(tops_op.Expand, (grad_output, out_shape, broadcast_dims))
         value = out_shape[2] * out_shape[3]
         scalar = self.get_proxy(tops_op.Scalar, (value, ))
@@ -446,8 +446,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Expand(self, *args, **kwargs):
         in_shape = args[0].node.meta["val"].shape
         out_shape = fx_traceback.get_current_meta()["val"].shape
-        offset = len(out_shape) - len(in_shape)
-        broadcast_dims = [i + offset for i in range(len(in_shape))]
+        rank_diff = len(out_shape) - len(in_shape)
+        broadcast_dims = [i + rank_diff for i in range(len(in_shape))]
         return self.get_proxy(tops_op.Expand, (*args, broadcast_dims), kwargs)
 
     @register_conversion(aten.stack)
@@ -602,83 +602,16 @@ class AtenToTopsTransformer(SingleOpTransformer):
         div1 = self.get_proxy(tops_op.Div, (sum_dim, samples))
         return self.get_proxy(tops_op.MakeTuple, (div1, mean1))
 
+    @register_conversion(aten.addmm)
+    def Addmm(self, x, mat1, mat2):
+        dot = self.get_proxy(tops_op.Dot, (mat1, mat2))
+        return self.get_proxy(tops_op.Add, (x, dot))
 
 # Patterns
 tops_patterns = PatternMatcherPass()
-aten_patterns_cls_list = []
-register_aten_patterns = functools.partial(
-    register_backend_patterns, aten_patterns_cls_list)
 tops_patterns_cls_list = []
 register_tops_patterns = functools.partial(
     register_backend_patterns, tops_patterns_cls_list)
-
-
-@register_aten_patterns
-class ReplacePatternAddmm(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b, c):
-        return torch.ops.aten.addmm.default(a, b, c)
-
-    @staticmethod
-    def replacement(a, b, c):
-        return torch.ops.aten.add.Tensor(a, torch.ops.aten.mm(b, c))
-
-
-# %var: [#users=2] = call_function[target=torch.ops.aten.var.correction]
-#                                      (args = (%convolution_4, [0, 2, 3]), kwargs = {correction: 0, keepdim: True})
-@register_aten_patterns
-class ReplacePatternVar(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.var.correction(a, b, correction=0, keepdim=True)
-
-    @staticmethod
-    def replacement(inputs, dims):
-        keepdim = True
-        correction = 0
-        denom = 64
-        denom = denom - correction
-        mean1 = torch.ops.aten.mean.dim(inputs, dims, keepdim)
-        diffs = torch.ops.aten.square.default(
-            torch.ops.aten.sub.Tensor(inputs, mean1))
-        sum_results = torch.ops.aten.sum.dim_IntList(diffs, dims, keepdim)
-        x_var = torch.ops.aten.div.Tensor(sum_results, denom)
-        return x_var
-
-
-@register_aten_patterns
-class ReplacePatternT(BackendPatternBase):
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.t.default(a)
-
-    @staticmethod
-    def replacement(inputs):
-        return torch.ops.aten.transpose(inputs, 0, 1)
-
-
-@register_aten_patterns
-class ReplacePatternRsub(BackendPatternBase):
-    @staticmethod
-    def pattern(a, b):
-        return torch.ops.aten.rsub.Scalar(a, b)
-
-    @staticmethod
-    def replacement(a, b):
-        return torch.ops.aten.sub.Scalar(b, a)
-
-
-@register_aten_patterns
-class ReplacePatternSiLU(BackendPatternBase):
-    # silu(x) = x / (1+exp(-x)) = x*sigmoid(x)
-    @staticmethod
-    def pattern(a):
-        return torch.ops.aten.silu.default(a)
-
-    @staticmethod
-    def replacement(a):
-        return torch.ops.aten.mul.default(a, torch.ops.aten.sigmoid.default(a))
-
 
 if is_torch_210:
     Dot = torch.fx.wrap(tops_op.Dot.get_singleton())

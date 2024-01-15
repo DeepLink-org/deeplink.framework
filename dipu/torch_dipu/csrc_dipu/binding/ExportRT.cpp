@@ -13,7 +13,7 @@
 #include <csrc_dipu/runtime/rthelper.h>
 #include <csrc_dipu/utils/helpfunc.hpp>
 
-#include "DIPUpybind.h"
+#include "DIPUpybind.h"  // IWYU pragma: keep
 #include "exportapi.h"
 
 using dipu::DIPUEvent;
@@ -310,16 +310,14 @@ static void exportGenerator(py::module& m) {
 }
 
 static void exportAutocast(py::module& m) {
-  m.def("get_autocast_dipu_dtype", []() -> at::ScalarType {
-    return at::autocast::get_autocast_xpu_dtype();
-  });
-  m.def("is_autocast_dipu_enabled",
-        []() -> bool { return at::autocast::is_xpu_enabled(); });
-  m.def("set_autocast_dipu_enabled",
-        [](bool enabled) { at::autocast::set_xpu_enabled(enabled); });
-  m.def("set_autocast_dipu_dtype", [](at::ScalarType dtype) {
-    at::autocast::set_autocast_xpu_dtype(dtype);
-  });
+  m.def("get_autocast_dipu_dtype", at::autocast::get_autocast_xpu_dtype);
+  m.def("is_autocast_dipu_enabled", at::autocast::is_xpu_enabled);
+  m.def("set_autocast_dipu_enabled", at::autocast::set_xpu_enabled);
+  m.def("set_autocast_dipu_dtype", at::autocast::set_autocast_xpu_dtype);
+}
+
+static void exportUtils(py::module& m) {
+  m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
 extern void patchTorchCsrcDevice(PyObject* module);
@@ -336,5 +334,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   patchTensor(m);
   exportGenerator(m);
   exportAutocast(m);
+  exportUtils(m);
 }
 }  // namespace dipu

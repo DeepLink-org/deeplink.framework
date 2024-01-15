@@ -3,9 +3,9 @@
 
 #include <cstring>
 
-#include <csrc_dipu/vendor/vendorapi.h>
+#include "csrc_dipu/vendor/vendorapi.h"
 
-#include "./basedef.h"
+#include "basedef.h"
 
 namespace dipu {
 

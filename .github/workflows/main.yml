@@ -20,6 +20,7 @@ env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
+  CLUSTER_KLX: KUNLUNXIN
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
@@ -69,19 +70,22 @@ jobs:
           fi
       - name: Rsync to Server
         run: |
-          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" 
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main"
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-          rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to camb"
+          ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
+          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
+          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
 
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -193,7 +197,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -202,7 +206,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -249,16 +253,30 @@ jobs:
           ssh ${CUDA_CLUSTER} """
           set -e
           export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
           || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
+  Tidy-Cuda:
+    name: Run tidy (cuda)
+    needs: [Build-Cuda]
+    runs-on: github-poc-ci
+    steps:
+      - name: clang-tidy
+        run: |
+          ssh $CUDA_CLUSTER """
+          set -eo pipefail
+          source ~/.bashrc
+          (bash $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh srun --job-name=${GITHUB_RUN_NUMBER}_$GITHUB_JOB --partition=$CUDA_PARTATION --time=20) ||\
+          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1)
+          """
+
   Test-Cuda:
     name: Test-dipu-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -289,7 +307,7 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda]
+    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -340,7 +358,7 @@ jobs:
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
               rm -rf one_iter_data
-              touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
 
       - name: Check for failure
@@ -349,7 +367,7 @@ jobs:
 
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
       GPU_REQUESTS: 1
@@ -383,7 +401,7 @@ jobs:
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Rsync]
+    needs: [Tidy-Cuda]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch
@@ -439,7 +457,7 @@ jobs:
           cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh build_ascend910b
 
-      - name: Run one iter tools
+      - name: run-one-iter-for-tradition
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
@@ -450,13 +468,24 @@ jobs:
           rm -rf one_iter_data
           python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
+      - name: run-one-iter-for-llm
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_ascend ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          python ../scripts/ci/ci_run_one_iter.py ascend "" "" "" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
       - name: Perform cleanup one iter data
         if: always()
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
 
       - name: Check for failure
         if: ${{ failure() }}
@@ -487,3 +516,55 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Ascend-Latest-Target && exit 1 )
+
+  Build-Kunlunxin:
+    name: Build-Kunlunxin
+    needs: [Tidy-Cuda]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          echo "build and test, you can refer to the Ascend" \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Kunlunxin:
+    name: Test-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+  Test-One-Iter-Kunlunxin:
+    name: Test-One-Iter-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          echo "test and clean, you can refer to the Ascend"
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1
