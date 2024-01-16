@@ -63,6 +63,14 @@ else()
   message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
 
+add_compile_definitions(DIPU_VENDOR_NAME=${UsedVendor})
+message(STATUS "DIPU_VENDOR_NAME: " ${UsedVendor})
+
+string(TOUPPER ${UsedVendor} UsedVendorUpper)
+string(CONCAT DIPU_VENDOR_NAME_FLAG_DEF "DIPU_VENDOR_NAME_" ${UsedVendorUpper})
+add_compile_definitions(${DIPU_VENDOR_NAME_FLAG_DEF}=1)
+message(STATUS "Vendor name flag definition: " ${DIPU_VENDOR_NAME_FLAG_DEF})
+
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
 execute_process(COMMAND sh -c "git status --porcelain | egrep '^(M| M)' | wc -l"
                 OUTPUT_VARIABLE DIPU_MODIFY_LEN)
