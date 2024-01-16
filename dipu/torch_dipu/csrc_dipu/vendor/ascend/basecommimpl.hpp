@@ -40,6 +40,22 @@ bool isPinnedPtr(const void* p) {
   return false;
 }
 
+#define TRACK_ACL(x)                                               \
+  {                                                                \
+    static bool enable = std::getenv("DIPU_TRACK_ACL") != nullptr; \
+    if (enable) {                                                  \
+      printf("[%d %s: %d]:%s\n", getpid(), __FILE__, __LINE__, x); \
+    }                                                              \
+  }
+
+#define DIPU_CALLACLRT(Expr)                                               \
+  {                                                                        \
+    TRACK_ACL(#Expr);                                                      \
+    ::aclError ret = Expr;                                                 \
+    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
+                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
+  }
+
 #define TRACK_HCCL(x)                                                  \
   {                                                                    \
     static bool enable = std::getenv("DIPU_TRACK_HCCL") != nullptr;    \
