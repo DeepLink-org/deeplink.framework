@@ -40,13 +40,12 @@ bool isPinnedPtr(const void* p) {
   return false;
 }
 
-
-#define TRACK_HCCL(x)                                                     \
-  {                                                                   \
-    static bool enable = std::getenv("DIPU_TRACK_HCCL") != nullptr; \
-    if (enable) {                                                   \
-      printf("[%d %s: %d]:%s\n", getpid(), __FUNCTION__, __LINE__, x);           \
-    }                                                               \
+#define TRACK_HCCL(x)                                                  \
+  {                                                                    \
+    static bool enable = std::getenv("DIPU_TRACK_HCCL") != nullptr;    \
+    if (enable) {                                                      \
+      printf("[%d %s: %d]:%s\n", getpid(), __FUNCTION__, __LINE__, x); \
+    }                                                                  \
   }
 
 #define HCCL_THROW(cmd)                                           \
