@@ -46,7 +46,7 @@ def try_to_get_dtype(x):
     return None
 
 
-def is_cpp_support_dtype(dtype):
+def is_dicp_cpp_support_dtype(dtype):
     if dtype in [torch.float32, torch.float, torch.int32, torch.int64]:
         return True
     return False
@@ -147,7 +147,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             else:
                 shape = target_shape
             param = param if isinstance(param, list) else [param]
-            if is_cpp_support_dtype(dtype):
+            if is_dicp_cpp_support_dtype(dtype):
                 param = self.get_proxy(
                     ascend_op.Const, (param, dtype, shape, format))
             else:
@@ -229,11 +229,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.mul_scalar(x, y)
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(y.node.meta['val'].shape)
-        # handling with broadcasting cases
-        if np.prod(x_shape) < np.prod(y_shape):
-            x = self.get_proxy(ascend_op.BroadcastTo, (x, y_shape))
-        elif np.prod(x_shape) > np.prod(y_shape):
-            y = self.get_proxy(ascend_op.BroadcastTo, (y, x_shape))
         x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
         return self.get_proxy(ascend_op.Mul, (x, y), {})
 
@@ -589,11 +584,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(value, torch.fx.proxy.Proxy) and hasattr(value.node, 'meta'):
             value = value.node.meta['val']
         dims = self.get_shape_proxy(dims)
-        # temporarily split the path for dynamic/static shape cases
-        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-            value = self.get_proxy(ascend_op.Const, ([value], torch_dtype, []))
-        else:
-            value = self.get_const_proxy(value, torch_dtype)
+        value = self.get_const_proxy(value, torch_dtype)
         return self.get_proxy(ascend_op.Fill, (dims, value))
 
     @register_conversion(torch.ops.aten.fill.Scalar)
@@ -820,9 +811,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def maximum(self, a, b):
         a_shape = list(a.node.meta['val'].shape)
         b_shape = list(b.node.meta['val'].shape)
-        if np.prod(b_shape) < np.prod(a_shape):
-            b = self.get_proxy(ascend_op.BroadcastTo, (b, a_shape))
-        b = self.promote_dtype(b, a.node.meta['val'].dtype)
+        b = self.promote_dtype(b, target_dtype=a.node.meta['val'].dtype)
         return self.get_proxy(ascend_op.Maximum, (a, b))
 
     @register_conversion(aten.sub)
