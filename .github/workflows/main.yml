@@ -264,8 +264,9 @@ jobs:
       - name: clang-tidy
         run: |
           set -eo pipefail
+          echo """
           srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh " || \
-          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1)
+          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1) """
 
   Test-Cuda:
     name: Test-dipu-cuda
