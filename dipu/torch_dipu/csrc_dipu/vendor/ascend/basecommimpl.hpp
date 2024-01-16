@@ -40,33 +40,25 @@ bool isPinnedPtr(const void* p) {
   return false;
 }
 
-#define TRACK_ACL(x)                                               \
-  {                                                                \
-    static bool enable = std::getenv("DIPU_TRACK_ACL") != nullptr; \
-    if (enable) {                                                  \
-      printf("[%d %s: %d]:%s\n", getpid(), __FILE__, __LINE__, x); \
-    }                                                              \
+#define TRACK_FUN_CALL(TAG, x)                                       \
+  {                                                                  \
+    static bool enable = std::getenv("DIPU_TRACK_" #TAG) != nullptr; \
+    if (enable) {                                                    \
+      printf("[%d %s: %d]:%s\n", getpid(), __FILE__, __LINE__, x);   \
+    }                                                                \
   }
 
 #define DIPU_CALLACLRT(Expr)                                               \
   {                                                                        \
-    TRACK_ACL(#Expr);                                                      \
+    TRACK_FUN_CALL(ACL, #Expr);                                            \
     ::aclError ret = Expr;                                                 \
     TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
                 ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
   }
 
-#define TRACK_HCCL(x)                                                  \
-  {                                                                    \
-    static bool enable = std::getenv("DIPU_TRACK_HCCL") != nullptr;    \
-    if (enable) {                                                      \
-      printf("[%d %s: %d]:%s\n", getpid(), __FUNCTION__, __LINE__, x); \
-    }                                                                  \
-  }
-
 #define HCCL_THROW(cmd)                                           \
   do {                                                            \
-    TRACK_HCCL(#cmd)                                              \
+    TRACK_FUN_CALL(HCCL, #cmd)                                    \
     TORCH_CHECK(cmd == HCCL_SUCCESS,                              \
                 "HCCL error in: " + std::string(__FILE__) + ":" + \
                     std::to_string(__LINE__) + ".\n" +            \
