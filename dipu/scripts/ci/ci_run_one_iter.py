@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
     device = args.device
     if device == 'sco':
-        max_parall = 5
+        max_parall = 4
     job_name = args.job_name
     gpu_requests = args.gpu_requests
     partition = args.partition_arg
