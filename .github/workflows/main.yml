@@ -561,6 +561,7 @@ jobs:
           source scripts/ci/ci_one_iter.sh export_pythonpath_kunlunxin ${basic_path}
           cd mmlab_pack
           rm -rf one_iter_data
+          XDNN_CONV_GEMM_DTYPE=int16 XPUAPI_DEBUG_CUSTOM_OP_LEVEL="broadcast_add,0x11" \
           python ../scripts/ci/ci_run_one_iter.py kunlunxin "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
       - name: Perform cleanup one iter data
