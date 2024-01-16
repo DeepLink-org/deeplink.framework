@@ -26,7 +26,7 @@ def test_fallback(
 
             test_fn()
     output = captured.getvalue().decode()
-    print(output, end="")
+    print(output, end="", flush=True)
     assert all(
         f"force fallback has been set, {name} will be fallback to cpu" in output
         for name in op_names
@@ -96,14 +96,16 @@ def _test_dipu_copy_fallback_():
 
         assert torch.allclose(target_tensor, target_dipu.cpu())
 
-        N, C, H, W = 1, 3, 2, 2
-        x = torch.empty(N, C, H, W)
-        x1 = x.to(memory_format=torch.channels_last).cuda()
-        x2stride = list(x1.stride())
-        x2stride[0] = 4
-        x2 = x.as_strided(x1.size(), tuple(x2stride)).cuda()
-        y = torch.empty(N, C, H, W).cuda()
-        y.copy_(x2)
+        # detect the occasional occurrence problem of copy_
+        for i in range(100):
+            N, C, H, W = 1, 3, 2, 2
+            x = torch.randn(N, C, H, W)
+            x1 = x.to(memory_format=torch.channels_last).cuda()
+            x2stride = list(x1.stride())
+            x2stride[0] = 4
+            x2 = x.as_strided(x1.size(), tuple(x2stride)).cuda()
+            y = torch.randn(N, C, H, W).cuda()
+            y.copy_(x2)
 
         assert torch.allclose(y, x2)
 
@@ -168,6 +170,7 @@ def _test_dipu_convolution_overrideable_fallback():
         ["custom fallback to cpu, name=convolution_overrideable"],
     )
 
+
 def _test_dipu_silu_fallback():
     def fn():
         m = torch.nn.SiLU().cuda()
@@ -197,7 +200,7 @@ if __name__ == "__main__":
             _test_dipu_copy_fallback_,
             _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
-            _test_dipu_silu_fallback
+            _test_dipu_silu_fallback,
         ],
         in_parallel=True,
     )
