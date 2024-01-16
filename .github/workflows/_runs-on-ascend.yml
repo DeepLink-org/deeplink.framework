@@ -45,6 +45,11 @@ jobs:
               python setup.py clean && \
               python setup.py install --user && \
               cd - && \
+              cd /mnt/cache/share/deeplinkci/dicp_env/diffusers && \
+              pip uninstall diffusers -y && \
+              python setup.py clean && \
+              python setup.py install --user && \
+              cd - && \
               pip uninstall torch_dipu -y && \
               pip uninstall dicp -y && \
               cd dipu && python setup.py clean && python setup.py install --user && \
