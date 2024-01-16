@@ -7,6 +7,7 @@
 
 #include <hccl/hccl.h>
 #include <hccl/hccl_types.h>
+#include <unistd.h>
 
 #include <c10/util/Exception.h>
 
@@ -18,7 +19,7 @@ namespace dipu {
   {                                                                \
     static bool enable = std::getenv("DIPU_TRACK_ACL") != nullptr; \
     if (enable) {                                                  \
-      printf("[%s: %d]:%s\n", __FILE__, __LINE__, x);              \
+      printf("[%d %s: %d]:%s\n", getpid(), __FILE__, __LINE__, x);              \
     }                                                              \
   }
 

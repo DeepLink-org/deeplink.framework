@@ -2,6 +2,7 @@
 
 #include <acl/acl.h>
 #include <cstring>
+#include <unistd.h>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/diclapis.h>
@@ -39,8 +40,18 @@ bool isPinnedPtr(const void* p) {
   return false;
 }
 
+
+#define TRACK_HCCL(x)                                                     \
+  {                                                                   \
+    static bool enable = std::getenv("DIPU_TRACK_HCCL") != nullptr; \
+    if (enable) {                                                   \
+      printf("[%d %s: %d]:%s\n", getpid(), __FUNCTION__, __LINE__, x);           \
+    }                                                               \
+  }
+
 #define HCCL_THROW(cmd)                                           \
   do {                                                            \
+    TRACK_HCCL(#cmd)                                              \
     TORCH_CHECK(cmd == HCCL_SUCCESS,                              \
                 "HCCL error in: " + std::string(__FILE__) + ":" + \
                     std::to_string(__LINE__) + ".\n" +            \

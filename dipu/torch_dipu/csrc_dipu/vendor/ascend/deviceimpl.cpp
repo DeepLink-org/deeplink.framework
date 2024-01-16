@@ -12,22 +12,21 @@ DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::NPU;
 
 namespace devapis {
 
-void initializeVendor() {}
-
-void finalizeVendor() {}
-
 // =====================
 //  Device class related
 // =====================
 using ascend_deviceId = int32_t;
 thread_local bool setDevFlag = false;
 
-static int initValue = []() {
+
+void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
-  DIPU_CALLACLRT(aclrtSetDevice(0));
-  setDevFlag = true;
-  return 0;
-}();
+}
+
+void finalizeVendor() {
+  DIPU_CALLACLRT(aclFinalize());
+}
+
 
 deviceId_t current_device() {
   if (setDevFlag == false) {
