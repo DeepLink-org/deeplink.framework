@@ -141,14 +141,15 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     def get_const_proxy(self, param, type, target_shape=None):
         if not isinstance(param, torch.fx.proxy.Proxy) and not isinstance(param, FakeTensor):
+            shape = [len(param)] if isinstance(param, list) else []
             param = param if isinstance(param, list) else [param]
             if is_cpp_support_dtype(type):
                 param = self.get_proxy(
-                    ascend_op.Const, (param, type, [len(param)]))
+                    ascend_op.Const, (param, type, shape))
             else:
                 const = self.get_proxy(
-                    ascend_op.Const, (param, torch.float32, [len(param)]))
-                param = self.get_proxy(ascend_op.Cast, (const, get_ascend_dtype(type)), {})
+                    ascend_op.Const, (param, torch.float32, shape))
+                param = self.get_proxy(ascend_op.Cast, (const, get_ascend_dtype(type)))
         return param
 
     def mul_scalar(self, x, y):
@@ -627,7 +628,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             value = self.get_proxy(ascend_op.Const, ([value], torch_dtype, []))
         else:
-            value = self.common_process_scalar(value, torch_dtype)
+            value = self.get_const_proxy(value, torch_dtype)
         return self.get_proxy(ascend_op.Fill, (dims, value))
 
     @register_conversion(torch.ops.aten.fill.Scalar)
