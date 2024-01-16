@@ -11,7 +11,11 @@ from utils.local_eviron import local_eviron
 
 
 def check_string_in_directory(directory, search_string):
-    grep_process = subprocess.Popen(["grep", "-r", search_string, directory], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    grep_process = subprocess.Popen(
+        ["grep", "-r", search_string, directory],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     output, _ = grep_process.communicate()
     if output:
         return True
@@ -32,7 +36,6 @@ class TestProfiler(TestCase):
         self.assertTrue(check_string_in_directory(path, "aten::add_"))
         self.assertTrue(check_string_in_directory(path, "Add"))
 
-
     @onlyOn("NPU")
     def test_dicp_profiler(self):
         def fn(x):
@@ -41,7 +44,7 @@ class TestProfiler(TestCase):
             y = torch.relu(y)
             return y
 
-        opt_model = torch.compile(fn, backend='ascendgraph')
+        opt_model = torch.compile(fn, backend="ascendgraph")
         input = torch.randn(2, 3).cuda()
         # warmup
         for _ in range(5):
@@ -68,7 +71,9 @@ class TestProfiler(TestCase):
                 record_shapes=True,
                 with_modules=True,
                 with_stack=True,
-                experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True)
+                experimental_config=torch._C._profiler._ExperimentalConfig(
+                    verbose=True
+                ),
             ) as prof:
                 output = model(inputs)
                 output.sum().backward()
@@ -88,12 +93,14 @@ class TestProfiler(TestCase):
         self.assertIn("5, 3, 224, 224", profile_output)
 
         profile_stack_output = prof.key_averages(group_by_stack_n=15).table(
-            sort_by="cuda_time_total", row_limit=1000)
+            sort_by="cuda_time_total", row_limit=1000
+        )
         self.assertIn("Source Location", profile_stack_output)
         self.assertIn("resnet.py", profile_stack_output)
 
         profile_memory_output = prof.key_averages().table(
-            sort_by="self_cuda_memory_usage", row_limit=1000)
+            sort_by="self_cuda_memory_usage", row_limit=1000
+        )
         self.assertIn("Self CPU Mem", profile_memory_output)
         self.assertIn("Self CUDA Mem", profile_memory_output)
         self.assertIn("Mb", profile_memory_output)
@@ -114,7 +121,9 @@ class TestProfiler(TestCase):
                 record_shapes=True,
                 with_modules=True,
                 with_stack=True,
-                experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True)
+                experimental_config=torch._C._profiler._ExperimentalConfig(
+                    verbose=True
+                ),
             ) as prof:
                 output = model(inputs)
                 output.sum().backward()
@@ -135,12 +144,14 @@ class TestProfiler(TestCase):
         self.assertIn("5, 3, 224, 224", profile_output)
 
         profile_stack_output = prof.key_averages(group_by_stack_n=15).table(
-            sort_by="cuda_time_total", row_limit=1000)
+            sort_by="cuda_time_total", row_limit=1000
+        )
         self.assertIn("Source Location", profile_stack_output)
         self.assertIn("resnet.py", profile_stack_output)
 
         profile_memory_output = prof.key_averages().table(
-            sort_by="self_cuda_memory_usage", row_limit=1000)
+            sort_by="self_cuda_memory_usage", row_limit=1000
+        )
         self.assertIn("Self CPU Mem", profile_memory_output)
         self.assertIn("Self CUDA Mem", profile_memory_output)
         self.assertIn("Mb", profile_memory_output)

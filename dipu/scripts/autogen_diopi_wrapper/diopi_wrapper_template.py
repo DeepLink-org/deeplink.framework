@@ -1,6 +1,5 @@
 # Copyright (c) 2023, DeepLink.
-diopi_wrapper_file_template_content = \
-"""// autogened file
+diopi_wrapper_file_template_content = """// autogened file
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -95,8 +94,7 @@ DIPU_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
 
 """
 
-diopi_wrapper_function_template_content = \
-"""
+diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
   dipu::profile::RecordBlockCreator _(__FUNCTION__);
@@ -128,18 +126,15 @@ $cppsignautre {
 }
 """
 
-op_register_template_content = \
-"""
+op_register_template_content = """
 DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
 """
 
-op_with_custom_fallback_register_template_content = \
-"""
+op_with_custom_fallback_register_template_content = """
 DIOPI_ATEN_FUNC_CUSTOM_FALLBACK("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
 """
 
-custom_autograd_template_content = \
-"""
+custom_autograd_template_content = """
 class $autograd_function_name : public torch::autograd::Function<$autograd_function_name> {
 public:
   static $return_code forward(torch::autograd::AutogradContext *ctx, $param_list) {
@@ -169,8 +164,7 @@ $cppsignautre {
 """
 
 
-autocompare_template_content = \
-"""
+autocompare_template_content = """
 //  $comment
 $cppsignautre {
   std::cout << std::endl << __FUNCTION__ << std::endl;

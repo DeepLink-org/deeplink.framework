@@ -30,13 +30,15 @@ def is_iterable(obj):
 cpu = "cpu"
 dipu = torch.device("dipu")
 
+
 def merge_disabled_dict(dict_self, dict_other):
     for tclass in dict_self:
-      if dict_other.get(tclass):
-        dict_self.get(tclass).update(dict_other.get(tclass))
-        del dict_other[tclass]
+        if dict_other.get(tclass):
+            dict_self.get(tclass).update(dict_other.get(tclass))
+            del dict_other[tclass]
     dict_self.update(dict_other)
     return dict_self
+
 
 def iter_indices(tensor):
     if tensor.dim() == 0:
@@ -319,9 +321,7 @@ class TestCase(expecttest.TestCase):
                 if allow_inf:
                     inf_mask = torch.isinf(a)
                     inf_sign = inf_mask.sign()
-                    self.assertTrue(
-                        torch.equal(inf_sign, torch.isinf(b).sign()), msg
-                    )
+                    self.assertTrue(torch.equal(inf_sign, torch.isinf(b).sign()), msg)
                     diff[inf_mask] = 0
             # TODO: implement abs on CharTensor (int8)
             # TODO: modify abs to return float/double for ComplexFloat/ComplexDouble
@@ -469,9 +469,7 @@ class TestCase(expecttest.TestCase):
         else:
             self._assert_tensor_equal(x, y, msg, exact_dtype, allow_inf, prec)
 
-    def assertEqual(
-        self, x, y, prec=None, msg=None, allow_inf=False, exact_dtype=None
-    ):
+    def assertEqual(self, x, y, prec=None, msg=None, allow_inf=False, exact_dtype=None):
         if exact_dtype is None:
             exact_dtype = self.exact_dtype
 
@@ -481,9 +479,7 @@ class TestCase(expecttest.TestCase):
         if prec is None:
             prec = self.precision
 
-        def _assertEqual(
-            x, y, prec=None, msg=None, allow_inf=False, exact_dtype=None
-        ):
+        def _assertEqual(x, y, prec=None, msg=None, allow_inf=False, exact_dtype=None):
             string_classes = (str, bytes)
             if isinstance(x, Number) or isinstance(y, Number):
                 self._assertNumberEqual(
