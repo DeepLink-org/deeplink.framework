@@ -36,7 +36,7 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "BOOL"
     elif dtype == torch.int64:
         return "INT64"
-    elif dtype == torch.float32:
+    elif dtype in [torch.float32, torch.float]:
         return "FLOAT"
     elif dtype == torch.float16:
         return "FLOAT16"
