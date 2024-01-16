@@ -290,7 +290,6 @@ jobs:
           ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source ${ENV_PATH}/dipu_env
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
-          """
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
@@ -340,7 +339,6 @@ jobs:
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
           && source ${ENV_PATH}/dipu_env  \
           && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
 
   Test-Cuda-Latest-Target:
     name: Test-dipu-cuda-latest-target
