@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-
+source /mnt/cache/share/deeplinkci/github/proxy_on
 # Require Git.
 [ -x "$(command -v git)" ] || (echo "missing git tool" && exit 1)
 
