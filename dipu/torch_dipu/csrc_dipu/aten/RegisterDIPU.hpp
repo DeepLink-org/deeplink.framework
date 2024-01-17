@@ -8,6 +8,8 @@
 
 #include <torch/library.h>
 
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
+
 namespace dipu {
 
 bool get_force_fallback(const char* opname);
@@ -46,6 +48,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // add type trait code. 2. pytorch seems are sorting out infer and other
 // pre/post code. so we shouldn't created a new preprocess logic?
 // so just do a simple runtime cpu fallback to support diopi func loss
+
+// It mat be necessary to determine whether to keep torchop default impl
+// for non-custom ops through function dipuKeepTorchopDefaultImpl firstly in the
+// future, and we use force fallback to keep torchop default impl now.
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc)                       \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \
@@ -62,9 +68,14 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                        \
   } while (false);
 
+// Determine whether to keep torchop default impl for custom ops through
+// function dipuKeepTorchopDefaultImpl firstly.
 #define DIOPI_ATEN_FUNC_CUSTOM_FALLBACK(opname, diopi_func, force_fallback,   \
                                         wapper_func, custom_fallback_func)    \
   do {                                                                        \
+    if (dipu::native::dipuKeepTorchopDefaultImpl(opname)) {                   \
+      break;                                                                  \
+    }                                                                         \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
         !((force_fallback) || dipu::get_force_fallback(opname))) {            \
       m.impl(opname, TORCH_FN(wapper_func));                                  \
