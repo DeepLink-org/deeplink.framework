@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-
+source ~/.bashrc
 # Require Git.
 [ -x "$(command -v git)" ] || (echo "missing git tool" && exit 1)
 
