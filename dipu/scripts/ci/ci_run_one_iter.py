@@ -100,14 +100,14 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         current_path = os.getcwd()
         parent_directory = os.path.dirname(current_path)
         if (p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py"):
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source /mnt/cache/share/deeplinkci/github/dipu_env && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
             cmd_cp_one_iter = ""
         elif ('infer' in p2 and 'infer' in p3):
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && python {current_path}/{train_path}" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source /mnt/cache/share/deeplinkci/github/dipu_env && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && python {current_path}/{train_path}" """
             cmd_cp_one_iter = ""
         else:
-            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory}  && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}" """
-            cmd_cp_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory}  && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}" """
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory}  && source /mnt/cache/share/deeplinkci/github/dipu_env && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}" """
+            cmd_cp_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory}  && source /mnt/cache/share/deeplinkci/github/dipu_env && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && cd mmlab_pack && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}" """
     elif device == "camb" :
         # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
         if ('infer' in p2 and 'infer' in p3):
