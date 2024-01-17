@@ -3,6 +3,7 @@
 
 #define HCCL_THROW(cmd)                                           \
   do {                                                            \
+    TRACK_FUN_CALL(HCCL, #cmd);                                   \
     TORCH_CHECK(cmd == HCCL_SUCCESS,                              \
                 "HCCL error in: " + std::string(__FILE__) + ":" + \
                     std::to_string(__LINE__) + ".\n" +            \
