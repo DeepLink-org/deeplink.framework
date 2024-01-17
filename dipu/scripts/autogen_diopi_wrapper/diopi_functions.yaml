@@ -28,6 +28,17 @@
   register_op: False
 
 - schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
+  device: [all, -cuda, -ascend]
+  custom_code_at_the_beginning: |
+    TORCH_CHECK(!( (c10::isFloatingType(other.scalar_type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
+        " result type Float can't be cast to the desired output type Int");
+    if (other.numel() == 1) {
+        return dipu_add__scalar(self, other.cpu().item(), alpha);
+    }
+  interface: diopiAddInp(ctx, self, other, alpha)
+
+- schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
+  device: [cuda, ascend]
   no_device_check_args: [other]
   ins: [otherTemp]
   custom_code_at_the_beginning: |
@@ -37,12 +48,29 @@
   interface: diopiAddInp(ctx, self, otherTemp, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  no_device_check_args: [self, other]
-  ins: [selfTemp, otherTemp]
+  device: [all, -cuda, -ascend]
   custom_code_at_the_beginning: |
-    auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
-    auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
-  interface: diopiAdd(ctx, out, selfTemp, otherTemp, alpha)
+    if (other.numel() == 1 && other.is_cpu()) {
+        return dipu_add_scalar_out(self, other.item(), alpha, out);
+    } 
+    if (self.numel() == 1 && self.is_cpu()) {
+        if (alpha.toDouble() == 1.0) {
+          return dipu_add_scalar_out(other, self.item(), alpha, out);
+        }
+        dipu_fill__scalar(out, self.item());
+        return dipu_add__tensor(out, other, alpha);
+    }
+  interface: diopiAdd(ctx, out, self, other, alpha)
+
+- schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  device: [cuda, ascend]
+  no_device_check_args: [self, other]
+  # ins: [selfTemp, otherTemp]
+  # custom_code_at_the_beginning: |
+  #   auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
+  #   auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
+  # interface: diopiAdd(ctx, out, selfTemp, otherTemp, alpha)
+  interface: diopiAdd(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSubScalar(ctx, out, self, other, alpha)
