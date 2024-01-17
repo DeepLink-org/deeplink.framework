@@ -7,7 +7,10 @@
 
 namespace dipu {
 
-constexpr const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
+// TODO(lilingjie,fandaoyi): use constexpr after 910b CI is ready
+// throw in constexpr funtions (c++14) is not supported in gcc-7.5, which is a
+// known bug already fixed later (at least in gcc-10.x).
+inline const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
   switch (t) {
     case devapis::VendorDeviceType::MLU:
       return "MLU";
@@ -33,7 +36,10 @@ constexpr bool c_string_equal(const char* a, const char* b) noexcept {
   return *a == *b && (*a == '\0' || c_string_equal(a + 1, b + 1));
 }
 
-constexpr devapis::VendorDeviceType VendorNameToDeviceType(const char* str) {
+// TODO(lilingjie,fandaoyi): use constexpr after 910b CI is ready
+// throw in constexpr funtions (c++14) is not supported in gcc-7.5, which is a
+// known bug already fixed later (at least in gcc-10.x).
+inline devapis::VendorDeviceType VendorNameToDeviceType(const char* str) {
 #define DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(name, type) \
   if (c_string_equal(str, #name)) {                          \
     return devapis::VendorDeviceType::type;                  \
