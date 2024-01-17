@@ -27,44 +27,5 @@ struct Map {
   }
 };
 
-// HCCL ReduceOp mapping
-std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
-    {ReduceOp::MIN, HCCL_REDUCE_MIN},
-    {ReduceOp::MAX, HCCL_REDUCE_MAX},
-    {ReduceOp::SUM, HCCL_REDUCE_SUM},
-    {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
-};
-
-bool isPinnedPtr(const void* p) {
-  TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");
-  return false;
-}
-
-#define TRACK_FUN_CALL(TAG, x)                                       \
-  {                                                                  \
-    static bool enable = std::getenv("DIPU_TRACK_" #TAG) != nullptr; \
-    if (enable) {                                                    \
-      printf("[%d %s: %d]:%s\n", getpid(), __FILE__, __LINE__, x);   \
-    }                                                                \
-  }
-
-#define DIPU_CALLACLRT(Expr)                                               \
-  {                                                                        \
-    TRACK_FUN_CALL(ACL, #Expr);                                            \
-    ::aclError ret = Expr;                                                 \
-    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
-                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
-  }
-
-#define HCCL_THROW(cmd)                                           \
-  do {                                                            \
-    TRACK_FUN_CALL(HCCL, #cmd)                                    \
-    TORCH_CHECK(cmd == HCCL_SUCCESS,                              \
-                "HCCL error in: " + std::string(__FILE__) + ":" + \
-                    std::to_string(__LINE__) + ".\n" +            \
-                    "And see details in Ascend logs.\n" +         \
-                    aclGetRecentErrMsg());                        \
-  } while (0)
-
 }  // namespace devapis
 }  // namespace dipu

@@ -6,6 +6,13 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
+#define DIPU_CALLACLRT(Expr)                                               \
+  {                                                                        \
+    ::aclError ret = Expr;                                                 \
+    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
+                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
+  }
+
 namespace dipu {
 
 DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::NPU;
@@ -251,6 +258,11 @@ void createEvent(deviceEvent_t* event) {
 
 void destroyEvent(deviceEvent_t event) {
   DIPU_CALLACLRT(::aclrtDestroyEvent(event))
+}
+
+bool isPinnedPtr(const void* p) {
+  TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");
+  return false;
 }
 
 }  // end namespace devapis
