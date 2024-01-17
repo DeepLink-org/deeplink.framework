@@ -26,7 +26,7 @@ jobs:
     runs-on: ${{ inputs.runner }}
     needs: checkout_code
     steps:
-      - name: build and test on topsrider
+      - name: build on topsrider
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
           build_shell: "
@@ -34,11 +34,19 @@ jobs:
                        pip uninstall torch_dipu -y && \
                        pip uninstall dicp -y && \
                        cd dipu && python setup.py install --user && \
-                       cd ../dicp && python setup.py install --user && \
-                       cd .. && source dicp/scripts/ci/tops/ci_tops_test_env.sh /mnt/models/llama_models && \
-                       export TEST_DIR=$(pwd)/dicp/test && echo ${TEST_DIR} && \
-                       bash ${TEST_DIR}/tops_scripts/ops/run_test_ops.sh false && \
-                       bash ${TEST_DIR}/tops_scripts/models/run_test_models.sh false
+                       cd ../dicp && python setup.py install --user
                        "
           job_name: "build_test"
           cover_job: "0"
+
+      - name: test ops on topsrider
+        uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
+        with:
+          build_shell: "
+                       source dicp/scripts/ci/tops/ci_tops_test_env.sh \
+                       /mnt/models/llama_models /mnt/models/stable_diffusion_models && \
+                       export TEST_DIR=$(pwd)/dicp/test && \
+                       bash ${TEST_DIR}/tops_scripts/ops/run_test_ops.sh false
+                       "
+          job_name: "build_test"
+          cover_job: "1"

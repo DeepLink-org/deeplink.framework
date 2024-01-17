@@ -19,15 +19,25 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
   uint64_t seed() override;
   static at::DeviceType device_type();
   c10::intrusive_ptr<c10::TensorImpl> get_state() const override;
-  void set_state(const c10::TensorImpl& state) override{};
-  virtual void set_offset(uint64_t offset){};
-  virtual uint64_t get_offset() const { return 0; };
+
+// todo:(fandaoyi) for 3rd lib to use dipu, need add dipu_cfg.h to contain
+// DIPU_TORCH_VERSION.
+#if DIPU_TORCH_VERSION == 20101
+  void set_offset(uint64_t offset) override { offset_ = offset; }
+  uint64_t get_offset() const override { return offset_; }
+
+#else  // # temp solution, default use torch2.0.0
+  virtual void set_offset(uint64_t offset) { offset_ = offset; }
+  virtual uint64_t get_offset() const { return offset_; }
+
+#endif
 
  protected:
   void set_state_flag(bool flag);
-  virtual void update_state() const {}
+  virtual void update_state() const = 0;
 
   DIPUGeneratorImpl* clone_impl() const override;
+  volatile uint64_t offset_;
   uint64_t seed_ = c10::default_rng_seed_val;
   mutable at::Tensor state_;
   mutable bool state_need_reset_;

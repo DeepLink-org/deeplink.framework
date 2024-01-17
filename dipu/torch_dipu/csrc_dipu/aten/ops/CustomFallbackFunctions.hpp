@@ -1,6 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <algorithm>
+#include <iterator>
+
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 
 #include "OpUtils.hpp"
@@ -31,10 +34,9 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu_out"
                            << std::endl);
   auto self_cpu = to_cpu_with_half_to_float(self);
-  auto out_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = to_cpu_with_half_to_float(out);
 
-  // NOLINTNEXTLINE(readability-suspicious-call-argument): It's the correct order
-  out_cpu = at::silu_out(self_cpu, out_cpu);
+  out_cpu = at::silu_out(out_cpu, self_cpu);
   out.copy_(out_cpu);
   return out;
 }
@@ -45,12 +47,11 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   indices_cpu.reserve(indices.size());
   // input as x[1:2, [1, 2]], Slice by first dimension already executed before
   // this index(), in this case, indices[0] is an undefinedTensor.
-  for (int i = 0; i < indices.size(); ++i) {
-    indices_cpu.push_back(
-        (indices[i].has_value() && indices[i].value().defined())
-            ? indices[i].value().to("cpu")
-            : at::Tensor());
-  }
+  std::transform(
+      indices.begin(), indices.end(), std::back_inserter(indices_cpu),
+      [](const c10::optional<at::Tensor>& tensor) {
+        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      });
   return indices_cpu;
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
@@ -273,6 +274,48 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   }
 
   return std::make_tuple(grad_input, grad_weight, grad_bias);
+}
+
+static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
+    const at::Tensor& grad_out, const at::Tensor& input,
+    const at::Tensor& other, ::std::array<bool, 2> mask) {
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=matmul_backward\n");
+  auto grad_out_cpu = to_cpu_with_half_to_float(grad_out);
+  auto input_cpu = to_cpu_with_half_to_float(input);
+  auto other_cpu = to_cpu_with_half_to_float(other);
+
+  if (other.dim() == 1) {
+    other_cpu.unsqueeze_(-1);
+    grad_out_cpu.unsqueeze_(-1);
+  }
+
+  if (input.dim() == 1) {
+    input_cpu.unsqueeze_(0);
+    grad_out_cpu.unsqueeze_(-2);
+  }
+
+  const auto device = input.device();
+  at::Tensor grad_input;
+  at::Tensor grad_other;
+
+  if (mask[0]) {
+    grad_input =
+        at::sum_to(at::matmul(grad_out_cpu, other_cpu.transpose(-1, -2)),
+                   input.sizes())
+            .to(device, input.dtype());
+  }
+
+  if (mask[1]) {
+    at::Tensor grad_other_cpu =
+        at::matmul(input_cpu.transpose(-1, -2), grad_out_cpu);
+    if (other.dim() == 1) {
+      grad_other_cpu.squeeze_(-1);
+    }
+    grad_other =
+        at::sum_to(grad_other_cpu, other.sizes()).to(device, other.dtype());
+  }
+
+  return {grad_input, grad_other};
 }
 
 static std::tuple<at::Tensor, at::Tensor, at::Tensor>

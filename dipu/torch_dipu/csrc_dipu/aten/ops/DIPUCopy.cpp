@@ -6,7 +6,7 @@
 
 #include <c10/util/Exception.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
 
 namespace dipu {
 
@@ -35,7 +35,8 @@ void setDipuCopyInstance(DIPUCopyBase* op) { dipu_copy_op() = op; }
 
 namespace dipu {
 namespace native {
-at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
+namespace dipu_aten {
+at::Scalar _local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
   AT_DISPATCH_ALL_TYPES_AND2(
       at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu",
@@ -50,5 +51,6 @@ at::Scalar DIPUATenFunctions::_local_scalar_dense_dipu(const at::Tensor& self) {
       });
   return r;
 }
+}  // namespace dipu_aten
 }  // namespace native
 }  // namespace dipu

@@ -1,8 +1,10 @@
+import os
 import argparse
 import torch
 import random
 import torch._dynamo as dynamo
 import torch_dipu
+from dicp.dynamo_bridge import pt_patch
 torch.manual_seed(1)
 random.seed(1)
 
@@ -29,7 +31,10 @@ def update_dynamo_config(dynamic=False):
 
 
 def get_device():
-    device_name = torch_dipu.dipu.device.__dipu__
+    if os.environ.get("DIPU_MOCK_CUDA") == "True":
+        device_name = "cuda"
+    else:
+        device_name = torch_dipu.dipu.device.__dipu__
     device_index = "0"
     device = f"{device_name}:{device_index}"
     return device

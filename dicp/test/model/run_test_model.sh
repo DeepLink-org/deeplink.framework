@@ -16,6 +16,10 @@ if [ "$TEST_MODEL" == "llama" ] && [ ! $LLAMA_MODEL_DIR ]; then
     echo "LLAMA_MODEL_DIR is not defined!" >&2
     exit 1
 fi
+if [ "$TEST_MODEL" == "llama_finetune" ] && [ ! $LLAMA_FINETUNE_DIR ]; then
+    echo "LLAMA_FINETUNE_DIR is not defined!" >&2
+    exit 1
+fi
 
 cd ${TEST_MODEL_DIR}
 if [ ${DYNAMIC} == false ] || [ ${DYNAMIC} == true ]; then

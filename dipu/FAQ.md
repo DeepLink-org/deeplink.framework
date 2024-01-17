@@ -26,10 +26,6 @@ export DIPU_MEM_CHECK=1
 export DIPU_MEM_CHECK_ENABLE_BACKTRACE=1
 ```
 
-## 跑模型出现 `RuntimeError: Currently the foreach operator does not support fallback` 该如何处理？
-
-该错误是由于 `DIPU` 目前不支持 `foreach` 算子导致，需要修改模型配置，将优化器 `foreach` 参数改成 `False`。例如你需要使用 `mmpretrain` 跑 `resnet50` 模型，使用 `configs/resnet/resnet50_8xb32_in1k.py` 配置文件，则需要将  `configs/_base_/schedules/imagenet_bs256.py` 中的 `optimizer=dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001)` 修改成 `optimizer=dict(type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0001, foreach=False)`。
-
 ## 如果仍然无法找到问题
 
 您可在项目中提交 issue，将您遇到的问题告诉我们。

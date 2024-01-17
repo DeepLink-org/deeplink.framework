@@ -5,14 +5,14 @@
 #include <c10/core/Storage.h>
 #include <c10/core/TensorImpl.h>
 
-#include <csrc_dipu/aten/DIPUATenFunctions.h>
-#include <csrc_dipu/runtime/rthelper.h>
+#include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/runtime/rthelper.h"
 
 namespace dipu {
 namespace native {
+namespace dipu_aten {
 
-bool DIPUATenFunctions::is_pinned(const at::Tensor& self,
-                                  c10::optional<at::Device> device) {
+bool is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
   // Only CPU tensors can be pinned
   if (!self.is_cpu()) {
     return false;
@@ -23,8 +23,8 @@ bool DIPUATenFunctions::is_pinned(const at::Tensor& self,
   return dipu::isPinnedPtr(self.storage().data());
 }
 
-at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self,
-                                          c10::optional<at::Device> device) {
+at::Tensor _pin_memory(const at::Tensor& self,
+                       c10::optional<at::Device> device) {
   auto allocator = dipu::getAllocator(at::DeviceType::CPU);
   auto storage =
       c10::Storage(c10::Storage::use_byte_size_t(),
@@ -37,5 +37,6 @@ at::Tensor DIPUATenFunctions::_pin_memory(const at::Tensor& self,
   return tensor;
 }
 
+}  // namespace dipu_aten
 }  // namespace native
 }  // namespace dipu

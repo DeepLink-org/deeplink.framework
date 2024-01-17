@@ -43,6 +43,8 @@ function clone_needed_repo() {
     MMYOLO=dipu_v0.5.0_one_iter_tool
     DIENGINE=dipu_v0.4.8_one_iter_tool
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
+    LIGHTLLM=dipu_one_iter_tool
+    DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -58,12 +60,17 @@ function clone_needed_repo() {
     check_and_clone_repository "mmengine" ${MMENGINE_VERSION}
     check_and_clone_repository "transformers" ${TRANSFORMERS}
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
+    check_and_clone_repository "lightllm" ${LIGHTLLM}
+    check_and_clone_repository "DeepLinkExt" ${DEEPLINKEXT}
     cd ..
 }
 
 function build_needed_repo_cuda() {
     cd mmcv
     MMCV_WITH_DIOPI=1 MMCV_WITH_OPS=1 python setup.py build_ext -i
+    cd ..
+    cd DeepLinkExt
+    python setup.py build_ext -i
     cd ..
 }
 
@@ -98,6 +105,7 @@ function export_repo_pythonpath(){
         echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
         exit 1
     fi
+    export PYTHONPATH=${basic_path}:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
@@ -109,6 +117,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/mmyolo:$PYTHONPATH
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/lightllm:$PYTHONPATH
 
     # set the environment variable for the transformers repository
     export HF_HOME=${basic_path}/huggingface
@@ -126,15 +135,15 @@ function build_dataset(){
         echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400 
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
-        ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/models_code/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400 
+        ln -s /mnt/lustre/share_data/PAT/datasets/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/kitti data/kitti
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
@@ -143,7 +152,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
         ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
         ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/mmdet3d_kitti data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth

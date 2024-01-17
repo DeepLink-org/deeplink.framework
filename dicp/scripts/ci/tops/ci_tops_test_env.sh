@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 LLAMA_MODEL_DIR=$1
+STABLE_DIFFUSION_MODEL_DIR=$2
 
-export DIPU_MOCK_CUDA=false
+export DIPU_MOCK_CUDA=False
 export LLAMA_MODEL_DIR=$1
+export LLAMA_FINETUNE_DIR=$2
+export STABLE_DIFFUSION_MODEL_DIR=$3
