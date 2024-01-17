@@ -8,6 +8,16 @@
 #include "CorrelationIDManager.h"
 #include "profiler.h"
 
+namespace libkineto {
+
+// device_activity_singleton declared in
+// https://github.com/DeepLink-org/kineto/blob/2923b3002a179d6dfe202e6d032567bb2816eae7/libkineto/include/DeviceActivityInterface.h
+// and used in kineto/libkineto/src/ActivityProfilerProxy.cpp.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+DeviceActivityInterface* device_activity_singleton = nullptr;
+
+}  // namespace libkineto
+
 namespace dipu {
 namespace profile {
 
@@ -23,12 +33,12 @@ DIPUDeviceActivity& DIPUDeviceActivity::instance() {
 }
 
 void DIPUDeviceActivity::pushCorrelationID(
-    uint64_t id, DeviceActivityInterface::CorrelationFlowType type) {
+    uint64_t id, libkineto::DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().pushCorrelationID(id, type);
 }
 
 void DIPUDeviceActivity::popCorrelationID(
-    DeviceActivityInterface::CorrelationFlowType type) {
+    libkineto::DeviceActivityInterface::CorrelationFlowType type) {
   CorrelationIDManager::instance().popCorrelationID(type);
 }
 
@@ -36,18 +46,9 @@ void DIPUDeviceActivity::enableActivities(
     const std::set<libkineto::ActivityType>& selected_activities) {}
 
 void DIPUDeviceActivity::disableActivities(
-    const std::set<libkineto::ActivityType>& selected_activities) {
-  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
-      selected_activities.end()) {
-    setProfileOpen(false);
-  }
-}
+    const std::set<libkineto::ActivityType>& selected_activities) {}
 
-void DIPUDeviceActivity::clearActivities() {
-  abandonAllRecords();
-  cpu_activities_.clear();
-  device_activities_.clear();
-}
+void DIPUDeviceActivity::clearActivities() { abandonAllRecords(); }
 
 int32_t DIPUDeviceActivity::processActivities(
     libkineto::ActivityLogger& logger,
@@ -88,17 +89,36 @@ int32_t DIPUDeviceActivity::processActivities(
   return static_cast<int32_t>(records.size());
 }
 
+void DIPUDeviceActivity::startTrace(
+    const std::set<libkineto::ActivityType>& selected_activities) {
+  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
+      selected_activities.end()) {
+    setProfileOpen(true);
+  }
+}
+
+void DIPUDeviceActivity::stopTrace(
+    const std::set<libkineto::ActivityType>& selected_activities) {
+  if (selected_activities.find(libkineto::ActivityType::CONCURRENT_KERNEL) !=
+      selected_activities.end()) {
+    setProfileOpen(false);
+  }
+}
+
 void DIPUDeviceActivity::teardownContext() {}
 
 void DIPUDeviceActivity::setMaxBufferSize(int32_t size) {}
 
+const static int32_t default_device_activity_init = []() {
+  // Vendor device activity implementation has higher priority.
+  // If device_activity_singleton is not nullptr, it must have been set as the
+  // implementation of vendor and do not need set as default implementation.
+  if (libkineto::device_activity_singleton == nullptr) {
+    libkineto::device_activity_singleton = &DIPUDeviceActivity::instance();
+    return 1;
+  }
+  return 0;
+}();
+
 }  // namespace profile
 }  // namespace dipu
-
-namespace libkineto {
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-DeviceActivityInterface* device_activity_singleton =
-    &dipu::profile::DIPUDeviceActivity::instance();
-
-}  // namespace libkineto

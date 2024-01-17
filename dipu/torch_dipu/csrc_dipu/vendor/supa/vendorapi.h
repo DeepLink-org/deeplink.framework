@@ -16,4 +16,5 @@ using deviceId_t = int;
 using diclComm_t = succlComm_t;
 using commUniqueId = succlUniqueId;
 // using ReduceOp = succlRedOp_t;
+
 }  // namespace dipu

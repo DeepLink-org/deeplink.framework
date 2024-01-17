@@ -123,6 +123,9 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         else:
             cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
             cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+    elif device == "kunlunxin":
+        cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+        cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     if clear_log:
         run_cmd(cmd_run_one_iter + f" 2>&1 > {log_file}")
     else:
@@ -181,6 +184,8 @@ if __name__ == '__main__':
         logging.info("we use camb!")
     elif device == "ascend":
         logging.info("we use ascend!")
+    elif device == "kunlunxin":
+        logging.info("we use kunlunxin!")
 
     logging.info(f"main process id (ppid): {os.getpid()} {os.getppid()}")
 

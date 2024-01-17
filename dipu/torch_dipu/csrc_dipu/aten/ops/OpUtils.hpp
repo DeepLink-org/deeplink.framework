@@ -49,6 +49,13 @@ inline void synchronizeIfEnable() {
   }
 }
 
+inline bool dipuKeepTorchopDefaultImpl(const char* opname) {
+  static const char* env = std::getenv("DIPU_KEEP_TORCHOP_DEFAULT_IMPL_OPS");
+  return (env != nullptr) &&
+         ((std::string(env) + ',').find(std::string(opname) + ',') <
+          (strlen(env) - 1));
+}
+
 inline int dumpOpArgLevel() {
   static const char* env_ptr = std::getenv("DIPU_DUMP_OP_ARGS");
   static int level = env_ptr ? std::atoi(env_ptr) : 0;
