@@ -48,9 +48,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // add type trait code. 2. pytorch seems are sorting out infer and other
 // pre/post code. so we shouldn't created a new preprocess logic?
 // so just do a simple runtime cpu fallback to support diopi func loss
+
 // It mat be necessary to determine whether to keep torchop default impl
 // for non-custom ops through function dipuKeepTorchopDefaultImpl firstly in the
-// future.
+// future, and we use force fallback to keep torchop default impl now.
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc)                       \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \

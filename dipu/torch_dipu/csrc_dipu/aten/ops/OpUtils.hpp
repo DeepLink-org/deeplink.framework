@@ -50,7 +50,7 @@ inline void synchronizeIfEnable() {
 }
 
 inline bool dipuKeepTorchopDefaultImpl(const char* opname) {
-  const char* env = std::getenv("DIPU_KEEP_TORCHOP_DEFAULT_IMPL_OPS");
+  static const char* env = std::getenv("DIPU_KEEP_TORCHOP_DEFAULT_IMPL_OPS");
   return (env != nullptr) &&
          ((std::string(env) + ',').find(std::string(opname) + ',') <
           (strlen(env) - 1));
