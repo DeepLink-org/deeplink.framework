@@ -8,7 +8,18 @@
 
 #include "csrc_dipu/runtime/device/basedef.h"
 
+#include "vender_helper.hpp"  // provide VendorDeviceTypeToStr for backward compatibility
+
 namespace dipu {
+
+// TODO(fandaoyi): remove this function after complete refactoring
+// TODO(lilingjie,fandaoyi): use constexpr after 910b CI is ready
+// throw in constexpr funtions (c++14) is not supported in gcc-7.5, which is a
+// known bug already fixed later (at least in gcc-10.x).
+[[deprecated("Use VendorDeviceTypeToStr instead")]]
+inline const char* VendorTypeToStr(devapis::VendorDeviceType t) {
+  return VendorDeviceTypeToStr(t);
+}
 
 DIPU_API bool isDeviceTensor(const at::Tensor& tensor);
 

@@ -14,6 +14,10 @@ namespace dipu {
 // deviceapis.cpp. Move it back here as a constexpr when config.h is added
 extern const devapis::VendorDeviceType kDipuVendorDeviceType;
 
+// TODO(fandaoyi): remove this after complete refactoring
+[[deprecated("Use kDipuVendorDeviceType instead")]]  //
+extern const devapis::VendorDeviceType VENDOR_TYPE;
+
 namespace devapis {
 
 DIPU_WEAK void initializeVendor();

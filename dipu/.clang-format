@@ -1,6 +1,5 @@
 ---
 BasedOnStyle: InheritParentConfig
-CommentPragmas: '^ (IWYU pragma:|NOLINT(BEGIN|END|NEXTLINE)?(\(.+\))?:? )'
 IncludeCategories:
   - Regex:         '^("|<)csrc_dipu/'
     Priority:      90
