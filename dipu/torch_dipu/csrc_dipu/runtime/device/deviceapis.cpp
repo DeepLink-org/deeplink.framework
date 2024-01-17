@@ -11,6 +11,9 @@ namespace dipu {
 #else
 extern const devapis::VendorDeviceType kDipuVendorDeviceType =
     VendorNameToDeviceType(DIPU_STRINGIFY_AFTER_EXPANSION(DIPU_VENDOR_NAME));
+
+// TODO(fandaoyi): remove this after complete refactoring
+extern const devapis::VendorDeviceType VENDOR_TYPE = kDipuVendorDeviceType;
 #endif
 
 }  // namespace dipu

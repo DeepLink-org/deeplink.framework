@@ -526,7 +526,8 @@ jobs:
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          echo "build and test, you can refer to the Ascend" \
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
+          python setup.py build_ext -i \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Kunlunxin:
@@ -538,7 +539,7 @@ jobs:
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          echo "test and clean, you can refer to the Ascend"
+          bash tests/run_kunlunxin_tests.sh
 
   Test-One-Iter-Kunlunxin:
     name: Test-One-Iter-Kunlunxin
@@ -548,14 +549,20 @@ jobs:
       - name: Build some env
         run: |
           set -ex
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          echo "test and clean, you can refer to the Ascend"
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_kunlunxin
 
       - name: Run one iter tools
         run: |
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
-          echo "test and clean, you can refer to the Ascend"
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_kunlunxin ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          XDNN_CONV_GEMM_DTYPE=int16 XPUAPI_DEBUG_CUSTOM_OP_LEVEL="broadcast_add,0x11" \
+          python ../scripts/ci/ci_run_one_iter.py kunlunxin "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
 
       - name: Perform cleanup one iter data
         if: always()
