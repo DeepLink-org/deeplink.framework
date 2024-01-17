@@ -2052,7 +2052,7 @@
       indices_tensor_vec[i] = (indices[i].has_value() && indices[i].value().defined()) ? indices[i].value().to(self.device()) : at::Tensor();
       indices_vec[i] = diopi_helper::toDiopiTensorHandle(indices_tensor_vec[i]);
     }
-  interface: diopiIndexPut(ctx, self, self, values, indices_vec.data(), static_cast<int64_t>(indices_vec.size()), accumulate)
+  interface: diopiIndexPutInp(ctx, self, values, indices_vec.data(), static_cast<int64_t>(indices_vec.size()), accumulate)
 
 - schema: "_cdist_forward(Tensor x1, Tensor x2, float p, int? compute_mode) -> Tensor"
   custom_code_at_the_beginning: |
