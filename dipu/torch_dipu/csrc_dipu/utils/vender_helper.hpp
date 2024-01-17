@@ -7,8 +7,7 @@
 
 namespace dipu {
 
-// constexpr is not support in ci
-inline const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
+constexpr const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
   switch (t) {
     case devapis::VendorDeviceType::MLU:
       return "MLU";
@@ -34,8 +33,7 @@ constexpr bool c_string_equal(const char* a, const char* b) noexcept {
   return *a == *b && (*a == '\0' || c_string_equal(a + 1, b + 1));
 }
 
-// constexpr is not support in ci
-inline devapis::VendorDeviceType VendorNameToDeviceType(const char* str) {
+constexpr devapis::VendorDeviceType VendorNameToDeviceType(const char* str) {
 #define DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(name, type) \
   if (c_string_equal(str, #name)) {                          \
     return devapis::VendorDeviceType::type;                  \

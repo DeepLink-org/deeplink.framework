@@ -8,7 +8,15 @@
 
 #include "csrc_dipu/runtime/device/basedef.h"
 
+#include "vender_helper.hpp"  // provide VendorDeviceTypeToStr for backward compatibility
+
 namespace dipu {
+
+// TODO(fandaoyi): remove this function after complete refactoring
+[[deprecated("Use VendorDeviceTypeToStr instead")]]
+constexpr const char* VendorTypeToStr(devapis::VendorDeviceType t) {
+  return VendorDeviceTypeToStr(t);
+}
 
 DIPU_API bool isDeviceTensor(const at::Tensor& tensor);
 
