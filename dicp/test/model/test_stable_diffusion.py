@@ -43,9 +43,6 @@ class TestStableDiffusion():
         dicp_pipe = StableDiffusionPipeline.from_pretrained(model_path).to(device)
         dicp_pipe.text_encoder = torch.compile(dicp_pipe.text_encoder, backend=backend)
         dicp_pipe.unet = torch.compile(dicp_pipe.unet, backend=backend)
-        if backend == "ascendgraph":
-            dicp_pipe.vae.decoder = torch.compile(dicp_pipe.vae.decoder, backend=backend)
-
         dicp_image = dicp_pipe(prompt, num_inference_steps=num_inference_steps).images[0]
         if backend == "ascendgraph":
             standard_output = torch.load("stable_diffusion/ascendgraph_output.pt")
