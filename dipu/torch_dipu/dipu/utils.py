@@ -51,7 +51,7 @@ class AscendFormatTensor(torch.Tensor):
         return tree_map(wrap, out)
 
 
-def format_cast(tensor:torch.Tensor, format:_C.NativeMemoryFormat) -> torch.Tensor:
+def ascend_format_cast(tensor:torch.Tensor, format:_C.NativeMemoryFormat) -> torch.Tensor:
     if isinstance(tensor, torch.Tensor) and 'FRACTAL_NZ' in str(format):
         return AscendFormatTensor(torch_dipu.native_memory_format_cast(tensor, format))
     if isinstance(tensor, AscendFormatTensor) and not 'FRACTAL_NZ' in str(format):
