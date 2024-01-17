@@ -75,14 +75,14 @@ jobs:
           && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to camb"
           ssh ${CUDA_CLUSTER} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
-          && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
-          && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
+          && timeout 200 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && timeout 200 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
           ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
           && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
           ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
-          && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
-          && timeout 100 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
+          && timeout 200 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && timeout 200 rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to kunlunxin"
 
   Build-Camb:
     name: Build-dipu-camb
@@ -264,8 +264,7 @@ jobs:
       - name: clang-tidy
         run: |
           set -eo pipefail
-          srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh " || \
-          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1)
+          srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh "
 
   Test-Cuda:
     name: Test-dipu-cuda
