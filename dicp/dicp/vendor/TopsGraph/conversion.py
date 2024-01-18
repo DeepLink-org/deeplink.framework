@@ -194,7 +194,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         dim = dim % len(a.node.meta["val"])
         return self.get_proxy(tops_op.GetTupleElement, (a, dim), kwargs)
 
-    @register_conversion(aten.index.Tensor)
+    @register_conversion([aten._unsafe_index.Tensor, aten.index.Tensor])
     def Index(self, *args, **kwargs):
         # Prepare some info for calculating the parameters of Gather.
         operand, indices, start_dim = args[0], args[1], 0

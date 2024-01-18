@@ -5,7 +5,7 @@ message(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 find_package(Neuware 4.6 REQUIRED)
 set(VENDOR_INCLUDE_DIRS "${NEUWARE_ROOT_DIR}/include" PARENT_SCOPE)
 set(VENDOR_LIB_DIRS "${NEUWARE_ROOT_DIR}/lib64" PARENT_SCOPE)
-set(DIPU_VENDOR_LIB cnnl cncl cndev PARENT_SCOPE)
+set(DIPU_VENDOR_LIB cnnl cncl cndev cnpapi PARENT_SCOPE)
 
 message(STATUS "Cambricon Neuware Root: ${NEUWARE_ROOT_DIR}")
 message(STATUS "Cambricon CNRT Version: ${CNRT_VERSION}")

@@ -21,6 +21,7 @@ unittest_autogened_for_individual_scripts.py
 .Python
 env/
 build/
+_skbuild
 build*
 develop-eggs/
 dist/

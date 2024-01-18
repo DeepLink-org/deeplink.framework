@@ -609,7 +609,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(value, torch.fx.proxy.Proxy) and hasattr(value.node, 'meta'):
             value = value.node.meta['val']
         dims = self.get_shape_proxy(dims)
-        value = self.get_proxy(ascend_op.Const, ([value], torch_dtype, []))
+
+        # temporarily split the path for dynamic/static shape cases
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            value = self.get_proxy(ascend_op.Const, ([value], torch_dtype, []))
+        else:
+            value = self.common_process_scalar(value, torch_dtype)
         return self.get_proxy(ascend_op.Fill, (dims, value))
 
     @register_conversion(torch.ops.aten.fill.Scalar)

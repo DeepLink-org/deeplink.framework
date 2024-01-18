@@ -1,7 +1,26 @@
 
 #include "basecommimpl.hpp"
+
+#define HCCL_THROW(cmd)                                           \
+  do {                                                            \
+    TRACK_FUN_CALL(HCCL, #cmd);                                   \
+    TORCH_CHECK(cmd == HCCL_SUCCESS,                              \
+                "HCCL error in: " + std::string(__FILE__) + ":" + \
+                    std::to_string(__LINE__) + ".\n" +            \
+                    "And see details in Ascend logs.\n" +         \
+                    aclGetRecentErrMsg());                        \
+  } while (0)
+
 namespace dipu {
 namespace devapis {
+
+// HCCL ReduceOp mapping
+static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
+    {ReduceOp::MIN, HCCL_REDUCE_MIN},
+    {ReduceOp::MAX, HCCL_REDUCE_MAX},
+    {ReduceOp::SUM, HCCL_REDUCE_SUM},
+    {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
+};
 
 // HCCL DataType mapping
 static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 9>
