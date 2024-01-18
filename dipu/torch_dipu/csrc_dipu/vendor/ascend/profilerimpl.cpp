@@ -14,8 +14,6 @@
 #include <csrc_dipu/runtime/device/profilerapis.h>
 #include <csrc_dipu/vendor/vendorapi.h>
 
-#include "basecommimpl.hpp"
-
 extern "C" aclError aclprofSetStampTagName(void* stamp, const char* tagName,
                                            uint16_t len);
 extern "C" aclError aclprofSetStampTraceMessage(void* stamp, const char* msg,
