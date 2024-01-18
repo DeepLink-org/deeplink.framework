@@ -16,22 +16,6 @@
 
 namespace dipu {
 
-#define TRACK_ACL(x)                                               \
-  {                                                                \
-    static bool enable = std::getenv("DIPU_TRACK_ACL") != nullptr; \
-    if (enable) {                                                  \
-      printf("[%s: %d]:%s\n", __FILE__, __LINE__, x);              \
-    }                                                              \
-  }
-
-#define DIPU_CALLACLRT(Expr)                                               \
-  {                                                                        \
-    TRACK_ACL(#Expr);                                                      \
-    ::aclError ret = Expr;                                                 \
-    TORCH_CHECK(ret == ACL_SUCCESS, "ascend device error, expr = ", #Expr, \
-                ", ret = ", ret, ", error msg = ", aclGetRecentErrMsg());  \
-  }
-
 using deviceStream_t = aclrtStream;
 #define deviceDefaultStreamLiteral nullptr;
 using deviceEvent_t = aclrtEvent;

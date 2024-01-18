@@ -6,13 +6,11 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
+#include "basecommimpl.hpp"
+
 namespace dipu {
 
 namespace devapis {
-
-void initializeVendor() {}
-
-void finalizeVendor() {}
 
 // =====================
 //  Device class related
@@ -20,12 +18,9 @@ void finalizeVendor() {}
 using ascend_deviceId = int32_t;
 thread_local bool setDevFlag = false;
 
-static int initValue = []() {
-  DIPU_CALLACLRT(aclInit(nullptr));
-  DIPU_CALLACLRT(aclrtSetDevice(0));
-  setDevFlag = true;
-  return 0;
-}();
+void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
+
+void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
   if (setDevFlag == false) {
@@ -256,6 +251,11 @@ void createEvent(deviceEvent_t* event) {
 
 void destroyEvent(deviceEvent_t event) {
   DIPU_CALLACLRT(::aclrtDestroyEvent(event))
+}
+
+bool isPinnedPtr(const void* p) {
+  TORCH_CHECK(false, "isPinnedPtr not implemented for ascend.\n");
+  return false;
 }
 
 }  // end namespace devapis
