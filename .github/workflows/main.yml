@@ -441,6 +441,17 @@ jobs:
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
+      
+      - name: Run dicp op test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dicp
+          pip uninstall dicp -y
+          python setup.py clean && python setup.py install --user
+          export TEST_DIR=$(pwd)/test
+          bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false
 
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b

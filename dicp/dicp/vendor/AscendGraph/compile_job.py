@@ -1,9 +1,11 @@
 import os
 import subprocess
 import time
+import base64
+import hashlib
 
 from dicp.dynamo_bridge.compile import DeviceCompileJob
-from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, get_hash
+from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write
 from torch._inductor import exc
 
 
@@ -18,13 +20,15 @@ class AscendCompileJob(DeviceCompileJob):
         for file in [source_path, source_include]:
             with open(file, 'r') as f:
                 compile_file_code += f.read()
+        code_sha256 = hashlib.sha256(compile_file_code.encode("utf-8")).digest()
+        code_hash = base64.b32encode(code_sha256)[:51].decode("utf-8").lower()
         picked_vec_isa = pick_vec_isa()
         self._local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self._key, self._input_path = write(
             source_code.strip(),
             "json",
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) +
-                  'local_rank' + str(self._local_rank) + get_hash(compile_file_code, 'code')
+                  'local_rank' + str(self._local_rank) + code_hash
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
         print('output_path: ', self._output_graph_path)
