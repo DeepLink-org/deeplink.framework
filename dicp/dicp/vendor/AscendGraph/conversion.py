@@ -644,12 +644,22 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     def index_base(self, x, dim, index):
         dim = [dim] if not isinstance(dim, list) else dim
+        if isinstance(index, list):
+            assert len(index) == 1
+            index = index[0]
+        assert dim[0] == 0
         dim_op = self.get_proxy(
             ascend_op.Const, (dim, torch.int32, [len(dim)]))
         return self.get_proxy(ascend_op.GatherV2, (x, index, dim_op))
 
     @register_conversion(torch.ops.aten.index.Tensor)
     def index(self, x, index):
+        if isinstance(index, list):
+            return self.unsafe_index(x, index)
+        return self.index_base(x, 0, index)
+
+    @register_conversion(torch.ops.aten._unsafe_index.Tensor)
+    def unsafe_index(self, x, index):
         if isinstance(index, list):
             if len(index) == 1:
                 index = index[0]
@@ -724,7 +734,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 if status > 0:
                     return self.get_proxy(ascend_op.Transpose, (gather, perm))
                 return gather
-
         return self.index_base(x, 0, index)
 
     @register_conversion(torch.ops.aten.index_select.default)
