@@ -1,8 +1,8 @@
 import os
 import torch._dynamo as dynamo
-from transformers import LlamaTokenizer, LlamaForCausalLM
 import torch
 import torch_dipu
+from transformers import LlamaTokenizer, LlamaForCausalLM
 
 
 # some common config
