@@ -320,7 +320,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dim < 0:
             dim += len(shape)
         assert shape[dim] > 0
-        num_split = int(shape[dim] / split_size)
+        num_split = int((shape[dim] + split_size - 1) / split_size)
         return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
     @register_conversion(aten.slice.Tensor)
@@ -670,7 +670,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 #   iii.  None, ... None, idx1, ... idxN, None, ... None
                 #   iv.   None, ... None, idx1, ... idxN
                 # other cases not supported!
-                # define state name from an easy state machine
+                # define state name for an easy state machine
                 status = START = 0
                 FIRST_NONE = 1
                 NOT_NONE = 2
