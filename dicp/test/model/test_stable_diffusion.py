@@ -40,19 +40,6 @@ class TestStableDiffusion():
         utils.update_dynamo_config(dynamic=dynamic)
         torch_dipu.dipu.set_device(device)
 
-        # pytorch monkey patch for ascendgraph backend
-        if backend == "ascendgraph":
-            import importlib
-            tmp_variable_torch_module = importlib.import_module("torch._dynamo.variables.torch")
-            tmp_torch_variable = getattr(tmp_variable_torch_module, "TorchVariable")
-            origin_torch_variable_python_type = getattr(tmp_torch_variable, "python_type")
-            def new_torch_variable_python_type(self):
-                if isinstance(self.value, torch.device):
-                    return type(self.value)
-                else:
-                    return origin_torch_variable_python_type(self)
-            setattr(tmp_torch_variable, "python_type", new_torch_variable_python_type)
-
         # CPU
         torch.manual_seed(1)
         cpu_pipe = StableDiffusionPipeline.from_pretrained(model_path)

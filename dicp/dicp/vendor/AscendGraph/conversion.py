@@ -157,15 +157,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 param = self.get_proxy(ascend_op.Cast, (const, get_ascend_dtype(dtype)))
         return param
 
-    def shape_prod(self, shape):
-        prod = 1
-        for e in shape:
-            if isinstance(e, torch.SymInt):
-                prod *= e.node.hint
-            else:
-                prod *= e
-        return prod
-
     def promote_dtype(self, *args, target_dtype):
         result = []
         ascend_dtype = get_ascend_dtype(target_dtype)
@@ -328,6 +319,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         shape = list(x.node.meta['val'].shape)
         if dim < 0:
             dim += len(shape)
+        assert shape[dim] > 0
         num_split = int(shape[dim] / split_size)
         return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
@@ -728,11 +720,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
                 # core gather calc
                 if status > 0:
-                    index = immutable_list(index_tmp[:not_none_len])
-                else:
-                    index = immutable_list(index_tmp)
+                    index_tmp = index_tmp[:not_none_len]
+                index = immutable_list(index_tmp)
                 indices = self.get_proxy(ascend_op.Pack, (index, -1))
-                gather = self.get_proxy(ascend_op.GatherNd, (x, indices))
+                gather = self.get_proxy(ascend_op.GatherNd, (x, indices, index_tmp))
                 if status > 0:
                     return self.get_proxy(ascend_op.Transpose, (gather, perm))
                 return gather

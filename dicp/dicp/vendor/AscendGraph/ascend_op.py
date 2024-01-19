@@ -600,7 +600,18 @@ class Empty(Operator):
 class GatherNd(Operator):
     def __init__(self):
         super().__init__("GatherNd")
-        self.torch_op = aten.index
+
+    def infer_result(self, x, index, orig_index):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+
+        # assume not none index, and replace prefix x_shape dims
+        len_idx_shape = len(orig_index)
+        assert(len_idx_shape > 0)
+        bcast_index_shape = list(orig_index[0].shape)
+        x_shape = bcast_index_shape + list(x_shape[len_idx_shape:])
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class GatherV2(Operator):

@@ -1432,7 +1432,7 @@ class AscendOverrides:
         return gather_op.to_node()
 
     @staticmethod
-    def GatherNd(name, x, indices):
+    def GatherNd(name, x, indices, orig_indices):
         gather_op = OP(name, "GatherNd")
         gather_op.set_input("x", x)
         gather_op.set_input("indices", indices)
