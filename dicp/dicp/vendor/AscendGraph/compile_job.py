@@ -3,7 +3,7 @@ import subprocess
 import time
 
 from dicp.dynamo_bridge.compile import DeviceCompileJob
-from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, get_hash
+from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, code_hash
 from torch._inductor import exc
 
 
@@ -24,7 +24,7 @@ class AscendCompileJob(DeviceCompileJob):
             source_code.strip(),
             "json",
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) +
-                  'local_rank' + str(self._local_rank) + get_hash(compile_file_code, 'code')
+                  'local_rank' + str(self._local_rank) + code_hash(compile_file_code)
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
         print('output_path: ', self._output_graph_path)
