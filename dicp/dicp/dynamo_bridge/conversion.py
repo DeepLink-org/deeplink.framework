@@ -1,5 +1,6 @@
 import functools
 import torch
+import torch.fx.traceback as fx_traceback
 from dicp.dynamo_bridge.operator import Operator
 
 
@@ -18,7 +19,9 @@ def register_conversion_impl(
     else:
         @functools.wraps(decomp_fn)
         def wrapped(*args, **kwargs):
-            return decomp_fn(*args, **kwargs)
+            out = decomp_fn(*args, **kwargs)
+            out.node.meta = fx_traceback.get_current_meta()
+            return out
 
     if not isinstance(aten_fn, (list, tuple)):
         aten_fn = [aten_fn]
