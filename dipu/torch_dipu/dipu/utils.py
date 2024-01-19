@@ -27,11 +27,10 @@ from torch_dipu._C import get_dipu_torch_version
 _torch_ver_pattern = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.*")
 
 
-
 class AscendFormatTensor(torch.Tensor):
     def __init__(cls, t):
         cls.elem = t
-        cls.func_list = ['aten.transpose.int', 'aten.slice.Tensor', 'aten.view.default']
+        cls.func_list = ["aten.transpose.int", "aten.slice.Tensor", "aten.view.default"]
 
     def __torch_dispatch__(cls, func, types, args=(), kwargs=None):
         # unwrap the wrapper tensors to get the inner tensor object
@@ -42,8 +41,10 @@ class AscendFormatTensor(torch.Tensor):
         kwargs = tree_map(unwrap, kwargs)
         if str(func) in cls.func_list:
             assert len(args) > 0
-            if 'FRACTAL_NZ' in str(torch_dipu.get_native_memory_format(args[0])):
-                raise RuntimeError("View type op calculation does not support FRACTAL_NZ!")
+            if "FRACTAL_NZ" in str(torch_dipu.get_native_memory_format(args[0])):
+                raise RuntimeError(
+                    "View type op calculation does not support FRACTAL_NZ!"
+                )
         out = func(*args, **kwargs)
 
         def wrap(x):
@@ -52,10 +53,12 @@ class AscendFormatTensor(torch.Tensor):
         return tree_map(wrap, out)
 
 
-def ascend_format_cast(tensor:torch.Tensor, format:_C.NativeMemoryFormat) -> torch.Tensor:
-    if isinstance(tensor, torch.Tensor) and 'FRACTAL_NZ' in str(format):
+def ascend_format_cast(
+    tensor: torch.Tensor, format: _C.NativeMemoryFormat
+) -> torch.Tensor:
+    if isinstance(tensor, torch.Tensor) and "FRACTAL_NZ" in str(format):
         return AscendFormatTensor(torch_dipu.native_memory_format_cast(tensor, format))
-    if isinstance(tensor, AscendFormatTensor) and not 'FRACTAL_NZ' in str(format):
+    if isinstance(tensor, AscendFormatTensor) and not "FRACTAL_NZ" in str(format):
         return torch_dipu.native_memory_format_cast(tensor.elem, format)
     return torch_dipu.native_memory_format_cast(tensor, format)
 

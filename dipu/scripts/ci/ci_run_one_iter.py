@@ -85,7 +85,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         base_data_src = "/mnt/cache/share/deeplinkci/github/model_baseline_data"
     elif device == "kunlunxin":
         base_data_src = "/mnt/cache/share/deeplinkci/github/model_baseline_data"
-    src = f'{base_data_src}/{p3}/baseline'
+    src = f"{base_data_src}/{p3}/baseline"
     if not os.path.exists(src):
         os.makedirs(src)
     dst = f"{storage_path}/baseline"

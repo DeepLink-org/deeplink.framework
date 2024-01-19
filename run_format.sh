@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd $(dirname $0)
+
 # format all C/C++ files in current git repository with clang-format
 CLANG_FORMAT_EXCLUDE_REGEX='^.*nlohmann/json\.hpp$'
 git ls-files |\
