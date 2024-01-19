@@ -1,9 +1,11 @@
 import copy
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Mapping, Optional
 
 import torch.fx
 from torch._inductor.codecache import code_hash
-from torch.fx.node import Argument, Target
+from torch.fx.node import Argument, Target, Node
+from torch.fx.passes.operator_support import OperatorSupport, SupportDict
+from torch.fx.passes.tools_common import CALLABLE_NODE_OPS
 
 
 def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
@@ -43,3 +45,17 @@ class DeviceParamToCpu(torch.fx.Transformer):
         else:
             new_kwargs = kwargs
         return super().call_function(target, args, new_kwargs)
+
+class AotOperatorUnsupport(OperatorSupport):
+    def __init__(self, unsupport_dict: Optional[SupportDict] = None, prefix=""):
+        super().__init__(unsupport_dict)
+        for key, value in list(self._support_dict.items()):
+            if prefix not in key:
+                del self._support_dict[key]
+                self._support_dict[prefix + key] = value
+
+    def is_node_supported(
+        self, submodules: Mapping[str, torch.nn.Module], node: Node
+    ) -> bool:
+        return True if node.op == "get_attr" else \
+            not super().is_node_supported(submodules, node)

@@ -1,8 +1,11 @@
 import json
 import os
 import uuid
+import numbers
+from collections import OrderedDict
 import torch
 from typing import Any, List
+import torch.fx
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
 from dicp.vendor.AscendGraph.codegen.utils import (
@@ -11,6 +14,7 @@ from dicp.vendor.AscendGraph.codegen.utils import (
     get_cpp_dtype,
     get_ascend_dtype_num
 )
+from dicp.vendor.AscendGraph.config import enable_aot_operations, aot_operations
 
 graph_id = 0
 
@@ -33,9 +37,9 @@ def process_name(name, target):
     return real_op
 
 
-class AscendCodegen(torch.fx.Interpreter):
+class AscendCodegenBase(torch.fx.Interpreter):
     def __init__(self, graph, aten_graph=None, folder=None, graph_key=None):
-        self.graph = graph
+        self.graph: torch.fx.GraphModule = graph
         self.aten_graph = aten_graph
         self.override = AscendOverrides
 
@@ -155,6 +159,10 @@ class AscendCodegen(torch.fx.Interpreter):
         pass
 
     def output(self, name, target, args, kwargs):
+        # handle args=(node0, ) which is caused by fusion partitions
+        if len(args) == 1 and isinstance(args[0], torch.fx.Node):
+            self.output_args.append(args[0])
+            return
         for arg in args:
             self.output_args.extend(arg)
 
@@ -205,6 +213,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 import random
                 from torch import empty_strided, as_strided, device
                 from dicp.dynamo_bridge.compile import AsyncCompileKernel
+                import dicp
                 from dicp.vendor.AscendGraph.compile_job import AscendCompileJob
 
                 aten = torch.ops.aten
@@ -271,11 +280,16 @@ class AscendCodegen(torch.fx.Interpreter):
                 return "{}.shape[{}]".format(arg, idx)
             return self.sym_to_inputs[st]
 
-    def gen_call_func(self):
+    def gen_call_func_main_graph_execute(self, graph_name="0", input_output_one_obj=True):
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
         shape_symint = [value[0] for value in self.sym_in_args.values()]
+        dims_name = f"dims_{graph_name}"
+        output_shape_name = f"output_shape_{graph_name}"
+        out_stride_name = f"out_stride_{graph_name}"
+        out_storage_offset_name = f"out_storage_offset_{graph_name}"
+        allocated_output_name = f"allocated_output_{graph_name}"
 
         # dynamic shape feature
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
@@ -287,7 +301,7 @@ class AscendCodegen(torch.fx.Interpreter):
             dim_len = 0
             for shape in self.actual_shape:
                 dim_len += len(shape)
-            dims = 'dims = {'
+            dims = f'{dims_name} = {{'
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
@@ -297,14 +311,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = dims[:-1] + '}'
             call_body.writeline(dims)
         else:
-            call_body.writeline(f'''dims = None''')
+            call_body.writeline(f'''{dims_name} = None''')
 
         # generate output shapes
         # dynamic shape feature
         extra_stride_str = ''
         extra_storage_offset_str = ''
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-            shape_str = f'''output_shape = ['''
+            shape_str = f'''{output_shape_name} = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
@@ -333,7 +347,7 @@ class AscendCodegen(torch.fx.Interpreter):
             shape_str = shape_str[:-1] + f''']'''
             call_body.writeline(shape_str)
         else:
-            call_body.writeline('''output_shape = None''')
+            call_body.writeline(f'''{output_shape_name} = None''')
         
         # add stride & storage_offset info
         out_strides = []
@@ -353,17 +367,8 @@ class AscendCodegen(torch.fx.Interpreter):
             stride = [self.process_sym_name(str(dim)) for dim in stride]
             out_strides.append(str(stride))
             out_storage_offsets.append(elem.storage_offset())
-        call_body.writeline(f'out_stride = {out_strides}')
-        call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
-
-        call_body.splice("""
-                             import torch_dipu
-                             dipu_device_str = torch_dipu.dipu.device.__diputype__
-                             for idx in range(len(args)):
-                                 if isinstance(args[idx], int):
-                                     args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
-                         """, strip=True)
-        call_body.writeline(f"({','.join(self.args)}) = args")
+        call_body.writeline(f'{out_stride_name} = {out_strides}')
+        call_body.writeline(f'{out_storage_offset_name} = {out_storage_offsets}')
 
         # dealing with modified args passing back
         allocated_output = {}
@@ -371,8 +376,30 @@ class AscendCodegen(torch.fx.Interpreter):
             input_index = item[1]
             output_index = self.graph_output_names.index(item[0])
             allocated_output[output_index] = input_index
-        call_body.writeline(f'allocated_output= {allocated_output}')
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output)']
+        call_body.writeline(f'{allocated_output_name} = {allocated_output}')
+
+        input_args = "args" if input_output_one_obj else f"({''.join([arg + ', ' for arg in self.args])})"
+        # input_output_one_obj == True is the case that enable_aot_operations == False
+        output_args = f"output_tensor_{graph_name}" if input_output_one_obj else \
+            f"({''.join([self.args_dict[arg.name] + ', ' for arg in self.output_args])})"
+        call_body.writeline(f'{output_args} = kernel_cpp_{graph_name}'
+                            f'({input_args}, {dims_name}, {output_shape_name}, {out_stride_name}, {out_storage_offset_name}, {allocated_output_name})')
+        return call_body.getvalue()
+
+    def gen_call_func(self):
+        call_body = IndentedBuffer()
+        call_body.splice("""
+                             import torch_dipu
+                             dipu_device_str = torch_dipu.dipu.device.__diputype__
+                             for idx in range(len(args)):
+                                 if isinstance(args[idx], int):
+                                     args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
+                         """, strip=True)
+        # call gen_call_func_main_graph_execute first to generate self.args
+        graph_name = "0"
+        main_graph_execute_code = self.gen_call_func_main_graph_execute(graph_name=graph_name)
+        call_body.writeline(f"({''.join([arg + ', ' for arg in self.args])}) = args")
+        call_body.splice(main_graph_execute_code)
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
@@ -387,34 +414,40 @@ class AscendCodegen(torch.fx.Interpreter):
             call_str.append('    aten_args[idx] = aten_args[idx].item()')
             call_str.append('aten_output = aten_call(*aten_args)')
 
+        call_str = []
         for i, name in enumerate(self.graph_output_names):
             if name not in self.symint_outputs:
                 if name in self.cpu_tensor:
-                    call_str.append(f'{name} = output_tensor[{i}].cpu()')
+                    call_str.append(f'{name} = output_tensor_{graph_name}[{i}].cpu()')
                 else:
-                    call_str.append(f'{name} = output_tensor[{i}]')
+                    call_str.append(f'{name} = output_tensor_{graph_name}[{i}]')
             else:
                 call_str.extend([f'del {name}',
-                                 f'{name} = int(output_tensor[{i}])'])
-
-        if precision_check:
-            for i, name in enumerate(self.py_output_names):
-                if name != 'None' and name not in self.args and name not in self.symint_outputs:
-                    call_str.append(f"{name}_cpu = aten_output[{i}]")
-                    call_str.append(f"check_tensor({name}.cpu(), {name}_cpu)")
+                                 f'{name} = int(output_tensor_{graph_name}[{i}])'])
         call_body.writelines(call_str)
-
-        del_args = [f'del {x}' for x in self.args if x not in self.py_output_names]
-        call_body.writelines(del_args)
-        call_body.writeline("args.clear()")
-        call_body.writeline(f"return ({', '.join(self.py_output_names)})")
+        call_body.splice(self.gen_call_func_return_code())
 
         call_func = IndentedBuffer()
         call_func.writeline("def call(args):")
         with call_func.indent():
             call_func.splice(call_body)
-
         return call_func.getvalue()
+
+    def gen_call_func_return_code(self):
+        call_body = IndentedBuffer()
+        call_str = []
+        if precision_check:
+            for i, name in enumerate(self.py_output_names):
+                if name != 'None' and name not in self.args and name not in self.symint_outputs:
+                    call_str.append(f"{name}_cpu = aten_output[{i}]")
+                    call_str.append(f"check_tensor({name}.cpu(), {name}_cpu)")
+
+        del_args = [f'del {x}' for x in self.args if x not in self.py_output_names]
+        call_body.writelines(del_args)
+        call_body.writeline("args.clear()")
+        call_body.writeline(f"return ({''.join([name + ', ' for name in self.py_output_names])})")
+
+        return call_body.getvalue()
 
     def gen_main_func(self):
         main_body = IndentedBuffer()
@@ -502,23 +535,192 @@ class AscendCodegen(torch.fx.Interpreter):
         self.remove_symint(graph)
         return json.dumps(graph)
 
-    def gen_compile_graph_code(self):
-        compile_graph_code = IndentedBuffer()
+    def gen_compile_job_code(self, graph_name="0"):
+        compile_job_code_buffer = IndentedBuffer()
         graph_json = self.gen_graph_json()
-        compile_graph_code.splice(
+        compile_job_code_buffer.writeline(f'graph_json_{graph_name} = """\n{graph_json}\n"""')
+        compile_job_code_buffer.splice(
             f"""
-                ascend_compile_job = AscendCompileJob('''{graph_json}''')
-                async_compile = AsyncCompileKernel()
-                kernel_cpp_0 = async_compile.compile_kernel(ascend_compile_job)
+                ascend_compile_job_{graph_name} = AscendCompileJob(graph_json_{graph_name})
+                kernel_cpp_{graph_name} = async_compile.compile_kernel(ascend_compile_job_{graph_name})
             """, strip=True
         )
+        return compile_job_code_buffer.getvalue()
+
+    def gen_compile_graph_code(self):
+        compile_graph_code = IndentedBuffer()
+        compile_graph_code.writeline('\nasync_compile = AsyncCompileKernel()')
+        compile_graph_code.writeline(self.gen_compile_job_code())
         compile_graph_code.writeline('async_compile.wait(globals())')
-        compile_graph_code.writeline('del async_compile')
+        compile_graph_code.writeline('del async_compile\n')
         return compile_graph_code.getvalue()
 
     def generate_code(self):
         return (self.gen_import_code() + self.gen_compile_graph_code() + self.gen_call_func() + self.gen_main_func())
 
+
+class AscendCodegen(AscendCodegenBase):
+    def __init__(self, graph, aten_graph=None, folder=None, graph_key=None):
+        super().__init__(graph, aten_graph, folder, graph_key)
+        self.submodule_json_code_dict = dict()
+        self.submodule_graph_execute_code_dict = dict()
+        self.submodule_output_cache = dict() 
+        self.submodule_py_call_dict = OrderedDict()
+        self.submodule_mode = enable_aot_operations
+
+    @staticmethod
+    def get_kernel_name(module_name: str):
+        return f"kernel_cpp_{module_name}"
+
+    def get_attr(self, name, target, args, kwargs):
+        if self.submodule_mode:
+            raise NotImplementedError
+        return super().get_attr(name, target, args, kwargs)
+
+    def call_function(self, name, target, args, kwargs):
+        if self.submodule_mode:
+            self.submodule_py_call_dict[name] = {
+                "op": "call_function",
+                "name": name,
+                "target": target,
+                "input_args": args,
+                "input_kwargs": kwargs,
+                "output_args": (self.cur_node,)
+            }
+            self.args_dict[name] = name
+            return
+        return super().call_function(name, target, args, kwargs)
+
+    def call_module(self, name, module_name, args, kwargs):
+        assert self.submodule_mode
+        assert hasattr(self.graph, module_name)
+        assert not kwargs, f"Non empty kwargs: {kwargs} is unsupported in call_module codegen yet."
+        if name not in self.args_dict.keys():
+            self.args_dict[name] = 'op' + str(len(self.args_dict))
+        submodule = getattr(self.graph, module_name)
+        submodule_codegen = AscendCodegenBase(submodule)
+        submodule_codegen.run()
+        self.submodule_json_code_dict[name] = submodule_codegen.gen_compile_job_code(graph_name=name)
+        self.submodule_graph_execute_code_dict[name] = submodule_codegen.gen_call_func_main_graph_execute(graph_name=name, input_output_one_obj=False)
+        self.submodule_output_cache[name] = submodule_codegen.output_args
+
+        self.submodule_py_call_dict[name] = {
+            "op": "call_module",
+            "name": name,
+            "target": module_name,
+            "input_args": args,
+            "output_args": submodule_codegen.output_args
+        }
+        self.args_dict[name] = name
+        return
+
+    def gen_compile_graph_code(self):
+        if not self.submodule_mode:
+            return super().gen_compile_graph_code()
+        compile_graph_code = IndentedBuffer()
+        compile_graph_code.writeline('\nasync_compile = AsyncCompileKernel()')
+        for compilejob_code in self.submodule_json_code_dict.values():
+            compile_graph_code.writeline(compilejob_code)
+        self.parse_outputs()
+        compile_graph_code.writeline('async_compile.wait(globals())')
+        compile_graph_code.writeline('del async_compile\n')
+        return compile_graph_code.getvalue()
+
+    def real_output_name_in_submodule(self, arg: torch.fx.Node, index=0):
+        if arg.op == "call_module":
+            return [n.name for n in self.submodule_py_call_dict[arg.name]['output_args']][index]
+        else:
+            return arg.name
+
+    def gen_call_func(self):
+        if not self.submodule_mode:
+            return super().gen_call_func()
+        call_body = IndentedBuffer()
+        self.args = [self.args_dict[x.name] for x in self.input_args]
+        call_body.splice("""
+                             import torch_dipu
+                             dipu_device_str = torch_dipu.dipu.device.__diputype__
+                             for idx in range(len(args)):
+                                 if isinstance(args[idx], int):
+                                     args[idx] = torch.tensor(args[idx], device=dipu_device_str, dtype=torch.int32)
+                                 if isinstance(args[idx], torch.Tensor):
+                                     tmp_arg = args[idx].clone()
+                                     with torch.no_grad():
+                                         args[idx].copy_(tmp_arg)
+                                     del tmp_arg
+                         """, strip=True)
+        call_body.writeline(f"({''.join([arg + ', ' for arg in self.args])}) = args")
+        for name, data in self.submodule_py_call_dict.items():
+            if data['op'] == 'call_module':
+                call_body.splice(self.submodule_graph_execute_code_dict[name])
+            elif data['op'] == 'call_function':
+                target_name = f"{data['target'].__module__}.{data['target'].__name__}"
+                input_str_args = []
+                for arg in data["input_args"]:
+                    if isinstance(arg, str):
+                        input_str_args.append(f"\"{arg}\"")
+                        continue
+                    elif isinstance(arg, numbers.Number):
+                        input_str_args.append(str(arg))
+                        continue
+                    assert isinstance(arg, torch.fx.Node), "Unsupported input_arg in codegen:\n" \
+                        f"input_arg {arg} from node {name} in graph\n{self.graph.print_readable(False)}"
+                    index = slice(None) if target_name == "_operator.getitem" else 0
+                    input_str_args.append(self.real_output_name_in_submodule(arg, index))
+
+                for k, v in data["input_kwargs"].items():
+                    if isinstance(v, str):
+                        input_str_args.append(f"{k}=\"{v}\"")
+                    else:
+                        input_str_args.append(f"{k}={str(v)}")
+                output_str_args = [data['name']]
+                if target_name == "_operator.getitem":
+                    # TODO(chenchiyu): make equation into alias analysis
+                    assert len(input_str_args) == 2 and len(output_str_args) == 1, f"invalid call_function operator.getitem input args: {data['input_args']}"
+                    call_body.writeline(f"{output_str_args[0]} = {input_str_args[0][int(input_str_args[1])]}")
+                elif target_name in aot_operations:
+                    call_body.writeline(
+                        f"{', '.join(output_str_args)} = {target_name}.get_singleton().real_call"
+                        f"({', '.join(input_str_args)})"
+                    )
+                else:
+                    raise ValueError(f"invalid call function target: {target_name}")
+
+        if precision_check and self.aten_graph is not None:
+            # import aten graph
+            call_str.append(f"import sys")
+            call_str.append(f"if '{self.folder}' not in sys.path:")
+            call_str.append(f"    sys.path.insert(0, '{self.folder}')")
+            call_str.append(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
+            call_str.append(f"aten_call = graph_module()")
+
+            call_str.append('aten_args = list(map(lambda x: x.to("cpu"), args))')
+            call_str.append('for idx in modified:')
+            call_str.append('    aten_args[idx] = aten_args[idx].item()')
+            call_str.append('aten_output = aten_call(*aten_args)')
+
+        call_str = []
+        for i, name in enumerate(self.graph_output_names):
+            # name is one of submodule name
+            real_node_name = name
+            if name in self.submodule_output_cache:
+                real_node_name = self.submodule_output_cache[name][0].name
+            if name not in self.symint_outputs:
+                if name in self.cpu_tensor:
+                    call_str.append(f'{name} = {real_node_name}.cpu()')
+                else:
+                    call_str.append(f'{name} = {real_node_name}')
+            else:
+                call_str.extend([f'del {name}',
+                                 f'{name} = int({real_node_name})'])
+        call_body.writelines(call_str)
+        call_body.splice(self.gen_call_func_return_code())
+
+        call_func = IndentedBuffer()
+        call_func.writeline("def call(args):")
+        with call_func.indent():
+            call_func.splice(call_body)
+        return call_func.getvalue()
 
 class AscendOperator:
     def __init__(self, op_name: str, op_type: str):

@@ -6,6 +6,8 @@ from dicp.dynamo_bridge.op_transformer import (
     PatternMatcherPass,
     register_backend_patterns,
 )
+from dicp.vendor.AscendGraph.config import enable_aot_operations
+
 ascend_pattern_matcher = PatternMatcherPass()
 
 aten_patterns_cls_list = []
@@ -65,3 +67,25 @@ class FuseMatMulTransePoseRhsPattern(BackendPatternBase):
     @staticmethod
     def replacement(x1, x2):
         return MatMul(x1, x2, trans_x1=False, trans_x2=True)
+
+if enable_aot_operations:
+    DIOPIRMSNorm = torch.fx.wrap(ascend_op.DIOPIRMSNorm.get_singleton())
+
+    @register_aten_pattern
+    class RMSNormFloat16Input(BackendPatternBase):
+        @staticmethod
+        def pattern(input_x, weight, eps, _to_copy_1_device):
+            _to_copy = torch.ops.aten._to_copy.default(input_x, dtype=torch.float32)
+            pow_1 = torch.ops.aten.pow.Tensor_Scalar(_to_copy, 2)
+            mean = torch.ops.aten.mean.dim(pow_1, [-1], True)
+            add = torch.ops.aten.add.Tensor(mean, eps)
+            rsqrt = torch.ops.aten.rsqrt.default(add)
+            mul = torch.ops.aten.mul.Tensor(_to_copy, rsqrt)
+            _to_copy_1 = torch.ops.aten._to_copy.default(mul, dtype=torch.float16,
+                                                         layout=torch.strided, device=_to_copy_1_device)
+            mul_1 = torch.ops.aten.mul.Tensor(_to_copy_1, weight)
+            return mul_1
+
+        @staticmethod
+        def replacement(input_x, weight, eps):
+            return DIOPIRMSNorm(input_x, weight, eps)

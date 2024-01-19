@@ -153,7 +153,7 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];
   }
-  throw std::runtime_error("invalid ascend data type!");
+  throw std::runtime_error("invalid ascend data type: " + data_type);
 }
 
 template <typename T>
