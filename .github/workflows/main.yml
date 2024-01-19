@@ -136,8 +136,8 @@ jobs:
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
-  Build-Camb-pt2.1.1:
-    name: Build-dipu-camb-pt2.1.1
+  Build-Camb-Pt211:
+    name: Build-dipu-camb-pt211
     needs: [Tidy-Cuda]
     runs-on: github-poc-ci
     env:
@@ -155,9 +155,9 @@ jobs:
           || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
-  Test-Camb-pt2.1.1:
-    name: Test-dipu-camb-pt2.1.1
-    needs: [Build-Camb-pt2.1.1]
+  Test-Camb-Pt211:
+    name: Test-dipu-camb-pt211
+    needs: [Build-Camb-Pt211]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -166,11 +166,11 @@ jobs:
         run: |
           ssh ${CAMB_CLUSTER} """
           set -ex
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-pt2.1.1/dipu
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Pt211/dipu
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh 2.1.1
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-pt2.1.1 \
-          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-pt2.1.1 && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt211 \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt211 && exit 1 )
           """
 
   Test-One-Iter-Camb:
