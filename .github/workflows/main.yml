@@ -136,6 +136,43 @@ jobs:
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
+  Build-Camb-pt2.1.1:
+    name: Build-dipu-camb-pt2.1.1
+    needs: [Tidy-Cuda]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build dipu
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci/camb/ci_camb_env.sh  2.1.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  Test-Camb-pt2.1.1:
+    name: Test-dipu-camb-pt2.1.1
+    needs: [Build-Camb-pt2.1.1]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Run-test
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-pt2.1.1/dipu
+          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
+          source scripts/ci/camb/ci_camb_env.sh 2.1.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-pt2.1.1 \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-pt2.1.1 && exit 1 )
+          """
+
   Test-One-Iter-Camb:
     name: Test-one-iter-camb
     needs: [Build-Camb]
