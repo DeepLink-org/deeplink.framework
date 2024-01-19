@@ -194,42 +194,5 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1>& input_shape,
   return output_shape;
 }
 
-inline std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
-  if (a.defined() && b.defined()) {
-    try {
-      constexpr double tolerance_absolute = 1e-4;
-      constexpr double tolerance_relative = 1e-5;
-      if (at::allclose(a.cpu(), b.cpu(), tolerance_absolute, tolerance_relative,
-                       true)) {
-        return "allclose";
-      }
-      auto diff = at::abs(a.cpu() - b.cpu());
-      auto mae = diff.mean().item<double>();
-      auto max_diff = diff.max().item<double>();
-      return "not_close, max diff: " + std::to_string(max_diff) +
-             ", MAE: " + std::to_string(mae);
-    } catch (...) {
-      return "compare_error: not_close";
-    }
-  } else {
-    if (a.defined() != b.defined()) {
-      return "not_close, one of tensor inputs is empty";
-    }
-    return "allclose";
-  }
-}
-
-inline std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
-                             const c10::ArrayRef<at::Tensor>& b) {
-  if (a.size() != b.size()) {
-    return "not_allclose:";
-  }
-  std::string result;
-  for (size_t i = 0; i < a.size(); ++i) {
-    result += std::to_string(i) + "th " + _allclose(a[i], b[i]) + "; ";
-  }
-  return result;
-}
-
 }  // namespace native
 }  // namespace dipu
