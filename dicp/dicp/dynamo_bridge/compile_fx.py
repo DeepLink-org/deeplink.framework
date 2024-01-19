@@ -9,6 +9,7 @@ import functorch
 import torch.fx
 import importlib
 import os
+from dicp.dynamo_bridge import pt_patch # noqa F401
 
 from typing import List
 from importlib import import_module

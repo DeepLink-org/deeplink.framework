@@ -799,9 +799,8 @@ class GetTupleElement(Operator):
 
 
 class MakeTuple(Operator):
-    def __init__(self, a, b):
+    def __init__(self, *args):
         super().__init__("MakeTuple")
-        self.torch_op = torch.empty_like
 
     def __call__(self, *args):
         return (arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)
@@ -816,9 +815,3 @@ class XlaGather(Operator):
                  start_index_map, index_vector_dim, slice_size, out_shape):
         with operand.meta['val'].fake_mode:
             return aten.empty(out_shape, device=operand.meta["val"].device)
-
-
-# TODO check if we need this wrap
-@torch.fx.wrap
-def ret_tuples(a, b) -> Tuple[torch.Tensor, torch.Tensor]:
-    return a, b

@@ -20,8 +20,8 @@
 #include <c10/util/string_view.h>
 
 #include "csrc_dipu/runtime/core/DIPUStream.h"
-#include <csrc_dipu/runtime/rthelper.h>
-#include <csrc_dipu/utils/Log.h>
+#include "csrc_dipu/runtime/rthelper.h"
+#include "csrc_dipu/utils/Log.h"
 
 namespace dipu {
 namespace native {
@@ -40,12 +40,20 @@ inline bool checkTensorDevice() {
 inline void synchronizeIfEnable() {
   static const char* mode = std::getenv("DIPU_SYNC_EXEC_MODE");
   if (mode != nullptr) {
+    // TODO(log) - use a logger library to do this.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
     DIPU_LOG_ONCE << "The synchronous operation is performed after "
                   << "the diopi function call because the DIPU_SYNC_EXEC_MODE "
-                     "environment variable is set"
-                  << '\n';
+                     "environment variable is set\n";
     dipu::getCurrentDIPUStream().synchronize();
   }
+}
+
+inline bool dipuKeepTorchopDefaultImpl(const char* opname) {
+  static const char* env = std::getenv("DIPU_KEEP_TORCHOP_DEFAULT_IMPL_OPS");
+  return (env != nullptr) &&
+         ((std::string(env) + ',').find(std::string(opname) + ',') <
+          (strlen(env) - 1));
 }
 
 inline int dumpOpArgLevel() {

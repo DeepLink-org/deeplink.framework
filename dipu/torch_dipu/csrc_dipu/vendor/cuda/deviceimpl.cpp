@@ -7,9 +7,6 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE =
-    devapis::VendorDeviceType::CUDA;
 
 namespace devapis {
 

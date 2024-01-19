@@ -86,6 +86,10 @@ function build_needed_repo_ascend() {
     cd ..
 }
 
+function build_needed_repo_kunlunxin() {
+    echo "skip"
+}
+
 
 function export_repo_pythonpath(){
     basic_path="$2"
@@ -101,8 +105,10 @@ function export_repo_pythonpath(){
         export PYTHONPATH=${basic_path}/mmagic/mmagic/models/editors/stable_diffusion:$PYTHONPATH
     elif [ "$1" = "ascend" ]; then
         echo "Executing ASCEND operation in pythonpath..."
+    elif [ "$1" = "kunlunxin" ]; then
+        echo "Executing KUNLUNXIN operation in pythonpath..."
     else
-        echo "Invalid parameter. Please specify 'cuda', 'camb' or 'ascend'."
+        echo "Invalid parameter. Please specify 'cuda', 'camb' 'ascend' or 'kunlunxin'."
         exit 1
     fi
     export PYTHONPATH=${basic_path}:$PYTHONPATH
@@ -135,15 +141,15 @@ function build_dataset(){
         echo "Executing CUDA operation in build dataset..."
         rm -rf data
         mkdir data
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/imagenet data/imagenet
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/coco  data/coco
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/openmmlab/datasets/action/Kinetics400 data/kinetics400 
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/icdar2015 data/icdar2015
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/mjsynth data/mjsynth
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/dataset/data_for_ln/kitti data/kitti
-        ln -s /mnt/lustre/share_data/shenliancheng/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
-        ln -s /mnt/lustre/share_data/parrots.tester.s.03/models_code/mmagic/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
+        ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
+        ln -s /mnt/lustre/share_data/PAT/datasets/Kinetics400 data/kinetics400 
+        ln -s /mnt/lustre/share_data/PAT/datasets/icdar2015 data/icdar2015
+        ln -s /mnt/lustre/share_data/PAT/datasets/mjsynth data/mjsynth
+        ln -s /mnt/lustre/share_data/PAT/datasets/kitti data/kitti
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
+        ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
@@ -152,7 +158,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/Imagenet data/imagenet
         ln -s /mnt/lustre/share_data/PAT/datasets/mscoco2017  data/coco
         ln -s /mnt/lustre/share_data/PAT/datasets/mmseg/cityscapes data/cityscapes
-        ln -s /mnt/lustre/share_data/slc/mmdet3d/mmdet3d data/kitti
+        ln -s /mnt/lustre/share_data/PAT/datasets/mmdet3d/mmdet3d_kitti data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmaction/Kinetics400 data/kinetics400
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/icdar2015 data/icdar2015
         ln -s /mnt/lustre/share_data/PAT/datasets/mmocr/mjsynth data/mjsynth
@@ -197,9 +203,14 @@ function build_dataset(){
         ln -s /mnt/cache/share/datasets/mmdet/pretrain/darknet53-a628ea1b.pth data/darknet53-a628ea1b.pth
         ln -s /mnt/cache/share/datasets/mmpose/pretrain/hrnet_w32-36af842e.pth data/hrnet_w32-36af842e.pth
         ln -s /mnt/cache/share/datasets/pretrain/mmcv/resnet50_v1c-2cccc1ad.pth data/resnet50_v1c-2cccc1ad.pth
+    elif [ "$1" = "kunlunxin" ]; then
+        echo "Executing KUNLUNXIN operation in build dataset..."
+        rm -rf data
+        mkdir data
+        ln -s /mnt/cache/share/datasets/imagenet data/imagenet
 
     else
-        echo "Invalid parameter. Please specify 'cuda' 'camb' or 'ascend'."
+        echo "Invalid parameter. Please specify 'cuda' 'camb' 'ascend' or 'kunlunxin'."
         exit 1
     fi
 }
@@ -220,12 +231,17 @@ case $1 in
     build_ascend910b)
         build_needed_repo_ascend
         build_dataset ascend910b;;
+    build_kunlunxin)
+        build_needed_repo_kunlunxin
+        build_dataset kunlunxin;;
     export_pythonpath_camb)
         export_repo_pythonpath camb $2;;
     export_pythonpath_cuda)
         export_repo_pythonpath cuda $2;;
     export_pythonpath_ascend)
         export_repo_pythonpath ascend $2;;
+    export_pythonpath_kunlunxin)
+        export_repo_pythonpath kunlunxin $2;;
     *)
         echo -e "[ERROR] Incorrect option:" $1;
 esac

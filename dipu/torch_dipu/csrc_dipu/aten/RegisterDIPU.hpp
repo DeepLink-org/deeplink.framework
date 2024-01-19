@@ -2,9 +2,13 @@
 #pragma once
 
 #include <deque>
+#include <fstream>
+#include <iostream>
 #include <mutex>
 
 #include <torch/library.h>
+
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
 
 namespace dipu {
 
@@ -44,6 +48,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // add type trait code. 2. pytorch seems are sorting out infer and other
 // pre/post code. so we shouldn't created a new preprocess logic?
 // so just do a simple runtime cpu fallback to support diopi func loss
+
+// It mat be necessary to determine whether to keep torchop default impl
+// for non-custom ops through function dipuKeepTorchopDefaultImpl firstly in the
+// future, and we use force fallback to keep torchop default impl now.
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc)                       \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \
@@ -60,9 +68,14 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                        \
   } while (false);
 
+// Determine whether to keep torchop default impl for custom ops through
+// function dipuKeepTorchopDefaultImpl firstly.
 #define DIOPI_ATEN_FUNC_CUSTOM_FALLBACK(opname, diopi_func, force_fallback,   \
                                         wapper_func, custom_fallback_func)    \
   do {                                                                        \
+    if (dipu::native::dipuKeepTorchopDefaultImpl(opname)) {                   \
+      break;                                                                  \
+    }                                                                         \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
         !((force_fallback) || dipu::get_force_fallback(opname))) {            \
       m.impl(opname, TORCH_FN(wapper_func));                                  \
@@ -112,18 +125,14 @@ class DIPUOpRegister {
 
 #define DIPU_LIBRARY_IMPL(ns, k, m) _DIPU_LIBRARY_IMPL(ns, k, m, C10_UID)
 
-#define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                                 \
-  static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,       \
-                              uid)(torch::Library&);                      \
-  static const ::at::DIPUOpRegister C10_CONCATENATE(                      \
-      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                  \
-      c10::guts::if_constexpr<c10::impl::dispatch_key_allowlist_check(    \
-          c10::DispatchKey::k)>(                                          \
-          []() {                                                          \
-            return &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, \
-                                    uid);                                 \
-          },                                                              \
-          []() { return [](torch::Library&) -> void {}; }),               \
-      #ns, c10::make_optional(c10::DispatchKey::k), __FILE__, __LINE__);  \
-  void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,              \
+#define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                                \
+  static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,      \
+                              uid)(torch::Library&);                     \
+  static const ::at::DIPUOpRegister C10_CONCATENATE(                     \
+      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                 \
+      (c10::impl::dispatch_key_allowlist_check(c10::DispatchKey::k)      \
+           ? &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid) \
+           : [](torch::Library&) -> void {}),                            \
+      #ns, c10::make_optional(c10::DispatchKey::k), __FILE__, __LINE__); \
+  void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,             \
                        uid)(torch::Library & (m))

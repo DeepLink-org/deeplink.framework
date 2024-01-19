@@ -1,5 +1,7 @@
 # Copyright (c) 2023, DeepLink.
-from .utils import is_initialized
+
+from .utils import is_initialized, get_dipu_torch_version, \
+                   check_dipu_torch_compatiable, torch_ver_200, torch_ver_211
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type
 from .device import devicectx
@@ -11,6 +13,9 @@ from .tensor import *
 from .storages import *
 from . import amp
 import torch_dipu
+from torch_dipu._C import NativeMemoryFormat
+from torch_dipu._C import native_memory_format_cast
+from torch_dipu._C import get_native_memory_format
 
 _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 
@@ -38,6 +43,8 @@ __all__ = [
     "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
     "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
 
+    # custom api
+    "NativeMemoryFormat", "native_memory_format_cast", "get_native_memory_format"
     # not support mock cuda_graph now
 
 ]

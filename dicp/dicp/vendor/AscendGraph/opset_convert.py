@@ -1,12 +1,15 @@
 import torch
-from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
+from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
-from dicp.vendor.AscendGraph.pattern_replacement import (
-    ascend_pattern_matcher,
-    aten_patterns_cls_list,
-    ascend_patterns_cls_list
-)
+
+if is_torch_210:
+    from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
+    from dicp.vendor.AscendGraph.pattern_replacement import (
+        ascend_pattern_matcher,
+        aten_patterns_cls_list,
+        ascend_patterns_cls_list
+    )
 
 
 # 该pass需要在FuseTransposeMatmul之后
@@ -74,13 +77,14 @@ def symint_in_inputs(nodes):
 def ascendgraph_opset_convert(
     gm: torch.fx.GraphModule,
 ):
-    gm = BackendPatternMatcherTransformer(
-        ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
+    if is_torch_210:
+        gm = BackendPatternMatcherTransformer(
+            ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
     gm = AtenToAscendTransformer(gm).transform()
 
     # For bug in pytorch
     # Avoid for dynamic shape
-    if not symint_in_inputs(list(gm.graph.nodes)):
+    if is_torch_210 and not symint_in_inputs(list(gm.graph.nodes)):
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
     gm = OutputMarkPass().transform(gm)

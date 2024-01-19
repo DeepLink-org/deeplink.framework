@@ -1,6 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <algorithm>
+#include <iterator>
+
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
 
 #include "OpUtils.hpp"
@@ -44,12 +47,11 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   indices_cpu.reserve(indices.size());
   // input as x[1:2, [1, 2]], Slice by first dimension already executed before
   // this index(), in this case, indices[0] is an undefinedTensor.
-  for (int i = 0; i < indices.size(); ++i) {
-    indices_cpu.push_back(
-        (indices[i].has_value() && indices[i].value().defined())
-            ? indices[i].value().to("cpu")
-            : at::Tensor());
-  }
+  std::transform(
+      indices.begin(), indices.end(), std::back_inserter(indices_cpu),
+      [](const c10::optional<at::Tensor>& tensor) {
+        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      });
   return indices_cpu;
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
@@ -293,7 +295,8 @@ static std::tuple<at::Tensor, at::Tensor> custom_fallback_dipu_matmul_backward(
   }
 
   const auto device = input.device();
-  at::Tensor grad_input, grad_other;
+  at::Tensor grad_input;
+  at::Tensor grad_other;
 
   if (mask[0]) {
     grad_input =
@@ -403,6 +406,13 @@ static at::Tensor& custom_fallback_dipu_bmm_out(const at::Tensor& self,
   return out;
 }
 
+static at::Tensor custom_fallback_dipu_mm(const at::Tensor& self,
+                                          const at::Tensor& mat2) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
+  return at::mm(self_cpu, mat2_cpu);
+}
+
 static at::Tensor& custom_fallback_dipu_mm_out(const at::Tensor& self,
                                                const at::Tensor& mat2,
                                                at::Tensor& out) {
@@ -436,6 +446,24 @@ static at::Tensor custom_fallback_dipu_linear(
   out_cpu = at::linear(input_cpu, weight_cpu, bias_cpu);
   out = out_cpu.to(input.device())
             .to(input.options().dtype_opt()->toScalarType());
+  return out;
+}
+
+static at::Tensor custom_fallback_dipu_rsqrt_out(const at::Tensor& self,
+                                                 at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = at::rsqrt(self_cpu);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor custom_fallback_dipu__softmax_out(const at::Tensor& self,
+                                                    int64_t dim,
+                                                    bool half_to_float,
+                                                    at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = at::softmax(self_cpu, dim);
+  out.copy_(out_cpu);
   return out;
 }
 

@@ -6,7 +6,6 @@
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
 namespace dipu {
-DIPU_API devapis::VendorDeviceType VENDOR_TYPE = devapis::VendorDeviceType::GCU;
 
 namespace devapis {
 

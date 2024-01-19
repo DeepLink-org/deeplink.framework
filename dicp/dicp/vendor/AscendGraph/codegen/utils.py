@@ -27,8 +27,10 @@ def get_ascend_dtype_num(dtype: str):
         return 4
     elif dtype == "UINT64":
         return 10
+    elif dtype == "BF16":
+        return 27
     else:
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+        raise RuntimeError(f"unknow torch data type ({dtype}) in get_ascend_dtype_num!")
 
 
 def get_ascend_dtype(dtype: torch.dtype) -> str:
@@ -36,7 +38,7 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "BOOL"
     elif dtype == torch.int64:
         return "INT64"
-    elif dtype == torch.float32:
+    elif dtype in [torch.float32, torch.float]:
         return "FLOAT"
     elif dtype == torch.float16:
         return "FLOAT16"
@@ -44,8 +46,10 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "INT32"
     elif dtype == torch.complex64:
         return "COMPLEX64"
+    elif dtype == torch.bfloat16:
+        return "BF16"
     else:
-        raise RuntimeError("unknow torch data tyep type in get_ascend_dtype!")
+        raise RuntimeError(f"unknow torch data type ({dtype}) in get_ascend_dtype!")
 
 
 def get_cpp_dtype(dtype: torch.dtype) -> str:
@@ -56,4 +60,4 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
     elif dtype == torch.int32:
         return "INT32"
     else:
-        raise RuntimeError("unknow torch data tyep type in get_cpp_dtype!")
+        raise RuntimeError(f"unknow torch data type ({dtype}) in get_cpp_dtype!")
