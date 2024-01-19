@@ -16,16 +16,13 @@ if is_torch_210:
 class ArgsTransDataPass:
     def transform(self, gm: torch.fx.graph_module):
         for n in gm.graph.nodes:
-            if n.op == 'placeholder':
+            if hasattr(n, 'op') and n.op == 'placeholder':
                 fake_tensor = n.meta['val']
-                if not hasattr(torch_dipu, 'get_native_memory_format'):
-                    n.meta['native_memory_format'] = 'ND'
-                    continue
                 memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo     
                 for key in memo:
                     if id(memo[key].fake_device) == id(fake_tensor.fake_device):
                         memory_format = torch_dipu.get_native_memory_format(key())
-                        n.meta['native_memory_format'] = str(memory_format.value)
+                        n.meta['native_memory_format'] = str(memory_format.name)
                         break
         return gm
 

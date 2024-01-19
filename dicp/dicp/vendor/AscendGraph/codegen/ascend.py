@@ -107,12 +107,15 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
 
+        native_memory_format = "ND"
+        if 'native_memory_format' in self.cur_node.meta:
+            native_memory_format = self.cur_node.meta['native_memory_format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
             "op_type": "Data",
             "dims": dims,
-            "format": self.cur_node.meta['native_memory_format'],
+            "format": native_memory_format,
             "data_type": data_type,
             "cpp_data_type": data_type,
             "index": index
