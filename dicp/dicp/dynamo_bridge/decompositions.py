@@ -19,8 +19,8 @@ def index_put(x, indices, values):
         indices_ndim = indices.ndim
         x_ndim = x.ndim
         if indices_ndim < x_ndim:
-            for i in range(x_ndim - indices_ndim):
-                indices = indices.unsqueeze(-1)
+            reshape_shape = list(indices.shape) + [1] * (x_ndim - indices_ndim)
+            indices = indices.reshape(reshape_shape)
         return torch.ops.aten.masked_fill(x, indices, values)
     else:
         return torch.ops.aten.index_put.default(x, indices, values)
