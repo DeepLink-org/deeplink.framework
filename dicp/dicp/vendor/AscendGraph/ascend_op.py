@@ -44,11 +44,18 @@ class BroadcastTo(Operator):
 
     def infer_result(self, x, shape):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
-        shape = shape_shape
-        
-        out_shape=get_broadcast_res_two_shape(x_shape,shape)
-        assert out_shape == shape, self.__class__.__name__ + "can't broadcast x to specified shape!"
+        if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
+            shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
+            shape = shape_shape
+        elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
+            shape, _, _ =get_op_const_arg_kwarg(shape)
+        else: # other cases, unsupported yet
+            assert False, self.__class__.__name__ + "unsupported 'shape' input type!"
+
+        out_shape = get_broadcast_res_two_shape(x_shape, shape)
+        assert out_shape == list(shape), (
+            self.__class__.__name__ + "can't broadcast x to specified shape!"
+        )
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
