@@ -2,6 +2,7 @@
 #include <acl/acl.h>
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
+#include <atomic>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
@@ -18,21 +19,29 @@ namespace devapis {
 //  Device class related
 // =====================
 using ascend_deviceId = int32_t;
-thread_local bool setDevFlag = false;
+
+std::atomic<int> kCurrentDeviceIndex(-1);
 
 void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (setDevFlag == false) {
-    DIPU_CALLACLRT(aclrtSetDevice(0));
-    setDevFlag = true;
+  if (kCurrentDeviceIndex < 0) {
+    setDevice(0);
+    return 0;
   }
-  ascend_deviceId devId_;
-  DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
-  return static_cast<deviceId_t>(devId_);
+  return static_cast<deviceId_t>(kCurrentDeviceIndex);
 }
+
+// set current device given device according to id
+void setDevice(deviceId_t devId) {
+  if (devId != kCurrentDeviceIndex) {
+    kCurrentDeviceIndex = devId;
+    DIPU_CALLACLRT(::aclrtSetDevice(devId))
+  }
+}
+
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   const char* device_name;
   size_t device_free;
@@ -52,13 +61,6 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   prop.totalGlobalMem = device_total << 20;
   prop.multiProcessorCount = 1;
   return prop;
-}
-
-// set current device given device according to id
-void setDevice(deviceId_t devId) {
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
@@ -188,6 +190,7 @@ void createStream(deviceStream_t* stream, bool prior) {
         " Fall back on creating queue without priority.");
   }
   DIPU_CALLACLRT(::aclrtCreateStream(stream));
+  std::cout << __FUNCTION__ << ":" << *stream << std::endl;
 }
 
 void destroyStream(deviceStream_t stream) {
