@@ -4,7 +4,7 @@ import torch
 import random
 import torch._dynamo as dynamo
 import torch_dipu
-from dicp.dynamo_bridge import pt_patch
+from dicp.dynamo_bridge import pt_patch # noqa F401
 torch.manual_seed(1)
 random.seed(1)
 

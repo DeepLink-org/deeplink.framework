@@ -43,8 +43,7 @@ jobs:
         uses: DeepLink-org/deeplink.framework/.github/actions/code-build-test@main
         with:
           build_shell: "
-                       source dicp/scripts/ci/tops/ci_tops_test_env.sh \
-                       /mnt/models/llama_models /mnt/models/stable_diffusion_models && \
+                       source dicp/scripts/ci/tops/ci_tops_test_env.sh && \
                        export TEST_DIR=$(pwd)/dicp/test && \
                        bash ${TEST_DIR}/tops_scripts/ops/run_test_ops.sh false
                        "
