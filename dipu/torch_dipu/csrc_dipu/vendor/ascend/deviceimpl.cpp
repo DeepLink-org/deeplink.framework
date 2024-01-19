@@ -18,24 +18,24 @@ namespace devapis {
 // =====================
 using ascend_deviceId = int32_t;
 
-std::atomic<int> kCurrentDeviceIndex(-1);
+std::atomic<int> currentDeviceIndex(-1);
 
 void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (kCurrentDeviceIndex < 0) {
+  if (currentDeviceIndex < 0) {
     setDevice(0);
     return 0;
   }
-  return static_cast<deviceId_t>(kCurrentDeviceIndex);
+  return static_cast<deviceId_t>(currentDeviceIndex);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
-  if (devId != kCurrentDeviceIndex) {
-    kCurrentDeviceIndex = devId;
+  if (devId != currentDeviceIndex) {
+    currentDeviceIndex = devId;
     DIPU_CALLACLRT(::aclrtSetDevice(devId))
   }
 }
@@ -188,7 +188,6 @@ void createStream(deviceStream_t* stream, bool prior) {
         " Fall back on creating queue without priority.");
   }
   DIPU_CALLACLRT(::aclrtCreateStream(stream));
-  std::cout << __FUNCTION__ << ":" << *stream << std::endl;
 }
 
 void destroyStream(deviceStream_t stream) {
