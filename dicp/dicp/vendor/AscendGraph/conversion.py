@@ -662,31 +662,41 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 bcast_shape = []
                 first_not_none = 0
                 not_none_len = 0
-                status = 0
 
                 # calc for first_not_none & not_none_len
+                # support 4 cases now:
+                #   i.    idx1, ... idxN
+                #   ii.   idx1, ... idxN, None, ... None
+                #   iii.  None, ... None, idx1, ... idxN, None, ... None
+                #   iv.   None, ... None, idx1, ... idxN
+                # other cases not supported!
+                # define state name from an easy state machine
+                status = START = 0
+                FIRST_NONE = 1
+                NOT_NONE = 2
+                SECOND_NONE = 3
                 for i, elem in enumerate(index):
-                    if status == 0:
+                    if status == START:
                         if elem is None:
-                            status = 1
+                            status = FIRST_NONE
                         else:
                             break
-                    elif status == 1:
+                    elif status == FIRST_NONE:
                         if elem is not None:
-                            status = 2
+                            status = NOT_NONE
                             first_not_none = i
-                    elif status == 2:
+                    elif status == NOT_NONE:
                         if elem is not None:
                             not_none_len = i - first_not_none + 1
                         else:
-                            status = 3
-                    elif status == 3:
-                        # not support now!
+                            status = SECOND_NONE
+                    elif status == SECOND_NONE:
+                        # not supported now!
                         assert elem is None
                 index_tmp = [e for e in index]
 
                 # insert transpose op
-                if status > 0:
+                if status > START:
                     x_shape = list(x.node.meta['val'].shape)
                     perm = [num for num in range(len(x_shape))]
                     for i in range(not_none_len):
@@ -719,12 +729,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
                             index_tmp[i] = self.get_proxy(ascend_op.BroadcastTo, (elem, bcast_shape))
 
                 # core gather calc
-                if status > 0:
+                if status > START:
                     index_tmp = index_tmp[:not_none_len]
                 index = immutable_list(index_tmp)
                 indices = self.get_proxy(ascend_op.Pack, (index, -1))
                 gather = self.get_proxy(ascend_op.GatherNd, (x, indices, index_tmp))
-                if status > 0:
+                if status > START:
                     return self.get_proxy(ascend_op.Transpose, (gather, perm))
                 return gather
         return self.index_base(x, 0, index)
