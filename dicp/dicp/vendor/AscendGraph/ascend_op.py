@@ -909,21 +909,6 @@ class PadV3(Operator):
         super().__init__("PadV3")
 
 
-class LogicalOr(Operator):
-    def __init__(self):
-        super().__init__("LogicalOr")
-
-
-class Tril(Operator):
-    def __init__(self):
-        super().__init__("Tril")
-
-
-class Tile(Operator):
-    def __init__(self):
-        super().__init__("Tile")
-
-
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
 
