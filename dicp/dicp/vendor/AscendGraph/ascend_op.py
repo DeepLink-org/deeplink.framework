@@ -133,6 +133,16 @@ class BatchMatMul(Operator):
         )
 
 
+class LayerNorm(Operator):
+    def __init__(self):
+        super().__init__("LayerNorm")
+
+
+class GroupNorm(Operator):
+    def __init__(self):
+        super().__init__("GroupNorm")
+
+
 class Sub(Operator):
     def __init__(self):
         super().__init__("Sub")
@@ -228,6 +238,11 @@ class Relu(Operator):
         return common_unary_op_infer(x)
 
 
+class Gelu(Operator):
+    def __init__(self):
+        super().__init__("Gelu")
+
+
 class Swish(Operator):
     def __init__(self):
         super().__init__("Swish")
@@ -236,6 +251,9 @@ class Swish(Operator):
 class Transpose(Operator):
     def __init__(self):
         super().__init__("Transpose")
+
+    def infer_result(self, x, axes=None):
+        return common_unary_op_infer(x)
 
 
 class SoftmaxV2(Operator):
@@ -470,6 +488,11 @@ class Less(Operator):
         return common_binary_op_infer(x1, x2, torch.bool)
 
 
+class ArgMax(Operator):
+    def __init__(self):
+        super().__init__("ArgMax")
+
+
 class Equal(Operator):
     def __init__(self):
         super().__init__("Equal")
@@ -572,6 +595,23 @@ class Empty(Operator):
             device=device,
             memory_format=memory_format,
         )
+
+
+class GatherNd(Operator):
+    def __init__(self):
+        super().__init__("GatherNd")
+
+    def infer_result(self, x, index, orig_index):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+
+        # assume not none index, and replace prefix x_shape dims
+        len_idx_shape = len(orig_index)
+        assert(len_idx_shape > 0)
+        bcast_index_shape = list(orig_index[0].shape)
+        x_shape = bcast_index_shape + list(x_shape[len_idx_shape:])
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class GatherV2(Operator):
@@ -723,6 +763,16 @@ class Slice(Operator):
         _, storage_offset = cal_stride_offset(new_shape, offset, x)
         res = torch.as_strided(x, new_shape, x.stride(), storage_offset)
         return res
+
+
+class Cos(Operator):
+    def __init__(self):
+        super().__init__("Cos")
+
+
+class Sin(Operator):
+    def __init__(self):
+        super().__init__("Sin")
 
 
 class ConcatD(Operator):
