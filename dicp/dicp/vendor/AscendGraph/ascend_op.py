@@ -48,7 +48,7 @@ class BroadcastTo(Operator):
             shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
             shape = shape_shape
         elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
-            shape, _, _ =get_op_const_arg_kwarg(shape)
+            shape, _, _, _ =get_op_const_arg_kwarg(shape)
         else: # other cases, unsupported yet
             assert False, self.__class__.__name__ + "unsupported 'shape' input type!"
 
