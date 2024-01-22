@@ -9,7 +9,6 @@ diopi_wrapper_file_template_content = \
 #include <cstdio>
 #include <iostream>
 #include <ostream>
-#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -186,30 +185,4 @@ $cppsignautre {
 
   $result_compare_code
 }
-"""
-
-autocompare_result_compare_template_content = \
-R"""
-{{
-  std::cout << std::string({num_indent}, ' ') << "autocompare:\t{op_name}\t{return_or_input_name}"{suffix} << ":\n";
-  auto tensor_device_to_cpu = to_cpu_without_diopi({tensor_device_expr});
-  std::string compare_result = allclose_autocompare({tensor_cpu_expr}, tensor_device_to_cpu);
-  std::cout << std::string({num_indent} + 2, ' ') << compare_result << std::endl;
-  if ("allclose" != compare_result) {{
-    std::cout << std::string({num_indent} + 2, ' ') << "--------------------" << "\n"
-              << std::string({num_indent} + 2, ' ') << "tensor_cpu: " << "\n"
-              << std::string({num_indent} + 4, ' ') << dumpArg({tensor_cpu_expr}) << "\n"
-              << std::string({num_indent} + 4, ' ') << "First 10 values or fewer:" << "\n"
-              << {tensor_cpu_expr}.flatten().slice(0, 0, 10) << "\n"
-              << std::string({num_indent} + 2, ' ') << "--------------------" << "\n"
-              << std::string({num_indent} + 2, ' ') << "tensor_device: " << "\n"
-              << std::string({num_indent} + 4, ' ') << dumpArg({tensor_device_expr}) << "\n"
-              << std::string({num_indent} + 4, ' ') << "First 10 values or fewer:" << "\n"
-              << tensor_device_to_cpu.flatten().slice(0, 0, 10) << "\n"
-              << std::string({num_indent} + 2, ' ') << "--------------------" << "\n"
-              << std::string({num_indent} + 2, ' ') << "diff: " << "\n"
-              << std::string({num_indent} + 4, ' ') << "First 10 values of diff(= tensor_cpu - tensor_device):" << "\n"
-              << ({tensor_cpu_expr}.flatten().slice(0, 0, 10) - tensor_device_to_cpu.flatten().slice(0, 0, 10)) << std::endl;
-  }}
-}}
 """

@@ -7,7 +7,7 @@ from collections import OrderedDict
 from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import diopi_wrapper_file_template_content,\
     diopi_wrapper_function_template_content, op_register_template_content,\
-    custom_autograd_template_content, autocompare_template_content, autocompare_result_compare_template_content,\
+    custom_autograd_template_content, autocompare_template_content,\
     op_with_custom_fallback_register_template_content
 
 class CodeTemplate:
@@ -451,78 +451,19 @@ def create_call_dipu_cpp_function_code_from_schema(schema):
 def create_result_compare_code(fun_config):
     schema = fun_config['schema']
     op_name = get_op_name_from_schema(schema)
+    return_names = get_function_return_param_from_schema(schema)
     code = ''
 
-    return_names = get_function_return_param_from_schema(schema)
-    is_return_tensor_list_types = []
-    for return_item in schema[schema.find('->' ) + 2:].strip().split(','):
-        if 'Tensor' in return_item:
-            if re.search(r'\[ *\]', return_item):
-                is_return_tensor_list_types.append(True)
-            else:
-                is_return_tensor_list_types.append(False)
-    for i, return_name in enumerate(return_names):
-        if len(return_names) > 1:
-            tensor_device_expr = f'std::get<{i}>(result_device)'
-            tensor_cpu_expr = f'std::get<{i}>(result_cpu)'
-        else:
-            tensor_device_expr = 'result_device'
-            tensor_cpu_expr = 'result_cpu'
-        if is_return_tensor_list_types[i]:
-            code += f'for (int j = 0; j < {tensor_cpu_expr}.size(); ++j) {{'
-            code += autocompare_result_compare_template_content.format(
-                num_indent=2,
-                op_name=op_name,
-                return_or_input_name=return_name,
-                suffix=' << "[" << j << "]"',
-                tensor_device_expr=f'{tensor_device_expr}[j]',
-                tensor_cpu_expr=f'{tensor_cpu_expr}[j]',
-            )
-            code += '}\n'
-        else:
-            code += autocompare_result_compare_template_content.format(
-                num_indent=0,
-                op_name=op_name,
-                return_or_input_name=return_name,
-                suffix='',
-                tensor_device_expr=tensor_device_expr,
-                tensor_cpu_expr=tensor_cpu_expr,
-            )
-
-    input_schema = re.findall(r'\((.*?)\)', schema[:schema.find('->')])[0]
-    input_names = re.findall('Tensor +([\w\d_]+)', input_schema)
-    input_names += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', input_schema)
-    is_input_tensor_list_types = []
-    for input_item in input_schema.split(','):
-        curr_name = re.findall(r'Tensor.*? *([\w\d_]+)', input_item)
-        if curr_name and curr_name[0] in input_names:
-            if re.search(r'\[ *\]', input_item):
-                is_input_tensor_list_types.append(True)
-            else:
-                is_input_tensor_list_types.append(False)
-    for i, input_name in enumerate(input_names):
-        tensor_device_expr = input_name
-        tensor_cpu_expr = f'{input_name}_cpu'
-        if is_input_tensor_list_types[i]:
-            code += f'for (int j = 0; j < {tensor_cpu_expr}.size(); ++j) {{\n'
-            code += autocompare_result_compare_template_content.format(
-                num_indent=2,
-                op_name=op_name,
-                return_or_input_name=input_name,
-                suffix=' << "[" << j << "]"',
-                tensor_device_expr=f'{input_name}[j]',
-                tensor_cpu_expr=f'{input_name}_cpu[j]',
-            )
-            code += '}\n'
-        else:
-            code += autocompare_result_compare_template_content.format(
-                num_indent=0,
-                op_name=op_name,
-                return_or_input_name=input_name,
-                suffix='',
-                tensor_device_expr=input_name,
-                tensor_cpu_expr=f'{input_name}_cpu',
-            )
+    if len(return_names) == 1:
+        code += f'std::cout << "autocompare:\t{op_name}\t{return_names[0]}:" << std::endl << allclose_autocompare(result_cpu, result_device) << std::endl;\n'
+    elif len(return_names) > 1:
+        for i in range(len(return_names)):
+            code += f'std::cout << "autocompare:\t{op_name}\t{return_names[i]}:" << std::endl << allclose_autocompare(std::get<{i}>(result_cpu), std::get<{i}>(result_device)) << std::endl;\n'
+    
+    inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
+    inputs += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
+    for i in range(len(inputs)):
+        code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
 
     return code
 
