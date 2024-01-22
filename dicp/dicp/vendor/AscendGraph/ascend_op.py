@@ -14,14 +14,6 @@ from dicp.dynamo_bridge.utils import get_memory_format
 
 aten = torch.ops.aten
 
-
-def symint_in_shape(shape):
-    for elem in shape:
-        if isinstance(elem, torch.SymInt):
-            return True
-    return False
-
-
 def negative_in_shape(shape):
     for elem in shape:
         if elem < 0:

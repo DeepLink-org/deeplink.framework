@@ -5,8 +5,8 @@ import torch
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
+from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    symint_in_shape,
     get_ascend_dtype,
     get_cpp_dtype,
     get_ascend_dtype_num
