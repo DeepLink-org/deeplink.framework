@@ -1531,3 +1531,24 @@ class AscendOverrides:
         op.set_input("index", index)
         op.set_attr_int("dim", dim)
         return op.to_node()
+
+    @staticmethod
+    def Tril(name, x, diagonal=0):
+        op = OP(name, "Tril")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diagonal)
+        return op.to_node()
+
+    @staticmethod
+    def Tile(name, x, repeats):
+        op = OP(name, "Tile")
+        op.set_input("x", x)
+        op.set_input("multiples", repeats)
+        return op.to_node()
+
+    @staticmethod
+    def LogicalOr(name, x, y):
+        op = OP(name, "LogicalOr")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
+        return op.to_node()
