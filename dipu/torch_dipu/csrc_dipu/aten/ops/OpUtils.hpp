@@ -107,7 +107,9 @@ inline std::string dumpArg(const at::Tensor& tensor) {
            << ", requires_grad: " << (tensor.requires_grad() ? "true" : "false")
            << ", pinned_memory: " << (tensor.is_pinned() ? "true" : "false")
            << ", memory_format: " << tensor.suggest_memory_format()
-           << ",  data_ptr: " << tensor.data_ptr();
+           << ", data_ptr: " << tensor.data_ptr()
+           << ", storage_data_ptr: " << tensor.storage().data_ptr().get()
+           << ", storage_offset: " << tensor.storage_offset();
     if (dumpOpArgLevel() > 2) {
       stream << '\n' << tensor;
     }
