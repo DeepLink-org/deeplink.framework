@@ -1,26 +1,24 @@
 import os
 import torch._dynamo as dynamo
-from transformers import LlamaTokenizer, LlamaForCausalLM
 import torch
 import torch_dipu
+from transformers import LlamaTokenizer, LlamaForCausalLM
 
 
-import importlib
-tmp_variable_torch_module = importlib.import_module("torch._dynamo.variables.torch")
-tmp_torch_variable = getattr(tmp_variable_torch_module, "TorchVariable")
-origin_torch_variable_python_type = getattr(tmp_torch_variable, "python_type")
-def new_torch_variable_python_type(self):
-    if isinstance(self.value, torch.device):
-        return type(self.value)
-    else:
-        return origin_torch_variable_python_type(self)
-setattr(tmp_torch_variable, "python_type", new_torch_variable_python_type)
-
+# some common config
 models_dir = os.environ.get("LLAMA_MODEL_DIR")
 assert models_dir is not None
 dynamo.config.cache_size_limit = 4096
 dynamo.config.dynamic_shapes = True
 dynamo.config.assume_static_by_default = False
+
+# trigger dipu current_device() for aclrtSetDevice() invoking
+if os.environ.get("DIPU_MOCK_CUDA") == "True":
+    device_name = "cuda"
+else:
+    device_name = torch_dipu.dipu.device.__dipu__
+device = f"{device_name}:0"
+torch_dipu.dipu.set_device(device)
 
 cuda_results = [
     [" ⁇  long long ago&ampiretsburgerirse Urs diggingestyle changed handsprints", ""],

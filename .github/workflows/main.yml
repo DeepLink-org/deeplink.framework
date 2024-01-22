@@ -393,7 +393,7 @@ jobs:
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
-
+      
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b
     needs: [Build-Ascend-910b]

@@ -44,19 +44,18 @@ class BroadcastTo(Operator):
 
     def infer_result(self, x, shape):
         x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
-        shape = shape_shape
-        dims = zip(reversed(shape), reversed(x_shape))
+        if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
+            shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
+            shape = shape_shape
+        elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
+            shape, _, _, _ =get_op_const_arg_kwarg(shape)
+        else: # other cases, unsupported yet
+            assert False, self.__class__.__name__ + "unsupported 'shape' input type!"
 
-        for i, t in enumerate(dims):
-            tar_dim, cur_dim = t
-            if tar_dim == -1:
-                shape[-(i + 1)] = cur_dim
-                continue
-            elif cur_dim == 1:
-                continue
-            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
-        # broadcast keep get_memory_format
+        out_shape = get_broadcast_res_two_shape(x_shape, shape)
+        assert out_shape == list(shape), (
+            self.__class__.__name__ + "can't broadcast x to specified shape!"
+        )
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
@@ -65,9 +64,9 @@ class Range(Operator):
         super().__init__("Range")
 
     def infer_result(self, start, limit=None, delta=None):
-        start, start_dtype, _ = get_op_const_arg_kwarg(start)
-        limit, limit_dtype, _ = get_op_const_arg_kwarg(limit)
-        delta, delta_dtype, _ = get_op_const_arg_kwarg(delta)
+        start, start_dtype, _, _ = get_op_const_arg_kwarg(start)
+        limit, limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
+        delta, delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
 
         assert start is not None, (
             self.__class__.__name__ + ": input 'start' can't be None!"
@@ -131,6 +130,16 @@ class BatchMatMul(Operator):
         return torch.empty(
             out_shape, dtype=x1_dtype, memory_format=get_memory_format(x1)
         )
+
+
+class LayerNorm(Operator):
+    def __init__(self):
+        super().__init__("LayerNorm")
+
+
+class GroupNorm(Operator):
+    def __init__(self):
+        super().__init__("GroupNorm")
 
 
 class Sub(Operator):
@@ -228,6 +237,11 @@ class Relu(Operator):
         return common_unary_op_infer(x)
 
 
+class Gelu(Operator):
+    def __init__(self):
+        super().__init__("Gelu")
+
+
 class Swish(Operator):
     def __init__(self):
         super().__init__("Swish")
@@ -236,6 +250,9 @@ class Swish(Operator):
 class Transpose(Operator):
     def __init__(self):
         super().__init__("Transpose")
+
+    def infer_result(self, x, axes=None):
+        return common_unary_op_infer(x)
 
 
 class SoftmaxV2(Operator):
@@ -427,7 +444,7 @@ class Pow(Operator):
     def infer_result(self, base, expo):
         base, base_shape, base_dim, base_dtype = get_fake_tensor_meta_val(base)
         if isinstance(expo, Tuple):  # Const
-            expo, _, expo_shape = get_op_const_arg_kwarg(expo)
+            expo, _, expo_shape, _ = get_op_const_arg_kwarg(expo)
             expo_dtype = type(expo[0]) if len(expo) > 0 else base_dtype
         else:  # fake Tensor
             expo, expo_shape, expo_dim, expo_dtype = get_fake_tensor_meta_val(expo)
@@ -468,6 +485,11 @@ class Less(Operator):
 
     def infer_result(self, x1, x2):
         return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class ArgMax(Operator):
+    def __init__(self):
+        super().__init__("ArgMax")
 
 
 class Equal(Operator):
@@ -564,7 +586,7 @@ class Empty(Operator):
     def infer_result(
         self, shape, dtype, layout, device, memory_format=torch.contiguous_format
     ):
-        shape, _, _ = get_op_const_arg_kwarg(shape)
+        shape, _, _, _ = get_op_const_arg_kwarg(shape)
         return torch.empty(
             shape,
             dtype=dtype,
@@ -572,6 +594,23 @@ class Empty(Operator):
             device=device,
             memory_format=memory_format,
         )
+
+
+class GatherNd(Operator):
+    def __init__(self):
+        super().__init__("GatherNd")
+
+    def infer_result(self, x, index, orig_index):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+
+        # assume not none index, and replace prefix x_shape dims
+        len_idx_shape = len(orig_index)
+        assert(len_idx_shape > 0)
+        bcast_index_shape = list(orig_index[0].shape)
+        x_shape = bcast_index_shape + list(x_shape[len_idx_shape:])
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class GatherV2(Operator):
@@ -609,8 +648,8 @@ class Fill(Operator):
         super().__init__("Fill")
 
     def infer_result(self, dims, value):
-        _, value_dtype, _ = get_op_const_arg_kwarg(value)
-        shape, _, _ = get_op_const_arg_kwarg(dims)
+        _, value_dtype, _, _ = get_op_const_arg_kwarg(value)
+        shape, _, _, _ = get_op_const_arg_kwarg(dims)
         return torch.empty(
             shape, dtype=value_dtype, memory_format=torch.contiguous_format
         )
@@ -718,11 +757,21 @@ class Slice(Operator):
 
     def infer_result(self, x, offset, size):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        new_shape, _, _ = get_op_const_arg_kwarg(size)
-        offset, _, _ = get_op_const_arg_kwarg(offset)
+        new_shape, _, _, _ = get_op_const_arg_kwarg(size)
+        offset, _, _, _ = get_op_const_arg_kwarg(offset)
         _, storage_offset = cal_stride_offset(new_shape, offset, x)
         res = torch.as_strided(x, new_shape, x.stride(), storage_offset)
         return res
+
+
+class Cos(Operator):
+    def __init__(self):
+        super().__init__("Cos")
+
+
+class Sin(Operator):
+    def __init__(self):
+        super().__init__("Sin")
 
 
 class ConcatD(Operator):
@@ -764,7 +813,7 @@ class Reshape(Operator):
 
     def infer_result(self, x, shape_const_op, ori_op=None, params_passed=None):
         x, _, _, x_dtype = get_fake_tensor_meta_val(x)
-        re_shape, _, _ = get_op_const_arg_kwarg(shape_const_op)
+        re_shape, _, _, _ = get_op_const_arg_kwarg(shape_const_op)
         x_stride = list(x.stride())
         res = torch.empty(re_shape, dtype=x_dtype, memory_format=get_memory_format(x))
         if ori_op == "Select":

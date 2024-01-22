@@ -134,8 +134,8 @@ class MemoryPool:
             self.work_ptr = None
 
 
-memory_pool = MemoryPool()
 zero_tensor = torch.randn(1).to(dipu_device_str)
+memory_pool = MemoryPool()
 
 
 class AscendExecutor(object):
