@@ -8,6 +8,7 @@
 #include <c10/util/ArrayRef.h>
 
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
+#include "csrc_dipu/runtime/device/deviceapis.h"
 
 namespace dipu {
 namespace native {
@@ -17,11 +18,11 @@ inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
     return in;
   }
 
-  at::Tensor out =
-      at::empty(in.sizes(), in.scalar_type(), in.layout(), c10::Device("cpu"),
-                false, in.suggest_memory_format());
-  static dipu::DIPUCopyInpOnCPU _copy_op_without_diopi;
-  _copy_op_without_diopi.run(out, in, false);
+  at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
+                                     in.options().device(c10::Device("cpu")));
+  if (in.nbytes() > 0) {
+    dipu::devapis::memCopyD2H(in.nbytes(), out.data_ptr(), in.data_ptr());
+  }
   return out;
 }
 
