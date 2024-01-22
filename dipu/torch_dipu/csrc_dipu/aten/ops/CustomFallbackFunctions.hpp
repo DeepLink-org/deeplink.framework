@@ -49,8 +49,10 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   // this index(), in this case, indices[0] is an undefinedTensor.
   std::transform(
       indices.begin(), indices.end(), std::back_inserter(indices_cpu),
-      [](const c10::optional<at::Tensor>& tensor) {
-        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      [](const c10::optional<at::Tensor>& optional_tensor) {
+        return optional_tensor.has_value() && optional_tensor.value().defined()
+                   ? optional_tensor.value().to("cpu")
+                   : at::Tensor();
       });
   return indices_cpu;
 }
