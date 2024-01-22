@@ -1117,3 +1117,25 @@ class AtenToAscendTransformer(SingleOpTransformer):
         p = 1. - scale
         prob_op = self.get_const_proxy(float(p), dtype)
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
+
+    @register_conversion(torch.ops.aten.tril.default)
+    def Tril(self, x, diagonal=0):
+        return self.get_proxy(ascend_op.Tril, (x, diagonal))
+
+    @register_conversion(torch.ops.aten.repeat.default)
+    def Repeat(self, x, repeats):
+        if not isinstance(repeats, torch.fx.proxy.Proxy):
+            assert isinstance(repeats, list)
+            repeats = self.get_const_proxy(repeats, torch.int32)
+        return self.get_proxy(ascend_op.Tile, (x, repeats))
+
+    @register_conversion([torch.ops.aten.ge.Scalar, torch.ops.aten.ge.Tensor])
+    def Ge(self, x, y):
+        if not isinstance(y, torch.fx.proxy.Proxy):
+            dtype = x.node.meta['val'].dtype
+            y = self.get_const_proxy(y, dtype)
+        return self.get_proxy(ascend_op.GreaterEqual, (x, y))
+
+    @register_conversion(torch.ops.aten.logical_or.default)
+    def LogicalOr(self, x, y):
+        return self.get_proxy(ascend_op.LogicalOr, (x, y))
