@@ -246,7 +246,6 @@ jobs:
       - name: Build dipu
         run: |
           set -e
-#          cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +300 -type d |xargs rm -rf
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
           && source ${ENV_PATH}/dipu_env  \
