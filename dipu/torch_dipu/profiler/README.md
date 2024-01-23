@@ -299,7 +299,7 @@ with profile(
 
 开发人员使用某个版本的 DeepLink 完成 Mobilenet v2 的适配后，发现该模型在 NV 上单机八卡训练很慢，需要进行性能优化，提升训练性能。
 
-#### 使用 DeepLink Profer 进行性能分析
+#### 使用 DeepLink Profiler 进行性能分析
 
 1. 修改 `mmpretrain` 的 `tools/train.py`，在 `runner.train()` 之前开启 Profiler，将收集到的性能分析数据存入 `mobilenetv2_profiler-slow`：
 
