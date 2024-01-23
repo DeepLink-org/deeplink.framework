@@ -28,18 +28,18 @@ inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
   return out;
 }
 
-inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
-                                        const at::Tensor& tensorDevice,
+inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
+                                        const at::Tensor& tensor_device,
                                         int indentation = 2) {
   std::ostringstream stream;
   stream << std::setfill(' ');
-  if (tensorCpu.defined() && tensorDevice.defined()) {
+  if (tensor_cpu.defined() && tensor_device.defined()) {
     try {
       constexpr double tolerance_absolute = 1e-4;
       constexpr double tolerance_relative = 1e-5;
-      const at::Tensor& tensorCpuFromDevice =
-          to_cpu_without_diopi(tensorDevice);
-      bool passed = at::allclose(tensorCpu, tensorCpuFromDevice,
+      const at::Tensor& tensor_cpu_from_device =
+          to_cpu_without_diopi(tensor_device);
+      bool passed = at::allclose(tensor_cpu, tensor_cpu_from_device,
                                  tolerance_absolute, tolerance_relative, true);
       if (passed) {
         stream << std::setw(indentation) << ""
@@ -51,16 +51,17 @@ inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
                << std::setw(indentation) << ""
                << "tensor_cpu:"
                << "\n"
-               << std::setw(indentation + 2) << "" << dumpArg(tensorCpu) << "\n"
+               << std::setw(indentation + 2) << "" << dumpArg(tensor_cpu)
+               << "\n"
                << std::setw(indentation) << ""
                << "--------------------"
                << "\n"
                << std::setw(indentation) << ""
                << "tensor_device:"
                << "\n"
-               << std::setw(indentation + 2) << "" << dumpArg(tensorDevice);
+               << std::setw(indentation + 2) << "" << dumpArg(tensor_device);
       } else {
-        auto diff = at::abs(tensorCpu - tensorCpuFromDevice);
+        auto diff = at::abs(tensor_cpu - tensor_cpu_from_device);
         auto mae = diff.mean().item<double>();
         auto max_diff = diff.max().item<double>();
         constexpr int printing_count = 10;
@@ -73,23 +74,24 @@ inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
                << std::setw(indentation) << ""
                << "tensor_cpu:"
                << "\n"
-               << std::setw(indentation + 2) << "" << dumpArg(tensorCpu) << "\n"
+               << std::setw(indentation + 2) << "" << dumpArg(tensor_cpu)
+               << "\n"
                << std::setw(indentation + 2) << ""
                << "First 10 values or fewer:"
                << "\n"
-               << tensorCpu.flatten().slice(0, 0, printing_count) << "\n"
+               << tensor_cpu.flatten().slice(0, 0, printing_count) << "\n"
                << std::setw(indentation) << ""
                << "--------------------"
                << "\n"
                << std::setw(indentation) << ""
                << "tensor_device:"
                << "\n"
-               << std::setw(indentation + 2) << "" << dumpArg(tensorDevice)
+               << std::setw(indentation + 2) << "" << dumpArg(tensor_device)
                << "\n"
                << std::setw(indentation + 2) << ""
                << "First 10 values or fewer:"
                << "\n"
-               << tensorCpuFromDevice.flatten().slice(0, 0, printing_count)
+               << tensor_cpu_from_device.flatten().slice(0, 0, printing_count)
                << "\n"
                << std::setw(indentation) << ""
                << "--------------------"
@@ -100,15 +102,16 @@ inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
                << std::setw(indentation + 2) << ""
                << "First 10 values or fewer:"
                << "\n"
-               << tensorCpu.flatten().slice(0, 0, printing_count) -
-                      tensorCpuFromDevice.flatten().slice(0, 0, printing_count);
+               << tensor_cpu.flatten().slice(0, 0, printing_count) -
+                      tensor_cpu_from_device.flatten().slice(0, 0,
+                                                             printing_count);
       }
     } catch (...) {
       stream << std::setw(indentation) << ""
              << "compare_error: not_close";
     }
   } else {
-    if (tensorCpu.defined() != tensorDevice.defined()) {
+    if (tensor_cpu.defined() != tensor_device.defined()) {
       stream << std::setw(indentation) << ""
              << "not_close: one of (tensor_cpu, tensor_device) is undefined, "
                 "while the other is defined"
@@ -119,14 +122,14 @@ inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
              << std::setw(indentation) << ""
              << "tensor_cpu:"
              << "\n"
-             << std::setw(indentation + 2) << "" << dumpArg(tensorCpu) << "\n"
+             << std::setw(indentation + 2) << "" << dumpArg(tensor_cpu) << "\n"
              << std::setw(indentation) << ""
              << "--------------------"
              << "\n"
              << std::setw(indentation) << ""
              << "tensor_device:"
              << "\n"
-             << std::setw(indentation + 2) << "" << dumpArg(tensorDevice);
+             << std::setw(indentation + 2) << "" << dumpArg(tensor_device);
     } else {
       stream << std::setw(indentation) << ""
              << "allclose: both of (tensor_cpu, tensor_device) are undefined";
@@ -136,23 +139,23 @@ inline std::string allclose_autocompare(const at::Tensor& tensorCpu,
 }
 
 inline std::string allclose_autocompare(
-    const c10::ArrayRef<at::Tensor>& tensorListCpu,
-    const c10::ArrayRef<at::Tensor>& tensorListDevice, int indentation = 2) {
+    const c10::ArrayRef<at::Tensor>& tensor_list_cpu,
+    const c10::ArrayRef<at::Tensor>& tensor_list_device, int indentation = 2) {
   std::ostringstream stream;
   stream << std::setfill(' ');
-  if (tensorListCpu.size() != tensorListDevice.size()) {
+  if (tensor_list_cpu.size() != tensor_list_device.size()) {
     stream << std::setw(indentation) << ""
            << "not_allclose: "
-           << "tensor_list_cpu has " << tensorListCpu.size()
+           << "tensor_list_cpu has " << tensor_list_cpu.size()
            << "tensors, while tensor_list_device has "
-           << tensorListDevice.size() << "tensors";
+           << tensor_list_device.size() << "tensors";
   } else {
-    for (size_t i = 0; i < tensorListCpu.size(); ++i) {
+    for (size_t i = 0; i < tensor_list_cpu.size(); ++i) {
       stream << std::setw(indentation) << "" << i << "-th:"
              << "\n"
-             << allclose_autocompare(tensorListCpu[i], tensorListDevice[i],
+             << allclose_autocompare(tensor_list_cpu[i], tensor_list_device[i],
                                      indentation + 2);
-      if (i < tensorListCpu.size() - 1) {
+      if (i < tensor_list_cpu.size() - 1) {
         stream << "\n";
       }
     }
