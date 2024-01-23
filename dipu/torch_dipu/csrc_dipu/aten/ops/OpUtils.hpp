@@ -234,19 +234,22 @@ inline std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
   return result;
 }
 
+template <typename T>
+decltype(auto) unwrap_or(T&& x, ...) noexcept {
+  return std::forward<T>(x);
+}
+
 template <typename T, typename U>
-auto unwrap_or(T&& x, U&& fallback) -> decltype(x.has_value(), x.value()) {
-  if (x.has_value()) {
-    return std::forward<T>(x).value();
-  }
-  return std::forward<U>(fallback);
+auto unwrap_or(T&& x, U&& fallback)
+    -> decltype(std::forward<T>(x).value_or(std::forward<U>(fallback))) {
+  return std::forward<T>(x).value_or(std::forward<U>(fallback));
 }
 
 template <typename... Args>
 at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
                                         const Args&... parameters) {
   namespace an = at::native;
-  auto const empty = at::Tensor{};
+  auto static const empty = at::Tensor{};
   auto mixed = an::is_mixed_type(input, unwrap_or(parameters, empty)...);
   if (mixed) {
     an::check_mixed_data_type(input, unwrap_or(parameters, empty)...);
