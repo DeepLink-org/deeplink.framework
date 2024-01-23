@@ -77,11 +77,13 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
+        format = "NCHW"
         index = -1
 
         if isinstance(fake_tensor, torch.SymInt):
             dims = [1]
             data_type = "INT32"
+            format = "ND"
             self.sym_to_inputs[fake_tensor.node.str()] = name
         elif symint_in_shape(fake_tensor.shape):
             # mention symint position in args
@@ -107,15 +109,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
 
-        native_memory_format = "ND"
         if 'native_memory_format' in self.cur_node.meta:
-            native_memory_format = self.cur_node.meta['native_memory_format']
+            format = self.cur_node.meta['native_memory_format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
             "op_type": "Data",
             "dims": dims,
-            "format": native_memory_format,
+            "format": format,
             "data_type": data_type,
             "cpp_data_type": data_type,
             "index": index
