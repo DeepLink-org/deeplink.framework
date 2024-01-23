@@ -13,8 +13,8 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
+from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    symint_in_shape,
     get_ascend_dtype,
     get_cpp_dtype
 )
