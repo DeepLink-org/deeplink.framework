@@ -264,7 +264,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
       sum_dim.push_back(i);
     }
     at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
-    grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
+    auto grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
     grad_bias = grad_bias_cpu.to(device);
   }
 
