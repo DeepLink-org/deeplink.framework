@@ -48,7 +48,7 @@ def try_to_get_dtype(x):
 
 
 def is_dicp_cpp_support_dtype(dtype):
-    if dtype in [torch.float32, torch.float, torch.int32, torch.int64]:
+    if dtype in [torch.float32, torch.float, torch.float16, torch.int32, torch.int64]:
         return True
     return False
 
