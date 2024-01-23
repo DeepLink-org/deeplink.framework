@@ -37,8 +37,8 @@ jobs:
           fi
           cd ${GITHUB_WORKSPACE}/source/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
           rm -rf kineto && git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git kineto
-          cd ../.. && git submodule update --init && cd third_party/kineto && git submodule update --init
-          cd source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
+          cd ../.. && git submodule update --init && cd dipu/third_party/kineto && git submodule update --init
+          cd ${GITHUB_WORKSPACE}/source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
           bash ../scripts/ci/ci_one_iter.sh clone
       - name: Rsync to Server
