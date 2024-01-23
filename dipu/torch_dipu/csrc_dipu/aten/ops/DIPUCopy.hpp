@@ -236,8 +236,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
     // syncAfterCopy
     if (!non_blocking) {
       // for d2d cases, ignoring `non_blocking` for better performance
-      if (info.copyType_ != DIPUCopyType::D2Self ||
-          info.copyType_ != DIPUCopyType::D2OtherD) {
+      if (info.copyType_ == DIPUCopyType::H2D ||
+          info.copyType_ == DIPUCopyType::D2H) {
         dipu::devapis::syncStream(curStream.rawstream());
       }
     }
