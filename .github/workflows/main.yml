@@ -295,7 +295,7 @@ jobs:
           set -e
           export basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/
           srun --job-name=${GITHUB_JOB} bash -c "cd ${basic_path} \
-          && export PYTHONPATH=$(basic_path)/mmlab_pack:$(basic_path)/mmlab_pack/mmengine:$(basic_path)/mmlab_pack/mmcv:$PYTHONPATH \
+          && export PYTHONPATH=${basic_path}/mmlab_pack:${basic_path}/mmlab_pack/mmengine:${basic_path}/mmlab_pack/mmcv:$PYTHONPATH \
           && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
           && bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_one_iter.sh build_cuda"
       - name: run-one-iter-for-tradition

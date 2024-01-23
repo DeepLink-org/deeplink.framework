@@ -165,8 +165,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     device = args.device
-    if device == 'sco':
-        max_parall = 3
     job_name = args.job_name
     gpu_requests = args.gpu_requests
     partition = args.partition_arg
