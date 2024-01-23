@@ -9,27 +9,46 @@ on:
       - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/*"
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
-
+  CLUSTER_KLX: KUNLUNXIN
 
 jobs:
-  checkout-code:
-    name: checkout code
-    runs-on: tps-klx-ci
+  Checkout-code:
+    name: Checkout code
+    runs-on: github-poc-ci
     steps:
-      - name: Checkout Code
-        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
-      - name: add mmlab_pack
+      - name: clone repo
         run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu
-          bash /home/deeplink/rsync/sourcecode/update_code.sh
-          rsync -a /home/deeplink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
-          bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/scripts/ci/ci_one_iter.sh clone
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          set -ex
+          cd ${GITHUB_WORKSPACE} && rm -rf source
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
+            git clone ${{ github.event.pull_request.head.repo.ssh_url }} source
+            cd ${GITHUB_WORKSPACE}/source && git checkout ${{ github.event.pull_request.head.sha }}
+            git remote add mainrepo git@github.com:${GITHUB_REPOSITORY}.git
+            git fetch  mainrepo && git merge --no-edit mainrepo/${{ github.base_ref }}
+          else
+            git clone ${{ github.event.repository.clone_url }} source && cd source
+            if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+              echo "${{ github.base_ref }} "
+              git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
+            else
+              echo $GITHUB_EVENT_NAME
+              git checkout ${{ github.sha }}
+            fi
+          fi
+          cd ${GITHUB_WORKSPACE}/source/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          rm -rf kineto && git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git kineto
+          cd ../.. && git submodule update --init && cd third_party/kineto && git submodule update --init
+          cd source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
+          rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh clone
+      - name: Rsync to Server
+        run: |
+          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/source/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ || echo "failure to connect to kunlunxin"
 
   Build-Kunlunxin:
     name: Build-Kunlunxin
-    needs: [checkout-code]
+    needs: [Checkout-code]
     runs-on: tps-klx-ci
     steps:
       - name: Build dipu
