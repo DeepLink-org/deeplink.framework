@@ -77,7 +77,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                << std::setw(indentation + 2) << "" << dumpArg(tensor_cpu)
                << "\n"
                << std::setw(indentation + 2) << ""
-               << "First 10 values or fewer:"
+               << "First " << printing_count << " values or fewer:"
                << "\n"
                << tensor_cpu.flatten().slice(0, 0, printing_count) << "\n"
                << std::setw(indentation) << ""
@@ -89,7 +89,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                << std::setw(indentation + 2) << "" << dumpArg(tensor_device)
                << "\n"
                << std::setw(indentation + 2) << ""
-               << "First 10 values or fewer:"
+               << "First " << printing_count << " values or fewer:"
                << "\n"
                << tensor_cpu_from_device.flatten().slice(0, 0, printing_count)
                << "\n"
@@ -100,7 +100,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                << "diff(= tensor_cpu - tensor_device):"
                << "\n"
                << std::setw(indentation + 2) << ""
-               << "First 10 values or fewer:"
+               << "First " << printing_count << " values or fewer:"
                << "\n"
                << tensor_cpu.flatten().slice(0, 0, printing_count) -
                       tensor_cpu_from_device.flatten().slice(0, 0,
