@@ -12,6 +12,7 @@ def test_fallback(
     diopi_protos: List[str],
     test_fn: Callable[[], None],
     extra_check_str_in_output: List[str] = [],
+    skip_devs: List[str] = [],
 ) -> None:
     captured = io.BytesIO()
     with stdout_redirector(captured):
@@ -23,6 +24,9 @@ def test_fallback(
             }
         ):
             import torch_dipu
+
+            if torch_dipu.dipu.vendor_type in skip_devs:
+                return
 
             test_fn()
     output = captured.getvalue().decode()
@@ -191,6 +195,48 @@ def _test_dipu_silu_fallback():
     )
 
 
+def _test_dipu_linear_backward_fallback():
+    def fn():
+        l_cpu = torch.nn.Linear(2, 4)
+        l_dev = torch.nn.Linear(2, 4)
+        l_dev.weight.data.copy_(l_cpu.weight)
+        l_dev.bias.data.copy_(l_cpu.bias)
+        l_dev = l_dev.cuda()
+
+        x_cpu = torch.rand(3, 2)
+        x_dev = x_cpu.cuda().requires_grad_()
+        x_cpu.requires_grad_()
+
+        y_cpu = l_cpu(x_cpu)
+        y_dev = l_dev(x_dev)
+
+        grad_cpu = torch.rand_like(y_cpu)
+        grad_dev = grad_cpu.cuda()
+
+        y_cpu.backward(grad_cpu)
+        y_dev.backward(grad_dev)
+
+        assert x_dev.grad.device == x_dev.device
+        assert l_dev.weight.grad.device == x_dev.device
+        assert l_dev.bias.grad.device == x_dev.device
+
+        assert torch.allclose(x_dev.grad.cpu(), x_cpu.grad)
+        assert torch.allclose(l_dev.weight.grad.cpu(), l_cpu.weight.grad)
+        assert torch.allclose(l_dev.bias.grad.cpu(), l_cpu.bias.grad)
+        assert x_dev.grad.shape == x_cpu.grad.shape
+        assert l_dev.weight.grad.shape == l_cpu.weight.grad.shape
+        assert l_dev.bias.grad.shape == l_cpu.bias.grad.shape
+
+    test_fallback(
+        ["linear_backward"],
+        ["diopiLinearBackward"],
+        fn,
+        ["custom fallback to cpu, name=linear_backward"],
+        # linear_backward isn't registered on cuda
+        ["CUDA"],
+    )
+
+
 if __name__ == "__main__":
     run_individual_test_cases(
         [
@@ -200,7 +246,8 @@ if __name__ == "__main__":
             _test_dipu_copy_fallback_,
             _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
-            _test_dipu_silu_fallback
+            _test_dipu_silu_fallback,
+            _test_dipu_linear_backward_fallback,
         ],
         in_parallel=True,
     )
