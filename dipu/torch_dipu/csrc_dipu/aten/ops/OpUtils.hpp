@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ATen/core/ATen_fwd.h>
@@ -233,27 +234,24 @@ inline std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
   return result;
 }
 
-template <typename T>
-inline decltype(auto) unwrap(T& x, T& /* unused */) {
-  return x;
-}
-
 template <typename T, typename U>
-inline auto unwrap(T& x, U& y) -> decltype(x.has_value(), x.value()) {
+auto unwrap_or(T&& x, U&& fallback) -> decltype(x.has_value(), x.value()) {
   if (x.has_value()) {
-    return x.value();
+    return std::forward<T>(x).value();
   }
-  return y;
+  return std::forward<U>(fallback);
 }
 
 template <typename... Args>
-inline at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
-                                               const Args&... parameters) {
-  auto mixed = at::native::is_mixed_type(input, unwrap(parameters, input)...);
+at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
+                                        const Args&... parameters) {
+  namespace an = at::native;
+  auto const empty = at::Tensor{};
+  auto mixed = an::is_mixed_type(input, unwrap_or(parameters, empty)...);
   if (mixed) {
-    at::native::check_mixed_data_type(input, unwrap(parameters, input)...);
+    an::check_mixed_data_type(input, unwrap_or(parameters, empty)...);
   }
-  return at::native::param_scalar_type(input, mixed);
+  return an::param_scalar_type(input, mixed);
 }
 
 }  // namespace native
