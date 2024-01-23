@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/runs_on_klx.yml"
-      - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/*"
+      - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/**"
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   CLUSTER_KLX: KUNLUNXIN
@@ -43,7 +43,7 @@ jobs:
           bash ../scripts/ci/ci_one_iter.sh clone
       - name: Rsync to Server
         run: |
-          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source" \
           && rsync -a --delete ${GITHUB_WORKSPACE}/source/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ || echo "failure to connect to kunlunxin"
 
   Build-Kunlunxin:
