@@ -453,16 +453,20 @@ def create_result_compare_code(fun_config):
     op_name = get_op_name_from_schema(schema)
     return_names = get_function_return_param_from_schema(schema)
     code = ''
+    separator_code = f'std::cout << "--------------------" << std::endl;'
 
     if len(return_names) == 1:
+        code += separator_code
         code += f'std::cout << "autocompare:\t{op_name}\t{return_names[0]}:" << std::endl << allclose_autocompare(result_cpu, result_device) << std::endl;\n'
     elif len(return_names) > 1:
         for i in range(len(return_names)):
+            code += separator_code
             code += f'std::cout << "autocompare:\t{op_name}\t{return_names[i]}:" << std::endl << allclose_autocompare(std::get<{i}>(result_cpu), std::get<{i}>(result_device)) << std::endl;\n'
     
     inputs = re.findall('Tensor +([\w\d_]+)', schema[:schema.find('->')])
     inputs += re.findall('Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)', schema[:schema.find('->')])
     for i in range(len(inputs)):
+        code += separator_code
         code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
 
     return code
