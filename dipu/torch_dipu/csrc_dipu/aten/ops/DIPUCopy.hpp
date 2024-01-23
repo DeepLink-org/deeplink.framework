@@ -235,8 +235,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
     copyAll(dst, src, non_blocking, info);
     // syncAfterCopy
     if (!non_blocking) {
-      // for cuda tensors, ignoring non_blocking
-      if (dst.is_cpu() || src.is_cpu()) {
+      // for d2d cases, ignoring `non_blocking` for better performance
+      if (info.copyType_ != DIPUCopyType::D2OtherD) {
         dipu::devapis::syncStream(curStream.rawstream());
       }
     }
