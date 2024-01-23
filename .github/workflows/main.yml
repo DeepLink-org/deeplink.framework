@@ -450,7 +450,35 @@ jobs:
           ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source dipu/scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
-      
+
+  Build-Dicp-On-Dipu-Ascend:
+    name: Build-dicp-on-dipu-ascend
+    needs: [Build-PyTorch-For-Ascend-910b]
+    runs-on: tps-ascend-ci-910b
+    steps:
+      - name: Build dicp
+        run: |
+          set -ex
+          export PYTHONUSERBASE=${HOME}/.local.dicp
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          pip list && pip show torch && echo "test" \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Dicp-On-Dipu-Ascend:
+    name: Test-dicp-on-dipu-ascend
+    needs: [Build-Dicp-On-Dipu-Ascend]
+    runs-on: tps-ascend-ci-910b
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          export PYTHONUSERBASE=${HOME}/.local.dicp
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          echo "test "&& cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Dicp-On-Dipu-Ascend \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Dicp-On-Dipu-Ascend && exit 1 )
+
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b
     needs: [Build-Ascend-910b]
