@@ -16,8 +16,9 @@ env:
   CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd' }}
-  CUDA_CLUSTER: SH1988
+  CUDA_CLUSTER: SCO
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  ENV_PATH: '/mnt/cache/share/deeplinkci/github'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
@@ -72,9 +73,9 @@ jobs:
           ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to camb"
-          ssh ${CUDA_CLUSTER} "mkdir -p ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
-          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
-          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
+          ssh ${CUDA_CLUSTER} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
           ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
@@ -240,123 +241,85 @@ jobs:
   Build-Cuda:
     name: Build-dipu-cuda
     needs: [Rsync]
-    runs-on: github-poc-ci
-    env:
-      GPU_REQUESTS: 1
+    runs-on: tps-sco-ci
     steps:
       - name: Build dipu
         run: |
-          ssh ${CUDA_CLUSTER} """
           set -e
-          export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
-          source scripts/ci/nv/ci_nv_env.sh
-          rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
+#          cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +300 -type d |xargs rm -rf
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
+          && source ${ENV_PATH}/dipu_env  \
+          && rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/ \
+          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Tidy-Cuda:
     name: Run tidy (cuda)
     needs: [Build-Cuda]
-    runs-on: github-poc-ci
+    runs-on: tps-sco-ci
     steps:
       - name: clang-tidy
         run: |
-          ssh $CUDA_CLUSTER """
           set -eo pipefail
-          source ~/.bashrc
-          (bash $CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh srun --job-name=${GITHUB_RUN_NUMBER}_$GITHUB_JOB --partition=$CUDA_PARTATION --time=20) ||\
-          (rm -rf "$CUDA_CI_PATH/$GITHUB_RUN_NUMBER/Build-Cuda" && exit 1)
-          """
+          srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh "
 
   Test-Cuda:
     name: Test-dipu-cuda
     needs: [Build-Cuda, Tidy-Cuda]
-    runs-on: github-poc-ci
-    env:
-      GPU_REQUESTS: 1
+    runs-on: tps-sco-ci
     steps:
       - name: Run-test
         run: |
-          ssh ${CUDA_CLUSTER} """
-          set -ex
-          export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
-          source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
+          && source ${ENV_PATH}/dipu_env  \
+          && bash tests/run_nv_tests.sh"
           if [ "${ALL_COVERAGE}" = "ON" ]; then
-          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
+          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${BUILD_TEST1} ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
           fi
-          """
       - name: increment coverage check
         if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
         run: |
-          ssh ${CUDA_CLUSTER} """
           set -e
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
-          rm -rf scripts
-          ln -s ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source /mnt/cache/share/platform/env/pt2.0_diopi
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda
+          ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
+          source ${ENV_PATH}/dipu_env
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
-          """
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
     needs: [Build-Cuda, Tidy-Cuda]
-    runs-on: github-poc-ci
-    env:
-      GPU_REQUESTS: 1
+    runs-on: tps-sco-ci
     steps:
       - name: build some env
         run: |
-          ssh ${CUDA_CLUSTER} """
-          set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
-          source scripts/ci/nv/ci_nv_env.sh
-          basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
-          export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
-          export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
-          export PYTHONPATH=\$(pwd):\$PYTHONPATH
-          cd mmlab_pack
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=20 bash ../scripts/ci/ci_one_iter.sh build_cuda
-          """
+          set -e
+          export basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${basic_path} \
+          && export PYTHONPATH=$(basic_path)/mmlab_pack:$(basic_path)/mmlab_pack/mmengine:$(basic_path)/mmlab_pack/mmcv:$PYTHONPATH \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
+          && bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_one_iter.sh build_cuda"
       - name: run-one-iter-for-tradition
         run: |
-          ssh ${CUDA_CLUSTER} """
-            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
-            source scripts/ci/nv/ci_nv_env.sh
-            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
-            source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-            export PYTHONPATH=\$(pwd):\$PYTHONPATH
-            cd mmlab_pack
-            rm -rf one_iter_data
-            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
+          && rm -rf one_iter_data \
+          && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco  ${GITHUB_JOB} gpu sco && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: run-one-iter-for-llm
         run: |
-          ssh ${CUDA_CLUSTER} """
-            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
-            source scripts/ci/nv/ci_nv_env.sh
-            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
-            source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
-            export PYTHONPATH=\$(pwd):\$PYTHONPATH
-            cd mmlab_pack
-            rm -rf one_iter_data
-            python ../scripts/ci/ci_run_one_iter.py cuda  ${GITHUB_RUN_NUMBER}_${GITHUB_JOB} "gpu:${GPU_REQUESTS}" \"${CUDA_PARTATION}\" "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-          """
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
+          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
+          && rm -rf one_iter_data \
+          && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco ${GITHUB_JOB} gpu sco "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
       - name: Perform cleanup one iter data
         if: always()
         run: |
-          ssh ${CUDA_CLUSTER} """
-              set -ex
-              echo "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
-              scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
-              cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
-              rm -rf one_iter_data
-              touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
-          """
-
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
       - name: Check for failure
         if: ${{ failure() }}
         run: exit 1
@@ -364,36 +327,28 @@ jobs:
   Build-Cuda-Latest-Target:
     name: Build-dipu-cuda-latest-target
     needs: [Tidy-Cuda]
-    runs-on: github-poc-ci
-    env:
-      GPU_REQUESTS: 1
+    runs-on: tps-sco-ci
     steps:
       - name: Build dipu diopi-latest-target
         run: |
-          ssh ${CUDA_CLUSTER} """
-          set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}
+          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
+          && source ${ENV_PATH}/dipu_env  \
+          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Cuda-Latest-Target:
     name: Test-dipu-cuda-latest-target
     needs: [Build-Cuda-Latest-Target]
-    runs-on: github-poc-ci
-    env:
-      GPU_REQUESTS: 1
+    runs-on: tps-sco-ci
     steps:
       - name: Run-test
         run: |
-          ssh ${CUDA_CLUSTER} """
-          set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
-          source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
+          && source ${ENV_PATH}/dipu_env  \
+          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b

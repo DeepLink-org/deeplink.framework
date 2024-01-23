@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-
+source /mnt/cache/share/deeplinkci/github/proxy_on
 # Require Git.
 [ -x "$(command -v git)" ] || (echo "missing git tool" && exit 1)
 
@@ -14,13 +14,13 @@ repo=$(cd $self && git rev-parse --show-toplevel)
 
 # Try finding clangd and libstdc++.so.6 on 1988.
 # Note: ":+:" is used to handle unbound variable.
-[ -d /mnt/lustre/share/platform/dep/clang-16/bin ] &&
-    export PATH=/mnt/lustre/share/platform/dep/clang-16/bin${PATH:+:$PATH}
+[ -d /mnt/cache/share/platform/dep/clang-16/bin ] &&
+    export PATH=/mnt/cache/share/platform/dep/clang-16/bin${PATH:+:$PATH}
 [ -d /mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib ] &&
     export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 
 # Forward srun commands.
 # e.g. you can use: bash scripts/ci/nv/ci_nv_tidy.sh srun -p pat_rd
 (cd "$repo/dipu" &&
-    ($@ find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) |
+    (find torch_dipu ! -path '*/vendor/*' ! -name AutoGenedKernels.cpp \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) |
         xargs $self/clangd-tidy/clangd-tidy -j4))
