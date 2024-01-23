@@ -250,6 +250,7 @@ jobs:
       - name: Build dipu
         run: |
           set -e
+#          cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +300 -type d |xargs rm -rf
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
           && source ${ENV_PATH}/dipu_env  \
@@ -297,7 +298,9 @@ jobs:
       - name: build some env
         run: |
           set -e
-          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
+          export basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${basic_path} \
+          && export PYTHONPATH=$(basic_path)/mmlab_pack:$(basic_path)/mmlab_pack/mmengine:$(basic_path)/mmlab_pack/mmcv:$PYTHONPATH \
           && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
           && bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_one_iter.sh build_cuda"
       - name: run-one-iter-for-tradition
@@ -393,7 +396,7 @@ jobs:
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Ascend-910b/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
           bash tests/run_ascend_tests.sh
-      
+
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b
     needs: [Build-Ascend-910b]
