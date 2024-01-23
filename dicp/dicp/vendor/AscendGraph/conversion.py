@@ -301,7 +301,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def inge(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
             assert isinstance(y, int)
-            y = self.get_const_proxy(ascend_op.Const, (y, torch.int32))
+            y = self.get_const_proxy(y, torch.int32)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
     @register_conversion(aten.div)
