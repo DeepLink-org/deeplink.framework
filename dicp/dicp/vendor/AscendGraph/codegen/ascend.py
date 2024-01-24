@@ -77,7 +77,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-
         format = "NCHW"
         index = -1
 
@@ -110,8 +109,8 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
 
-        if 'format' in self.cur_node.meta:
-            format = self.cur_node.meta['format']
+        if 'native_memory_format' in self.cur_node.meta:
+            format = self.cur_node.meta['native_memory_format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
