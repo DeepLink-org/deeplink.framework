@@ -529,7 +529,7 @@ def create_result_compare_code(fun_config):
     op_name = get_op_name_from_schema(schema)
     return_names = get_function_return_param_from_schema(schema)
     code = ""
-    separator_code = f'std::cout << "--------------------" << std::endl;'
+    separator_code = f'std::cout << "--------------------" << std::endl;\n'
 
     if len(return_names) == 1:
         code += separator_code

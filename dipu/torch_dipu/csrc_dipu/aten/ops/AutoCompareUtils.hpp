@@ -29,6 +29,12 @@ inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
 }
 
 inline std::string tensor_to_one_line_string(const at::Tensor& tensor) {
+  /*
+   * This function retrieves the built-in string representation of the input
+   * tensor from PyTorch, and then simply flattens it into a single-line format.
+   * For example: (0.01 * (-9.7712, -7.9712, -7.1297)) where 0.01 is a scale
+   * generated from PyTorch.
+   */
   std::ostringstream stream;
   stream << tensor;
   std::string raw_string = stream.str();
