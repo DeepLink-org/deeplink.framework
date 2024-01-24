@@ -234,8 +234,7 @@ jobs:
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Latest-Target/dipu
           export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && rm -rf Build-Camb-Diopi \
-          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Latest-Target && exit 1 )
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
 
   Build-Cuda:
@@ -246,6 +245,7 @@ jobs:
       - name: Build dipu
         run: |
           set -e
+          cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +240 -type d |xargs rm -rf
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
           srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
           && source ${ENV_PATH}/dipu_env  \
@@ -346,8 +346,7 @@ jobs:
           set -e
           srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
           && source ${ENV_PATH}/dipu_env  \
-          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
-          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
