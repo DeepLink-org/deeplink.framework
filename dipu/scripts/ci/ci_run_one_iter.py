@@ -12,6 +12,7 @@ import logging
 log_format = "%(asctime)s - %(levelname)s: %(message)s"
 logging.basicConfig(level=logging.INFO, format=log_format, datefmt="%Y-%m-%d %H:%M:%S")
 
+
 def run_cmd(cmd: str) -> None:
     cp = sp.run(cmd, shell=True, encoding="utf-8")
     if cp.returncode != 0:
@@ -19,6 +20,7 @@ def run_cmd(cmd: str) -> None:
             f"Some thing wrong has happened when running command [{cmd}]:{cp.stderr}"
         )
         raise Exception(error)
+
 
 def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     begin_time = time.time()
@@ -222,7 +224,7 @@ if __name__ == "__main__":
     yamlPath = os.path.join(curPath, selected_model_list)
     file_path = os.path.join(curPath, "environment_exported")
     env_variables = os.environ
-    keywords_to_filter = ['DIPU', 'ONE_ITER']
+    keywords_to_filter = ["DIPU", "ONE_ITER"]
     if os.path.exists(file_path):
         os.remove(file_path)
     with open("environment_exported", "w") as file:
@@ -256,7 +258,7 @@ if __name__ == "__main__":
         log_files = []
         try:
             for i in range(selected_model_num):
-                log_file = f"child_{i%max_parall}_log.txt"
+                log_file = f"child_{i % max_parall}_log.txt"
                 log_files.append(log_file)
                 p.apply_async(
                     process_one_iter,
