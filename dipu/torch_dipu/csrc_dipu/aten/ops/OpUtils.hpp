@@ -245,16 +245,21 @@ auto unwrap_or(T&& x, U&& fallback)
   return std::forward<T>(x).value_or(std::forward<U>(fallback));
 }
 
+template <typename... Tensors>
+bool is_mixed_type(Tensors&&... tensors) {
+  auto is_mixed = at::native::is_mixed_type(std::forward<Tensors>(tensors)...);
+  if (is_mixed) {
+    at::native::check_mixed_data_type(std::forward<Tensors>(tensors)...);
+  }
+  return is_mixed;
+}
+
 template <typename... Args>
 at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
                                         const Args&... parameters) {
-  namespace an = at::native;
   auto static const empty = at::Tensor{};
-  auto mixed = an::is_mixed_type(input, unwrap_or(parameters, empty)...);
-  if (mixed) {
-    an::check_mixed_data_type(input, unwrap_or(parameters, empty)...);
-  }
-  return an::param_scalar_type(input, mixed);
+  auto mixed = is_mixed_type(input, unwrap_or(parameters, empty)...);
+  return at::native::param_scalar_type(input, mixed);
 }
 
 }  // namespace native
