@@ -245,11 +245,11 @@ auto unwrap_or(T&& x, U&& fallback)
   return std::forward<T>(x).value_or(std::forward<U>(fallback));
 }
 
-template <typename... Tensors>
-bool is_mixed_type(Tensors&&... tensors) {
-  auto is_mixed = at::native::is_mixed_type(std::forward<Tensors>(tensors)...);
+template <typename... T>
+bool is_mixed_type(const T&... tensors) {
+  auto is_mixed = at::native::is_mixed_type(tensors...);
   if (is_mixed) {
-    at::native::check_mixed_data_type(std::forward<Tensors>(tensors)...);
+    at::native::check_mixed_data_type(tensors...);
   }
   return is_mixed;
 }
