@@ -7,16 +7,25 @@ import torch
 from torch_dipu import mockcuda
 from torch_dipu import _C
 import os
-__dipu__ = 'dipu'
+
+__dipu__ = "dipu"
 __dipu_device_type__ = _C.dipu_device_type
 __diputype__ = __dipu_device_type__
 
+
 def init_dipu_device_type(forceUnset: bool = False):
-  global __diputype__
-  _C._set_python_device_as_cuda(os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", 'True').lower()=='true' and mockcuda and not forceUnset)
-  __diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
-  if __diputype__ == "cuda":
-    print("dipu device will show as cuda device. if it's not expected behavior, please set env DIPU_PYTHON_DEVICE_AS_CUDA=false")
+    global __diputype__
+    _C._set_python_device_as_cuda(
+        os.environ.get("DIPU_PYTHON_DEVICE_AS_CUDA", "True").lower() == "true"
+        and mockcuda
+        and not forceUnset
+    )
+    __diputype__ = "cuda" if _C._get_python_device_as_cuda() else __dipu_device_type__
+    if __diputype__ == "cuda":
+        print(
+            "dipu device will show as cuda device. if it's not expected behavior, please set env DIPU_PYTHON_DEVICE_AS_CUDA=false"
+        )
+
 
 init_dipu_device_type()
 
@@ -24,12 +33,14 @@ __vendor__ = _C.dipu_vendor  # need update when compile
 _device_t = Union[torch.device, str, int, None]
 _C.init_resource()
 
+
 class _MetaDeviceType(type):
     _torch_device = torch.device
+
     def __instancecheck__(cls, inst):
-      if isinstance(inst, cls._torch_device):
-        return True
-      return False
+        if isinstance(inst, cls._torch_device):
+            return True
+        return False
 
 
 # csrc/Device.cpp THPDevice_pynew:
@@ -38,9 +49,9 @@ class _MetaDeviceType(type):
 class _DIPUDevice(metaclass=_MetaDeviceType):
     @staticmethod
     def __replacedipu(arg):
-        if (__dipu__ in arg):
+        if __dipu__ in arg:
             arg = arg.replace(__dipu__, __dipu_device_type__)
-        if (mockcuda and "cuda" in arg):
+        if mockcuda and "cuda" in arg:
             arg = arg.replace("cuda", __dipu_device_type__)
         return arg
 
@@ -69,17 +80,21 @@ torch.device = _DIPUDevice
 
 # todo: use device_ctx & torch_function to reduce processing logic?
 # wrap device related func
-def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
+def GetDeviceProxy(rawfunc, pos=0, name="device", caller="obj"):
     def _replaceDevice(args, kwargs):
         # pos device
-        if pos >= 0 and pos < len(args) and (isinstance(args[pos], int)
-                or isinstance(args[pos], str)):
+        if (
+            pos >= 0
+            and pos < len(args)
+            and (isinstance(args[pos], int) or isinstance(args[pos], str))
+        ):
             argList = list(args)
             argList[pos] = torch.device(args[pos])
             args = tuple(argList)
         deviceValue = kwargs.get(name, None)
-        if deviceValue != None and (isinstance(deviceValue, int)
-                or isinstance(deviceValue, str)):
+        if deviceValue != None and (
+            isinstance(deviceValue, int) or isinstance(deviceValue, str)
+        ):
             kwargs[name] = torch.device(deviceValue)
         return args, kwargs
 
@@ -123,11 +138,12 @@ def GetDeviceProxy(rawfunc, pos = 0, name = "device", caller = "obj"):
         return _proxyFuncInst
 
 
-GetDeviceStaticProxy = partial(GetDeviceProxy, pos = -1, name = "device", caller = "static")
+GetDeviceStaticProxy = partial(GetDeviceProxy, pos=-1, name="device", caller="static")
 
 
 def _lazy_init():
     pass
+
 
 # dipu device Interface
 
@@ -140,9 +156,9 @@ def set_device(device):
     _lazy_init()
     if isinstance(device, torch.device):
         _C._dipu_set_device(device.index)
-    elif (isinstance(device, int) or isinstance(device, str)):
+    elif isinstance(device, int) or isinstance(device, str):
         _C._dipu_set_device(torch.device(device).index)
-    else :
+    else:
         raise AssertionError("input can not convert to torch.device")
 
 
@@ -171,7 +187,7 @@ def _get_device_index(device, optional=False) -> int:
     device_idx = None
     if isinstance(device, torch.device):
         if device.type not in [__diputype__]:
-            raise ValueError('Expected a dipu device, but got: {}'.format(device))
+            raise ValueError("Expected a dipu device, but got: {}".format(device))
         device_idx = device.index
     elif isinstance(device, int):
         device_idx = device
@@ -180,8 +196,10 @@ def _get_device_index(device, optional=False) -> int:
             # default cuda device index
             return current_device()
         else:
-            raise ValueError('Expected a dipu device with a specified index '
-                             'or an integer, but got: '.format(device))
+            raise ValueError(
+                "Expected a dipu device with a specified index "
+                "or an integer, but got: ".format(device)
+            )
     return device_idx
 
 
@@ -199,7 +217,7 @@ def synchronize(_device=None):
 
 
 def is_available():
-    if (not hasattr(_C, '_dipu_set_device')):
+    if not hasattr(_C, "_dipu_set_device"):
         return False
     return device_count() > 0
 
@@ -238,6 +256,7 @@ class device_of(devicectx):
     Arguments:
         obj (Tensor or Storage): object allocated on the selected device.
     """
+
     def __init__(self, obj):
         idx = obj.get_device() if obj.is_dipu else -1
         super(device_of, self).__init__(idx)

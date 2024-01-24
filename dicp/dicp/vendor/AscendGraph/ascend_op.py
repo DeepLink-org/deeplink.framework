@@ -1,19 +1,18 @@
+import acl
 import torch
 from typing import Tuple
 from dicp.dynamo_bridge.operator import Operator
 from dicp.vendor.AscendGraph.infer_res_utils import *
-
+from dicp.vendor.AscendGraph.codegen.utils import (
+    check_ret,
+    get_acl_format,
+    get_acl_dtype,
+    get_shape_from_desc,
+    get_torch_dtype
+)
 from dicp.dynamo_bridge.utils import get_memory_format
 
 aten = torch.ops.aten
-
-
-def symint_in_shape(shape):
-    for elem in shape:
-        if isinstance(elem, torch.SymInt):
-            return True
-    return False
-
 
 def negative_in_shape(shape):
     for elem in shape:
@@ -98,6 +97,26 @@ class Cumsum(Operator):
 class MatMul(Operator):
     def __init__(self):
         super().__init__("MatMul")
+    
+    def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
+        attr = acl.op.create_attr()
+        check_ret("acl.op.set_attr_bool", acl.op.set_attr_bool(attr, "transpose_x1", adj_x1))
+        check_ret("acl.op.set_attr_bool", acl.op.set_attr_bool(attr, "transpose_x2", adj_x2))
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+        in_desc_list = []
+        in_desc_list.append(acl.create_tensor_desc(get_acl_dtype(x1_dtype), list(x1_shape), get_acl_format(x1)))
+        in_desc_list.append(acl.create_tensor_desc(get_acl_dtype(x2_dtype), list(x2_shape), get_acl_format(x2)))
+        in_list = []
+        in_list.append(acl.create_data_buffer(id(0), acl.data_type_size(0)))
+        in_list.append(acl.create_data_buffer(id(0), acl.data_type_size(0)))
+        out_desc_list = [acl.create_tensor_desc(-1, [0], -1)]
+        check_ret("acl.op.infer_shape", acl.op.infer_shape(self.name(), in_desc_list, in_list, 1, out_desc_list, attr))
+        out_shape = get_shape_from_desc(out_desc_list[0])
+        out_dtype = get_torch_dtype(acl.get_tensor_desc_type(out_desc_list[0]))
+        return torch.empty(
+            out_shape, dtype=out_dtype, memory_format=get_memory_format(x1)
+        )
 
 
 class BatchMatMul(Operator):
@@ -927,6 +946,30 @@ class MaxPoolGrad(Operator):
 class PadV3Grad(Operator):
     def __init__(self):
         super().__init__("PadV3Grad")
+
+
+class LogicalOr(Operator):
+    def __init__(self):
+        super().__init__("LogicalOr")
+
+    def infer_result(self, x1, x2):
+        return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class Tril(Operator):
+    def __init__(self):
+        super().__init__("Tril")
+
+    def infer_result(self, x, diagonal=0):
+        return torch.empty_like(x)
+
+
+class Tile(Operator):
+    def __init__(self):
+        super().__init__("Tile")
+
+    def infer_result(self, x, multiples):
+        return torch.ops.aten.repeat.default(x, multiples)
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

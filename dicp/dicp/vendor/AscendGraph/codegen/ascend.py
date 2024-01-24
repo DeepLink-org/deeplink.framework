@@ -5,8 +5,8 @@ import torch
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
+from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    symint_in_shape,
     get_ascend_dtype,
     get_cpp_dtype,
     get_ascend_dtype_num
@@ -1544,4 +1544,25 @@ class AscendOverrides:
         op = OP(name, "AdaptiveAvgPool2dGrad")
         op.set_input("input_grad", input_grad)
         op.set_attr_list_int("orig_input_shape", orig_input_shape)
+        return op.to_node()
+
+    @staticmethod
+    def Tril(name, x, diagonal=0):
+        op = OP(name, "Tril")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diagonal)
+        return op.to_node()
+
+    @staticmethod
+    def Tile(name, x, multiples):
+        op = OP(name, "TileD")
+        op.set_input("x", x)
+        op.set_attr_list_int("multiples", multiples)
+        return op.to_node()
+
+    @staticmethod
+    def LogicalOr(name, x, y):
+        op = OP(name, "LogicalOr")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
         return op.to_node()

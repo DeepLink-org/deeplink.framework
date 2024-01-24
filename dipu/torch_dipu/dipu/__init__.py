@@ -1,7 +1,12 @@
 # Copyright (c) 2023, DeepLink.
 
-from .utils import is_initialized, get_dipu_torch_version, \
-                   check_dipu_torch_compatiable, torch_ver_200, torch_ver_211
+from .utils import (
+    is_initialized,
+    get_dipu_torch_version,
+    check_dipu_torch_compatiable,
+    torch_ver_200,
+    torch_ver_211,
+)
 from .device import __diputype__ as diputype
 from .device import __vendor__ as vendor_type
 from .device import devicectx
@@ -25,29 +30,59 @@ _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 __all__ = [
     # resume initialize flag after random generator ready
     # "is_initialized",
-
     # device
-    "can_device_access_peer",  "current_device",  "devicectx", "device_count", "device_of", "synchronize",
-    "get_device_name", "get_device_properties", "get_device_capability", "is_available", "set_device",
-    "GetDeviceProxy", "GetDeviceStaticProxy", "diputype", "vendor_type",
-
+    "can_device_access_peer",
+    "current_device",
+    "devicectx",
+    "device_count",
+    "device_of",
+    "synchronize",
+    "get_device_name",
+    "get_device_properties",
+    "get_device_capability",
+    "is_available",
+    "set_device",
+    "GetDeviceProxy",
+    "GetDeviceStaticProxy",
+    "diputype",
+    "vendor_type",
     # stream
-    "current_stream", "default_stream", "set_stream", "set_sync_debug_mode", "stream", "StreamContext", "Stream", "Event", "is_current_stream_capturing",
-
+    "current_stream",
+    "default_stream",
+    "set_stream",
+    "set_sync_debug_mode",
+    "stream",
+    "StreamContext",
+    "Stream",
+    "Event",
+    "is_current_stream_capturing",
     # random
-    "get_rng_state", "get_rng_state_all", "set_rng_state", "set_rng_state_all",
-    "manual_seed", "manual_seed_all", "seed", "seed_all", "initial_seed",
-    "_is_in_bad_fork", "default_generators",
-
+    "get_rng_state",
+    "get_rng_state_all",
+    "set_rng_state",
+    "set_rng_state_all",
+    "manual_seed",
+    "manual_seed_all",
+    "seed",
+    "seed_all",
+    "initial_seed",
+    "_is_in_bad_fork",
+    "default_generators",
     # # mem manage
-    "reset_peak_memory_stats", "empty_cache", "memory_allocated", "memory_reserved", "max_memory_allocated", "max_memory_reserved",
-    "mem_get_info", # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
-
+    "reset_peak_memory_stats",
+    "empty_cache",
+    "memory_allocated",
+    "memory_reserved",
+    "max_memory_allocated",
+    "max_memory_reserved",
+    "mem_get_info",  # "caching_allocator_alloc", "caching_allocator_delete", "memory_summary", "memory_stats"
     # custom api
-    "NativeMemoryFormat", "native_memory_format_cast", "get_native_memory_format"
+    "NativeMemoryFormat",
+    "native_memory_format_cast",
+    "get_native_memory_format"
     # not support mock cuda_graph now
-
 ]
 
 import atexit
+
 atexit.register(release_all_resources)
