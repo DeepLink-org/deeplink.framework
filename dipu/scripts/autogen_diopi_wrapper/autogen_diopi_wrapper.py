@@ -116,7 +116,9 @@ def create_transform_input_to_cpu_code(fun_config):
     schema = fun_config["schema"]
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     for input in inputs:
-        input_process_code += f"at::Tensor {input}_cpu = to_cpu_without_diopi({input});\n"
+        input_process_code += (
+            f"at::Tensor {input}_cpu = to_cpu_without_diopi({input});\n"
+        )
 
     optional_inputs = re.findall("Tensor *\? +([\w\d_]+)", schema[: schema.find("->")])
     for input in optional_inputs:
@@ -139,7 +141,9 @@ def create_transform_input_to_cpu_code(fun_config):
             output = output.replace("?", "")
             input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>(to_cpu_without_diopi({output}.value()) : {output};\n"
         else:
-            input_process_code += f"at::Tensor {output}_cpu = to_cpu_without_diopi({output});\n"
+            input_process_code += (
+                f"at::Tensor {output}_cpu = to_cpu_without_diopi({output});\n"
+            )
 
     tensors_arrays = re.findall(
         "Tensor *\[ *\] * +([\w\d_]+)", schema[: schema.find("->")]
@@ -534,9 +538,11 @@ def create_result_compare_code(fun_config):
         for i in range(len(return_names)):
             code += separator_code
             code += f'std::cout << "autocompare:\t{op_name}\t{return_names[i]}:" << std::endl << allclose_autocompare(std::get<{i}>(result_cpu), std::get<{i}>(result_device)) << std::endl;\n'
-    
-    inputs = re.findall("Tensor +([\w\d_]+)", schema[:schema.find("->")])
-    inputs += re.findall("Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)", schema[:schema.find("->")])
+
+    inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
+    inputs += re.findall(
+        "Tensor *\([a-z]!\) *\[ *\] +([\w\d_]+)", schema[: schema.find("->")]
+    )
     for i in range(len(inputs)):
         code += separator_code
         code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
