@@ -77,7 +77,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-
         format = "NCHW"
         index = -1
 
@@ -110,8 +109,8 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
 
-        if 'format' in self.cur_node.meta:
-            format = self.cur_node.meta['format']
+        if 'native_memory_format' in self.cur_node.meta:
+            format = self.cur_node.meta['native_memory_format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
@@ -1530,6 +1529,20 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_input("index", index)
         op.set_attr_int("dim", dim)
+        return op.to_node()
+    
+    @staticmethod
+    def AdaptiveAvgPool2D(name, x, output_size):
+        op = OP(name, "AdaptiveAvgPool2d")
+        op.set_input("x", x)
+        op.set_attr_list_int("output_size", output_size)
+        return op.to_node()
+    
+    @staticmethod
+    def AdaptiveAvgPool2DGrad(name, input_grad, orig_input_shape):
+        op = OP(name, "AdaptiveAvgPool2dGrad")
+        op.set_input("input_grad", input_grad)
+        op.set_attr_list_int("orig_input_shape", orig_input_shape)
         return op.to_node()
 
     @staticmethod
