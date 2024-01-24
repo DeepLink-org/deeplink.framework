@@ -449,7 +449,7 @@ static at::Tensor custom_fallback_dipu_linear(
   return out;
 }
 
-static at::Tensor custom_fallback_dipu_rsqrt_out(const at::Tensor& self,
+static at::Tensor& custom_fallback_dipu_rsqrt_out(const at::Tensor& self,
                                                  at::Tensor& out) {
   auto self_cpu = to_cpu_with_half_to_float(self);
   auto out_cpu = at::rsqrt(self_cpu);
@@ -457,7 +457,7 @@ static at::Tensor custom_fallback_dipu_rsqrt_out(const at::Tensor& self,
   return out;
 }
 
-static at::Tensor custom_fallback_dipu__softmax_out(const at::Tensor& self,
+static at::Tensor& custom_fallback_dipu__softmax_out(const at::Tensor& self,
                                                     int64_t dim,
                                                     bool half_to_float,
                                                     at::Tensor& out) {

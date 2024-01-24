@@ -4,7 +4,6 @@
 
 #include "basedef.h"
 
-
 namespace dipu {
 
 #ifndef DIPU_VENDOR_NAME
