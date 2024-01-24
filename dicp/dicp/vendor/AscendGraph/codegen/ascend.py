@@ -1533,6 +1533,20 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def AdaptiveAvgPool2D(name, x, output_size):
+        op = OP(name, "AdaptiveAvgPool2d")
+        op.set_input("x", x)
+        op.set_attr_list_int("output_size", output_size)
+        return op.to_node()
+
+    @staticmethod
+    def AdaptiveAvgPool2DGrad(name, input_grad, orig_input_shape):
+        op = OP(name, "AdaptiveAvgPool2dGrad")
+        op.set_input("input_grad", input_grad)
+        op.set_attr_list_int("orig_input_shape", orig_input_shape)
+        return op.to_node()
+
+    @staticmethod
     def Tril(name, x, diagonal=0):
         op = OP(name, "Tril")
         op.set_input("x", x)
@@ -1551,18 +1565,4 @@ class AscendOverrides:
         op = OP(name, "LogicalOr")
         op.set_input("x1", x)
         op.set_input("x2", y)
-        return op.to_node()
-    
-    @staticmethod
-    def AdaptiveAvgPool2D(name, x, output_size):
-        op = OP(name, "AdaptiveAvgPool2d")
-        op.set_input("x", x)
-        op.set_attr_list_int("output_size", output_size)
-        return op.to_node()
-    
-    @staticmethod
-    def AdaptiveAvgPool2DGrad(name, input_grad, orig_input_shape):
-        op = OP(name, "AdaptiveAvgPool2dGrad")
-        op.set_input("input_grad", input_grad)
-        op.set_attr_list_int("orig_input_shape", orig_input_shape)
         return op.to_node()

@@ -42,14 +42,9 @@ class BroadcastTo(Operator):
         super().__init__("BroadcastTo")
 
     def infer_result(self, x, shape):
-        # current implementation of conversion.py doesn't require "BroadcastTo" to infer_shape_dtype
-        # for "BroadcastTo" now is only used as an intermediate node in converted graph,
-        # and the original input is enough to infer final node's shape and dtype
-        return x
-        """
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
         if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
-            shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
+            shape, shape_shape, _, _ = get_fake_tensor_meta_val(shape)
             shape = shape_shape
         elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
             shape, _, _, _ =get_op_const_arg_kwarg(shape)
@@ -61,7 +56,6 @@ class BroadcastTo(Operator):
             self.__class__.__name__ + "can't broadcast x to specified shape!"
         )
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
-        """
 
 
 class Range(Operator):
@@ -570,6 +564,8 @@ class Identity(Operator):
 
     def infer_result(self, x, idx=None):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        if isinstance(x, (List, Tuple)):
+            return x[idx]
         out_dtype = x_dtype
         if x_dtype == torch.complex64:  # for complex64
             out_shape = list(x_shape)
@@ -600,8 +596,8 @@ class IdentityN(Operator):
     def __init__(self):
         super().__init__("IdentityN")
 
-    def infer_result(self, x):
-        return common_unary_op_infer(x)
+    def infer_result(self, *args, **kwargs):
+        return remove_nested_parentheses(args)
 
 
 class Empty(Operator):
@@ -716,16 +712,6 @@ class NLLLoss(Operator):
 class NLLLossGrad(Operator):
     def __init__(self):
         super().__init__("NLLLossGrad")
-
-
-class BNTrainingReduce(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingReduce")
-
-
-class BNTrainingUpdate(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingUpdate")
 
 
 class BNTrainingUpdateGrad(Operator):
@@ -934,6 +920,40 @@ class PadV3(Operator):
         super().__init__("PadV3")
 
 
+class AdaptiveAvgPool2D(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2D")
+
+    def infer_result(self, x, output_size):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        batch_channel_size = list(x_shape)[:-2]
+        return torch.empty(
+            batch_channel_size + output_size,
+            dtype=x_dtype,
+            memory_format=get_memory_format(x),
+        )
+
+
+class AdaptiveAvgPool2DGrad(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2DGrad")
+
+    def infer_result(self, input_grad, orig_input_shape):
+        return common_unary_op_infer(
+            input_grad, spec_format=torch.contiguous_format, spec_shape=orig_input_shape
+        )
+
+
+class MaxPoolGrad(Operator):
+    def __init__(self):
+        super().__init__("MaxPoolGrad")
+
+
+class PadV3Grad(Operator):
+    def __init__(self):
+        super().__init__("PadV3Grad")
+
+
 class LogicalOr(Operator):
     def __init__(self):
         super().__init__("LogicalOr")
@@ -956,24 +976,54 @@ class Tile(Operator):
 
     def infer_result(self, x, multiples):
         return torch.ops.aten.repeat.default(x, multiples)
-class AdaptiveAvgPool2D(Operator):
+
+
+class BNTrainingReduce(Operator):
     def __init__(self):
-        super().__init__("AdaptiveAvgPool2D")
+        super().__init__("BNTrainingReduce")
+
+    def infer_result(self, x, x_shape, format, dtype):
+        # the output should be two 1D tensors(reduce_sum and reduce_square_sum) of same type,
+        # so it may not matter to return only a single tensor here
+        return reduce_op_infer(x, None, False)  # TODO: return a list of two tensors
 
 
-class AdaptiveAvgPool2DGrad(Operator):
+class BNTrainingUpdate(Operator):
     def __init__(self):
-        super().__init__("AdaptiveAvgPool2DGrad")
+        super().__init__("BNTrainingUpdate")
 
-
-class MaxPoolGrad(Operator):
-    def __init__(self):
-        super().__init__("MaxPoolGrad")
-
-
-class PadV3Grad(Operator):
-    def __init__(self):
-        super().__init__("PadV3Grad")
+    def infer_result(
+        self,
+        x,
+        sum,
+        sum_idx,
+        square_sum,
+        square_idx,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        eps,
+        momentum,
+    ):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        channel_size = x_shape[1]
+        output_y = torch.empty(
+            x_shape, dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+        output_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        return [output_y,output_mean,output_var,output_batch_mean,output_batch_var]
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

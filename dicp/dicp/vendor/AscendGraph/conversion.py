@@ -1269,6 +1269,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
         prob_op = self.get_const_proxy(float(p), dtype)
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
 
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
+    def adaptiveavgpool2d(self, x, output_size):
+        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
+        if not isinstance(output_size, list):
+            if isinstance(output_size, tuple):
+                output_size = list(output_size)
+            elif isinstance(output_size, int):
+                output_size = [output_size, output_size]
+            else:
+                raise RuntimeError("not supported output size!")
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
+
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
+    def adaptiveavgpool2dBackward(self, grad, input):
+        input_shape = list(input.node.meta['val'].shape)
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2DGrad, (grad, input_shape))
+
     @register_conversion(torch.ops.aten.tril.default)
     def Tril(self, x, diagonal=0):
         return self.get_proxy(ascend_op.Tril, (x, diagonal))
@@ -1288,20 +1305,3 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.logical_or.default)
     def LogicalOr(self, x, y):
         return self.get_proxy(ascend_op.LogicalOr, (x, y))
-    
-    @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
-    def adaptiveavgpool2d(self, x, output_size):
-        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
-        if not isinstance(output_size, list):
-            if isinstance(output_size, tuple):
-                output_size = list(output_size)
-            elif isinstance(output_size, int):
-                output_size = [output_size, output_size]
-            else:
-                raise RuntimeError("not supported output type!")
-        return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
-    
-    @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
-    def adaptiveavgpool2dBackward(self, grad, input):
-        input_shape = list(input.node.meta['val'].shape)
-        return self.get_proxy(ascend_op.AdaptiveAvgPool2DGrad, (grad, input_shape))
