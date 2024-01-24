@@ -1,16 +1,19 @@
 # Copyright (c) 2023, DeepLink.
 import os
+
 # os.environ['DIPU_MEM_CHECK'] = '1'
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
 # os.environ['DIPU_MEM_CHECK_ENABLE_BACKTRACE'] = '1'
 
-os.environ['TORCH_SHOW_CPP_STACKTRACES'] = '1'
-mockcuda = False if os.environ.get("DIPU_MOCK_CUDA", 'True').lower()=='false' else True
+os.environ["TORCH_SHOW_CPP_STACKTRACES"] = "1"
+mockcuda = (
+    False if os.environ.get("DIPU_MOCK_CUDA", "True").lower() == "false" else True
+)
 
 import torch
-from typing import (Tuple, List, Union, Sequence)
-from torch.types import (_int, _size, Device, Number)
+from typing import Tuple, List, Union, Sequence
+from torch.types import _int, _size, Device, Number
 from torch import Tensor
 
 # use env to control?
@@ -25,26 +28,29 @@ from .dipu.generator import apply_generator_patch
 from .dipu.streams import apply_stream_patch, _dipu_record_stream
 from .dipu.amp import apply_amp_patch
 
+
 # mock device functions in generated/python_variable_methods.cpp
 def apply_tensor_method_patch():
     torch.Tensor.to = GetDeviceProxy(torch.Tensor.to)
     torch.Tensor.is_pinned = GetDeviceProxy(torch.Tensor.is_pinned)
     torch.Tensor.pin_memory = GetDeviceProxy(torch.Tensor.pin_memory)
 
-    torch.Tensor.new_tensor = GetDeviceProxy(torch.Tensor.new_tensor,  pos = -1)
-    torch.Tensor.new_empty = GetDeviceProxy(torch.Tensor.new_empty,  pos = -1)
-    torch.Tensor.new_empty_strided = GetDeviceProxy(torch.Tensor.new_empty_strided,  pos = -1)
-    torch.Tensor.new_full = GetDeviceProxy(torch.Tensor.new_full,  pos = -1)
-    torch.Tensor.new_ones = GetDeviceProxy(torch.Tensor.new_ones,  pos = -1)
-    torch.Tensor.new_zeros = GetDeviceProxy(torch.Tensor.new_zeros,  pos = -1)
+    torch.Tensor.new_tensor = GetDeviceProxy(torch.Tensor.new_tensor, pos=-1)
+    torch.Tensor.new_empty = GetDeviceProxy(torch.Tensor.new_empty, pos=-1)
+    torch.Tensor.new_empty_strided = GetDeviceProxy(
+        torch.Tensor.new_empty_strided, pos=-1
+    )
+    torch.Tensor.new_full = GetDeviceProxy(torch.Tensor.new_full, pos=-1)
+    torch.Tensor.new_ones = GetDeviceProxy(torch.Tensor.new_ones, pos=-1)
+    torch.Tensor.new_zeros = GetDeviceProxy(torch.Tensor.new_zeros, pos=-1)
     # --- add other device func
     # legacy api
-    torch.Tensor.new =  GetDeviceProxy(torch.Tensor.new,  pos = -1)
+    torch.Tensor.new = GetDeviceProxy(torch.Tensor.new, pos=-1)
 
     torch.Tensor.dipu = GetDeviceProxy(_C.dipu)
     torch.Tensor.is_dipu = property(_C.is_dipu)
 
-    # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp 
+    # if we replace in pybind layer, the func torch capacity in default python_variable_methods.cpp
     # THPVariable_record_stream() will loss. so we currently replace in the python layer.
     torch.Tensor.record_stream = _dipu_record_stream
 
@@ -55,12 +61,12 @@ def apply_tensor_method_patch():
 
 # mock device functions in generated/python_torch_functionsEverything.cpp
 def apply_torch_function_patch():
-    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, caller = "static")
+    torch._C._nn._parse_to = GetDeviceProxy(torch._C._nn._parse_to, caller="static")
     torch.ones = GetDeviceStaticProxy(torch.ones)
     torch.ones_like = GetDeviceStaticProxy(torch.ones_like)
     torch.zeros = GetDeviceStaticProxy(torch.zeros)
     torch.zeros_like = GetDeviceStaticProxy(torch.zeros_like)
-    torch.as_tensor = GetDeviceStaticProxy( torch.as_tensor)
+    torch.as_tensor = GetDeviceStaticProxy(torch.as_tensor)
     torch.tensor = GetDeviceStaticProxy(torch.tensor)
     torch.arange = GetDeviceStaticProxy(torch.arange)
     torch.range = GetDeviceStaticProxy(torch.range)
@@ -103,6 +109,7 @@ def apply_torch_function_patch():
 def apply_temp_patch():
     def script_wrapper(obj, *args, **kwargs):
         return obj
+
     torch.jit.script = script_wrapper
 
 

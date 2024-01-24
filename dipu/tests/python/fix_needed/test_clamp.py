@@ -9,5 +9,5 @@ print(a.clamp_(min=0, max=0.3))
 
 min = torch.linspace(-1, 1, steps=4).cuda()
 
-print(a.clamp_(min=min)) # camb not support now
-print(torch.clamp(a, min=min)) # camb not support now
+print(a.clamp_(min=min))  # camb not support now
+print(torch.clamp(a, min=min))  # camb not support now
