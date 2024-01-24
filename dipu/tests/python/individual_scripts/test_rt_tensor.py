@@ -129,13 +129,15 @@ def testDeviceProperties():
     print("device capability: ", torch.cuda.get_device_capability(0))
     print("device name: ", torch.cuda.get_device_name(0))
 
+
 def test_mem_get_info():
-  import torch_dipu
-  from torch import cuda
-  minfo = cuda.mem_get_info()
-  d1 = torch.ones((1024, 1024 * 30), device = "cuda")
-  minfo = cuda.mem_get_info()
-  print(minfo) 
+    import torch_dipu
+    from torch import cuda
+
+    minfo = cuda.mem_get_info()
+    d1 = torch.ones((1024, 1024 * 30), device="cuda")
+    minfo = cuda.mem_get_info()
+    print(minfo)
 
 
 def test_type():
@@ -191,26 +193,30 @@ def test_complex_type():
     zr = torch.view_as_real(z2)
     print(zr.cpu)
 
-#　env DIPU_PYTHON_DEVICE_AS_CUDA　is default true！
-def test_dipu_as_cuda_type():
-  import torch_dipu
-  d1 = torch.device("cuda", 0)
-  t1 = torch.ones((1024, 1), device = 0)
-  print(t1)
-  assert(d1.type == "cuda")
-  assert(t1.is_cuda == True)
-  assert(t1.device.type == "cuda")
-  s1 = t1.storage()
-  assert(s1.device.type == "cuda")
 
-  gen = torch.Generator("dipu")
-  gen.manual_seed(1)
-  assert gen.device.type == "cuda"
+# 　env DIPU_PYTHON_DEVICE_AS_CUDA　is default true！
+def test_dipu_as_cuda_type():
+    import torch_dipu
+
+    d1 = torch.device("cuda", 0)
+    t1 = torch.ones((1024, 1), device=0)
+    print(t1)
+    assert d1.type == "cuda"
+    assert t1.is_cuda == True
+    assert t1.device.type == "cuda"
+    s1 = t1.storage()
+    assert s1.device.type == "cuda"
+
+    gen = torch.Generator("dipu")
+    gen.manual_seed(1)
+    assert gen.device.type == "cuda"
+
 
 def test_torch_ver():
-  from torch_dipu import dipu
-  # torch version must be compatible
-  assert dipu.check_dipu_torch_compatiable() == True
+    from torch_dipu import dipu
+
+    # torch version must be compatible
+    assert dipu.check_dipu_torch_compatiable() == True
 
 
 if __name__ == "__main__":

@@ -10,18 +10,24 @@ from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 class TestAmp(TestCase):
     # https://github.com/DeepLink-org/deeplink.framework/issues/535
     def test_amp_update_scalar_tensor(self):
-      scale_ = torch.tensor(65536.0, device='cuda')
-      growth_tracker_ = torch.tensor(0, device='cuda', dtype=torch.int32)
-      found_inf_combined = torch.tensor(0.0, device='cuda')
+        scale_ = torch.tensor(65536.0, device="cuda")
+        growth_tracker_ = torch.tensor(0, device="cuda", dtype=torch.int32)
+        found_inf_combined = torch.tensor(0.0, device="cuda")
 
-      growth_factor_ = 2.0
-      backoff_factor_ = 0.5
-      growth_interval_ = 2000
-      torch._amp_update_scale_(scale_, growth_tracker_, found_inf_combined, growth_factor_, \
-                                backoff_factor_, growth_interval_)
+        growth_factor_ = 2.0
+        backoff_factor_ = 0.5
+        growth_interval_ = 2000
+        torch._amp_update_scale_(
+            scale_,
+            growth_tracker_,
+            found_inf_combined,
+            growth_factor_,
+            backoff_factor_,
+            growth_interval_,
+        )
 
-      expected_growth_result = torch.tensor(1, dtype=torch.int32)
-      self.assertEqual(growth_tracker_.cpu(), expected_growth_result)
+        expected_growth_result = torch.tensor(1, dtype=torch.int32)
+        self.assertEqual(growth_tracker_.cpu(), expected_growth_result)
 
     def test_autocast(self):
         # Creates some tensors in default dtype (here assumed to be float32)
@@ -36,11 +42,11 @@ class TestAmp(TestCase):
         self.assertEqual(c_float16.dtype, torch.float16)
         self.assertEqual(c_float32.dtype, torch.float32)
 
-        infp16 = torch.arange(0, 8, dtype=torch.float16, device = "cuda").reshape(2, 4)
+        infp16 = torch.arange(0, 8, dtype=torch.float16, device="cuda").reshape(2, 4)
         with torch.autocast("cuda"):
-          # amp will convert fp16 to fp32
-          res = nn.functional.softmax(infp16, dim=0)
-          self.assertEqual(res.dtype, torch.float32)
+            # amp will convert fp16 to fp32
+            res = nn.functional.softmax(infp16, dim=0)
+            self.assertEqual(res.dtype, torch.float32)
 
         with autocast(dtype=torch.float16):
             d_float16 = torch.mm(a_float32, b_float32)

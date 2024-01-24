@@ -34,8 +34,8 @@ class TestLogicalOr(TestCase):
             torch.logical_or(a, b, out=torch.empty(4, dtype=torch.bool)),
         )
         self.assertEqual(
-            torch.logical_or(a.cuda(), b.cuda(), out=out.cuda()
-                             ).cpu(), torch.logical_or(a, b, out=out)
+            torch.logical_or(a.cuda(), b.cuda(), out=out.cuda()).cpu(),
+            torch.logical_or(a, b, out=out),
         )
 
 

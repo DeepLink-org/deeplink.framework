@@ -6,7 +6,7 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.proxy import Proxy
 from typing import Any, Dict, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
-from dicp.vendor.AscendGraph.codegen.utils import symint_in_shape
+from dicp.dynamo_bridge.utils import symint_in_shape
 
 
 class OpSetTransformer:
