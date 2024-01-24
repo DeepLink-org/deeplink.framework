@@ -164,7 +164,7 @@
 - schema: "logical_and(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
     auto shape = at::infer_size(self.sizes(), other.sizes());
-    auto out = at::empty(shape, self.options().dtype(at::kBool));
+    auto out = nodispatch::empty(shape, self.options().dtype(at::kBool));
   interface: diopiLogicalAnd(ctx, out, self, other);
 
 - schema: "logical_or.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
@@ -181,7 +181,7 @@
 - schema: "logical_or(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
     auto shape = at::infer_size(self.sizes(), other.sizes());
-    auto out = at::empty(shape, self.options().dtype(at::kBool));
+    auto out = nodispatch::empty(shape, self.options().dtype(at::kBool));
   interface: diopiLogicalOr(ctx, out, self, other);
 
 - schema: "logical_not.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -196,7 +196,7 @@
 
 - schema: "logical_not(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
+    auto out = nodispatch::empty(self.sizes(), self.options().dtype(at::kBool));
   interface: diopiLogicalNot(ctx, out, self);
 
 - schema: "aten::native_batch_norm.out(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, *, Tensor(a!) out, Tensor(b!) save_mean, Tensor(c!) save_invstd) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
@@ -224,11 +224,11 @@
     at::Tensor out2;
     if (!training) {
         // do not require save_mean/save_invstd when in test mode
-        out1 = at::empty({0}, options);
-        out2 = at::empty({0}, options);
+        out1 = nodispatch::empty({0}, options);
+        out2 = nodispatch::empty({0}, options);
     } else {
-        out1 = at::empty({dim_c}, options);
-        out2 = at::empty({dim_c}, options);
+        out1 = nodispatch::empty({dim_c}, options);
+        out2 = nodispatch::empty({dim_c}, options);
     }
   interface: diopiBatchNorm(ctx, out0, out1, out2, input, weight, bias, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), training, momentum, eps);
   custom_code_before_call_diopi: |
@@ -250,16 +250,16 @@
                  (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
                   c10::optional<at::MemoryFormat>(c10::nullopt))\
         ));
-    at::Tensor out1 = at::empty({dim_c}, options);
-    at::Tensor out2 = at::empty({dim_c}, options);
+    at::Tensor out1 = nodispatch::empty({dim_c}, options);
+    at::Tensor out2 = nodispatch::empty({dim_c}, options);
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
 
 - schema: "native_group_norm(Tensor input, Tensor? weight, Tensor? bias, SymInt N, SymInt C, SymInt HxW, int group, float eps) -> (Tensor, Tensor, Tensor)"
   custom_code_at_the_beginning: |
     auto out0 = at::empty_like(input);
     auto options = input.options().dtype(at::kFloat);
-    auto out1 = at::empty({N.expect_int(), group}, options);
-    auto out2 = at::empty({N.expect_int(), group}, options);
+    auto out1 = nodispatch::empty({N.expect_int(), group}, options);
+    auto out2 = nodispatch::empty({N.expect_int(), group}, options);
   interface: diopiGroupNorm(ctx, out0, out1, out2, input, weight, bias, group, eps);
 
 - schema: "native_group_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, SymInt N, SymInt C, SymInt HxW, int group, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
@@ -277,8 +277,8 @@
     std::vector<int64_t> stats_shape(input_shape.size(), 1);
     std::copy(input_shape.begin(), input_shape.begin() + axis, stats_shape.begin());
     auto options = input.options();
-    auto save_mean = at::empty(stats_shape, options);
-    auto save_invstd = at::empty(stats_shape, options);
+    auto save_mean = nodispatch::empty(stats_shape, options);
+    auto save_invstd = nodispatch::empty(stats_shape, options);
     auto out = at::empty_like(
       input,
       c10::nullopt /* dtype */,
@@ -293,9 +293,9 @@
 - schema: "native_layer_norm_backward(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   custom_code_at_the_beginning: |
     auto options = grad_out.options();
-    auto grad_input = output_mask[0] ? at::empty(input.sizes(), options) : at::Tensor();
-    auto grad_weight = output_mask[1] ? at::empty(weight.value().sizes(), options) : at::Tensor();
-    auto grad_bias = output_mask[2] ? at::empty(bias.value().sizes(), options) : at::Tensor();
+    auto grad_input = output_mask[0] ? nodispatch::empty(input.sizes(), options) : at::Tensor();
+    auto grad_weight = output_mask[1] ? nodispatch::empty(weight.value().sizes(), options) : at::Tensor();
+    auto grad_bias = output_mask[2] ? nodispatch::empty(bias.value().sizes(), options) : at::Tensor();
   interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
 
 - schema: "aten::native_layer_norm_backward.out(Tensor grad_out, Tensor input, SymInt[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask, *, Tensor(a!) grad_input, Tensor(b!) grad_weight, Tensor(c!) grad_bias) -> (Tensor(a!), Tensor(b!), Tensor(c!))"
@@ -312,7 +312,7 @@
     auto out_tensor_size = self.sizes().vec();
     out_tensor_size[self.dim() - 2] = output_size[0].expect_int();
     out_tensor_size[self.dim() - 1] = output_size[1].expect_int();
-    at::Tensor out = at::empty(out_tensor_size, self.options());
+    at::Tensor out = nodispatch::empty(out_tensor_size, self.options());
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d_backward(Tensor grad_output, Tensor self) -> Tensor"
@@ -489,7 +489,7 @@
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     if (out.numel() == 0) {
       std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-      out = at::empty(output_shape, self.options());
+      out = nodispatch::empty(output_shape, self.options());
       }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
@@ -514,9 +514,9 @@
     at::Tensor out;
     auto options = self.options();
     if (reductionDiopi == ReductionNone) {
-      out = at::empty(target.sizes(), options);
+      out = nodispatch::empty(target.sizes(), options);
     } else {
-      out = at::empty({}, options);
+      out = nodispatch::empty({}, options);
     }
   interface: diopiCrossEntropyLoss(ctx, out, self, target, weight, reductionDiopi, ignore_index_int, label_smoothing)
   backward_schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
@@ -546,7 +546,7 @@
     int64_t out_height = (height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1;
     int64_t out_width = (width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1;
     c10::SmallVector<int64_t, 4> output_size = {batch_size, out_channel, out_height, out_width};
-    at::Tensor out = at::empty(output_size, input.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
+    at::Tensor out = nodispatch::empty(output_size, input.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
   interface: diopiConvolution2d(&context, out, input, weight, bias, stride, padding, dilation, groups)
 
 - schema: "convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
@@ -558,14 +558,14 @@
     at::Tensor grad_bias;
     std::vector<int64_t> bias_sizes;
     if (output_mask[0]) {
-      grad_input = at::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+      grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
     }
     if (output_mask[1]) {
-      grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat).memory_format(weight.suggest_memory_format()));
+      grad_weight = nodispatch::empty(weight.sizes(), weight.options().dtype(at::kFloat).memory_format(weight.suggest_memory_format()));
     }
     if (output_mask[2]) {
       bias_sizes.push_back(grad_output.size(1));
-      grad_bias = at::empty(bias_sizes, grad_output.options());
+      grad_bias = nodispatch::empty(bias_sizes, grad_output.options());
     }
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
@@ -578,10 +578,10 @@
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
-    grad_input = at::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-    grad_weight = at::empty(weight.sizes(), weight.options().dtype(at::kFloat));
+    grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    grad_weight = nodispatch::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
-        grad_bias = at::empty({grad_output.size(1)}, grad_output.options());
+        grad_bias = nodispatch::empty({grad_output.size(1)}, grad_output.options());
     }
   custom_code_before_call_diopi: |
     ::diopiSize_t* bias_sizes_ptr = output_mask[2] ? &bias_sizesDiopiSize : nullptr;
@@ -600,7 +600,7 @@
     const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
     const int64_t c_out = weight.size(1) * groups;
     auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
-    auto out = at::empty(output_shape, input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty(output_shape, input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
   interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
   forward_process_code: |
     bool bias_has_value = (bias.has_value()) ? bias.value().requires_grad() : false;
@@ -643,7 +643,7 @@
     at::Tensor out1;
     bool train_ = train.value_or(false);
     if (train_) {
-      out1 = at::empty(input.sizes(), input.options().dtype(at::kByte));;
+      out1 = nodispatch::empty(input.sizes(), input.options().dtype(at::kByte));;
     }
     diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   interface: diopiDropout(ctx, out0, out1, input, p, train_, generatorDiopiGenerator)
@@ -715,8 +715,8 @@
       dim = dim + static_cast<int64_t>(output_size.size());
     }
     output_size[dim] = k;
-    auto values = at::empty(output_size, self.options());
-    auto indices = at::empty(output_size, self.options().dtype(at::kLong));
+    auto values = nodispatch::empty(output_size, self.options());
+    auto indices = nodispatch::empty(output_size, self.options().dtype(at::kLong));
   interface: diopiTopk(ctx, values, indices, self, k, dim, largest, sorted)
 
 - schema: "mean.out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
@@ -730,7 +730,7 @@
   torch_ver: ["200",]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-    auto out = at::empty(output_shape, self.options());
+    auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1) == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
@@ -746,7 +746,7 @@
   torch_ver: ["211",]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-    auto out = at::empty(output_shape, self.options());
+    auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1).toLong() == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
@@ -766,13 +766,13 @@
     at::Tensor grad_weight;
     at::Tensor grad_bias;
     if (output_mask[0]) {
-      grad_input = at::empty(input.sizes(), grad_output.options());
+      grad_input = nodispatch::empty(input.sizes(), grad_output.options());
     }
     if (output_mask[1]) {
-      grad_weight = at::empty(weight.sizes(), grad_output.options());
+      grad_weight = nodispatch::empty(weight.sizes(), grad_output.options());
     }
     if (output_mask[2]) {
-      grad_bias = at::empty({grad_output.size(-1)}, grad_output.options());
+      grad_bias = nodispatch::empty({grad_output.size(-1)}, grad_output.options());
     }
   interface: diopiLinearBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight)
 
@@ -782,7 +782,7 @@
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
-    auto out = at::empty(output_size, input.options());
+    auto out = nodispatch::empty(output_size, input.options());
   interface: diopiLinear(ctx, out, input, weight, bias)
 
 - schema: "_log_softmax_backward_data.out(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype, *, Tensor(a!) out) -> Tensor(a!)"
@@ -810,7 +810,7 @@
   register_op: False
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
-    auto out = at::empty(input.sizes(), grad_output.options());
+    auto out = nodispatch::empty(input.sizes(), grad_output.options());
   interface: diopiMaxPool2dBackward(ctx, out, grad_output, input, kernel_size, stride, padding, dilation, ceil_mode, indices)
 
 - schema: "max_pool2d(Tensor input, int[2] kernel_size=1, int[2] stride=1, int[2] padding=0, int[2] dilation=1, bool ceil_mode=False) -> Tensor"
@@ -824,7 +824,7 @@
     int64_t out_height = std::floor((height + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1);
     int64_t out_width = std::floor((width + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1);
     c10::SmallVector<int64_t, 4> output_size = {batch_size, channel, out_height, out_width};
-    at::Tensor out = at::empty(output_size, input.options());
+    at::Tensor out = nodispatch::empty(output_size, input.options());
   interface: diopiMaxPool2d(&context, out, input, kernel_size, stride, padding, dilation, ceil_mode)
   autograd: True
   saved_data: [kernel_size, stride, padding, dilation, input, ceil_mode]
@@ -861,7 +861,7 @@
     if (reduction != 0) {
         output = torch::tensor(0.0, self.options());
     } else {
-        output = at::empty(target.sizes(), self.options());
+        output = nodispatch::empty(target.sizes(), self.options());
     }
 
 - schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
@@ -873,7 +873,7 @@
 - schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(self.sizes(), self.options());
+    auto grad_input = nodispatch::empty(self.sizes(), self.options());
 
 - schema: "threshold_backward.grad_input(Tensor grad_output, Tensor self, Scalar threshold, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
@@ -937,7 +937,7 @@
     }
     const std::vector<int64_t>& const_tmp = tmp;
     shape = at::ArrayRef<int64_t>(const_tmp);
-    auto out = at::empty({shape}, tensors[0].options());
+    auto out = nodispatch::empty({shape}, tensors[0].options());
 
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
@@ -964,8 +964,8 @@
     } else {
       dim_ = dim;
     }
-    auto values = at::empty(self.sizes(), self.options());
-    auto indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
+    auto values = nodispatch::empty(self.sizes(), self.options());
+    auto indices = nodispatch::empty(self.sizes(), self.options().dtype(at::kLong));
   interface: diopiSort(ctx, values, indices, self, dim_, descending, nullptr)
 
 - schema: "sort.values(Tensor self, int dim=-1, bool descending=False, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
@@ -1010,10 +1010,10 @@
   custom_code_at_the_beginning: |
     auto out = at::empty_like(self);
     if (self.dim() == 2){
-      out = at::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
+      out = nodispatch::empty({self.size(0), num_samples}, self.options().dtype(at::kLong));
     }
     else if (self.dim() == 1) {
-      out = at::empty({num_samples,}, self.options().dtype(at::kLong));
+      out = nodispatch::empty({num_samples,}, self.options().dtype(at::kLong));
     }
   interface: diopiMultinomial(ctx, out, self, num_samples, replacement, generator)
 
@@ -1047,9 +1047,9 @@
     at::Tensor out;
     auto options = self.options();
     if (reductionDiopi == ReductionNone) {
-      out = at::empty(self.sizes(), options);
+      out = nodispatch::empty(self.sizes(), options);
     } else {
-      out = at::empty({}, options);
+      out = nodispatch::empty({}, options);
     }
   interface: diopiMSELoss(ctx, out, self, target, reductionDiopi)
 
@@ -1060,7 +1060,7 @@
 
 - schema: "mse_loss_backward(Tensor grad_output, Tensor self, Tensor target, int reduction) -> Tensor grad_input"
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(self.sizes(), grad_output.options());
+    auto grad_input = nodispatch::empty(self.sizes(), grad_output.options());
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
   interface: diopiMSELossBackward(ctx, grad_input, grad_output, self, target, reductionDiopi)
 
@@ -1122,7 +1122,7 @@
   custom_code_at_the_beginning: |
     auto promoted_dtype = at::native::get_dtype_from_self(self, dtype, /*promote_integers=*/true);
     const auto self_dtype = at::native::to(self, promoted_dtype);
-    auto out = at::empty({}, self_dtype.options());
+    auto out = nodispatch::empty({}, self_dtype.options());
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
   interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
 
@@ -1145,7 +1145,7 @@
       output_size[j] *= self_sizes.at(i);
     }
 
-    at::Tensor out = at::empty(output_size, self.options());
+    at::Tensor out = nodispatch::empty(output_size, self.options());
   interface: diopiRepeat(ctx, out, self, repeats)
 
 - schema: rsub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
@@ -1165,7 +1165,7 @@
       if (dim < 0) {
         dim += static_cast<int64_t>(ndims);
       }
-      indices = at::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
+      indices = nodispatch::empty({self.sizes().at(dim)}, self.options().dtype(at::kLong));
     }
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
@@ -1183,7 +1183,7 @@
     at::Tensor counts;
     at::Tensor indices;
     if (return_inverse) {
-      indices = at::empty(self.sizes(), self.options().dtype(at::kLong));
+      indices = nodispatch::empty(self.sizes(), self.options().dtype(at::kLong));
     }
     diopiTensorHandle_t out_ptr = nullptr;
     diopiTensorHandle_t counts_ptr = nullptr;
@@ -1221,7 +1221,7 @@
 
 - schema: "min(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = at::empty({}, self.options());
+    auto out = nodispatch::empty({}, self.options());
   interface: diopiMinAll(ctx, out, self)
 
 - schema: "min.dim_min(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) min, Tensor(b!) min_indices) -> (Tensor(a!) min, Tensor(b!) min_indices)"
@@ -1231,7 +1231,7 @@
 
 - schema: "max(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = at::empty({}, self.options());
+    auto out = nodispatch::empty({}, self.options());
   interface: diopiMaxAll(ctx, out, self)
 
 - schema: "maximum.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1323,7 +1323,7 @@
   custom_code_at_the_beginning: |
     auto shape = at::infer_size(condition.sizes(), self.sizes());
     shape = at::infer_size(shape, other.sizes());
-    auto out = at::empty(shape, self.options());
+    auto out = nodispatch::empty(shape, self.options());
   interface: diopiWhere(ctx, out, condition,self, other)
 
 - schema: "gelu.out(Tensor self, *, str approximate='none', Tensor(a!) out) -> Tensor(a!)"
@@ -1361,7 +1361,7 @@
 
 - schema: "hardtanh_backward(Tensor grad_output, Tensor self, Scalar min_val, Scalar max_val) -> Tensor grad_input"
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(self.sizes(), grad_output.options());
+    auto grad_input = nodispatch::empty(self.sizes(), grad_output.options());
   interface: diopiHardtanhBackward(ctx, grad_input, grad_output, self, min_val, max_val)
 
 - schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1390,7 +1390,7 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
-    auto out = at::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
   interface: diopiUpsampleNearest(ctx, out, self, size);
 
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1420,7 +1420,7 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
-    auto out = at::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
     const char* mode = "bilinear";
   interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, mode);
 
@@ -1444,7 +1444,7 @@
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
     std::vector<int64_t> grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
-    auto grad_input = at::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1475,7 +1475,7 @@
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
     std::vector<int64_t> grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
-    auto grad_input = at::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1602,7 +1602,7 @@
       }
     }
 
-    auto out = at::empty(output_shape, self.options());
+    auto out = nodispatch::empty(output_shape, self.options());
 
   interface: diopiMatmul(ctx, out, self, other)
 
@@ -1647,12 +1647,12 @@
     std::vector<int64_t> output_shape(shape.begin(), shape.end());
     dim += dim >= 0 ? 0 : static_cast<int64_t>(shape.size());
     output_shape[dim] = index.numel();
-    auto out = at::empty({output_shape}, self.options());
+    auto out = nodispatch::empty({output_shape}, self.options());
   interface: diopiIndexSelect(ctx, out, self, dim, index)
 
 - schema: "hardswish(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = at::empty(self.sizes(), self.options());
+    auto out = nodispatch::empty(self.sizes(), self.options());
   interface: diopiHardswish(ctx, out, self)
 
 - schema: "hardswish.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1663,7 +1663,7 @@
 
 - schema: "hardswish_backward(Tensor grad_output, Tensor self) -> Tensor grad_input"
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(self.sizes(), grad_output.options());
+    auto grad_input = nodispatch::empty(self.sizes(), grad_output.options());
   interface: diopiHardswishBackward(ctx, grad_input, grad_output, self)
 
 - schema: "sigmoid.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1681,9 +1681,9 @@
     at::Tensor out;
     auto options = self.options();
     if (reductionDiopi == ReductionNone) {
-      out = at::empty(self.sizes(), options);
+      out = nodispatch::empty(self.sizes(), options);
     } else {
-      out = at::empty({}, options);
+      out = nodispatch::empty({}, options);
     }
   interface: diopiBCELoss(ctx, out, self, target, weight, reductionDiopi)
 
@@ -1712,12 +1712,12 @@
     int64_t max_target_length = target_lengths.max().cpu().item().to<int64_t>();
     auto options = log_probs.options();
     if (reductionDiopi == ReductionNone) {
-      out = at::empty({batch_size}, options);
+      out = nodispatch::empty({batch_size}, options);
     } else {
-      out = at::empty({1}, options);
+      out = nodispatch::empty({1}, options);
     }
-    at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
-    at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
+    at::Tensor neg_log_likelihood = nodispatch::empty({batch_size}, options);
+    at::Tensor log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   interface: diopiCTCLoss(ctx, out, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths, target_lengths, blank, reductionDiopi, zero_infinity)
   forward_process_code: |
     auto targets_dev = targets.to(log_probs.device());
@@ -1751,8 +1751,8 @@
     int64_t num_labels = log_probs.size(2);
     int64_t max_target_length = target_lengths.max().cpu().item().to<int64_t>();
 
-    at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
-    at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
+    at::Tensor neg_log_likelihood = nodispatch::empty({batch_size}, options);
+    at::Tensor log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   backward_return_code: |
     /* Note: This kernel's output size will be checked by pytorch/torch/csrc/autograd/custom_function.h
     *
@@ -1794,8 +1794,8 @@
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
 
-    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
-    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
+    auto input_lengths_tensor = nodispatch::empty_cpu({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  nodispatch::empty_cpu({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
 
@@ -1813,8 +1813,8 @@
   outs: [neg_log_likelihood, log_alpha]
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
-    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
-    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
+    auto input_lengths_tensor = nodispatch::empty_cpu({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  nodispatch::empty_cpu({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
 
@@ -1827,12 +1827,12 @@
     int64_t max_target_length = target_lengths_tensor.max().cpu().item().to<int64_t>();
     auto options = log_probs.options();
     if (reductionDiopi == ReductionNone) {
-      out = at::empty({batch_size}, options);
+      out = nodispatch::empty({batch_size}, options);
     } else {
-      out = at::empty({1}, options);
+      out = nodispatch::empty({1}, options);
     }
-    at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
-    at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
+    at::Tensor neg_log_likelihood = nodispatch::empty({batch_size}, options);
+    at::Tensor log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   interface: diopiCTCLoss(ctx, out, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, reductionDiopi, zero_infinity)
   backward_schema: "ctc_loss_intlist_backward(Tensor grad_output, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   saved_data:
@@ -1862,8 +1862,8 @@
     // int64_t max_target_length = target_lengths_tensor.max().cpu().item().to<int64_t>();
     int64_t max_target_length = *std::max_element(target_lengths.begin(), target_lengths.end());
 
-    at::Tensor neg_log_likelihood = at::empty({batch_size}, options);
-    at::Tensor log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
+    at::Tensor neg_log_likelihood = nodispatch::empty({batch_size}, options);
+    at::Tensor log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, options);
   backward_return_code: |
     /* Note: This kernel's output size will be checked by pytorch/torch/csrc/autograd/custom_function.h
     *
@@ -1903,8 +1903,8 @@
     int64_t batch_size = log_probs.size(1);
     int64_t num_labels = log_probs.size(2);
     int64_t max_target_length = target_lengths.max().cpu().item().to<int64_t>();
-    auto neg_log_likelihood = at::empty({batch_size}, log_probs.options());
-    auto log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
+    auto neg_log_likelihood = nodispatch::empty({batch_size}, log_probs.options());
+    auto log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
   interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths, target_lengths, blank, ReductionNone, zero_infinity); # TODO: param log_alpha ?
 
 - schema: "_ctc_loss(Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, int blank=0, bool zero_infinity=False) -> (Tensor neg_log_likelihood, Tensor log_alpha)"
@@ -1915,10 +1915,10 @@
     int64_t batch_size = log_probs.size(1);
     int64_t num_labels = log_probs.size(2);
     int64_t max_target_length = *std::max_element(target_lengths.begin(), target_lengths.end());;
-    auto neg_log_likelihood = at::empty({batch_size}, log_probs.options());
-    auto log_alpha = at::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
-    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
-    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
+    auto neg_log_likelihood = nodispatch::empty({batch_size}, log_probs.options());
+    auto log_alpha = nodispatch::empty({batch_size, log_probs.size(0), 2 * max_target_length + 1}, log_probs.options());
+    auto input_lengths_tensor = nodispatch::empty_cpu({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  nodispatch::empty_cpu({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLoss(ctx, neg_log_likelihood, neg_log_likelihood, log_alpha, log_probs, targets, input_lengths_tensor, target_lengths_tensor, blank, ReductionNone, zero_infinity); # TODO: param log_alpha ?
@@ -1926,7 +1926,7 @@
 - schema: "_ctc_loss_backward.Tensor(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, bool zero_infinity=False) -> Tensor grad_input"
   device: [-camb, all]
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(log_probs.sizes(), grad.options());
+    auto grad_input = nodispatch::empty(log_probs.sizes(), grad.options());
   interface: diopiCTCLossBackward(ctx, grad_input, grad, log_probs, targets, input_lengths, target_lengths, neg_log_likelihood, log_alpha, blank, ReductionNone, zero_infinity)
 
 - schema: "_ctc_loss_backward(Tensor grad, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, bool zero_infinity=False) -> Tensor grad_input"
@@ -1934,9 +1934,9 @@
   no_device_check_args: [input_lengths_tensor, target_lengths_tensor]
   device: [-camb, all]
   custom_code_at_the_beginning: |
-    auto grad_input = at::empty(log_probs.sizes(), grad.options());
-    auto input_lengths_tensor = at::empty({static_cast<int64_t>(input_lengths.size())}, at::kLong);
-    auto target_lengths_tensor =  at::empty({static_cast<int64_t>(target_lengths.size())}, at::kLong);
+    auto grad_input = nodispatch::empty(log_probs.sizes(), grad.options());
+    auto input_lengths_tensor = nodispatch::empty_cpu({static_cast<int64_t>(input_lengths.size())}, at::kLong);
+    auto target_lengths_tensor =  nodispatch::empty_cpu({static_cast<int64_t>(target_lengths.size())}, at::kLong);
     std::copy(input_lengths.begin(), input_lengths.end(), static_cast<int64_t*>(input_lengths_tensor.data_ptr()));
     std::copy(target_lengths.begin(), target_lengths.end(), static_cast<int64_t*>(target_lengths_tensor.data_ptr()));
   interface: diopiCTCLossBackward(ctx, grad_input, grad, log_probs, targets, input_lengths_tensor, target_lengths_tensor, neg_log_likelihood, log_alpha, blank, ReductionNone, zero_infinity)
@@ -2067,7 +2067,7 @@
     auto output_shape = at::infer_size(x1_shape, x2_shape);
     *output_shape.rbegin() = x2.size(-2);
     *(output_shape.rbegin() + 1) = x1.size(-2);
-    auto out = at::empty(output_shape, x1.options());
+    auto out = nodispatch::empty(output_shape, x1.options());
   interface: diopiCdist(ctx, out, x1, x2, p, compute_mode_ptr)
 
 - schema: "_cdist_backward(Tensor grad, Tensor x1, Tensor x2, float p, Tensor cdist) -> Tensor grad_input"
@@ -2079,7 +2079,7 @@
     auto grad_shape = at::infer_size(x1_shape, x2_shape);
     *grad_shape.rbegin() = x1.size(-1);
     *(grad_shape.rbegin() + 1) = x1.size(-2);
-    auto grad_input = at::empty(grad_shape, grad.options());
+    auto grad_input = nodispatch::empty(grad_shape, grad.options());
   interface: diopiCdistBackward(ctx, grad_input, grad, x1, x2, p, cdist)
 
 - schema: "erfinv.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -2091,7 +2091,7 @@
 - schema: "polar(Tensor abs, Tensor angle) -> Tensor"
   custom_code_at_the_beginning: |
     auto dtype = c10::toComplexType(abs.scalar_type());
-    auto out = at::empty(abs.sizes(), abs.options().dtype(dtype));
+    auto out = nodispatch::empty(abs.sizes(), abs.options().dtype(dtype));
   interface: diopiPolar(ctx, out, abs, angle)
 
 - schema: "polar.out(Tensor abs, Tensor angle, *, Tensor(a!) out) -> Tensor(a!)"
@@ -2129,7 +2129,7 @@
     if(batched_input){
       out_shape.insert(out_shape.begin(), input_shape[0]);
     }
-    auto out = at::empty({out_shape}, self.options());
+    auto out = nodispatch::empty({out_shape}, self.options());
   interface: diopiIm2Col(ctx, out, self, kernel_size, dilation, padding, stride)
 
 - schema: "col2im(Tensor self, SymInt[2] output_size, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
@@ -2151,7 +2151,7 @@
     if(batched_input){
       out_shape.insert(out_shape.begin(), input_shape[0]);
     }
-    auto out = at::empty({out_shape}, self.options());
+    auto out = nodispatch::empty({out_shape}, self.options());
   interface: diopiCol2Im(ctx, out, self, output_size, kernel_size, dilation, padding, stride)
 
 - schema: "sgn.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -2162,7 +2162,7 @@
 
 - schema: "isnan(Tensor self) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = at::empty(self.sizes(), self.options().dtype(at::kBool));
+    auto out = nodispatch::empty(self.sizes(), self.options().dtype(at::kBool));
   interface: diopiIsNan(ctx, out, self)
 
 - schema: "embedding_backward(Tensor grad, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor grad_weight"
@@ -2184,15 +2184,15 @@
 - schema: batch_norm_stats(Tensor input, float eps) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out0 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormStats(ctx, out0, out1, input, eps)
 
 - schema: batch_norm_gather_stats_with_counts(Tensor input, Tensor mean, Tensor invstd, Tensor? running_mean, Tensor? running_var, float momentum, float eps, Tensor counts) -> (Tensor, Tensor)
   custom_code_at_the_beginning: |
     auto shape = input.size(1);
-    auto out0 = at::empty({shape}, input.options().dtype(at::kFloat));
-    auto out1 = at::empty({shape}, input.options().dtype(at::kFloat));
+    auto out0 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
+    auto out1 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
   interface: diopiBatchNormGatherStatsWithCounts(ctx, out0, out1, input, mean, invstd, const_cast<diopiTensorHandle_t>(running_mean), const_cast<diopiTensorHandle_t>(running_var), static_cast<float>(momentum), static_cast<float>(eps), counts)
   custom_code_before_call_diopi: |
     // NOTE: const_cast here is safe according to pytorch's source code
@@ -2208,14 +2208,14 @@
     at::Tensor out2;
     at::Tensor out3;
     if(input_g){
-      out0 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-      out1 = at::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+      out0 = nodispatch::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+      out1 = nodispatch::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
     }
     if(weight_g){
-      out2 = at::empty({shape}, input.options().dtype(at::kFloat));
+      out2 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
     }
     if(bias_g){
-      out3 = at::empty({shape}, input.options().dtype(at::kFloat));
+      out3 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
     }
   interface: diopiBatchNormBackwardReduce(ctx, out0, out1, out2, out3, grad_out, input, mean, invstd, weight, input_g, weight_g, bias_g)
 
@@ -2251,7 +2251,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_add_out(self.at(i), other.at(i), alpha, out[i]);
     }
     return out;
@@ -2272,7 +2272,7 @@
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
-      out[i] = at::empty(self[i].sizes(), self[i].options());
+      out[i] = nodispatch::empty(self[i].sizes(), self[i].options());
       dipu_add_scalar_out(self[i], scalar, 1.0 , out[i]);
     }
     return out;
@@ -2325,7 +2325,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_mul_scalar_out(self.at(i), scalar, out[i]);
     }
     return out;
@@ -2337,7 +2337,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_mul_scalar_out(self.at(i), scalars[i], out[i]);
     }
     return out;
@@ -2390,7 +2390,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_div_scalar_out(self.at(i), scalar, out[i]);
     }
     return out;
@@ -2402,7 +2402,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_div_scalar_out(self.at(i), scalars[i], out[i]);
     }
     return out;
@@ -2497,7 +2497,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty(in.sizes(), in.options());
+      out[i] = nodispatch::empty(in.sizes(), in.options());
       dipu_neg_out(self.at(i), out[i]);
     }
     return out;
@@ -2509,7 +2509,7 @@
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       auto& in = self[i];
-      out[i] = at::empty({}, in.options());
+      out[i] = nodispatch::empty({}, in.options());
       dipu_norm_out(in, ord, {}, false, out[i]);
     }
     return out;
