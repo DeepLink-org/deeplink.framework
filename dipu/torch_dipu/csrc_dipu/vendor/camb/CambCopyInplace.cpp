@@ -97,25 +97,6 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
   CambCopyInplace() = default;
   ~CambCopyInplace() override = default;
 
-  // Override the run method from DIPUCopyInplace
-  void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) override {
-    // Call the run method of the parent class
-    DIPUCopyInpOnDIOPI::run(dst, src, non_blocking);
-
-    // Normally, d2d doesn't need to sync
-    // There might be some bug in camb's stream management
-    // casuing precision error in pointpillar (one iter tool)
-    // TODO(someone): after the stream bug fixed, remove this redundant sync
-    if (!non_blocking) {
-      auto curStream = dipu::getCurrentDIPUStream();
-      auto info = CopyParamsInfo(dst, src, curStream);
-      if (info.copyType_ == DIPUCopyType::D2Self ||
-          info.copyType_ == DIPUCopyType::D2OtherD) {
-        dipu::devapis::syncStream(curStream.rawstream());
-      }
-    }
-  }
-
   void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                             bool non_blocking, CopyParamsInfo& info) override {
     diopiDtype_t dstDtype = dipu::diopi_helper::toDiopiDtype(dst.scalar_type());
