@@ -61,17 +61,12 @@ class GraphTransformer:
             else:
                 continue
             if 'val' in n.meta and test_infer:
-                restore_needed = False
-                if not isinstance(n.meta['val'],(Tuple,List)):
-                    n.meta['val'],fake_value = (n.meta['val'],),(fake_value,)
-                    restore_needed = True
-                for i,(meta_i,fv_i) in enumerate(zip(n.meta['val'],fake_value)):
+                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n_meta_val, fake_val) 
+                for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
                     assert meta_i.size() == fv_i.size(), "check infer size failed"
                     assert meta_i.dtype == fv_i.dtype, "check infer dtype failed"
                     assert meta_i.stride() == fv_i.stride(), "check infer stride failed"
                     assert meta_i.storage_offset() == fv_i.storage_offset(), "check infer storage offset failed"
-                if restore_needed:
-                    n.meta['val'],fake_value=n.meta['val'][0],fake_value[0]
             if 'val' not in n.meta:
                 n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
