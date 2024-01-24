@@ -81,9 +81,9 @@ class TestLayerNorm(TestCase):
     def test_layer_norm_out_format(self):
         l = torch.nn.LayerNorm(4).cuda()
         xs = [
-            torch.rand(2, 3, 5, 4, device='cuda').to(memory_format=torch.channels_last),
-            torch.rand(2, 4, 3, device='cuda').permute([0, 2, 1]),
-            torch.rand(2, 6, device='cuda')[:, 1:5],
+            torch.rand(2, 3, 5, 4, device="cuda").to(memory_format=torch.channels_last),
+            torch.rand(2, 4, 3, device="cuda").permute([0, 2, 1]),
+            torch.rand(2, 6, device="cuda")[:, 1:5],
         ]
         for x in xs:
             y = l(x)

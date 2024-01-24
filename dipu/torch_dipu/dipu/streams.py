@@ -10,10 +10,11 @@ from torch_dipu import _C, dipu
 from .utils import _dummy_type
 from .device import _get_device_index, _lazy_init
 from .device import devicectx
-if not hasattr(_C, '_DIPUStreamBase'):
+
+if not hasattr(_C, "_DIPUStreamBase"):
     # Define dummy base classes
-    torch._C.__dict__['_DIPUStreamBase'] = _dummy_type('_DIPUStreamBase')
-    torch._C.__dict__['_DIPUEventBase'] = _dummy_type('_DIPUEventBase')
+    torch._C.__dict__["_DIPUStreamBase"] = _dummy_type("_DIPUStreamBase")
+    torch._C.__dict__["_DIPUEventBase"] = _dummy_type("_DIPUEventBase")
 
 
 class Stream(_C._DIPUStreamBase):
@@ -112,12 +113,14 @@ class Stream(_C._DIPUStreamBase):
         return hash((self.dipu_stream, self.device))
 
     def __repr__(self):
-        return ('<torch_dipu.dipu.Stream device={0} dipu_stream={1:#x}>'
-                .format(self.device, self.dipu_stream))
+        return "<torch_dipu.dipu.Stream device={0} dipu_stream={1:#x}>".format(
+            self.device, self.dipu_stream
+        )
+
     # mock
     @property
     def priority(self):
-        return 0  
+        return 0
 
 
 def set_stream(stream: Stream):
@@ -133,6 +136,7 @@ def set_stream(stream: Stream):
     _lazy_init()
     _C._dipu_setStream(stream_id=stream.stream_id, device_index=stream.device_index)
 
+
 def current_stream(device=None):
     r"""Returns the currently selected :class:`Stream` for a given device.
 
@@ -144,13 +148,18 @@ def current_stream(device=None):
     """
     _lazy_init()
     st = _C._dipu_getCurrentStream(_get_device_index(device, optional=True))
-    return Stream(stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type)
+    return Stream(
+        stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type
+    )
 
 
 def default_stream(device=None):
     _lazy_init()
     st = _C._dipu_getDefaultStream(_get_device_index(device, optional=True))
-    return Stream(stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type) 
+    return Stream(
+        stream_id=st.stream_id, device_index=st.device_index, device_type=st.device_type
+    )
+
 
 def set_sync_debug_mode(debug_mode: Union[int, str]) -> None:
     pass
@@ -161,7 +170,7 @@ original_is_current_stream_capturing = torch.cuda.is_current_stream_capturing
 
 def is_current_stream_capturing() -> bool:
     # cuda.is_available is patched and we can't use it here
-    if dipu.vendor_type == 'CUDA':
+    if dipu.vendor_type == "CUDA":
         return original_is_current_stream_capturing()
     return False
 
@@ -180,14 +189,14 @@ class StreamContext:
         current device, this function will also change the current device to
         match the stream.
     """
-    cur_stream : Optional['torch_dipu.dipu.Stream']
+    cur_stream: Optional["torch_dipu.dipu.Stream"]
 
     def __init__(self, stream):
         self.stream = stream
         self.idx = _get_device_index(None, True)
-    
+
     def __enter__(self):
-          # Local cur_stream variable for type refinement
+        # Local cur_stream variable for type refinement
         cur_stream = self.stream
         # Return if stream is None or DIPU device not available
         if cur_stream is None or self.idx == -1:
@@ -217,6 +226,7 @@ class StreamContext:
 def stream(stream) -> StreamContext:
     return StreamContext(stream)
 
+
 class Event(_C._DIPUEventBase):
     r"""Wrapper around a dipu event.
 
@@ -239,7 +249,9 @@ class Event(_C._DIPUEventBase):
     """
 
     def __init__(self, enable_timing=False, blocking=False, interprocess=False):
-        return super(Event, self).__init__(enable_timing=enable_timing, blocking=blocking, interprocess=interprocess)
+        return super(Event, self).__init__(
+            enable_timing=enable_timing, blocking=blocking, interprocess=interprocess
+        )
 
     def record(self, stream=None):
         r"""Records the event in a given stream.
@@ -286,7 +298,6 @@ class Event(_C._DIPUEventBase):
             `dipu Event documentation`_ for more info.
         """
         super(Event, self).synchronize()
-    
 
     @property
     def _as_parameter_(self):
@@ -294,18 +305,22 @@ class Event(_C._DIPUEventBase):
 
     def __repr__(self):
         if self.dipu_event:
-            return '<torch_dipu.dipu.Event {0:#x}>'.format(self._as_parameter_.value)
+            return "<torch_dipu.dipu.Event {0:#x}>".format(self._as_parameter_.value)
         else:
-            return '<torch_dipu.dipu.Event uninitialized>'
+            return "<torch_dipu.dipu.Event uninitialized>"
+
 
 __Raw_C_Stream = torch._C.Stream
-__Raw_record_stream  = torch.Tensor.record_stream 
+__Raw_record_stream = torch.Tensor.record_stream
+
+
 def _dipu_record_stream(self, s: Stream):
-  rawTHPStream = __Raw_C_Stream(s.stream_id, s.device_index, s.device_type)
-  return __Raw_record_stream(self, rawTHPStream)
+    rawTHPStream = __Raw_C_Stream(s.stream_id, s.device_index, s.device_type)
+    return __Raw_record_stream(self, rawTHPStream)
+
 
 def apply_stream_patch():
-  # in cuda, torch.cuda export struct THCPStream which is subclass of torch._C.Stream(struct THPStream)
-  # dipu Stream already has all properties of THPStream（stream_id，device_type/index),
-  # so we directly use it as torch._C.Stream 
-  torch._C.Stream = Stream
+    # in cuda, torch.cuda export struct THCPStream which is subclass of torch._C.Stream(struct THPStream)
+    # dipu Stream already has all properties of THPStream（stream_id，device_type/index),
+    # so we directly use it as torch._C.Stream
+    torch._C.Stream = Stream
