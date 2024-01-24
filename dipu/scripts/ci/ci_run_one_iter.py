@@ -96,7 +96,6 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
 
     if device == "cuda":
         if p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py":
-
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh"
             cmd_cp_one_iter = ""
         # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
@@ -112,7 +111,7 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         if p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py":
             cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
             cmd_cp_one_iter = ""
-        elif 'infer' in p2 and 'infer' in p3:
+        elif "infer" in p2 and "infer" in p3:
             cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && python {current_path}/{train_path}" """
             cmd_cp_one_iter = ""
         else:
