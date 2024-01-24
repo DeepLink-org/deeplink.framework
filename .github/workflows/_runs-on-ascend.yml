@@ -20,7 +20,7 @@ jobs:
     runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout Code
-        uses: DeepLink-org/deeplink.framework/.github/actions/checkout-code@main
+        uses: DeepLink-org/deeplink.framework.dev/.github/actions/checkout-code@wgs/fix_checkout
 
   build_test:
     runs-on: ${{ inputs.runner }}
