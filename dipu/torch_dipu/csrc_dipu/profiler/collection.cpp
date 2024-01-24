@@ -48,6 +48,46 @@ using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
 using trace_ptr_t =
     std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
 
+#if DIPU_TORCH_VERSION == 20000
+#else
+namespace {
+struct TagToIOType {
+  DIPUInputOutputEncoder::Tag tag;
+  DIPUInputOutputEncoder::IOType io_type;
+};
+
+constexpr int tagCount =
+    (static_cast<int>(DIPUInputOutputEncoder::Tag::TERMINATOR)) + 1;
+constexpr std::array<TagToIOType, tagCount> tag_map = {{
+    {DIPUInputOutputEncoder::Tag::Tensor,
+     DIPUInputOutputEncoder::IOType::Shapes},
+    {DIPUInputOutputEncoder::Tag::UndefinedTensor,
+     DIPUInputOutputEncoder::IOType::Shapes},
+    {DIPUInputOutputEncoder::Tag::TensorListBegin,
+     DIPUInputOutputEncoder::IOType::Shapes},
+    {DIPUInputOutputEncoder::Tag::ScalarList,
+     DIPUInputOutputEncoder::IOType::ConcreteInputs},
+    {DIPUInputOutputEncoder::Tag::Scalar,
+     DIPUInputOutputEncoder::IOType::Shapes},
+    {DIPUInputOutputEncoder::Tag::Other,
+     DIPUInputOutputEncoder::IOType::Shapes},
+    {DIPUInputOutputEncoder::Tag::TERMINATOR,
+     DIPUInputOutputEncoder::IOType::None},
+}};
+
+constexpr bool allTagsMapped(int idx = 0) {
+  return tag_map[idx].tag == DIPUInputOutputEncoder::Tag::TERMINATOR ||
+         ((idx == (int)tag_map[idx].tag) && allTagsMapped(idx + 1));
+}
+static_assert(allTagsMapped(), "tag_map is out of order");
+
+constexpr DIPUInputOutputEncoder::IOType tagToIOType(
+    DIPUInputOutputEncoder::Tag tag) {
+  return tag_map[(int)tag].io_type;
+}
+}  // namespace
+#endif
+
 void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
   for (const auto& value : values) {
     if (value.isTensor()) {
@@ -65,6 +105,12 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
         push(t);
       }
       tags_.emplace_back(Tag::TERMINATOR);
+#if DIPU_TORCH_VERSION == 20000
+#else
+    } else if (isSupportedScalarList(value)) {
+      tags_.emplace_back(Tag::ScalarList);
+      ivalues_.emplace_back(value);
+#endif
     } else {
       tags_.emplace_back(Tag::Other);
     }
@@ -73,7 +119,9 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
 }
 
 void DIPUInputOutputEncoder::push(const at::Tensor& t) {
-  if (t.defined() && !t.is_nested()) {  // TODO(caikun-pjlab) fix nested sizes
+  // TODO(caikun-pjlab) fix nested sizes
+  if (t.defined() && !t.is_nested() &&
+      !t.unsafeGetTensorImpl()->has_symbolic_sizes_strides()) {
     tags_.emplace_back(Tag::Tensor);
     tensor_metadata_.emplace_back(t);
     tensor_sizes_strides_.copy(t.sizes());
@@ -86,6 +134,7 @@ void DIPUInputOutputEncoder::push(const at::Tensor& t) {
   }
 }
 
+#if DIPU_TORCH_VERSION == 20000
 // This is a custom-iterator-like getter to obtain input shapes and dtypes.
 auto DIPUInputOutputEncoder::getNextShapesAndDtypes() {
   return [this, tag_it = tags_.begin(),
@@ -146,6 +195,127 @@ auto DIPUInputOutputEncoder::getNextShapesAndDtypes() {
     return out;
   };
 }
+#else
+bool DIPUInputOutputEncoder::isSupportedScalarList(
+    const c10::IValue& list_candidate) {
+  // Scalar list can be very long. If a list is too long, we shouldn't
+  // collect it. This function checks whether the list is a scalar list
+  // and whether its length is sufficiently short.
+
+  if (!torch::profiler::impl::get_record_concrete_inputs_enabled()) {
+    return false;
+  }
+
+  if (!list_candidate.isList()) {
+    return false;
+  }
+  auto list_ref = list_candidate.toListRef();
+  if (C10_UNLIKELY(list_ref.size() == 0)) {
+    return true;
+  }
+  if (C10_UNLIKELY(!list_ref[0].isScalar())) {
+    return false;
+  }
+  if (C10_UNLIKELY(list_ref.size() >
+                   torch::profiler::impl::SCALAR_LIST_LENGTH_LIMIT)) {
+    return false;
+  }
+  return true;
+}
+
+// This function returns a lambda which is is a custom-iterator-like getter.
+// Each invocation of the lambda returns input values for one op.
+//
+// io_type is used to filter the ivalues between 'Shapes' and 'Concrete Args'.
+// Shapes are used to represent the shapes of tensors. We save only the shapes
+//   of the tensors because tensors can be large.
+// Concrete args are separated to clarify that they are the actual values.
+auto DIPUInputOutputEncoder::getIValueGenerator(const IOType& io_type) {
+  return [this, tag_it = tags_.begin(),
+          tensor_metadata_it = tensor_metadata_.begin(),
+          tensor_size_strides_it = tensor_sizes_strides_.begin(),
+          ivals_it = ivalues_.begin(), io_type]() mutable {
+    auto decode_tensor = [&]() -> TensorMetadata {
+      const auto& raw_metadata = *tensor_metadata_it++;
+      std::vector<int64_t> sizes;
+      std::vector<int64_t> strides;
+      for (C10_UNUSED const auto _ : c10::irange(raw_metadata.dim_)) {
+        sizes.push_back(*tensor_size_strides_it++);
+      }
+      if (raw_metadata.layout_ == at::kStrided) {
+        for (C10_UNUSED const auto _ : c10::irange(raw_metadata.dim_)) {
+          strides.push_back(*tensor_size_strides_it++);
+        }
+      }
+      return {raw_metadata, sizes, strides};
+    };
+
+    std::vector<op_input_t> out;
+    auto push_value = [&out, io_type](const Tag& tag, op_input_t input) {
+      if (io_type == tagToIOType(tag)) {
+        out.push_back(std::move(input));
+      } else {
+        out.push_back(c10::nullopt);
+      }
+    };
+
+    bool terminate = false;
+    while (!terminate && tag_it != tags_.end()) {
+      switch (*tag_it) {
+        case Tag::Tensor:
+          push_value(*tag_it, decode_tensor());
+          break;
+
+        case Tag::TensorListBegin: {
+          std::vector<TensorMetadata> arg;
+          bool found_undefined = false;
+          while (*(++tag_it) != Tag::TERMINATOR) {
+            if (*tag_it == Tag::UndefinedTensor) {
+              found_undefined = true;
+              continue;
+            }
+            TORCH_INTERNAL_ASSERT(*tag_it == Tag::Tensor, (int)(*tag_it));
+            arg.emplace_back(decode_tensor());
+          }
+          if (found_undefined) {
+            push_value(*tag_it, c10::nullopt);
+          } else {
+            push_value(Tag::TensorListBegin, std::move(arg));
+          }
+        } break;
+
+        case Tag::ScalarList:
+        case Tag::Scalar:
+          push_value(*tag_it, *ivals_it++);
+          break;
+
+        case Tag::UndefinedTensor:
+        case Tag::Other:
+          push_value(*tag_it, c10::nullopt);
+          break;
+
+        case Tag::TERMINATOR:
+          // This marks the end of this op.
+          terminate = true;
+          break;
+
+        default:
+          break;
+      }
+      ++tag_it;
+    }
+    return out;
+  };
+}
+
+auto DIPUInputOutputEncoder::getInputShapeGenerator() {
+  return getIValueGenerator(IOType::Shapes);
+}
+
+auto DIPUInputOutputEncoder::getConcreteInputGenerator() {
+  return getIValueGenerator(IOType::ConcreteInputs);
+}
+#endif
 
 void DIPUInputOutputEncoder::clear() {
   tags_.clear();
@@ -289,7 +459,12 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     }
   }
 
+#if DIPU_TORCH_VERSION == 20000
   auto input_getter = inputs_outputs_.getNextShapesAndDtypes();
+#else
+  auto input_shape_getter = inputs_outputs_.getInputShapeGenerator();
+  auto concrete_input_getter = inputs_outputs_.getConcreteInputGenerator();
+#endif
 
   // TODO(caikun-pjlab): CTAD will take care of template args when we move to
   // C++17
@@ -302,10 +477,11 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     ExtraFields<torch::profiler::impl::EventType::TorchOp> e {
       std::move(event->basic_fields_),
           DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
-          time_converter(event->end_time_), input_getter(),
+          time_converter(event->end_time_),
 #if DIPU_TORCH_VERSION == 20000
-#else
           input_getter(),
+#else
+          input_shape_getter(), concrete_input_getter(),
 #endif
           jit_stack(), jit_module(), extra_args(), gpu_fallback(),
           event->allow_tf32_cublas_, std::move(event->counters_)

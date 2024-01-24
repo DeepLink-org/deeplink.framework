@@ -28,16 +28,21 @@ namespace profile {
 namespace {
 inline int64_t getTimeUs() {
   auto constexpr scale = int64_t{1000};
-  return torch::profiler::impl::getTime(true) / scale;
+  return torch::profiler::impl::getTime() / scale;
 }
 
-const std::set<libkineto::ActivityType> kCpuTypes{
-    libkineto::ActivityType::CPU_OP,
-    libkineto::ActivityType::CPU_INSTANT_EVENT,
-    libkineto::ActivityType::USER_ANNOTATION,
-    libkineto::ActivityType::EXTERNAL_CORRELATION,
-    libkineto::ActivityType::CUDA_RUNTIME,
-    libkineto::ActivityType::PYTHON_FUNCTION,
+const std::set<libkineto::ActivityType> kCpuTypes {
+  libkineto::ActivityType::CPU_OP, libkineto::ActivityType::CPU_INSTANT_EVENT,
+      libkineto::ActivityType::USER_ANNOTATION,
+      libkineto::ActivityType::EXTERNAL_CORRELATION,
+#if DIPU_TORCH_VERSION == 20000
+      libkineto::ActivityType::CUDA_RUNTIME,
+#else
+      libkineto::ActivityType::XPU_RUNTIME,
+      libkineto::ActivityType::CUDA_RUNTIME,
+      libkineto::ActivityType::CUDA_DRIVER,
+#endif
+      libkineto::ActivityType::PYTHON_FUNCTION,
 };
 
 using torch::autograd::profiler::experimental_event_t;
@@ -48,6 +53,9 @@ using torch::profiler::impl::ActiveProfilerType;
 #if DIPU_TORCH_VERSION == 20000
 using torch::profiler::impl::dtypesToStr;
 #else
+using torch::profiler::impl::get_record_concrete_inputs_enabled;
+using torch::profiler::impl::ivalueListToStr;
+using torch::profiler::impl::strListToStr;
 #endif
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;
@@ -60,6 +68,7 @@ using torch::profiler::impl::shapesToStr;
 using torch::profiler::impl::stacksToStr;
 using torch::profiler::impl::TensorMetadata;
 
+#if DIPU_TORCH_VERSION == 20000
 auto shapesAndDtypes(const std::vector<op_input_t>& inputs) {
   std::vector<std::vector<int64_t>> shapes;
   std::vector<std::string> dtypes;
@@ -85,6 +94,63 @@ auto shapesAndDtypes(const std::vector<op_input_t>& inputs) {
   }
   return std::make_pair(shapes, dtypes);
 }
+#else
+struct OpArgData {
+  bool has_data;
+  std::vector<std::vector<int64_t>> shapes;
+  std::vector<std::string> dtypes;
+  std::vector<c10::IValue> concrete_inputs;
+};
+
+auto parseArgData(const std::vector<op_input_t>& input_shapes,
+                  const std::vector<op_input_t>& concrete_inputs) {
+  if (input_shapes.empty()) {
+    return OpArgData{false, {}, {}, {}};
+  }
+
+  std::vector<std::vector<int64_t>> shapes(input_shapes.size());
+  std::vector<std::string> dtypes(input_shapes.size());
+  std::vector<c10::IValue> concrete_inputs_list;
+
+  for (const auto& i : c10::irange(input_shapes.size())) {
+    c10::visit(c10::overloaded(
+                   [&](const TensorMetadata& t) {
+                     shapes[i] = t.sizes_;
+                     dtypes[i] =
+                         std::string(scalarTypeToTypeMeta(t.dtype_).name());
+                   },
+                   [&](const std::vector<TensorMetadata>&) {
+                     dtypes[i] = "TensorList";
+                   },
+                   [&](const c10::IValue& val) { dtypes[i] = "Scalar"; },
+                   [&](const auto&) {}),
+               input_shapes[i]);
+  }
+
+  // If we recorded concrete inputs, then parse them
+  if (input_shapes.size() == concrete_inputs.size() &&
+      !concrete_inputs.empty()) {
+    concrete_inputs_list.resize(input_shapes.size());
+
+    for (const auto& i : c10::irange(input_shapes.size())) {
+      c10::visit(
+          c10::overloaded(
+              [&](const c10::IValue& val) { concrete_inputs_list[i] = val; },
+              [&](const auto&) {}),
+          input_shapes[i]);
+      c10::visit(c10::overloaded(
+                     [&](const c10::IValue& val) {
+                       concrete_inputs_list[i] = val;
+                       dtypes[i] = "ScalarList";
+                     },
+                     [&](const auto&) {}),
+                 concrete_inputs[i]);
+    }
+  }
+
+  return OpArgData{true, shapes, dtypes, concrete_inputs_list};
+}
+#endif
 
 struct MetadataBase {
   explicit MetadataBase(const std::shared_ptr<Result>& result)
@@ -162,17 +228,15 @@ struct AddGenericMetadata : public MetadataBase {
     }
   }
 
+#if DIPU_TORCH_VERSION == 20000
   void operator()(ExtraFields<EventType::TorchOp>& op_event) {
     const auto shapes_and_dtypes = shapesAndDtypes(op_event.inputs_);
     if (!shapes_and_dtypes.first.empty()) {
       addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
     }
-#if DIPU_TORCH_VERSION == 20000
     if (!shapes_and_dtypes.second.empty()) {
       addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
     }
-#else
-#endif
 
     if (config_ && !config_->experimental_config.performance_events.empty()) {
       auto& event_names = config_->experimental_config.performance_events;
@@ -189,6 +253,36 @@ struct AddGenericMetadata : public MetadataBase {
       addMetadata("Sequence number", std::to_string(op_event.sequence_number_));
     }
   }
+#else
+  void operator()(ExtraFields<EventType::TorchOp>& op_event) {
+    const auto arg_data =
+        parseArgData(op_event.inputs_, op_event.concrete_inputs_);
+
+    if (arg_data.has_data) {
+      addMetadata("Input Dims", shapesToStr(arg_data.shapes));
+      addMetadata("Input type", strListToStr(arg_data.dtypes));
+      if (!arg_data.concrete_inputs.empty()) {
+        addMetadata("Concrete Inputs",
+                    ivalueListToStr(arg_data.concrete_inputs));
+      }
+    }
+
+    if (config_ && !config_->experimental_config.performance_events.empty()) {
+      auto& event_names = config_->experimental_config.performance_events;
+      for (const auto i : c10::irange(op_event.perf_event_counters_->size())) {
+        addMetadata(event_names[i],
+                    std::to_string((*op_event.perf_event_counters_)[i]));
+      }
+    }
+
+    // add information about an associated forward op, if a sequence number
+    // is available (e.g. during training)
+    if (op_event.sequence_number_ >= 0) {
+      addMetadata("Fwd thread id", std::to_string(op_event.forward_tid_));
+      addMetadata("Sequence number", std::to_string(op_event.sequence_number_));
+    }
+  }
+#endif
 
   void operator()(ExtraFields<EventType::Backend>& backend_event) {
     if (!backend_event.backend_.empty()) {
@@ -308,7 +402,7 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
 
   void materializeOpEvents(std::vector<std::shared_ptr<Result>>& events) {
     for (auto& e : events) {
-      if (e->parent_.expired()) {
+      if (e->parent_.expired() && e->deviceType() == c10::DeviceType::CPU) {
         event_tree_.push_back(e);
       }
 

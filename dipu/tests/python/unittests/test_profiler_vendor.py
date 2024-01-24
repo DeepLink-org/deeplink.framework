@@ -57,7 +57,7 @@ class TestProfiler(TestCase):
         self.assertTrue(check_string_in_directory(path, "softmax"))
 
     @onlyOn("CUDA")
-    def test_profiler(self):
+    def test_profiler_cuda(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
 
@@ -103,7 +103,7 @@ class TestProfiler(TestCase):
             prof.export_chrome_trace(f"{tmpdir}/resnet18_profiler_cuda.json")
 
     @onlyOn("MLU")
-    def test_profiler(self):
+    def test_profiler_mlu(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
 
