@@ -34,9 +34,9 @@ class Testsoftmax(TestCase):
 
     # TODO:Fix me
     # def test_softmax_shape_format_fp16_2d(self):
-        # format_list = [0, 3]
-        # shape_format = [[np.float16, i, [256, 1000]] for i in format_list]
-        # self.softmax_result(shape_format)
+    # format_list = [0, 3]
+    # shape_format = [[np.float16, i, [256, 1000]] for i in format_list]
+    # self.softmax_result(shape_format)
 
     def test_softmax_shape_format_fp32_2d(self):
         format_list = [0, 3]

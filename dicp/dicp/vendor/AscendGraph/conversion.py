@@ -10,10 +10,11 @@ from torch.types import (
 )
 import numpy as np
 import torch.fx.traceback as fx_traceback
+from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
+from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    symint_in_shape,
     get_ascend_dtype,
     get_cpp_dtype
 )
@@ -47,7 +48,7 @@ def try_to_get_dtype(x):
 
 
 def is_dicp_cpp_support_dtype(dtype):
-    if dtype in [torch.float32, torch.float, torch.int32, torch.int64]:
+    if dtype in [torch.float32, torch.float, torch.float16, torch.int32, torch.int64]:
         return True
     return False
 
@@ -176,7 +177,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def mul_scalar(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         # Muls support bfloat16, int32, int16, float16, float32, complex32, complex64.
-        if out_dtype not in [torch.float, torch.float16, torch.int32]:
+        if out_dtype not in [torch.float, torch.float32, torch.float16, torch.int32]:
             y_op = self.get_const_proxy(y, out_dtype)
             return self.get_proxy(ascend_op.Mul, (x, y_op))
         return self.get_proxy(ascend_op.Muls, (x, y))
@@ -264,6 +265,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
         a, b = self.binary_cmp_cast_input(a, b)
         return self.get_proxy(ascend_op.LessEqual, (a, b), {})
 
+    @register_conversion(aten.argmax.default)
+    def argmax(self, x, dim):
+        dim = self.get_proxy(ascend_op.Const, ([dim], torch.int32, []))
+        return self.get_proxy(ascend_op.ArgMax, (x, dim))
+
     @register_conversion(aten.view_as_real)
     def view_as_real(self, x):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -295,7 +301,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def inge(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
             assert isinstance(y, int)
-            y = self.get_const_proxy(ascend_op.Const, (y, torch.int32))
+            y = self.get_const_proxy(y, torch.int32)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
     @register_conversion(aten.div)
@@ -306,6 +312,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         y_op = self.get_const_proxy(y, out_dtype)
         return self.get_proxy(ascend_op.Div, (x, y_op), {})
+
+    @register_conversion(aten.split.Tensor)
+    def split(self, x, split_size, dim=0):
+        splitD_kw = { "from_view_complex": False }
+        shape = list(x.node.meta['val'].shape)
+        if dim < 0:
+            dim += len(shape)
+        assert shape[dim] > 0
+        num_split = int((shape[dim] + split_size - 1) / split_size)
+        return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
     @register_conversion(aten.slice.Tensor)
     def slice(self, x, dim=0, start=None, end=None, step=1):
@@ -542,6 +558,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                                       weight, total_weight,
                                                       reduction_str, ignore_index))
 
+    @register_conversion(torch.ops.aten.sin.default)
+    def sin(self, x):
+        return self.get_proxy(ascend_op.Sin, (x,))
+
+    @register_conversion(torch.ops.aten.cos.default)
+    def cos(self, x):
+        return self.get_proxy(ascend_op.Cos, (x,))
+
     @register_conversion(torch.ops.aten.cat.default)
     def cat(self, x, dim=0):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
@@ -624,11 +648,134 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.index.Tensor)
     def index(self, x, index):
+        if isinstance(index, list):
+            return self.unsafe_index(x, index)
+        return self.index_base(x, 0, index)
+
+    @register_conversion(torch.ops.aten._unsafe_index.Tensor)
+    def unsafe_index(self, x, index):
+        if isinstance(index, list):
+            if len(index) == 1:
+                index = index[0]
+                return self.index_base(x, 0, index)
+            else:
+                bcast_shape = []
+                first_not_none = 0
+                not_none_len = 0
+
+                # calc for first_not_none & not_none_len
+                # support 4 cases now:
+                #   i.    idx1, ... idxN
+                #   ii.   idx1, ... idxN, None, ... None
+                #   iii.  None, ... None, idx1, ... idxN, None, ... None
+                #   iv.   None, ... None, idx1, ... idxN
+                # other cases not supported!
+                # define state name for an easy state machine
+                status = START = 0
+                FIRST_NONE = 1
+                NOT_NONE = 2
+                SECOND_NONE = 3
+                for i, elem in enumerate(index):
+                    if status == START:
+                        if elem is None:
+                            status = FIRST_NONE
+                        else:
+                            break
+                    elif status == FIRST_NONE:
+                        if elem is not None:
+                            status = NOT_NONE
+                            first_not_none = i
+                    elif status == NOT_NONE:
+                        if elem is not None:
+                            not_none_len = i - first_not_none + 1
+                        else:
+                            status = SECOND_NONE
+                    elif status == SECOND_NONE:
+                        # not supported now!
+                        assert elem is None
+                index_tmp = [e for e in index]
+
+                # insert transpose op
+                if status > START:
+                    x_shape = list(x.node.meta['val'].shape)
+                    perm = [num for num in range(len(x_shape))]
+                    for i in range(not_none_len):
+                        index_tmp[i] = index_tmp[first_not_none + i]
+                        index_tmp[first_not_none + i] = None
+                        perm[i] = first_not_none + i
+                        perm[first_not_none + i] = i
+                    perm = self.get_proxy(ascend_op.Const, (perm, torch.int32, [len(perm)]))
+                    x = self.get_proxy(ascend_op.Transpose, (x, perm))
+
+                # get broadcast shape
+                bcast_flag = False
+                for elem in index_tmp:
+                    if elem is not None:
+                        shape = list(elem.node.meta['val'].shape)
+                        bcast_shape.append(shape)
+                bcast_shape = list(torch.broadcast_shapes(*bcast_shape))
+
+                for elem in index_tmp:
+                    if elem is not None:
+                        shape = list(elem.node.meta['val'].shape)
+                        if not self.shape_prod(shape) == self.shape_prod(bcast_shape) or not len(shape) == len(bcast_shape):
+                            bcast_flag = True
+
+                # insert broadcast op
+                if bcast_flag:
+                    bcast_shape = self.get_proxy(ascend_op.Const, (bcast_shape, torch.int32, [len(bcast_shape)]))
+                    for i, elem in enumerate(index_tmp):
+                        if elem is not None:
+                            index_tmp[i] = self.get_proxy(ascend_op.BroadcastTo, (elem, bcast_shape))
+
+                # core gather calc
+                if status > START:
+                    index_tmp = index_tmp[:not_none_len]
+                index = immutable_list(index_tmp)
+                indices = self.get_proxy(ascend_op.Pack, (index, -1))
+                gather = self.get_proxy(ascend_op.GatherNd, (x, indices, index_tmp))
+                if status > START:
+                    return self.get_proxy(ascend_op.Transpose, (gather, perm))
+                return gather
         return self.index_base(x, 0, index)
 
     @register_conversion(torch.ops.aten.index_select.default)
     def index_arg3_(self, x, dim, index):
         return self.index_base(x, dim, index)
+
+    @register_conversion(torch.ops.aten.native_layer_norm.default)
+    def native_layer_norm(self, x, shape, weight, bias, eps):
+        input_shape = x.node.meta['val'].shape
+        input_ndim = len(input_shape)
+        normalized_ndim = len(shape)
+        axis = input_ndim - normalized_ndim
+        M = 1
+        for idx in range(axis):
+            M *= input_shape[idx]
+        N = 1
+        for idx in range(axis, input_ndim):
+            N *= input_shape[idx]
+
+        weight_numel = weight.node.meta['val'].numel()
+        bias_numel = bias.node.meta['val'].numel()
+        assert weight_numel == N and bias_numel == N
+
+        numels = 1
+        begin_dim = 0
+        for idx in range(len(input_shape)):
+            numels *= input_shape[idx]
+            if numels == M:
+                begin_dim = idx + 1
+                weight_dims = list(input_shape[idx + 1:])
+                break
+        weight_dims = self.get_shape_proxy(weight_dims)
+        weight = self.get_proxy(ascend_op.Reshape, (weight, weight_dims))
+
+        return self.get_proxy(ascend_op.LayerNorm, (x, begin_dim, weight, bias, eps))
+
+    @register_conversion(torch.ops.aten.native_group_norm.default)
+    def native_group_norm(self, x, weight, bias, N, C, HxW, group, eps):
+        return self.get_proxy(ascend_op.GroupNorm, (x, weight, bias, N, C, HxW, group, eps))
 
     @register_conversion(torch.ops.aten._native_batch_norm_legit_functional.default)
     def _native_batch_norm_legit_functional(self, x, weight, bias, running_mean, running_var,
@@ -647,7 +794,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                     bn_reduce, 1, weight, bias,
                                     running_mean, running_var, eps, momentum))
         # 3. tie all results: result, saved_mean, saved_invstd
-        edges = {bn_update.node.name: [
+        edges = {bn_update.node.name + "_edge_name": [
             "y", "batch_mean", "batch_variance", "mean", "variance"]}
         return self.get_proxy(ascend_op.IdentityN, (bn_update,), edges)
 
@@ -666,8 +813,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                       weight, save_mean, save_invstd, eps))
         for mask in grad_input_mask:
             assert mask is True
-        edges = {reduce_grad.node.name: ["y"],
-                 update_grad.node.name: ["diff_scale", "diff_offset"]}
+        edges = {reduce_grad.node.name + "_edge_name": ["y"],
+                 update_grad.node.name + "_edge_name": ["diff_scale", "diff_offset"]}
         return self.get_proxy(ascend_op.IdentityN, (reduce_grad, update_grad), edges)
 
     @register_conversion(torch.ops.prims.convert_element_type)
@@ -699,7 +846,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         outputs = []
         outputs.append(input_op if grad_input_mask[0] else filter_op)
         outputs.append(filter_op if grad_input_mask[1] else input_op)
-        return self.get_proxy(ascend_op.IdentityN, outputs)
+        return self.get_proxy(ascend_op.IdentityN, tuple(outputs))
 
     @register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
     def maxpool2dbackward(self, grad, x, kernel_size, stride, padding, dilation,
@@ -1041,6 +1188,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def relu(self, a):
         return self.get_proxy(ascend_op.Relu, (a,))
 
+    @register_conversion(torch.ops.aten.gelu)
+    def gelu(self, a):
+        return self.get_proxy(ascend_op.Gelu, (a,))
+
     @register_conversion(torch.ops.aten.silu)
     def silu(self, a):
         return self.get_proxy(ascend_op.Swish, (a, 1.0))
@@ -1117,3 +1268,40 @@ class AtenToAscendTransformer(SingleOpTransformer):
         p = 1. - scale
         prob_op = self.get_const_proxy(float(p), dtype)
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
+    
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
+    def adaptiveavgpool2d(self, x, output_size):
+        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
+        if not isinstance(output_size, list):
+            if isinstance(output_size, tuple):
+                output_size = list(output_size)
+            elif isinstance(output_size, int):
+                output_size = [output_size, output_size]
+            else:
+                raise RuntimeError("not supported output type!")
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
+    
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
+    def adaptiveavgpool2dBackward(self, grad, input):
+        input_shape = list(input.node.meta['val'].shape)
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2DGrad, (grad, input_shape))
+
+    @register_conversion(torch.ops.aten.tril.default)
+    def Tril(self, x, diagonal=0):
+        return self.get_proxy(ascend_op.Tril, (x, diagonal))
+
+    @register_conversion(torch.ops.aten.repeat.default)
+    def Repeat(self, x, repeats):
+        assert isinstance(repeats, list)
+        return self.get_proxy(ascend_op.Tile, (x, repeats))
+
+    @register_conversion([torch.ops.aten.ge.Scalar, torch.ops.aten.ge.Tensor])
+    def Ge(self, x, y):
+        if not isinstance(y, torch.fx.proxy.Proxy):
+            dtype = x.node.meta['val'].dtype
+            y = self.get_const_proxy(y, dtype)
+        return self.get_proxy(ascend_op.GreaterEqual, (x, y))
+
+    @register_conversion(torch.ops.aten.logical_or.default)
+    def LogicalOr(self, x, y):
+        return self.get_proxy(ascend_op.LogicalOr, (x, y))

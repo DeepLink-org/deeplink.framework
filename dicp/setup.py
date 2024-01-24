@@ -30,13 +30,14 @@ def main():
         version="0.0.1",
         url="https://github.com/DeepLink-org/DICP",
         packages=find_packages(),
-        package_data={"dicp/vendor": [
-            "TopsGraph/codegen/src/*.cpp",
-            "TopsGraph/codegen/include/*.h",
-            "AscendGraph/codegen/*.cpp",
-            "AscendGraph/codegen/*.h",
-            "AscendGraph/codegen/*.cfg",
-            "AscendGraph/codegen/nlohmann/json.hpp"
+        package_data={"dicp": [
+            "vendor/TopsGraph/codegen/src/*.cpp",
+            "vendor/TopsGraph/codegen/include/*.h",
+            "vendor/AscendGraph/codegen/*.cpp",
+            "vendor/AscendGraph/codegen/*.h",
+            "vendor/AscendGraph/codegen/*.cfg",
+            "third_party/half/include/half.hpp",
+            "third_party/nlohmann/json.hpp"
         ]},
         include_package_data=True,
         classifiers=[

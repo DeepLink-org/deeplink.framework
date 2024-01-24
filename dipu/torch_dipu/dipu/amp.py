@@ -48,5 +48,5 @@ def apply_amp_patch():
     torch.is_autocast_enabled = is_autocast_dipu_enabled
     # If vendor is cuda, its ability to support bf16 remains the same as the default.
     # (which depends on the Compute Capability)
-    if (dipu.vendor_type != "CUDA"):
+    if dipu.vendor_type != "CUDA":
         torch.cuda.is_bf16_supported = is_bf16_supported

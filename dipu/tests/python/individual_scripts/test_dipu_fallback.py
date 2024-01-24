@@ -200,7 +200,7 @@ if __name__ == "__main__":
             _test_dipu_copy_fallback_,
             _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
-            _test_dipu_silu_fallback
+            _test_dipu_silu_fallback,
         ],
         in_parallel=True,
     )
