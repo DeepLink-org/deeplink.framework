@@ -34,8 +34,9 @@ inline at::Tensor empty_cpu(
     at::IntArrayRef size, at::ScalarType dtype,
     c10::optional<at::Device> device_opt = c10::nullopt,
     c10::optional<at::MemoryFormat> memory_format = c10::nullopt) {
-  return dipu_aten::empty_cpu(size, dtype, at::Layout::Strided, device_or_default(device_opt), false,
-                          c10::get_contiguous_memory_format());
+  return dipu_aten::empty_cpu(size, dtype, at::Layout::Strided,
+                              device_or_default(device_opt), false,
+                              c10::get_contiguous_memory_format());
 }
 
 // an simplified version of `at::empty_like` but without dispatch
