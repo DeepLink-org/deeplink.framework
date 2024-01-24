@@ -30,7 +30,13 @@ class TestProd(TestCase):
             self.assertEqual(out, out_cuda, exact_dtype=True)
 
     def test_prod_dtype(self):
-        test_dtypes = [torch.float16, torch.float32, torch.int16, torch.int32, torch.int64]
+        test_dtypes = [
+            torch.float16,
+            torch.float32,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+        ]
         for input_dtype in test_dtypes:
             input_tensor = torch.tensor(
                 [[1, 2, 3], [4, 5, 6]], dtype=input_dtype, device="dipu"
