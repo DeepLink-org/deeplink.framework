@@ -928,6 +928,26 @@ class PadV3(Operator):
         super().__init__("PadV3")
 
 
+class AdaptiveAvgPool2D(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2D")
+
+
+class AdaptiveAvgPool2DGrad(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2DGrad")
+
+
+class MaxPoolGrad(Operator):
+    def __init__(self):
+        super().__init__("MaxPoolGrad")
+
+
+class PadV3Grad(Operator):
+    def __init__(self):
+        super().__init__("PadV3Grad")
+
+
 class LogicalOr(Operator):
     def __init__(self):
         super().__init__("LogicalOr")

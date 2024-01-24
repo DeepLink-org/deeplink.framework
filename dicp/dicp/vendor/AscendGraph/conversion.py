@@ -794,7 +794,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                     bn_reduce, 1, weight, bias,
                                     running_mean, running_var, eps, momentum))
         # 3. tie all results: result, saved_mean, saved_invstd
-        edges = {bn_update.node.name: [
+        edges = {bn_update.node.name + "_edge_name": [
             "y", "batch_mean", "batch_variance", "mean", "variance"]}
         return self.get_proxy(ascend_op.IdentityN, (bn_update,), edges)
 
@@ -813,8 +813,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
                                       weight, save_mean, save_invstd, eps))
         for mask in grad_input_mask:
             assert mask is True
-        edges = {reduce_grad.node.name: ["y"],
-                 update_grad.node.name: ["diff_scale", "diff_offset"]}
+        edges = {reduce_grad.node.name + "_edge_name": ["y"],
+                 update_grad.node.name + "_edge_name": ["diff_scale", "diff_offset"]}
         return self.get_proxy(ascend_op.IdentityN, (reduce_grad, update_grad), edges)
 
     @register_conversion(torch.ops.prims.convert_element_type)
@@ -846,7 +846,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         outputs = []
         outputs.append(input_op if grad_input_mask[0] else filter_op)
         outputs.append(filter_op if grad_input_mask[1] else input_op)
-        return self.get_proxy(ascend_op.IdentityN, outputs)
+        return self.get_proxy(ascend_op.IdentityN, tuple(outputs))
 
     @register_conversion(torch.ops.aten.max_pool2d_with_indices_backward)
     def maxpool2dbackward(self, grad, x, kernel_size, stride, padding, dilation,
@@ -1268,6 +1268,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
         p = 1. - scale
         prob_op = self.get_const_proxy(float(p), dtype)
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
+    
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
+    def adaptiveavgpool2d(self, x, output_size):
+        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
+        if not isinstance(output_size, list):
+            if isinstance(output_size, tuple):
+                output_size = list(output_size)
+            elif isinstance(output_size, int):
+                output_size = [output_size, output_size]
+            else:
+                raise RuntimeError("not supported output type!")
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
+    
+    @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
+    def adaptiveavgpool2dBackward(self, grad, input):
+        input_shape = list(input.node.meta['val'].shape)
+        return self.get_proxy(ascend_op.AdaptiveAvgPool2DGrad, (grad, input_shape))
 
     @register_conversion(torch.ops.aten.tril.default)
     def Tril(self, x, diagonal=0):
