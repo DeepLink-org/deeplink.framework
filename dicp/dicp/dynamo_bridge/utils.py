@@ -1,4 +1,5 @@
 import copy
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import torch.fx
@@ -6,7 +7,15 @@ from torch._inductor.codecache import code_hash
 from torch.fx.node import Argument, Target
 
 
+def symint_in_shape(shape):
+    for elem in shape:
+        if isinstance(elem, torch.SymInt):
+            return True
+    return False
+
+
 def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
+    Path(folder).mkdir(exist_ok=True)
     cpu_gm = copy_gm_to_cpu(gm)
     grap_code = cpu_gm.code
     graph_key = code_hash(grap_code)

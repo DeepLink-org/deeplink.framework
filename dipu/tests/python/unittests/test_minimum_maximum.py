@@ -33,7 +33,8 @@ class TestMinimimMaximum(TestCase):
         with self.assertRaises(RuntimeError) as context:
             torch.minimum(a, b)
         self.assertIn(
-            'Expected all tensors to be on the same device', str(context.exception))
+            "Expected all tensors to be on the same device", str(context.exception)
+        )
 
     def test_maximum(self):
         a = torch.tensor((1, 2, -1))
@@ -60,7 +61,8 @@ class TestMinimimMaximum(TestCase):
         with self.assertRaises(RuntimeError) as context:
             torch.maximum(a, b)
         self.assertIn(
-            'Expected all tensors to be on the same device', str(context.exception))
+            "Expected all tensors to be on the same device", str(context.exception)
+        )
 
 
 if __name__ == "__main__":

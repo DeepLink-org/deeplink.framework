@@ -1,4 +1,5 @@
 import os
+
 os.environ["FORCE_USE_DIPU_PROFILER"] = "True"
 
 import random
@@ -10,10 +11,12 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.profiler import profile, ProfilerActivity
 
+
 def setup(rank, world_size, port, backend="nccl"):
-        os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = str(port)
-        dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = str(port)
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+
 
 def cleanup():
     dist.destroy_process_group()
@@ -30,6 +33,7 @@ class ToyModel(nn.Module):
 
 def demo_basic_ddp(rank, world_size, port):
     import torch_dipu
+
     torch.cuda.set_device(rank)
     setup(rank, world_size, port)
 
@@ -47,7 +51,7 @@ def demo_basic_ddp(rank, world_size, port):
         record_shapes=True,
         with_modules=True,
         with_stack=True,
-        experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True)
+        experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True),
     ) as prof:
         output = ddp_model(input)
         output.backward(torch.ones_like(output), retain_graph=True)
@@ -57,11 +61,12 @@ def demo_basic_ddp(rank, world_size, port):
     profile_output = prof.key_averages(group_by_input_shape=True).table(
         sort_by="self_cuda_time_total", row_limit=1000
     )
-    assert("c10d::allreduce_" in profile_output)
-    assert("LaunchKernel_DiclAllreduce" in profile_output)
+    assert "c10d::allreduce_" in profile_output
+    assert "LaunchKernel_DiclAllreduce" in profile_output
     with tempfile.TemporaryDirectory() as tmpdir:
         prof.export_chrome_trace(f"{tmpdir}/dipu_resnet18_profiler_{rank}.json")
     cleanup()
+
 
 def test_profiler_communication():
     port = random.randint(10000, 60000)

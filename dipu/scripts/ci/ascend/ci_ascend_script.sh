@@ -20,6 +20,7 @@ function config_all_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Debug \
         -DDEVICE=ascend \
+        -DENABLE_COVERAGE=${USE_COVERAGE} \
         -DWITH_DIOPI=INTERNAL
     cd ../
 }

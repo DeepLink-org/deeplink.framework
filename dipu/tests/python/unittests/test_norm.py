@@ -29,5 +29,6 @@ class TestNorm(TestCase):
         nbd = torch.linalg.vector_norm(b.cuda(), ord=2.0)
         self.assertTrue(torch.allclose(nb, nbd.cpu(), atol=1e-3, rtol=1e-3))
 
+
 if __name__ == "__main__":
     run_tests()
