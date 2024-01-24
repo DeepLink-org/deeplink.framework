@@ -928,6 +928,50 @@ class PadV3(Operator):
         super().__init__("PadV3")
 
 
+class AdaptiveAvgPool2D(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2D")
+
+
+class AdaptiveAvgPool2DGrad(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2DGrad")
+
+
+class MaxPoolGrad(Operator):
+    def __init__(self):
+        super().__init__("MaxPoolGrad")
+
+
+class PadV3Grad(Operator):
+    def __init__(self):
+        super().__init__("PadV3Grad")
+
+
+class LogicalOr(Operator):
+    def __init__(self):
+        super().__init__("LogicalOr")
+
+    def infer_result(self, x1, x2):
+        return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class Tril(Operator):
+    def __init__(self):
+        super().__init__("Tril")
+
+    def infer_result(self, x, diagonal=0):
+        return torch.empty_like(x)
+
+
+class Tile(Operator):
+    def __init__(self):
+        super().__init__("Tile")
+
+    def infer_result(self, x, multiples):
+        return torch.ops.aten.repeat.default(x, multiples)
+
+
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return a, b, c
 
