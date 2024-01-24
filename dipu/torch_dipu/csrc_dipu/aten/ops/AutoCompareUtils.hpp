@@ -38,7 +38,7 @@ inline std::string tensor_to_one_line_string(const at::Tensor& tensor) {
   bool is_first_line = true;
   for (char c : raw_string) {
     if ('\n' == c) {
-      if (true == is_scale_printed && true == is_first_line) {
+      if (is_scale_printed && is_first_line) {
         is_first_line = false;
         continue;
       }
