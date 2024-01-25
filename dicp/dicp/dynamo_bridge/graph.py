@@ -61,7 +61,7 @@ class GraphTransformer:
             else:
                 continue
             if 'val' in n.meta and test_infer:
-                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n_meta_val, fake_val) 
+                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n.meta['val'], fake_value) 
                 for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
                     assert meta_i.size() == fv_i.size(), "check infer size failed"
                     assert meta_i.dtype == fv_i.dtype, "check infer dtype failed"
