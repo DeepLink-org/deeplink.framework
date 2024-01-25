@@ -225,21 +225,32 @@ class DIPUCopyInplace : public DIPUCopyBase {
                 << std::endl;
     }
 
+    copyPreProcess(dst, src, non_blocking, curStream);
+
+    copyAll(dst, src, non_blocking, info);
+
+    copyPostProcess(non_blocking, info, curStream);
+  }
+
+ protected:
+  virtual void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
+                              bool non_blocking, DIPUStream& curStream) {
     // recordBeforeCopy
     if (non_blocking) {
       const bool is_default_stream = dipu::getDefaultDIPUStream() == curStream;
       tryRecordStream(dst, curStream, is_default_stream);
       tryRecordStream(src, curStream, is_default_stream);
     }
+  }
 
-    copyAll(dst, src, non_blocking, info);
+  virtual void copyPostProcess(bool non_blocking, const CopyParamsInfo& info,
+                               DIPUStream& curStream) {
     // syncAfterCopy
     if (!non_blocking) {
       dipu::devapis::syncStream(curStream.rawstream());
     }
   }
 
- protected:
   /*
   NOTICE: the memory area of the dst tensor (contains hollow area actually not
   belong to tensor) will be totally overwrited by the same-size src mem area.
