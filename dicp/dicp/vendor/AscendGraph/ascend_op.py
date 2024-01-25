@@ -63,9 +63,9 @@ class Range(Operator):
         super().__init__("Range")
 
     def infer_result(self, start, limit=None, delta=None):
-        start, start_dtype, _, _ = get_op_const_arg_kwarg(start)
-        limit, limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
-        delta, delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
+        [start], start_dtype, _, _ = get_op_const_arg_kwarg(start)
+        [limit], limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
+        [delta], delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
 
         assert start is not None, (
             self.__class__.__name__ + ": input 'start' can't be None!"
@@ -1024,6 +1024,34 @@ class BNTrainingUpdate(Operator):
             [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
         )
         return [output_y,output_mean,output_var,output_batch_mean,output_batch_var]
+
+
+class TileWithAxis(Operator):
+    def __init__(self):
+        super().__init__("TileWithAxis")
+        self.torch_op = aten.repeat_interleave.self_int
+
+
+class TensorScatterUpdate(Operator):
+    def __init__(self):
+        super().__init__("TensorScatterUpdate")
+
+    def infer_result(self, x, indices, updates):
+        _, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        _, indices_shape, _, indices_dtype = get_fake_tensor_meta_val(indices)
+        _, updates_shape, _, _ = get_fake_tensor_meta_val(updates)
+        assert indices_dtype in (torch.int32, torch.int64)
+
+        # following shape constraints are from:
+        # https://tensorflow.google.cn/versions/r2.15/api_docs/
+        # python/tf/tensor_scatter_nd_update
+        assert indices.dim() >= 2
+        index_depth = indices_shape[-1]
+        batch_shape = indices_shape[:-1]
+        assert index_depth <= x_dim
+        inner_shape = x_shape[index_depth:]
+        assert updates_shape == batch_shape + inner_shape
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

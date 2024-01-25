@@ -909,7 +909,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Identity(name, input, index):
+    def Identity(name, input, index=None):
         op = OP(name, "Identity")
         if index is not None and isinstance(index, int):
             op.set_input_with_index("x", input, index)
@@ -1578,4 +1578,20 @@ class AscendOverrides:
         op = OP(name, "LogicalOr")
         op.set_input("x1", x)
         op.set_input("x2", y)
+        return op.to_node()
+
+    @staticmethod
+    def TileWithAxis(name, x, axis, tiles):
+        op = OP(name, "TileWithAxis")
+        op.set_input("x", x)
+        op.set_attr_int("axis", axis)
+        op.set_attr_int("tiles", tiles)
+        return op.to_node()
+
+    @staticmethod
+    def TensorScatterUpdate(name, x, indices, updates):
+        op = OP(name, "TensorScatterUpdate")
+        op.set_input("x", x)
+        op.set_input("indices", indices)
+        op.set_input("updates", updates)
         return op.to_node()

@@ -160,6 +160,8 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
         return "FLOAT"
     elif dtype == torch.int32:
         return "INT32"
+    elif dtype == torch.float16:
+        return "FLOAT16"
     else:
         raise RuntimeError(f"unknow torch data type ({dtype}) in get_cpp_dtype!")
 

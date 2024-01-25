@@ -48,7 +48,7 @@ def try_to_get_dtype(x):
 
 
 def is_dicp_cpp_support_dtype(dtype):
-    if dtype in [torch.float32, torch.float, torch.int32, torch.int64]:
+    if dtype in [torch.float32, torch.float, torch.float16, torch.int32, torch.int64]:
         return True
     return False
 
@@ -739,6 +739,117 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 return gather
         return self.index_base(x, 0, index)
 
+    def compute_stacked_indices(self, indices, src_shape):
+        assert len(indices) <= len(src_shape)
+        # Check whether all not None tensors in indices are 'continguous'
+        # e.g. [None, a, b, None, None] is 'continguous'
+        # [None, a, None, b, None] is not 'continguous'
+        # due to there's a None between a and b
+        #
+        # Also Count the number of None in indices,
+        # not using indices.count(None) due to torch.fx.proxy.TraceError:
+        # symbolically traced variables cannot be used as inputs to control flow
+        tensor_none_flag = False
+        contiguous_flag = True
+        none_count_in_indices = 0
+        for i in range(len(indices)):
+            if i < len(indices) - 1:
+                if indices[i] is not None and indices[i + 1] is None:
+                    tensor_none_flag = True
+                if tensor_none_flag and indices[i] is None and indices[i + 1] is not None:
+                    contiguous_flag = False
+            if indices[i] is None:
+                none_count_in_indices += 1
+
+        # collect None dim_size and tensor reshape shape
+        tensor_reshape_shape = []
+        none_dim_size = []
+        first_tensor_pos = -1
+        tensor_unsqueeze_len = 0
+        for i, index in enumerate(indices):
+            if index is None:
+                assert not isinstance(src_shape[i], torch.SymInt)
+                none_dim_size.append(src_shape[i])
+            else:
+                assert isinstance(index.node.meta['val'], torch.Tensor)
+                if first_tensor_pos == -1:
+                    first_tensor_pos = i
+                    tensor_unsqueeze_len = none_count_in_indices - i if contiguous_flag \
+                        else none_count_in_indices
+                indice_i_shape = index.node.meta['val'].shape
+                assert not symint_in_shape(indice_i_shape)
+                tensor_reshape_shape.append(list(indice_i_shape) + [1] * tensor_unsqueeze_len)
+        assert first_tensor_pos != -1, "all elements of indices is None, unsupported"
+        tensor_broadcast_shape = list(torch.broadcast_shapes(*tensor_reshape_shape))
+
+        # in case contiguous_flag is True, e.g. [None, None, a, b, None]
+        # the tensor_broadcase_shape of (a, b) is inserted into final shape at
+        # the origin start position of the contiguous tensors, final e.g. shape:
+        # [src_shape[0], src_shape[1], *broadcase_shape_of(a,b), src_shape[4]]
+        #
+        # in case contiguous_flag is False, e.g. [None, a, None, b, None]
+        # the tensor_broadcase_shape of (a, b) is inserted into final shape at
+        # start of final shape, final e.g. shape:
+        # [*broadcase_shape_of(a,b), src_shape[0], src_shape[2], src_shape[4]
+        tensor_shape_insert_pos = first_tensor_pos if contiguous_flag else 0
+        # collect None reshape shape
+        none_reshape_shape = []
+        none_idx = 0
+        for i, index in enumerate(indices):
+            if index is None:
+                if i < tensor_shape_insert_pos:
+                    none_unsqueeze_len = tensor_shape_insert_pos - i - 1 + len(tensor_broadcast_shape)
+                else:
+                    none_unsqueeze_len = none_count_in_indices - 1 - none_idx
+                none_reshape_shape.append([none_dim_size[none_idx]] + [1] * none_unsqueeze_len)
+                none_idx += 1
+
+        # stack(pack) all index
+        target_indices_broadcast_shape = list(torch.broadcast_shapes(*(none_reshape_shape + tensor_reshape_shape)))
+        target_broadcast_shape_proxy = self.get_const_proxy(target_indices_broadcast_shape, torch.int32)
+        stack_input_list = []
+        const_int32_0 = self.get_const_proxy(0, torch.int32, target_shape=[])
+        const_int32_1 = self.get_const_proxy(1, torch.int32, target_shape=[])
+        none_idx = 0
+        tensor_idx = 0
+        for index in indices:
+            if index is None:
+                # for index that is None, range corresponding dim size, unsqueeze some dims and then broadcast to target result shape
+                const_range_max = self.get_const_proxy(none_dim_size[none_idx], torch.int32, target_shape=[])
+                to_be_reshape_proxy = self.get_proxy(ascend_op.Range, (const_int32_0, const_range_max, const_int32_1))
+                index_reshape_shape = none_reshape_shape[none_idx]
+                none_idx += 1
+            else:
+                to_be_reshape_proxy = index
+                index_reshape_shape = tensor_reshape_shape[tensor_idx]
+                tensor_idx += 1
+            reshape_shape_proxy = self.get_const_proxy(index_reshape_shape, torch.int32)
+            reshape_proxy = self.get_proxy(ascend_op.Reshape, (to_be_reshape_proxy, reshape_shape_proxy))
+            stack_input_list.append(self.get_proxy(ascend_op.BroadcastTo, (reshape_proxy, target_broadcast_shape_proxy)))
+        return self.get_proxy(ascend_op.Pack, (stack_input_list, len(target_indices_broadcast_shape))), \
+            target_indices_broadcast_shape, len(stack_input_list)
+
+    @register_conversion(torch.ops.aten.index_put.default)
+    def index_put_default(self, x, indices, values):
+        # following comment is from tensorflow tensor_scatter_nd_update:
+        # index_depth = indices.shape[-1]
+        # batch_shape = indices.shape[:-1]
+        # assert index_depth <= tf.rank(x)
+        # outer_shape = x.shape[:index_depth]
+        # inner_shape = x.shape[index_depth:]
+        # assert values.shape == batch_shape + inner_shape
+        #
+        # tf.tensor_scatter_nd_update param 'indices' is different from
+        # indices in torch.ops.aten.index_put.default, we use broadcast and
+        # stack to construct param 'indices' in tf.tensor_scatter_nd_update
+        x_shape = list(x.node.meta['val'].shape)
+        stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
+            self.compute_stacked_indices(indices, x.node.meta['val'].shape)
+        values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:] # batch_shape + inner_shape
+        values_broadcast_shape_op = self.get_const_proxy(values_broadcast_shape, torch.int32)
+        broadcasted_values = self.get_proxy(ascend_op.BroadcastTo, (values, values_broadcast_shape_op))
+        return self.get_proxy(ascend_op.TensorScatterUpdate, (x, stacked_indices, broadcasted_values))
+
     @register_conversion(torch.ops.aten.index_select.default)
     def index_arg3_(self, x, dim, index):
         return self.index_base(x, dim, index)
@@ -1075,14 +1186,28 @@ class AtenToAscendTransformer(SingleOpTransformer):
         dim = [dim] if not isinstance(dim, list) else dim
         return self.get_proxy(ascend_op.LogSoftmaxGrad, (grad_output, output, dim))
 
-    @register_conversion(torch.ops.aten.repeat_interleave)
-    def repeat_interleave(self, repeats, output_size=1):
-        x_shape = list(repeats.node.meta['val'].shape)
-        assert len(x_shape) == 1
-        assert x_shape[0] == 1
-        # TODO! fix implementation of repeatinterleave
-        # Consider situation for repeats > 1
-        return self.get_const_proxy(0, torch.int64, target_shape=[1])
+    @register_conversion(torch.ops.aten.repeat_interleave.self_int)
+    def repeat_interleave(self, x, repeats, dim):
+        # do not support dim is None or repeat is Tensor yet
+        assert dim is not None
+        assert not isinstance(repeats, torch.Tensor)
+        if repeats == 1:
+            return self.get_proxy(ascend_op.Identity, (x, ))
+        tile_with_axis = self.get_proxy(ascend_op.TileWithAxis, (x, dim, repeats))
+        x_shape = list(x.node.meta['val'].shape)
+        reshape_shape = x_shape[:dim] + [repeats] + x_shape[dim:]
+        reshape_shape_proxy = self.get_const_proxy(reshape_shape, torch.int32)
+        reshape_proxy = self.get_proxy(ascend_op.Reshape, (tile_with_axis, reshape_shape_proxy))
+
+        transpose_perm = list(range(len(reshape_shape)))
+        transpose_perm[dim], transpose_perm[dim + 1] = \
+            transpose_perm[dim + 1], transpose_perm[dim]
+        transpose_perm_proxy = self.get_shape_proxy(transpose_perm)
+        transpose_proxy = self.get_proxy(ascend_op.Transpose, (reshape_proxy, transpose_perm_proxy))
+
+        result_reshape = x_shape[:dim] + [x_shape[dim] * repeats] + x_shape[dim+1:]
+        result_reshape_shape_proxy = self.get_const_proxy(result_reshape, torch.int32)
+        return self.get_proxy(ascend_op.Reshape, (transpose_proxy, result_reshape_shape_proxy))
 
     @register_conversion([aten.lift_fresh_copy, aten.lift_fresh_copy.default])
     def lift_fresh_copy(self, tensor_constant):
@@ -1322,3 +1447,39 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.logical_or.default)
     def LogicalOr(self, x, y):
         return self.get_proxy(ascend_op.LogicalOr, (x, y))
+
+    @register_conversion(torch.ops.aten.slice_scatter.default)
+    def SliceScatter(self, operand, src, dim=0, start=None, end=None, step=1):
+        # modified from torchair
+        if start is None:
+            start = 0
+        if end is None:
+            end = 9223372036854775807
+        if (isinstance(start, int) and start == 0) and (
+                isinstance(end, int) and end == 9223372036854775807) and (
+                isinstance(step, int) and step == 1):
+            return self.get_proxy(ascend_op.Identity, (src, ))
+
+        # repeat = self.get_const_proxy([repeat], torch.int32, target_shape=[1])
+        # default dtype of the output of ascend_op Shape is int32
+        operand_shape = self.get_proxy(ascend_op.Shape, (operand, ))
+        start = self.get_const_proxy(start, torch.int32, target_shape=[])
+        if end == 9223372036854775807:
+            gather_axis = self.get_const_proxy(0, torch.int32, target_shape=[])
+            end = self.get_proxy(ascend_op.GatherV2, (operand_shape, dim, gather_axis))
+        else:
+            end = self.get_const_proxy(end, torch.int32, target_shape=[])
+        step = self.get_const_proxy(step, torch.int32, target_shape=[])
+        indices = self.get_proxy(ascend_op.Range, (start, end, step))
+
+        dims_to_expand = [i for i in range(src.node.meta['val'].dim())]
+        dims_to_expand.remove(dim)
+
+        if dims_to_expand:
+            indices_unsqueezed = self.get_proxy(ascend_op.Unsqueeze, (indices, dims_to_expand))
+            src_shape = self.get_proxy(ascend_op.Shape, (src, ))
+            indices_expanded = self.get_proxy(ascend_op.Expand, (indices_unsqueezed, src_shape))
+        else:
+            indices_expanded = indices
+        return self.get_proxy(ascend_op.ScatterElements,
+                              (operand, indices_expanded, src, dim))
