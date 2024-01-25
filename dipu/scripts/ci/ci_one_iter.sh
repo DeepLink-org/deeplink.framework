@@ -44,7 +44,7 @@ function clone_needed_repo() {
     DIENGINE=dipu_v0.4.8_one_iter_tool
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
     LIGHTLLM=dipu_one_iter_tool
-    DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
+    DEEPLINKEXT=1229e2df3c36c959c5b9608375b0d0dbe224008a
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -111,7 +111,6 @@ function export_repo_pythonpath(){
         echo "Invalid parameter. Please specify 'cuda', 'camb' 'ascend' or 'kunlunxin'."
         exit 1
     fi
-    export PYTHONPATH=${basic_path}:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpose:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmaction2:$PYTHONPATH
     export PYTHONPATH=${basic_path}/mmpretrain:$PYTHONPATH
@@ -124,6 +123,7 @@ function export_repo_pythonpath(){
     export PYTHONPATH=${basic_path}/DI-engine:$PYTHONPATH
     export PYTHONPATH=${basic_path}/transformers/src:$PYTHONPATH
     export PYTHONPATH=${basic_path}/lightllm:$PYTHONPATH
+    export PYTHONPATH=${basic_path}/DeepLinkExt:$PYTHONPATH
 
     # set the environment variable for the transformers repository
     export HF_HOME=${basic_path}/huggingface
