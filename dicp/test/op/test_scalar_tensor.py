@@ -29,7 +29,7 @@ class TestScalarTensor():
     @pytest.mark.parametrize("inputs", [1.0, 3.0, 0.0])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_scalar_tensor(self, inputs, dtype, compiled_model):
-        redundant_input = torch.randn(1, dtype=dtype)
+        redundant_input = torch.ones(1, dtype=dtype)
         _, output = model(inputs, redundant_input, dtype)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
