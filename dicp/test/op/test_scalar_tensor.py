@@ -9,9 +9,14 @@ from ..common.utils import (
 
 
 class OpModule(torch.nn.Module):
-    def forward(self, a, dtype):
+    def forward(self, a, redundant_input, dtype):
+        # If there is only one operator called scalar_tensor,
+        # ascend graph compiler will give an error:
+        # GE.. [Check][Param] SetInputs failed: input operator size can not be 0.
+        # To solve this problem, an additional redundant input is added,
+        # and the result of an addition operator is returned.
         res_default = torch.ops.aten.scalar_tensor.default(a, dtype=dtype)
-        return res_default
+        return res_default + redundant_input, res_default
 
 
 model = OpModule()
@@ -24,9 +29,10 @@ class TestScalarTensor():
     @pytest.mark.parametrize("inputs", [1.0, 3.0, 0.0])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_scalar_tensor(self, inputs, dtype, compiled_model):
-        output = model(inputs, dtype)
+        redundant_input = torch.randn(1, dtype=dtype)
+        _, output = model(inputs, redundant_input, dtype)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(inputs, dtype)
+        _, dicp_output = compiled_model.model(inputs, redundant_input, dtype)
 
         assert torch.allclose(output, dicp_output.cpu(), equal_nan=True)

@@ -1483,3 +1483,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             indices_expanded = indices
         return self.get_proxy(ascend_op.ScatterElements,
                               (operand, indices_expanded, src, dim))
+
+    @register_conversion(torch.ops.aten.scalar_tensor.default)
+    def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
+        return self.get_const_proxy(x, dtype)
