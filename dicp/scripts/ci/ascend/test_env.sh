@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 LLAMA_MODEL_DIR=$1
+STABLE_DIFFUSION_MODEL_DIR=$LLAMA_MODEL_DIR
 
 export DIPU_MOCK_CUDA=false
 export LLAMA_MODEL_DIR=$1
+export STABLE_DIFFUSION_MODEL_DIR=$LLAMA_MODEL_DIR
 export DIPU_KEEP_TORCHOP_DEFAULT_IMPL_OPS="rsqrt.out,mm,linear,_softmax.out"

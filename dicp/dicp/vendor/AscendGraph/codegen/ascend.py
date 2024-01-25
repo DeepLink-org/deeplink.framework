@@ -5,8 +5,8 @@ import torch
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
+from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    symint_in_shape,
     get_ascend_dtype,
     get_cpp_dtype,
     get_ascend_dtype_num
@@ -77,7 +77,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-
         format = "NCHW"
         index = -1
 
@@ -110,8 +109,8 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = list(fake_tensor.shape)
             data_type = get_ascend_dtype(fake_tensor.dtype).upper()
 
-        if 'format' in self.cur_node.meta:
-            format = self.cur_node.meta['format']
+        if 'native_memory_format' in self.cur_node.meta:
+            format = self.cur_node.meta['native_memory_format']
         # gen data_nodes
         self.data_nodes.append({
             "op_name": self.args_dict[name],
@@ -698,6 +697,27 @@ class AscendOverrides:
         return src_code, args_str
 
     @staticmethod
+    def LayerNorm(name, x, begin_dim, weight, bias, eps):
+        op = OP(name, "LayerNorm")
+        op.set_input("x", x)
+        op.set_input("gamma", weight)
+        op.set_input("beta", bias)
+        op.set_attr_int("begin_norm_axis", begin_dim)
+        op.set_attr_int("begin_params_axis", begin_dim)
+        op.set_attr_float("epsilon", eps)
+        return op.to_node()
+
+    @staticmethod
+    def GroupNorm(name, x, weight, bias, N, C, HxW, group, eps):
+        op = OP(name, "GroupNorm")
+        op.set_input("x", x)
+        op.set_input("gamma", weight)
+        op.set_input("beta", bias)
+        op.set_attr_int("num_groups", group)
+        op.set_attr_float("eps", eps)
+        return op.to_node()
+
+    @staticmethod
     def Mul(name, x, y):
         op = OP(name, "Mul")
         op.set_input("x1", x)
@@ -752,6 +772,12 @@ class AscendOverrides:
     @staticmethod
     def Relu(name, x):
         op = OP(name, "Relu")
+        op.set_input("x", x)
+        return op.to_node()
+
+    @staticmethod
+    def Gelu(name, x):
+        op = OP(name, "Gelu")
         op.set_input("x", x)
         return op.to_node()
 
@@ -1177,6 +1203,13 @@ class AscendOverrides:
         return cond_op.to_node()
 
     @staticmethod
+    def ArgMax(name, x, dim):
+        cond_op = OP(name, "ArgMaxV2")
+        cond_op.set_input("x", x)
+        cond_op.set_input("dimension", dim)
+        return cond_op.to_node()
+
+    @staticmethod
     def ret_tuple(name, in1, in2):
         op = OP(name, "IdentityN")
         op.set_dynamic_input("x", 2, [in1, in2])
@@ -1340,11 +1373,15 @@ class AscendOverrides:
 
     @staticmethod
     def Pack(name, x, axis):
-        x = [elem.name for elem in x]
+        x_name = []
+        for elem in x:
+            if elem is not None:
+                x_name.append(elem.name)
+
         op = OP(name, "Pack")
-        op.set_dynamic_input("x", len(x), x)
+        op.set_dynamic_input("x", len(x_name), x_name)
         op.set_attr_int("axis", axis)
-        op.set_attr_int("N", len(x))
+        op.set_attr_int("N", len(x_name))
         return op.to_node()
 
     @staticmethod
@@ -1367,6 +1404,18 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def Cos(name, x):
+        op = OP(name, "Cos")
+        op.set_input("x", x)
+        return op.to_node()
+
+    @staticmethod
+    def Sin(name, x):
+        op = OP(name, "Sin")
+        op.set_input("x", x)
+        return op.to_node()
+
+    @staticmethod
     def Reshape(name, x, shape, ori_op=None, params_passed=None):
         op = OP(name, "Reshape")
         op.set_input("x", x)
@@ -1379,6 +1428,13 @@ class AscendOverrides:
         gather_op.set_input("x", x)
         gather_op.set_input("indices", indices)
         gather_op.set_input("axis", axis)
+        return gather_op.to_node()
+
+    @staticmethod
+    def GatherNd(name, x, indices, orig_indices):
+        gather_op = OP(name, "GatherNd")
+        gather_op.set_input("x", x)
+        gather_op.set_input("indices", indices)
         return gather_op.to_node()
 
     @staticmethod
@@ -1473,4 +1529,39 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_input("index", index)
         op.set_attr_int("dim", dim)
+        return op.to_node()
+    
+    @staticmethod
+    def AdaptiveAvgPool2D(name, x, output_size):
+        op = OP(name, "AdaptiveAvgPool2d")
+        op.set_input("x", x)
+        op.set_attr_list_int("output_size", output_size)
+        return op.to_node()
+    
+    @staticmethod
+    def AdaptiveAvgPool2DGrad(name, input_grad, orig_input_shape):
+        op = OP(name, "AdaptiveAvgPool2dGrad")
+        op.set_input("input_grad", input_grad)
+        op.set_attr_list_int("orig_input_shape", orig_input_shape)
+        return op.to_node()
+
+    @staticmethod
+    def Tril(name, x, diagonal=0):
+        op = OP(name, "Tril")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diagonal)
+        return op.to_node()
+
+    @staticmethod
+    def Tile(name, x, multiples):
+        op = OP(name, "TileD")
+        op.set_input("x", x)
+        op.set_attr_list_int("multiples", multiples)
+        return op.to_node()
+
+    @staticmethod
+    def LogicalOr(name, x, y):
+        op = OP(name, "LogicalOr")
+        op.set_input("x1", x)
+        op.set_input("x2", y)
         return op.to_node()

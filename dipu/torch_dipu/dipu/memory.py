@@ -3,13 +3,20 @@
 import collections
 from typing import Union, Tuple
 from torch_dipu import _C
-from .device import current_device, _get_device_index, devicectx, __dipu__, \
-                    get_device_properties, get_device_status
+from .device import (
+    current_device,
+    _get_device_index,
+    devicectx,
+    __dipu__,
+    get_device_properties,
+    get_device_status,
+)
 from .utils import is_initialized
 from .streams import current_stream, Stream
 
 import torch
 from torch.types import Device
+
 
 def caching_allocator_alloc(size, device=None, stream=None):
     r"""Performs a memory allocation using the dipu memory allocator.
@@ -38,9 +45,11 @@ def caching_allocator_alloc(size, device=None, stream=None):
     if isinstance(stream, Stream):
         stream = stream.dipu_stream
     if not isinstance(stream, int):
-        raise TypeError('Invalid type for stream argument, must be '
-                        '`torch_dipu.dipu.Stream` or `int` representing a pointer '
-                        'to a exisiting stream')
+        raise TypeError(
+            "Invalid type for stream argument, must be "
+            "`torch_dipu.dipu.Stream` or `int` representing a pointer "
+            "to a exisiting stream"
+        )
     with devicectx(device):
         return _C._dipu_dipuCachingAllocator_raw_alloc(size, stream)
 
@@ -82,7 +91,7 @@ def release_all_resources():
         _C.release_all_resources()
 
 
-def memory_reserved(device = None):
+def memory_reserved(device=None):
     if device is None:
         device = current_device()
         device = _get_device_index(device)
@@ -90,14 +99,16 @@ def memory_reserved(device = None):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.memory_reserved(device)
 
-def memory_allocated(device = None):
+
+def memory_allocated(device=None):
     if device is None:
         device = current_device()
     if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.memory_allocated(device)
 
-def max_memory_reserved(device = None):
+
+def max_memory_reserved(device=None):
     if device is None:
         device = current_device()
         device = _get_device_index(device)
@@ -105,7 +116,8 @@ def max_memory_reserved(device = None):
         device = torch.device(__dipu__ + ":" + str(device))
     return _C.max_memory_reserved(device)
 
-def max_memory_allocated(device = None):
+
+def max_memory_allocated(device=None):
     if device is None:
         device = current_device()
     if isinstance(device, int):
@@ -127,15 +139,19 @@ def mem_get_info(device: Union[Device, int] = None) -> Tuple[int, int]:
     total = get_device_properties(device).total_memory
     free = get_device_status(device).free_memory
     if free == 0:
-      estimated_buffer = 1800 * 1024 * 1024
-      print("warnning!! seems _DIPUDeviceProperties not contain valid free mem size,"
-              "we try to estimate free size which may be not an accurate value!")
-      free = total - memory_allocated(device) - estimated_buffer
+        estimated_buffer = 1800 * 1024 * 1024
+        print(
+            "warnning!! seems _DIPUDeviceProperties not contain valid free mem size,"
+            "we try to estimate free size which may be not an accurate value!"
+        )
+        free = total - memory_allocated(device) - estimated_buffer
     return (free, total)
+
 
 ## just an empty shell now
 def memory_stats(device=None):
     result = []
+
     def _recurse_add_to_result(prefix, obj):
         if isinstance(obj, dict):
             if len(prefix) > 0:
@@ -151,7 +167,7 @@ def memory_stats(device=None):
     return collections.OrderedDict(result)
 
 
-def _create_metrics_to_display() :
+def _create_metrics_to_display():
     def _format_size(sz, pref_sz):
         prefixes = ["B ", "KB", "MB", "GB", "TB", "PB"]
         prefix = prefixes[0]
@@ -189,10 +205,15 @@ def _create_metrics_to_display() :
     lines.append("=" * 75)
     lines.append(" {_:16} PyTorch dipu memory summary, device ID {device:<18d} ")
     lines.append("-" * 75)
-    lines.append("  {_:9} dipu OOMs: {num_ooms:<13d} | {_:6} dipuMalloc retries: {num_alloc_retries:<9d}  ")
+    lines.append(
+        "  {_:9} dipu OOMs: {num_ooms:<13d} | {_:6} dipuMalloc retries: {num_alloc_retries:<9d}  "
+    )
     lines.append("=" * 75)
-    lines.append("        Metric         | Cur Usage  | Peak Usage | Tot Alloc  | Tot Freed  ")
+    lines.append(
+        "        Metric         | Cur Usage  | Peak Usage | Tot Alloc  | Tot Freed  "
+    )
     return metrics_to_display, lines
+
 
 def memory_summary(device=None, abbreviated=False):
     r"""Returns a human-readable printout of the current memory allocator
@@ -223,7 +244,12 @@ def memory_summary(device=None, abbreviated=False):
             submetrics.append(("large_pool", "      from large pool"))
             submetrics.append(("small_pool", "      from small pool"))
 
-        current_prefval, peak_prefval, allocated_prefval, freed_prefval = None, None, None, None
+        current_prefval, peak_prefval, allocated_prefval, freed_prefval = (
+            None,
+            None,
+            None,
+            None,
+        )
 
         for submetric_key, submetric_name in submetrics:
             prefix = metric_key + "." + submetric_key + "."
@@ -239,12 +265,14 @@ def memory_summary(device=None, abbreviated=False):
                 allocated_prefval = allocated
                 freed_prefval = freed
 
-            lines.append(" {:<21} | {} | {} | {} | {} ".format(
-                submetric_name,
-                formatter(current, current_prefval),
-                formatter(peak, peak_prefval),
-                formatter(allocated, allocated_prefval),
-                formatter(freed, freed_prefval)),
+            lines.append(
+                " {:<21} | {} | {} | {} | {} ".format(
+                    submetric_name,
+                    formatter(current, current_prefval),
+                    formatter(peak, peak_prefval),
+                    formatter(allocated, allocated_prefval),
+                    formatter(freed, freed_prefval),
+                ),
             )
 
     lines.append("=" * 75)
@@ -254,6 +282,6 @@ def memory_summary(device=None, abbreviated=False):
         fmt_dict[k.replace(".", "-")] = v
     return "|" + "|\n|".join(lines).format(**fmt_dict) + "|\n"
 
+
 def reset_peak_memory_stats():
     pass
-

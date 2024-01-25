@@ -21,10 +21,15 @@ if [ ${DYNAMIC} == false ]; then
 elif [ ${DYNAMIC} == true ]; then
     pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic ${DYNAMIC}
 elif [ ${DYNAMIC} == all ]; then
-    pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic false
+    pytest -c ${CONFIG_STATIC} --backend ${BACKEND} --dynamic false && \
     pytest -c ${CONFIG_DYNAMIC} --backend ${BACKEND} --dynamic true
 else
     echo "DYNAMIC should in (true, false, all)" >&2
+    unset TEST_DICP_INFER
+    exit 1
+fi
+if [ $? -ne 0 ]; then
+    echo "Not all pytest tests passed!" >&2
     unset TEST_DICP_INFER
     exit 1
 fi
