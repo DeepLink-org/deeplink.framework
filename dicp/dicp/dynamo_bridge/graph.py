@@ -2,7 +2,7 @@ import logging
 import os
 import torch
 import torch.fx
-from typing import Optional
+from typing import List, Optional, Tuple
 from torch._dynamo.utils import dynamo_timed
 from torch._subclasses import FakeTensor, FakeTensorMode
 from torch._inductor.codecache import cache_dir
@@ -61,10 +61,12 @@ class GraphTransformer:
             else:
                 continue
             if 'val' in n.meta and test_infer:
-                assert n.meta['val'].size() == fake_value.size(), "check infer size failed"
-                assert n.meta['val'].dtype == fake_value.dtype, "check infer dtype failed"
-                assert n.meta['val'].stride() == fake_value.stride(), "check infer stride failed"
-                assert n.meta['val'].storage_offset() == fake_value.storage_offset(), "check infer storage offset failed"
+                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n.meta['val'], fake_value) 
+                for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
+                    assert meta_i.size() == fv_i.size(), "check infer size failed"
+                    assert meta_i.dtype == fv_i.dtype, "check infer dtype failed"
+                    assert meta_i.stride() == fv_i.stride(), "check infer stride failed"
+                    assert meta_i.storage_offset() == fv_i.storage_offset(), "check infer storage offset failed"
             if 'val' not in n.meta:
                 n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])

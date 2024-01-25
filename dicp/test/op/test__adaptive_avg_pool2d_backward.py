@@ -11,13 +11,8 @@ from ..common.utils import (
 
 
 class OpModule(torch.nn.Module):
-    def forward(self, inputs, outputs, device="cpu"):
-        pool = torch.nn.AdaptiveAvgPool2d((1, 1))
-        pool.to(device)
-        res_default = pool(inputs)
-        loss = torch.nn.MSELoss()
-        res_loss = loss(res_default, outputs)
-        res_loss.backward()
+    def forward(self, grad_output, x, device="cpu"):
+        res_default = torch.ops.aten._adaptive_avg_pool2d_backward.default(grad_output,x)
         return res_default
 
 
@@ -34,15 +29,15 @@ class TestAdaptiveAvgPool2dBackward():
     def test_torch__adpative_avg_pool2d_backward(self, sizes, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
-        inputs = torch.randn(size[0], dtype=dtype)
-        outputs = torch.randn(size[1], dtype=dtype, requires_grad=True)
+        x = torch.randn(size[0], dtype=dtype)
+        grad_output = torch.randn(size[1], dtype=dtype, requires_grad=True)
 
-        dicp_inputs = inputs.to(device)
-        dicp_outputs = outputs.to(device)
+        dicp_x = x.to(device)
+        dicp_grad = grad_output.to(device)
 
-        output = model(inputs, outputs)
+        output = model(grad_output,x)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_inputs, dicp_outputs, device)
+        dicp_output = compiled_model.model(dicp_grad, dicp_x, device)
 
         assert torch.allclose(output.detach(), dicp_output.cpu().detach(), atol=1e-02, equal_nan=True)
