@@ -3,6 +3,7 @@
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
 #include <atomic>
+#include <thread>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
@@ -18,28 +19,50 @@ namespace devapis {
 // =====================
 using ascend_deviceId = int32_t;
 
-std::atomic<int> currentDeviceIndex(-1);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+thread_local bool setDevFlag = false;
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+volatile deviceId_t mainThreadDeviceIdx = -1;
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::thread::id main_threadid = std::this_thread::get_id();
 
 void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (currentDeviceIndex < 0) {
-    setDevice(0);
-    return 0;
+  if (!setDevFlag) {
+    setDevice(mainThreadDeviceIdx == -1 ? static_cast<deviceId_t>(0)
+                                        : mainThreadDeviceIdx);
   }
-  return static_cast<deviceId_t>(currentDeviceIndex);
+  ascend_deviceId devId_ = -1;
+  DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
+  return static_cast<deviceId_t>(devId_);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
-  if (devId != currentDeviceIndex) {
-    currentDeviceIndex = devId;
-    DIPU_CALLACLRT(::aclrtSetDevice(devId))
+  // TODO(wanglei, fandaoyi, lilingjie): this patch will cause forked child
+  // process (such as dataloader work) cannot setting correct device id! we need
+  // differentiate main & child dipu process.
+  if (mainThreadDeviceIdx == devId ||
+      main_threadid == std::this_thread::get_id()) {
+    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+    DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+    mainThreadDeviceIdx = devId;
+    setDevFlag = true;
+
+  } else {  // not support (mainThreadDeviceIdx != devId && main_threadid
+            // != std::this_thread::get_id())
+    // std::cout << "sub thread:" << std::this_thread::get_id()
+    //         << "try to set a different dev:" << devId
+    //         << " from main thread:" << main_threadid
+    //         << " cur: device" << mainThreadDeviceIdx
+    //         << "dipu ascend not support it \n";
   }
 }
-
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   const char* device_name;
   size_t device_free;
