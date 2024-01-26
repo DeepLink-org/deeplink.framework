@@ -65,10 +65,11 @@ class GraphTransformer:
                 for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
                     if not isinstance(fv_i, FakeTensor):
                         continue
-                    assert meta_i.size() == fv_i.size(), "check infer size failed"
-                    assert meta_i.dtype == fv_i.dtype, "check infer dtype failed"
-                    assert meta_i.stride() == fv_i.stride(), "check infer stride failed"
-                    assert meta_i.storage_offset() == fv_i.storage_offset(), "check infer storage offset failed"
+                    log_info = f"target: {n.target}, meta_i: {meta_i}, fv_i: {fv_i}"
+                    assert meta_i.size() == fv_i.size(), f"check infer size failed, {log_info}"
+                    assert meta_i.dtype == fv_i.dtype, f"check infer dtype failed, {log_info}"
+                    assert meta_i.stride() == fv_i.stride(), f"check infer stride failed, {log_info}"
+                    assert meta_i.storage_offset() == fv_i.storage_offset(), f"check infer storage offset failed, {log_info}"
             if 'val' not in n.meta:
                 n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
