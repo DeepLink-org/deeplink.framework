@@ -24,5 +24,5 @@ repo=$(cd "$self" && git rev-parse --show-toplevel)
 # Forward srun commands.
 # e.g. you can use "bash scripts/ci/nv/ci_nv_tidy.sh srun -p pat_rd" to run tidy.
 (cd "$repo/dipu" &&
-    $@ find torch_dipu ! -path '*/vendor/*' ! -name 'AutoGenedKernels.cpp' \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) |
-    xargs "$self/clangd-tidy/clangd-tidy" -j4)
+    $@ "$self/clangd-tidy/clangd-tidy" -j4 -v \
+        $(find torch_dipu ! -path '*/vendor/*' ! -name 'AutoGenedKernels.cpp' \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \)))
