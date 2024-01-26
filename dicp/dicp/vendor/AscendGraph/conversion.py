@@ -600,9 +600,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.full.default)
     def full(self, dims, value, dtype=torch.float32, layout=torch.strided,
              device='cpu', pin_memory=False, memory_format=torch.preserve_format):
-        if len(dims) == 0:
-            dims = [1]
         torch_dtype = dtype if dtype else torch.get_default_dtype()
+        if len(dims) == 0:
+            return self.get_const_proxy(value, torch_dtype)
+
         dims = [dim.node.meta['val'] if isinstance(dim, torch.fx.proxy.Proxy) and hasattr(
             dim.node, 'meta') else dim for dim in dims]
         if isinstance(value, torch.fx.proxy.Proxy) and hasattr(value.node, 'meta'):
