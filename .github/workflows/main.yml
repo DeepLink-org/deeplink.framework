@@ -473,6 +473,7 @@ jobs:
         run: |
           set -ex
           export PYTHONUSERBASE=${HOME}/.local.dicp
+          rm -rf /tmp/dicp_ascend/*
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend
           source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
           export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu:${PYTHONPATH}
