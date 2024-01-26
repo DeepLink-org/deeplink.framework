@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Try finding clangd and libstdc++.so.6 on 1988.
+# Try finding clangd and libstdc++.so.6 on sco.
 # Note 1: ":+:" is used to handle unbound variable.
 # Note 2: the following code might be outdated.
-[ -d /mnt/lustre/share/platform/dep/clang-16/bin ] &&
-    export PATH=/mnt/lustre/share/platform/dep/clang-17/bin${PATH:+:$PATH}
+[ -d /mnt/cache/share/platform/dep/clang-16/bin ] &&
+    export PATH=/mnt/cache/share/platform/dep/clang-16/bin${PATH:+:$PATH}
 [ -d /mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib ] &&
     export LD_LIBRARY_PATH=/mnt/cache/share/platform/env/miniconda3.10/envs/pt2.0_diopi/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 
