@@ -257,7 +257,7 @@
 - schema: "native_group_norm(Tensor input, Tensor? weight, Tensor? bias, SymInt N, SymInt C, SymInt HxW, int group, float eps) -> (Tensor, Tensor, Tensor)"
   custom_code_at_the_beginning: |
     auto out0 = nodispatch::empty_like(input);
-    auto options = input.options().dtype(at::kFloat);
+    auto options = input.options().dtype(dipu::native::mixed_output_scalar_type(input, weight, bias));
     auto out1 = nodispatch::empty({N.expect_int(), group}, options);
     auto out2 = nodispatch::empty({N.expect_int(), group}, options);
   interface: diopiGroupNorm(ctx, out0, out1, out2, input, weight, bias, group, eps);
