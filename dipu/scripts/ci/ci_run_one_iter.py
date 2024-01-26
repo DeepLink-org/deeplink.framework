@@ -77,15 +77,9 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
     if not os.path.exists(storage_path):
         os.makedirs(storage_path)
 
-    if device == "camb":
-        base_data_src = "/mnt/lustre/share/parrotsci/github/model_baseline_data"
-    elif device == "cuda":
-        base_data_src = "/mnt/cache/share/parrotsci/github/model_baseline_data"
-    elif device == "ascend":
-        base_data_src = "/mnt/cache/share/deeplinkci/github/model_baseline_data"
-    elif device == "kunlunxin":
-        base_data_src = "/mnt/cache/share/deeplinkci/github/model_baseline_data"
+    base_data_src = "/mnt/cache/share/parrotsci/github/model_baseline_data"
     src = f"{base_data_src}/{p3}/baseline"
+
     if not os.path.exists(src):
         os.makedirs(src)
     dst = f"{storage_path}/baseline"
@@ -111,6 +105,18 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
         else:
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
             cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --cpus-per-task=5 --mem=16G --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}"
+    elif device == "sco":
+        current_path = os.getcwd()
+        parent_directory = os.path.dirname(current_path)
+        if p2 == "stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py":
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/mmagic/configs/stable_diffusion/stable-diffusion_ddim_denoisingunet_one_iter.sh" """
+            cmd_cp_one_iter = ""
+        elif "infer" in p2 and "infer" in p3:
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && python {current_path}/{train_path}" """
+            cmd_cp_one_iter = ""
+        else:
+            cmd_run_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}" """
+            cmd_cp_one_iter = f"""srun --job-name={job_name} bash -c "cd {parent_directory} && source scripts/ci/ci_one_iter.sh export_pythonpath_cuda {current_path} && source /mnt/cache/share/deeplinkci/github/dipu_env && cd mmlab_pack && source environment_exported && export ONE_ITER_TOOL_STORAGE_PATH={storage_path} && bash {current_path}/SMART/tools/one_iter_tool/compare_one_iter.sh {package_name}" """
     elif device == "camb":
         # For the inference of large language models, simply compare the inference results on the current device directly with the results generated on the GPU
         if "infer" in p2 and "infer" in p3:
@@ -188,6 +194,7 @@ if __name__ == "__main__":
         f"device: {device}, job_name: {job_name}, partition: {partition}, gpu_requests: {gpu_requests}, selected_model_list: {selected_model_list}"
     )
     error_flag = multiprocessing.Value("i", 0)  # if encount error
+
     max_model_num = 100
     if device == "cuda":
         logging.info("we use cuda!")
@@ -214,8 +221,21 @@ if __name__ == "__main__":
     # os.environ['ONE_ITER_TOOL_IOSAVE_RATIO'] = "1.0"  # 0.2 by default
     curPath = os.path.dirname(os.path.realpath(__file__))
     yamlPath = os.path.join(curPath, selected_model_list)
+    file_path = os.path.join(curPath, "environment_exported")
+    env_variables = os.environ
+    keywords_to_filter = ["DIPU", "ONE_ITER"]
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    with open("environment_exported", "w") as file:
+        file.write("pwd\n")
+        for key, value in env_variables.items():
+            if any(keyword in key for keyword in keywords_to_filter):
+                file.write(f'export {key}="{value}"\n')
     with open(yamlPath, "r", encoding="utf-8") as f:
-        original_list = yaml.safe_load(f.read()).get(device, None)
+        if device == "sco":
+            original_list = yaml.safe_load(f.read()).get("cuda", None)
+        else:
+            original_list = yaml.safe_load(f.read()).get(device, None)
         if not original_list:
             logging.warning(f"Device type: {device} is not supported!")
             exit(0)
@@ -237,7 +257,7 @@ if __name__ == "__main__":
         log_files = []
         try:
             for i in range(selected_model_num):
-                log_file = f"child_{i%max_parall}_log.txt"
+                log_file = f"child_{i % max_parall}_log.txt"
                 log_files.append(log_file)
                 p.apply_async(
                     process_one_iter,

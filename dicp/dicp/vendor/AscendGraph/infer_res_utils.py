@@ -1,11 +1,29 @@
 from collections.abc import Sequence
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, List
 from dicp.dynamo_bridge.utils import get_memory_format
 
 import torch
 import math
 
 """parse and get val"""
+
+
+def remove_nested_parentheses(data):
+    # ([a, d],) --> [a, d]
+    # [[[a],]] --> a
+    # [[['a',[['b']]], 'd'],] --> [['a', 'b'], 'd']
+    if isinstance(data, (List, Tuple)) and len(data) == 1:
+        return remove_nested_parentheses(data[0])
+    elif isinstance(data, Tuple):
+        if len(data) == 1 and not isinstance(data[0], (List, Tuple)):
+            return remove_nested_parentheses(data[0])
+        return tuple(remove_nested_parentheses(item) for item in data)
+    elif isinstance(data, List):
+        if len(data) == 1 and not isinstance(data[0], (List, Tuple)):
+            return remove_nested_parentheses(data[0])
+        return [remove_nested_parentheses(item) for item in data]
+    else:
+        return data
 
 
 # in conversion.py, some ops' ("cast") inputs are ascend_type like 'FLOAT',but infer needs torch type
@@ -117,6 +135,20 @@ def analyze_memory_format(tensor: torch.Tensor, operation: str) -> torch.memory_
     return tensor.memory_format if tensor.is_contiguous() else original_format
 
 
+def parse_variable(x):
+    if isinstance(x, torch._subclasses.fake_tensor.FakeTensor):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+    elif isinstance(x, Tuple):  # Const input
+        x, x_dtype, x_shape, _ = get_op_const_arg_kwarg(x)
+    elif isinstance(x, (int, float)):  # Scalar input
+        x, x_dtype, x_shape = x, type(x), []
+    else:
+        assert False, "unsupported input type!"
+    x_shape = [] if x_shape is None else x_shape
+    x_dtype = torch.float32 if x_dtype is None else x_dtype
+    return x, x_shape, x_dtype
+
+
 """calculate size,stride,storage_offset"""
 
 
@@ -172,18 +204,28 @@ def cal_stride_offset(new_shape: list, offset: list, res: torch.Tensor):
 
 
 def common_binary_op_infer(x1, x2, spec_dtype=None, spec_format=None) -> torch.Tensor:
-    x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
-    x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+    x1, x1_shape, x1_dtype = parse_variable(x1)
+    x2, x2_shape, x2_dtype = parse_variable(x2)
+
     out_shape = get_broadcast_res_two_shape(x1_shape, x2_shape)
     dtype = get_cast_dtype(x1_dtype, x2_dtype) if not spec_dtype else spec_dtype
-    memory_format = get_memory_format(x1) if not spec_format else spec_format
+    if spec_format:
+        memory_format = spec_format
+    else:
+        memory_format = (
+            get_memory_format(x1)
+            if isinstance(x1, torch._subclasses.fake_tensor.FakeTensor)
+            else torch.contiguous_format
+        )
     return torch.empty(out_shape, dtype=dtype, memory_format=memory_format)
 
 
-def common_unary_op_infer(x, spec_dtype=None, spec_format=None) -> torch.Tensor:
+def common_unary_op_infer(
+    x, spec_dtype=None, spec_format=None, spec_shape=None
+) -> torch.Tensor:
     _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
     return torch.empty(
-        x_shape,
+        x_shape if not spec_shape else spec_shape,
         dtype=x_dtype if not spec_dtype else spec_dtype,
         memory_format=get_memory_format(x) if not spec_format else spec_format,
     )

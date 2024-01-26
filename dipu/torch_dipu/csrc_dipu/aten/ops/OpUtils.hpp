@@ -6,14 +6,17 @@
 #include <cstdlib>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/Generator.h>
 #include <ATen/core/List.h>
 #include <ATen/core/TensorBody.h>
+#include <ATen/native/cpu/mixed_data_type.h>
 #include <ATen/ops/abs.h>
 #include <ATen/ops/allclose.h>
+#include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/Optional.h>
 #include <c10/util/OptionalArrayRef.h>
@@ -194,6 +197,71 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1>& input_shape,
     }
   }
   return output_shape;
+}
+
+inline std::string _allclose(const at::Tensor& a, const at::Tensor& b) {
+  if (a.defined() && b.defined()) {
+    try {
+      constexpr double tolerance_absolute = 1e-4;
+      constexpr double tolerance_relative = 1e-5;
+      if (at::allclose(a.cpu(), b.cpu(), tolerance_absolute, tolerance_relative,
+                       true)) {
+        return "allclose";
+      }
+      auto diff = at::abs(a.cpu() - b.cpu());
+      auto mae = diff.mean().item<double>();
+      auto max_diff = diff.max().item<double>();
+      return "not_close, max diff: " + std::to_string(max_diff) +
+             ", MAE: " + std::to_string(mae);
+    } catch (...) {
+      return "compare_error: not_close";
+    }
+  } else {
+    if (a.defined() != b.defined()) {
+      return "not_close, one of tensor inputs is empty";
+    }
+    return "allclose";
+  }
+}
+
+inline std::string _allclose(const c10::ArrayRef<at::Tensor>& a,
+                             const c10::ArrayRef<at::Tensor>& b) {
+  if (a.size() != b.size()) {
+    return "not_allclose:";
+  }
+  std::string result;
+  for (size_t i = 0; i < a.size(); ++i) {
+    result += std::to_string(i) + "th " + _allclose(a[i], b[i]) + "; ";
+  }
+  return result;
+}
+
+template <typename T>
+decltype(auto) unwrap_or(T&& x, ...) noexcept {
+  return std::forward<T>(x);
+}
+
+template <typename T, typename U>
+auto unwrap_or(T&& x, U&& fallback)
+    -> decltype(std::forward<T>(x).value_or(std::forward<U>(fallback))) {
+  return std::forward<T>(x).value_or(std::forward<U>(fallback));
+}
+
+template <typename... T>
+bool is_mixed_type(const T&... tensors) {
+  auto is_mixed = at::native::is_mixed_type(tensors...);
+  if (is_mixed) {
+    at::native::check_mixed_data_type(tensors...);
+  }
+  return is_mixed;
+}
+
+template <typename... Args>
+at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
+                                        const Args&... parameters) {
+  auto static const empty = at::Tensor{};
+  auto mixed = is_mixed_type(input, unwrap_or(parameters, empty)...);
+  return at::native::param_scalar_type(input, mixed);
 }
 
 }  // namespace native

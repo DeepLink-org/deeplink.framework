@@ -10,6 +10,8 @@ on:
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   CLUSTER_KLX: KUNLUNXIN
+  ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
+  REQUIRE_COVERAGE: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
 
 jobs:
   Checkout-code:
@@ -54,6 +56,7 @@ jobs:
       - name: Build dipu
         run: |
           set -ex
+          export USE_COVERAGE=ON
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
           python setup.py build_ext -i \
@@ -69,6 +72,17 @@ jobs:
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
           bash tests/run_kunlunxin_tests.sh
+          if [ "${ALL_COVERAGE}" = "ON" ]; then
+              bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu || echo "get coverage fail"
+          fi
+      - name: increment coverage check
+        if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin
+          rm -rf scripts
+          ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/third_party/DIOPI/scripts scripts
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
 
   Test-One-Iter-Kunlunxin:
     name: Test-One-Iter-Kunlunxin
