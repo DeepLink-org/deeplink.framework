@@ -475,8 +475,10 @@ jobs:
           export PYTHONUSERBASE=${HOME}/.local.dicp
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend
           source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
+          export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu:${PYTHONPATH}
           export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dicp:${PYTHONPATH}
           cd dicp && export TEST_DIR=$(pwd)/test
+          source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models
           bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Dicp-On-Dipu-Ascend && exit 1 )
 
