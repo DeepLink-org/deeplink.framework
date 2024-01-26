@@ -16,7 +16,8 @@ class OpModule(torch.nn.Module):
         # To solve this problem, an additional redundant input is added,
         # and the result of an addition operator is returned.
         res_default = torch.ops.aten.scalar_tensor.default(a, dtype=dtype)
-        return res_default + redundant_input, res_default
+        redundant_output = torch.ops.aten.add.Tensor(redundant_input, res_default)
+        return redundant_output, res_default
 
 
 model = OpModule()
