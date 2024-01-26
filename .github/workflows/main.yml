@@ -432,7 +432,8 @@ jobs:
           export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dicp:${PYTHONPATH}
           cd dicp && export TEST_DIR=$(pwd)/test
           source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models
-          bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false \
+          bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
+          pytest test/model/test_llama.py --backend ascendgraph --dynamic false \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Dicp-On-Dipu-Ascend && exit 1 )
 
   Test-One-Iter-Ascend-910b:
