@@ -264,7 +264,7 @@ jobs:
             { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
       - name: Run clang-tidy
         run: |
-          srun --job-name=$GITHUB_JOB bash "$DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
+          srun --job-name=$GITHUB_JOB bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
 
   Test-Cuda:
     name: Test-dipu-cuda
