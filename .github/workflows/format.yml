@@ -38,7 +38,7 @@ jobs:
       with:
         style: file
         tidy-checks: '-*' # disable clang tidy at this stage
-        version: 16
+        version: 17
     - name: Fail test
       if: steps.cpp-lint.outputs.checks-failed > 0
       run: echo "Some files failed the linting checks!" && exit 1

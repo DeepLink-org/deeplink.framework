@@ -114,7 +114,7 @@ diopiHardtanhBackward
 diopiHardtanhInp
 diopiIm2Col
 diopiIndex
-diopiIndexPut
+diopiIndexPutInp
 diopiIndexSelect
 diopiIsNan
 diopiLayerNorm

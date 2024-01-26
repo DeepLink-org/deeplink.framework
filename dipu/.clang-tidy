@@ -2,8 +2,10 @@
 Checks: '
   bugprone-*,
   -bugprone-easily-swappable-parameters,
+  -bugprone-empty-catch,
   -bugprone-reserved-identifier,
   -bugprone-signed-char-misuse,
+  -bugprone-switch-missing-default-case,
   clang-analyzer-*,
   clang-diagnostic-*,
   cppcoreguidelines-*,
@@ -29,17 +31,26 @@ Checks: '
   misc-unused-using-decls,
   modernize-*,
   -modernize-concat-nested-namespaces,
+  -modernize-type-traits,
   -modernize-use-nodiscard,
   -modernize-use-trailing-return-type,
   performance-*,
+  -performance-avoid-endl,
   readability-*,
   -readability-identifier-length,
   -readability-identifier-naming,
   -readability-qualified-auto,
-  -readability-static-accessed-through-instance'
+  -readability-static-accessed-through-instance',
+  -unused-includes
   # TODO: #446 - enable readability-identifier-naming
-  # TODO: C++17 - enable modernize-concat-nested-namespaces
-  # TODO: C++17 - enable modernize-use-nodiscard?
+  # TODO(c++17) - enable modernize-concat-nested-namespaces
+  # TODO(c++17) - enable modernize-use-nodiscard?
+  # TODO(clang17) - enable bugprone-empty-catch
+  # TODO(clang17) - enable bugprone-switch-missing-default-case
+  # TODO(clang17) - enable readability-static-accessed-through-instance
+  # TODO(clang17) - enable modernize-type-traits
+  # TODO(clang17) - enable performance-avoid-endl
+  # TODO(clang17) - enable unused-includes
 AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'
