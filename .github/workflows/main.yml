@@ -403,7 +403,40 @@ jobs:
           ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source dipu/scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
-      
+
+  Build-Dicp-On-Dipu-Ascend:
+    name: Build-dicp-on-dipu-ascend
+    needs: [Build-PyTorch-For-Ascend-910b]
+    runs-on: tps-ascend-ci-910b
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          export PYTHONUSERBASE=${HOME}/.local.dicp
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/
+          source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
+          cd dipu && bash scripts/ci/ascend/ci_ascend_script.sh build_dipu_without_diopi \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  Test-Dicp-On-Dipu-Ascend:
+    name: Test-dicp-on-dipu-ascend
+    needs: [Build-Dicp-On-Dipu-Ascend]
+    runs-on: tps-ascend-ci-910b
+    steps:
+      - name: Run dicp test
+        run: |
+          set -ex
+          export PYTHONUSERBASE=${HOME}/.local.dicp
+          rm -rf /tmp/dicp_ascend/*
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend
+          source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
+          export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu:${PYTHONPATH}
+          export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dicp:${PYTHONPATH}
+          cd dicp && export TEST_DIR=$(pwd)/test
+          source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models
+          bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
+          pytest test/model/test_llama.py --backend ascendgraph --dynamic false \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Dicp-On-Dipu-Ascend && exit 1 )
+
   Test-One-Iter-Ascend-910b:
     name: Test-one-iter-ascend-910b
     needs: [Build-Ascend-910b]
