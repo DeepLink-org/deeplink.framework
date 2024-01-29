@@ -42,3 +42,13 @@ jobs:
     - name: Fail test
       if: steps.cpp-lint.outputs.checks-failed > 0
       run: echo "Some files failed the linting checks!" && exit 1
+
+  python-black:
+    needs: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: psf/black@stable
+        with: # see: https://black.readthedocs.io/en/stable/getting_started.html
+          src: "dipu"
+          version: "~= 23.11.0"

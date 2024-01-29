@@ -1,0 +1,120 @@
+name: dipu ci on klx
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 22 * * *'
+  pull_request:
+    paths:
+      - ".github/workflows/runs_on_klx.yml"
+      - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/**"
+env:
+  DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
+  CLUSTER_KLX: KUNLUNXIN
+  ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
+  REQUIRE_COVERAGE: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
+
+jobs:
+  Checkout-code:
+    name: Checkout code
+    runs-on: github-poc-ci
+    steps:
+      - name: clone repo
+        run: |
+          set -ex
+          cd ${GITHUB_WORKSPACE} && rm -rf source
+          if [ -n "${{ github.event.pull_request.head.repo.full_name }}" ] && [[ ! "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
+            git clone ${{ github.event.pull_request.head.repo.ssh_url }} source
+            cd ${GITHUB_WORKSPACE}/source && git checkout ${{ github.event.pull_request.head.sha }}
+            git remote add mainrepo git@github.com:${GITHUB_REPOSITORY}.git
+            git fetch  mainrepo && git merge --no-edit mainrepo/${{ github.base_ref }}
+          else
+            git clone ${{ github.event.repository.clone_url }} source && cd source
+            if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
+              echo "${{ github.base_ref }} "
+              git checkout ${{ github.event.pull_request.head.sha }} && git merge --no-edit origin/${{ github.base_ref }}
+            else
+              echo $GITHUB_EVENT_NAME
+              git checkout ${{ github.sha }}
+            fi
+          fi
+          cd ${GITHUB_WORKSPACE}/source/dipu/third_party && rm -rf DIOPI && git clone https://github.com/DeepLink-org/DIOPI.git
+          rm -rf kineto && git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git kineto
+          cd ../.. && git submodule update --init && cd dipu/third_party/kineto && git submodule update --init
+          cd ${GITHUB_WORKSPACE}/source/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
+          rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh clone
+      - name: Rsync to Server
+        run: |
+          ssh ${CLUSTER_KLX} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source" \
+          && rsync -a --delete ${GITHUB_WORKSPACE}/source/ ${CLUSTER_KLX}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ || echo "failure to connect to kunlunxin"
+
+  Build-Kunlunxin:
+    name: Build-Kunlunxin
+    needs: [Checkout-code]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          export USE_COVERAGE=ON
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
+          python setup.py build_ext -i \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+  Test-Kunlunxin:
+    name: Test-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Run a test
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          bash tests/run_kunlunxin_tests.sh
+          if [ "${ALL_COVERAGE}" = "ON" ]; then
+              bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu || echo "get coverage fail"
+          fi
+      - name: increment coverage check
+        if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin
+          rm -rf scripts
+          ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/dipu/third_party/DIOPI/scripts scripts
+          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
+
+  Test-One-Iter-Kunlunxin:
+    name: Test-One-Iter-Kunlunxin
+    needs: [Build-Kunlunxin]
+    runs-on: tps-klx-ci
+    steps:
+      - name: Build some env
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          bash ../scripts/ci/ci_one_iter.sh build_kunlunxin
+
+      - name: Run one iter tools
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu
+          source scripts/ci/kunlunxin/ci_kunlunxin_env.sh
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          source scripts/ci/ci_one_iter.sh export_pythonpath_kunlunxin ${basic_path}
+          cd mmlab_pack
+          rm -rf one_iter_data
+          XDNN_CONV_GEMM_DTYPE=int16 XPUAPI_DEBUG_CUSTOM_OP_LEVEL="broadcast_add,0x11" \
+          python ../scripts/ci/ci_run_one_iter.py kunlunxin "" "" "" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+
+      - name: Perform cleanup one iter data
+        if: always()
+        run: |
+          set -ex
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Kunlunxin/dipu/mmlab_pack
+          rm -rf one_iter_data
+          touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
+
+      - name: Check for failure
+        if: ${{ failure() }}
+        run: exit 1

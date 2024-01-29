@@ -27,6 +27,22 @@ class ReplaceVarMean(BackendPatternBase):
         varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
         return ascend_op.ret_tuple(varVal, meanVal)
 
+@register_aten_pattern
+class FusedRepeatInterleaveSelfInt(BackendPatternBase):
+    @staticmethod
+    def pattern(self, repeat, dim, input_shape, empty_device, view_1_shape,
+                expand_1_shape, repeat_interleave_output_size):
+        empty = torch.ops.aten.empty.memory_format(input_shape, dtype = torch.int64, layout = torch.strided, device=empty_device)
+        fill = torch.ops.aten.fill.Scalar(empty, repeat)
+        view_1 = torch.ops.aten.view.default(fill, view_1_shape)
+        expand_1 = torch.ops.aten.expand.default(view_1, expand_1_shape)
+        repeat_interleave = torch.ops.aten.repeat_interleave.Tensor(expand_1, output_size = repeat_interleave_output_size)
+        index_select = torch.ops.aten.index_select.default(self, dim, repeat_interleave)
+        return index_select
+
+    @staticmethod
+    def replacement(self, repeat, dim):
+        return torch.ops.aten.repeat_interleave.self_int(self, repeat, dim)
 
 Const = torch.fx.wrap(ascend_op.Const.get_singleton())
 Transpose = torch.fx.wrap(ascend_op.Transpose.get_singleton())
@@ -55,7 +71,9 @@ class FuseBmmTransposeRhsPattern(BackendPatternBase):
         return BatchMatMul(x1, reshape, adj_x1=False, adj_x2=True)
 
 
-@register_ascend_pattern
+# @pandaoxin negotiate with @tangzhiyi
+# another submit would implement
+# @register_ascend_pattern
 class FuseMatMulTransePoseRhsPattern(BackendPatternBase):
     @staticmethod
     def pattern(x1, x2):

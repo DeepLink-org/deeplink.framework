@@ -22,9 +22,11 @@ class TestForeach(TestCase):
         torch._foreach_add_(weights_cpu, grads_cpu, alpha=1e-1)
         torch._foreach_add_(weights_dipu, grads_dipu, alpha=1e-1)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_add(self):
         weights_cpu = []
@@ -42,9 +44,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_add(weights_cpu, grads_cpu, alpha=1e-1)
         result_dipu = torch._foreach_add(weights_dipu, grads_dipu, alpha=1e-1)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_add__scalar(self):
         weights_cpu = []
@@ -57,9 +61,11 @@ class TestForeach(TestCase):
         torch._foreach_add_(weights_cpu, scalar)
         torch._foreach_add_(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_add_scalar(self):
         weights_cpu = []
@@ -72,9 +78,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_add(weights_cpu, scalar)
         result_dipu = torch._foreach_add(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_norm_scalar(self):
         inputs_cpu = []
@@ -84,17 +92,17 @@ class TestForeach(TestCase):
             inputs_cpu.append(x)
             inputs_dipu.append(x.cuda())
         # MLU: only 1-norm and 2-norm is supported
-        if torch_dipu.dipu.vendor_type == 'MLU':
+        if torch_dipu.dipu.vendor_type == "MLU":
             scalar = torch.randint(1, 3, ()).item()
         else:
             scalar = torch.randn(1).item()
         res_cpu = torch._foreach_norm(inputs_cpu, scalar)
         res_dipu = torch._foreach_norm(inputs_dipu, scalar)
         for i in range(len(res_cpu)):
-            self.assertTrue(torch.allclose(
-                res_cpu[i], res_dipu[i].cpu(), atol = 1e-3, rtol = 1e-3
-            ))
-        
+            self.assertTrue(
+                torch.allclose(res_cpu[i], res_dipu[i].cpu(), atol=1e-3, rtol=1e-3)
+            )
+
     def test_foreach_mul_(self):
         weights_cpu = []
         grads_cpu = []
@@ -111,9 +119,11 @@ class TestForeach(TestCase):
         torch._foreach_mul_(weights_cpu, grads_cpu)
         torch._foreach_mul_(weights_dipu, grads_dipu)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_mul__scalar(self):
         weights_cpu = []
@@ -126,9 +136,11 @@ class TestForeach(TestCase):
         torch._foreach_mul_(weights_cpu, scalar)
         torch._foreach_mul_(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_mul__scalarlist(self):
         weights_cpu = []
@@ -143,9 +155,11 @@ class TestForeach(TestCase):
         torch._foreach_mul_(weights_cpu, scalars)
         torch._foreach_mul_(weights_dipu, scalars)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_mul_scalar(self):
         weights_cpu = []
@@ -158,9 +172,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_mul(weights_cpu, scalar)
         result_dipu = torch._foreach_mul(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_mul_scalar_list(self):
         weights_cpu = []
@@ -175,9 +191,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_mul(weights_cpu, scalars)
         result_dipu = torch._foreach_mul(weights_dipu, scalars)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_mul(self):
         weights_cpu = []
@@ -195,9 +213,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_mul(weights_cpu, grads_cpu)
         result_dipu = torch._foreach_mul(weights_dipu, grads_dipu)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_neg(self):
         inputs_cpu = []
@@ -210,9 +230,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_neg(inputs_cpu)
         result_dipu = torch._foreach_neg(inputs_dipu)
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div_(self):
         weights_cpu = []
@@ -230,9 +252,11 @@ class TestForeach(TestCase):
         torch._foreach_div_(weights_cpu, grads_cpu)
         torch._foreach_div_(weights_dipu, grads_dipu)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div__scalar(self):
         weights_cpu = []
@@ -245,9 +269,11 @@ class TestForeach(TestCase):
         torch._foreach_div_(weights_cpu, scalar)
         torch._foreach_div_(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div__scalarlist(self):
         weights_cpu = []
@@ -262,9 +288,11 @@ class TestForeach(TestCase):
         torch._foreach_div_(weights_cpu, scalars)
         torch._foreach_div_(weights_dipu, scalars)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    weights_cpu[i], weights_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div_scalar(self):
         weights_cpu = []
@@ -277,9 +305,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_div(weights_cpu, scalar)
         result_dipu = torch._foreach_div(weights_dipu, scalar)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div_scalar_list(self):
         weights_cpu = []
@@ -294,9 +324,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_div(weights_cpu, scalars)
         result_dipu = torch._foreach_div(weights_dipu, scalars)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_div(self):
         weights_cpu = []
@@ -314,9 +346,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_div(weights_cpu, grads_cpu)
         result_dipu = torch._foreach_div(weights_dipu, grads_dipu)
         for i in range(len(weights_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcmul__scalar_list(self):
         inputs_cpu = []
@@ -351,9 +385,11 @@ class TestForeach(TestCase):
             scalars=scalars,
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcmul__scalar(self):
         inputs_cpu = []
@@ -383,9 +419,11 @@ class TestForeach(TestCase):
             self=inputs_dipu, tensor1=tensor1s_dipu, tensor2=tensor2s_dipu, value=value
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcmul__tensor(self):
         inputs_cpu = []
@@ -418,9 +456,11 @@ class TestForeach(TestCase):
             scalars=tensors.cuda(),
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_sqrt_(self):
         inputs_cpu = []
@@ -433,9 +473,11 @@ class TestForeach(TestCase):
         torch._foreach_sqrt_(inputs_cpu)
         torch._foreach_sqrt_(inputs_dipu)
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_sqrt(self):
         inputs_cpu = []
@@ -448,9 +490,11 @@ class TestForeach(TestCase):
         result_cpu = torch._foreach_sqrt(inputs_cpu)
         result_dipu = torch._foreach_sqrt(inputs_dipu)
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    result_cpu[i], result_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcdiv__scalar_list(self):
         inputs_cpu = []
@@ -485,9 +529,11 @@ class TestForeach(TestCase):
             scalars=scalars,
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcdiv__scalar(self):
         inputs_cpu = []
@@ -517,9 +563,11 @@ class TestForeach(TestCase):
             self=inputs_dipu, tensor1=tensor1s_dipu, tensor2=tensor2s_dipu, value=value
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
     def test_foreach_addcdiv__tensor(self):
         inputs_cpu = []
@@ -552,9 +600,11 @@ class TestForeach(TestCase):
             scalars=tensors.cuda(),
         )
         for i in range(len(inputs_cpu)):
-            self.assertTrue(torch.allclose(
-                inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
-            ))
+            self.assertTrue(
+                torch.allclose(
+                    inputs_cpu[i], inputs_dipu[i].cpu(), atol=1e-3, rtol=1e-3
+                )
+            )
 
 
 if __name__ == "__main__":

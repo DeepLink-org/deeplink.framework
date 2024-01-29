@@ -8,6 +8,7 @@ from .utils import _lazy_init, _lazy_call
 from .device import device_count, current_device, _get_device_index, __diputype__
 from .generator import Generator
 
+
 def _create_default_generators() -> Tuple[Generator]:
     generators = []
     for i in range(device_count()):
@@ -16,10 +17,12 @@ def _create_default_generators() -> Tuple[Generator]:
         generators.append(Generator(device))
     return tuple(generators)
 
+
 default_generators: Tuple[Generator] = _create_default_generators()
 
+
 ### Random sampling
-def get_rng_state(device: Union[int, str, torch.device] = 'dipu') -> Tensor:
+def get_rng_state(device: Union[int, str, torch.device] = "dipu") -> Tensor:
     r"""Returns the random number generator state of the specified DIPU as a ByteTensor.
 
     Args:
@@ -27,7 +30,7 @@ def get_rng_state(device: Union[int, str, torch.device] = 'dipu') -> Tensor:
             Default: ``'dipu'`` (i.e., ``torch.device('dipu')``, the current dipu device).
 
     """
-    idx = _get_device_index(device, optional = True)
+    idx = _get_device_index(device, optional=True)
     if idx is None:
         idx = current_device()
     return _C._get_rng_state(idx)
@@ -41,7 +44,9 @@ def get_rng_state_all() -> List[Tensor]:
     return results
 
 
-def set_rng_state(new_state: Tensor, device: Union[int, str, torch.device] = 'dipu') -> None:
+def set_rng_state(
+    new_state: Tensor, device: Union[int, str, torch.device] = "dipu"
+) -> None:
     r"""Sets the random number generator state of the specified DIPU.
 
     Args:
@@ -54,7 +59,7 @@ def set_rng_state(new_state: Tensor, device: Union[int, str, torch.device] = 'di
         come into effect.
     """
     new_state_copy = new_state.clone(memory_format=torch.contiguous_format)
-    idx = _get_device_index(device, optional = True)
+    idx = _get_device_index(device, optional=True)
     if idx is None:
         idx = current_device()
 
@@ -68,7 +73,6 @@ def set_rng_state_all(new_states: Iterable[Tensor]) -> None:
         new_state (Iterable of torch.ByteTensor): The desired state for each device"""
     for i, state in enumerate(new_states):
         set_rng_state(state, i)
-
 
 
 def manual_seed(seed):
@@ -118,6 +122,7 @@ def seed():
         If you are working with a multi-dipu model, this function will only initialize
         the seed on one dipu.  To initialize all dipus, use :func:`seed_all`.
     """
+
     def cb():
         idx = current_device()
         _C._seed(idx)
@@ -130,6 +135,7 @@ def seed_all():
     It's safe to call this function if dipu is not available; in that
     case, it is silently ignored.
     """
+
     def cb():
         random_seed = 0
         seeded = False

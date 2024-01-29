@@ -2,14 +2,16 @@ import os
 import subprocess
 import time
 
+import dicp
 from dicp.dynamo_bridge.compile import DeviceCompileJob
-from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, get_hash
+from torch._inductor.codecache import pick_vec_isa, cpp_compile_command, write, code_hash
 from torch._inductor import exc
 
 
 class AscendCompileJob(DeviceCompileJob):
     def __init__(self, source_code) -> None:
         super().__init__()
+        third_party_path = dicp.__file__.replace('/__init__.py', '') + "/third_party"
         from dicp.vendor.AscendGraph.codegen import load_and_run
         graph_util_path = load_and_run.__file__.replace('/load_and_run.py', '')
         source_path = graph_util_path + '/graph_compile.cpp'
@@ -24,14 +26,15 @@ class AscendCompileJob(DeviceCompileJob):
             source_code.strip(),
             "json",
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) +
-                  'local_rank' + str(self._local_rank) + get_hash(compile_file_code, 'code')
+                  'local_rank' + str(self._local_rank) + code_hash(compile_file_code)
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
         print('output_path: ', self._output_graph_path)
         self._model_path = [f'{self._output_graph_path}.om',
                             f'{self._output_graph_path}_linux_x86_64.om']
         self._lib_path = "/tmp/dicp_ascend/graph_compile"
-        json_util_path = graph_util_path + '/nlohmann'
+        json_util_path = third_party_path + '/nlohmann'
+        half_util_path = third_party_path + '/half/include'
         self.fusion_switch_file = graph_util_path + '/fusion_switch.cfg'
         self._cmd = ['/usr/bin/c++',
                      '-D_GLIBCXX_USE_CXX11_ABI=0',
@@ -47,6 +50,7 @@ class AscendCompileJob(DeviceCompileJob):
                      '-I/usr/local/Ascend/ascend-toolkit/latest/compiler/include',
                      f'-I{graph_util_path}',
                      f'-I{json_util_path}',
+                     f'-I{half_util_path}',
                      '-L/usr/local/Ascend/ascend-toolkit/latest/compiler/lib64/stub',
                      '-lgraph',
                      '-lge_runner',

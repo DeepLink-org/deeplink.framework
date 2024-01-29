@@ -1,19 +1,18 @@
+import acl
 import torch
 from typing import Tuple
 from dicp.dynamo_bridge.operator import Operator
 from dicp.vendor.AscendGraph.infer_res_utils import *
-
+from dicp.vendor.AscendGraph.codegen.utils import (
+    check_ret,
+    get_acl_format,
+    get_acl_dtype,
+    get_shape_from_desc,
+    get_torch_dtype
+)
 from dicp.dynamo_bridge.utils import get_memory_format
 
 aten = torch.ops.aten
-
-
-def symint_in_shape(shape):
-    for elem in shape:
-        if isinstance(elem, torch.SymInt):
-            return True
-    return False
-
 
 def negative_in_shape(shape):
     for elem in shape:
@@ -43,20 +42,19 @@ class BroadcastTo(Operator):
         super().__init__("BroadcastTo")
 
     def infer_result(self, x, shape):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
-        shape = shape_shape
-        dims = zip(reversed(shape), reversed(x_shape))
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
+            shape, shape_shape, _, _ = get_fake_tensor_meta_val(shape)
+            shape = shape_shape
+        elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
+            shape, _, _, _ =get_op_const_arg_kwarg(shape)
+        else: # other cases, unsupported yet
+            assert False, self.__class__.__name__ + "unsupported 'shape' input type!"
 
-        for i, t in enumerate(dims):
-            tar_dim, cur_dim = t
-            if tar_dim == -1:
-                shape[-(i + 1)] = cur_dim
-                continue
-            elif cur_dim == 1:
-                continue
-            assert cur_dim == tar_dim, self.__class__.__name__ + ": shape mismatch!"
-        # broadcast keep get_memory_format
+        out_shape = get_broadcast_res_two_shape(x_shape, shape)
+        assert out_shape == list(shape), (
+            self.__class__.__name__ + "can't broadcast x to specified shape!"
+        )
         return torch.empty(shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
@@ -65,9 +63,9 @@ class Range(Operator):
         super().__init__("Range")
 
     def infer_result(self, start, limit=None, delta=None):
-        start, start_dtype, _, _ = get_op_const_arg_kwarg(start)
-        limit, limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
-        delta, delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
+        [start], start_dtype, _, _ = get_op_const_arg_kwarg(start)
+        [limit], limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
+        [delta], delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
 
         assert start is not None, (
             self.__class__.__name__ + ": input 'start' can't be None!"
@@ -99,6 +97,26 @@ class Cumsum(Operator):
 class MatMul(Operator):
     def __init__(self):
         super().__init__("MatMul")
+    
+    def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
+        attr = acl.op.create_attr()
+        check_ret("acl.op.set_attr_bool", acl.op.set_attr_bool(attr, "transpose_x1", adj_x1))
+        check_ret("acl.op.set_attr_bool", acl.op.set_attr_bool(attr, "transpose_x2", adj_x2))
+        x1, x1_shape, x1_dim, x1_dtype = get_fake_tensor_meta_val(x1)
+        x2, x2_shape, x2_dim, x2_dtype = get_fake_tensor_meta_val(x2)
+        in_desc_list = []
+        in_desc_list.append(acl.create_tensor_desc(get_acl_dtype(x1_dtype), list(x1_shape), get_acl_format(x1)))
+        in_desc_list.append(acl.create_tensor_desc(get_acl_dtype(x2_dtype), list(x2_shape), get_acl_format(x2)))
+        in_list = []
+        in_list.append(acl.create_data_buffer(id(0), acl.data_type_size(0)))
+        in_list.append(acl.create_data_buffer(id(0), acl.data_type_size(0)))
+        out_desc_list = [acl.create_tensor_desc(-1, [0], -1)]
+        check_ret("acl.op.infer_shape", acl.op.infer_shape(self.name(), in_desc_list, in_list, 1, out_desc_list, attr))
+        out_shape = get_shape_from_desc(out_desc_list[0])
+        out_dtype = get_torch_dtype(acl.get_tensor_desc_type(out_desc_list[0]))
+        return torch.empty(
+            out_shape, dtype=out_dtype, memory_format=get_memory_format(x1)
+        )
 
 
 class BatchMatMul(Operator):
@@ -131,6 +149,16 @@ class BatchMatMul(Operator):
         return torch.empty(
             out_shape, dtype=x1_dtype, memory_format=get_memory_format(x1)
         )
+
+
+class LayerNorm(Operator):
+    def __init__(self):
+        super().__init__("LayerNorm")
+
+
+class GroupNorm(Operator):
+    def __init__(self):
+        super().__init__("GroupNorm")
 
 
 class Sub(Operator):
@@ -228,6 +256,11 @@ class Relu(Operator):
         return common_unary_op_infer(x)
 
 
+class Gelu(Operator):
+    def __init__(self):
+        super().__init__("Gelu")
+
+
 class Swish(Operator):
     def __init__(self):
         super().__init__("Swish")
@@ -236,6 +269,9 @@ class Swish(Operator):
 class Transpose(Operator):
     def __init__(self):
         super().__init__("Transpose")
+
+    def infer_result(self, x, axes=None):
+        return common_unary_op_infer(x)
 
 
 class SoftmaxV2(Operator):
@@ -470,6 +506,11 @@ class Less(Operator):
         return common_binary_op_infer(x1, x2, torch.bool)
 
 
+class ArgMax(Operator):
+    def __init__(self):
+        super().__init__("ArgMax")
+
+
 class Equal(Operator):
     def __init__(self):
         super().__init__("Equal")
@@ -523,6 +564,8 @@ class Identity(Operator):
 
     def infer_result(self, x, idx=None):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        if isinstance(x, (List, Tuple)):
+            return x[idx]
         out_dtype = x_dtype
         if x_dtype == torch.complex64:  # for complex64
             out_shape = list(x_shape)
@@ -553,8 +596,8 @@ class IdentityN(Operator):
     def __init__(self):
         super().__init__("IdentityN")
 
-    def infer_result(self, x):
-        return common_unary_op_infer(x)
+    def infer_result(self, *args, **kwargs):
+        return remove_nested_parentheses(args)
 
 
 class Empty(Operator):
@@ -572,6 +615,23 @@ class Empty(Operator):
             device=device,
             memory_format=memory_format,
         )
+
+
+class GatherNd(Operator):
+    def __init__(self):
+        super().__init__("GatherNd")
+
+    def infer_result(self, x, index, orig_index):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+
+        # assume not none index, and replace prefix x_shape dims
+        len_idx_shape = len(orig_index)
+        assert(len_idx_shape > 0)
+        bcast_index_shape = list(orig_index[0].shape)
+        x_shape = bcast_index_shape + list(x_shape[len_idx_shape:])
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 class GatherV2(Operator):
@@ -654,16 +714,6 @@ class NLLLossGrad(Operator):
         super().__init__("NLLLossGrad")
 
 
-class BNTrainingReduce(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingReduce")
-
-
-class BNTrainingUpdate(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingUpdate")
-
-
 class BNTrainingUpdateGrad(Operator):
     def __init__(self):
         super().__init__("BNTrainingUpdateGrad")
@@ -723,6 +773,16 @@ class Slice(Operator):
         _, storage_offset = cal_stride_offset(new_shape, offset, x)
         res = torch.as_strided(x, new_shape, x.stride(), storage_offset)
         return res
+
+
+class Cos(Operator):
+    def __init__(self):
+        super().__init__("Cos")
+
+
+class Sin(Operator):
+    def __init__(self):
+        super().__init__("Sin")
 
 
 class ConcatD(Operator):
@@ -858,6 +918,140 @@ class MaxPool(Operator):
 class PadV3(Operator):
     def __init__(self):
         super().__init__("PadV3")
+
+
+class AdaptiveAvgPool2D(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2D")
+
+    def infer_result(self, x, output_size):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        batch_channel_size = list(x_shape)[:-2]
+        return torch.empty(
+            batch_channel_size + output_size,
+            dtype=x_dtype,
+            memory_format=get_memory_format(x),
+        )
+
+
+class AdaptiveAvgPool2DGrad(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2DGrad")
+
+    def infer_result(self, input_grad, orig_input_shape):
+        return common_unary_op_infer(
+            input_grad, spec_format=torch.contiguous_format, spec_shape=orig_input_shape
+        )
+
+
+class MaxPoolGrad(Operator):
+    def __init__(self):
+        super().__init__("MaxPoolGrad")
+
+
+class PadV3Grad(Operator):
+    def __init__(self):
+        super().__init__("PadV3Grad")
+
+
+class LogicalOr(Operator):
+    def __init__(self):
+        super().__init__("LogicalOr")
+
+    def infer_result(self, x1, x2):
+        return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class Tril(Operator):
+    def __init__(self):
+        super().__init__("Tril")
+
+    def infer_result(self, x, diagonal=0):
+        return torch.empty_like(x)
+
+
+class Tile(Operator):
+    def __init__(self):
+        super().__init__("Tile")
+
+    def infer_result(self, x, multiples):
+        return torch.ops.aten.repeat.default(x, multiples)
+
+
+class BNTrainingReduce(Operator):
+    def __init__(self):
+        super().__init__("BNTrainingReduce")
+
+    def infer_result(self, x, x_shape, format, dtype):
+        # the output should be two 1D tensors(reduce_sum and reduce_square_sum) of same type,
+        # so it may not matter to return only a single tensor here
+        return reduce_op_infer(x, None, False)  # TODO: return a list of two tensors
+
+
+class BNTrainingUpdate(Operator):
+    def __init__(self):
+        super().__init__("BNTrainingUpdate")
+
+    def infer_result(
+        self,
+        x,
+        sum,
+        sum_idx,
+        square_sum,
+        square_idx,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        eps,
+        momentum,
+    ):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        channel_size = x_shape[1]
+        output_y = torch.empty(
+            x_shape, dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+        output_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        return [output_y,output_mean,output_var,output_batch_mean,output_batch_var]
+
+
+class TileWithAxis(Operator):
+    def __init__(self):
+        super().__init__("TileWithAxis")
+        self.torch_op = aten.repeat_interleave.self_int
+
+
+class TensorScatterUpdate(Operator):
+    def __init__(self):
+        super().__init__("TensorScatterUpdate")
+
+    def infer_result(self, x, indices, updates):
+        _, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        _, indices_shape, _, indices_dtype = get_fake_tensor_meta_val(indices)
+        _, updates_shape, _, _ = get_fake_tensor_meta_val(updates)
+        assert indices_dtype in (torch.int32, torch.int64)
+
+        # following shape constraints are from:
+        # https://tensorflow.google.cn/versions/r2.15/api_docs/
+        # python/tf/tensor_scatter_nd_update
+        assert indices.dim() >= 2
+        index_depth = indices_shape[-1]
+        batch_shape = indices_shape[:-1]
+        assert index_depth <= x_dim
+        inner_shape = x_shape[index_depth:]
+        assert updates_shape == batch_shape + inner_shape
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

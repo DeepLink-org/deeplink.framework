@@ -165,7 +165,6 @@ class AscendExecutor(object):
         self.release_resource()
 
     def release_resource(self):
-        print("Releasing resources stage:")
         if self.model_id:
             ret = acl.mdl.unload(self.model_id)
             check_ret("acl.mdl.unload", ret)
@@ -236,8 +235,6 @@ class AscendExecutor(object):
         check_ret("acl.mdl.get_desc", ret)
 
     def init_resource(self):
-        print("init resource stage:")
-
         self.load_model()
         self.num_inputs = acl.mdl.get_num_inputs(self.model_desc)
         self.num_outputs = acl.mdl.get_num_outputs(self.model_desc)
@@ -267,7 +264,6 @@ class AscendExecutor(object):
             _, ret = acl.mdl.add_dataset_buffer(self.output_dataset, data_buf)
             check_ret("acl.add_dataset_buffer", ret)
 
-        print("init resource success")
 
     @record_function('load_and_run_prepare_input')
     def _prepare_input(self, images, dims):
