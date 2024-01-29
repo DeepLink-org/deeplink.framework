@@ -11,14 +11,14 @@ function build_diopi_lib() {
 
 function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
+    cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=ascend
     cd ../
 }
 
 function config_all_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
+    cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=ascend \
         -DENABLE_COVERAGE=${USE_COVERAGE} \
         -DWITH_DIOPI=INTERNAL
