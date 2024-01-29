@@ -48,8 +48,6 @@ using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
 using trace_ptr_t =
     std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
 
-#if DIPU_TORCH_VERSION == 20000
-#else
 namespace {
 struct TagToIOType {
   DIPUInputOutputEncoder::Tag tag;
@@ -85,8 +83,18 @@ constexpr DIPUInputOutputEncoder::IOType tagToIOType(
     DIPUInputOutputEncoder::Tag tag) {
   return tag_map[(int)tag].io_type;
 }
-}  // namespace
+
+static constexpr int32_t kScalarListLengthLimit = 30;
+
+bool dipu_get_record_concrete_inputs_enabled() {
+#if DIPU_TORCH_VERSION == 20000
+  return false;
+#else
+  return torch::profiler::impl::get_record_concrete_inputs_enabled();
 #endif
+}
+
+}  // namespace
 
 void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
   for (const auto& value : values) {
@@ -105,12 +113,9 @@ void DIPUInputOutputEncoder::push(c10::ArrayRef<const c10::IValue> values) {
         push(t);
       }
       tags_.emplace_back(Tag::TERMINATOR);
-#if DIPU_TORCH_VERSION == 20000
-#else
     } else if (isSupportedScalarList(value)) {
       tags_.emplace_back(Tag::ScalarList);
       ivalues_.emplace_back(value);
-#endif
     } else {
       tags_.emplace_back(Tag::Other);
     }
@@ -134,75 +139,13 @@ void DIPUInputOutputEncoder::push(const at::Tensor& t) {
   }
 }
 
-#if DIPU_TORCH_VERSION == 20000
-// This is a custom-iterator-like getter to obtain input shapes and dtypes.
-auto DIPUInputOutputEncoder::getNextShapesAndDtypes() {
-  return [this, tag_it = tags_.begin(),
-          tensor_metadata_it = tensor_metadata_.begin(),
-          tensor_size_strides_it = tensor_sizes_strides_.begin(),
-          ivals_it = ivalues_.begin()]() mutable {
-    auto decode_tensor = [&]() -> TensorMetadata {
-      const auto& raw_metadata = *tensor_metadata_it++;
-      std::vector<int64_t> sizes;
-      std::vector<int64_t> strides;
-      for (C10_UNUSED const auto _ : c10::irange(raw_metadata.dim_)) {
-        sizes.push_back(*tensor_size_strides_it++);
-      }
-      if (raw_metadata.layout_ == at::kStrided) {
-        for (C10_UNUSED const auto _ : c10::irange(raw_metadata.dim_)) {
-          strides.push_back(*tensor_size_strides_it++);
-        }
-      }
-      return {raw_metadata, sizes, strides};
-    };
-
-    std::vector<op_input_t> out;
-    bool terminate = false;
-    while (!terminate && tag_it != tags_.end()) {
-      switch (*tag_it) {
-        case Tag::Tensor:
-          out.emplace_back(decode_tensor());
-          break;
-
-        case Tag::TensorListBegin: {
-          std::vector<TensorMetadata> arg;
-          while (*(++tag_it) != Tag::TERMINATOR) {
-            TORCH_INTERNAL_ASSERT(*tag_it == Tag::Tensor, (int)(*tag_it));
-            arg.emplace_back(decode_tensor());
-          }
-          out.emplace_back(std::move(arg));
-        } break;
-
-        case Tag::Scalar:
-          out.emplace_back(*ivals_it++);
-          break;
-
-        case Tag::UndefinedTensor:
-        case Tag::Other:
-          out.emplace_back(c10::nullopt);
-          break;
-
-        case Tag::TERMINATOR:
-          // This marks the end of this op.
-          terminate = true;
-          break;
-
-        default:
-          break;
-      }
-      ++tag_it;
-    }
-    return out;
-  };
-}
-#else
 bool DIPUInputOutputEncoder::isSupportedScalarList(
     const c10::IValue& list_candidate) {
   // Scalar list can be very long. If a list is too long, we shouldn't
   // collect it. This function checks whether the list is a scalar list
   // and whether its length is sufficiently short.
 
-  if (!torch::profiler::impl::get_record_concrete_inputs_enabled()) {
+  if (!dipu_get_record_concrete_inputs_enabled()) {
     return false;
   }
 
@@ -216,8 +159,7 @@ bool DIPUInputOutputEncoder::isSupportedScalarList(
   if (C10_UNLIKELY(!list_ref[0].isScalar())) {
     return false;
   }
-  if (C10_UNLIKELY(list_ref.size() >
-                   torch::profiler::impl::SCALAR_LIST_LENGTH_LIMIT)) {
+  if (C10_UNLIKELY(list_ref.size() > kScalarListLengthLimit)) {
     return false;
   }
   return true;
@@ -315,7 +257,6 @@ auto DIPUInputOutputEncoder::getInputShapeGenerator() {
 auto DIPUInputOutputEncoder::getConcreteInputGenerator() {
   return getIValueGenerator(IOType::ConcreteInputs);
 }
-#endif
 
 void DIPUInputOutputEncoder::clear() {
   tags_.clear();
@@ -459,12 +400,8 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     }
   }
 
-#if DIPU_TORCH_VERSION == 20000
-  auto input_getter = inputs_outputs_.getNextShapesAndDtypes();
-#else
   auto input_shape_getter = inputs_outputs_.getInputShapeGenerator();
   auto concrete_input_getter = inputs_outputs_.getConcreteInputGenerator();
-#endif
 
   // TODO(caikun-pjlab): CTAD will take care of template args when we move to
   // C++17
@@ -477,11 +414,10 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
     ExtraFields<torch::profiler::impl::EventType::TorchOp> e {
       std::move(event->basic_fields_),
           DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
-          time_converter(event->end_time_),
+          time_converter(event->end_time_), input_shape_getter(),
 #if DIPU_TORCH_VERSION == 20000
-          input_getter(),
 #else
-          input_shape_getter(), concrete_input_getter(),
+          concrete_input_getter(),
 #endif
           jit_stack(), jit_module(), extra_args(), gpu_fallback(),
           event->allow_tf32_cublas_, std::move(event->counters_)

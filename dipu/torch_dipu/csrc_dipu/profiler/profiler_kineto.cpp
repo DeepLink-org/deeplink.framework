@@ -51,11 +51,10 @@ using torch::autograd::profiler::post_process_t;
 using torch::autograd::profiler::ProfilerResult;
 using torch::profiler::impl::ActiveProfilerType;
 #if DIPU_TORCH_VERSION == 20000
-using torch::profiler::impl::dtypesToStr;
+constexpr auto strListToStr = torch::profiler::impl::dtypesToStr;
 #else
-using torch::profiler::impl::get_record_concrete_inputs_enabled;
 using torch::profiler::impl::ivalueListToStr;
-using torch::profiler::impl::strListToStr;
+constexpr auto strListToStr = torch::profiler::impl::strListToStr;
 #endif
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;
@@ -68,33 +67,6 @@ using torch::profiler::impl::shapesToStr;
 using torch::profiler::impl::stacksToStr;
 using torch::profiler::impl::TensorMetadata;
 
-#if DIPU_TORCH_VERSION == 20000
-auto shapesAndDtypes(const std::vector<op_input_t>& inputs) {
-  std::vector<std::vector<int64_t>> shapes;
-  std::vector<std::string> dtypes;
-  for (const auto& i : inputs) {
-    c10::visit(c10::overloaded(
-                   [&](const TensorMetadata& t) {
-                     shapes.emplace_back(t.sizes_);
-                     dtypes.emplace_back(scalarTypeToTypeMeta(t.dtype_).name());
-                   },
-                   [&](const std::vector<TensorMetadata>&) {
-                     shapes.emplace_back();
-                     dtypes.emplace_back("TensorList");
-                   },
-                   [&](const c10::IValue&) {
-                     shapes.emplace_back();
-                     dtypes.emplace_back("Scalar");
-                   },
-                   [&](const auto&) {
-                     shapes.emplace_back();
-                     dtypes.emplace_back();
-                   }),
-               i);
-  }
-  return std::make_pair(shapes, dtypes);
-}
-#else
 struct OpArgData {
   bool has_data;
   std::vector<std::vector<int64_t>> shapes;
@@ -150,7 +122,6 @@ auto parseArgData(const std::vector<op_input_t>& input_shapes,
 
   return OpArgData{true, shapes, dtypes, concrete_inputs_list};
 }
-#endif
 
 struct MetadataBase {
   explicit MetadataBase(const std::shared_ptr<Result>& result)
@@ -228,43 +199,24 @@ struct AddGenericMetadata : public MetadataBase {
     }
   }
 
+  void operator()(ExtraFields<EventType::TorchOp>& op_event) {
 #if DIPU_TORCH_VERSION == 20000
-  void operator()(ExtraFields<EventType::TorchOp>& op_event) {
-    const auto shapes_and_dtypes = shapesAndDtypes(op_event.inputs_);
-    if (!shapes_and_dtypes.first.empty()) {
-      addMetadata("Input Dims", shapesToStr(shapes_and_dtypes.first));
-    }
-    if (!shapes_and_dtypes.second.empty()) {
-      addMetadata("Input type", dtypesToStr(shapes_and_dtypes.second));
-    }
-
-    if (config_ && !config_->experimental_config.performance_events.empty()) {
-      auto& event_names = config_->experimental_config.performance_events;
-      for (auto i = 0; i < op_event.perf_event_counters_->size(); ++i) {
-        addMetadata(event_names[i],
-                    std::to_string((*op_event.perf_event_counters_)[i]));
-      }
-    }
-
-    // add information about an associated forward op, if a sequence number
-    // is available (e.g. during training)
-    if (op_event.sequence_number_ >= 0) {
-      addMetadata("Fwd thread id", std::to_string(op_event.forward_tid_));
-      addMetadata("Sequence number", std::to_string(op_event.sequence_number_));
-    }
-  }
+    const std::vector<op_input_t> concrete_inputs;
 #else
-  void operator()(ExtraFields<EventType::TorchOp>& op_event) {
-    const auto arg_data =
-        parseArgData(op_event.inputs_, op_event.concrete_inputs_);
+    const auto& concrete_inputs = op_event.concrete_inputs_;
+#endif
+    const auto arg_data = parseArgData(op_event.inputs_, concrete_inputs);
 
     if (arg_data.has_data) {
       addMetadata("Input Dims", shapesToStr(arg_data.shapes));
       addMetadata("Input type", strListToStr(arg_data.dtypes));
+#if DIPU_TORCH_VERSION == 20000
+#else
       if (!arg_data.concrete_inputs.empty()) {
         addMetadata("Concrete Inputs",
                     ivalueListToStr(arg_data.concrete_inputs));
       }
+#endif
     }
 
     if (config_ && !config_->experimental_config.performance_events.empty()) {
@@ -282,7 +234,6 @@ struct AddGenericMetadata : public MetadataBase {
       addMetadata("Sequence number", std::to_string(op_event.sequence_number_));
     }
   }
-#endif
 
   void operator()(ExtraFields<EventType::Backend>& backend_event) {
     if (!backend_event.backend_.empty()) {

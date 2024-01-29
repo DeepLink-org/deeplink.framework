@@ -32,7 +32,7 @@ class TestProfiler(TestCase):
         with torch_dipu.profiler.NativeProfile(path, True):
             x.add_(y)
 
-        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "test_profiler_vendor.py"))
         self.assertTrue(check_string_in_directory(path, "aten::add_"))
         self.assertTrue(check_string_in_directory(path, "Add"))
 
@@ -54,7 +54,7 @@ class TestProfiler(TestCase):
             y = opt_model(input)
             z = y + y
 
-        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "test_profiler_vendor.py"))
         self.assertTrue(check_string_in_directory(path, "aten::add"))
         self.assertTrue(check_string_in_directory(path, "mulrelu"))
         self.assertTrue(check_string_in_directory(path, "softmax"))

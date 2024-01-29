@@ -34,14 +34,9 @@ class DIPUInputOutputEncoder final {
  public:
   void push(c10::ArrayRef<const c10::IValue> values);
 
-#if DIPU_TORCH_VERSION == 20000
-  // Used during post-processing to create vectors for shapes and dtype.
-  auto getNextShapesAndDtypes();
-#else
   auto getInputShapeGenerator();
   auto getConcreteInputGenerator();
   bool isSupportedScalarList(const c10::IValue& list_candidate);
-#endif
 
   void clear();
 
@@ -49,29 +44,20 @@ class DIPUInputOutputEncoder final {
     Tensor = 0,
     UndefinedTensor,
     TensorListBegin,  // TODO(caikun-pjlab): generalize to other lists.
-#if DIPU_TORCH_VERSION == 20000
-#else
     ScalarList,
-#endif
     Scalar,
     Other,
     TERMINATOR
   };
 
-#if DIPU_TORCH_VERSION == 20000
-#else
   enum class IOType { Shapes, ConcreteInputs, None };
-#endif
 
  private:
   void push(const at::Tensor& t);
 
-#if DIPU_TORCH_VERSION == 20000
-#else
   // Implementation detail for getInputShapeGenerator and
   // getConcreteInputGenerator
   auto getIValueGenerator(const IOType& io_type);
-#endif
 
   torch::profiler::impl::AppendOnlyList<
       Tag, torch::profiler::impl::IO_ENCODER_DEFAULT_BLOCK_SIZE>
