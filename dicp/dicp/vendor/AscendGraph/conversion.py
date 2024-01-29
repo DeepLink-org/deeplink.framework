@@ -601,6 +601,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def full(self, dims, value, dtype=torch.float32, layout=torch.strided,
              device='cpu', pin_memory=False, memory_format=torch.preserve_format):
         torch_dtype = dtype if dtype else torch.get_default_dtype()
+        # If len(dims) == 0, it means this is a scalar tensor with a dimension of 0,
+        # and it can directly return a const node to construct a scalar tensor.
         if len(dims) == 0:
             return self.get_const_proxy(value, torch_dtype)
 
