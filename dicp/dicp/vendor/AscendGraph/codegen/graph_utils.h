@@ -3,6 +3,7 @@
 #include <cctype>
 #include <fstream>
 #include <functional>
+#include <half.hpp>
 #include <iostream>
 #include <json.hpp>
 #include <map>
@@ -309,6 +310,16 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
           auto value = attr["tensor_value"].get<std::vector<float>>();
           auto tensor =
               genTensorWithData<float>(dims, format, data_type, value);
+          op.SetAttr(attr_name.c_str(), tensor);
+        } else if (cpp_data_type == "FLOAT16") {
+          std::vector<float> values =
+              attr["tensor_value"].get<std::vector<float>>();
+          std::vector<half_float::half> half_values;
+          for (auto& v : values) {
+            half_values.push_back(half_float::half(v));
+          }
+          auto tensor = genTensorWithData<half_float::half>(
+              dims, format, data_type, half_values);
           op.SetAttr(attr_name.c_str(), tensor);
         } else if (cpp_data_type == "INT32") {
           auto value = attr["tensor_value"].get<std::vector<int>>();

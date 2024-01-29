@@ -21,27 +21,19 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
                                   CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
-};
 
-// vendor which has incomplete diopiCopy implementation need write a subclass
-// and override copyNodirectOnDevice like this.
-/*
-class VendorCopyInplcae: public DIPUCopyInpOnDIOPI {
-public:
-  VendorCopyInplcae() = default;
-  ~VendorCopyInplcae() = default;
-  void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
-                            bool non_blocking, CopyParamsInfo& info) override {
-    check_if_diopi_copy_can_handle: {
-      dipu_wrap_diopi_copy_inp(self, src, non_blocking);
-      or
-      DIPUCopyInplace::copyNodirectOnDevice(XXX);
-    } else {
-      doCpuRelayCopy(...);
+ protected:
+  void copyPostProcess(bool non_blocking, const CopyParamsInfo& info,
+                       DIPUStream& curStream) override {
+    // syncAfterCopy
+    if (!non_blocking) {
+      // for d2d cases, ignoring `non_blocking` for better performance
+      if (info.copyType_ != DIPUCopyType::D2Self) {
+        dipu::devapis::syncStream(curStream.rawstream());
+      }
     }
   }
 };
-*/
 
 // not const, see comments in DIPUCopy.cpp dipu_copy_op()
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)

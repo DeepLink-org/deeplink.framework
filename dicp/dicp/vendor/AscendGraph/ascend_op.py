@@ -42,9 +42,9 @@ class BroadcastTo(Operator):
         super().__init__("BroadcastTo")
 
     def infer_result(self, x, shape):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
         if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
-            shape, shape_shape, shape_dim, shape_dtype = get_fake_tensor_meta_val(shape)
+            shape, shape_shape, _, _ = get_fake_tensor_meta_val(shape)
             shape = shape_shape
         elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
             shape, _, _, _ =get_op_const_arg_kwarg(shape)
@@ -63,9 +63,9 @@ class Range(Operator):
         super().__init__("Range")
 
     def infer_result(self, start, limit=None, delta=None):
-        start, start_dtype, _, _ = get_op_const_arg_kwarg(start)
-        limit, limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
-        delta, delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
+        [start], start_dtype, _, _ = get_op_const_arg_kwarg(start)
+        [limit], limit_dtype, _, _ = get_op_const_arg_kwarg(limit)
+        [delta], delta_dtype, _, _ = get_op_const_arg_kwarg(delta)
 
         assert start is not None, (
             self.__class__.__name__ + ": input 'start' can't be None!"
@@ -564,6 +564,8 @@ class Identity(Operator):
 
     def infer_result(self, x, idx=None):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        if isinstance(x, (List, Tuple)):
+            return x[idx]
         out_dtype = x_dtype
         if x_dtype == torch.complex64:  # for complex64
             out_shape = list(x_shape)
@@ -594,8 +596,8 @@ class IdentityN(Operator):
     def __init__(self):
         super().__init__("IdentityN")
 
-    def infer_result(self, x):
-        return common_unary_op_infer(x)
+    def infer_result(self, *args, **kwargs):
+        return remove_nested_parentheses(args)
 
 
 class Empty(Operator):
@@ -710,16 +712,6 @@ class NLLLoss(Operator):
 class NLLLossGrad(Operator):
     def __init__(self):
         super().__init__("NLLLossGrad")
-
-
-class BNTrainingReduce(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingReduce")
-
-
-class BNTrainingUpdate(Operator):
-    def __init__(self):
-        super().__init__("BNTrainingUpdate")
 
 
 class BNTrainingUpdateGrad(Operator):
@@ -926,6 +918,140 @@ class MaxPool(Operator):
 class PadV3(Operator):
     def __init__(self):
         super().__init__("PadV3")
+
+
+class AdaptiveAvgPool2D(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2D")
+
+    def infer_result(self, x, output_size):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        batch_channel_size = list(x_shape)[:-2]
+        return torch.empty(
+            batch_channel_size + output_size,
+            dtype=x_dtype,
+            memory_format=get_memory_format(x),
+        )
+
+
+class AdaptiveAvgPool2DGrad(Operator):
+    def __init__(self):
+        super().__init__("AdaptiveAvgPool2DGrad")
+
+    def infer_result(self, input_grad, orig_input_shape):
+        return common_unary_op_infer(
+            input_grad, spec_format=torch.contiguous_format, spec_shape=orig_input_shape
+        )
+
+
+class MaxPoolGrad(Operator):
+    def __init__(self):
+        super().__init__("MaxPoolGrad")
+
+
+class PadV3Grad(Operator):
+    def __init__(self):
+        super().__init__("PadV3Grad")
+
+
+class LogicalOr(Operator):
+    def __init__(self):
+        super().__init__("LogicalOr")
+
+    def infer_result(self, x1, x2):
+        return common_binary_op_infer(x1, x2, torch.bool)
+
+
+class Tril(Operator):
+    def __init__(self):
+        super().__init__("Tril")
+
+    def infer_result(self, x, diagonal=0):
+        return torch.empty_like(x)
+
+
+class Tile(Operator):
+    def __init__(self):
+        super().__init__("Tile")
+
+    def infer_result(self, x, multiples):
+        return torch.ops.aten.repeat.default(x, multiples)
+
+
+class BNTrainingReduce(Operator):
+    def __init__(self):
+        super().__init__("BNTrainingReduce")
+
+    def infer_result(self, x, x_shape, format, dtype):
+        # the output should be two 1D tensors(reduce_sum and reduce_square_sum) of same type,
+        # so it may not matter to return only a single tensor here
+        return reduce_op_infer(x, None, False)  # TODO: return a list of two tensors
+
+
+class BNTrainingUpdate(Operator):
+    def __init__(self):
+        super().__init__("BNTrainingUpdate")
+
+    def infer_result(
+        self,
+        x,
+        sum,
+        sum_idx,
+        square_sum,
+        square_idx,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        eps,
+        momentum,
+    ):
+        _, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        channel_size = x_shape[1]
+        output_y = torch.empty(
+            x_shape, dtype=x_dtype, memory_format=get_memory_format(x)
+        )
+        output_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_mean = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        output_batch_var = torch.empty(
+            [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
+        )
+        return [output_y,output_mean,output_var,output_batch_mean,output_batch_var]
+
+
+class TileWithAxis(Operator):
+    def __init__(self):
+        super().__init__("TileWithAxis")
+        self.torch_op = aten.repeat_interleave.self_int
+
+
+class TensorScatterUpdate(Operator):
+    def __init__(self):
+        super().__init__("TensorScatterUpdate")
+
+    def infer_result(self, x, indices, updates):
+        _, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        _, indices_shape, _, indices_dtype = get_fake_tensor_meta_val(indices)
+        _, updates_shape, _, _ = get_fake_tensor_meta_val(updates)
+        assert indices_dtype in (torch.int32, torch.int64)
+
+        # following shape constraints are from:
+        # https://tensorflow.google.cn/versions/r2.15/api_docs/
+        # python/tf/tensor_scatter_nd_update
+        assert indices.dim() >= 2
+        index_depth = indices_shape[-1]
+        batch_shape = indices_shape[:-1]
+        assert index_depth <= x_dim
+        inner_shape = x_shape[index_depth:]
+        assert updates_shape == batch_shape + inner_shape
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

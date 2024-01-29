@@ -12,9 +12,7 @@ from ..common.utils import (
 
 class OpModule(torch.nn.Module):
     def forward(self, inputs, device="cpu"):
-        pool = torch.nn.AdaptiveAvgPool2d((1, 1))
-        pool.to(device)
-        res_default = pool(inputs)
+        res_default = torch.ops.aten._adaptive_avg_pool2d.default(inputs,(1, 1))
         return res_default
 
 
