@@ -18,7 +18,7 @@ repo=$(cd "$self" && git rev-parse --show-toplevel)
 
 # Download clangd-tidy scripts.
 [ -d "$self/clangd-tidy" ] ||
-    git -c advice.detachedHead=false clone --depth 1 -b v0.1.0 https://github.com/lljbash/clangd-tidy.git "$self/clangd-tidy"
+    git -c advice.detachedHead=false clone --depth 1 -b v0.1.2 https://github.com/lljbash/clangd-tidy.git "$self/clangd-tidy"
 
 # Collect source files and run tidy.
 (cd "$repo/dipu" &&
