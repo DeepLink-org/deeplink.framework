@@ -23,7 +23,7 @@ using ascend_deviceId = int32_t;
 thread_local bool setDevFlag = false;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-volatile deviceId_t mainThreadDeviceIdx = -1;
+std::atomic_int mainThreadDeviceIdx(-1);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::thread::id main_threadid = std::this_thread::get_id();
@@ -34,8 +34,9 @@ void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
   if (!setDevFlag) {
-    setDevice(mainThreadDeviceIdx == -1 ? static_cast<deviceId_t>(0)
-                                        : mainThreadDeviceIdx);
+    setDevice(mainThreadDeviceIdx == -1
+                  ? static_cast<deviceId_t>(0)
+                  : static_cast<deviceId_t>(mainThreadDeviceIdx));
   }
   ascend_deviceId devId_ = -1;
   DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
