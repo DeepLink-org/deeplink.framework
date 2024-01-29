@@ -54,27 +54,6 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
                    ? optional_tensor.value().to("cpu")
                    : at::Tensor();
       });
-  // printf("========== customfallbackfunctions to_cpu: 1\n");
-  // for (const c10::optional<at::Tensor>& tensor : indices) {
-  // printf("========== customfallbackfunctions to_cpu for: 0\n");
-  //   at::Tensor foobar;
-  // printf("========== customfallbackfunctions to_cpu for: 1\n");
-  //   if (tensor.has_value()) {
-  // printf("========== customfallbackfunctions to_cpu for: 1.1\n");
-  //     const at::Tensor & foo = tensor.value();
-  // std::cout << dumpArg(foo) << std::endl;
-  // printf("========== customfallbackfunctions to_cpu for: 1.2\n");
-  //     foobar = foo.to("cpu");
-  // printf("========== customfallbackfunctions to_cpu for: 1.3\n");
-  //   } else {
-  // printf("========== customfallbackfunctions to_cpu for: 1.4\n");
-  //     foobar = at::Tensor();
-  // printf("========== customfallbackfunctions to_cpu for: 1.5\n");
-  //   }
-  // printf("========== customfallbackfunctions to_cpu for: 1.6\n");
-  //   indices_cpu.emplace_back(foobar);
-  // }
-  // printf("========== customfallbackfunctions to_cpu: 2\n");
   return indices_cpu;
 }
 static at::Tensor& custom_fallback_dipu_index_tensor_out(
@@ -96,16 +75,11 @@ static at::Tensor& custom_fallback_dipu__index_put_impl_(
   DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=_index_put_impl_"
                            << std::endl);
 
-  // printf("========== custom_fallback index_put_impl_: 0\n");
   auto indices_cpu = to_cpu(indices);
-  // printf("========== custom_fallback index_put_impl_: 1\n");
   at::Tensor self_cpu = self.cpu();
-  // printf("========== custom_fallback index_put_impl_: 2\n");
   at::native::_index_put_impl_(self_cpu, indices_cpu, values.cpu(), accumulate,
                                unsafe);
-  // printf("========== custom_fallback index_put_impl_: 3\n");
   self.copy_(self_cpu);
-  // printf("========== custom_fallback index_put_impl_: 4\n");
 
   return self;
 }
