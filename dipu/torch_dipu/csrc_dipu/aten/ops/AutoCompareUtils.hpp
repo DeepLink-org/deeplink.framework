@@ -29,7 +29,7 @@ inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
   return out;
 }
 
-inline std::string tensor_to_one_line_string(const at::Tensor& tensor) {
+inline std::string cpu_tensor_to_one_line_string(const at::Tensor& tensor) {
   /*
    * This function retrieves the built-in string representation of the input
    * tensor from PyTorch, and then simply flattens it into a single-line format.
@@ -37,6 +37,12 @@ inline std::string tensor_to_one_line_string(const at::Tensor& tensor) {
    * generated from PyTorch.
    */
   std::ostringstream stream;
+  if (!tensor.is_cpu()) {
+    stream << "Printing error: value printing is only supported for a cpu "
+              "tensor, but got a "
+           << tensor.device() << " tensor";
+    return stream.str();
+  }
   stream << tensor;
   std::string raw_string = stream.str();
   std::string result_string = "(";
@@ -117,7 +123,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                << "First " << printing_count << " values or fewer:"
                << "\n"
                << std::setw(indentation + 2) << ""
-               << tensor_to_one_line_string(
+               << cpu_tensor_to_one_line_string(
                       tensor_cpu.flatten().slice(0, 0, printing_count))
                << "\n"
                << std::setw(indentation) << ""
@@ -129,7 +135,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                << "First " << printing_count << " values or fewer:"
                << "\n"
                << std::setw(indentation + 2) << ""
-               << tensor_to_one_line_string(
+               << cpu_tensor_to_one_line_string(
                       tensor_cpu_from_device.flatten().slice(0, 0,
                                                              printing_count));
       }
