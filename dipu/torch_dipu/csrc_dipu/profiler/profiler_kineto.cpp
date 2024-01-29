@@ -88,8 +88,9 @@ auto parseArgData(const std::vector<op_input_t>& input_shapes,
     c10::visit(c10::overloaded(
                    [&](const TensorMetadata& t) {
                      shapes[i] = t.sizes_;
-                     dtypes[i] =
-                         std::string(scalarTypeToTypeMeta(t.dtype_).name());
+                     dtypes[i] = std::string(
+                         scalarTypeToTypeMeta(t.dtype_).name().data(),
+                         scalarTypeToTypeMeta(t.dtype_).name().size());
                    },
                    [&](const std::vector<TensorMetadata>&) {
                      dtypes[i] = "TensorList";

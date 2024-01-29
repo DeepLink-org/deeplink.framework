@@ -75,16 +75,17 @@ constexpr std::array<TagToIOType, tagCount> tag_map = {{
 
 constexpr bool allTagsMapped(int idx = 0) {
   return tag_map[idx].tag == DIPUInputOutputEncoder::Tag::TERMINATOR ||
-         ((idx == (int)tag_map[idx].tag) && allTagsMapped(idx + 1));
+         ((idx == static_cast<int>(tag_map[idx].tag)) &&
+          allTagsMapped(idx + 1));
 }
 static_assert(allTagsMapped(), "tag_map is out of order");
 
 constexpr DIPUInputOutputEncoder::IOType tagToIOType(
     DIPUInputOutputEncoder::Tag tag) {
-  return tag_map[(int)tag].io_type;
+  return tag_map[static_cast<int>(tag)].io_type;
 }
 
-static constexpr int32_t kScalarListLengthLimit = 30;
+constexpr int32_t kScalarListLengthLimit = 30;
 
 bool dipu_get_record_concrete_inputs_enabled() {
 #if DIPU_TORCH_VERSION == 20000
@@ -153,7 +154,7 @@ bool DIPUInputOutputEncoder::isSupportedScalarList(
     return false;
   }
   auto list_ref = list_candidate.toListRef();
-  if (C10_UNLIKELY(list_ref.size() == 0)) {
+  if (C10_UNLIKELY(list_ref.empty())) {
     return true;
   }
   if (C10_UNLIKELY(!list_ref[0].isScalar())) {
@@ -165,13 +166,11 @@ bool DIPUInputOutputEncoder::isSupportedScalarList(
   return true;
 }
 
-// This function returns a lambda which is is a custom-iterator-like getter.
-// Each invocation of the lambda returns input values for one op.
-//
 // io_type is used to filter the ivalues between 'Shapes' and 'Concrete Args'.
 // Shapes are used to represent the shapes of tensors. We save only the shapes
 //   of the tensors because tensors can be large.
 // Concrete args are separated to clarify that they are the actual values.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto DIPUInputOutputEncoder::getIValueGenerator(const IOType& io_type) {
   return [this, tag_it = tags_.begin(),
           tensor_metadata_it = tensor_metadata_.begin(),
@@ -197,7 +196,7 @@ auto DIPUInputOutputEncoder::getIValueGenerator(const IOType& io_type) {
       if (io_type == tagToIOType(tag)) {
         out.push_back(std::move(input));
       } else {
-        out.push_back(c10::nullopt);
+        out.emplace_back(c10::nullopt);
       }
     };
 
@@ -216,7 +215,8 @@ auto DIPUInputOutputEncoder::getIValueGenerator(const IOType& io_type) {
               found_undefined = true;
               continue;
             }
-            TORCH_INTERNAL_ASSERT(*tag_it == Tag::Tensor, (int)(*tag_it));
+            TORCH_INTERNAL_ASSERT(*tag_it == Tag::Tensor,
+                                  static_cast<int>(*tag_it));
             arg.emplace_back(decode_tensor());
           }
           if (found_undefined) {

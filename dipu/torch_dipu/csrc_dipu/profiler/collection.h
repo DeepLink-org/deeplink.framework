@@ -36,7 +36,7 @@ class DIPUInputOutputEncoder final {
 
   auto getInputShapeGenerator();
   auto getConcreteInputGenerator();
-  bool isSupportedScalarList(const c10::IValue& list_candidate);
+  static bool isSupportedScalarList(const c10::IValue& list_candidate);
 
   void clear();
 
