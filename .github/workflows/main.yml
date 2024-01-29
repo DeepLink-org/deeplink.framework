@@ -385,6 +385,31 @@ jobs:
           && source ${ENV_PATH}/dipu_env  \
           && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target
 
+  Build-Cuda-Pt211:
+    name: Build-dipu-cuda-pt211
+    needs: [Tidy-Cuda]
+    runs-on: tps-sco-ci
+    steps:
+      - name: Build dipu
+        run: |
+          set -e
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu && source ${ENV_PATH}/dipu_env 2.1.1
+          && bash scripts/ci/nv/ci_nv_script.sh build_dipu " || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+
+
+  Test-Cuda-Pt211:
+    name: Test-dipu-cuda-pt211
+    needs: [Build-Cuda-Pt211]
+    runs-on: tps-sco-ci
+    steps:
+      - name: Run-test
+        run: |
+          set -e
+          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt211/dipu \
+          && source ${ENV_PATH}/dipu_env 2.1.1 \
+          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt211
+
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
     needs: [Tidy-Cuda]
