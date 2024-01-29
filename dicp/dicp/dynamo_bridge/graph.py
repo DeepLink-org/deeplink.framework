@@ -61,12 +61,15 @@ class GraphTransformer:
             else:
                 continue
             if 'val' in n.meta and test_infer:
-                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n.meta['val'], fake_value) 
+                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n.meta['val'], fake_value)
                 for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
-                    assert meta_i.size() == fv_i.size(), "check infer size failed"
-                    assert meta_i.dtype == fv_i.dtype, "check infer dtype failed"
-                    assert meta_i.stride() == fv_i.stride(), "check infer stride failed"
-                    assert meta_i.storage_offset() == fv_i.storage_offset(), "check infer storage offset failed"
+                    if not isinstance(fv_i, FakeTensor):
+                        continue
+                    log_info = f"target: {n.target}, meta_i: {meta_i}, fv_i: {fv_i}"
+                    assert meta_i.size() == fv_i.size(), f"check infer size failed, {log_info}"
+                    assert meta_i.dtype == fv_i.dtype, f"check infer dtype failed, {log_info}"
+                    assert meta_i.stride() == fv_i.stride(), f"check infer stride failed, {log_info}"
+                    assert meta_i.storage_offset() == fv_i.storage_offset(), f"check infer storage offset failed, {log_info}"
             if 'val' not in n.meta:
                 n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
