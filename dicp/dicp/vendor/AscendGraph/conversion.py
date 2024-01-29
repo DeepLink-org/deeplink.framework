@@ -600,9 +600,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.full.default)
     def full(self, dims, value, dtype=torch.float32, layout=torch.strided,
              device='cpu', pin_memory=False, memory_format=torch.preserve_format):
-        if len(dims) == 0:
-            dims = [1]
         torch_dtype = dtype if dtype else torch.get_default_dtype()
+        # If len(dims) == 0, it means this is a scalar tensor with a dimension of 0,
+        # and it can directly return a const node to construct a scalar tensor.
+        if len(dims) == 0:
+            return self.get_const_proxy(value, torch_dtype)
+
         dims = [dim.node.meta['val'] if isinstance(dim, torch.fx.proxy.Proxy) and hasattr(
             dim.node, 'meta') else dim for dim in dims]
         if isinstance(value, torch.fx.proxy.Proxy) and hasattr(value.node, 'meta'):
@@ -1483,3 +1486,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             indices_expanded = indices
         return self.get_proxy(ascend_op.ScatterElements,
                               (operand, indices_expanded, src, dim))
+
+    @register_conversion(torch.ops.aten.scalar_tensor.default)
+    def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
+        return self.get_const_proxy(x, dtype)
