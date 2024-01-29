@@ -8,6 +8,7 @@
 #include <ATen/ops/abs.h>
 #include <ATen/ops/allclose.h>
 #include <c10/util/ArrayRef.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 #include "csrc_dipu/runtime/device/deviceapis.h"
@@ -132,9 +133,10 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
                       tensor_cpu_from_device.flatten().slice(0, 0,
                                                              printing_count));
       }
-    } catch (...) {
+    } catch (const c10::Error& e) {
+      // Don't let comparison error abort model running with autocompare enabled
       stream << std::setw(indentation) << ""
-             << "compare_error: not_close";
+             << "not_close comparison error: " << e.what_without_backtrace();
     }
   } else {
     if (tensor_cpu.defined() != tensor_device.defined()) {
