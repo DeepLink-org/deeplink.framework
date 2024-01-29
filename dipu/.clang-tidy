@@ -25,7 +25,7 @@ Checks: '
   hicpp-avoid-goto,
   hicpp-exception-baseclass,
   misc-header-include-cycle,
-  misc-include-cleaner,
+  -misc-include-cleaner,
   misc-static-assert,
   misc-unused-alias-decls,
   misc-unused-using-decls,
@@ -40,8 +40,7 @@ Checks: '
   -readability-identifier-length,
   -readability-identifier-naming,
   -readability-qualified-auto,
-  -readability-static-accessed-through-instance',
-  -unused-includes
+  -readability-static-accessed-through-instance'
   # TODO: #446 - enable readability-identifier-naming
   # TODO(c++17) - enable modernize-concat-nested-namespaces
   # TODO(c++17) - enable modernize-use-nodiscard?
@@ -50,7 +49,7 @@ Checks: '
   # TODO(clang17) - enable readability-static-accessed-through-instance
   # TODO(clang17) - enable modernize-type-traits
   # TODO(clang17) - enable performance-avoid-endl
-  # TODO(clang17) - enable unused-includes
+  # TODO(clang17) - enable misc-include-cleaner
 AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'
