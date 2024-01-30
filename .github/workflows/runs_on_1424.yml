@@ -16,7 +16,7 @@ concurrency:
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
-  ENV_PATH: '/mnt/cache/share/platform/cienv'
+  CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_dev' }}
   CLUSTER_V100: SH1424
   REPO: ${{ github.event.repository.name }}
   ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
@@ -73,7 +73,7 @@ jobs:
     steps:
       - name: Build dipu
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -e
           export USE_COVERAGE=ON
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
@@ -90,7 +90,7 @@ jobs:
     steps:
       - name: clang-tidy
         run: |
-          ssh $CUDA_CLUSTER """
+          ssh ${CLUSTER_V100} """
           set -eo pipefail
           source ~/.bashrc
           cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda &&
@@ -108,7 +108,7 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -ex
           export USE_COVERAGE=ON
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
@@ -121,7 +121,7 @@ jobs:
       - name: increment coverage check
         if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
           rm -rf scripts
@@ -139,7 +139,7 @@ jobs:
     steps:
       - name: build some env
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
@@ -152,7 +152,7 @@ jobs:
           """
       - name: run-one-iter-for-tradition
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source scripts/ci/nv/ci_nv_env.sh
             basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
@@ -164,7 +164,7 @@ jobs:
           """
       - name: run-one-iter-for-llm
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source scripts/ci/nv/ci_nv_env.sh
             basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
@@ -177,7 +177,7 @@ jobs:
       - name: Perform cleanup one iter data
         if: always()
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
               set -ex
               echo "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
@@ -198,7 +198,7 @@ jobs:
     steps:
       - name: Build dipu diopi-latest-target
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
@@ -215,7 +215,7 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          ssh ${CUDA_CLUSTER} """
+          ssh ${CLUSTER_V100} """
           set -ex
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
           source scripts/ci/nv/ci_nv_env.sh
