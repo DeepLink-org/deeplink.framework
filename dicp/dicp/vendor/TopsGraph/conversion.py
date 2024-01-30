@@ -7,6 +7,7 @@ from torch.fx import Proxy
 import operator
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
+from dicp.dynamo_bridge.utils import get_cast_dtype
 from typing import (
     Optional,
 )
@@ -76,6 +77,17 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
 
+    def binary_dtype_cast(self, a: Proxy, b: Proxy, cast_type: torch.dtype = None):
+        a_dtype = a.node.meta["val"].dtype
+        b_dtype = b.node.meta["val"].dtype
+        if a_dtype != b_dtype:
+            cast_type = get_cast_dtype(a_dtype, b_dtype) if not cast_type else cast_type
+            if a_dtype != cast_type:
+                a = self.get_proxy(tops_op.Convert, (a, cast_type))
+            if b_dtype != cast_type:
+                b = self.get_proxy(tops_op.Convert, (b, cast_type))
+        return a, b
+
     @register_conversion(aten.add.Tensor)
     def Add(self, x, y, alpha: Optional[Number] = 1):
         y_node = y.node if isinstance(y, torch.fx.proxy.Proxy) else y
@@ -110,6 +122,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
             if hasattr(a.node, "meta") and 'val' in a.node.meta:
                 if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat):
                     return tops_op.ComplexMul(a, b)
+        if isinstance(a, Proxy) and isinstance(b, Proxy):
+            a, b = self.binary_dtype_cast(a, b, fx_traceback.get_current_meta()['val'].dtype)
         return tops_op.Mul(a, b)
 
     @register_conversion(aten.mul.Scalar)
@@ -313,16 +327,20 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.ReduceMean, (a, dim, keepdim))
 
     @register_conversion(aten.lt.Tensor)
-    def Less(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Less, args, kwargs)
+    def Less(self, a, b):
+        if isinstance(a, Proxy) and isinstance(b, Proxy):
+            a, b = self.binary_dtype_cast(a, b)
+        return self.get_proxy(tops_op.Less, (a, b))
 
     @register_conversion(aten.le.Scalar)
     def LessEqual(self, *args, **kwargs):
         return self.get_proxy(tops_op.LessEqual, args, kwargs)
 
     @register_conversion([aten.eq.Tensor, aten.eq.Scalar])
-    def Equal(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Equal, args, kwargs)
+    def Equal(self, a, b):
+        if isinstance(a, Proxy) and isinstance(b, Proxy):
+            a, b = self.binary_dtype_cast(a, b)
+        return self.get_proxy(tops_op.Equal, (a, b))
 
     @register_conversion(aten.ne.Scalar)
     def NotEqual(self, a, b):
@@ -463,8 +481,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.FullLike, args, kwargs)
 
     @register_conversion(aten.maximum.default)
-    def Max(self, *args, **kwargs):
-        return self.get_proxy(tops_op.Max, args, kwargs)
+    def Max(self, a, b):
+        if isinstance(a, Proxy) and isinstance(b, Proxy):
+            a, b = self.binary_dtype_cast(a, b, fx_traceback.get_current_meta()['val'].dtype)
+        return self.get_proxy(tops_op.Max, (a, b))
 
     @register_conversion([aten.pow.Tensor_Scalar, aten.pow.Tensor_Tensor])
     def Pow(self, *args, **kwargs):
@@ -606,6 +626,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def Addmm(self, x, mat1, mat2):
         dot = self.get_proxy(tops_op.Dot, (mat1, mat2))
         return self.get_proxy(tops_op.Add, (x, dot))
+
 
 # Patterns
 tops_patterns = PatternMatcherPass()

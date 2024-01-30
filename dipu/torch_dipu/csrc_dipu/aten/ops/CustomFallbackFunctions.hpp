@@ -49,8 +49,10 @@ static c10::List<c10::optional<at::Tensor>> to_cpu(
   // this index(), in this case, indices[0] is an undefinedTensor.
   std::transform(
       indices.begin(), indices.end(), std::back_inserter(indices_cpu),
-      [](const c10::optional<at::Tensor>& tensor) {
-        return tensor.has_value() ? tensor.value().to("cpu") : at::Tensor();
+      [](const c10::optional<at::Tensor>& optional_tensor) {
+        return optional_tensor.has_value() && optional_tensor.value().defined()
+                   ? optional_tensor.value().to("cpu")
+                   : at::Tensor();
       });
   return indices_cpu;
 }
@@ -410,7 +412,9 @@ static at::Tensor custom_fallback_dipu_mm(const at::Tensor& self,
                                           const at::Tensor& mat2) {
   auto self_cpu = to_cpu_with_half_to_float(self);
   auto mat2_cpu = to_cpu_with_half_to_float(mat2);
-  return at::mm(self_cpu, mat2_cpu);
+  auto out_cpu = at::mm(self_cpu, mat2_cpu);
+  auto out = out_cpu.to(self.options());
+  return out;
 }
 
 static at::Tensor& custom_fallback_dipu_mm_out(const at::Tensor& self,
@@ -431,9 +435,6 @@ static at::Tensor custom_fallback_dipu_linear(
   auto weight_cpu = to_cpu_with_half_to_float(weight);
   c10::optional<at::Tensor> bias_cpu = c10::nullopt;
 
-  at::Tensor out;
-  at::Tensor out_cpu;
-
   if (bias.has_value() && bias.value().defined()) {
     if (bias.value().options().dtype_opt()->toScalarType() ==
         at::ScalarType::Half) {
@@ -443,9 +444,8 @@ static at::Tensor custom_fallback_dipu_linear(
     }
   }
 
-  out_cpu = at::linear(input_cpu, weight_cpu, bias_cpu);
-  out = out_cpu.to(input.device())
-            .to(input.options().dtype_opt()->toScalarType());
+  at::Tensor out_cpu = at::linear(input_cpu, weight_cpu, bias_cpu);
+  at::Tensor out = out_cpu.to(input.options());
   return out;
 }
 
