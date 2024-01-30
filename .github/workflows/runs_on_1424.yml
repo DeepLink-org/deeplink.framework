@@ -19,8 +19,8 @@ env:
   CLUSTER_V100: SH1424
 
 jobs:
-  Checkout-code:
-    name: Checkout code
+  Rsync:
+    name: Rsync code
     runs-on: github-poc-ci
     steps:
       - name: clone repo
