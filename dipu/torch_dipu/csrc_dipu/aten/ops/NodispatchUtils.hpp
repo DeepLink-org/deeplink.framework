@@ -6,10 +6,17 @@
 
 #pragma once
 
+#include <ATen/NamedTensorUtils.h>
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/TensorBody.h>
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+#include <c10/core/Layout.h>
 #include <c10/core/MemoryFormat.h>
+#include <c10/core/ScalarType.h>
 #include <c10/core/ScalarTypeToTypeMeta.h>
+#include <c10/core/TensorOptions.h>
+#include <c10/util/Exception.h>
 #include <c10/util/Optional.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
@@ -23,20 +30,11 @@ namespace nodispatch {
 inline at::Tensor empty(
     at::IntArrayRef size, at::TensorOptions options = {},
     c10::optional<at::MemoryFormat> memory_format = c10::nullopt) {
-  if (c10::device_or_default(options.device_opt()).type() ==
-      c10::DeviceType::CPU) {
-    return dipu_aten::empty_cpu(
-        size, c10::optTypeMetaToScalarType(options.dtype_opt()),
-        options.layout_opt(), options.device_opt(), options.pinned_memory_opt(),
-        c10::impl::check_tensor_options_and_extract_memory_format(
-            options, memory_format));
-  } else {
-    return dipu_aten::empty(
-        size, c10::optTypeMetaToScalarType(options.dtype_opt()),
-        options.layout_opt(), options.device_opt(), options.pinned_memory_opt(),
-        c10::impl::check_tensor_options_and_extract_memory_format(
-            options, memory_format));
-  }
+  return dipu_aten::empty(
+      size, c10::optTypeMetaToScalarType(options.dtype_opt()),
+      options.layout_opt(), options.device_opt(), options.pinned_memory_opt(),
+      c10::impl::check_tensor_options_and_extract_memory_format(options,
+                                                                memory_format));
 }
 
 // The code that calls this overloaded function is all for allocating CPU memory
@@ -72,7 +70,7 @@ inline at::Tensor empty_like(
 
   at::Tensor result;
 
-  // TODO(liuweiyu): need to implement nodispatch::empty_stride
+  // TODO(liuweiyu): need to implement nodispatch::empty_strided
   if (memory_format == at::MemoryFormat::Preserve) {
     result =
         empty(self.sizes(), options.memory_format(self.suggest_memory_format()),
