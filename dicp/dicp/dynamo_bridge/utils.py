@@ -29,6 +29,8 @@ def copy_gm_to_cpu(gm: torch.fx.GraphModule):
 
 
 def get_memory_format(tensor):
+    if not isinstance(tensor, torch.Tensor):
+        return torch.contiguous_format
     if tensor.is_contiguous(memory_format=torch.channels_last):
         return torch.channels_last
     elif tensor.is_contiguous(memory_format=torch.channels_last_3d):

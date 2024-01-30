@@ -149,12 +149,13 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
       {"FLOAT", ge::DataType::DT_FLOAT}, {"FLOAT16", ge::DataType::DT_FLOAT16},
       {"INT32", ge::DataType::DT_INT32}, {"INT64", ge::DataType::DT_INT64},
       {"BOOL", ge::DataType::DT_BOOL},   {"UINT8", ge::DataType::DT_UINT8},
-      {"BF16", ge::DataType::DT_BF16},
+      {"BF16", ge::DataType::DT_BF16},   {"INT8", ge::DataType::DT_INT8},
   };
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];
   }
-  throw std::runtime_error("invalid ascend data type!");
+  throw std::runtime_error(std::string("invalid ascend data type: ") +
+                           data_type);
 }
 
 template <typename T>
@@ -274,7 +275,7 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
   if (node.contains("attrs")) {
     for (const auto& attr : node["attrs"]) {
       auto attr_name = attr["name"].get<std::string>();
-      auto value_type = attr["value_type"];
+      auto value_type = attr["value_type"].get<std::string>();
       if (value_type == "str") {
         op.SetAttr(attr_name, attr["value"].get<std::string>());
       } else if (value_type == "dtype_str") {
@@ -331,10 +332,12 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
               genTensorWithData<int64_t>(dims, format, data_type, value);
           op.SetAttr(attr_name.c_str(), tensor);
         } else {
-          throw std::runtime_error("invalid cpp data type!");
+          throw std::runtime_error(std::string("invalid cpp data type: ") +
+                                   cpp_data_type);
         }
       } else {
-        throw std::runtime_error("invalid attr value type!");
+        throw std::runtime_error(std::string("invalid attr value type: ") +
+                                 value_type);
       }
     }
   }

@@ -1509,3 +1509,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.scalar_tensor.default)
     def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
         return self.get_const_proxy(x, dtype)
+
+    @register_conversion(torch.ops.aten.select_scatter.default)
+    def select_scatter(self, operand, src, dim, index):
+        unsqueezed_src_proxy = self.get_proxy(ascend_op.Unsqueeze, (src, [dim]))
+        unsqueezed_src_shape_proxy = self.get_proxy(ascend_op.Shape, (unsqueezed_src_proxy, ))
+        index_proxy = self.get_const_proxy(index, torch.int32)
+        scatter_index_proxy = self.get_proxy(ascend_op.BroadcastTo,
+                                             (index_proxy, unsqueezed_src_shape_proxy))
+        return self.get_proxy(ascend_op.ScatterElements,
+                              (operand, scatter_index_proxy, unsqueezed_src_proxy, dim))
