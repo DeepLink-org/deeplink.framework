@@ -846,6 +846,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # indices in torch.ops.aten.index_put.default, we use broadcast and
         # stack to construct param 'indices' in tf.tensor_scatter_nd_update
         x_shape = list(x.node.meta['val'].shape)
+
+        # When the element type of indices is bool, the masked_fill operator
+        # should be used to achieve this. Currently, only indices with a length
+        # of 1 are supported.
+        if any([index.node.meta['val'].dtype in [torch.bool]
+                for index in indices if index is not None]):
+            assert len(indices) == 1
+            index = indices[0]
+            index_shape = list(index.node.meta['val'].shape)
+            if len(index_shape) == len(x_shape):
+                return self.masked_fill(x, index, values)
+            reshape_shape = index_shape + [1] * \
+                (len(x_shape) - len(index_shape))
+            reshape_op = self.get_const_proxy(reshape_shape, torch.int32)
+            index = self.get_proxy(ascend_op.Reshape, (index, reshape_op))
+            return self.masked_fill(x, index, values)
+
         stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
             self.compute_stacked_indices(indices, x.node.meta['val'].shape)
         values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:] # batch_shape + inner_shape
