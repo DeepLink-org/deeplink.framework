@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   NFS_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   ENV_PATH: '/mnt/cache/share/platform/cienv'
   CLUSTER_V100: SH1424
@@ -75,11 +76,11 @@ jobs:
           ssh ${CUDA_CLUSTER} """
           set -e
           export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Tidy-Cuda:
@@ -110,11 +111,11 @@ jobs:
           ssh ${CUDA_CLUSTER} """
           set -ex
           export USE_COVERAGE=ON
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
           if [ "${ALL_COVERAGE}" = "ON" ]; then
-          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
+          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
           fi
           """
       - name: increment coverage check
@@ -122,9 +123,9 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -e
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/
           rm -rf scripts
-          ln -s ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
+          ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
           source /mnt/cache/share/platform/env/pt2.0_diopi
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
@@ -140,9 +141,9 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
           source scripts/ci/nv/ci_nv_env.sh
-          basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+          basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
           export PYTHONPATH=\${basic_path}/mmcv:\$PYTHONPATH
           export PYTHONPATH=\$(pwd):\$PYTHONPATH
@@ -152,9 +153,9 @@ jobs:
       - name: run-one-iter-for-tradition
         run: |
           ssh ${CUDA_CLUSTER} """
-            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source scripts/ci/nv/ci_nv_env.sh
-            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+            basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
             source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
             export PYTHONPATH=\$(pwd):\$PYTHONPATH
             cd mmlab_pack
@@ -164,9 +165,9 @@ jobs:
       - name: run-one-iter-for-llm
         run: |
           ssh ${CUDA_CLUSTER} """
-            cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source scripts/ci/nv/ci_nv_env.sh
-            basic_path=${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+            basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
             source scripts/ci/ci_one_iter.sh export_pythonpath_cuda \${basic_path}
             export PYTHONPATH=\$(pwd):\$PYTHONPATH
             cd mmlab_pack
@@ -180,7 +181,7 @@ jobs:
               set -ex
               echo "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
               scancel -n "${GITHUB_RUN_NUMBER}_${GITHUB_JOB}"
-              cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
+              cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
               rm -rf one_iter_data
               touch one_iter_data # 用于占位，防止创建新的 one_iter_data 文件夹
           """
@@ -199,10 +200,10 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/nv/ci_nv_env.sh
           srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
 
   Test-Cuda-Latest-Target:
@@ -216,8 +217,8 @@ jobs:
         run: |
           ssh ${CUDA_CLUSTER} """
           set -ex
-          cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
           source scripts/ci/nv/ci_nv_env.sh
-          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
-          || ( cd ${CUDA_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:${GPU_REQUESTS} --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
           """
