@@ -18,7 +18,10 @@ namespace devapis {
 using ascend_deviceId = int32_t;
 thread_local bool setDevFlag = false;
 
-void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
+void initializeVendor() {
+  DIPU_CALLACLRT(aclInit(nullptr));
+  DIPU_CALLACLRT(aclrtSetDeviceSatMode(ACL_RT_OVERFLOW_MODE_INFNAN));
+}
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
