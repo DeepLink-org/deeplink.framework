@@ -2,10 +2,8 @@
 Checks: '
   bugprone-*,
   -bugprone-easily-swappable-parameters,
-  -bugprone-empty-catch,
   -bugprone-reserved-identifier,
   -bugprone-signed-char-misuse,
-  -bugprone-switch-missing-default-case,
   clang-analyzer-*,
   clang-diagnostic-*,
   cppcoreguidelines-*,
@@ -25,31 +23,23 @@ Checks: '
   hicpp-avoid-goto,
   hicpp-exception-baseclass,
   misc-header-include-cycle,
-  -misc-include-cleaner,
+  misc-include-cleaner,
   misc-static-assert,
   misc-unused-alias-decls,
   misc-unused-using-decls,
   modernize-*,
   -modernize-concat-nested-namespaces,
-  -modernize-type-traits,
   -modernize-use-nodiscard,
   -modernize-use-trailing-return-type,
   performance-*,
-  -performance-avoid-endl,
   readability-*,
   -readability-identifier-length,
   -readability-identifier-naming,
   -readability-qualified-auto,
   -readability-static-accessed-through-instance'
   # TODO: #446 - enable readability-identifier-naming
-  # TODO(c++17) - enable modernize-concat-nested-namespaces
-  # TODO(c++17) - enable modernize-use-nodiscard?
-  # TODO(clang17) - enable bugprone-empty-catch
-  # TODO(clang17) - enable bugprone-switch-missing-default-case
-  # TODO(clang17) - enable readability-static-accessed-through-instance
-  # TODO(clang17) - enable modernize-type-traits
-  # TODO(clang17) - enable performance-avoid-endl
-  # TODO(clang17) - enable misc-include-cleaner
+  # TODO: C++17 - enable modernize-concat-nested-namespaces
+  # TODO: C++17 - enable modernize-use-nodiscard?
 AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: '.*'

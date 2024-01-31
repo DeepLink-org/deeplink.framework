@@ -1,5 +1,7 @@
 CompileFlags:
   Remove: -fabi*
-Diagnostics:
-  UnusedIncludes: None # Remove it when ready
-  MissingIncludes: None # Remove it when ready
+# Diagnostics:
+  # Available in clangd-14
+  # UnusedIncludes: Strict
+  # Require clangd-17
+  # MissingIncludes: Strict

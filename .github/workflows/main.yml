@@ -257,14 +257,10 @@ jobs:
     needs: [Build-Cuda]
     runs-on: tps-sco-ci
     steps:
-      - name: Check SupportedDiopiFunctions.txt
+      - name: clang-tidy
         run: |
-          cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda &&
-            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt ||
-            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
-      - name: Run clang-tidy
-        run: |
-          srun --job-name=$GITHUB_JOB bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
+          set -eo pipefail
+          srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh "
 
   Test-Cuda:
     name: Test-dipu-cuda
@@ -322,7 +318,7 @@ jobs:
           set -e
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
           rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的 one_iter_data 文件夹
+          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
       - name: Check for failure
         if: ${{ failure() }}
         run: exit 1
