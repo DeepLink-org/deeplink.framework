@@ -34,22 +34,30 @@ class DIPUInputOutputEncoder final {
  public:
   void push(c10::ArrayRef<const c10::IValue> values);
 
-  // Used during post-processing to create vectors for shapes and dtype.
-  auto getNextShapesAndDtypes();
+  auto getInputShapeGenerator();
+  auto getConcreteInputGenerator();
+  static bool isSupportedScalarList(const c10::IValue& list_candidate);
 
   void clear();
 
- private:
   enum class Tag {
     Tensor = 0,
     UndefinedTensor,
     TensorListBegin,  // TODO(caikun-pjlab): generalize to other lists.
+    ScalarList,
     Scalar,
     Other,
     TERMINATOR
   };
 
+  enum class IOType { Shapes, ConcreteInputs, None };
+
+ private:
   void push(const at::Tensor& t);
+
+  // Implementation detail for getInputShapeGenerator and
+  // getConcreteInputGenerator
+  auto getIValueGenerator(const IOType& io_type);
 
   torch::profiler::impl::AppendOnlyList<
       Tag, torch::profiler::impl::IO_ENCODER_DEFAULT_BLOCK_SIZE>
