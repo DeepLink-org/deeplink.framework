@@ -46,7 +46,6 @@ diopi_wrapper_file_template_content = """// autogened file
 #include <diopi/functions.h>
 
 #include "csrc_dipu/aten/RegisterDIPU.hpp"
-#include "csrc_dipu/aten/ops/AutoCompareUtils.hpp"
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
