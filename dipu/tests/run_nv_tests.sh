@@ -8,7 +8,8 @@ function run_dipu_tests {
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
 
   ${CDIR}/python/run_tests.sh
-
+  # the env should guanartee test folder exist in ${PYTORCH_DIR}, if you ${PYTORCH_DIR} is a torch install path,
+  # it may only has torch subdir but not test,
   echo "fill_.Scalar" >> .dipu_force_fallback_op_list.config
   run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v -f TestTensorCreationDIPU # --locals -f
   echo "" >  .dipu_force_fallback_op_list.config
