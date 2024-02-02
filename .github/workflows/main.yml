@@ -13,9 +13,6 @@ env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
   CAMB_CLUSTER: CAMB
-  # now camb no-longer need torch compiling, but use this env in ci_camb_env.sh
-  # to support multi version torch.  
-  CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/platform/dep/DIOPI_pytorch'
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd' }}
   CUDA_CLUSTER: SCO

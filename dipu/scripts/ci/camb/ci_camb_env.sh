@@ -14,9 +14,11 @@ export DIOPI_ROOT=$(pwd)/third_party/DIOPI/impl/lib/
 export DIPU_ROOT=$(pwd)/torch_dipu
 export LD_LIBRARY_PATH=$DIPU_ROOT:$LD_LIBRARY_PATH
 
+CAMB_TORCH_BASE_DIR=/mnt/lustre/share/platform/dep/DIOPI_pytorch
+
 TorchV="${1:-2.0}"
 export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/pytorch${TorchV}
-echo "pytorch dir: \${PYTORCH_DIR}"
+echo "pytorch dir:"${PYTORCH_DIR}
 export PYTHONPATH=${CAMB_TORCH_BASE_DIR}/pytorch${TorchV}:${PYTHONPATH}
 
 export PATH=${GCC_ROOT}/bin:${CONDA_ROOT}/envs/dipu_poc/bin:${CONDA_ROOT}/bin:${PATH}
