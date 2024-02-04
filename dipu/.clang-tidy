@@ -66,6 +66,8 @@ CheckOptions:
     value: true
   - key:   readability-implicit-bool-conversion.AllowPointerConditions
     value: true
+  - key:   readability-simplify-boolean-expr.SimplifyDeMorgan
+    value: false
 # --- Google's naming convention BEGIN ---
 # modified part is marked as comment
   - key:   readability-identifier-naming.ClassCase
