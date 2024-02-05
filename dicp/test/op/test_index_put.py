@@ -34,7 +34,7 @@ class TestIndexPut():
                                             ((1, 2, 10, 8 ,7, 11), (None, None, (2, 3), (4, 1, 1), None, (1, 2, 1)),
                                              (4, 2, 3, 1, 2, 7)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
-    def test_torch_split(self, sizes, dtype, compiled_model):
+    def test_torch_index_put(self, sizes, dtype, compiled_model):
         device = get_device()
         size = sizes.dynamic if compiled_model.dynamic else sizes.static
         x_size = size[0]
@@ -57,5 +57,29 @@ class TestIndexPut():
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1, dicp_indices, dicp_value)
+
+        assert torch.allclose(output.cpu(), dicp_output.cpu(), equal_nan=True)
+
+    @pytest.mark.parametrize("dtype", [torch.float16])
+    @pytest.mark.parametrize("sizes", [Size((5,), (5, 3)), Size((3, 5), (5, 3)), Size((2, 3, 4), (2, 4))])
+    @pytest.mark.parametrize("compiled_model", compiled_model)
+    def test_torch_index_put_to_masked_fill(self, sizes, dtype, compiled_model):
+        device = get_device()
+        size = sizes.dynamic if compiled_model.dynamic else sizes.static
+        mask_size = size if len(size) == 1 else size[0]
+
+        input = torch.randn(size, dtype=dtype)
+        mask = torch.randn(mask_size, dtype=dtype) > 0
+        value = torch.tensor(1).to(dtype)
+        indices = [mask]
+
+        dicp_input = input.to(device)
+        dicp_indices = [mask.to(device)]
+        dicp_value = value.to(device)
+
+        output = model(input, indices, value)
+        dynamo.reset()
+        update_dynamo_config(compiled_model.dynamic)
+        dicp_output = compiled_model.model(dicp_input, dicp_indices, dicp_value)    
 
         assert torch.allclose(output.cpu(), dicp_output.cpu(), equal_nan=True)
