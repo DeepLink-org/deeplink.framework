@@ -46,4 +46,4 @@ for prompt in prompts_list:
     response_list.append(response.split('\n'))
 
 for idx, dicp_result in enumerate(response_list):
-    assert dicp_result == cuda_results[idx]
+    assert dicp_result == cuda_results[idx], f"dicp result:{dicp_result}, cuda_result:{cuda_results[idx]}"
