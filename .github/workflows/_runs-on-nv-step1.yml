@@ -63,13 +63,23 @@ jobs:
     steps:
       - name: Check SupportedDiopiFunctions.txt
         run: |
-          cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
-          git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
-          { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
+            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
+            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+          else
+            ssh SH1424 """
+            cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
+            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
+            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+            """
+          fi
       - name: Run clang-tidy
         run: |
           if [[ "${GETRUNNER}" == *sco* ]];then
             srun --job-name=$GITHUB_JOB bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
           else
+            ssh SH1424 """
             srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
+            """
           fi
