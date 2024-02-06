@@ -73,7 +73,7 @@ jobs:
       - name: set output and Rsync to Server
         id: set-run-vars
         run: |
-          cd ~/rsync && GETRUNNER=$(cat cuda_runner)
+          GETRUNNER=$(cat ~/rsync/cuda_runner_dipu)
           if [[ ${GETRUNNER} == *diopi* ]]; then
               CUDA_CLUSTER="SH1424"
           fi
