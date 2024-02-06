@@ -63,9 +63,9 @@ jobs:
     steps:
       - name: Check SupportedDiopiFunctions.txt
         run: |
-          cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda &&
-            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt ||
-            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+          cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
+          git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
+          { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
       - name: Run clang-tidy
         run: |
           if [[ "${GETRUNNER}" == *sco* ]];then
