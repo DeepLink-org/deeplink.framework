@@ -17,7 +17,7 @@ on:
         description: env file path
         type: string
         required: false
-        default: '/mnt/cache/share/platform/env'
+        default: '/mnt/cache/share/deeplinkci/github'
       all_coverage:
         description: all coverage
         type: string
