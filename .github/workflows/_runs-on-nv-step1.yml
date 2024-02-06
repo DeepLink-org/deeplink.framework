@@ -13,11 +13,6 @@ on:
         type: string
         required: false
         default: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}/'
-      run_result:
-        description: select which job to run
-        type: string
-        required: true
-        default: ''
       env_path:
         description: env file path
         type: string
