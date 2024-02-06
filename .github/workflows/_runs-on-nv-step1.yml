@@ -80,6 +80,6 @@ jobs:
             srun --job-name=$GITHUB_JOB bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
           else
             ssh SH1424 """
-            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
+            bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh
             """
           fi
