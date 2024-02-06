@@ -84,7 +84,6 @@ jobs:
 
   Test-One-Iter_Cuda:
     name: Test-one-iter-cuda
-    needs: [Build-Cuda, Tidy-Cuda]
     runs-on: ${{ inputs.runner }}
     env:
       GETRUNNER: ${{ inputs.runner }}
