@@ -254,7 +254,7 @@ jobs:
 
   Runs-On-Nv-Step2:
     name: runs on nv step2
-    needs: [Runs-On-Nv-Step1]
+    needs: [Rsync,Runs-On-Nv-Step1]
     uses: ./.github/workflows/_runs-on-nv-step2.yml
     with:
       runner: ${{ needs.Rsync.outputs.getrunner }}
