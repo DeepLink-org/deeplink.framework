@@ -1,7 +1,7 @@
 # Need 3.25 for add_subdirectory(SYSTEM)
 # cmake_minimum_required(VERSION 3.25)
 
-#require the external project to build as target
+# require the external project to build as target
 include(ExternalProject)
 
 #[[ DIOPI ]]
@@ -19,8 +19,8 @@ set(WITH_DIOPI_INCLUDE "" CACHE PATH # use "PATH" type to provide a GUI file sel
 
 # locate DIOPI_LIBRARY_PATH
 if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
-  set(DIOPI_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/impl/lib")
   # the default path is hard-coded and not safe, better to use other methods
+  set(DIOPI_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/impl/lib")
 elseif(WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
   set(DIOPI_LIBRARY_PATH "")
 elseif(EXISTS "${WITH_DIOPI_LIBRARY}" AND IS_DIRECTORY "${WITH_DIOPI_LIBRARY}")
@@ -32,9 +32,9 @@ else()
 endif()
 
 # locate DIOPI_INCLUDE_PATH
-if (WITH_DIOPI_INCLUDE STREQUAL "")
-  set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
+if(WITH_DIOPI_INCLUDE STREQUAL "")
   # the default path is hard-coded and not safe, better to use other methods
+  set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
 elseif(EXISTS "${WITH_DIOPI_INCLUDE}" AND IS_DIRECTORY "${WITH_DIOPI_INCLUDE}" AND NOT WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   set(DIOPI_INCLUDE_PATH "${WITH_DIOPI_INCLUDE}")
 else()
@@ -44,29 +44,26 @@ else()
 endif()
 
 # compile DIOPI if use internal one
-if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
-  if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-    set(DIOPI_CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
-    message(STATUS "DIOPI_CMAKE_PREFIX_PATH: ${DIOPI_CMAKE_PREFIX_PATH}")
-  endif()
-
+if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
+  device_name_to_opt_name(${DEVICE_PROVIDER} DIOPI_IMPL_OPT)
+  find_path(TORCH_PREFIX_PATH torch REQUIRED PATHS ${DIPU_TORCH_SEARCH_PATH})
+  message(STATUS "Found TORCH_PREFIX_PATH=${TORCH_PREFIX_PATH}")
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
   ExternalProject_Add(diopi_internal
-                      SOURCE_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI"
-                      SOURCE_SUBDIR "impl"
-                      BINARY_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/build"
-                      DOWNLOAD_COMMAND ""
-                      CMAKE_ARGS
-                        # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
-                        "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
-                        "-DENABLE_COVERAGE=${USE_COVERAGE}"
-                        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-                        "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
-                        "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
-                      BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
-                      INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
+    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI"
+    SOURCE_SUBDIR "impl"
+    BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/build"
+    DOWNLOAD_COMMAND ""
+    CMAKE_ARGS
+      "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
+      "-DENABLE_COVERAGE=${DIPU_ENABLE_COVERAGE}"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DCMAKE_PREFIX_PATH=${TORCH_PREFIX_PATH}"
+      "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
+    BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
+    INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
 
-  ## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
+  # The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
   ExternalProject_Add_StepTargets(diopi_internal configure build install)
   ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
   ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
@@ -88,10 +85,6 @@ if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
 endif()
 
 #[[ libkineto ]]
-
 set(KINETO_BUILD_TESTS OFF CACHE INTERNAL "turn off tests")
 set(KINETO_USE_DEVICE_ACTIVITY ON CACHE INTERNAL "enable device activity")
-set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "pass through ABI settings")
-# KINETO_COMPILED_WITH_CXX11_ABI might be removed from libkineto as we are
-# using add_subdirectory instead of ExternalProject.
 add_subdirectory(kineto/libkineto SYSTEM)

@@ -48,10 +48,9 @@ def customized_cmake_args():
 
     cmake_with_diopi_library = os.getenv("DIPU_WITH_DIOPI_LIBRARY", "INTERNAL")
     cmake_device = os.getenv("DIPU_DEVICE", "cuda")
-    cmake_use_coverage = os.getenv("USE_COVERAGE", "OFF")
     cmake_args.append("-DCMAKE_BUILD_TYPE=Release")
     cmake_args.append("-DDEVICE=" + cmake_device)
-    cmake_args.append("-DENABLE_COVERAGE=${USE_COVERAGE}")
+    cmake_args.append("-DDIPU_ENABLE_COVERAGE=" + os.getenv("USE_COVERAGE", "OFF"))
     cmake_args.append("-DDIPU_ABI_V=" + get_DIPU_ABI_V())
     cmake_args.append(
         "-DDIPU_COMPILED_WITH_CXX11_ABI=" + str(get_DIPU_COMPILED_WITH_CXX11_ABI())
@@ -59,7 +58,6 @@ def customized_cmake_args():
     cmake_args.append("-DDIOPI_CMAKE_PREFIX_PATH=" + get_DIOPI_CMAKE_PREFIX_PATH())
     cmake_args.append("-DPYTORCH_DIR=" + get_PYTORCH_DIR())
     cmake_args.append("-DWITH_DIOPI_LIBRARY=" + cmake_with_diopi_library)
-    cmake_args.append("-DENABLE_COVERAGE=" + cmake_use_coverage)
     return cmake_args
 
 
