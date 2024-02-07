@@ -4,10 +4,8 @@ function(git_commit_id output_variable)
   if(Git_FOUND)
     execute_process(
       COMMAND "${GIT_EXECUTABLE}" describe --match='' --always --abbrev=40 --dirty
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       OUTPUT_VARIABLE OUTPUT
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      COMMAND_ERROR_IS_FATAL ANY)
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
   else()
     set(OUTPUT "unknown")
     message(STATUS "Cannot find git tools, fallback to 'unknown'")
