@@ -115,16 +115,18 @@ add_library(torch_dipu SHARED ${TORCH_DIPU_SOURCE} ${GENERATED_KERNELS} ${VENDOR
 target_include_directories(torch_dipu PUBLIC ..)
 target_compile_features(torch_dipu PUBLIC cxx_std_17)
 
-if(NOT DEFINED DIPU_ABI_V)
-  detect_abi_versin(DIPU_ABI_V)
-  message(STATUS "Detect DIPU_ABI_V=${DIPU_ABI_V}")
+if(NOT DEFINED DIPU_ABI_VERSION)
+  detect_abi_versin(DIPU_ABI_VERSION)
+  message(STATUS "Detect DIPU_ABI_V=${DIPU_ABI_VERSION}")
 endif()
 
-target_compile_options(torch_dipu PUBLIC -fabi-version=${DIPU_ABI_V} ${TORCH_CXX_FLAGS})
+target_compile_options(torch_dipu PUBLIC -fabi-version=${DIPU_ABI_VERSION} ${TORCH_CXX_FLAGS})
 
 version_to_number("${Torch_VERSION}" DIPU_TORCH_VERSION_NUMBER)
 git_commit_id(DIPU_GIT_HASH)
 string(TOUPPER "DIPU_VENDOR_NAME_${DEVICE_PROVIDER}" DIPU_VENDOR_NAME_FLAG_DEF)
+message(STATUS "DIPU Git Commit Hash: ${DIPU_GIT_HASH}")
+message(STATUS "Torch Version Number: ${DIPU_TORCH_VERSION_NUMBER}")
 target_compile_definitions(torch_dipu
   PUBLIC
     torch_dipu DIPU_TORCH_VERSION=${DIPU_TORCH_VERSION_NUMBER}
@@ -153,8 +155,9 @@ target_include_directories(torch_dipu SYSTEM
   PRIVATE "${kineto_SOURCE_DIR}/src")
 
 target_link_libraries(torch_dipu PRIVATE diopi_impl)
-target_link_libraries(torch_dipu PRIVATE Python3::Python c10 PUBLIC torch torch_cpu)
+target_link_libraries(torch_dipu PRIVATE Python3::Python c10)
 target_link_libraries(torch_dipu PRIVATE Threads::Threads)
+target_link_libraries(torch_dipu PUBLIC ${TORCH_LIBRARIES})
 
 #[[ Target: torch_dipu_python ]]
 set(TORCH_DIPU_PYBIND_SOURCE
@@ -175,7 +178,7 @@ target_include_directories(torch_dipu_python SYSTEM PRIVATE .. ${TORCH_INCLUDE_D
 #[[ Target: torch_dipu_cpython_extension ]]
 Python3_add_library(torch_dipu_cpython_extension SHARED stub.cpp)
 target_include_directories(torch_dipu_cpython_extension SYSTEM PRIVATE ..)
-target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE ${TORCH_LIBRARIES})
+target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python)
 target_compile_options(torch_dipu_cpython_extension PRIVATE -fstack-protector-all)
 set_target_properties(torch_dipu_cpython_extension PROPERTIES
   OUTPUT_NAME "_C.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}-${CMAKE_SYSTEM_PROCESSOR}-linux-gnu"

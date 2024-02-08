@@ -5,7 +5,7 @@ project(torch_dipu LANGUAGES CXX)
 # Options could be listed in CMake GUI and CMakeCache.
 option(DIPU_ENABLE_TESTS "Build unit tests" OFF)
 option(DIPU_ENABLE_COVERAGE "Build with gcov" OFF)
-set(DEVICE "camb" CACHE STRING "Select a device provider")
+set(DEVICE "camb" CACHE STRING "Select a device provider") # Consider renaming
 
 # Setup global variable.
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -14,7 +14,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(cmake/BaseFuncions.cmake)
 
 # Import Python3::Python, Python3_EXECUTABLE
-# Also see https://cmake.org/cmake/help/latest/module/FindPython3.html
+# References: https://cmake.org/cmake/help/latest/module/FindPython3.html
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # Import Torch
