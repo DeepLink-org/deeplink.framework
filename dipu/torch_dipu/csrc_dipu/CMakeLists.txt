@@ -116,7 +116,7 @@ target_include_directories(torch_dipu PUBLIC ..)
 target_compile_features(torch_dipu PUBLIC cxx_std_17)
 
 if(NOT DEFINED DIPU_ABI_VERSION)
-  detect_abi_versin(DIPU_ABI_VERSION)
+  detect_abi_version(DIPU_ABI_VERSION)
   message(STATUS "Detect DIPU_ABI_V=${DIPU_ABI_VERSION}")
 endif()
 

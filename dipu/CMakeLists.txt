@@ -19,7 +19,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # Import Torch
 # - Try also searching PyTorch from Python3_SITELIB and PYTHONPATH.
-string(REPLACE ":" ";" DIPU_TORCH_SEARCH_PATH "${Python3_SITELIB}:$ENV{PYTHONPATH}")
+detect_torch_cmake_path(DIPU_TORCH_SEARCH_PATH)
 find_package(Torch REQUIRED PATHS ${DIPU_TORCH_SEARCH_PATH})
 
 # - Assert Torch version is supported.

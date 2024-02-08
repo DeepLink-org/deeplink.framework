@@ -30,13 +30,23 @@ function(version_to_number version output_variable)
   set(${output_variable} ${NUMBER} PARENT_SCOPE)
 endfunction()
 
-function(detect_abi_versin output_variable)
+function(detect_abi_version output_variable)
   execute_process(
     COMMAND
       "${Python3_EXECUTABLE}" -c "\
 import torch, builtins\n\
 from pathlib import Path\n\
 print(next(item[-4:-2] for item in dir(builtins) if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item))"
+    OUTPUT_VARIABLE OUTPUT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
+  set(${output_variable} ${OUTPUT} PARENT_SCOPE)
+endfunction()
+
+function(detect_torch_cmake_path output_variable)
+  execute_process(
+    COMMAND
+      "${Python3_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
     OUTPUT_VARIABLE OUTPUT
     OUTPUT_STRIP_TRAILING_WHITESPACE
     COMMAND_ERROR_IS_FATAL ANY)
