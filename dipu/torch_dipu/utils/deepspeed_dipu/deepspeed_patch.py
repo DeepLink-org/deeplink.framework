@@ -3,6 +3,7 @@ def patch_deepspeed():
     try:
         import torch
         import deepspeed
+        import torch_dipu
         print("DIPU is patching deepspeed.")
         patch_cuda_accelerator_in_deepspeed()
     except ImportError:
