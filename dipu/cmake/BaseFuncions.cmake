@@ -70,7 +70,7 @@ function(detect_device_name hint output_variable)
     endif()
   endforeach()
 
-  message(FATAL_ERROR "Fail to detect device name form '${hint}'.")
+  message(FATAL_ERROR "Fail to detect device name from '${hint}'.")
 endfunction()
 
 function(device_name_to_opt_name device_name output_variable)

@@ -67,7 +67,6 @@ add_custom_command(
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 
 # Collect source files.
-# You may use: find . -name "*.cpp" to update list.
 set(TORCH_DIPU_SOURCE
   aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
   aten/ops/DIPUCopy.cpp
@@ -144,6 +143,12 @@ if(NOT EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
   target_compile_definitions(torch_dipu PRIVATE DIPU_NO_VENDOR_AUTOCAST)
 endif()
 
+target_link_libraries(torch_dipu PRIVATE diopi_impl)
+target_link_libraries(torch_dipu PRIVATE Python3::Python)
+target_link_libraries(torch_dipu PRIVATE Threads::Threads)
+target_link_libraries(torch_dipu PUBLIC torch_cpu ${TORCH_LIBRARIES})
+message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+
 # Note for kineto:
 # Target kineto only contains object files. Thus we need to do something to
 # fetch header files. But kineto's public headers are also used by other
@@ -153,11 +158,6 @@ target_compile_definitions(torch_dipu PRIVATE USE_KINETO)
 target_include_directories(torch_dipu SYSTEM
   PUBLIC "${kineto_SOURCE_DIR}/include"
   PRIVATE "${kineto_SOURCE_DIR}/src")
-
-target_link_libraries(torch_dipu PRIVATE diopi_impl)
-target_link_libraries(torch_dipu PRIVATE Python3::Python c10)
-target_link_libraries(torch_dipu PRIVATE Threads::Threads)
-target_link_libraries(torch_dipu PUBLIC ${TORCH_LIBRARIES})
 
 #[[ Target: torch_dipu_python ]]
 set(TORCH_DIPU_PYBIND_SOURCE
