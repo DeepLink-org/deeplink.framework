@@ -233,13 +233,8 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   auto weight_cpu = weight.cpu();
 
   at::Tensor grad_input;
-  at::Tensor grad_input_cpu;
-
   at::Tensor grad_weight;
-  at::Tensor grad_weight_cpu;
-
   at::Tensor grad_bias;
-  at::Tensor grad_bias_cpu;
 
   int64_t dims = input.dim();
   const auto device = input.device();
@@ -260,8 +255,8 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
       }
       at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
       grad_weight_cpu = at::sum(grad_weight_cpu, at_sum_dim);
-      grad_weight = grad_weight_cpu.to(device);
     }
+    grad_weight = grad_weight_cpu.to(device);
   }
 
   if (output_mask[2]) {
@@ -271,7 +266,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
       sum_dim.push_back(i);
     }
     at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
-    grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
+    auto grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
     grad_bias = grad_bias_cpu.to(device);
   }
 
