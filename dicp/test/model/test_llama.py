@@ -101,4 +101,4 @@ class TestLlama():
                 prompt, max_gen_len=max_gen_len, temperature=temperature, top_p=top_p, device=device
             )
             dicp_result = dicp_result[0].split("\n")
-            assert dicp_result == cuda_results[i]
+            assert dicp_result == cuda_results[i], f"dicp result:{dicp_result}, cuda_result:{cuda_results[i]}"
