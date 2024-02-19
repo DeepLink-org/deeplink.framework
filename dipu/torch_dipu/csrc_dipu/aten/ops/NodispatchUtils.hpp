@@ -70,14 +70,22 @@ inline at::Tensor empty_like(
 
   at::Tensor result;
 
-  // TODO(liuweiyu): need to implement nodispatch::empty_strided
   if (memory_format == at::MemoryFormat::Preserve) {
-    result =
-        empty(self.sizes(), options.memory_format(self.suggest_memory_format()),
-              c10::nullopt);
+    if (self.is_non_overlapping_and_dense()) {
+      result = at::empty_strided_symint(self.sym_sizes(), self.sym_strides(), options.memory_format(c10::nullopt));
+    } else if (self.unsafeGetTensorImpl()->support_as_strided() && self.layout() == c10::kStrided) {
+      // If input tensor is not dense and non-overlapping but strided, we will infer an output strides
+      // which keeps the layout permutation of the input tensor.
+      std::vector<int64_t> strides = at::infer_dense_strides(self.sizes(), self.strides());
+      // See Note [Explicit nullopt MemoryFormat argument]
+      result = at::empty_strided(self.sizes(), strides, options.memory_format(c10::nullopt));
+    } else {
+      // See Note [Explicit nullopt MemoryFormat argument]
+      result = at::empty_symint(self.sym_sizes(), options.memory_format(self.suggest_memory_format()), c10::nullopt);
+    }
   } else {
-    result =
-        empty(self.sizes(), options.memory_format(memory_format), c10::nullopt);
+    // See Note [Explicit nullopt MemoryFormat argument]
+    result = at::empty_symint(self.sym_sizes(), options.memory_format(memory_format), c10::nullopt);
   }
 
   if (self.opt_names()) {
