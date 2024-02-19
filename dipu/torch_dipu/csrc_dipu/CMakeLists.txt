@@ -136,9 +136,7 @@ target_compile_definitions(torch_dipu
 
 # TODO(vendor) - replace those code with target_link_libraries.
 target_include_directories(torch_dipu SYSTEM PUBLIC ${VENDOR_INCLUDE_DIRS} ${VENDOR_DIST_DIR} ${TORCH_INCLUDE_DIRS})
-detect_torch_cmake_path(TORCH_LIBRARY_PATH)
-message(STATUS "Torch Library Path: ${TORCH_LIBRARY_PATH}")
-target_link_directories(torch_dipu PRIVATE ${VENDOR_LIB_DIRS} ${TORCH_LIBRARY_PATH})
+target_link_directories(torch_dipu PRIVATE ${VENDOR_LIB_DIRS})
 target_link_libraries(torch_dipu PRIVATE ${DIPU_VENDOR_LIB})
 
 if(NOT EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
@@ -146,9 +144,12 @@ if(NOT EXISTS "${VENDOR_SOURCE_DIR}/vendor_autocast.h")
 endif()
 
 target_link_libraries(torch_dipu PRIVATE diopi_impl)
-target_link_libraries(torch_dipu PRIVATE Python3::Python)
-target_link_libraries(torch_dipu PRIVATE Threads::Threads)
+target_link_libraries(torch_dipu PRIVATE Python3::Python Threads::Threads)
+
+detect_torch_cmake_path(TORCH_LIBRARY_PATH)
+target_link_directories(torch_dipu PUBLIC ${TORCH_LIBRARY_PATH})
 target_link_libraries(torch_dipu PUBLIC torch_cpu ${TORCH_LIBRARIES})
+message(STATUS "TORCH_LIBRARY_PATH: ${TORCH_LIBRARY_PATH}")
 message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
 
 # Note for kineto:
