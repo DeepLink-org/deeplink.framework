@@ -50,6 +50,16 @@ function(detect_torch_cmake_path output_variable)
     OUTPUT_VARIABLE OUTPUT
     OUTPUT_STRIP_TRAILING_WHITESPACE
     COMMAND_ERROR_IS_FATAL ANY)
+  set(${output_variable} "${OUTPUT}/torch/lib" PARENT_SCOPE)
+endfunction()
+
+function(detect_torch_library_path output_variable)
+  execute_process(
+    COMMAND
+      "${Python3_EXECUTABLE}" -c "import torch; from pathlib import Path; print(Path(torch.__path__[0]).parent.absolute())"
+    OUTPUT_VARIABLE OUTPUT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND_ERROR_IS_FATAL ANY)
   set(${output_variable} ${OUTPUT} PARENT_SCOPE)
 endfunction()
 
