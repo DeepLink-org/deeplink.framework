@@ -165,7 +165,7 @@ def print_file(file_name):
 
 if __name__ == "__main__":
     # set some params
-    max_parall = 8
+    max_parall = 4
     parser = argparse.ArgumentParser(description="set some params.")
     parser.add_argument("device", type=str, help="the device to use")
     parser.add_argument("job_name", type=str, help="the name of the job")
