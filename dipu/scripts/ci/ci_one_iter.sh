@@ -45,6 +45,7 @@ function clone_needed_repo() {
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
     LIGHTLLM=dipu_one_iter_tool
     DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
+    ALPACALORA=sco_oneiter_finetune
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
     check_and_clone_repository "SMART" ${SMART_VERSION}
@@ -62,6 +63,7 @@ function clone_needed_repo() {
     check_and_clone_repository "mmcv" ${MMCV_VERSION}
     check_and_clone_repository "lightllm" ${LIGHTLLM}
     check_and_clone_repository "DeepLinkExt" ${DEEPLINKEXT}
+    check_and_clone_repository "alpaca-lora" ${ALPACALORA}
     cd ..
 }
 
@@ -71,6 +73,9 @@ function build_needed_repo_cuda() {
     cd ..
     cd DeepLinkExt
     python setup.py build_ext -i
+    cd ..
+    cd alpaca-lora
+    pip install -r requirements.txt
     cd ..
 }
 
@@ -150,6 +155,7 @@ function build_dataset(){
         ln -s /mnt/lustre/share_data/PAT/datasets/kitti data/kitti
         ln -s /mnt/lustre/share_data/PAT/datasets/mmdet/checkpoint/swin_large_patch4_window12_384_22k.pth data/swin_large_patch4_window12_384_22k.pth
         ln -s /mnt/lustre/share_data/PAT/datasets/stable-diffusion-v1-5 data/stable-diffusion-v1-5
+        ln -s /mnt/lustre/share_data/PAT/datasets/llama_1B_oneiter  data/llama_1B_oneiter
 
     elif [ "$1" = "camb" ]; then
         echo "Executing CAMB operation in build dataset..."
