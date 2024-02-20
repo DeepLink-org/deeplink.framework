@@ -168,7 +168,7 @@ jobs:
           export PYTHONPATH=\$(pwd):\$PYTHONPATH
           cd mmlab_pack
           rm -rf one_iter_data
-          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
+          python ../scripts/ci/ci_run_one_iter.py camb ${GITHUB_JOB} "mlu:${MLU_REQUESTS}" \"${CAMB_PARTATION}\"  
           """
       # - name: run-one-iter-for-llm
       #   run: |
