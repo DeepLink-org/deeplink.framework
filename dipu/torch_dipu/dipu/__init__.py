@@ -81,7 +81,7 @@ __all__ = [
     "native_memory_format_cast",
     "get_native_memory_format",
     # not support mock cuda_graph now
-    "nvtx"
+    "nvtx",
 ]
 
 import atexit

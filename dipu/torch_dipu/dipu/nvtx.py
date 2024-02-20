@@ -3,10 +3,12 @@ from contextlib import contextmanager
 try:
     from torch._C import _nvtx
 except ImportError:
+
     class _NVTXStub:
         @staticmethod
         def _ignore(*args, **kwargs):
             pass
+
         rangePushA = _ignore
         rangePop = _ignore
         markA = _ignore
