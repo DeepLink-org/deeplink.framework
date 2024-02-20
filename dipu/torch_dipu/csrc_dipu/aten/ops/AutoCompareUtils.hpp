@@ -24,7 +24,8 @@ inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
   at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
                                      in.options().device(c10::Device("cpu")));
   if (in.nbytes() > 0) {
-    dipu::devapis::memCopyD2H(in.nbytes(), out.data_ptr(), in.data_ptr());
+    dipu::devapis::memCopyD2H(out.storage().nbytes(), out.data_ptr(),
+                              in.data_ptr());
   }
   return out;
 }
