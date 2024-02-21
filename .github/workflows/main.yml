@@ -283,8 +283,8 @@ jobs:
     uses: ./.github/workflows/_runs-on-nv-step2.yml
     with:
       runner: ${{ needs.Rsync.outputs.getrunner }}
-      all_coverage: "${{ env.ALL_COVERAGE }}"
-      require_coverage: "${{ env.REQUIRE_COVERAGE }}"
+      all_coverage: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
+      require_coverage: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
