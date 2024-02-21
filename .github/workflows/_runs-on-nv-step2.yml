@@ -42,8 +42,6 @@ jobs:
     steps:
       - name: Run-test
         run: |
-          echo "ALL_COVERAGE: ${ALL_COVERAGE}"
-          echo "REQUIRE_COVERAGE: ${REQUIRE_COVERAGE}"
           if [[ "${GETRUNNER}" == *sco* ]];then
             set -e
             srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
