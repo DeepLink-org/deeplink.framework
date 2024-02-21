@@ -258,8 +258,8 @@ jobs:
     uses: ./.github/workflows/_runs-on-nv-step2.yml
     with:
       runner: ${{ needs.Rsync.outputs.getrunner }}
-      all_coverage: "${ALL_COVERAGE}"
-      require_coverage: "${REQUIRE_COVERAGE}"
+      all_coverage: "${{ env.ALL_COVERAGE }}"
+      require_coverage: "${{ env.REQUIRE_COVERAGE }}"
 
 
   Build-PyTorch-For-Ascend-910b:
