@@ -141,7 +141,7 @@ jobs:
 
   Build-Camb-Pt211:
     name: Build-dipu-camb-pt211
-    needs: [Tidy-Cuda]
+    needs: [Runs-On-Nv-Step1]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
