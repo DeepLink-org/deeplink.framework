@@ -96,14 +96,6 @@ class ComplexMul(Operator):
         self.torch_op = aten.mul
 
 
-class MulScalar(Operator):
-    def __init__(self, a, b):
-        super().__init__("Mul")
-        self.a = a
-        self.b = b
-        self.torch_op = aten.mul.Scalar
-
-
 class Div(Operator):
     def __init__(self, a, b):
         super().__init__("Div")

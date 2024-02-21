@@ -121,14 +121,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         if isinstance(a, Proxy):
             if hasattr(a.node, "meta") and 'val' in a.node.meta:
                 if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat):
-                    return tops_op.ComplexMul(a, b)
+                    return self.get_proxy(tops_op.ComplexMul, (a, b))
         if isinstance(a, Proxy) and isinstance(b, Proxy):
             a, b = self.binary_dtype_cast(a, b, fx_traceback.get_current_meta()['val'].dtype)
-        return tops_op.Mul(a, b)
-
-    @register_conversion(aten.mul.Scalar)
-    def MulScalar(self, *args, **kwargs):
-        return self.get_proxy(tops_op.MulScalar, args, kwargs)
+        return self.get_proxy(tops_op.Mul, (a, b))
 
     @register_conversion(aten.div)
     def Div(self, a, b):
@@ -415,8 +411,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.BatchNorm, args, kwargs)
 
     @register_conversion(aten.native_batch_norm_backward.default)
-    def BatchNormBackward(*args, **kwargs):
-        return tops_op.BatchNormBackward(*args, **kwargs)
+    def BatchNormBackward(self, *args, **kwargs):
+        return self.get_proxy(tops_op.BatchNormBackward, args, kwargs)
 
     """
     Add an additional true flag for accuration in hlir_builder Softmax.
