@@ -109,6 +109,8 @@ DISABLED_TESTS_MLU = {
         # torch 2.1 new test and failed
         # both cuda and camb infer incorrect type.
         "test_div_and_floordiv_vs_python",
+        # this test is cuda only in torch2.0, torch2.1 camb fail
+        "test_divmul_scalar",
         # end
         # CRASHED
         "test_batch_vs_slicing",
