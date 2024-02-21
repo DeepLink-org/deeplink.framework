@@ -6,10 +6,10 @@
 
 #pragma once
 
+#include <ATen/ExpandUtils.h>
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/TensorBody.h>
-#include <ATen/ExpandUtils.h>
 #include <c10/core/Device.h>
 #include <c10/core/DeviceType.h>
 #include <c10/core/Layout.h>
