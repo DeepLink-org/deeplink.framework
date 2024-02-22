@@ -143,6 +143,7 @@ jobs:
             && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco ${GITHUB_JOB} gpu sco "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
           else
             ssh SH1424 """
+            env |grep http
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source ${ENV_PATH}/dipu_env
             basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
