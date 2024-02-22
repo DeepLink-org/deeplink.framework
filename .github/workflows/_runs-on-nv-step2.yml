@@ -115,8 +115,6 @@ jobs:
           fi
       - name: run-one-iter-for-tradition
         run: |
-          env |grep http
-          env
           if [[ "${GETRUNNER}" == *sco* ]];then
             set -e
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
