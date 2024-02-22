@@ -1,12 +1,12 @@
 name: dipu ci on klx
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '10 22 * * *'
-  pull_request:
-    paths:
-      - ".github/workflows/runs_on_klx.yml"
-      - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/**"
+  # schedule:
+  #   - cron: '10 22 * * *'
+  # pull_request:
+  #   paths:
+  #     - ".github/workflows/runs_on_klx.yml"
+  #     - "dipu/torch_dipu/csrc_dipu/vendor/kunlunxin/**"
 env:
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
   CLUSTER_KLX: KUNLUNXIN
