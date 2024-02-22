@@ -15,7 +15,6 @@ def patch_deepspeed():
 
 def patch_cuda_accelerator_in_deepspeed():
     from deepspeed.accelerator.cuda_accelerator import CUDA_Accelerator
-    import torch
 
     if hasattr(CUDA_Accelerator, "is_fp16_supported"):
         CUDA_Accelerator.is_fp16_supported = custom_is_fp16_supported

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 try:
     from torch._C import _nvtx
 except ImportError:
-
+    print("No NVTX under your environment, ignore related API under this condition.")
     class _NVTXStub:
         @staticmethod
         def _ignore(*args, **kwargs):
@@ -15,6 +15,7 @@ except ImportError:
 
     _nvtx = _NVTXStub()  # type: ignore[assignment]
 
+# THE FOLLOWING CODE ARE DIRECTLY FROM PYTORCH, DO NOT MODIFY THEM EXCEPT FOR A SPECIFIC REASON
 __all__ = ["range_push", "range_pop", "range_start", "range_end", "mark", "range"]
 
 
