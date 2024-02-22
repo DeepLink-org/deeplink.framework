@@ -220,7 +220,7 @@ bool streamNotNull(deviceStream_t stream) {
 }
 
 void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
-  DIPU_CALLACLRT(::aclrtSynchronizeEvent(event))
+  DIPU_CALLACLRT(::aclrtStreamWaitEvent(stream, event))
 }
 
 // =====================
