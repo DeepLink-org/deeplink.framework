@@ -13,6 +13,7 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
  protected:
   void copyPostProcess(bool non_blocking, const CopyParamsInfo& info,
                        DIPUStream& curStream) override {
+    // TODO(fandaoyi): Refactor to remove duplicated code from different vendors
     // Ref: https://pytorch.org/docs/stable/generated/torch.Tensor.copy_.html
     // In d2self cases, non_blocking has no effect.
     // For other cases, do sync after copy if non_blocking is false.
