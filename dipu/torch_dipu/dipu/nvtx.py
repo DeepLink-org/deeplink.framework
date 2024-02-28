@@ -4,6 +4,7 @@ try:
     from torch._C import _nvtx
 except ImportError:
     print("No NVTX under your environment, ignore related API under this condition.")
+
     class _NVTXStub:
         @staticmethod
         def _ignore(*args, **kwargs):
