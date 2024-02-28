@@ -65,6 +65,15 @@ def register_conversion(aten_fn):
 
 
 class AtenToAscendTransformer(SingleOpTransformer):
+    _singleton = None
+
+    @classmethod
+    def get_singleton(cls, gm=None):
+        # args = [None] * (cls.__init__.__code__.co_argcount - 1)
+        if cls._singleton is None:
+            cls._singleton = cls(gm)
+        return cls._singleton
+
     def __init__(self, gm):
         super().__init__(gm, conversions)
 
@@ -1173,7 +1182,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
+        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, 0))
         return self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(torch.torch.ops.aten.addmm)
@@ -1292,6 +1301,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(dim, int):
             dim = [dim]
         assert (half_to_float is False)
+        x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float16)))
         return self.get_proxy(ascend_op.SoftmaxV2, (x, dim))
 
     @register_conversion(torch.ops.aten.sum.default)

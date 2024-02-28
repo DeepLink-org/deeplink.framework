@@ -1,8 +1,12 @@
+import os
 import torch
 import torch_dipu
+from typing import List, Optional, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
+from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
+from torch._subclasses import FakeTensor, FakeTensorMode
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
@@ -18,7 +22,7 @@ class ArgsTransDataPass:
         for n in gm.graph.nodes:
             if hasattr(n, 'op') and n.op == 'placeholder':
                 fake_tensor = n.meta['val']
-                memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo     
+                memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo
                 for key in memo:
                     if id(memo[key].fake_device) == id(fake_tensor.fake_device):
                         memory_format = torch_dipu.get_native_memory_format(key())
@@ -82,8 +86,55 @@ def ascendgraph_opset_convert(
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
+    # global aten_transformer
+    AtenToAscendTransformer(gm).get_singleton(gm)
     gm = AtenToAscendTransformer(gm).transform()
+    return gm
 
+def ascendgraph_infer_shape(
+    gm: torch.fx.GraphModule,
+):
+    def make_tensor_meta(x) -> Optional[TensorMetadata]:
+        if isinstance(x, FakeTensor):
+            return _extract_tensor_metadata(x)
+        else:
+            return None
+
+    def _infer_shape(gm):
+        test_infer = bool(os.environ.get("TEST_DICP_INFER", False))
+        for n in gm.graph.nodes:
+            fake_value = None
+            if n.op == 'call_function':
+                fake_value = (n.target(*n.args, **n.kwargs))
+            elif n.op == 'get_attr':
+                target_atoms = n.target.split('.')
+                attr_itr = gm
+                for i, atom in enumerate(target_atoms):
+                    if not hasattr(attr_itr, atom):
+                        raise RuntimeError(
+                            f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
+                    attr_itr = getattr(attr_itr, atom)
+                    attr_size, attr_dtye = attr_itr.shape, attr_itr.dtype
+                with FakeTensorMode():
+                    fake_value = torch.empty(attr_size, dtype=attr_dtye)
+            else:
+                continue
+            if 'val' in n.meta and test_infer:
+                (n_meta_val, fake_val) = ((n.meta['val'],),(fake_value,)) if not isinstance(n.meta['val'],(Tuple,List)) else (n.meta['val'], fake_value)
+                for i,(meta_i,fv_i) in enumerate(zip(n_meta_val, fake_val)):
+                    if not isinstance(fv_i, FakeTensor):
+                        continue
+                    log_info = f"target: {n.target}, meta_i: {meta_i}, fv_i: {fv_i}"
+                    assert meta_i.size() == fv_i.size(), f"check infer size failed, {log_info}"
+                    assert meta_i.dtype == fv_i.dtype, f"check infer dtype failed, {log_info}"
+                    assert meta_i.stride() == fv_i.stride(), f"check infer stride failed, {log_info}"
+                    assert meta_i.storage_offset() == fv_i.storage_offset(), f"check infer storage offset failed, {log_info}"
+            if 'val' not in n.meta:
+                n.meta['val'] = fake_value
+                n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
+        return gm
+
+    gm = _infer_shape(gm)
     # For bug in pytorch
     # Avoid for dynamic shape
     if is_torch_210 and not symint_in_inputs(list(gm.graph.nodes)):
