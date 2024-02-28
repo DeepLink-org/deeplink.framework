@@ -1094,8 +1094,8 @@
     diopiTensorHandle_t out_ptr = nullptr;
   interface: diopiNonzero(ctx, &out_ptr, self);
   custom_code_before_return: |
-    dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
+
 - schema: _softmax.out(Tensor self, int dim, bool half_to_float, *, Tensor(a!) out) -> Tensor(a!)
   custom_fallback: True
   interface: diopiSoftmax(ctx, out, self, dim);
@@ -2043,7 +2043,6 @@
     }
   interface: diopiIndex(ctx, &out_ptr, self, indices_vec.data(), static_cast<int64_t>(indices_vec.size()))
   custom_code_before_return: |
-    dipu::getCurrentDIPUStream().synchronize();
     out = *reinterpret_cast<at::Tensor*>(out_ptr);
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
