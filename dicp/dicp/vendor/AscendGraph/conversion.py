@@ -68,15 +68,6 @@ def register_conversion(aten_fn):
 
 
 class AtenToAscendTransformer(SingleOpTransformer):
-    _singleton = None
-
-    @classmethod
-    def get_singleton(cls, gm=None):
-        # args = [None] * (cls.__init__.__code__.co_argcount - 1)
-        if cls._singleton is None:
-            cls._singleton = cls(gm)
-        return cls._singleton
-
     def __init__(self, gm):
         super().__init__(gm, conversions)
 
