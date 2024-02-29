@@ -86,8 +86,6 @@ def ascendgraph_opset_convert(
     if is_torch_210:
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, aten_patterns_cls_list).transform(gm)
-    # global aten_transformer
-    AtenToAscendTransformer(gm).get_singleton(gm)
     gm = AtenToAscendTransformer(gm).transform()
     return gm
 

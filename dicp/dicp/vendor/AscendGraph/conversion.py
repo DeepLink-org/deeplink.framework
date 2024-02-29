@@ -27,11 +27,7 @@ aten = torch.ops.aten
 prims = torch.ops.prims
 conversions = {}
 
-
-fp32_bmm = 1
-sd_flag = os.environ.get("SD_FP16")
-if sd_flag is not None:
-    fp32_bmm = int(sd_flag) ^ 1
+sd_fp16 = int(os.environ.get("SD_FP16", 0))
 
 
 def get_reduction_str(r):
@@ -1189,7 +1185,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, fp32_bmm))
+        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, sd_fp16 ^ 1))
         return self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(torch.torch.ops.aten.addmm)
@@ -1308,7 +1304,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(dim, int):
             dim = [dim]
         assert (half_to_float is False)
-        if sd_flag is not None and int(sd_flag) == 1:
+        if sd_fp16 is not None and int(sd_fp16) == 1:
             x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float16)))
         return self.get_proxy(ascend_op.SoftmaxV2, (x, dim))
 

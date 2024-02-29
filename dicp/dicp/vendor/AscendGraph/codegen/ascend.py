@@ -1122,8 +1122,7 @@ class AscendOverrides:
         op.set_attr_bool("adj_x1", adj_x1)
         op.set_input("x2", x2)
         op.set_attr_bool("adj_x2", adj_x2)
-        if keep_dtype == 1:
-            op.set_attr_int("_keep_dtype", 1)
+        op.set_attr_int("_keep_dtype", keep_dtype)
         return op.to_node()
 
     @staticmethod
