@@ -1,3 +1,4 @@
+import os
 import functools
 import operator
 import _operator
@@ -25,6 +26,12 @@ from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 aten = torch.ops.aten
 prims = torch.ops.prims
 conversions = {}
+
+
+fp32_bmm = 1
+bmm_flag = os.environ.get("BMM_FP16")
+if bmm_flag is not None:
+    fp32_bmm = int(bmm_flag) ^ 1
 
 
 def get_reduction_str(r):
@@ -1182,7 +1189,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, 0))
+        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, fp32_bmm))
         return self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(torch.torch.ops.aten.addmm)
