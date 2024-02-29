@@ -7,7 +7,7 @@ function config_dipu_camb_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=camb  \
-        -DENABLE_COVERAGE=${USE_COVERAGE}
+        -DDIPU_ENABLE_COVERAGE=${USE_COVERAGE}
     cd ../
 }
 
@@ -15,7 +15,7 @@ function config_all_camb_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=camb  \
-        -DENABLE_COVERAGE=${USE_COVERAGE} \
+        -DDIPU_ENABLE_COVERAGE=${USE_COVERAGE} \
         -DWITH_DIOPI=INTERNAL
     cd ../
 }

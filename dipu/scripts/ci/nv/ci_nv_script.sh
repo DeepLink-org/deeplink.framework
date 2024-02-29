@@ -8,10 +8,10 @@ function build() {
 
     args=(
         "-DDEVICE=cuda"
-        "-DENABLE_COVERAGE=${USE_COVERAGE}"
+        "-DDIPU_ENABLE_COVERAGE=${USE_COVERAGE}"
         "-DCMAKE_BUILD_TYPE=Release"
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
-        "$@" )
+        "$@")
 
     rm -rf "$path"
     mkdir -p "$path"
@@ -20,10 +20,13 @@ function build() {
 }
 
 case $1 in
-    "build_dipu")
-        build ;;
-    "build_dipu_only")
-        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
-    *)
-        echo "[ERROR] Incorrect option: $1" && exit 1 ;;
+"build_dipu")
+    build
+    ;;
+"build_dipu_only")
+    build "-DWITH_DIOPI_LIBRARY=DISABLE"
+    ;;
+*)
+    echo "[ERROR] Incorrect option: $1" && exit 1
+    ;;
 esac
