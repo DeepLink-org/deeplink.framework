@@ -32,17 +32,17 @@
   custom_code_at_the_beginning: |
     TORCH_CHECK(!( (c10::isFloatingType(other.scalar_type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
         " result type Float can't be cast to the desired output type Int");
-    if (other.numel() == 1) {
-        return dipu_add__scalar(self, other.cpu().item(), alpha);
+    if (other.dim() == 0 && other.is_cpu()) {
+        return dipu_add__scalar(self, other.item(), alpha);
     }
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } 
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
@@ -56,10 +56,10 @@
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_sub_scalar_out(self, other.item(), alpha, out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         at::Tensor selfTensor = nodispatch::empty_like(other);
         dipu_fill__scalar(selfTensor, self.item());
         return dipu_sub_out(selfTensor, other, alpha, out);
@@ -71,7 +71,7 @@
 
 - schema: "sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_sub__scalar(self, other.item(), alpha);
     }
   interface: diopiSubInp(ctx, self, other, alpha)
@@ -89,17 +89,17 @@
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_div__scalar(self, other.item());
     }
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_div_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         // todo:(wentao) temp solution, need using a type promotion strategy
         at::Tensor selfD = nodispatch::empty_like(other);
         dipu_fill__scalar(selfD, self.item());
@@ -114,10 +114,10 @@
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_div_scalar_mode_out(other, self.item(), rounding_mode, out);
     }
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
@@ -135,17 +135,17 @@
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_mul__scalar(self, other.item());
     }
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_mul_scalar_out(other, self.item(), out);
     }
   interface: diopiMul(ctx, out, self, other)
@@ -333,10 +333,10 @@
 
 - schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_eq_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_eq_scalar_out(other, self.item(), out);
     }
   interface: diopiEq(ctx, out, self, other)
@@ -346,7 +346,7 @@
 
 - schema: "eq_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_eq__scalar(self, other.item());
     }
   interface: diopiEqInp(ctx, self, other)
@@ -356,10 +356,10 @@
 
 - schema: "lt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_lt_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_lt_scalar_out(other, self.item(), out);
     }
   interface: diopiLt(ctx, out, self, other)
@@ -369,7 +369,7 @@
 
 - schema: "lt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_lt__scalar(self, other.item());
     }
   interface: diopiLtInp(ctx, self, other)
@@ -379,10 +379,10 @@
 
 - schema: "ne.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_ne_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_ne_scalar_out(other, self.item(), out);
     }
   interface: diopiNe(ctx, out, self, other)
@@ -392,7 +392,7 @@
 
 - schema: "ne_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_ne__scalar(self, other.item());
     }
   interface: diopiNeInp(ctx, self, other)
@@ -402,10 +402,10 @@
 
 - schema: "ge.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_ge_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_ge_scalar_out(other, self.item(), out);
     }
   interface: diopiGe(ctx, out, self, other)
@@ -415,7 +415,7 @@
 
 - schema: "ge_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_ge__scalar(self, other.item());
     }
   interface: diopiGeInp(ctx, self, other)
@@ -425,10 +425,10 @@
 
 - schema: "gt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_gt_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_gt_scalar_out(other, self.item(), out);
     }
   interface: diopiGt(ctx, out, self, other)
@@ -438,7 +438,7 @@
 
 - schema: "gt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_gt__scalar(self, other.item());
     }
   interface: diopiGtInp(ctx, self, other)
@@ -448,10 +448,10 @@
 
 - schema: "le.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_le_scalar_out(self, other.item(), out);
     }
-    if (self.numel() == 1 && self.is_cpu()) {
+    if (self.dim() == 0 && self.is_cpu()) {
         return dipu_le_scalar_out(other, self.item(), out);
     }
   interface: diopiLe(ctx, out, self, other)
@@ -461,7 +461,7 @@
 
 - schema: "le_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_le__scalar(self, other.item());
     }
   interface: diopiLeInp(ctx, self, other)
@@ -490,7 +490,7 @@
     if (out.numel() == 0) {
       std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
       out = nodispatch::empty(output_shape, self.options());
-      }
+    }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
 
@@ -1107,6 +1107,10 @@
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
+# - schema: pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor
+#   custom_code_at_the_beginning: |
+#     auto out = nodispatch::empty(self.sizes(), self.options());
+#   interface: diopiPow(ctx, out, self, exponent);
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPow(ctx, out, self, exponent);
 
@@ -1239,8 +1243,8 @@
   no_device_check_args: [self, other]
   ins: [selfTemp, otherTemp]
   custom_code_at_the_beginning: |
-    auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
-    auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
+    auto selfTemp = (self.dim() == 0 && self.is_cpu()) ? self.to(other.device()) : self;
+    auto otherTemp = (other.dim() == 0 && other.is_cpu()) ? other.to(self.device()) : other;
   interface: diopiMaximum(ctx, out, selfTemp, otherTemp)
 
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
@@ -1314,7 +1318,7 @@
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
     // todo:(wentao) temp solution, need using a type promotion strategy
-    at::Tensor out = self.numel() == 1 && self.is_cpu() ? 
+    at::Tensor out = self.dim() == 0 && self.is_cpu() ? 
         nodispatch::empty_like(other) :
         nodispatch::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -1972,8 +1976,8 @@
   no_device_check_args: [self, other]
   ins: [selfTemp, otherTemp]
   custom_code_at_the_beginning: |
-    auto selfTemp = (self.numel() == 1 && self.is_cpu()) ? self.to(other.device()) : self;
-    auto otherTemp = (other.numel() == 1 && other.is_cpu()) ? other.to(self.device()) : other;
+    auto selfTemp = (self.dim() == 0 && self.is_cpu()) ? self.to(other.device()) : self;
+    auto otherTemp = (other.dim() == 0 && other.is_cpu()) ? other.to(self.device()) : other;
   interface: diopiMinimum(ctx, out, selfTemp, otherTemp)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1996,7 +2000,7 @@
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.numel() == 1 && other.is_cpu()) {
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_remainder_scalar_out(self, other.item(), out);
     }
   interface: diopiRemainderTensor(ctx, out, self, other)
