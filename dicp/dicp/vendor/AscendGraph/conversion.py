@@ -29,9 +29,9 @@ conversions = {}
 
 
 fp32_bmm = 1
-bmm_flag = os.environ.get("BMM_FP16")
-if bmm_flag is not None:
-    fp32_bmm = int(bmm_flag) ^ 1
+sd_flag = os.environ.get("SD_FP16")
+if sd_flag is not None:
+    fp32_bmm = int(sd_flag) ^ 1
 
 
 def get_reduction_str(r):
@@ -1308,7 +1308,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(dim, int):
             dim = [dim]
         assert (half_to_float is False)
-        x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float16)))
+        if sd_flag is not None and int(sd_flag) == 1:
+            x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float16)))
         return self.get_proxy(ascend_op.SoftmaxV2, (x, dim))
 
     @register_conversion(torch.ops.aten.sum.default)
