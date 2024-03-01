@@ -1,12 +1,8 @@
-import os
 import torch
 import torch_dipu
-from typing import List, Optional, Tuple
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
-from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
-from torch._subclasses import FakeTensor, FakeTensorMode
 from ...dynamo_bridge.graph import GraphTransformer
 
 if is_torch_210:
