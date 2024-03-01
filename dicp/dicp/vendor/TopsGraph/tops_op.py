@@ -328,14 +328,36 @@ class Rsqrt(Operator):
 
 class Convolution(Operator):
     def __init__(self, *args, **kwargs):
-        super().__init__("Conv2D")
+        super().__init__("Convolution")
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.convolution
 
-    def __call__(self, *args, **kwargs):
-        new_args = args[1:]
-        return super().__call__(*new_args, **kwargs)
+    def __call__(self, x, weight, bias, stride, padding, dilation,
+                 transposed, output_padding, groups, is_clast=False):
+        if not is_clast:
+            return super().__call__(x, weight, bias, stride, padding, dilation,
+                                    transposed, output_padding, groups)
+        with x.meta["val"].fake_mode:
+            shape = torch.Size((x.meta["val"].shape[0], x.meta["val"].shape[3],
+                                x.meta["val"].shape[1], x.meta["val"].shape[2]))
+            dtype = x.meta["val"].dtype
+            device = x.meta["val"].device
+            fake_value_x = torch.empty(shape, dtype=dtype, device=device)
+        with weight.meta["val"].fake_mode:
+            shape = torch.Size((weight.meta["val"].shape[3], weight.meta["val"].shape[2],
+                                weight.meta["val"].shape[0], weight.meta["val"].shape[1]))
+            dtype = weight.meta["val"].dtype
+            device = weight.meta["val"].device
+            fake_value_weight = torch.empty(shape, dtype=dtype, device=device)
+        conv = super().__call__(fake_value_x, fake_value_weight, bias, stride, padding,
+                                dilation, transposed, output_padding, groups)
+        with conv.fake_mode:
+            shape = torch.Size((conv.shape[0], conv.shape[2],
+                                conv.shape[3], conv.shape[1]))
+            dtype, device = conv.dtype, conv.device
+            conv = torch.empty(shape, dtype=dtype, device=device)
+        return conv
 
 
 class ConvolutionBackward(Operator):
@@ -795,7 +817,7 @@ class MakeTuple(Operator):
         super().__init__("MakeTuple")
 
     def __call__(self, *args):
-        return (arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)
+        return tuple(arg.meta["val"] if hasattr(arg, "meta") else arg for arg in args)
 
 
 class XlaGather(Operator):
@@ -807,3 +829,57 @@ class XlaGather(Operator):
                  start_index_map, index_vector_dim, slice_size, out_shape):
         with operand.meta['val'].fake_mode:
             return aten.empty(out_shape, device=operand.meta["val"].device)
+
+
+class GroupNorm(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("GroupNorm")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.native_group_norm
+    
+    def __call__(self, x, weight, bias, n, c, hw, group, eps, is_clast=False):
+        if not is_clast:
+            return super().__call__(x, weight, bias, n, c, hw, group, eps)
+        with x.meta["val"].fake_mode:
+            shape, dtype = x.meta["val"].shape, x.meta["val"].dtype
+            return tuple((aten.empty(shape, dtype=dtype), aten.empty(shape[:2], dtype=dtype),
+                          aten.empty(shape[:2], dtype=dtype)))
+
+
+class LayerNorm(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("LayerNorm")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.native_layer_norm
+
+    def __call__(self, x, normalized_shape, weight, bias, eps, is_clast=False):
+        if not is_clast:
+            return super().__call__(x, normalized_shape, weight, bias, eps)
+        shape, dtype = x.meta["val"].shape, x.meta["val"].dtype
+        with x.meta["val"].fake_mode:
+            return tuple((aten.empty(shape, dtype=dtype), aten.empty(shape[:2], dtype=dtype),
+                            aten.empty(shape[:2], dtype=dtype)))
+
+
+class UpsampleNearest2d(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__("UpsampleNearest2d")
+        self.args = args
+        self.kwargs = kwargs
+        self.torch_op = aten.upsample_nearest2d
+
+    def __call__(self, x, output_size, scales_h, scales_w, is_clast=False):
+        if not is_clast:
+            return super().__call__(x, output_size, scales_h, scales_w)
+        with x.meta["val"].fake_mode:
+            x_shape = torch.Size((x.meta["val"].shape[0], x.meta["val"].shape[3],
+                                  x.meta["val"].shape[1], x.meta["val"].shape[2]))
+            x = aten.empty(x_shape, dtype=x.meta["val"].dtype, device=x.meta["val"].device)
+        normal_res = super().__call__(x, output_size, scales_h, scales_w)
+        with normal_res.fake_mode:
+            clast_shape = torch.Size((normal_res.shape[0], normal_res.shape[2],
+                                      normal_res.shape[3], normal_res.shape[1]))
+            clast_res = aten.empty(clast_shape, dtype=normal_res.dtype, device=normal_res.device)
+        return clast_res

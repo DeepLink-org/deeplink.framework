@@ -152,6 +152,117 @@ builder::Op enflame::BatchNorm(std::shared_ptr<builder::Builder> hlir_builder,
   return result;
 }
 
+builder::Op enflame::GroupNorm(std::shared_ptr<builder::Builder> hlir_builder,
+                               builder::Op input, builder::Op scale,
+                               builder::Op bias, int64_t num_groups,
+                               float epsilon, bool is_clast) {
+  std::vector<int64_t> spatial_dimensions;
+  builder::DimensionsLayout layout;
+  if (is_clast) {
+    spatial_dimensions = {1, 2};
+    layout = builder::DimensionsLayout(0, 3, spatial_dimensions);
+  } else {
+    spatial_dimensions = {2, 3};
+    layout = builder::DimensionsLayout(0, 1, spatial_dimensions);
+  }
+  std::vector<builder::PrimitiveType> tuple_dtype;
+  std::vector<std::vector<int64_t>> tuple_shape;
+  tuple_dtype.push_back(input.GetType().GetPrimitiveType());
+  tuple_dtype.push_back(scale.GetType().GetPrimitiveType());
+  tuple_dtype.push_back(bias.GetType().GetPrimitiveType());
+  std::vector<int64_t> input_shape = input.GetType().GetShape();
+  std::vector<int64_t> shape{input_shape[0], num_groups};
+  tuple_shape.push_back(input_shape);
+  tuple_shape.push_back(shape);
+  tuple_shape.push_back(shape);
+  builder::Type group_norm_type(tuple_shape, tuple_dtype);
+
+  builder::Op group_norm = builder::GroupNorm(input, scale, bias, num_groups,
+                                              epsilon, layout, group_norm_type);
+  return group_norm;
+}
+
+builder::Op enflame::LayerNorm(std::shared_ptr<builder::Builder> hlir_builder,
+                               builder::Op input, builder::Op scale,
+                               builder::Op bias, float epsilon, bool is_clast) {
+  int64_t axis = 2;
+  std::vector<builder::PrimitiveType> tuple_dtype;
+  std::vector<std::vector<int64_t>> tuple_shape;
+  tuple_dtype.push_back(input.GetType().GetPrimitiveType());
+  tuple_dtype.push_back(scale.GetType().GetPrimitiveType());
+  tuple_dtype.push_back(bias.GetType().GetPrimitiveType());
+  auto input_shape = input.GetType().GetShape();
+  std::vector<int64_t> shape{input_shape[0], input_shape[1]};
+  tuple_shape.push_back(input_shape);
+  tuple_shape.push_back(shape);
+  tuple_shape.push_back(shape);
+  builder::Type layer_norm_type(tuple_shape, tuple_dtype);
+
+  builder::Op layer_norm =
+      builder::LayerNorm(input, scale, bias, axis, epsilon, layer_norm_type);
+  return layer_norm;
+}
+
+builder::Op enflame::UpsampleNearest2d(
+    std::shared_ptr<builder::Builder> hlir_builder, builder::Op input,
+    std::vector<int64_t> output_size, float scales_h, float scales_w,
+    bool is_clast) {
+  auto input_shape = input.GetType().GetShape();
+  std::vector<int64_t> roi_values(input_shape.size(), 0);
+  for (size_t i = 0; i < input_shape.size(); ++i) {
+    roi_values.push_back(input_shape[i] - 1);
+  }
+  builder::Op roi_op = builder::Const(
+      hlir_builder, static_cast<void*>(roi_values.data()),
+      builder::Type({roi_values.size()}, builder::PrimitiveType::S64()));
+  builder::Op scales_op;
+  builder::Op sizes_op;
+  if (scales_h && scales_w) {
+    // input op layout is HNWC, convert scales form [scales_h, scales_w] to
+    // [1, scales_h, scales_w, 1]
+    std::vector<float> temp(4, 1.0);
+    if (is_clast) {
+      temp[1] = scales_h, temp[2] = scales_w;
+    } else {
+      temp[2] = scales_h, temp[3] = scales_w;
+    }
+    scales_op =
+        builder::Const(hlir_builder, static_cast<void*>(temp.data()),
+                       builder::Type({4}, builder::PrimitiveType::F32()));
+    sizes_op = sizes_op =
+        builder::Const(hlir_builder, nullptr,
+                       builder::Type({0}, builder::PrimitiveType::S64()));
+  } else {
+    scales_op =
+        builder::Const(hlir_builder, nullptr,
+                       builder::Type({0}, builder::PrimitiveType::F32()));
+    sizes_op = builder::Const(
+        hlir_builder, static_cast<void*>(input_shape.data()),
+        builder::Type({input_shape.size()}, builder::PrimitiveType::S64()));
+  }
+  builder::Op resize = builder::Resize(input, roi_op, scales_op, sizes_op, 0, 1,
+                                       false, 3, 0.0, -0.75);
+  return resize;
+}
+
+builder::Op enflame::Convolution(std::shared_ptr<builder::Builder> hlir_builder,
+                                 std::vector<builder::Op> inputs, int64_t group,
+                                 std::vector<int64_t> stride,
+                                 std::vector<int64_t> padding,
+                                 std::vector<int64_t> dilation, bool is_clast) {
+  std::string auto_pad = "NOTSET";
+  std::string layout;
+  if (is_clast) {
+    layout = "NHWC";
+  } else {
+    layout = "NCHW";
+  }
+  builder::Op result = builder::Conv2D(inputs, group, auto_pad, layout, stride,
+                                       padding, dilation);
+  result.SetAttribute("op_type", builder::Attribute("Conv2DInference"));
+  return result;
+}
+
 builder::Op enflame::ViewAsComplex(
     std::shared_ptr<builder::Builder> hlir_builder, builder::Op input,
     const std::vector<int64_t> shape) {
