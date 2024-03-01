@@ -89,6 +89,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def is_clast_weight(self, node):
         shape, stride = node.meta["val"].shape, node.meta["val"].stride()
         memory_format = node.meta["tensor_meta"].memory_format
+        # The memory_format of weight in convolution is None after converted to channesl last manually.
         if len(shape) == 4 and memory_format is None:
             return [stride[2], stride[3], stride[1], stride[0]] == list(sorted(stride, reverse=True))
         return False

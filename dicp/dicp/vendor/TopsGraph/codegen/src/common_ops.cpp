@@ -170,8 +170,9 @@ builder::Op enflame::GroupNorm(std::shared_ptr<builder::Builder> hlir_builder,
   tuple_dtype.push_back(input.GetType().GetPrimitiveType());
   tuple_dtype.push_back(scale.GetType().GetPrimitiveType());
   tuple_dtype.push_back(bias.GetType().GetPrimitiveType());
-  std::vector<int64_t> shape{2, num_groups};
-  tuple_shape.push_back(input.GetType().GetShape());
+  std::vector<int64_t> input_shape = input.GetType().GetShape();
+  std::vector<int64_t> shape{input_shape[0], num_groups};
+  tuple_shape.push_back(input_shape);
   tuple_shape.push_back(shape);
   tuple_shape.push_back(shape);
   builder::Type group_norm_type(tuple_shape, tuple_dtype);
@@ -197,9 +198,9 @@ builder::Op enflame::LayerNorm(std::shared_ptr<builder::Builder> hlir_builder,
   tuple_shape.push_back(shape);
   builder::Type layer_norm_type(tuple_shape, tuple_dtype);
 
-  builder::Op group_norm =
+  builder::Op layer_norm =
       builder::LayerNorm(input, scale, bias, axis, epsilon, layer_norm_type);
-  return group_norm;
+  return layer_norm;
 }
 
 builder::Op enflame::UpsampleNearest2d(

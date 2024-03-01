@@ -2,6 +2,8 @@ import torch
 import torch.fx
 import functools
 import torch.fx.traceback as fx_traceback
+import os
+from dicp.dynamo_bridge.graph import GraphTransformer
 from dicp.vendor.TopsGraph import tops_op as tops
 from torch.fx.node import Argument, Target
 from torch.fx.proxy import Proxy
@@ -53,6 +55,7 @@ class ConvolutionTransofrmer(torch.fx.Transformer):
     def is_clast_weight(self, node):
         shape, stride = node.meta["val"].shape, node.meta["val"].stride()
         memory_format = node.meta["tensor_meta"].memory_format
+        # The memory_format of weight in convolution is None after converted to channesl last manually.
         if len(shape) == 4 and memory_format is None:
             return [stride[2], stride[3], stride[1], stride[0]] == list(sorted(stride, reverse=True))
         return False
@@ -97,7 +100,7 @@ class ConvolutionTransofrmer(torch.fx.Transformer):
         return proxy
 
 
-class TopsMemoryFormatTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
+class ChannelsLastTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
     def __init__(self, graph_module):
         super().__init__(graph_module)
         self.nodes = list(graph_module.graph.nodes)
@@ -112,22 +115,22 @@ class TopsMemoryFormatTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         self.channel_value = -1
         self.weight_transpose = False
 
-    def is_transpose0231(self, target, args):
+    def is_transpose_to_clast(self, target, args):
         return target.__class__ == tops.Transpose and args[1] == (0, 2, 3, 1)
 
-    def is_transpose0312(self, target, args):
+    def is_transpose_to_normal(self, target, args):
         return target.__class__ == tops.Transpose and args[1] == (0, 3, 1, 2)
 
     def from_conv2dclast(self, target, args):
         return isinstance(args[0], Proxy) and "convolution" in args[0].node.name
     
     def is_conv_input(self, curr_index: int, node: torch.fx.Node, target: Target, args: Tuple[Argument, ...]):
-        if self.is_transpose0231(target, args):
+        if self.is_transpose_to_clast(target, args):
             return curr_index < len(self.call_function_nodes) and \
                 self.call_function_nodes[curr_index + 1].args[0] == self.call_function_nodes[curr_index]
 
     def is_conv_output(self, node: torch.fx.Node, target: Target, args: Tuple[Argument, ...]):
-        if self.is_transpose0312(target, args):
+        if self.is_transpose_to_normal(target, args):
             return node.prev == node.args[0]
 
     def find_next_input(self, curr_index: int, node: torch.fx.Node):
@@ -506,3 +509,13 @@ class TopsMemoryFormatTransformer(ConvolutionTransofrmer, torch.fx.Transformer):
         if x.node in self.clast_nodes:
             return self.get_proxy_store_node(tops.UpsampleNearest2d, (x, output_size, scales_h, scales_w, True))
         return self.get_proxy(tops.UpsampleNearest2d, (x, output_size, scales_h, scales_w))
+
+
+class TopsMemoryFormatTransformer():
+    def transform(self, gm: torch.fx.GraphModule):
+        if os.getenv("DICP_SD_CLAST", default="False") == "True":
+            gm = ConvolutionTransofrmer(gm).transform()
+            GraphTransformer(gm, "topsgraph").infer_shape_dtype()
+            gm = ChannelsLastTransformer(gm).transform()
+            GraphTransformer(gm, "topsgraph").infer_shape_dtype()
+        return gm

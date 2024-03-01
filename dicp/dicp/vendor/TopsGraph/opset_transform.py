@@ -3,9 +3,8 @@ import torch.fx
 import os
 
 from dicp.vendor.TopsGraph.conversion import AtenToTopsTransformer
-from dicp.vendor.TopsGraph.to_clast import ConvolutionTransofrmer, TopsMemoryFormatTransformer
+from dicp.vendor.TopsGraph.to_clast import TopsMemoryFormatTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
-from dicp.dynamo_bridge.graph import GraphTransformer
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
@@ -47,11 +46,7 @@ def topsgraph_opset_transform(
             tops_patterns, tops_patterns_cls_list).transform(gm)
 
     # tops: normal shape to clast shape
-    if os.getenv("DICP_SD_CLAST", default="False") == "True":
-        gm = ConvolutionTransofrmer(gm).transform()
-        GraphTransformer(gm, "topsgraph").infer_shape_dtype()
-        gm = TopsMemoryFormatTransformer(gm).transform()
-        GraphTransformer(gm, "topsgraph").infer_shape_dtype()
+    gm = TopsMemoryFormatTransformer().transform(gm)
 
     # handle inplace copy operation: get inplace copy args to update outputs.
     gm = HandleInplaceCopyPass().transform(gm)
