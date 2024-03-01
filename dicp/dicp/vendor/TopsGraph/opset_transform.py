@@ -1,12 +1,8 @@
-import os
 import torch
 import torch.fx
 
-from typing import List, Optional, Tuple
 from dicp.vendor.TopsGraph.conversion import AtenToTopsTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
-from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
-from torch._subclasses import FakeTensor, FakeTensorMode
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
