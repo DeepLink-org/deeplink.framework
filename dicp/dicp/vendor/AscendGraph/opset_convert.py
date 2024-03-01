@@ -3,6 +3,7 @@ import torch_dipu
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
+from ...dynamo_bridge.graph import GraphTransformer
 
 if is_torch_210:
     from dicp.dynamo_bridge.op_transformer import BackendPatternMatcherTransformer
@@ -18,7 +19,7 @@ class ArgsTransDataPass:
         for n in gm.graph.nodes:
             if hasattr(n, 'op') and n.op == 'placeholder':
                 fake_tensor = n.meta['val']
-                memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo     
+                memo = fake_tensor.fake_mode.fake_tensor_converter.tensor_memo
                 for key in memo:
                     if id(memo[key].fake_device) == id(fake_tensor.fake_device):
                         memory_format = torch_dipu.get_native_memory_format(key())
@@ -86,6 +87,9 @@ def ascendgraph_opset_convert(
 
     # For bug in pytorch
     # Avoid for dynamic shape
+    gt = GraphTransformer(gm, "ascendgraph")
+    gt.infer_shape_dtype()
+    gm = gt.gm
     if is_torch_210 and not symint_in_inputs(list(gm.graph.nodes)):
         gm = BackendPatternMatcherTransformer(
             ascend_pattern_matcher, ascend_patterns_cls_list).transform(gm)
