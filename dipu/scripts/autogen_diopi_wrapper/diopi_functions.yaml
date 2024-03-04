@@ -2012,8 +2012,18 @@
 
 - schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
   custom_code_at_the_beginning: |
+    at::Tensor self_;
+      if (dtype.has_value()) {
+        self_ = self.to(*dtype);
+    }
+      else{
+        self_ = self;
+    }
+    ::diopiConstTensorHandle_t selfDiopiTensorHandle_ = dipu::diopi_helper::toDiopiTensorHandle(self_);
+    
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
-  interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
+    
+  interface: diopiNorm(ctx, out, selfDiopiTensorHandle_, ord, dimDiopiSize);
 
 - schema: "floor_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiFloorInp(ctx, self);
