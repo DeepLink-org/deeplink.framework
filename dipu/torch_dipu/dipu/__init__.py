@@ -79,8 +79,9 @@ __all__ = [
     # custom api
     "NativeMemoryFormat",
     "native_memory_format_cast",
-    "get_native_memory_format"
+    "get_native_memory_format",
     # not support mock cuda_graph now
+    "nvtx",
 ]
 
 import atexit
