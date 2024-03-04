@@ -526,8 +526,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       info.recomputeTensorsInfo(dst, tmpSrc);
     }
     if (info.directMemCopy_) {
-      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
-                      info.copyType_ != DIPUCopyType::D2Self);
+      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_, false);
       return;
     }
     switch (info.copyType_) {
