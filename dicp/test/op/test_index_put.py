@@ -27,11 +27,11 @@ class TestIndexPut():
                                             ((1, 32, 208, 128), (None, None, (6,)), (32, 6, 128))),
                                        Size(((1, 2, 10, 8, 7, 11), (None, None, (2, 3), (4, 1, 1), (1, 2, 1), None),
                                              (1, 1, 4, 1, 3, 11)),
-                                            ((1, 2, 10, 8 ,7, 11), (None, None, (2, 3), (4, 1, 1), (1, 2, 1), None),
+                                            ((1, 2, 10, 8, 7, 11), (None, None, (2, 3), (4, 1, 1), (1, 2, 1), None),
                                              (1, 1, 4, 1, 3, 11))),
                                        Size(((1, 2, 10, 8, 7, 11), (None, None, (2, 3), (4, 1, 1), None, (1, 2, 1)),
                                              (4, 2, 3, 1, 2, 7)),
-                                            ((1, 2, 10, 8 ,7, 11), (None, None, (2, 3), (4, 1, 1), None, (1, 2, 1)),
+                                            ((1, 2, 10, 8, 7, 11), (None, None, (2, 3), (4, 1, 1), None, (1, 2, 1)),
                                              (4, 2, 3, 1, 2, 7)))])
     @pytest.mark.parametrize("compiled_model", compiled_model)
     def test_torch_index_put(self, sizes, dtype, compiled_model):
@@ -80,6 +80,6 @@ class TestIndexPut():
         output = model(input, indices, value)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
-        dicp_output = compiled_model.model(dicp_input, dicp_indices, dicp_value)    
+        dicp_output = compiled_model.model(dicp_input, dicp_indices, dicp_value)
 
         assert torch.allclose(output.cpu(), dicp_output.cpu(), equal_nan=True)

@@ -1,5 +1,4 @@
 import logging
-import traceback
 import torch
 from abc import ABC
 
@@ -8,7 +7,6 @@ from torch.utils._pytree import tree_map, tree_flatten
 from torch.fx.experimental.symbolic_shapes import ShapeEnv
 from contextlib import nullcontext
 from torch._subclasses import FakeTensor, FakeTensorMode
-from dicp.dynamo_bridge.utils import TensorInfo
 
 
 class Operator(ABC):
