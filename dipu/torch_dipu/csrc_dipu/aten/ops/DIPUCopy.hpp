@@ -527,7 +527,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
     if (info.directMemCopy_) {
       doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
-                      info.copyType_ != DIPUCopyType::D2Self);
+                      /*needMemCpSync=*/false);
       return;
     }
     switch (info.copyType_) {
