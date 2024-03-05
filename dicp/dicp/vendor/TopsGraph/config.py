@@ -3,6 +3,7 @@ import torch
 import torch.distributed
 
 from torch._inductor.decomposition import decompositions
+from torch._decomp.decompositions import DispatchKey
 
 tops_debug = True if os.getenv('DICP_TOPS_DEBUG', default='False') == 'True' else False
 
@@ -16,6 +17,13 @@ else:
     device_id = os.getenv('DICP_TOPS_DEVICE_ID', default='0')
 
 aten = torch.ops.aten
+
+
+def remove_unused_dispatchkey():
+    del aten.upsample_nearest2d.vec.py_kernels[DispatchKey.CompositeImplicitAutograd]
+    del aten.upsample_nearest2d.default.py_kernels[DispatchKey.Autograd]
+
+
 decomp_del_keys = [aten._native_batch_norm_legit_functional.default,
                    aten.convolution_backward.default, aten._softmax.default,
                    aten._log_softmax.default, aten.gelu.default,
