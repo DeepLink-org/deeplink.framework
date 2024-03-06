@@ -759,7 +759,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  device: [all, -cuda]
+  device: [all, -cuda, -ascend]
   custom_fallback: True
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
@@ -778,7 +778,7 @@
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
   custom_fallback: True
-  device: [all, -cuda]
+  device: [all, -cuda, -ascend]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
