@@ -21,6 +21,7 @@ _original_pid = False
 # supported torch ver, refer variable DIPU_SUPPORT_TORCHS in cmake
 # todo: try auto gen ver py when cmake build
 torch_ver_200 = 20000
+torch_ver_210 = 20100
 torch_ver_211 = 20101
 from torch_dipu._C import get_dipu_torch_version
 

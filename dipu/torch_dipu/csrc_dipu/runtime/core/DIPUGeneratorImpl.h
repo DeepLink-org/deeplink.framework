@@ -22,7 +22,7 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
 
 // todo:(fandaoyi) for 3rd lib to use dipu, need add dipu_cfg.h to contain
 // DIPU_TORCH_VERSION.
-#if DIPU_TORCH_VERSION == 20101
+#if DIPU_TORCH_VERSION >= 20100
   void set_offset(uint64_t offset) override { offset_ = offset; }
   uint64_t get_offset() const override { return offset_; }
 

@@ -5,6 +5,7 @@ from .utils import (
     get_dipu_torch_version,
     check_dipu_torch_compatiable,
     torch_ver_200,
+    torch_ver_210,
     torch_ver_211,
 )
 from .device import __diputype__ as diputype
