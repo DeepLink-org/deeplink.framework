@@ -46,7 +46,11 @@ class GraphTransformer:
         for n in self.gm.graph.nodes:
             fake_value = None
             if n.op == 'call_function':
-                fake_value = (n.target(*n.args, **n.kwargs))
+                try:
+                    fake_value = (n.target(*n.args, **n.kwargs))
+                except Exception as e:
+                    import pdb;pdb.set_trace()
+                    pass
             elif n.op == 'get_attr':
                 target_atoms = n.target.split('.')
                 attr_itr = self.gm

@@ -32,7 +32,7 @@ using json = nlohmann::json;
 using namespace ge;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
-    "ConcatD", "IdentityN", "Pack", "SplitD"};
+    "ConcatD", "IdentityN", "Pack", "SplitD", "IncreFlashAttention"};
 
 void check_op(std::unordered_map<std::string, ge::Operator>& op_map,
               const std::string& op_name) {
@@ -91,7 +91,7 @@ class AclgraphBuilder {
         {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
         {AscendString(ge::ir_option::FUSION_SWITCH_FILE),
          AscendString(_fusion_switch_file.c_str())},
-        {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
+        // {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
     if (status != GRAPH_SUCCESS) {
@@ -188,6 +188,34 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
   }
 }
 
+void parseIncreFlashAttentionDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
+                       op::IncreFlashAttention& op, const json& node) {
+  if (node.contains("dynamic_inputs")) {
+    for (const auto& i : node["dynamic_inputs"]) {
+      auto num = i["num"].get<unsigned int>();
+      auto name = i["name"].get<std::string>();
+      if (name == "key" || name == "value") {
+        if (name == "key") {
+          op.create_dynamic_input_key(num);
+        } else {
+          op.create_dynamic_input_value(num);
+        }
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          if (name == "key") {
+            op.set_dynamic_input_key(index, value);
+          } else {
+            op.set_dynamic_input_value(index, value);
+          }
+        }
+      } else {
+        throw std::runtime_error("invalid dynamic input name");
+      }
+    }
+  }
+}
+
 template <typename T>
 void parseDynamicOutput(T& op, const json& node) {
   if (node.contains("dynamic_outputs")) {
@@ -219,6 +247,10 @@ ge::Operator genDynamicOperator(
   } else if (op_type == "Pack") {
     auto op = genDynamicOp<op::Pack>(op_name);
     parseDynamicInput<op::Pack>(op_map, op, node);
+    return op;
+  } else if (op_type == "IncreFlashAttention") {
+    auto op = genDynamicOp<op::IncreFlashAttention>(op_name);
+    parseIncreFlashAttentionDynamicInput(op_map, op, node);
     return op;
   } else if (op_type == "SplitD") {
     auto op = genDynamicOp<op::SplitD>(op_name);

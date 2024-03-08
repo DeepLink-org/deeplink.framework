@@ -22,6 +22,8 @@ from dicp.vendor.AscendGraph.codegen.utils import (
 from dicp.dynamo_bridge.conversion import register_conversion_impl
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 
+# from dicp_ext_ops import lightllm
+
 
 aten = torch.ops.aten
 prims = torch.ops.prims
@@ -364,43 +366,26 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device, memory_format))
 
     @register_conversion(aten.empty_like.default)
-    def empty_like(self, x, dtype=torch.float32, layout=torch.strided,
-                   device='cpu', pin_memory=False, memory_format=torch.preserve_format):
-        dtype = x.node.meta['val'].dtype
-        shape = list(x.node.meta['val'].shape)
-        shape_op = self.get_proxy(
-            ascend_op.Const, (shape, torch.int32, [len(shape)]))
-        new_memory_format=x.node.meta['tensor_meta'].memory_format if memory_format is torch.preserve_format else memory_format
-        return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device, new_memory_format))
+    def empty_like(self, x, dtype=None, layout=None,
+                   device=None, pin_memory=None, memory_format=None):
+        if dtype is None:
+            dtype = x.node.meta['val'].dtype
+        if layout is not None and (layout != torch.strided):
+            raise NotImplementedError("torch.ops.aten.empty_like.default is "
+                        "only supported on dense tensor now.")
+        if memory_format is not None and memory_format != torch.contiguous_format \
+                and memory_format != torch.preserve_format:
+            raise NotImplementedError("torch.ops.aten.empty_like.default is only supported "
+                    "contiguous_format and preserve_format now.")
+        shape = self.get_proxy(ascend_op.Shape, (x,))
+        return self.get_proxy(ascend_op.Empty, (shape, dtype))
 
     @register_conversion(aten.select.int)
     def select(self, x, dim, index):
-        x_shape = list(x.node.meta['val'].shape)
-        y_shape = list(fx_traceback.get_current_meta()['val'].shape)
-        dim = int(dim)
-        index = int(index)
-        assert dim >= 0 and dim < len(x_shape)
-        start = index if index >= 0 else index + x_shape[dim]
-        end = start + 1
-        offset = [0] * len(x_shape)
-        offset[dim] = start
-        size = []
-        for i, v in enumerate(x_shape):
-            if i != dim:
-                size.append(v - offset[i])
-            else:
-                size.append(end - offset[i])
-        offset = self.get_shape_proxy(offset)
-        size = self.get_shape_proxy(size)
-        slice = self.get_proxy(ascend_op.Slice, (x, offset, size))
-        y_shape = self.get_shape_proxy(y_shape)
-        Reshape_kw = {
-            "ori_op": "Select",
-            "params_passed": {
-                "sel_dim": dim,
-            },
-        }
-        return self.get_proxy(ascend_op.Reshape, (slice, y_shape), Reshape_kw)
+        axis = self.get_const_proxy(dim, torch.int32)
+        if not isinstance(index, torch.fx.proxy.Proxy):
+            index = self.get_const_proxy(index, torch.int32)
+        return self.get_proxy(ascend_op.GatherV2, (x, index, axis))
 
     @register_conversion(_operator.add)
     def inadd(self, x, y):
@@ -516,6 +501,21 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dynamic_shape and (self.shape_prod(y_shape) < self.shape_prod(out)):
             y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
         return self.get_proxy(ascend_op.Less, (x, y))
+
+    
+        # y_shape = [1]
+        # if isinstance(y, torch.fx.proxy.Proxy):
+        #     y_shape = list(y.node.meta['val'].shape)
+        # x_shape = list(x.node.meta['val'].shape)
+        # out = list(fx_traceback.get_current_meta()['val'].shape)
+        # out_shape = self.get_shape_proxy(out)
+        # x, y = self.binary_cmp_cast_input(x, y)
+
+        # # if self.shape_prod(x_shape) < self.shape_prod(out):
+        # #     x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
+        # # if self.shape_prod(y_shape) < self.shape_prod(out):
+        # #     y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
+        # return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
     def masked_fill(self, x, mask, value):
@@ -868,6 +868,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # tf.tensor_scatter_nd_update param 'indices' is different from
         # indices in torch.ops.aten.index_put.default, we use broadcast and
         # stack to construct param 'indices' in tf.tensor_scatter_nd_update
+        x_shape = list(x.node.meta['val'].shape)
+        index = indices[0]
+        if len(indices) == 1 and index.node.meta['val'].dtype == torch.bool:
+            index_shape = list(index.node.meta['val'].shape)
+            if len(index_shape) == len(x_shape):
+                return self.masked_fill(x, index, values)
+            reshape_shape = index_shape + [1] * (len(x_shape) - len(index_shape))
+            reshape_op = self.get_const_proxy(reshape_shape, torch.int32)
+            index = self.get_proxy(ascend_op.Reshape, (index, reshape_op))
+            return self.masked_fill(x, index, values)
+
         stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
             self.compute_stacked_indices(indices, x.node.meta['val'].shape)
         values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:] # batch_shape + inner_shape
@@ -1304,14 +1315,15 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.sumdim(a)
 
     @register_conversion(torch.ops.aten.sum.dim_IntList)
-    def sumdim(self, x, dims=[], keepdim=False, dtype=None):
+    def sumdim(self, x, dim=[], keepdim=False, dtype=None):
         x_dtype = x.node.meta['val'].dtype
-        if not isinstance(dims, list):
-            dims = [dims]
-        if dtype is None or x_dtype == dtype:
-            return self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
-        sum = self.get_proxy(ascend_op.ReduceSumD, (x, dims, keepdim))
-        return self.get_proxy(ascend_op.Cast, (sum, get_ascend_dtype(dtype)))
+        x_shape = x.node.meta['val'].shape
+        if len(dim) == 0:
+            dim = list(range(len(x_shape)))
+        axes = self.get_const_proxy(dim, torch.int32)
+        if dtype and x_dtype != dtype:
+            x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(dtype)))
+        return self.get_proxy(ascend_op.ReduceSum, (x, axes, keepdim))
 
     @register_conversion(torch.ops.aten.amax)
     def amax(self, x, dims, keepdim=False):
@@ -1514,3 +1526,4 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.scalar_tensor.default)
     def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
         return self.get_const_proxy(x, dtype)
+

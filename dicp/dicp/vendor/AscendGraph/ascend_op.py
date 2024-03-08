@@ -290,6 +290,14 @@ class ReduceSumD(Operator):
         return reduce_op_infer(x, dims, keepdim)
 
 
+class ReduceSum(Operator):
+    def __init__(self):
+        super().__init__("ReduceSum")
+
+    def infer_result(self, x, dims, keepdim):
+        return reduce_op_infer(x, dims, keepdim)
+
+
 class Unsqueeze(Operator):
     def __init__(self):
         super().__init__("Unsqueeze")

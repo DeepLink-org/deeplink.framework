@@ -63,6 +63,9 @@ class AscendCodegen(torch.fx.Interpreter):
         self.folder = folder
         self.graph_key = graph_key
 
+        # aten_graph.print_readable()
+        # graph.print_readable()
+
         self.sym_to_inputs = {}
         self.sym_in_args = {}
 
@@ -77,7 +80,7 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-        format = "NCHW"
+        format = "ND"
         index = -1
 
         if isinstance(fake_tensor, torch.SymInt):
@@ -551,6 +554,7 @@ class AscendOperator:
             "name": name,
             "value": value,
         })
+    
 
     def set_output_desc(self, name, shape, format, data_type):
         self.outputs.append({
@@ -957,6 +961,14 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def ReduceSum(name, x, axes, keep_dims):
+        op = OP(name, "ReduceSum")
+        op.set_input("x", x)
+        op.set_input("axes", axes)
+        op.set_attr_bool("keep_dims", keep_dims)
+        return op.to_node()
+
+    @staticmethod
     def ReduceSumD(name, x, axes, keep_dims):
         op = OP(name, "ReduceSumD")
         op.set_input("x", x)
@@ -1047,7 +1059,10 @@ class AscendOverrides:
     def Const(name, x, dtype, dims=None, format="ND"):
         if not isinstance(x, list):
             x = [x]
-        assert len(x) > 0
+        if len(x) <= 0:
+            import pdb;pdb.set_trace()
+            pass
+        # assert len(x) > 0
         ascend_dtype = get_ascend_dtype(dtype)
         cpp_dtype = get_cpp_dtype(dtype)
         const_op = OP(name, "Const")

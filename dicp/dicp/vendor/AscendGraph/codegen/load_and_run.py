@@ -121,7 +121,7 @@ class MemoryPool:
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 18 * 1024 * 1024 * 1024
+            self.work_size = 26 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                                ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
@@ -178,56 +178,62 @@ class AscendExecutor(object):
             self.weight_ptr = None
 
     def load_model(self):
-        work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
-        check_ret("acl.mdl.query_size", ret)
-        if work_size == 0:
-            work_size = memory_pool.work_size
-        elif work_size > memory_pool.work_size:
-            free, _, ret = acl.rt.get_mem_info(ACL_HBM_MEM)
-            check_ret("acl.rt.get_mem_info", ret)
-            # If free < work_size, means that memory is insufficient.
-            # Just ignore and continue, it may be work.
-            if free > work_size:
-                memory_pool.work_size = work_size
-                memory_pool.release_memory()
-                print("Adjust memory pool allocation.")
-                memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
-                                                        ACL_MEM_MALLOC_HUGE_FIRST)
-                check_ret("acl.rt.malloc", ret)
+        # work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        # check_ret("acl.mdl.query_size", ret)
+        # if work_size == 0:
+        #     work_size = memory_pool.work_size
+        # elif work_size > memory_pool.work_size:
+        #     free, _, ret = acl.rt.get_mem_info(ACL_HBM_MEM)
+        #     check_ret("acl.rt.get_mem_info", ret)
+        #     # If free < work_size, means that memory is insufficient.
+        #     # Just ignore and continue, it may be work.
+        #     if free > work_size:
+        #         memory_pool.work_size = work_size
+        #         memory_pool.release_memory()
+        #         import pdb;pdb.set_trace()
+        #         print("Adjust memory pool allocation.")
+        #         memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
+        #                                                 ACL_MEM_MALLOC_HUGE_FIRST)
+        #         check_ret("acl.rt.malloc", ret)
 
-        self.weight_ptr, ret = acl.rt.malloc(weight_size,
-                                             ACL_MEM_MALLOC_HUGE_FIRST)
-        check_ret("acl.rt.malloc", ret)
-        config_handle = acl.mdl.create_config_handle()
-        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
-        check_ret("set_config_opt", ret)
+        # self.weight_ptr, ret = acl.rt.malloc(weight_size,
+        #                                      ACL_MEM_MALLOC_HUGE_FIRST)
+        # check_ret("acl.rt.malloc", ret)
+        # config_handle = acl.mdl.create_config_handle()
+        # ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_PATH_PTR, self.model_path)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_PATH_PTR, self.model_path)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WEIGHT_ADDR_PTR, self.weight_ptr)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_WEIGHT_ADDR_PTR, self.weight_ptr)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        # check_ret("set_config_opt", ret)
 
-        ret = acl.mdl.set_config_opt(
-            config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
-        check_ret("set_config_opt", ret)
+        # ret = acl.mdl.set_config_opt(
+        #     config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
+        # check_ret("set_config_opt", ret)
 
-        self.model_id, ret = acl.mdl.load_with_config(config_handle)
-        check_ret("acl.mdl.load_with_config", ret)
+        # self.model_id, ret = acl.mdl.load_with_config(config_handle)
+        # check_ret("acl.mdl.load_with_config", ret)
+        # print("model_id:{}".format(self.model_id))
+        
+        
+        self.model_id, ret = acl.mdl.load_from_file(self.model_path)
+        check_ret("acl.mdl.load_from_file", ret)
         print("model_id:{}".format(self.model_id))
 
         self.model_desc = acl.mdl.create_desc()
@@ -336,29 +342,31 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    @record_function('load_and_run_run')
+    # @record_function(f'load_and_run_run')
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
             allocated_output=None):
-        assert len(images) > 0
-        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
-                 and x.device.type != dipu_device_str else x for x in images]
-        allocated_output_tensor = None
-        if allocated_output:
-            allocated_output_tensor = {}
-            for output_index, input_index in allocated_output.items():
-                allocated_output_tensor[output_index] = input[input_index]
-        self._prepare_input(input, dims)
-        output = []
-        if output_shape:
-            self._prepare_dynamic_output(
-                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
-        else:
-            self._prepare_output(
-                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
-        self.forward()
-        self._destroy_databuffer()
-        return output
+        # print('### load_and_run: model_id:', self.model_id)
+        with record_function(f'load_and_run_run_{self.model_id}'):
+            assert len(images) > 0
+            input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
+                    and x.device.type != dipu_device_str else x for x in images]
+            allocated_output_tensor = None
+            if allocated_output:
+                allocated_output_tensor = {}
+                for output_index, input_index in allocated_output.items():
+                    allocated_output_tensor[output_index] = input[input_index]
+            self._prepare_input(input, dims)
+            output = []
+            if output_shape:
+                self._prepare_dynamic_output(
+                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
+            else:
+                self._prepare_output(
+                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
+            self.forward()
+            self._destroy_databuffer()
+            return output
 
     @record_function('load_and_run_forward')
     def forward(self):
