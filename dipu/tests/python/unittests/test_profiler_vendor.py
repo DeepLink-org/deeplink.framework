@@ -2,7 +2,12 @@
 import tempfile
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
+from torch_dipu.testing._internal.common_utils import (
+    TestCase,
+    run_tests,
+    onlyOn,
+    skipOnTorchVer,
+)
 import torch._dynamo as dynamo
 import subprocess
 import torchvision.models as models
@@ -110,6 +115,7 @@ class TestProfiler(TestCase):
             prof.export_chrome_trace(f"{tmpdir}/resnet18_profiler_cuda.json")
 
     @onlyOn("MLU")
+    @skipOnTorchVer(torch_dipu.dipu.torch_ver_210)
     def test_profiler_mlu(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
