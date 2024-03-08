@@ -1040,6 +1040,30 @@ class TileWithAxis(Operator):
         self.torch_op = aten.repeat_interleave.self_int
 
 
+class RotaryMul(Operator):
+    def __init__(self):
+        super().__init__("RotaryMul")
+
+    def infer_result(self, x, cos, sin):
+        return torch.empty_like(x)
+
+
+class RmsNorm(Operator):
+    def __init__(self):
+        super().__init__("RmsNorm")
+
+    def infer_result(self, x, weight, eps):
+        return torch.empty_like(x)
+
+
+class PromptFlashAttention(Operator):
+    def __init__(self):
+        super().__init__("PromptFlashAttention")
+
+    def infer_result(self, q, k, v, num_head, seqlen):
+        return torch.empty_like(q)
+
+
 class TensorScatterUpdate(Operator):
     def __init__(self):
         super().__init__("TensorScatterUpdate")

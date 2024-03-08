@@ -527,6 +527,7 @@ class AscendOperator:
         self.op_name = op_name
         self.op_type = op_type
         self.inputs = []
+        self.optional_inputs = []
         self.outputs = []
         self.attrs = []
         self.dynamic_inputs = []
@@ -539,6 +540,8 @@ class AscendOperator:
         }
         if len(self.inputs) > 0:
             node["inputs"] = self.inputs
+        if len(self.optional_inputs) > 0:
+            node["optional_inputs"] = self.optional_inputs
         if len(self.outputs) > 0:
             node["outputs"] = self.outputs
         if len(self.attrs) > 0:
@@ -554,7 +557,12 @@ class AscendOperator:
             "name": name,
             "value": value,
         })
-    
+
+    def set_optional_input(self, name, value):
+        self.optional_inputs.append({
+            "name": name,
+            "value": value,
+        })
 
     def set_output_desc(self, name, shape, format, data_type):
         self.outputs.append({
@@ -1609,4 +1617,39 @@ class AscendOverrides:
         op.set_input("x", x)
         op.set_input("indices", indices)
         op.set_input("updates", updates)
+        return op.to_node()
+
+    @staticmethod
+    def RotaryMul(name, x, cos, sin):
+        op = OP(name, "RotaryMul")
+        op.set_input("x", x)
+        op.set_input("r1", cos)
+        op.set_input("r2", sin)
+        return op.to_node()
+
+    @staticmethod
+    def RmsNorm(name, x, weight, eps):
+        op = OP(name, "RmsNorm")
+        op.set_input("x", x)
+        op.set_input("gamma", weight)
+        op.set_attr_float("epsilon", float(eps))
+        return op.to_node()
+
+
+    @staticmethod
+    def PromptFlashAttention(name, q, k, v, head_num, seqlen):
+        op = OP(name, "PromptFlashAttention")
+        op.set_input("query", q)
+        op.set_input("key", k)
+        op.set_input("value", v)
+        op.set_optional_input("actual_seq_lengths", seqlen)
+        # op.set_optional_input("actual_seq_lengths_kv", seqlen)
+        op.set_attr_int("num_heads", head_num)
+        # op.set_attr_float("scale_value", float(1 / 0.0078125))】
+        # op.set_attr_float("scale_value", float(1 / 2))
+        op.set_attr_float("scale_value", float(1 / 11.313708498984761))
+        # op.set_attr_float("scale_value", float(1 / 5.656854249492381))
+        op.set_attr_str("input_layout", "BSH")
+        # op.set_attr_int("num_key_value_heads", head_num)
+
         return op.to_node()

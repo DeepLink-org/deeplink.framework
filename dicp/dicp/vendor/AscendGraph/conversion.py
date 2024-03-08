@@ -1527,3 +1527,33 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
         return self.get_const_proxy(x, dtype)
 
+    @register_conversion(torch.ops.lightllm.rotary_emb.default)
+    def lightllm_rotary_emb(self, x, cos, sin):
+        x_shape = list(x.node.meta['val'].shape)
+        assert len(x_shape) == 3
+
+        seq_len = x_shape[0]
+        dim = x_shape[2]
+
+        cos_sin_shape = self.get_const_proxy([seq_len, 1, dim // 2], torch.int32)
+        cos = self.get_proxy(ascend_op.Reshape, (cos, cos_sin_shape))
+        sin = self.get_proxy(ascend_op.Reshape, (sin, cos_sin_shape))
+
+        x = self.get_proxy(ascend_op.Unsqueeze, (x, [0]))
+        cos = self.get_proxy(ascend_op.Tile, (cos, [1, 1, 1, 2]))
+        sin = self.get_proxy(ascend_op.Tile, (sin, [1, 1, 1, 2]))
+
+        out = self.get_proxy(ascend_op.RotaryMul, (x, cos, sin))
+        return self.get_proxy(ascend_op.Squeeze, (out, [0]))
+
+    @register_conversion(torch.ops.lightllm.rms_norm.default)
+    def lightllm_rms_norm(self, x, weight, eps):
+        out = self.get_proxy(ascend_op.RmsNorm, (x, weight, eps))
+        return self.get_proxy(ascend_op.Identity, (out, 0))
+
+
+    @register_conversion(torch.ops.lightllm.prompt_attention_inference.default)
+    def prompt_attention_inference(self, q, k, v, num_head, seqlen):
+        fa = self.get_proxy(ascend_op.PromptFlashAttention, (q, k, v, num_head, seqlen))
+        # fa = self.get_proxy(ascend_op.Identity, (fa, 3))
+        return fa
