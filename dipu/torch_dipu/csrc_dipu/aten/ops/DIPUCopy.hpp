@@ -42,7 +42,7 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
 #if DIPU_TORCH_VERSION == 20000
   assert_no_internal_overlap(dst);
 #else
-  // seems torch2.1.1 not check internal overlap
+  // seems torch2.1.0 (20100) not check internal overlap
 #endif
 
   assert_no_partial_overlap(dst, src);

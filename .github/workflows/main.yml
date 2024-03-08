@@ -139,6 +139,42 @@ jobs:
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
+  Build-Camb-Pt210:
+    name: Build-dipu-camb-pt210
+    needs: [Runs-On-Nv-Step1]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build dipu
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/camb/ci_camb_env.sh  2.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  # torch2.1.0 in camb ci is not a complete one, no test dir.
+  # Test-Camb-Pt210:
+  #   name: Test-dipu-camb-pt210
+  #   needs: [Build-Camb-Pt210]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         ssh ${CAMB_CLUSTER} """
+  #         set -ex
+  #         cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Pt210/dipu
+  #         source scripts/ci/camb/ci_camb_env.sh 2.1
+  #         srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && \
+  #         cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt210
+  #         """
+
   Build-Camb-Pt211:
     name: Build-dipu-camb-pt211
     needs: [Runs-On-Nv-Step1]
@@ -172,41 +208,6 @@ jobs:
           source scripts/ci/camb/ci_camb_env.sh 2.1.1
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && \
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt211
-          """
-
-  Build-Camb-Pt210:
-    name: Build-dipu-camb-pt210
-    needs: [Runs-On-Nv-Step1]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Build dipu
-        run: |
-          ssh ${CAMB_CLUSTER} """
-          set -ex
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          source scripts/ci/camb/ci_camb_env.sh  2.1
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
-          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
-          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-          """
-
-  Test-Camb-Pt210:
-    name: Test-dipu-camb-pt210
-    needs: [Build-Camb-Pt210]
-    runs-on: github-poc-ci
-    env:
-      MLU_REQUESTS: 1
-    steps:
-      - name: Run-test
-        run: |
-          ssh ${CAMB_CLUSTER} """
-          set -ex
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Pt210/dipu
-          source scripts/ci/camb/ci_camb_env.sh 2.1
-          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && \
-          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt210
           """
 
   Test-One-Iter-Camb:

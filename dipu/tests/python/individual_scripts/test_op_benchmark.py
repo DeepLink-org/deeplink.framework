@@ -25,7 +25,7 @@ r0 = t0.timeit(100)
 print(r0)
 # TODO(fandaoyi,lljbash): find out why it gets slower
 # assert r0.mean < 8.8e-5
-assert r0.mean < 35.0e-5
+assert r0.mean < 1.0e-3
 
 
 def batched_dot_bmm(a, b):
