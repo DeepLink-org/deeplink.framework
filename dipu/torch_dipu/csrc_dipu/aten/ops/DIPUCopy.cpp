@@ -38,9 +38,9 @@ namespace native {
 namespace dipu_aten {
 at::Scalar _local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
-  AT_DISPATCH_ALL_TYPES_AND2(
-      at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu",
-      [&] {
+  AT_DISPATCH_ALL_TYPES_AND3(
+      at::kHalf, at::kBool, at::kBFloat16, self.scalar_type(),
+      "_local_scalar_dense_dipu", [&] {
         scalar_t value;
         dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
         MemChecker::instance().check(self);
