@@ -1,4 +1,7 @@
 camb:
+    # # transformers
+    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
     - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
@@ -51,10 +54,9 @@ camb:
     - model_cfg: "DI-engine ding/example/ppo.py workdirs_ppo"
     - model_cfg: "DI-engine ding/example/sac.py workdirs_sac"
 
-    # # transformers
-    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
-
 cuda:
+    # transformers
+    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
     - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
@@ -95,8 +97,6 @@ cuda:
     - model_cfg: "DI-engine ding/example/sac.py workdirs_sac"
     # mmagic
     # - model_cfg: "mmagic stable_diffusion/stable-diffusion_ddim_denoisingunet_infer.py workdirs_stable_diffusion"
-    # transformers
-    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
 ascend:
     # mmsegmentation
