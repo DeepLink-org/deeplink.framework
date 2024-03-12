@@ -2527,6 +2527,16 @@
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
+- schema: _foreach_lerp_.Scalar(Tensor(a!)[] self, Tensor[] tensors1, Scalar weight) -> ()
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto selfVec = self.vec();
+    for (size_t i = 0;i < self.size();i++) {
+      dipu_lerp_scalar_out(selfVec[i], tensors1[i], weight, selfVec[i]);
+    }
+    return;
+  interface: diopiLerpScalar(ctx, out, input, end, weight)
+
 # wrap_diopi_cast_dtype has no corresponding aten op and not registered, it's just a diopi func wrapper.
 # use this tricky method to support call multiple diopi-op in one aten-op
 - schema: "wrap_diopi_cast_dtype(Tensor(a) self, ScalarType dtype) -> Tensor(a)"
