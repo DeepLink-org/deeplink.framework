@@ -505,6 +505,7 @@ class BFCachingAllocator : public CacheAllocator {
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
+    size = getMemoryAlignmentStrategy()->roundBytes(size);
     std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
     if (ptr == nullptr && size > 0) {

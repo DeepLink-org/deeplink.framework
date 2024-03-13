@@ -33,17 +33,7 @@ class RawCachingAllocator : public CacheAllocator {
   };
 
   static size_t getAllocateSize(size_t nbytes) {
-    static const size_t kMinAllocationSize = []() {
-      const int kBytesNum = 512;
-      size_t size = kBytesNum;
-      const char* env = std::getenv("DIPU_RAW_ALLOCATOR_MIN_ALLOCATE_SIZE");
-      if (env != nullptr) {
-        size = std::atoi(env);
-      }
-      return size;
-    }();
-    size_t allocateSize = ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
-    return allocateSize;
+    return getMemoryAlignmentStrategy()->roundBytes(nbytes);
   }
 
   c10::DataPtr allocate(size_t size) const override {

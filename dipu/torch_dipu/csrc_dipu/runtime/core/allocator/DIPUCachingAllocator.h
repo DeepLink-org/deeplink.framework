@@ -11,6 +11,22 @@
 
 namespace dipu {
 
+struct MemoryAlignmentStrategy{
+  int64_t kBytesAlign = 512;
+  int64_t alpha = 1;  // reserved
+  int64_t beta = 0;
+
+  virtual int64_t roundBytes(int64_t nbytes) const {
+    nbytes = alpha * nbytes + beta;
+    nbytes = ((nbytes - 1) | (kBytesAlign - 1)) + 1;
+    return nbytes;
+  }
+};
+
+const MemoryAlignmentStrategy* getMemoryAlignmentStrategy();
+
+void setMemoryAlignmentStrategy(const MemoryAlignmentStrategy* memoryAlignStrategy);
+
 using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
 class MemStats {

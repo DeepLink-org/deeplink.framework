@@ -20,6 +20,24 @@ std::mutex DIPURawDeviceAllocator::mutex_;
 
 namespace {
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static MemoryAlignmentStrategy defaultMemoryAlignmentStrategy;
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+const MemoryAlignmentStrategy* memoryAlignmentStrategy = &defaultMemoryAlignmentStrategy;
+
+} // namespace;
+
+const MemoryAlignmentStrategy* getMemoryAlignmentStrategy() {
+  return memoryAlignmentStrategy;
+}
+
+void setMemoryAlignmentStrategy(const MemoryAlignmentStrategy* memoryAlignStrategy) {
+  memoryAlignmentStrategy = memoryAlignStrategy;
+}
+
+namespace {
+
 // using RegisteredAllocator = std::map<c10::DeviceType, std::map<std::string,
 // std::tuple<c10::Allocator*, uint8_t>>>; using RegisteredAllocator =
 // std::map<c10::DeviceType, std::map<std::string,
