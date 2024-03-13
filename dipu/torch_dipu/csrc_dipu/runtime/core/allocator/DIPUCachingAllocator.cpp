@@ -21,18 +21,20 @@ std::mutex DIPURawDeviceAllocator::mutex_;
 namespace {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static MemoryAlignmentStrategy defaultMemoryAlignmentStrategy;
+MemoryAlignmentStrategy gDefaultMemoryAlignmentStrategy;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const MemoryAlignmentStrategy* memoryAlignmentStrategy = &defaultMemoryAlignmentStrategy;
+const MemoryAlignmentStrategy* memoryAlignmentStrategy =
+    &gDefaultMemoryAlignmentStrategy;
 
-} // namespace;
+}  // namespace
 
 const MemoryAlignmentStrategy* getMemoryAlignmentStrategy() {
   return memoryAlignmentStrategy;
 }
 
-void setMemoryAlignmentStrategy(const MemoryAlignmentStrategy* memoryAlignStrategy) {
+void setMemoryAlignmentStrategy(
+    const MemoryAlignmentStrategy* memoryAlignStrategy) {
   memoryAlignmentStrategy = memoryAlignStrategy;
 }
 
