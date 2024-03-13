@@ -20,6 +20,7 @@ class BFCachingAllocatorImpl {
  private:
   allocate_fn_t allocate_fn;
   deallocate_fn_t deallocate_fn;
+  #if 0
   // Number of first level bins (exponentially)
   static constexpr int kNumBigBins = 32;
   // Number of second level bins (linearly)
@@ -30,6 +31,16 @@ class BFCachingAllocatorImpl {
   static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
   static constexpr size_t kMaxExtendSize = 1U << 30U;             // 1GB
+  #endif
+  // Number of first level bins (exponentially)
+  static constexpr int kNumBigBins = 32;
+  // Number of second level bins (linearly)
+  static constexpr int kNumSubBins = 4;
+  static constexpr int kLogNumSubBins = 2;
+  static constexpr size_t kMinAllocationSize = 512;
+  static constexpr size_t kMaxInternalFragmentation = 1U << 10;  // 1KB
+  static constexpr size_t kMinExtendSize = 8U << 20U;             // 1KB
+  static constexpr size_t kMaxExtendSize = 1U << 30U;             // 8MB
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -416,7 +427,8 @@ class BFCachingAllocator : public CacheAllocator {
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
-                                    << ", device:" << device());
+                                    << ", device:" << device()
+                                    << ", async_pool.size:" << async_mem_pool()->size());
       impl->releaseRaw(ptr, id);
     }
     set_memory_reserved(impl->memory_reserved());
@@ -504,7 +516,11 @@ class BFCachingAllocator : public CacheAllocator {
   friend class Context;
 
   c10::DataPtr allocate(size_t size) const override {
+    if ((1.0 * memory_allocated() / memory_reserved()) < 0.7) {
+      devproxy::syncDevice();
+    }
     restore();
+
     size = getMemoryAlignmentStrategy()->roundBytes(size);
     std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
