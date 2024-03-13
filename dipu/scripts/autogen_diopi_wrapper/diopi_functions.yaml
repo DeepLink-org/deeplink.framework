@@ -43,28 +43,10 @@
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_add_scalar_out(self, other.item(), alpha, out);
-    } 
-    if (self.dim() == 0 && self.is_cpu()) {
-        if (alpha.toDouble() == 1.0) {
-          return dipu_add_scalar_out(other, self.item(), alpha, out);
-        }
-        dipu_fill__scalar(out, self.item());
-        return dipu_add__tensor(out, other, alpha);
-    }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
 - schema: "add.Tensor(Tensor self, Tensor other, *,  Scalar alpha=1) -> Tensor"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_add_scalar(self, other.item(), alpha);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-      auto out = nodispatch::empty_like(other);
-      return dipu_add_out(self, other, alpha, out);
-    }
     auto out_shape = at::infer_size(self.sizes(), other.sizes());
     auto out_dtype = at::promoteTypes(self.scalar_type(), other.scalar_type());
     auto out = nodispatch::empty(out_shape, self.options().dtype(out_dtype));
@@ -74,6 +56,7 @@
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty_like(self);
   interface: diopiSubScalar(ctx, out, self, other, alpha)
+
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
@@ -94,13 +77,6 @@
 
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_sub_scalar(self, other.item(), alpha);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-      auto out = nodispatch::empty_like(other);
-      return dipu_sub_out(self, other, alpha, out);
-    }
     auto out_shape = at::infer_size(self.sizes(), other.sizes());
     auto out_dtype = at::promoteTypes(self.scalar_type(), other.scalar_type());
     auto out = nodispatch::empty(out_shape, self.options().dtype(out_dtype));
@@ -133,26 +109,10 @@
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_div_scalar_out(self, other.item(), out);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        // todo:(wentao) temp solution, need using a type promotion strategy
-        at::Tensor selfD = nodispatch::empty_like(other);
-        dipu_fill__scalar(selfD, self.item());
-        return dipu_div_out(selfD, other, out);
-    }
   interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
 - schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_div_scalar(self, other.item());
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        auto out = nodispatch::empty_like(other);
-        return dipu_div_out(self, other, out);
-    }
     auto out_shape = at::infer_size(self.sizes(), other.sizes());
     auto out_dtype = at::promoteTypes(self.scalar_type(), other.scalar_type());
     at::Tensor out;
@@ -191,12 +151,6 @@
 
 - schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_mul_scalar(self, other.item());
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        return dipu_mul_scalar(other, self.item());
-    }
     auto out_shape = at::infer_size(self.sizes(), other.sizes());
     auto out_dtype = at::promoteTypes(self.scalar_type(), other.scalar_type());
     auto out = nodispatch::empty(out_shape, self.options().dtype(out_dtype));
@@ -211,12 +165,6 @@
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_mul_scalar_out(self, other.item(), out);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        return dipu_mul_scalar_out(other, self.item(), out);
-    }
   interface: diopiMul(ctx, out, self, other)
 
 - schema: "logical_and.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
