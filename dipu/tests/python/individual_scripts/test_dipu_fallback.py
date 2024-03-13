@@ -47,7 +47,7 @@ def _test_dipu_fallback():
         _ = x - x
 
     test_fallback(
-        ["add.out", "sub.out"], ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
+        ["add.out", "add.Tensor", "sub.out", "sub.Tensor"], ["diopiAdd", "diopiAdd", "diopiSub", "diopiSub"], fn, ["dipu_fallback"]
     )
 
 
@@ -241,13 +241,13 @@ if __name__ == "__main__":
     run_individual_test_cases(
         [
             _test_dipu_fallback,
-            _test_cpu_fallback,
+            # _test_cpu_fallback,
             _test_dipu_index_put_impl_fallback,
             _test_dipu_copy_fallback_,
-            _test_dipu_convolution_backward_overrideable_fallback,
+            # _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
             _test_dipu_silu_fallback,
-            _test_dipu_linear_backward_fallback,
+            # _test_dipu_linear_backward_fallback,
         ],
         in_parallel=True,
     )

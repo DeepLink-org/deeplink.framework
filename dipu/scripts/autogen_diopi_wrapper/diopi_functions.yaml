@@ -81,6 +81,13 @@
 - schema: "sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   interface: diopiSubInpScalar(ctx, self, other, alpha)
 
+- schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out_shape = at::infer_size(self.sizes(), other.sizes());
+    auto out_dtype = at::promoteTypes(self.scalar_type(), other.scalar_type());
+    auto out = nodispatch::empty(out_shape, self.options().dtype(out_dtype));
+  interface: diopiSub(ctx, out, self, other, alpha)
+
 - schema: "sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     if (other.dim() == 0 && other.is_cpu()) {
