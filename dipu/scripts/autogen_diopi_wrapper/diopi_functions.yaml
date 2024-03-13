@@ -37,11 +37,24 @@
     }
   interface: diopiAddInp(ctx, self, other, alpha)
 
+- schema: "add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  # torch_ver: ["200","210",]
+  custom_code_at_the_beginning: |
+    Infer_add_Tensor op;
+    op.meta(self, other, alpha);
+    auto common_dtype = op.common_dtype();
+    auto output_shape = op.shape();
+    auto options = at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
+    auto out = nodispatch::empty(output_shape, options);
+    std::cout << "===============yyyyy=======" << std::endl;
+  interface: diopiAdd(ctx, out, self, other, alpha)
+
+
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     if (other.dim() == 0 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
-    } 
+    }
     if (self.dim() == 0 && self.is_cpu()) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
@@ -924,7 +937,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
-    } 
+    }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -949,7 +962,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size());
-    } 
+    }
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -1318,7 +1331,7 @@
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
     // todo:(wentao) temp solution, need using a type promotion strategy
-    at::Tensor out = self.dim() == 0 && self.is_cpu() ? 
+    at::Tensor out = self.dim() == 0 && self.is_cpu() ?
         nodispatch::empty_like(other) :
         nodispatch::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -1906,7 +1919,7 @@
     *   }
     *   '''
     */
-    
+
     constexpr int kSameAsInputSize = 7;
     std::vector<at::Tensor> outputs(kSameAsInputSize);
     outputs[0] = result;
