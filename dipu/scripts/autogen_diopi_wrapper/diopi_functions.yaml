@@ -484,6 +484,7 @@
   interface: diopiRandperm(ctx, out, n, generator)
 
 - schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     at::Tensor out;
@@ -1126,6 +1127,7 @@
   interface: diopiPowTensor(ctx, out, self, exponent);
 
 - schema: "pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor"
+  device: [cuda, ascend]
   custom_code_at_the_beginning: |
     auto out_shape = at::infer_size(self.sizes(), exponent.sizes());
     auto out = nodispatch::empty(out_shape, self.options());
@@ -1328,6 +1330,7 @@
   interface: diopiMaskedSelect(ctx, &out, self, mask);
 
 - schema: "baddbmm(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1) -> Tensor"
+  device: [cuda, ascend]
   custom_code_at_the_beginning: |
     double betaDouble = beta.toDouble();
     double alphaDouble = alpha.toDouble();
@@ -1548,6 +1551,7 @@
   interface: diopiCosInp(ctx, self)
 
 - schema: "bmm(Tensor self, Tensor mat2) -> Tensor"
+  device: [cuda, ascend]
   custom_code_at_the_beginning: |
     auto out_dtype = at::promoteTypes(self.scalar_type(), mat2.scalar_type());
     auto out = nodispatch::empty({self.size(0), self.size(1), mat2.size(2)}, self.options().dtype(out_dtype));
@@ -2051,6 +2055,7 @@
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
   custom_code_at_the_beginning: | 
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     at::Tensor out;
