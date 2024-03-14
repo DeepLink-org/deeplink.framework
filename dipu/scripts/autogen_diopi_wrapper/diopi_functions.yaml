@@ -1126,17 +1126,10 @@
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
-- schema: "pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor"
-  device: [cuda, ascend]
-  custom_code_at_the_beginning: |
-    auto out_shape = at::infer_size(self.sizes(), exponent.sizes());
-    auto out = nodispatch::empty(out_shape, self.options());
-  interface: diopiPowTensor(ctx, out, self, exponent);
-
-- schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
-  custom_code_at_the_beginning: |
-    auto out = nodispatch::empty(self.sizes(), self.options());
-  interface: diopiPow(ctx, out, self, exponent);
+# - schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
+#   custom_code_at_the_beginning: |
+#     auto out = nodispatch::empty(self.sizes(), self.options());
+#   interface: diopiPow(ctx, out, self, exponent);
 
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPow(ctx, out, self, exponent);
@@ -1549,13 +1542,6 @@
 
 - schema: "cos_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiCosInp(ctx, self)
-
-- schema: "bmm(Tensor self, Tensor mat2) -> Tensor"
-  device: [cuda, ascend]
-  custom_code_at_the_beginning: |
-    auto out_dtype = at::promoteTypes(self.scalar_type(), mat2.scalar_type());
-    auto out = nodispatch::empty({self.size(0), self.size(1), mat2.size(2)}, self.options().dtype(out_dtype));
-  interface: diopiBmm(ctx, out, self, mat2)
 
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
