@@ -1515,7 +1515,6 @@
   interface: diopiCosInp(ctx, self)
 
 - schema: "bmm(Tensor self, Tensor mat2) -> Tensor"
-  custom_fallback: True
   custom_code_at_the_beginning: |
     TORCH_CHECK(self.dim() == 3, "Tensor self shoud be 3-D tensor.");
     TORCH_CHECK(mat2.dim() == 3, "Tensor mat2 shoud be 3-D tensor.");
