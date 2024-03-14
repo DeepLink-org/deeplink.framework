@@ -392,15 +392,6 @@ static at::Tensor& custom_fallback_dipu_addmm_out(
   return out;
 }
 
-static at::Tensor custom_fallback_dipu_bmm(const at::Tensor& self,
-                                           const at::Tensor& mat2) {
-  auto self_cpu = to_cpu_with_half_to_float(self);
-  auto mat2_cpu = to_cpu_with_half_to_float(mat2);
-  auto out_cpu = at::bmm(self_cpu, mat2_cpu);
-  auto out = out_cpu.to(self.options());
-  return out;
-}
-
 static at::Tensor& custom_fallback_dipu_bmm_out(const at::Tensor& self,
                                                 const at::Tensor& mat2,
                                                 at::Tensor& out) {
