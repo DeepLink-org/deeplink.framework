@@ -238,6 +238,7 @@ diopiTopk
 diopiTranspose
 diopiTril
 diopiTriu
+diopiTriuInp
 diopiUniformInp
 diopiUnique
 diopiUpsampleLinear

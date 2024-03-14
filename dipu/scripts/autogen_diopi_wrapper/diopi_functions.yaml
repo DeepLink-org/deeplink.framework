@@ -1514,6 +1514,14 @@
 - schema: "cos_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiCosInp(ctx, self)
 
+- schema: "bmm(Tensor self, Tensor mat2) -> Tensor"
+  custom_code_at_the_beginning: |
+    TORCH_CHECK(self.dim() == 3, "Tensor self shoud be 3-D tensor.");
+    TORCH_CHECK(mat2.dim() == 3, "Tensor mat2 shoud be 3-D tensor.");
+    TORCH_CHECK(self.size(0) == mat2.size(0), "Tensor batch size of self and mat2 shoud be equal.");
+    auto out = nodispatch::empty({self.size(0), self.size(1), mat2.size(2)}, self.options());
+  interface: diopiBmm(ctx, out, self, mat2)
+
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiBmm(ctx, out, self, mat2)
@@ -2177,6 +2185,14 @@
 
 - schema: "sgn.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSgn(ctx, out,self)
+
+- schema: "triu(Tensor self, int diagonal=0) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty_like(self);
+  interface: diopiTriu(ctx, out, self, diagonal)
+
+- schema: "triu_(Tensor(a!) self, int diagonal=0) -> Tensor(a!)"
+  interface: diopiTriuInp(ctx, self, diagonal)
 
 - schema: "triu.out(Tensor self, int diagonal=0, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiTriu(ctx, out, self, diagonal)
