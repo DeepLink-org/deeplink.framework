@@ -44,6 +44,7 @@
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -83,6 +84,7 @@
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -179,6 +181,7 @@
   interface: diopiDivScalar(ctx, out, self, other, mode)
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -226,6 +229,7 @@
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
