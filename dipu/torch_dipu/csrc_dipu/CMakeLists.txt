@@ -46,6 +46,7 @@ endif()
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 set(GENERATED_KERNELS_SCRIPT "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
 set(GENERATED_KERNELS_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
+set(GENERATED_INFER_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/infer_ops.yaml")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
@@ -57,6 +58,7 @@ add_custom_command(
   COMMAND "${Python3_EXECUTABLE}"
     "${GENERATED_KERNELS_SCRIPT}"
     "--out=${GENERATED_KERNELS}"
+    "--infer_ops_config=${GENERATED_INFER_CONFIG}"
     "--config=${GENERATED_KERNELS_CONFIG}"
     "--autocompare=False"
     "--print_op_arg=True"
@@ -67,6 +69,7 @@ add_custom_command(
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
     "${GENERATED_KERNELS_CONFIG}"
+    "${GENERATED_INFER_CONFIG}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 

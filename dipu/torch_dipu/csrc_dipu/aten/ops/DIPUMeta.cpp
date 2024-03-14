@@ -1,21 +1,8 @@
 #include "DIPUMeta.hpp"
 
-#include <cstdint>
-#include <iostream>
-
 #include <ATen/ExpandUtils.h>
-#include <ATen/NamedTensorUtils.h>
-#include <ATen/TensorMeta.h>
-#include <ATen/native/BinaryOps.h>
 #include <ATen/native/TypeProperties.h>
-#include <ATen/ops/add_meta.h>
-#include <c10/core/ScalarType.h>
-#include <c10/util/ArrayRef.h>
-#include <c10/util/SmallVector.h>
-
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/aten/ops/DIPUAmp.hpp"
-
+#include <ATen/native/BinaryOps.h>
 namespace dipu {
 namespace native {
 
@@ -68,12 +55,33 @@ void Infer::compute_shape() {
   }
 }
 
-DIPU_TORCH_META_FUNC2(add, Tensor)
+
+// meta impl of binary op
+/*************************** start binary op's meta ******************************/
+DIPU_TORCH_META_FUNC(add, Tensor)
 (const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
   set_config(DIPU_BINARY_OP_CONFIG())
       .add_input(&self)
       .add_input(&other)
       .build();
+   at::native::alpha_check(common_dtype(), alpha);
 }
+
+DIPU_TORCH_META_FUNC(sub, Tensor)
+(const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
+  at::native::sub_check(self, other);
+  set_config(DIPU_BINARY_OP_CONFIG())
+      .add_input(&self)
+      .add_input(&other)
+      .build();
+ at::native::alpha_check(common_dtype(), alpha);
+}
+
+
+
+/**************************** end binary op's meta ****************************************/
+
+
+
 }  // namespace native
 }  // namespace dipu

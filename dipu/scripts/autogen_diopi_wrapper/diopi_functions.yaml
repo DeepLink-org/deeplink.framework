@@ -38,15 +38,6 @@
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
-  # torch_ver: ["200","210",]
-  custom_code_at_the_beginning: |
-    Infer_add_Tensor op;
-    op.meta(self, other, alpha);
-    auto common_dtype = op.common_dtype();
-    auto output_shape = op.target_shape();
-    auto options = at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
-    auto out = nodispatch::empty(output_shape, options);
-    std::cout << "===============yyyyy=======" << std::endl;
   interface: diopiAdd(ctx, out, self, other, alpha)
 
 
@@ -66,6 +57,9 @@
 
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSubScalar(ctx, out, self, other, alpha)
+
+- schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  interface: diopiSub(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |

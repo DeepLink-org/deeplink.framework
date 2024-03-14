@@ -1,23 +1,19 @@
-#include <cstdint>
-#include <iostream>
 
-#include <ATen/ExpandUtils.h>
-#include <ATen/NamedTensorUtils.h>
-#include <ATen/TensorMeta.h>
-#include <ATen/native/BinaryOps.h>
-#include <ATen/native/TypeProperties.h>
-#include <ATen/ops/add_meta.h>
+
+#include <ATen/core/Tensor.h>
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
-#include <c10/util/SmallVector.h>
-
-#include "csrc_dipu/aten/DIPUATenFunctions.h"
-#include "csrc_dipu/aten/ops/DIPUAmp.hpp"
 
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
 
-#define DIPU_TORCH_META_FUNC2(name, overload) \
-  void Infer_##name##_##overload::meta
+#define INFER_NAME(name, overload) \
+  Infer_##name##_##overload
+
+#define DIPU_INFER_STRUCT(name, overload) \
+  struct INFER_NAME(name, overload) final : public Infer
+
+#define DIPU_TORCH_META_FUNC(name, overload) \
+  void INFER_NAME(name, overload)::meta
 
 namespace dipu {
 namespace native {
@@ -42,7 +38,13 @@ class Infer {
   at::ScalarType common_dtype_ = at::ScalarType::Undefined;
   InferConfig config_{};
 };
-struct Infer_add_Tensor final : public Infer {
+
+DIPU_INFER_STRUCT(add, Tensor) {
+  void meta(const at::Tensor& self, const at::Tensor& other,
+            const at::Scalar& alpha);
+};
+
+DIPU_INFER_STRUCT(sub, Tensor) {
   void meta(const at::Tensor& self, const at::Tensor& other,
             const at::Scalar& alpha);
 };
