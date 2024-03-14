@@ -140,7 +140,7 @@ class BSCachingAllocator : public CacheAllocator {
   void empty_resource_pool() const {
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::empty_resource_pool ,allocator:" << this);
-    while (async_mem_pool()->size() > 0) {
+    while (!async_mem_pool()->empty()) {
       if (async_mem_pool()->ready()) {
         flush_mem_pool();
       } else {
