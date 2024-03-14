@@ -181,6 +181,8 @@ diopiNeInpScalar
 diopiNeScalar
 diopiNLLLoss
 diopiNLLLossBackward
+diopiNLLLossV1
+diopiNLLLossV1Backward
 diopiNonzero
 diopiNorm
 diopiNormal
