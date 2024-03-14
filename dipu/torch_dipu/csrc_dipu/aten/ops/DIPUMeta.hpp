@@ -6,8 +6,7 @@
 
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
 
-#define INFER_NAME(name, overload) \
-  Infer_##name##_##overload
+#define INFER_NAME(name, overload) Infer_##name##_##overload
 
 #define DIPU_INFER_STRUCT(name, overload) \
   struct INFER_NAME(name, overload) final : public Infer
@@ -31,7 +30,7 @@ class Infer {
 
  private:
   void compute_common_dtype();  // compute the output dtype
-  void compute_shape();  // compute the output shape
+  void compute_shape();         // compute the output shape
 
   c10::SmallVector<const at::Tensor*, 4> p_tensors_ = {};
   c10::IntArrayRef target_shape_ = {};

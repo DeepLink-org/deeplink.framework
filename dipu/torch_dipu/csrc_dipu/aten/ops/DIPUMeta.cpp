@@ -1,8 +1,8 @@
 #include "DIPUMeta.hpp"
 
 #include <ATen/ExpandUtils.h>
-#include <ATen/native/TypeProperties.h>
 #include <ATen/native/BinaryOps.h>
+#include <ATen/native/TypeProperties.h>
 namespace dipu {
 namespace native {
 
@@ -55,16 +55,16 @@ void Infer::compute_shape() {
   }
 }
 
-
 // meta impl of binary op
-/*************************** start binary op's meta ******************************/
+/*************************** start binary op's meta
+ * ******************************/
 DIPU_TORCH_META_FUNC(add, Tensor)
 (const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
   set_config(DIPU_BINARY_OP_CONFIG())
       .add_input(&self)
       .add_input(&other)
       .build();
-   at::native::alpha_check(common_dtype(), alpha);
+  at::native::alpha_check(common_dtype(), alpha);
 }
 
 DIPU_TORCH_META_FUNC(sub, Tensor)
@@ -74,14 +74,11 @@ DIPU_TORCH_META_FUNC(sub, Tensor)
       .add_input(&self)
       .add_input(&other)
       .build();
- at::native::alpha_check(common_dtype(), alpha);
+  at::native::alpha_check(common_dtype(), alpha);
 }
 
-
-
-/**************************** end binary op's meta ****************************************/
-
-
+/**************************** end binary op's meta
+ * ****************************************/
 
 }  // namespace native
 }  // namespace dipu
