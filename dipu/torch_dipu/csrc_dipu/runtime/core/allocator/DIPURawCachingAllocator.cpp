@@ -40,8 +40,8 @@ class RawCachingAllocator : public CacheAllocator {
     size_t nbytes = getAllocateSize(size);
     empty_cache();
     DIPU_DEBUG_ALLOCATOR(4, "RawCachingAllocator: malloc "
-                                << nbytes << " nbytes" << ", requires:" << size
-                                << " bytes");
+                                << nbytes << " nbytes"
+                                << ", requires:" << size << " bytes");
     auto ptr = raw_allocator()->raw_allocate(nbytes);
     set_memory_reserved(memory_reserved() + nbytes);
     set_memory_allocated(memory_allocated() + nbytes);
