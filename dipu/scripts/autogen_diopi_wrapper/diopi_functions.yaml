@@ -1517,10 +1517,10 @@
 - schema: "bmm(Tensor self, Tensor mat2) -> Tensor"
   custom_fallback: True
   custom_code_at_the_beginning: |
-    TORCH_CHECK(self.sizes().size() == 3, "Tensor self shoud be 3-D tensor.");
-    TORCH_CHECK(mat2.sizes().size() == 3, "Tensor mat2 shoud be 3-D tensor.");
+    TORCH_CHECK(self.dim() == 3, "Tensor self shoud be 3-D tensor.");
+    TORCH_CHECK(mat2.dim() == 3, "Tensor mat2 shoud be 3-D tensor.");
     TORCH_CHECK(self.size(0) == mat2.size(0), "Tensor batch size of self and mat2 shoud be equal.");
-    auto out = nodispatch::empty({self.sizes()[0], self.sizes()[1], mat2.sizes()[2]}, self.options());
+    auto out = nodispatch::empty({self.size(0), self.size(1), mat2.size(2)}, self.options());
   interface: diopiBmm(ctx, out, self, mat2)
 
 - schema: "bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
