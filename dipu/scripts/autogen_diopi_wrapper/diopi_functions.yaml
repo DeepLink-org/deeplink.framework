@@ -43,7 +43,12 @@
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  interface: diopiAdd(ctx, out, self, other, alpha)
+  custom_code_at_the_beginning: |
+    auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
+    auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
+    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
+    auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
+  interface: diopiAdd(ctx, out, self_tmp_handle, other_tmp_handle, alpha)
 
 - schema: "add.Tensor(Tensor self, Tensor other, *,  Scalar alpha=1) -> Tensor"
   device: [cuda, ascend]
@@ -69,15 +74,11 @@
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_sub_scalar_out(self, other.item(), alpha, out);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        at::Tensor selfTensor = nodispatch::empty_like(other);
-        dipu_fill__scalar(selfTensor, self.item());
-        return dipu_sub_out(selfTensor, other, alpha, out);
-    }
-  interface: diopiSub(ctx, out, self, other, alpha)
+    auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
+    auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
+    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
+    auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
+  interface: diopiSub(ctx, out, self_tmp_handle, other_tmp_handle, alpha)
 
 - schema: "sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   interface: diopiSubInpScalar(ctx, self, other, alpha)
@@ -121,7 +122,11 @@
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-  interface: diopiDiv(ctx, out, self, other, RoundModeNone)
+    auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
+    auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
+    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
+    auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
+  interface: diopiDiv(ctx, out, self_tmp_handle, other_tmp_handle, RoundModeNone)
 
 - schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
   custom_code_at_the_beginning: |
@@ -146,14 +151,12 @@
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        return dipu_div_scalar_mode_out(other, self.item(), rounding_mode, out);
-    }
+    auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
+    auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
+    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
+    auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDiv(ctx, out, self, other, mode)
+  interface: diopiDiv(ctx, out, self_tmp_handle, other_tmp_handle, mode)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = nodispatch::empty_like(self);
@@ -186,7 +189,11 @@
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-  interface: diopiMul(ctx, out, self, other)
+    auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
+    auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
+    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
+    auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
+  interface: diopiMul(ctx, out, self_tmp_handle, other_tmp_handle)
 
 - schema: "logical_and.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |

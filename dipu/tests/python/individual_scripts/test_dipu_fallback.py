@@ -43,8 +43,9 @@ def test_fallback(
 def _test_dipu_fallback():
     def fn():
         x = torch.randn(3, 4).cuda()
-        _ = x + x
-        _ = x - x
+        out_tensor = torch.randn(3, 4).cuda()
+        torch.add(x, x, out=out_tensor)
+        torch.sub(x, x, out=out_tensor)
 
     test_fallback(
         ["add.out", "sub.out"], ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
