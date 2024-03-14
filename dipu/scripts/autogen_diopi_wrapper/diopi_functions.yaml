@@ -60,7 +60,7 @@
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
     auto out_shape = at::infer_size(self_tmp.sizes(), other_tmp.sizes());
     at::ScalarType out_dtype;
-    if (c10::isFloatingType(self_tmp.scalar_type()) ^ c10::isFloatingType(other_tmp.scalar_type())) {
+    if ((!self_tmp.is_cpu()) && (!other_tmp.is_cpu())) {
       out_dtype = at::promoteTypes(self_tmp.scalar_type(), other_tmp.scalar_type());
     } else {
         if (self.dim() == 0) {
@@ -68,7 +68,7 @@
         } else {
           out_dtype = self.scalar_type();
           }
-    }             
+    }        
     auto out = nodispatch::empty(out_shape, self_tmp.options().dtype(out_dtype));
     auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
     auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
@@ -102,7 +102,7 @@
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
     auto out_shape = at::infer_size(self_tmp.sizes(), other_tmp.sizes());
     at::ScalarType out_dtype;
-    if (c10::isFloatingType(self_tmp.scalar_type()) ^ c10::isFloatingType(other_tmp.scalar_type())) {
+    if ((!self_tmp.is_cpu()) && (!other_tmp.is_cpu())) {
       out_dtype = at::promoteTypes(self_tmp.scalar_type(), other_tmp.scalar_type());
     } else {
         if (self.dim() == 0) {
@@ -110,7 +110,7 @@
         } else {
           out_dtype = self.scalar_type();
           }
-    }             
+    }      
     auto out = nodispatch::empty(out_shape, self_tmp.options().dtype(out_dtype));
     auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(self_tmp);
     auto other_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(other_tmp);
@@ -156,7 +156,7 @@
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
     auto out_shape = at::infer_size(self_tmp.sizes(), other_tmp.sizes());
     at::ScalarType out_dtype;
-    if (c10::isFloatingType(self_tmp.scalar_type()) ^ c10::isFloatingType(other_tmp.scalar_type())) {
+    if ((!self_tmp.is_cpu()) && (!other_tmp.is_cpu())) {
       out_dtype = at::promoteTypes(self_tmp.scalar_type(), other_tmp.scalar_type());
     } else {
         if (self.dim() == 0) {
@@ -207,7 +207,7 @@
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
     auto out_shape = at::infer_size(self_tmp.sizes(), other_tmp.sizes());
     at::ScalarType out_dtype;
-    if (c10::isFloatingType(self_tmp.scalar_type()) ^ c10::isFloatingType(other_tmp.scalar_type())) {
+    if ((!self_tmp.is_cpu()) && (!other_tmp.is_cpu())) {
       out_dtype = at::promoteTypes(self_tmp.scalar_type(), other_tmp.scalar_type());
     } else {
         if (self.dim() == 0) {
