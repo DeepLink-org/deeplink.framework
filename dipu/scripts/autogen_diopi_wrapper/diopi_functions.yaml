@@ -142,6 +142,7 @@
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
