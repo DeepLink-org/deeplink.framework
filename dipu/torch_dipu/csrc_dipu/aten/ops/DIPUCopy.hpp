@@ -87,8 +87,8 @@ inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
   return std::min(srcBytes, dstBytes);
 }
 
-inline void memCopyH2D(const at::Tensor& dst, const at::Tensor& src,
-                       dipu::DIPUStream& stream, int64_t nbytes) {
+inline void memCopyAsyncH2D(const at::Tensor& dst, const at::Tensor& src,
+                            dipu::DIPUStream& stream, int64_t nbytes) {
   void* src_ptr = src.data_ptr();
   void* dst_ptr = dst.data_ptr();
 
@@ -96,8 +96,8 @@ inline void memCopyH2D(const at::Tensor& dst, const at::Tensor& src,
   dipu::devproxy::memCopyH2DAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
 }
 
-inline void memCopyD2H(const at::Tensor& dst, const at::Tensor& src,
-                       dipu::DIPUStream& stream, int64_t nbytes) {
+inline void memCopyAsyncD2H(const at::Tensor& dst, const at::Tensor& src,
+                            dipu::DIPUStream& stream, int64_t nbytes) {
   void* src_ptr = src.data_ptr();
   void* dst_ptr = dst.data_ptr();
 
@@ -105,8 +105,8 @@ inline void memCopyD2H(const at::Tensor& dst, const at::Tensor& src,
   dipu::devproxy::memCopyD2HAsync(stream.rawstream(), nbytes, dst_ptr, src_ptr);
 }
 
-inline void memCopyD2D(const at::Tensor& dst, const at::Tensor& src,
-                       dipu::DIPUStream& stream, int64_t nbytes) {
+inline void memCopyAsyncD2D(const at::Tensor& dst, const at::Tensor& src,
+                            dipu::DIPUStream& stream, int64_t nbytes) {
   void* src_ptr = src.data_ptr();
   void* dst_ptr = dst.data_ptr();
 
@@ -117,27 +117,67 @@ inline void memCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                                   src.device().index(), src_ptr);
 }
 
-inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
-                    dipu::DIPUStream& stream, DIPUCopyType copyType,
-                    bool needMemCpSync, bool nonOverlappingAndDense) {
+inline void memCopyAsync(const at::Tensor& dst, const at::Tensor& src,
+                         dipu::DIPUStream& stream, DIPUCopyType copyType,
+                         bool nonOverlappingAndDense) {
   int64_t nbytes = getMemCopyBytes(dst, src, nonOverlappingAndDense);
   switch (copyType) {
     case DIPUCopyType::H2D:
       // src is cpu.
-      memCopyH2D(dst, src, stream, nbytes);
+      memCopyAsyncH2D(dst, src, stream, nbytes);
       break;
     case DIPUCopyType::D2H:
       // dst is cpu.
-      memCopyD2H(dst, src, stream, nbytes);
+      memCopyAsyncD2H(dst, src, stream, nbytes);
       break;
     default:  // device to device
-      memCopyD2D(dst, src, stream, nbytes);
+      memCopyAsyncD2D(dst, src, stream, nbytes);
   }
-  // this sync is different with copy_ non_blocking, it's used inside one copy
-  // op when doing a intermidiate cpu copy after some stream op to guarantee the
-  // cpu copy get correct data.
-  if (needMemCpSync) {
-    dipu::devproxy::syncStream(stream.rawstream());
+}
+
+inline void memCopySyncH2D(const at::Tensor& dst, const at::Tensor& src,
+                           int64_t nbytes) {
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
+
+  MemChecker::instance().check(dst);
+  dipu::devproxy::memCopyH2D(nbytes, dst_ptr, src_ptr);
+}
+
+inline void memCopySyncD2H(const at::Tensor& dst, const at::Tensor& src,
+                           int64_t nbytes) {
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
+
+  MemChecker::instance().check(src);
+  dipu::devproxy::memCopyD2H(nbytes, dst_ptr, src_ptr);
+}
+
+inline void memCopySyncD2D(const at::Tensor& dst, const at::Tensor& src,
+                           int64_t nbytes) {
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
+
+  MemChecker::instance().check(src);
+  MemChecker::instance().check(dst);
+  dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
+                             src.device().index(), src_ptr);
+}
+
+inline void memCopySync(const at::Tensor& dst, const at::Tensor& src,
+                        DIPUCopyType copyType, bool nonOverlappingAndDense) {
+  int64_t nbytes = getMemCopyBytes(dst, src, nonOverlappingAndDense);
+  switch (copyType) {
+    case DIPUCopyType::H2D:
+      // src is cpu.
+      memCopySyncH2D(dst, src, nbytes);
+      break;
+    case DIPUCopyType::D2H:
+      // dst is cpu.
+      memCopySyncD2H(dst, src, nbytes);
+      break;
+    default:  // device to device
+      memCopySyncD2D(dst, src, nbytes);
   }
 }
 
@@ -225,7 +265,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
                 << std::endl;
     }
 
-    copyPreProcess(dst, src, non_blocking, curStream);
+    copyPreProcess(dst, src, non_blocking, info);
 
     copyAll(dst, src, non_blocking, info);
 
@@ -234,12 +274,13 @@ class DIPUCopyInplace : public DIPUCopyBase {
 
  protected:
   virtual void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
-                              bool non_blocking, DIPUStream& curStream) {
+                              bool non_blocking, CopyParamsInfo& info) {
     // recordBeforeCopy
     if (non_blocking) {
-      const bool is_default_stream = dipu::getDefaultDIPUStream() == curStream;
-      tryRecordStream(dst, curStream, is_default_stream);
-      tryRecordStream(src, curStream, is_default_stream);
+      const bool is_default_stream =
+          dipu::getDefaultDIPUStream() == info.curStream_;
+      tryRecordStream(dst, info.curStream_, is_default_stream);
+      tryRecordStream(src, info.curStream_, is_default_stream);
     }
   }
 
@@ -264,7 +305,13 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (dst.is_view() && src.is_view()) {
       TORCH_CHECK(false, "doDirectMemFill cannot support all view-view copy");
     }
-    memCopy(dst, src, curStream, copyType, needMemCpSync, false);
+
+    memCopyAsync(dst, src, curStream, copyType,
+                 /*nonOverlappingAndDense=*/false);
+
+    if (needMemCpSync) {
+      dipu::devproxy::syncStream(curStream.rawstream());
+    }
   }
 
   // support mem copy between 2 nonOverlappingAndDense tensor with same stride
@@ -276,7 +323,12 @@ class DIPUCopyInplace : public DIPUCopyBase {
       printf("--%-50s %-30s \n", "[copy_]:", "doDirectMemCopy");
     }
 
-    memCopy(dst, src, curStream, copyType, needMemCpSync, true);
+    memCopyAsync(dst, src, curStream, copyType,
+                 /*nonOverlappingAndDense=*/true);
+
+    if (needMemCpSync) {
+      dipu::devproxy::syncStream(curStream.rawstream());
+    }
   }
 
   at::Tensor makeSameStrideTensor(const at::Tensor& src, DIPUStream& curStream,
@@ -517,6 +569,16 @@ class DIPUCopyInplace : public DIPUCopyBase {
     doCpuRelayCopy(dst, src, info.curStream_, non_blocking);
   }
 
+  // This virtual method, which is simply a wrapper of doDirectMemCopy by
+  // default, is only used in copyAll. It keeps all original information
+  // including non_blocking, and is thus suitable for overriding on different
+  // devices for more control of the direct memory copy process
+  virtual void directMemCopy(at::Tensor& dst, const at::Tensor& src,
+                             CopyParamsInfo& info, bool non_blocking) {
+    doDirectMemCopy(dst, src, info.curStream_, info.copyType_,
+                    /*needMemCpSync=*/false);
+  }
+
   // overriding this func is possible but not recommended
   virtual void copyAll(at::Tensor& dst, const at::Tensor& src,
                        bool non_blocking, CopyParamsInfo& info) {
@@ -526,8 +588,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       info.recomputeTensorsInfo(dst, tmpSrc);
     }
     if (info.directMemCopy_) {
-      doDirectMemCopy(dst, tmpSrc, info.curStream_, info.copyType_,
-                      /*needMemCpSync=*/false);
+      directMemCopy(dst, tmpSrc, info, non_blocking);
       return;
     }
     switch (info.copyType_) {
