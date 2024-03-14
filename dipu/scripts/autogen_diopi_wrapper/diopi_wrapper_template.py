@@ -57,7 +57,7 @@ diopi_wrapper_file_template_content = """// autogened file
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 
 #include "CustomFallbackFunctions.hpp"
-#include "DipuMeta.hpp"
+#include "DIPUMeta.hpp"
 
 $header_include_code
 

@@ -1,57 +1,36 @@
+#include "DIPUMeta.hpp"
+
 #include <cstdint>
+#include <iostream>
+
+#include <ATen/ExpandUtils.h>
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/TensorMeta.h>
 #include <ATen/native/BinaryOps.h>
+#include <ATen/native/TypeProperties.h>
 #include <ATen/ops/add_meta.h>
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/SmallVector.h>
-#include <ATen/native/TypeProperties.h>
-#include <ATen/ExpandUtils.h>
-#include <ATen/native/BinaryOps.h>
 
-
-#include <iostream>
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/DIPUAmp.hpp"
 
-class InferConfig {};
-#define DIPU_BINARY_OP_CONFIG()             \
-  InferConfig()
+namespace dipu {
+namespace native {
 
-#define DIPU_TORCH_META_FUNC2(name, overload) \
-  void Infer_##name##_##overload::meta
-
-
-class Infer {
-  public:
-    Infer& add_input(const at::Tensor* p_tensor) {
-      p_tensors_.push_back(p_tensor);
-      return *this;
-    }
-
-    Infer& set_config(const InferConfig& config){
-      config_ = config;
-      return *this;
-    }
-
-    void build(){
-      compute_common_dtype();
-      compute_shape();
-    }
-    c10::IntArrayRef target_shape() { return target_shape_; }
-    at::ScalarType common_dtype() { return common_dtype_; }
-
-   private:
-    void compute_common_dtype();
-    void compute_shape();
-
-    c10::SmallVector<const at::Tensor*, 4> p_tensors_={};
-    c10::IntArrayRef target_shape_={};
-    at::ScalarType common_dtype_ = at::ScalarType::Undefined;
-    InferConfig config_{};
-};
-
+Infer& Infer::add_input(const at::Tensor* p_tensor) {
+  p_tensors_.push_back(p_tensor);
+  return *this;
+}
+Infer& Infer::set_config(const InferConfig& config) {
+  config_ = config;
+  return *this;
+}
+void Infer::build() {
+  compute_common_dtype();
+  compute_shape();
+}
 void Infer::compute_common_dtype() {
   at::native::ResultTypeState state = {};
   for (const auto p_tensor : p_tensors_) {
@@ -89,13 +68,12 @@ void Infer::compute_shape() {
   }
 }
 
-
-struct Infer_add_Tensor final : public Infer {
-    void meta(const at::Tensor& self, const at::Tensor& other,
-              const at::Scalar& alpha);
-};
-
 DIPU_TORCH_META_FUNC2(add, Tensor)
 (const at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
-  set_config(DIPU_BINARY_OP_CONFIG()).add_input(&self).add_input(&other).build();
+  set_config(DIPU_BINARY_OP_CONFIG())
+      .add_input(&self)
+      .add_input(&other)
+      .build();
 }
+}  // namespace native
+}  // namespace dipu
