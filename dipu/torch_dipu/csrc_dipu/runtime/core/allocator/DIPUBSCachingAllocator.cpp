@@ -83,7 +83,8 @@ class BSCachingAllocator : public CacheAllocator {
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
-    if (idel_blocks.empty() || async_mem_pool()->size() > 10) {
+    if (idel_blocks.empty() ||
+        async_mem_pool()->size() > kMaxAsyncResourcePoolLength) {
       empty_resource_pool();
     }
     for (size_t i = 0; i < 2; i++) {

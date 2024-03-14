@@ -506,7 +506,7 @@ class BFCachingAllocator : public CacheAllocator {
 
   c10::DataPtr allocate(size_t size) const override {
     restore();
-    if (async_mem_pool()->size() > 10) {
+    if (async_mem_pool()->size() > kMaxAsyncResourcePoolLength) {
       empty_resource_pool();
     }
     size = getMemoryAlignmentStrategy()->roundBytes(size);

@@ -9,6 +9,8 @@
 
 namespace dipu {
 
+constexpr size_t kMaxAsyncResourcePoolLength = 10;
+
 template <class T>
 class AsyncResourcePool {
  public:
