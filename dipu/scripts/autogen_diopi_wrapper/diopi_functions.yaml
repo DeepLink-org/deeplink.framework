@@ -43,7 +43,7 @@
     Infer_add_Tensor op;
     op.meta(self, other, alpha);
     auto common_dtype = op.common_dtype();
-    auto output_shape = op.shape();
+    auto output_shape = op.target_shape();
     auto options = at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
     auto out = nodispatch::empty(output_shape, options);
     std::cout << "===============yyyyy=======" << std::endl;
