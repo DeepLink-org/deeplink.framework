@@ -53,6 +53,7 @@
 
 - schema: "add.Tensor(Tensor self, Tensor other, *,  Scalar alpha=1) -> Tensor"
   device: [cuda, ascend]
+  no_device_check_args: [self, other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -93,6 +94,7 @@
   interface: diopiSubInpScalar(ctx, self, other, alpha)
 
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  no_device_check_args: [self, other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -146,6 +148,7 @@
   interface: diopiDiv(ctx, out, self_tmp_handle, other_tmp_handle, RoundModeNone)
 
 - schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
+  no_device_check_args: [self, other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
@@ -195,6 +198,7 @@
   interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
+  no_device_check_args: [self , other]
   custom_code_at_the_beginning: |
     auto self_tmp = self.is_cpu() ? self.to(other.device()) : self;
     auto other_tmp = other.is_cpu() ? other.to(self.device()) : other;
