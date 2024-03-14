@@ -14,9 +14,9 @@ class AsyncResourcePool {
  public:
   virtual void add(const T& t, std::deque<DIPUEvent>& events) = 0;
   virtual T get() = 0;
-  virtual bool ready() = 0;
+  virtual bool ready() const = 0;
   virtual bool empty() const = 0;
-  virtual size_t size() = 0;
+  virtual size_t size() const = 0;
 };
 
 template <class T, at::DeviceType device_type, int algorithm>
@@ -39,12 +39,12 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
     return t;
   }
 
-  bool empty() const {
+  bool empty() const override {
     std::lock_guard<mutex_t> lk(mutex_);
     return list_.empty();
   }
 
-  bool ready() override {
+  bool ready() const override {
     std::lock_guard<mutex_t> lk(mutex_);
     if (list_.empty()) {
       return false;
@@ -59,7 +59,7 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
     return true;
   }
 
-  size_t size() override {
+  size_t size() const override {
     std::lock_guard<mutex_t> lk(mutex_);
     return list_.size();
   }
