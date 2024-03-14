@@ -66,6 +66,7 @@ class BSCachingAllocator : public CacheAllocator {
   }
 
   static size_t getAllocateSize(size_t nbytes) {
+    nbytes = getMemoryAlignmentStrategy()->roundBytes(nbytes);
     static bool less_fragmentation =
         std::getenv("DIPU_BS_MORE_ADAPTABLE") == nullptr;
     return less_fragmentation ? getAllocateSizeLessFragmentation(nbytes)
