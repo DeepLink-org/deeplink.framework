@@ -484,6 +484,25 @@
   autocompare: disable
   interface: diopiRandperm(ctx, out, n, generator)
 
+- schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    at::Tensor out;
+    if (dtype) {
+      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
+    } else {
+      if (c10::isFloatingType(self.scalar_type())) {
+        out = nodispatch::empty(output_shape, self.options());
+      } else {
+        out = nodispatch::empty(output_shape, self.options().dtype(at::kLong));
+      }
+    }
+    
+    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiSum(ctx, out, self_diopi, diopi_size)
+
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
@@ -1108,10 +1127,11 @@
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
-# - schema: pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor
+# - schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
 #   custom_code_at_the_beginning: |
 #     auto out = nodispatch::empty(self.sizes(), self.options());
 #   interface: diopiPow(ctx, out, self, exponent);
+
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPow(ctx, out, self, exponent);
 
@@ -1302,6 +1322,16 @@
 
 - schema: "masked_select.out(Tensor self, Tensor mask, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiMaskedSelect(ctx, &out, self, mask);
+
+- schema: "baddbmm(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1) -> Tensor"
+  device: [cuda, ascend]
+  custom_code_at_the_beginning: |
+    double betaDouble = beta.toDouble();
+    double alphaDouble = alpha.toDouble();
+    auto out_dtype = at::promoteTypes(batch1.scalar_type(), batch2.scalar_type());
+    out_dtype = at::promoteTypes(out_dtype, self.scalar_type());
+    auto out = nodispatch::empty({batch1.sizes()[0], batch1.sizes()[1], batch2.sizes()[2]}, self.options().dtype(out_dtype));
+  interface: diopiBaddbmm(ctx, out, self, batch1, batch2, betaDouble, alphaDouble)
 
 - schema: "baddbmm.out(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -2026,6 +2056,20 @@
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
+- schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
+  custom_code_at_the_beginning: | 
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    at::Tensor out;
+    if (dtype) {
+      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
+    } else {
+      out = nodispatch::empty(output_shape, self.options());
+      }
+    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiNorm(ctx, out, self_diopi, ord, diopi_size);
 
 - schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
   custom_code_at_the_beginning: |
