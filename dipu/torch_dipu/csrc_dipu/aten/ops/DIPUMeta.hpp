@@ -4,12 +4,10 @@
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 
-
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
 
 #define DIPU_BINARY_FLOAT_OP_CONFIG() \
   InferConfig().set_promote_integer_inputs_to_float(true)
-
 
 #define INFER_NAME(name, overload) Infer_##name##_##overload
 
@@ -65,7 +63,7 @@ DIPU_INFER_STRUCT(mul, Tensor) {
 };
 
 DIPU_INFER_STRUCT(div, Tensor) {
-  void meta(const at::Tensor & self, const at::Tensor & other);
+  void meta(const at::Tensor& self, const at::Tensor& other);
 };
 
 }  // namespace native

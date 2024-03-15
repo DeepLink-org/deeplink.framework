@@ -25,7 +25,8 @@ void Infer::compute_common_dtype() {
   }
 
   common_dtype_ = at::native::result_type(state);
-  if(config_.promote_integer_inputs_to_float_ && c10::isIntegralType(common_dtype_, /*includeBool*/ true)){
+  if (config_.promote_integer_inputs_to_float_ &&
+      c10::isIntegralType(common_dtype_, /*includeBool*/ true)) {
     common_dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
   TORCH_INTERNAL_ASSERT(common_dtype_ != at::ScalarType::Undefined);
@@ -88,14 +89,13 @@ DIPU_TORCH_META_FUNC(mul, Tensor)
       .build();
 }
 
-DIPU_TORCH_META_FUNC(div, Tensor) (const at::Tensor & self, const at::Tensor & other){
+DIPU_TORCH_META_FUNC(div, Tensor)
+(const at::Tensor& self, const at::Tensor& other) {
   set_config(DIPU_BINARY_FLOAT_OP_CONFIG())
       .add_input(&self)
       .add_input(&other)
       .build();
-
 }
-
 
 /**************************** end binary op's meta
  * ****************************************/
