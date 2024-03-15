@@ -83,6 +83,9 @@
     }
   interface: diopiSubInp(ctx, self, other, alpha)
 
+- schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
+  interface: diopiDiv(ctx, out, self, other, RoundModeNone)
+
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty_like(self);

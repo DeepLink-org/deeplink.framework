@@ -4,7 +4,12 @@
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 
+
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
+
+#define DIPU_BINARY_FLOAT_OP_CONFIG() \
+  InferConfig().set_promote_integer_inputs_to_float(true)
+
 
 #define INFER_NAME(name, overload) Infer_##name##_##overload
 
@@ -17,7 +22,14 @@
 namespace dipu {
 namespace native {
 
-class InferConfig {};
+struct InferConfig {
+  InferConfig& set_promote_integer_inputs_to_float(bool val) {
+    promote_integer_inputs_to_float_ = val;
+    return *this;
+  }
+
+  bool promote_integer_inputs_to_float_ = false;
+};
 class Infer {
  public:
   Infer& add_input(const at::Tensor* p_tensor);
@@ -33,7 +45,7 @@ class Infer {
   void compute_shape();         // compute the output shape
 
   c10::SmallVector<const at::Tensor*, 4> p_tensors_ = {};
-  c10::IntArrayRef target_shape_ = {};
+  c10::DimVector target_shape_ = {};
   at::ScalarType common_dtype_ = at::ScalarType::Undefined;
   InferConfig config_{};
 };
@@ -50,6 +62,10 @@ DIPU_INFER_STRUCT(sub, Tensor) {
 
 DIPU_INFER_STRUCT(mul, Tensor) {
   void meta(const at::Tensor& self, const at::Tensor& other);
+};
+
+DIPU_INFER_STRUCT(div, Tensor) {
+  void meta(const at::Tensor & self, const at::Tensor & other);
 };
 
 }  // namespace native
