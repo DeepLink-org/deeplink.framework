@@ -48,5 +48,9 @@ DIPU_INFER_STRUCT(sub, Tensor) {
             const at::Scalar& alpha);
 };
 
+DIPU_INFER_STRUCT(mul, Tensor) {
+  void meta(const at::Tensor& self, const at::Tensor& other);
+};
+
 }  // namespace native
 }  // namespace dipu

@@ -77,6 +77,14 @@ DIPU_TORCH_META_FUNC(sub, Tensor)
   at::native::alpha_check(common_dtype(), alpha);
 }
 
+DIPU_TORCH_META_FUNC(mul, Tensor)
+(const at::Tensor& self, const at::Tensor& other) {
+  set_config(DIPU_BINARY_OP_CONFIG())
+      .add_input(&self)
+      .add_input(&other)
+      .build();
+}
+
 /**************************** end binary op's meta
  * ****************************************/
 

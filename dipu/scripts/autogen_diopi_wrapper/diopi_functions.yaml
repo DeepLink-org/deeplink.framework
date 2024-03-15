@@ -130,6 +130,9 @@
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(ctx, out, self, other, mode)
 
+- schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
+  interface: diopiMul(ctx, out, self, other)
+
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = nodispatch::empty_like(self);
   interface: diopiMulScalar(ctx, out, self, other)
