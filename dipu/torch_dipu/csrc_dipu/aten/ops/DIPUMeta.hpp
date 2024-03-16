@@ -4,6 +4,10 @@
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 
+#include "csrc_dipu/base/basedef.h"
+
+#include "NodispatchUtils.hpp"
+
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
 
 #define DIPU_BINARY_FLOAT_OP_CONFIG() \
@@ -48,6 +52,14 @@ class Infer {
   InferConfig config_{};
 };
 
+inline at::Tensor infer_out(Infer& op) {
+  auto common_dtype = op.common_dtype();
+  auto output_shape = op.target_shape();
+  auto options =
+      at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
+  auto out = nodispatch::empty(output_shape, options);
+  return out;
+}
 DIPU_INFER_STRUCT(add, Tensor) {
   void meta(const at::Tensor& self, const at::Tensor& other,
             const at::Scalar& alpha);

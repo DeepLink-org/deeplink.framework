@@ -84,12 +84,18 @@ def get_op_name_from_schema(schema):
     op_name = re.sub("aten::", "", op_name)
     return op_name
 
+
 def need_infer_out(schema, infer_ops):
     op_name = get_op_name_from_schema(schema)
     if "." in op_name:
         name, overload = op_name.split(".")
         name = re.sub("aten::", "", name)
-        if name.endswith("_") or name not in infer_ops or "out" in overload or "Scalar" in overload:
+        if (
+            name.endswith("_")
+            or name not in infer_ops
+            or "out" in overload
+            or "Scalar" in overload
+        ):
             return False
     else:
         name = re.sub("aten::", "", op_name)
@@ -97,10 +103,12 @@ def need_infer_out(schema, infer_ops):
             return False
     return True
 
+
 # add.Tensor --> Infer_add_Tensor
 def create_infer_name_from_schema(schema):
     op_name = get_op_name_from_schema(schema)
     return "Infer_" + "_".join(op_name.split("."))
+
 
 def create_fun_name_from_schema(schema):
     schema = schema.strip()
@@ -247,12 +255,14 @@ def create_param_list_from_schema(schema):
         param_list = re.sub(str(pattern), str(cpp_type), param_list)
     return param_list
 
+
 def create_arguement_list_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
     param_list = param_list.split(",")
     arguement_list = [param.split(" ")[-1] for param in param_list]
     arguements = ",".join(arguement_list)
     return arguements
+
 
 def get_function_inputs_from_schema(schema):
     param_list = create_param_list_from_schema(schema)
@@ -706,12 +716,15 @@ def functions_code_gen(fun_config, infer_ops):
 
     input_process_code = ""
     if need_infer_out(fun_config["schema"], infer_ops):
-       input_process_code += create_infer_name_from_schema(fun_config["schema"]) + " op;\n"
-       input_process_code += "op.meta("+ create_arguement_list_from_schema(fun_config["schema"])+");\n"
-       input_process_code += '''auto common_dtype = op.common_dtype();
-auto output_shape = op.target_shape();
-auto options = at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
-auto out = nodispatch::empty(output_shape, options);\n'''
+        input_process_code += (
+            create_infer_name_from_schema(fun_config["schema"]) + " op;\n"
+        )
+        input_process_code += (
+            "op.meta("
+            + create_arguement_list_from_schema(fun_config["schema"])
+            + ");\n"
+        )
+        input_process_code += "auto out = infer_out(op);\n"
 
     diopi_tensor_suffix = "DiopiTensorHandle"
 
@@ -799,10 +812,9 @@ auto out = nodispatch::empty(output_shape, options);\n'''
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config[
-            "custom_code_at_the_beginning"
-        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
-            "custom_code_at_the_beginning", ""
+        fun_config["custom_code_at_the_beginning"] = (
+            create_code_to_print_fun_call_info_from_schema(fun_config)
+            + fun_config.get("custom_code_at_the_beginning", "")
         )
 
     if fun_config.get("print_op_args", False) == True:
@@ -908,13 +920,15 @@ auto out = nodispatch::empty(output_shape, options);\n'''
             ],
             call_backward_impl_code=[
                 (
-                    "auto result = "
-                    + create_call_cpp_function_code_from_schema(
-                        fun_config["backward_schema"]
-                    ).replace("; ", ";\n")
+                    (
+                        "auto result = "
+                        + create_call_cpp_function_code_from_schema(
+                            fun_config["backward_schema"]
+                        ).replace("; ", ";\n")
+                    )
+                    if "backward_schema" in fun_config
+                    else ""
                 )
-                if "backward_schema" in fun_config
-                else ""
             ],
             backward_return_code=[
                 fun_config.get("backward_return_code", "").replace("; ", ";\n")
@@ -982,9 +996,11 @@ auto out = nodispatch::empty(output_shape, options);\n'''
                 )
             ],
             force_fallback=[
-                "false"
-                if fun_config.get("force_fallback", False) in [False, "False"]
-                else "true"
+                (
+                    "false"
+                    if fun_config.get("force_fallback", False) in [False, "False"]
+                    else "true"
+                )
             ],
             fallbackFunc=[
                 "dipu::native::"
@@ -1012,10 +1028,10 @@ def parse_args():
         help="path to functions config file",
     )
     parser.add_argument(
-       "--infer_ops_config",
-       type=str,
-       default="infer_ops.yaml",
-       help="path to ops that need to be inferred"
+        "--infer_ops_config",
+        type=str,
+        default="infer_ops.yaml",
+        help="path to ops that need to be inferred",
     )
     parser.add_argument(
         "--convert_config",
@@ -1087,7 +1103,7 @@ def main():
     with open(args.infer_ops_config) as infer_ops_file:
         ops_data = infer_ops_file.read()
         infer_ops_dict = yaml.load(ops_data, Loader=yaml.FullLoader)
-        infer_ops =[op for ops in  infer_ops_dict.values() for op in ops]
+        infer_ops = [op for ops in infer_ops_dict.values() for op in ops]
 
     from op_memory_format_converter import OpMemoryFormatConverter
 
