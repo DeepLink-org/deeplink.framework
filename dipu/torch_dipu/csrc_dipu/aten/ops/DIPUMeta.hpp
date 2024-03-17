@@ -7,7 +7,7 @@
 #include "csrc_dipu/base/basedef.h"
 
 #include "NodispatchUtils.hpp"
-
+#include <iostream>
 #define DIPU_BINARY_OP_CONFIG() InferConfig()
 
 #define DIPU_BINARY_FLOAT_OP_CONFIG() \
@@ -57,6 +57,7 @@ inline at::Tensor infer_out(Infer& op) {
   auto output_shape = op.target_shape();
   auto options =
       at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(common_dtype);
+  std::cout << "yangbo: dtype:" << common_dtype << "  output_shape:" << output_shape << std::endl;
   auto out = nodispatch::empty(output_shape, options);
   return out;
 }
