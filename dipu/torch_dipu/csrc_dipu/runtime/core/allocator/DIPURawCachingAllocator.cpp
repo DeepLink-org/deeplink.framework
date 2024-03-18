@@ -51,7 +51,7 @@ class RawCachingAllocator : public CacheAllocator {
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "RawCachingAllocator: empty_cache");
-    while (async_mem_pool()->size() > 0) {
+    while (!async_mem_pool()->empty()) {
       if (async_mem_pool()->ready()) {
         auto mem = async_mem_pool()->get();
         void* ptr = std::get<0>(mem);

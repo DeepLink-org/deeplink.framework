@@ -83,7 +83,8 @@ class BSCachingAllocator : public CacheAllocator {
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
-    if (idel_blocks.empty()) {
+    if (idel_blocks.empty() ||
+        async_mem_pool()->size() > kMaxAsyncResourcePoolLength) {
       empty_resource_pool();
     }
     for (size_t i = 0; i < 2; i++) {
@@ -139,7 +140,7 @@ class BSCachingAllocator : public CacheAllocator {
   void empty_resource_pool() const {
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::empty_resource_pool ,allocator:" << this);
-    while (async_mem_pool()->size() > 0) {
+    while (!async_mem_pool()->empty()) {
       if (async_mem_pool()->ready()) {
         flush_mem_pool();
       } else {
