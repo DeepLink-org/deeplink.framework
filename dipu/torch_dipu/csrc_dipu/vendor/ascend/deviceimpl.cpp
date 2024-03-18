@@ -57,9 +57,19 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-  setDevFlag = true;
+  // if device has not been set, then set to be device: 0
+  auto devIdx = current_device();
+
+  // if devId is -1, device is current_device
+  if (devId == -1) {
+    return;
+  }
+
+  if (devIdx != devId) {
+    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+    DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+    setDevFlag = true;
+  }
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
