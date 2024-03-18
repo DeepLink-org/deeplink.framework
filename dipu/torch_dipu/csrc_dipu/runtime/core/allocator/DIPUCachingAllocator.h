@@ -11,6 +11,37 @@
 
 namespace dipu {
 
+constexpr size_t kDefaultMermoryAlignment = 512;
+
+class MemoryAlignmentStrategy {
+  size_t kBytesAlign = kDefaultMermoryAlignment;
+  size_t alpha = 1;  // reserved
+  size_t beta = 0;
+
+ public:
+  MemoryAlignmentStrategy() = default;
+
+  explicit MemoryAlignmentStrategy(size_t bytesAlign, size_t alphaParam,
+                                   size_t betaParam)
+      : kBytesAlign(bytesAlign), alpha(alphaParam), beta(betaParam) {}
+
+  virtual size_t roundBytes(size_t nbytes) const {
+    if (nbytes <= 0) {
+      return 0;
+    }
+    nbytes = alpha * nbytes + beta;
+    nbytes = ((nbytes - 1) | (kBytesAlign - 1)) + 1;
+    return nbytes;
+  }
+
+  virtual ~MemoryAlignmentStrategy() = default;
+};
+
+const MemoryAlignmentStrategy* getMemoryAlignmentStrategy();
+
+void setMemoryAlignmentStrategy(
+    const MemoryAlignmentStrategy* memoryAlignStrategy);
+
 using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
 
 class MemStats {

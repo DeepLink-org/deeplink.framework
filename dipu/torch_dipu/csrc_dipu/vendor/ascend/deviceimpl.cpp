@@ -104,7 +104,10 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
     *p = nullptr;
     return OpStatus::SUCCESS;
   }
-  DIPU_CALLACLRT(::aclrtMalloc(p, nbytes, ACL_MEM_MALLOC_HUGE_FIRST));
+  // 若用户需申请大块内存并自行划分、管理内存时，建议使用aclrtMallocAlign32接
+  // 口，该接口相比aclrtMalloc接口，只会对用户申请的size向上对齐成32字节整数
+  // 倍，不会再多加32字节。 大块内存用作缓存时，无需多加32字节
+  DIPU_CALLACLRT(::aclrtMallocAlign32(p, nbytes, ACL_MEM_MALLOC_HUGE_FIRST));
   return OpStatus::SUCCESS;
 }
 
