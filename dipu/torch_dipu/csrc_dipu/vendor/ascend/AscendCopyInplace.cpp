@@ -37,7 +37,8 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
       // According to our benchmark for H2D/D2H synchronous direct memory copy,
       // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
       // so do a memCopySync instead of memCopyAsync here
-      memCopySync(dst, src, info.copyType_, true);
+      memCopy(dst, src, info.curStream_, info.copyType_,
+              /*nonOverlappingAndDense=*/true, /*isSynchronousCopy=*/true);
     } else {
       doDirectMemCopy(dst, src, info.curStream_, info.copyType_,
                       /*needMemCpSync=*/false);
