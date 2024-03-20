@@ -1731,10 +1731,10 @@
   custom_code_at_the_beginning: |
     at::Tensor grad_input, grad_other;
     if (mask[0]) {
-      grad_input = at::native::empty_like(input);
+      grad_input = nodispatch::empty_like(input);
     }
     if (mask[1]) {
-      grad_other = at::native::empty_like(other);
+      grad_other = nodispatch::empty_like(other);
     }
   interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
