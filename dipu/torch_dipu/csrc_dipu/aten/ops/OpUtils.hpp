@@ -169,6 +169,9 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1>& input_shape,
                                            const container2<T2>& dims,
                                            bool keepdim) {
   if (dims.size() <= 0) {
+    if (keepdim) {
+      return std::vector<int64_t>(input_shape.size(), 1);
+    }
     return {};
   }
   if (keepdim) {
