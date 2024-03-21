@@ -13,7 +13,7 @@ class TestNeg(TestCase):
     def test_neg(self):
         x = torch.neg(self.input)
         self.assertEqual(x, self.ans)
-    
+
     def test_neg_out(self):
         out_neg = torch.zeros_like(self.input).cuda()
         torch.neg(self.input, out=out_neg)
