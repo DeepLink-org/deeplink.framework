@@ -707,6 +707,12 @@
 - schema: "neg_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiNegInp(ctx, self)
 
+- schema: "neg(Tensor self) -> Tensor"
+  device: [cuda, ascend]
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty_like(self);
+  interface: diopiNeg(ctx, out, self)
+
 - schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSqrt(ctx, out, self)
 
