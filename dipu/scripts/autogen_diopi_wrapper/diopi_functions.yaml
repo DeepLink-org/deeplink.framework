@@ -1292,6 +1292,20 @@
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), static_cast<int64_t>(tensors.size()), dim);
 
+- schema: "aten::cat(const at::ITensorListRef & tensors, int dim=0) -> Tensor"
+  custom_code_at_the_beginning: |
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size(), nullptr);
+    std::transform(tensors.begin(), tensors.end(), diopiTensorHandles.begin(), [](const at::Tensor& tensor){
+        return dipu::diopi_helper::toDiopiTensorHandle(tensor);
+    });
+    auto shape = tensors.materialize()[0].get().sizes();
+    auto out_shape = std::vector<int64_t>(shape.begin(), shape.end());
+    for (int i = 1; i < tensors.size(); i++) {
+      out_shape[dim] += tensors.materialize()[i].get().sizes()[dim];
+    }
+    at::Tensor out = nodispatch::empty(out_shape, tensors.materialize()[0].get().options());
+  interface: diopiCat(ctx, out, diopiTensorHandles.data(), static_cast<int64_t>(tensors.size()), dim);
+
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty_like(self);
