@@ -352,6 +352,13 @@
     }
   interface: diopiEqInp(ctx, self, other)
 
+- schema: equal(Tensor self, Tensor other) -> bool
+  device: [ascend]
+  custom_code_at_the_beginning: |
+    at::Tensor out = nodispatch::empty({1}, self.options().dtype(at::kBool));
+    ::diopiTensorHandle_t outDiopiTensorHandle = dipu::diopi_helper::toDiopiTensorHandle(out);
+  interface: diopiEqual(ctx, outDiopiTensorHandle, self, other)
+
 - schema: "lt.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLtScalar(ctx, out, self, other)
 

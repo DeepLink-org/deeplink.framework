@@ -324,18 +324,21 @@ def get_function_return_param_from_schema(schema):
         args = return_params[i]
         inplace_match = re.search("Tensor\([a-zA-Z]+!\)", args)
         pure_out_match = re.search("Tensor[ ,]?", args)
+        bool_out_match = re.search("bool", args)
         if inplace_match is not None:
             arg_label = re.sub(".*(\(.*\))", r"\1", inplace_match.group())
             index = schema.find(arg_label) + len(arg_label)
             param = re.search("[a-zA-Z0-9_::]+", schema[index:]).group()
             params.append(param)
-        elif inplace_match is None and pure_out_match is not None:
+        elif pure_out_match is not None:
             name_from_schema = re.sub("\(?Tensor[ ]+([\w\d_]+)\)?", R"\1", args)
             if name_from_schema == args:
                 name = "out" + (str(i) if len(return_params) > 1 else "")
             else:
                 name = name_from_schema
             params.append(name)
+        elif bool_out_match is not None:
+            params.append("out.item().toBool()")
     return params
 
 
