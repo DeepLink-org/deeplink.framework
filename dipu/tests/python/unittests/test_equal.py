@@ -30,5 +30,6 @@ class TestEqual(TestCase):
         y = torch.rand(3,5).to(device)
         self.assertEqual(False, torch.equal(x, y))
 
+
 if __name__ == "__main__":
     run_tests()
