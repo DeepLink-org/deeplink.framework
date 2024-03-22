@@ -4,6 +4,7 @@ import math
 import torch_dipu
 from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
 
+
 class TestEqual(TestCase):
     @onlyOn("NPU")
     def test_equal_1(self):
