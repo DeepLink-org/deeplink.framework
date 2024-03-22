@@ -121,21 +121,18 @@ void freeDevice(void* p) {
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
-  syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
 }
 
 // (synchronous) copy from host to a device
 void memCopyH2D(size_t nbytes, void* dst, const void* src) {
-  syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_HOST_TO_DEVICE));
 }
 
 // (synchronous) copy from a device to host
 void memCopyD2H(size_t nbytes, void* dst, const void* src) {
-  syncDevice();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_HOST));
 }

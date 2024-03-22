@@ -425,17 +425,11 @@ class BFCachingAllocator : public CacheAllocator {
 
   void empty_resource_pool() const {
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
-    int retryCount = 0;
-    constexpr int maxRetryCount = 10;
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
-        if (retryCount > maxRetryCount) {
-        }
         std::this_thread::yield();
-        retryCount++;
         continue;
       }
-      retryCount = 0;
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
       int id = static_cast<int>(std::get<1>(block));

@@ -707,6 +707,12 @@
 - schema: "neg_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiNegInp(ctx, self)
 
+- schema: "neg(Tensor self) -> Tensor"
+  device: [cuda, ascend]
+  custom_code_at_the_beginning: |
+    auto out = nodispatch::empty_like(self);
+  interface: diopiNeg(ctx, out, self)
+
 - schema: "sqrt.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSqrt(ctx, out, self)
 
@@ -863,16 +869,41 @@
     outputs[0] = result;
     return outputs;
 
+# -------------------------------------------------------------------------------------------------------------------------
+# |                        diopiNLLLoss                   |                         diopiNLLLossV2                        |
+# -------------------------------------------------------------------------------------------------------------------------
+# |  The parameter list does NOT include `total_weight`.  |   Passing `total_weight` as a return value in the interface.  |
+# -------------------------------------------------------------------------------------------------------------------------
+# nll_loss.out
 - schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
+  device: [all, -ascend]
   interface: diopiNLLLoss(ctx, out, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
+- schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
+  device: [ascend]
+  interface: diopiNLLLossV2(ctx, out, nullptr, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+
+# nll_loss_forward.output
 - schema: nll_loss_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
+  device: [all, -ascend]
+  interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+
+- schema: nll_loss_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
+  device: [ascend]
+  interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+
+# nll_loss2d_forward.output
+- schema: nll_loss2d_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
+  device: [all, -ascend]
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 - schema: nll_loss2d_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
-  interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+  device: [ascend]
+  interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
+# nll_loss2d_forward
 - schema: nll_loss2d_forward(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index) -> (Tensor output, Tensor total_weight)
+  device: [all, -ascend]
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
   custom_code_at_the_beginning: |
     at::Tensor output;
@@ -884,14 +915,52 @@
         output = nodispatch::empty(target.sizes(), self.options());
     }
 
+- schema: nll_loss2d_forward(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index) -> (Tensor output, Tensor total_weight)
+  device: [ascend]
+  interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
+  custom_code_at_the_beginning: |
+    at::Tensor output;
+    at::Tensor total_weight = at::scalar_tensor(target.numel(), self.options());
+
+    if (reduction != 0) {
+        output = torch::tensor(0.0, self.options());
+    } else {
+        output = nodispatch::empty(target.sizes(), self.options());
+    }
+
+# -------------------------------------------------------------------------------------------------------------------------
+# |                   diopiNLLLossBackward                |                  diopiNLLLossV2Backward                       |
+# -------------------------------------------------------------------------------------------------------------------------
+# |  The parameter list does NOT include `total_weight`.  |   Passing `total_weight` as a input value in the interface.   |
+# -------------------------------------------------------------------------------------------------------------------------
+# nll_loss_backward.grad_input
 - schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
+  device: [all, -ascend]
+  interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+
+- schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
+  device: [ascend]
+  interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+
+# nll_loss2d_backward.grad_input
+- schema: nll_loss2d_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
+  device: [all, -ascend]
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
 
 - schema: nll_loss2d_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
+  device: [ascend]
+  interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+
+# nll_loss2d_backward
+- schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
+  device: [all, -ascend]
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+  custom_code_at_the_beginning: |
+    auto grad_input = nodispatch::empty(self.sizes(), self.options());
 
 - schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
-  interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
+  device: [ascend]
+  interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
   custom_code_at_the_beginning: |
     auto grad_input = nodispatch::empty(self.sizes(), self.options());
 
@@ -1668,10 +1737,10 @@
   custom_code_at_the_beginning: |
     at::Tensor grad_input, grad_other;
     if (mask[0]) {
-      grad_input = at::native::empty_like(input);
+      grad_input = nodispatch::empty_like(input);
     }
     if (mask[1]) {
-      grad_other = at::native::empty_like(other);
+      grad_other = nodispatch::empty_like(other);
     }
   interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
@@ -2058,7 +2127,26 @@
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
-  device: [cuda, ascend]
+  device: [ascend]
+  custom_code_at_the_beginning: |
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    at::Tensor out;
+    if (dtype) {
+      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
+    } else {
+      out = nodispatch::empty(output_shape, self.options());
+    }
+    ::diopiSize_t dimDiopi = toDiopiSize(dim);
+  interface: diopiLinalgVecNorm(ctx, out, self, ord, dimDiopi, keepdim);
+
+- schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  device: [ascend]
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopi = toDiopiSize(dim);
+  interface: diopiLinalgVecNorm(ctx, out, self, ord, dimDiopi, keepdim);
+
+- schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+  device: [cuda]
   custom_code_at_the_beginning: | 
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     at::Tensor out;
@@ -2072,6 +2160,7 @@
   interface: diopiNorm(ctx, out, self_diopi, ord, diopi_size);
 
 - schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  device: [-ascend]
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
   interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);

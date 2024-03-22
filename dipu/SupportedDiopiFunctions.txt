@@ -129,6 +129,7 @@ diopiLerpScalar
 diopiLerpTensor
 diopiLeScalar
 diopiLinalgQR
+diopiLinalgVecNorm
 diopiLinear
 diopiLinearBackward
 diopiLinspace
@@ -181,6 +182,8 @@ diopiNeInpScalar
 diopiNeScalar
 diopiNLLLoss
 diopiNLLLossBackward
+diopiNLLLossV2
+diopiNLLLossV2Backward
 diopiNonzero
 diopiNorm
 diopiNormal
