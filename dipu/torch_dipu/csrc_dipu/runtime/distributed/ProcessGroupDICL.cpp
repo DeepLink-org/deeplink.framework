@@ -478,6 +478,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
         profile::RecordBlockCreator _("DiclAllreduce", stream.rawstream(),
                                       static_cast<int>(stream.id()));
+        TORCH_CHECK(input.defined() && !input.is_cpu() && input.numel() > 0);
+        TORCH_CHECK(output.defined() && !output.is_cpu() && output.numel() > 0);
         return devproxy::diclAllReduce(input.data_ptr(), output.data_ptr(),
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), opts.reduceOp, comm,

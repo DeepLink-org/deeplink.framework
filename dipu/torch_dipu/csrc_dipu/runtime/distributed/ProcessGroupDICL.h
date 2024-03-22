@@ -174,6 +174,20 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   ~ProcessGroupDICL() override;
 
+  virtual void startCoalescing() {
+    TORCH_WARN_ONCE("startCoalescing" ,
+        " interface is not yet impled. Please note that this may have unexpected consequences.");
+  }
+
+  virtual c10::intrusive_ptr<Work> endCoalescing() override{
+    TORCH_WARN_ONCE("endCoalescing" ,
+        " interface is not yet impled. Please note that this may have unexpected consequences.");
+    std::vector<std::shared_ptr<DICLComm>> comm;
+    auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(
+      comm, blockingWait_, opTimeout_);
+    return work;
+  }
+
   // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
   const std::string getBackendName() const override {
     return DICL_BACKEND_NAME;
