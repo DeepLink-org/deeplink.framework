@@ -130,6 +130,7 @@ diopiLerpScalar
 diopiLerpTensor
 diopiLeScalar
 diopiLinalgQR
+diopiLinalgVecNorm
 diopiLinear
 diopiLinearBackward
 diopiLinspace
