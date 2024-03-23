@@ -2282,12 +2282,19 @@
 - schema: "ones.out(SymInt[] size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiOnes(ctx, out, size)
 
+- schema: "ones(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
+  custom_code_at_the_beginning: |
+    c10::TensorOptions option;
+    auto shape = c10::asIntArrayRefUnchecked(size);
+    auto out = nodispatch::empty(shape, option.dtype(dtype).layout(layout).device(device).pinned_memory(pin_memory));
+  interface: diopiOnes(ctx, out, size)
+
 - schema: "zeros(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
   custom_code_at_the_beginning: |
     c10::TensorOptions option;
     auto shape = c10::asIntArrayRefUnchecked(size);
     auto out = nodispatch::empty(shape, option.dtype(dtype).layout(layout).device(device).pinned_memory(pin_memory));
-  interface: diopiZeroInp(ctx, out)
+  interface: diopiZeros(ctx, out, size)
 
 - schema: "zeros.out(SymInt[] size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiZeros(ctx, out, size)
