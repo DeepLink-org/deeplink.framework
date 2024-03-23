@@ -358,6 +358,11 @@
     }
   interface: diopiEqInp(ctx, self, other)
 
+- schema: equal(Tensor self, Tensor other) -> bool
+  custom_code_at_the_beginning: |
+    bool out;
+  interface: diopiEqual(ctx, &out, self, other)
+
 - schema: "lt.Scalar_out(Tensor self, Scalar other, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiLtScalar(ctx, out, self, other)
 

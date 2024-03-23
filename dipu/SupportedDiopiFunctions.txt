@@ -85,6 +85,7 @@ diopiEq
 diopiEqInp
 diopiEqInpScalar
 diopiEqScalar
+diopiEqual
 diopiErfinv
 diopiErfinvInp
 diopiExp
