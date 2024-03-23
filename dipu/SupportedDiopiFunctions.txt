@@ -190,6 +190,7 @@ diopiNormalInp
 diopiNormalScalarTensor
 diopiNormalTensor
 diopiNormalTensorScalar
+diopiOnes
 diopiPolar
 diopiPow
 diopiPowInp
@@ -248,3 +249,5 @@ diopiUpsampleLinearBackward
 diopiUpsampleNearest
 diopiUpsampleNearestBackward
 diopiWhere
+diopiZeroInp
+diopiZeros
