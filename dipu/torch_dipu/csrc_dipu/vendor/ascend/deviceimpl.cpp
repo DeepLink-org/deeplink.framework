@@ -1,7 +1,8 @@
-// Copyright (c) 2023, DeepLink.
+// Copyright (c) 2024, DeepLink.
 #include <acl/acl.h>
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
+#include <atomic>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
@@ -16,7 +17,9 @@ namespace devapis {
 //  Device class related
 // =====================
 using ascend_deviceId = int32_t;
-thread_local bool setDevFlag = false;
+
+std::atomic_int processLastUsedDeviceIdx(-1);
+thread_local int32_t threadCurrentUsingDeviceIdx = -1;
 
 void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
@@ -26,14 +29,30 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (setDevFlag == false) {
-    DIPU_CALLACLRT(aclrtSetDevice(0));
-    setDevFlag = true;
+  if (threadCurrentUsingDeviceIdx < 0) {
+    setDevice(-1);
+    DIPU_CALLACLRT(::aclrtGetDevice(&threadCurrentUsingDeviceIdx));
   }
-  ascend_deviceId devId_;
-  DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
-  return static_cast<deviceId_t>(devId_);
+  return static_cast<deviceId_t>(threadCurrentUsingDeviceIdx);
 }
+
+void setDevice(deviceId_t devId) {
+  if (processLastUsedDeviceIdx < 0) {
+    processLastUsedDeviceIdx.store(devId < 0 ? 0 : devId);
+  }
+
+  if (devId < 0) {
+    devId = processLastUsedDeviceIdx;
+  }
+
+  if (devId == processLastUsedDeviceIdx &&
+      devId != threadCurrentUsingDeviceIdx) {
+    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+    DIPU_CALLACLRT(::aclrtSetDevice(devId_));
+    threadCurrentUsingDeviceIdx = devId_;
+  }
+}
+
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   const char* device_name;
   size_t device_free;
@@ -53,13 +72,6 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   prop.totalGlobalMem = device_total << 20;
   prop.multiProcessorCount = 1;
   return prop;
-}
-
-// set current device given device according to id
-void setDevice(deviceId_t devId) {
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
