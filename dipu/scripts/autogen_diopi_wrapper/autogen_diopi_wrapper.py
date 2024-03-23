@@ -338,7 +338,7 @@ def get_function_return_param_from_schema(schema):
                 name = name_from_schema
             params.append(name)
         elif bool_out_match is not None:
-            params.append("out.item().toBool()")
+            params.append("out")
     return params
 
 
