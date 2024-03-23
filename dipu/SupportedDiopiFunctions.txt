@@ -85,6 +85,7 @@ diopiEq
 diopiEqInp
 diopiEqInpScalar
 diopiEqScalar
+diopiEqual
 diopiErfinv
 diopiErfinvInp
 diopiExp
@@ -129,6 +130,7 @@ diopiLerpScalar
 diopiLerpTensor
 diopiLeScalar
 diopiLinalgQR
+diopiLinalgVecNorm
 diopiLinear
 diopiLinearBackward
 diopiLinspace
