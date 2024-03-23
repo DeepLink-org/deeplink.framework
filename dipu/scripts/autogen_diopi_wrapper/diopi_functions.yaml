@@ -353,7 +353,6 @@
   interface: diopiEqInp(ctx, self, other)
 
 - schema: equal(Tensor self, Tensor other) -> bool
-  device: [ascend]
   custom_code_at_the_beginning: |
     bool out;
   interface: diopiEqual(ctx, &out, self, other)
