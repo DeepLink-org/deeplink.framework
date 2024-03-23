@@ -2294,7 +2294,7 @@
     c10::TensorOptions option;
     auto shape = c10::asIntArrayRefUnchecked(size);
     auto out = nodispatch::empty(shape, option.dtype(dtype).layout(layout).device(device).pinned_memory(pin_memory));
-  interface: diopiZeros(ctx, out, size)
+  interface: diopiZeroInp(ctx, out)
 
 - schema: "zeros.out(SymInt[] size, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiZeros(ctx, out, size)
