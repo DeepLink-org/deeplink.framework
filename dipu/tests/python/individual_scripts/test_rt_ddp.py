@@ -288,23 +288,24 @@ def demo_allgather_gloo(rank, world_size, port):
     dist.barrier()
     cleanup()
 
+
 def test_special_group_stuck(rank, world_size):
-  import torch_dipu
+    import torch_dipu
 
-  print(f"test special group stuck on rank {rank} ")
+    print(f"test special group stuck on rank {rank} ")
 
-  setup(rank, world_size)
-  
-  # ranks check require len(ranks) <= world_size
-  if world_size >= 2:
-    # torch 2.0 gloo pg has such a limitition. pass in duplicated rank will stuck.
-    # but huawei do.
-    ranks_dup = [rank, rank]
-    group = torch.distributed.new_group(ranks_dup)
-    print(group)
-    dist.destroy_process_group(group)
+    setup(rank, world_size)
 
-  cleanup()
+    # ranks check require len(ranks) <= world_size
+    if world_size >= 2:
+        # torch 2.0 gloo pg has such a limitition. pass in duplicated rank will stuck.
+        # but huawei do.
+        ranks_dup = [rank, rank]
+        group = torch.distributed.new_group(ranks_dup)
+        print(group)
+        dist.destroy_process_group(group)
+
+    cleanup()
 
 
 if __name__ == "__main__":

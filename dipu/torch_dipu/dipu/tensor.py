@@ -18,12 +18,13 @@ def __set_default_tensor_type(type=torch.FloatTensor):
 
 _raw_tensor_type = torch.Tensor.type
 
+
 def wrap_tensor_type(self, *args, **kwargs):
-  ret = _raw_tensor_type(self, *args, **kwargs)
-  if isinstance(ret, str):
-    return ret.replace(__dipu_device_type__, "cuda")
-  else:
-    return ret
+    ret = _raw_tensor_type(self, *args, **kwargs)
+    if isinstance(ret, str):
+        return ret.replace(__dipu_device_type__, "cuda")
+    else:
+        return ret
 
 
 # need enhance, seems change tensor define is need

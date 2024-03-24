@@ -154,7 +154,7 @@ def test_type():
 
     assert dev1 in s1.type()
     assert s1.device.type == dev1
-  
+
 
 def test_device_copy():
     import torch_dipu
