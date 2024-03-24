@@ -35,10 +35,10 @@ deviceId_t current_device() {
 }
 
 int defaultDeviceIndex = -1;
-std::atomic_int defalutDeviceIndexAtomic(-1);
+std::atomic_int defaultDeviceIndexAtomic(-1);
 
 void setDefalutDevice(int index) {
-  defalutDeviceIndexAtomic = index;
+  defaultDeviceIndexAtomic = index;
   defaultDeviceIndex = index;
 }
 
@@ -51,14 +51,14 @@ void setDevice(deviceId_t devId) {
   // required. This function is called extremely frequently.
   if (devId < 0) {
     if (defaultDeviceIndex < 0) {
-      if (defalutDeviceIndexAtomic < 0) {
+      if (defaultDeviceIndexAtomic < 0) {
         setDefalutDevice(0);
       }
     }
-    devId = defalutDeviceIndexAtomic;
+    devId = defaultDeviceIndexAtomic;
   } else {
     if (defaultDeviceIndex < 0) {
-      if (defalutDeviceIndexAtomic < 0) {
+      if (defaultDeviceIndexAtomic < 0) {
         setDefalutDevice(devId);
       }
     }
