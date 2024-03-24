@@ -19,10 +19,7 @@ namespace devapis {
 using ascend_deviceId = int32_t;
 thread_local int currentDeviceIndex = -1;
 
-void initializeVendor() {
-  DIPU_CALLACLRT(aclInit(nullptr));
-  DIPU_CALLACLRT(aclrtSetDeviceSatMode(ACL_RT_OVERFLOW_MODE_INFNAN));
-}
+void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
@@ -46,9 +43,14 @@ void setDefalutDevice(int index) {
 void setDevice(deviceId_t devId) {
   // In order to reduce performance loss, try to reduce the number of reads and
   // writes of atomic variables.
+  // Atomic variables will only be manipulated when starting up.
+  // In most other cases, reading and writing atomic variables is no longer
+  // required. This function is called extremely frequently.
   if (devId < 0) {
     if (defaultDeviceIndex < 0) {
-      setDefalutDevice(0);
+      if (defalutDeviceIndexAtomic < 0) {
+        setDefalutDevice(0);
+      }
     }
     devId = defalutDeviceIndexAtomic;
   } else {
@@ -62,12 +64,11 @@ void setDevice(deviceId_t devId) {
     TORCH_WARN_ONCE(
         "Trying to use multiple cards in the same process may cause unexpected "
         "results in hccl communication, such as sdma memory copy failure");
-  } else {
-    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-    if (devId_ != currentDeviceIndex) {
-      DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-      currentDeviceIndex = devId_;
-    }
+  }
+  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+  if (devId_ != currentDeviceIndex) {
+    DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+    currentDeviceIndex = devId_;
   }
 }
 
