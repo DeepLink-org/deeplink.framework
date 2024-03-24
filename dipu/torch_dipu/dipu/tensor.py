@@ -19,7 +19,7 @@ def __set_default_tensor_type(type=torch.FloatTensor):
 _raw_tensor_type = torch.Tensor.type
 
 
-def wrap_tensor_type(self, *args, **kwargs):
+def _wrap_tensor_type(self, *args, **kwargs):
     ret = _raw_tensor_type(self, *args, **kwargs)
     if isinstance(ret, str):
         return ret.replace(__dipu_device_type__, "cuda")
@@ -32,4 +32,4 @@ def apply_tensor_type_patch():
     torch.set_default_tensor_type = __set_default_tensor_type
     if mockcuda:
         _C._mockCudaTensor()
-    torch.Tensor.type = wrap_tensor_type
+    torch.Tensor.type = _wrap_tensor_type

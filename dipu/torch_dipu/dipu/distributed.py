@@ -87,7 +87,7 @@ def _wrap_get_backend(group: Optional[ProcessGroup] = None) -> str:
 
 
 # dicl not support coalescing now. Todo: remove after support coalesce
-def wrap_batch_isend_irecv(p2p_op_list):
+def _wrap_batch_isend_irecv(p2p_op_list):
     dist.distributed_c10d._check_p2p_op_list(p2p_op_list)
     reqs = []
     for p2p_op in p2p_op_list:
@@ -104,7 +104,7 @@ def wrap_batch_isend_irecv(p2p_op_list):
 _raw_new_group = dist.new_group
 
 
-def wrap_new_group(
+def _wrap_new_group(
     ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None
 ):
     ranks = list(set(ranks))  # dedup
@@ -115,7 +115,7 @@ def apply_dist_patch():
     dist.get_backend = _wrap_get_backend
     dist.init_process_group = _wrap_init_process_groups
     dist.ProcessGroup._register_backend = _wrapped_register_backend
-    dist.batch_isend_irecv = wrap_batch_isend_irecv
+    dist.batch_isend_irecv = _wrap_batch_isend_irecv
 
     if dipu.get_dipu_torch_version() == dipu.torch_ver_200:
-        dist.new_group = wrap_new_group
+        dist.new_group = _wrap_new_group
