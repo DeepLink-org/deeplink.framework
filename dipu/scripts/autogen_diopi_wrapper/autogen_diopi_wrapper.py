@@ -453,6 +453,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.dim_min", "_outf", opname)
     opname = re.sub("\.correction", "", opname)
     opname = re.sub("\.input", "", opname)
+    opname = re.sub("\.dim_IntList", "", opname)
     opname = opname.replace(".", "_")
     opname = opname.split(".")[0]
     if opname[-1] == "_" and len(get_function_return_param_from_schema(schema)) > 0:
