@@ -44,8 +44,8 @@ void setDevice(deviceId_t devId) {
   // In order to reduce performance loss, try to reduce the number of reads and
   // writes of atomic variables.
   // Atomic variables will only be manipulated when starting up.
-  // In most other cases, reading and writing atomic variables is no longer required.
-  // This function is called extremely frequently.
+  // In most other cases, reading and writing atomic variables is no longer
+  // required. This function is called extremely frequently.
   if (devId < 0) {
     if (defaultDeviceIndex < 0) {
       if (defalutDeviceIndexAtomic < 0) {
