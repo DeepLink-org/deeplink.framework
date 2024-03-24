@@ -13,16 +13,16 @@ env:
   CAMB_CI_PATH: '/mnt/lustre/share/parrotsci/github/cibuild/${{ github.repository }}'
   CAMB_PARTATION: ${{ vars.CAMB_SLURM_PAR != '' && vars.CAMB_SLURM_PAR || 'camb_mlu370_m8' }}
   CAMB_CLUSTER: CAMB
-  CAMB_TORCH_BASE_DIR: '/mnt/lustre/share/parrotsci/github/cibuild/pytorchbase'
   CUDA_CI_PATH: '/mnt/cache/share/parrotsci/github/cibuild/${{ github.repository }}'
   CUDA_PARTATION: ${{ vars.SH1988_SLURM_PAR != '' && vars.SH1988_SLURM_PAR || 'pat_rd' }}
   CUDA_CLUSTER: SCO
+  CUDA_ENV_PATH: '/mnt/cache/share/deeplinkci/github'
   DEEPLINK_PATH: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}'
-  ENV_PATH: '/mnt/cache/share/deeplinkci/github'
   ASCEND_CLUSTER: ASCEND
   CLUSTER_ASCEND_910B: ASCEND-910B
   ASCEND_TORCH_DIR: '/mnt/cache/share/platform/cienv/pytorch'
   CI_BUILD_FLAG: "ci_build_flag"
+  # need deprecated but ascend still use it, PYTORCH_COMMIT not support multi-version torch
   PYTORCH_COMMIT: ${{ vars.PYTORCH_COMMIT != '' && vars.PYTORCH_COMMIT || 'c263bd43e8e8502d4726643bc6fd046f0130ac0e' }} # pytorch tag 2.0
   ALL_COVERAGE: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
   REQUIRE_COVERAGE: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
@@ -36,6 +36,8 @@ jobs:
   Rsync:
     name: Rsync code
     runs-on: github-poc-ci
+    outputs:
+      getrunner: ${{ steps.set-run-vars.outputs.GETRUNNER }}
     steps:
       - name: clone repo
         run: |
@@ -58,7 +60,7 @@ jobs:
           fi
           cd ${GITHUB_WORKSPACE}/${REPO}/dipu && rm -rf third_party/kineto
           git clone --reference /home/autolink/rsync/sourcecode/DeepLink-org/kineto https://github.com/DeepLink-org/kineto.git third_party/kineto
-          git submodule update --init && cd third_party/kineto && git submodule update --init 
+          git submodule update --init && cd third_party/kineto && git submodule update --init
           cd ${GITHUB_WORKSPACE} && cp -R ${REPO} ${REPO}_DIOPI
           cd ${REPO}/dipu && bash /home/autolink/rsync/sourcecode/update_code.sh
           rsync -a /home/autolink/rsync/sourcecode/mmlab_pack . && cd mmlab_pack
@@ -68,8 +70,14 @@ jobs:
           if [ $GITHUB_EVENT_NAME == "pull_request" ]; then
             cd ./DIOPI && git checkout ${{ github.base_ref }}
           fi
-      - name: Rsync to Server
+      - name: set output and Rsync to Server
+        id: set-run-vars
         run: |
+          GETRUNNER=$(cat ~/rsync/cuda_runner_dipu)
+          if [[ ${GETRUNNER} == *diopi* ]]; then
+              CUDA_CLUSTER="SH1424"
+          fi
+          echo "GETRUNNER=$GETRUNNER" >> "$GITHUB_OUTPUT"
           ssh ${CAMB_CLUSTER} "mkdir -p ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CAMB_CLUSTER}:${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to camb"
@@ -82,7 +90,7 @@ jobs:
 
   Build-Camb:
     name: Build-dipu-camb
-    needs: [Tidy-Cuda]
+    needs: [Runs-On-Nv-Step1]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -93,7 +101,6 @@ jobs:
           set -ex
           export USE_COVERAGE=ON
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
@@ -114,7 +121,6 @@ jobs:
           set -ex
           export USE_COVERAGE=ON
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           if [ "${ALL_COVERAGE}" = "ON" ]; then
@@ -133,6 +139,77 @@ jobs:
           bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
           """
 
+  Build-Camb-Pt210:
+    name: Build-dipu-camb-pt210
+    needs: [Runs-On-Nv-Step1]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build dipu
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/camb/ci_camb_env.sh  2.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  # torch2.1.0 in camb ci is not a complete one, no test dir.
+  # Test-Camb-Pt210:
+  #   name: Test-dipu-camb-pt210
+  #   needs: [Build-Camb-Pt210]
+  #   runs-on: github-poc-ci
+  #   env:
+  #     MLU_REQUESTS: 1
+  #   steps:
+  #     - name: Run-test
+  #       run: |
+  #         ssh ${CAMB_CLUSTER} """
+  #         set -ex
+  #         cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Pt210/dipu
+  #         source scripts/ci/camb/ci_camb_env.sh 2.1
+  #         srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && \
+  #         cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt210
+  #         """
+
+  Build-Camb-Pt211:
+    name: Build-dipu-camb-pt211
+    needs: [Runs-On-Nv-Step1]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Build dipu
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/camb/ci_camb_env.sh  2.1.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
+          --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
+          || ( cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          """
+
+  Test-Camb-Pt211:
+    name: Test-dipu-camb-pt211
+    needs: [Build-Camb-Pt211]
+    runs-on: github-poc-ci
+    env:
+      MLU_REQUESTS: 1
+    steps:
+      - name: Run-test
+        run: |
+          ssh ${CAMB_CLUSTER} """
+          set -ex
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Pt211/dipu
+          source scripts/ci/camb/ci_camb_env.sh 2.1.1
+          srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh && \
+          cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Camb-Pt211
+          """
+
   Test-One-Iter-Camb:
     name: Test-one-iter-camb
     needs: [Build-Camb]
@@ -145,8 +222,6 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo "pytorch dir: \${PYTORCH_DIR}"
           source scripts/ci/camb/ci_camb_env.sh
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           export PYTHONPATH=\${basic_path}/mmengine:\$PYTHONPATH
@@ -160,8 +235,6 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo "pytorch dir: \${PYTORCH_DIR}"
           source scripts/ci/camb/ci_camb_env.sh
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
@@ -175,8 +248,6 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
-          echo "pytorch dir: \${PYTORCH_DIR}"
           source scripts/ci/camb/ci_camb_env.sh
           basic_path=${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/Build-Camb/dipu/mmlab_pack
           source scripts/ci/ci_one_iter.sh export_pythonpath_camb \${basic_path}
@@ -203,7 +274,7 @@ jobs:
 
   Build-Camb-Latest-Target:
     name: Build-dipu-camb-latest-target
-    needs: [Tidy-Cuda]
+    needs: [Runs-On-Nv-Step1]
     runs-on: github-poc-ci
     env:
       MLU_REQUESTS: 1
@@ -213,7 +284,6 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 \
           --gres=mlu:${MLU_REQUESTS} bash scripts/ci/camb/ci_camb_script.sh build_dipu \
@@ -232,125 +302,29 @@ jobs:
           ssh ${CAMB_CLUSTER} """
           set -ex
           cd ${CAMB_CI_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Camb-Latest-Target/dipu
-          export PYTORCH_DIR=${CAMB_TORCH_BASE_DIR}/${PYTORCH_COMMIT}
           source scripts/ci/camb/ci_camb_env.sh
           srun --job-name=${GITHUB_JOB} --partition=${CAMB_PARTATION} --time=40 --gres=mlu:${MLU_REQUESTS} sh tests/run_camb_tests.sh
           """
 
-  Build-Cuda:
-    name: Build-dipu-cuda
+  Runs-On-Nv-Step1:
+    name: runs on nv step1
     needs: [Rsync]
-    runs-on: tps-sco-ci
-    steps:
-      - name: Build dipu
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +240 -type d |xargs rm -rf
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
-          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
-          && source ${ENV_PATH}/dipu_env  \
-          && rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/ \
-          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+    uses: ./.github/workflows/_runs-on-nv-step1.yml
+    with:
+      runner: ${{ needs.Rsync.outputs.getrunner }}
 
-  Tidy-Cuda:
-    name: Run tidy (cuda)
-    needs: [Build-Cuda]
-    runs-on: tps-sco-ci
-    steps:
-      - name: clang-tidy
-        run: |
-          set -eo pipefail
-          srun --job-name=${GITHUB_JOB} bash -c "bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh "
-
-  Test-Cuda:
-    name: Test-dipu-cuda
-    needs: [Build-Cuda, Tidy-Cuda]
-    runs-on: tps-sco-ci
-    steps:
-      - name: Run-test
-        run: |
-          set -e
-          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
-          && source ${ENV_PATH}/dipu_env  \
-          && bash tests/run_nv_tests.sh"
-          if [ "${ALL_COVERAGE}" = "ON" ]; then
-          bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
-          fi
-      - name: increment coverage check
-        if: ${{ contains( github.event_name, 'pull_request' ) && contains( github.base_ref, 'main' ) }}
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda
-          ln -s ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/dipu/third_party/DIOPI/scripts scripts
-          source ${ENV_PATH}/dipu_env
-          bash scripts/increment_coverage.sh ${REQUIRE_COVERAGE}
-
-  Test-One-Iter_Cuda:
-    name: Test-one-iter-cuda
-    needs: [Build-Cuda, Tidy-Cuda]
-    runs-on: tps-sco-ci
-    steps:
-      - name: build some env
-        run: |
-          set -e
-          export basic_path=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/
-          srun --job-name=${GITHUB_JOB} bash -c "cd ${basic_path} \
-          && export PYTHONPATH=${basic_path}/mmlab_pack:${basic_path}/mmlab_pack/mmengine:${basic_path}/mmlab_pack/mmcv:$PYTHONPATH \
-          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
-          && bash ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_one_iter.sh build_cuda"
-      - name: run-one-iter-for-tradition
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
-          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
-          && rm -rf one_iter_data \
-          && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco  ${GITHUB_JOB} gpu sco && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-      - name: run-one-iter-for-llm
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/ \
-          && source ${ENV_PATH}/dipu_env && cd mmlab_pack \
-          && rm -rf one_iter_data \
-          && python ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/scripts/ci/ci_run_one_iter.py sco ${GITHUB_JOB} gpu sco "llm" && rm -rf one_iter_data || (rm -rf one_iter_data && exit 1)
-      - name: Perform cleanup one iter data
-        if: always()
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu/mmlab_pack
-          rm -rf one_iter_data
-          touch one_iter_data   #用于占位，防止创建新的one_iter_data文件夹
-      - name: Check for failure
-        if: ${{ failure() }}
-        run: exit 1
-
-  Build-Cuda-Latest-Target:
-    name: Build-dipu-cuda-latest-target
-    needs: [Tidy-Cuda]
-    runs-on: tps-sco-ci
-    steps:
-      - name: Build dipu diopi-latest-target
-        run: |
-          set -e
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source-main ${GITHUB_JOB}
-          srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
-          && source ${ENV_PATH}/dipu_env  \
-          && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-
-  Test-Cuda-Latest-Target:
-    name: Test-dipu-cuda-latest-target
-    needs: [Build-Cuda-Latest-Target]
-    runs-on: tps-sco-ci
-    steps:
-      - name: Run-test
-        run: |
-          set -e
-          srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
-          && source ${ENV_PATH}/dipu_env  \
-          && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target
+  Runs-On-Nv-Step2:
+    name: runs on nv step2
+    needs: [Rsync,Runs-On-Nv-Step1]
+    uses: ./.github/workflows/_runs-on-nv-step2.yml
+    with:
+      runner: ${{ needs.Rsync.outputs.getrunner }}
+      all_coverage: ${{ (contains( github.ref, 'main') || startsWith(github.ref, 'refs/heads/v') || startsWith(github.ref, 'refs/heads/dev')) && 'ON' || 'OFF' }}
+      require_coverage: ${{ vars.REQUIRE_COVERAGE != '' && vars.REQUIRE_COVERAGE || '0' }}
 
   Build-PyTorch-For-Ascend-910b:
     name: Build-dipu-pytorch-for-ascend-910b
-    needs: [Tidy-Cuda]
+    needs: [Runs-On-Nv-Step1]
     runs-on: tps-ascend-ci-910b
     steps:
       - name: Build PyTorch

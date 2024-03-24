@@ -38,15 +38,21 @@ namespace native {
 namespace dipu_aten {
 at::Scalar _local_scalar_dense_dipu(const at::Tensor& self) {
   at::Scalar r;
-  AT_DISPATCH_ALL_TYPES_AND2(
-      at::kHalf, at::kBool, self.scalar_type(), "_local_scalar_dense_dipu",
-      [&] {
+  AT_DISPATCH_ALL_TYPES_AND3(
+      at::kHalf, at::kBool, at::kBFloat16, self.scalar_type(),
+      "_local_scalar_dense_dipu", [&] {
         scalar_t value;
         dipu::DIPUStream stream = dipu::getCurrentDIPUStream();
         MemChecker::instance().check(self);
+#if DIPU_VENDOR_NAME_ASCEND
+        dipu::devproxy::syncStream(stream.rawstream());
+        dipu::devproxy::memCopyD2H(sizeof(scalar_t), &value,
+                                   self.data_ptr<scalar_t>());
+#else
         dipu::devproxy::memCopyD2HAsync(stream.rawstream(), sizeof(scalar_t),
                                         &value, self.data_ptr<scalar_t>());
         dipu::devproxy::syncStream(stream.rawstream());
+#endif
         r = at::Scalar(value);
       });
   return r;

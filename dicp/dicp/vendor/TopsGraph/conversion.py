@@ -5,11 +5,15 @@ import numbers
 import torch.fx.traceback as fx_traceback
 from torch.fx import Proxy
 import operator
+import os
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 from dicp.dynamo_bridge.compile_fx import is_torch_210
 from dicp.dynamo_bridge.utils import get_cast_dtype
 from typing import (
     Optional,
+    Any,
+    Dict,
+    Tuple
 )
 from torch.types import (
     Number,
@@ -20,11 +24,15 @@ from dicp.dynamo_bridge.op_transformer import (
     register_backend_patterns,
 )
 from functools import reduce
+from torch.fx.node import Argument, Target
+from torch._subclasses import FakeTensor
+from dicp.dynamo_bridge.utils import symint_in_shape
 
 conversions = {}
 patterns = []
 aten = torch.ops.aten
 prims = torch.ops.prims
+is_clast_graph = os.getenv("DICP_SD_CLAST", default="False") == "True"
 
 
 def args_kwargs_unchange(args, kwargs):
@@ -76,6 +84,49 @@ def register_conversion(aten_fn):
 class AtenToTopsTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
+        self.clast_nodes = []
+
+    def is_clast_weight(self, node):
+        shape, stride = node.meta["val"].shape, node.meta["val"].stride()
+        memory_format = node.meta["tensor_meta"].memory_format
+        # The memory_format of weight in convolution is None after converted to channesl last manually.
+        if len(shape) == 4 and memory_format is None:
+            return [stride[2], stride[3], stride[1], stride[0]] == list(sorted(stride, reverse=True))
+        return False
+
+    def get_contiguous_shape(self, node_shape, node_stride):
+        sorted_index = sorted(range(len(node_stride)), key=lambda i: node_stride[i], reverse=True)
+        contiguous_shape = torch.Size(node_shape[i] for i in sorted_index)
+        return contiguous_shape
+
+    def set_meta_val(self, proxy):
+        if "val" in proxy.node.meta and isinstance(proxy.node.meta["val"], FakeTensor):
+            if self.is_clast_weight(proxy.node):
+                self.clast_nodes.append(proxy.node)
+            contiguous_shape = self.get_contiguous_shape(proxy.node.meta["val"].shape,
+                                                         proxy.node.meta["val"].stride())
+            dtype, device = proxy.node.meta["val"].dtype, proxy.node.meta["val"].device
+            with proxy.node.meta["val"].fake_mode:
+                    fake_value = torch.empty(contiguous_shape, dtype=dtype, device=device)
+            proxy.node.meta["val"] = fake_value
+
+    def placeholder(self, target: "Target", args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
+        proxy = super().placeholder(target, args, kwargs)
+        proxy.node.meta = fx_traceback.get_current_meta()
+        if self.is_clast_weight(proxy.node):
+            self.set_meta_val(proxy)
+        fake_tensor = proxy.node.meta["val"]
+        if isinstance(fake_tensor, torch.SymInt):
+            self.sym_to_inputs[fake_tensor.node.str()] = proxy
+        elif symint_in_shape(fake_tensor.shape):
+            # mention symint position in args
+            # dynamic shape feature
+            for idx, dim in enumerate(fake_tensor.shape):
+                if isinstance(dim, torch.SymInt):
+                    st = dim.node.str()
+                    if st not in self.sym_in_args:
+                        self.sym_in_args[st] = (proxy, idx)
+        return proxy
 
     def binary_dtype_cast(self, a: Proxy, b: Proxy, cast_type: torch.dtype = None):
         a_dtype = a.node.meta["val"].dtype
@@ -121,14 +172,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
         if isinstance(a, Proxy):
             if hasattr(a.node, "meta") and 'val' in a.node.meta:
                 if (a.node.meta['val'].dtype == torch.complex64) or (a.node.meta['val'].dtype == torch.cfloat):
-                    return tops_op.ComplexMul(a, b)
+                    return self.get_proxy(tops_op.ComplexMul, (a, b))
         if isinstance(a, Proxy) and isinstance(b, Proxy):
             a, b = self.binary_dtype_cast(a, b, fx_traceback.get_current_meta()['val'].dtype)
-        return tops_op.Mul(a, b)
-
-    @register_conversion(aten.mul.Scalar)
-    def MulScalar(self, *args, **kwargs):
-        return self.get_proxy(tops_op.MulScalar, args, kwargs)
+        return self.get_proxy(tops_op.Mul, (a, b))
 
     @register_conversion(aten.div)
     def Div(self, a, b):
@@ -213,7 +260,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
         # Prepare some info for calculating the parameters of Gather.
         operand, indices, start_dim = args[0], args[1], 0
         in_shape = list(operand.node.meta["val"].shape)
-        out_shape = fx_traceback.get_current_meta()["val"][0].shape
+        out_shape = fx_traceback.get_current_meta()["val"].shape
         if len(set(indices)) == 1 and indices[0] is None:
             return operand
         for i in range(len(indices)):
@@ -359,9 +406,10 @@ class AtenToTopsTransformer(SingleOpTransformer):
 
     @register_conversion(aten.convolution)
     def Convolution(self, x, weight, bias, stride, padding, dilation, transposed, output_padding, groups):
-        inputs = [item for item in (x, weight, bias) if item is not None]
+        if is_clast_graph:
+            weight = self.get_proxy(tops_op.Transpose, (weight, (3, 2, 0, 1)))
         padding = [padding[0], padding[0]] if len(padding) == 1 else list(padding)
-        return self.get_proxy(tops_op.Convolution, (inputs, x, weight, bias, stride, padding, dilation,
+        return self.get_proxy(tops_op.Convolution, (x, weight, bias, stride, padding, dilation,
                                                     transposed, output_padding, groups))
 
     @register_conversion(aten.convolution_backward.default)
@@ -415,8 +463,8 @@ class AtenToTopsTransformer(SingleOpTransformer):
         return self.get_proxy(tops_op.BatchNorm, args, kwargs)
 
     @register_conversion(aten.native_batch_norm_backward.default)
-    def BatchNormBackward(*args, **kwargs):
-        return tops_op.BatchNormBackward(*args, **kwargs)
+    def BatchNormBackward(self, *args, **kwargs):
+        return self.get_proxy(tops_op.BatchNormBackward, args, kwargs)
 
     """
     Add an additional true flag for accuration in hlir_builder Softmax.
@@ -627,6 +675,17 @@ class AtenToTopsTransformer(SingleOpTransformer):
         dot = self.get_proxy(tops_op.Dot, (mat1, mat2))
         return self.get_proxy(tops_op.Add, (x, dot))
 
+    @register_conversion(aten.native_group_norm)
+    def GroupNorm(self, x, weight, bias, n, c, hw, group, eps):
+        return self.get_proxy(tops_op.GroupNorm, (x, weight, bias, n, c, hw, group, eps))
+
+    @register_conversion(aten.native_layer_norm)
+    def LayerNorm(self, x, normalized_shape, weight, bias, eps):
+        return self.get_proxy(tops_op.LayerNorm, (x, normalized_shape, weight, bias, eps))
+
+    @register_conversion(aten.upsample_nearest2d)
+    def UpsampleNearest2d(self, x, output_size, scales_h=None, scales_w=None):
+        return self.get_proxy(tops_op.UpsampleNearest2d, (x, output_size, scales_h, scales_w))
 
 # Patterns
 tops_patterns = PatternMatcherPass()
@@ -642,6 +701,7 @@ if is_torch_210:
     Expand = torch.fx.wrap(tops_op.Expand.get_singleton())
     Reshape = torch.fx.wrap(tops_op.Reshape.get_singleton())
     Bmm = torch.fx.wrap(tops_op.Bmm.get_singleton())
+    Softmax = torch.fx.wrap(tops_op.Softmax.get_singleton())
 
     @register_tops_patterns
     class DotTransposeRhsPattern(BackendPatternBase):
@@ -671,3 +731,16 @@ if is_torch_210:
         @staticmethod
         def replacement(xq, keys):
             return DotGeneral(xq, keys, [0, 2], [0, 2], [3,], [3,])
+
+    @register_tops_patterns
+    class SoftmaxPattern(BackendPatternBase):
+        @staticmethod
+        def pattern(x, dims, shape_1, shape_2):
+            reshape = Reshape(x, shape_1)
+            softmax = Softmax(reshape, 3)
+            expand = Expand(softmax, shape_1, dims)
+            return Reshape(expand, shape_2)
+        
+        @staticmethod
+        def replacement(x):
+            return Softmax(x, 2)

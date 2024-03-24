@@ -5,6 +5,7 @@ from .utils import (
     get_dipu_torch_version,
     check_dipu_torch_compatiable,
     torch_ver_200,
+    torch_ver_210,
     torch_ver_211,
 )
 from .device import __diputype__ as diputype
@@ -79,8 +80,9 @@ __all__ = [
     # custom api
     "NativeMemoryFormat",
     "native_memory_format_cast",
-    "get_native_memory_format"
+    "get_native_memory_format",
     # not support mock cuda_graph now
+    "nvtx",
 ]
 
 import atexit

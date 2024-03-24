@@ -139,6 +139,25 @@ builder::Op Scatter(std::shared_ptr<builder::Builder> hlir_builder,
   return res;
 }
 
+builder::Op GroupNorm(std::shared_ptr<builder::Builder> hlir_builder,
+                      builder::Op input, builder::Op scale, builder::Op bias,
+                      int64_t num_groups, float epsilon, bool is_clast);
+
+builder::Op LayerNorm(std::shared_ptr<builder::Builder> hlir_builder,
+                      builder::Op input, builder::Op scale, builder::Op bias,
+                      float epsilon, bool is_clast);
+
+builder::Op UpsampleNearest2d(std::shared_ptr<builder::Builder> hlir_builder,
+                              builder::Op input,
+                              std::vector<int64_t> output_size, float scales_h,
+                              float scales_w, bool is_clast);
+
+builder::Op Convolution(std::shared_ptr<builder::Builder> hlir_builder,
+                        std::vector<builder::Op> inputs, int64_t group,
+                        std::vector<int64_t> stride,
+                        std::vector<int64_t> padding,
+                        std::vector<int64_t> dilation, bool is_clast);
+
 builder::Op BatchNorm(std::shared_ptr<builder::Builder> hlir_builder,
                       builder::Op& input, builder::Op& weight,
                       builder::Op& bias, builder::Op& running_mean,

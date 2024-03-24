@@ -1116,13 +1116,13 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def BatchMatMul(name, x1, x2, adj_x1: bool, adj_x2: bool):
+    def BatchMatMul(name, x1, x2, adj_x1: bool, adj_x2: bool, keep_dtype=1):
         op = OP(name, "BatchMatMul")
         op.set_input("x1", x1)
         op.set_attr_bool("adj_x1", adj_x1)
         op.set_input("x2", x2)
         op.set_attr_bool("adj_x2", adj_x2)
-        op.set_attr_int("_keep_dtype", 1)
+        op.set_attr_int("_keep_dtype", keep_dtype)
         return op.to_node()
 
     @staticmethod

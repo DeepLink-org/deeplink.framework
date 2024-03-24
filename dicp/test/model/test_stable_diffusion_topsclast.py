@@ -11,6 +11,7 @@ device = utils.get_device()
 torch_dipu.dipu.set_device(device)
 models_dir = os.environ.get("STABLE_DIFFUSION_MODEL_DIR")
 assert models_dir is not None
+os.environ["DICP_SD_CLAST"] = "True"
 
 
 def get_similarity(cpu_image, dicp_image):
@@ -39,8 +40,6 @@ class TestStableDiffusion():
         prompt = "A photo of an astronaut riding a horse on mars."
         utils.update_dynamo_config(dynamic=dynamic)
         torch_dipu.dipu.set_device(device)
-        if backend == "ascendgraph":
-            os.environ["SD_FP16"] = "1"
 
         # CPU
         torch.manual_seed(1)
@@ -50,13 +49,17 @@ class TestStableDiffusion():
         # DICP
         torch.manual_seed(1)
         dicp_pipe = StableDiffusionPipeline.from_pretrained(model_path).to(device)
+        for name, param in dicp_pipe.unet.named_parameters():
+            if "conv" in name and "weight" in name and len(param.shape) == 4:
+                data_shape = param.data.shape
+                param.data = param.data.permute((2, 3, 1, 0)).contiguous()
+                param.data = torch.as_strided(param.data, size=data_shape, stride=(1, data_shape[0], data_shape[0] * data_shape[1] * data_shape[3], data_shape[0] * data_shape[1]))
+        dicp_pipe = dicp_pipe.to(device)
         dicp_pipe.text_encoder = torch.compile(dicp_pipe.text_encoder, backend=backend, dynamic=dynamic)
         dicp_pipe.unet = torch.compile(dicp_pipe.unet, backend=backend, dynamic=dynamic)
 
-        # Temporarily run decoder on CPU
-        # if backend == "ascendgraph":
-        #     dicp_pipe.vae.decoder = torch.compile(dicp_pipe.vae.decoder, backend=backend, dynamic=dynamic)
         dicp_image = dicp_pipe(prompt, num_inference_steps=num_inference_steps).images[0]
+        os.environ["DICP_SD_CLAST"] = "False"
 
         similarity = get_similarity(cpu_image, dicp_image)
         assert similarity > 0.94

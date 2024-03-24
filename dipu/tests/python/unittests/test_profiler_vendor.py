@@ -2,7 +2,12 @@
 import tempfile
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests, onlyOn
+from torch_dipu.testing._internal.common_utils import (
+    TestCase,
+    run_tests,
+    onlyOn,
+    skipOnTorchVer,
+)
 import torch._dynamo as dynamo
 import subprocess
 import torchvision.models as models
@@ -32,7 +37,7 @@ class TestProfiler(TestCase):
         with torch_dipu.profiler.NativeProfile(path, True):
             x.add_(y)
 
-        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "test_profiler_vendor.py"))
         self.assertTrue(check_string_in_directory(path, "aten::add_"))
         self.assertTrue(check_string_in_directory(path, "Add"))
 
@@ -54,13 +59,13 @@ class TestProfiler(TestCase):
             y = opt_model(input)
             z = y + y
 
-        self.assertTrue(check_string_in_directory(path, "test_profiler.py"))
+        self.assertTrue(check_string_in_directory(path, "test_profiler_vendor.py"))
         self.assertTrue(check_string_in_directory(path, "aten::add"))
         self.assertTrue(check_string_in_directory(path, "mulrelu"))
         self.assertTrue(check_string_in_directory(path, "softmax"))
 
     @onlyOn("CUDA")
-    def test_profiler(self):
+    def test_profiler_cuda(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
 
@@ -110,7 +115,8 @@ class TestProfiler(TestCase):
             prof.export_chrome_trace(f"{tmpdir}/resnet18_profiler_cuda.json")
 
     @onlyOn("MLU")
-    def test_profiler(self):
+    @skipOnTorchVer(torch_dipu.dipu.torch_ver_210)
+    def test_profiler_mlu(self):
         model = models.resnet18().cuda()
         inputs = torch.randn(5, 3, 224, 224).cuda()
 

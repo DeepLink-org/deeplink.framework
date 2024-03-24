@@ -1,3 +1,4 @@
+import os
 import functools
 import operator
 import _operator
@@ -25,6 +26,8 @@ from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
 aten = torch.ops.aten
 prims = torch.ops.prims
 conversions = {}
+
+sd_fp16 = int(os.environ.get("SD_FP16", 0))
 
 
 def get_reduction_str(r):
@@ -500,17 +503,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
-        y_shape = [1]
-        if isinstance(y, torch.fx.proxy.Proxy):
-            y_shape = list(y.node.meta['val'].shape)
         x_shape = list(x.node.meta['val'].shape)
+        y_shape = [] if not isinstance(
+            y, torch.fx.proxy.Proxy) else list(y.node.meta['val'].shape)
         out = list(fx_traceback.get_current_meta()['val'].shape)
         out_shape = self.get_shape_proxy(out)
         x, y = self.binary_cmp_cast_input(x, y)
-
-        if self.shape_prod(x_shape) < self.shape_prod(out):
+        dynamic_shape = symint_in_shape(x_shape) or symint_in_shape(
+            y_shape) or symint_in_shape(out)
+        if dynamic_shape and (self.shape_prod(x_shape) < self.shape_prod(out)):
             x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
-        if self.shape_prod(y_shape) < self.shape_prod(out):
+        if dynamic_shape and (self.shape_prod(y_shape) < self.shape_prod(out)):
             y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
         return self.get_proxy(ascend_op.Less, (x, y))
 
@@ -834,6 +837,26 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.index_put.default)
     def index_put_default(self, x, indices, values):
+        x_shape = list(x.node.meta['val'].shape)
+
+        # When the element type of indices is bool, the masked_fill operator
+        # should be used to achieve this. Currently, only indices with a length
+        # of 1 are supported.
+        if any([index.node.meta['val'].dtype in [torch.bool]
+                for index in indices if index is not None]):
+            assert len(indices) == 1
+            index = indices[0]
+            index_shape = list(index.node.meta['val'].shape)
+            index_shape_size = len(index_shape)
+            x_shape_size = len(x_shape)
+            if index_shape_size == x_shape_size:
+                return self.masked_fill(x, index, values)
+            reshape_shape = index_shape + [1] * \
+                (x_shape_size - index_shape_size)
+            reshape_op = self.get_const_proxy(reshape_shape, torch.int32)
+            index = self.get_proxy(ascend_op.Reshape, (index, reshape_op))
+            return self.masked_fill(x, index, values)
+
         # following comment is from tensorflow tensor_scatter_nd_update:
         # index_depth = indices.shape[-1]
         # batch_shape = indices.shape[:-1]
@@ -845,7 +868,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # tf.tensor_scatter_nd_update param 'indices' is different from
         # indices in torch.ops.aten.index_put.default, we use broadcast and
         # stack to construct param 'indices' in tf.tensor_scatter_nd_update
-        x_shape = list(x.node.meta['val'].shape)
         stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
             self.compute_stacked_indices(indices, x.node.meta['val'].shape)
         values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:] # batch_shape + inner_shape
@@ -1154,7 +1176,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
-        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
+        bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, sd_fp16 ^ 1))
         return self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(torch.torch.ops.aten.addmm)
@@ -1273,6 +1295,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if isinstance(dim, int):
             dim = [dim]
         assert (half_to_float is False)
+        if sd_fp16 is not None and int(sd_fp16) == 1:
+            x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float16)))
         return self.get_proxy(ascend_op.SoftmaxV2, (x, dim))
 
     @register_conversion(torch.ops.aten.sum.default)

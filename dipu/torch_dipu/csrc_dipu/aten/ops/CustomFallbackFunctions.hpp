@@ -233,13 +233,8 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   auto weight_cpu = weight.cpu();
 
   at::Tensor grad_input;
-  at::Tensor grad_input_cpu;
-
   at::Tensor grad_weight;
-  at::Tensor grad_weight_cpu;
-
   at::Tensor grad_bias;
-  at::Tensor grad_bias_cpu;
 
   int64_t dims = input.dim();
   const auto device = input.device();
@@ -260,8 +255,8 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
       }
       at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
       grad_weight_cpu = at::sum(grad_weight_cpu, at_sum_dim);
-      grad_weight = grad_weight_cpu.to(device);
     }
+    grad_weight = grad_weight_cpu.to(device);
   }
 
   if (output_mask[2]) {
@@ -271,7 +266,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
       sum_dim.push_back(i);
     }
     at::IntArrayRef at_sum_dim(sum_dim.data(), sum_dim.size());
-    grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
+    auto grad_bias_cpu = at::sum(grad_output_cpu, at_sum_dim);
     grad_bias = grad_bias_cpu.to(device);
   }
 
@@ -465,6 +460,38 @@ static at::Tensor& custom_fallback_dipu__softmax_out(const at::Tensor& self,
   auto out_cpu = at::softmax(self_cpu, dim);
   out.copy_(out_cpu);
   return out;
+}
+
+static at::Tensor& custom_fallback_dipu__softmax_backward_data_out(
+    const at::Tensor& grad_output, const at::Tensor& output, int64_t dim,
+    at::ScalarType input_dtype, at::Tensor& grad_input) {
+  auto grad_output_cpu = to_cpu_with_half_to_float(grad_output);
+  auto output_cpu = to_cpu_with_half_to_float(output);
+  if (at::ScalarType::Half == input_dtype) {
+    input_dtype = at::ScalarType::Float;
+  }
+  auto grad_input_cpu =
+      at::_softmax_backward_data(grad_output_cpu, output_cpu, dim, input_dtype);
+  grad_input.copy_(grad_input_cpu);
+  return grad_input;
+}
+
+static at::Tensor& custom_fallback_dipu_sigmoid_out(const at::Tensor& self,
+                                                    at::Tensor& out) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  auto out_cpu = at::sigmoid(self_cpu);
+  out.copy_(out_cpu);
+  return out;
+}
+
+static at::Tensor& custom_fallback_dipu_sigmoid_backward_grad_input(
+    const at::Tensor& grad_output, const at::Tensor& output,
+    at::Tensor& grad_input) {
+  auto grad_output_cpu = to_cpu_with_half_to_float(grad_output);
+  auto output_cpu = to_cpu_with_half_to_float(output);
+  auto grad_input_cpu = at::sigmoid_backward(grad_output_cpu, output_cpu);
+  grad_input.copy_(grad_input_cpu);
+  return grad_input;
 }
 
 }  // namespace native
