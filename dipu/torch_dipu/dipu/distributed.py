@@ -97,10 +97,11 @@ def _wrap_batch_isend_irecv(p2p_op_list):
     return reqs
 
 
-# huawei AscendSpeed pass rank list like [0, 0], which cause pg
+# huawei AscendSpeed pass rank list like [0, 0], which cause gloo pg
 # creation fail in torch 2.0. actually it's huawei's problem, such list
 # is not valid, but nothing else we can do.
-# torch 2.1 handle duplication rank inner.
+# torch 2.1 not create gloo sub-device-pg when create dicl pg and no stuck happen on pg creation.
+# so we keep it's behavior. but even created. it still stuck when try to do any real comm.
 _raw_new_group = dist.new_group
 
 
