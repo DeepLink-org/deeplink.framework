@@ -19,7 +19,10 @@ namespace devapis {
 using ascend_deviceId = int32_t;
 thread_local int currentDeviceIndex = -1;
 
-void initializeVendor() { DIPU_CALLACLRT(aclInit(nullptr)); }
+void initializeVendor() {
+  DIPU_CALLACLRT(aclInit(nullptr));
+  DIPU_CALLACLRT(aclrtSetDeviceSatMode(ACL_RT_OVERFLOW_MODE_INFNAN));
+}
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
@@ -64,11 +67,12 @@ void setDevice(deviceId_t devId) {
     TORCH_WARN_ONCE(
         "Trying to use multiple cards in the same process may cause unexpected "
         "results in hccl communication, such as sdma memory copy failure");
-  }
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  if (devId_ != currentDeviceIndex) {
-    DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-    currentDeviceIndex = devId_;
+  } else {
+    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+    if (devId_ != currentDeviceIndex) {
+      DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+      currentDeviceIndex = devId_;
+    }
   }
 }
 
