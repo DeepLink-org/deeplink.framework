@@ -86,7 +86,7 @@ def _wrap_get_backend(group: Optional[ProcessGroup] = None) -> str:
     else:
         return ret
 
-# dicl not support coalescing now. Todo: remove after support
+# dicl not support coalescing now. Todo: remove after support coalesce
 def wrap_batch_isend_irecv(p2p_op_list):
     dist.distributed_c10d._check_p2p_op_list(p2p_op_list)
     reqs = []
@@ -97,9 +97,9 @@ def wrap_batch_isend_irecv(p2p_op_list):
     return reqs
 
 # huawei AscendSpeed pass rank list like [0, 0], which cause pg 
-# creation fail in torch 2.0. actually it's huawei's problem, such input
+# creation fail in torch 2.0. actually it's huawei's problem, such list
 # is not valid, but nothing else we can do.
-# torch 2.1 handle duplication rank inner
+# torch 2.1 handle duplication rank inner.
 _raw_new_group = dist.new_group
 def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
     ranks = list(set(ranks))  # dedup
