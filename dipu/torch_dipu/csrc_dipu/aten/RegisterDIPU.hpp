@@ -37,7 +37,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 #define DIPU_OP_LOG_WARNING_ONCE(...)                      \
   do {                                                     \
     const char* env = std::getenv("DIPU_DUMP_OP_ARGS");    \
-    int env_value = (env != nullptr) ? std::atoi(env) : 0; \
+    int env_value = (env != nullptr) ? std::atoi(env) : -1; \
     if (env_value >= 0) {                                  \
       DIPU_LOG_WARNING_ONCE(__VA_ARGS__);                  \
     }                                                      \
