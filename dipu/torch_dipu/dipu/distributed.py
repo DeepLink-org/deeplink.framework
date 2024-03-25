@@ -86,7 +86,8 @@ def _wrap_get_backend(group: Optional[ProcessGroup] = None) -> str:
         return ret
 
 
-# dicl not support coalescing now. Todo: remove after support coalesce
+# dicl not support coalescing now. so torch2.1 batch_isend_irecv crash.
+# Todo: remove after support coalesce.
 def _wrap_batch_isend_irecv(p2p_op_list):
     dist.distributed_c10d._check_p2p_op_list(p2p_op_list)
     reqs = []
@@ -116,7 +117,9 @@ def apply_dist_patch():
     dist.get_backend = _wrap_get_backend
     dist.init_process_group = _wrap_init_process_groups
     dist.ProcessGroup._register_backend = _wrapped_register_backend
-    dist.batch_isend_irecv = _wrap_batch_isend_irecv
+    # rm batch_isend_irecv after coalse ready
+    if dipu.get_dipu_torch_version() != dipu.torch_ver_200:
+        dist.batch_isend_irecv = _wrap_batch_isend_irecv
 
     if dipu.get_dipu_torch_version() == dipu.torch_ver_200:
         dist.new_group = _wrap_new_group

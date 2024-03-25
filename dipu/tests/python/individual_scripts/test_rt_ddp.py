@@ -310,9 +310,7 @@ def test_special_group_stuck(rank, world_size):
 
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
-    # world_size = 1
-    # demo_allreduce(0, world_size)
-    # demo_basic_ddp(0, world_size)
+
     port = random.randint(10000, 60000)
 
     world_size = 1
