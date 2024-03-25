@@ -14,6 +14,7 @@
 #include <c10/util/irange.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
@@ -215,6 +216,17 @@ at::Tensor wrapper_DIPU_empty_strided(at::IntArrayRef size,
                                 pin_memory_opt);
 }
 
+at::Tensor wrapper_DIPU_empty_like(
+    const at::Tensor& self, c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout, c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<at::MemoryFormat> memory_format) {
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const DeviceGuard device_guard(device_or_default(device));
+  return dipu::native::nodispatch::empty_like(self, dtype, layout, device,
+                                              pin_memory, memory_format);
+}
+
 at::Tensor wrapper_CPU_empty_strided(at::IntArrayRef size,
                                      at::IntArrayRef stride,
                                      c10::optional<at::ScalarType> dtype_opt,
@@ -408,6 +420,7 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   // always registered
   m.impl("empty.memory_format", TORCH_FN(wrapper_DIPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_DIPU_empty_strided));
+  m.impl("empty_like", TORCH_FN(wrapper_DIPU_empty_like));
   m.impl("_reshape_alias", TORCH_FN(wrapper_DIPU___reshape_alias));
   m.impl("_copy_from_and_resize",
          TORCH_FN(wrapper_DIPU___copy_from_and_resize));
