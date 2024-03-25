@@ -192,18 +192,18 @@ inline std::string allclose_autocompare(
   return stream.str();
 }
 
-
-template<typename T, std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
-inline std::string allclose_autocompare(T val_expect,  T val_real) {
-    std::ostringstream stream;
-    stream << std::setfill(' ');
-    if(val_expect != val_real) {
-      stream << "not allclose:  expect val is " << val_expect  <<  " but the real val is " << val_real  << std::endl;
-    }
-    else {
-      stream << "allclose" << std::endl;
-    }
-    return stream.str();
+template <typename T,
+          std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
+inline std::string allclose_autocompare(T val_expect, T val_real) {
+  std::ostringstream stream;
+  stream << std::setfill(' ');
+  if (val_expect != val_real) {
+    stream << "not allclose:  expect val is " << val_expect
+           << " but the real val is " << val_real << std::endl;
+  } else {
+    stream << "allclose" << std::endl;
+  }
+  return stream.str();
 }
 
 }  // namespace native
