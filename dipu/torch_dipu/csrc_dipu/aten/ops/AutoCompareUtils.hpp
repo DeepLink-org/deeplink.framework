@@ -192,5 +192,20 @@ inline std::string allclose_autocompare(
   return stream.str();
 }
 
+template <typename T,
+          std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
+inline std::string allclose_autocompare(T val_expected, T val_real,
+                                        int indentation = 2) {
+  std::ostringstream stream;
+  stream << std::setfill(' ');
+  if (val_expected != val_real) {
+    stream << std::setw(indentation) << "not allclose:  expected val is "
+           << val_expected << " but the real val is " << val_real << std::endl;
+  } else {
+    stream << "allclose" << std::endl;
+  }
+  return stream.str();
+}
+
 }  // namespace native
 }  // namespace dipu
