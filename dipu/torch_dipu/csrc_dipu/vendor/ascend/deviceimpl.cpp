@@ -20,17 +20,18 @@ using AscendDeviceId = int32_t;
 
 namespace {
 
-constexpr AscendDeviceId kDeviceIdUnset = -1;
+constexpr AscendDeviceId kDeviceIdUninit = -1;
 constexpr AscendDeviceId kDeviceIdDefault = 0;
-thread_local auto g_current_thread_device_id = kDeviceIdUnset;
+thread_local auto g_current_thread_device_id = kDeviceIdUninit;
 
-// atomically set global device id if it is unset
+// atomically set global device id if it is uninit
 // and anyway return the global device id
-AscendDeviceId setOrGetGlobalDeviceId(AscendDeviceId device_id_if_unset) {
-  static std::atomic global_device_id = kDeviceIdUnset;
-  auto expectedUnset = kDeviceIdUnset;
-  std::atomic_compare_exchange_strong(&global_device_id, &expectedUnset,
-                                      device_id_if_unset);
+AscendDeviceId initOnceAndGetGlobalDeviceId(
+    AscendDeviceId device_id_if_uninit) {
+  static std::atomic global_device_id = kDeviceIdUninit;
+  auto expectedUninit = kDeviceIdUninit;
+  std::atomic_compare_exchange_strong(&global_device_id, &expectedUninit,
+                                      device_id_if_uninit);
   return global_device_id.load();
 }
 
@@ -44,11 +45,11 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (g_current_thread_device_id == kDeviceIdUnset) {
+  if (g_current_thread_device_id == kDeviceIdUninit) {
     DIPU_LOGW(
         "current_device() is called before setDevice(). Setting device to "
         "default device.");
-    DIPU_CALLACLRT(aclrtSetDevice(kDeviceIdDefault));
+    setDevice(kDeviceIdDefault);
   }
   return static_cast<deviceId_t>(g_current_thread_device_id);
 }
@@ -60,8 +61,8 @@ void setDevice(deviceId_t device_id) {
     return;
   }
   auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
-  if (g_current_thread_device_id == kDeviceIdUnset) {
-    g_current_thread_device_id = setOrGetGlobalDeviceId(ascend_device_id);
+  if (g_current_thread_device_id == kDeviceIdUninit) {
+    g_current_thread_device_id = initOnceAndGetGlobalDeviceId(ascend_device_id);
   }
   if (ascend_device_id != g_current_thread_device_id) {
     DIPU_LOGW(
