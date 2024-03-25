@@ -2,6 +2,7 @@
 #include <acl/acl.h>
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
+#include <atomic>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
@@ -15,8 +16,10 @@ namespace devapis {
 // =====================
 //  Device class related
 // =====================
-using ascend_deviceId = int32_t;
-thread_local bool setDevFlag = false;
+using AscendDeviceId = int32_t;
+constexpr AscendDeviceId kDeviceIdUnset = -1;
+constexpr AscendDeviceId kDeviceIdDefault = 0;
+static thread_local auto g_current_thread_device_id = kDeviceIdUnset;
 
 void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
@@ -26,15 +29,38 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (setDevFlag == false) {
-    DIPU_CALLACLRT(aclrtSetDevice(0));
-    setDevFlag = true;
+  if (g_current_thread_device_id == kDeviceIdUnset) {
+    DIPU_LOGW(
+        "current_device() is called before setDevice(). Setting device to "
+        "default device.");
+    DIPU_CALLACLRT(aclrtSetDevice(kDeviceIdDefault));
   }
-  ascend_deviceId devId_;
-  DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
-  return static_cast<deviceId_t>(devId_);
+  return static_cast<deviceId_t>(g_current_thread_device_id);
 }
-DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+
+// set current device given device according to id
+void setDevice(deviceId_t device_id) {
+  if (device_id < 0) {
+    DIPU_LOGW("Requested device id is invalid. Ignoring the request.");
+    return;
+  }
+  auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
+  if (g_current_thread_device_id == kDeviceIdUnset) {
+    static std::atomic g_global_device_id = kDeviceIdUnset;
+    std::atomic_compare_exchange_strong(
+        &g_global_device_id, &g_current_thread_device_id, ascend_device_id);
+    g_current_thread_device_id = g_global_device_id.load();
+  }
+  if (ascend_device_id != g_current_thread_device_id) {
+    DIPU_LOGW(
+        "Trying to use multiple cards in the same process may cause unexpected "
+        "results in hccl communication, such as sdma memory copy failure");
+    return;
+  }
+  DIPU_CALLACLRT(::aclrtSetDevice(ascend_device_id))
+}
+
+DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   const char* device_name;
   size_t device_free;
   size_t device_total;
@@ -53,13 +79,6 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   prop.totalGlobalMem = device_total << 20;
   prop.multiProcessorCount = 1;
   return prop;
-}
-
-// set current device given device according to id
-void setDevice(deviceId_t devId) {
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
