@@ -52,13 +52,26 @@ if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
 endif()
 
+if(DEFINED ENV{USE_AUTOCOMPARE})
+    set(USE_AUTOCOMPARE $ENV{USE_AUTOCOMPARE})
+else ()
+    set(USE_AUTOCOMPARE 0)
+endif()
+
+string(TOLOWER "${USE_AUTOCOMPARE}" USE_AUTOCOMPARE_LOWER)
+if (USE_AUTOCOMPARE_LOWER STREQUAL "on" OR USE_AUTOCOMPARE_LOWER STREQUAL "1" OR USE_AUTOCOMPARE_LOWER STREQUAL "true")
+    set(USE_AUTOCOMPARE True)
+else (USE_AUTOCOMPARE_LOWER STREQUAL "off" OR USE_AUTOCOMPARE_LOWER STREQUAL "0" OR USE_AUTOCOMPARE_LOWER STREQUAL "false")
+    set(USE_AUTOCOMPARE False)
+endif()
+
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
   COMMAND "${Python3_EXECUTABLE}"
     "${GENERATED_KERNELS_SCRIPT}"
     "--out=${GENERATED_KERNELS}"
     "--config=${GENERATED_KERNELS_CONFIG}"
-    "--autocompare=False"
+    "--autocompare=${USE_AUTOCOMPARE}"
     "--print_op_arg=True"
     "--use_diopi_adapter=False"
     "--print_func_call_info=True"
