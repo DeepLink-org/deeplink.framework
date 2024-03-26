@@ -2,6 +2,7 @@
 #include <acl/acl.h>
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
+#include <atomic>
 
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
@@ -16,7 +17,7 @@ namespace devapis {
 //  Device class related
 // =====================
 using ascend_deviceId = int32_t;
-thread_local bool setDevFlag = false;
+thread_local int currentDeviceIndex = -1;
 
 void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
@@ -26,14 +27,55 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (setDevFlag == false) {
-    DIPU_CALLACLRT(aclrtSetDevice(0));
-    setDevFlag = true;
+  if (currentDeviceIndex < 0) {
+    setDevice(-1);
+    DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
   }
-  ascend_deviceId devId_;
-  DIPU_CALLACLRT(::aclrtGetDevice(&devId_))
-  return static_cast<deviceId_t>(devId_);
+  return static_cast<deviceId_t>(currentDeviceIndex);
 }
+
+int defaultDeviceIndex = -1;
+std::atomic_int defaultDeviceIndexAtomic(-1);
+
+void setDefalutDevice(int index) {
+  defaultDeviceIndexAtomic = index;
+  defaultDeviceIndex = index;
+}
+
+// set current device given device according to id
+void setDevice(deviceId_t devId) {
+  // In order to reduce performance loss, try to reduce the number of reads and
+  // writes of atomic variables.
+  // Atomic variables will only be manipulated when starting up.
+  // In most other cases, reading and writing atomic variables is no longer
+  // required. This function is called extremely frequently.
+  if (devId < 0) {
+    if (defaultDeviceIndex < 0) {
+      if (defaultDeviceIndexAtomic < 0) {
+        setDefalutDevice(0);
+      }
+    }
+    devId = defaultDeviceIndexAtomic;
+  } else {
+    if (defaultDeviceIndex < 0) {
+      if (defaultDeviceIndexAtomic < 0) {
+        setDefalutDevice(devId);
+      }
+    }
+  }
+  if (devId != defaultDeviceIndex) {
+    TORCH_WARN_ONCE(
+        "Trying to use multiple cards in the same process may cause unexpected "
+        "results in hccl communication, such as sdma memory copy failure");
+  } else {
+    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
+    if (devId_ != currentDeviceIndex) {
+      DIPU_CALLACLRT(::aclrtSetDevice(devId_))
+      currentDeviceIndex = devId_;
+    }
+  }
+}
+
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   const char* device_name;
   size_t device_free;
@@ -53,13 +95,6 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   prop.totalGlobalMem = device_total << 20;
   prop.multiProcessorCount = 1;
   return prop;
-}
-
-// set current device given device according to id
-void setDevice(deviceId_t devId) {
-  ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-  DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-  setDevFlag = true;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }

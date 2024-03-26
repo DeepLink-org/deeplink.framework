@@ -86,7 +86,40 @@ def _wrap_get_backend(group: Optional[ProcessGroup] = None) -> str:
         return ret
 
 
+# dicl not support coalescing now. so torch2.1 batch_isend_irecv crash.
+# Todo: remove after support coalesce.
+def _wrap_batch_isend_irecv(p2p_op_list):
+    dist.distributed_c10d._check_p2p_op_list(p2p_op_list)
+    reqs = []
+    for p2p_op in p2p_op_list:
+        work = p2p_op.op(p2p_op.tensor, p2p_op.peer, p2p_op.group, p2p_op.tag)
+        if work:
+            reqs.append(work)
+    return reqs
+
+
+# huawei AscendSpeed pass rank list like [0, 0], which cause gloo pg
+# creation fail in torch 2.0. actually it's huawei's problem, such list
+# is not valid, but nothing else we can do.
+# torch 2.1 not create gloo sub-device-pg when create dicl pg and no stuck happen on pg creation.
+# so we keep it's behavior. but even created. it still stuck when try to do any real comm.
+_raw_new_group = dist.new_group
+
+
+def _wrap_new_group(
+    ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None
+):
+    ranks = list(set(ranks))  # dedup
+    return _raw_new_group(ranks, timeout, backend, pg_options)
+
+
 def apply_dist_patch():
     dist.get_backend = _wrap_get_backend
     dist.init_process_group = _wrap_init_process_groups
     dist.ProcessGroup._register_backend = _wrapped_register_backend
+    # rm batch_isend_irecv after coalse ready
+    if dipu.get_dipu_torch_version() != dipu.torch_ver_200:
+        dist.batch_isend_irecv = _wrap_batch_isend_irecv
+
+    if dipu.get_dipu_torch_version() == dipu.torch_ver_200:
+        dist.new_group = _wrap_new_group
