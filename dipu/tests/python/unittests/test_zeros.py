@@ -13,11 +13,13 @@ class TestZeros(TestCase):
         self.assertEqual(x, y.cpu(), exact_dtype=True)
 
     def test_zero_(self):
-        device = torch.device("dipu")
         size = [3, 5]
-        x = torch.randn(size=size)
-        y = torch.randn(size=size, device=device)
-        self.assertEqual(x.zero_(), y.zero_().cpu(), exact_dtype=True)
+        y = torch.randn(size=size).cuda()
+        x = y.cpu()
+        x.zero_()
+        y.zero_()
+        self.assertEqual(x, y.cpu(), exact_dtype=True)
+
 
 if __name__ == "__main__":
     run_tests()
