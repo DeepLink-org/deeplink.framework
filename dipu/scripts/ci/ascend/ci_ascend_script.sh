@@ -13,6 +13,7 @@ function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=ascend \
+        -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE} \
         -DWITH_DIOPI_LIBRARY=DISABLE
     cd ../
 }

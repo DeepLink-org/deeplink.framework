@@ -1,4 +1,5 @@
 #[[ Dependencies ]]
+option(USE_AUTOCOMPARE "whether to use USE_AUTOCOMPARE" OFF)
 
 # Import Python3::Python, Python3_EXECUTABLE
 # Also see https://cmake.org/cmake/help/latest/module/FindPython3.html
