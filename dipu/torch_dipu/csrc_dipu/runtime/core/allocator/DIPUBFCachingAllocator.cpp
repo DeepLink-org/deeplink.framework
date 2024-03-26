@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "DIPUCachingAllocator.h"
-#include "DIPUSpinMutex.h"
 
 namespace dipu {
 
@@ -131,7 +130,7 @@ class BFCachingAllocatorImpl {
   using StreamSetHandle = std::unique_ptr<StreamSet>;
   std::vector<StreamSetHandle> streamSets_;
 
-  using mutex_t = SpinMutex;
+  using mutex_t = std::mutex;
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
@@ -409,35 +408,37 @@ class BFCachingAllocator : public CacheAllocator {
  private:
   void restore() const {
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
-    while (async_mem_pool()->ready()) {
-      const auto block = async_mem_pool()->get();
-      void* ptr = std::get<0>(block);
-      int id = static_cast<int>(std::get<1>(block));
+
+    auto& pool = *async_mem_pool();
+    for (auto item = pool.pop(); item; item = pool.pop()) {
+      auto [ptr, id] = item.value();
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: "
                  << __FUNCTION__ << " ,ptr:" << ptr << " ,id:" << id
                  << " ,allocator:" << this << ", device:" << device()
                  << ", async_pool.size:" << async_mem_pool()->size());
-      impl->releaseRaw(ptr, id);
+      impl->releaseRaw(ptr, static_cast<int>(id));
     }
+
     set_memory_reserved(impl->memory_reserved());
   }
 
   void empty_resource_pool() const {
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
-    while (!async_mem_pool()->empty()) {
-      if (!async_mem_pool()->ready()) {
+    auto& pool = *async_mem_pool();
+    while (not pool.empty()) {
+      auto item = pool.pop();
+      if (not item) {
         std::this_thread::yield();
         continue;
       }
-      const auto block = async_mem_pool()->get();
-      void* ptr = std::get<0>(block);
-      int id = static_cast<int>(std::get<1>(block));
+
+      auto [ptr, id] = item.value();
       DIPU_DEBUG_ALLOCATOR(
           8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
                                     << " ,id:" << id << " ,allocator:" << this
                                     << ", device:" << device());
-      impl->releaseRaw(ptr, id);
+      impl->releaseRaw(ptr, static_cast<int>(id));
     }
   }
 
@@ -481,15 +482,8 @@ class BFCachingAllocator : public CacheAllocator {
                                   << ", device:" << allocator_->device());
       if (allocator_->impl) {
         if (ptr()) {
-          std::deque<DIPUEvent> events;
-          for (auto const& stream : streams()) {
-            events.emplace_back();
-            DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: record to stream:"
-                                        << stream.rawstream());
-            events.back().record(stream);
-          }
-          allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_),
-                                            events);
+          allocator_->async_mem_pool()->put(std::make_tuple(ptr(), id_),
+                                            streams_to_events());
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
         }

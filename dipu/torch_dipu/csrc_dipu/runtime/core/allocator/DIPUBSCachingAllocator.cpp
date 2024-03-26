@@ -140,10 +140,9 @@ class BSCachingAllocator : public CacheAllocator {
   void empty_resource_pool() const {
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::empty_resource_pool ,allocator:" << this);
-    while (!async_mem_pool()->empty()) {
-      if (async_mem_pool()->ready()) {
-        flush_mem_pool();
-      } else {
+
+    while (not async_mem_pool()->empty()) {
+      if (not flush_mem_pool()) {
         std::this_thread::yield();
       }
     }
@@ -179,13 +178,17 @@ class BSCachingAllocator : public CacheAllocator {
 
   void release_all_memory() const override { release_all_memory_impl(); }
 
-  void flush_mem_pool() const {
+  bool flush_mem_pool() const {
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::flush_mem_pool allocator:" << this);
-    while (async_mem_pool()->ready()) {
-      auto mem = async_mem_pool()->get();
-      restore(std::get<1>(mem), std::get<0>(mem));
+
+    auto& pool = *async_mem_pool();
+    auto done = false;
+    for (auto item = pool.pop(); item; item = pool.pop(), done = true) {
+      auto [ptr, size] = item.value();
+      restore(size, ptr);
     }
+    return done;
   }
 
   struct Context : public DataPtrContextBase {
@@ -199,14 +202,8 @@ class BSCachingAllocator : public CacheAllocator {
                                            << ", ptr:" << ptr()
                                            << ", size_:" << size());
       if (allocator_->impl) {
-        std::deque<DIPUEvent> events;
-        for (const auto& item : streams()) {
-          events.emplace_back();
-          events.back().record(item);
-        }
-
-        allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()),
-                                          events);
+        allocator_->async_mem_pool()->put(std::make_tuple(ptr(), size()),
+                                          streams_to_events());
         allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                          real_size_);
         allocator_->flush_mem_pool();

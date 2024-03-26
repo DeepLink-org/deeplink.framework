@@ -5,9 +5,9 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
-#include "DIPUAsyncResourcePool.h"
 #include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
+#include "async_resource_pool.h"
 
 namespace dipu {
 
@@ -42,7 +42,7 @@ const MemoryAlignmentStrategy* getMemoryAlignmentStrategy();
 void setMemoryAlignmentStrategy(
     const MemoryAlignmentStrategy* memoryAlignStrategy);
 
-using AsyncMemPool = AsyncResourcePool<std::tuple<void*, size_t>>;
+using AsyncMemPool = AsyncResourceQueue<std::tuple<void*, size_t>>;
 
 class MemStats {
  private:
@@ -148,6 +148,15 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
 
     ska::flat_hash_set<DIPUStream>& streams() { return streams_; }
 
+    std::vector<DIPUEvent> streams_to_events() const {
+      auto index = std::size_t{};
+      auto events = std::vector<DIPUEvent>(streams_.size());
+      for (auto& stream : streams_) {
+        events[index++].record(stream);
+      }
+      return events;
+    }
+
     const CacheAllocator* allocator() { return allocator_; }
 
     void* ptr() { return ptr_; }
@@ -233,9 +242,7 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
   namespace name##device_type {                                                \
     static allocator_details::RawAllocator<at::DeviceType::device_type>::type  \
         raw_allocator;                                                         \
-    using AsyncMemPool =                                                       \
-        AsyncResourcePoolImpl<std::tuple<void*, size_t>,                       \
-                              at::DeviceType::device_type, priority>;          \
+    using AsyncMemPool = AsyncResourceQueue<std::tuple<void*, size_t>>;        \
     static const std::function<c10::Allocator*(int)> allocator_get_fn =        \
         std::bind(                                                             \
             allocator_details::get_allocator<CachingAllocator, AsyncMemPool>,  \

@@ -17,17 +17,13 @@ class RawCachingAllocator : public CacheAllocator {
     Context(const CacheAllocator* allocator, void* ptr, size_t size,
             size_t real_size)
         : DataPtrContextBase(allocator, ptr, size), real_size_(real_size) {}
+
     ~Context() {
-      std::deque<DIPUEvent> events;
-      for (const auto& item : streams()) {
-        events.emplace_back();
-        events.back().record(item);
-      }
-      auto allocator_ = static_cast<const RawCachingAllocator*>(allocator());
-      allocator_->async_mem_pool()->add(std::make_tuple(ptr(), size()), events);
-      allocator_->set_memory_allocated(allocator_->memory_allocated() -
-                                       real_size_);
-      allocator_->empty_cache();
+      auto alloc = static_cast<const RawCachingAllocator*>(allocator());
+      alloc->async_mem_pool()->put(std::make_tuple(ptr(), size()),
+                                   streams_to_events());
+      alloc->set_memory_allocated(alloc->memory_allocated() - real_size_);
+      alloc->empty_cache();
     }
     size_t real_size_ = 0;
   };
@@ -51,17 +47,13 @@ class RawCachingAllocator : public CacheAllocator {
 
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "RawCachingAllocator: empty_cache");
-    while (!async_mem_pool()->empty()) {
-      if (async_mem_pool()->ready()) {
-        auto mem = async_mem_pool()->get();
-        void* ptr = std::get<0>(mem);
-        size_t size = std::get<1>(mem);
-        size_t nbytes = getAllocateSize(size);
-        raw_allocator()->raw_deallocate(ptr);
-        set_memory_reserved(memory_reserved() - nbytes);
-      } else {
-        std::this_thread::yield();
-      }
+
+    auto& pool = *async_mem_pool();
+    for (auto item = pool.pop(); item; item = pool.pop()) {
+      auto [ptr, size] = item.value();
+      auto nbytes = getAllocateSize(size);
+      raw_allocator()->raw_deallocate(ptr);
+      set_memory_reserved(memory_reserved() - nbytes);
     }
   }
 
