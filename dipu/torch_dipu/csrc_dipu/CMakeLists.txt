@@ -44,9 +44,8 @@ endif()
 
 # Auto generated code.
 # Consider moving it to other files.
+set(AUTOGEN_CODE_SH "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/auto_gen_code.sh")
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
-set(GENERATED_KERNELS_SCRIPT "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
-set(GENERATED_KERNELS_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
@@ -55,21 +54,9 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND "${Python3_EXECUTABLE}"
-    "${GENERATED_KERNELS_SCRIPT}"
-    "--out=${GENERATED_KERNELS}"
-    "--config=${GENERATED_KERNELS_CONFIG}"
-    "--autocompare=${USE_AUTOCOMPARE}"
-    "--print_op_arg=True"
-    "--use_diopi_adapter=False"
-    "--print_func_call_info=True"
-    "--fun_config_dict='{\"current_device\":\"${UsedVendor}\",\"current_torch_ver\":\"${Torch_VERSION}\"}'"
-    "$<$<BOOL:${GENERATED_KERNELS_VENDOR}>:--convert_config=${GENERATED_KERNELS_VENDOR}>"
-  DEPENDS
-    "${GENERATED_KERNELS_SCRIPT}"
-    "${GENERATED_KERNELS_CONFIG}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH}" "${USE_AUTOCOMPARE}" "${UsedVendor}" "${Torch_VERSION}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
+  )
 
 # Collect source files.
 # You may use: find . -name "*.cpp" to update list.
