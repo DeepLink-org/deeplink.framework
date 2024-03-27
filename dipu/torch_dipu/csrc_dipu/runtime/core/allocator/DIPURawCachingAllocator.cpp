@@ -21,7 +21,7 @@ class RawCachingAllocator : public CacheAllocator {
     ~Context() {
       auto alloc = static_cast<const RawCachingAllocator*>(allocator());
       alloc->async_mem_pool()->put(std::make_tuple(ptr(), size()),
-                                   streams_to_events());
+                                   listen_streams_ready());
       alloc->set_memory_allocated(alloc->memory_allocated() - real_size_);
       alloc->empty_cache();
     }

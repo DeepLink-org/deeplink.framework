@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+
 #include "DIPUCachingAllocator.h"
 
 namespace dipu {
@@ -483,7 +485,7 @@ class BFCachingAllocator : public CacheAllocator {
       if (allocator_->impl) {
         if (ptr()) {
           allocator_->async_mem_pool()->put(std::make_tuple(ptr(), id_),
-                                            streams_to_events());
+                                            listen_streams_ready());
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
         }

@@ -186,8 +186,8 @@ static void exportEvent(py::module& m) {
            }),
            py::arg("enable_timing") = false, py::arg("blocking") = false,
            py::arg("interprocess") = false)
-      .def("record", static_cast<void (DIPUEvent::*)()>(&DIPUEvent::record),
-           "record event")
+      .def(
+          "record", [](DIPUEvent& self) { self.record(); }, "record event")
       .def("record",
            pybind11::overload_cast<const DIPUStream&>(&DIPUEvent::record),
            "record event on stream")

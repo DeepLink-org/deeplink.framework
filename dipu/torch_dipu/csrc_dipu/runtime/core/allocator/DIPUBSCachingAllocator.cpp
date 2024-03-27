@@ -203,7 +203,7 @@ class BSCachingAllocator : public CacheAllocator {
                                            << ", size_:" << size());
       if (allocator_->impl) {
         allocator_->async_mem_pool()->put(std::make_tuple(ptr(), size()),
-                                          streams_to_events());
+                                          listen_streams_ready());
         allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                          real_size_);
         allocator_->flush_mem_pool();
