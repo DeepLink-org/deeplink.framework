@@ -48,12 +48,14 @@ class RawCachingAllocator : public CacheAllocator {
   void empty_cache() const override {
     DIPU_DEBUG_ALLOCATOR(8, "RawCachingAllocator: empty_cache");
 
-    auto& pool = *async_mem_pool();
-    for (auto item = pool.pop(); item; item = pool.pop()) {
-      auto [ptr, size] = item.value();
-      auto nbytes = getAllocateSize(size);
-      raw_allocator()->raw_deallocate(ptr);
-      set_memory_reserved(memory_reserved() - nbytes);
+    for (auto& pool = *async_mem_pool(); not pool.empty();) {
+      std::this_thread::yield();
+      for (auto item = pool.pop(); item; item = pool.pop()) {
+        auto [ptr, size] = item.value();
+        auto nbytes = getAllocateSize(size);
+        raw_allocator()->raw_deallocate(ptr);
+        set_memory_reserved(memory_reserved() - nbytes);
+      }
     }
   }
 
