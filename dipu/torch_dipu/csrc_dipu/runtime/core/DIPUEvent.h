@@ -54,8 +54,8 @@ class DIPU_API DIPUEvent {
     return {};
   }
 
-  c10::DeviceIndex device_index() const { return index; }
-  deviceEvent_t rawevent() const { return event; }
+  c10::DeviceIndex device_index() const noexcept { return index; }
+  deviceEvent_t rawevent() const noexcept { return event; }
 
   bool query() const {
     if (initialized()) {
@@ -67,7 +67,7 @@ class DIPU_API DIPUEvent {
 
   void record(const DIPUStream& stream = getCurrentDIPUStream()) {
     auto stream_index = stream.device_index();
-    auto not_match = false;
+    auto match = true;
     {
       DIPUGuard _(stream_index);
       if (not initialized()) {
@@ -77,11 +77,11 @@ class DIPU_API DIPUEvent {
       } else if (index == stream_index) {
         devproxy::recordEvent(event, stream.rawstream());
       } else {
-        not_match = true;
+        match = false;
       }
     }
 
-    TORCH_CHECK(not_match, "Event device ", index,
+    TORCH_CHECK(match, "Event device ", index,
                 " does not match recording stream's device ",
                 stream.device_index(), ".");
   }

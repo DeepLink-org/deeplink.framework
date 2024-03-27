@@ -47,16 +47,18 @@ const MemoryAlignmentStrategy* getMemoryAlignmentStrategy();
 void setMemoryAlignmentStrategy(
     const MemoryAlignmentStrategy* memoryAlignStrategy);
 
+namespace detail {
 struct EventsListener {
-  std::vector<std::unique_ptr<DIPUEvent>> events;
+  std::vector<DIPUEvent> events;
   bool operator()() const {
-    auto ready = [](auto& event) { return event->query(); };
+    auto ready = [](auto& event) { return event.query(); };
     return std::all_of(events.begin(), events.end(), ready);
   }
 };
+}  // namespace detail
 
 using AsyncMemPool =
-    AsyncResourceQueue<std::tuple<void*, size_t>, EventsListener>;
+    AsyncResourceQueue<std::tuple<void*, size_t>, detail::EventsListener>;
 
 class MemStats {
  private:
@@ -162,15 +164,13 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
 
     ska::flat_hash_set<DIPUStream>& streams() { return streams_; }
 
-    EventsListener listen_streams_ready() const {
+    detail::EventsListener listen_streams_ready() const {
       auto index = std::size_t{};
-      auto events = std::vector<std::unique_ptr<DIPUEvent>>(streams_.size());
+      auto events = std::vector<DIPUEvent>(streams_.size());
       for (auto& stream : streams_) {
-        events[index] = std::make_unique<DIPUEvent>();
-        events[index]->record(stream);
-        index++;
+        events[index++].record(stream);
       }
-      return EventsListener{std::move(events)};
+      return detail::EventsListener{std::move(events)};
     }
 
     const CacheAllocator* allocator() { return allocator_; }
@@ -260,8 +260,8 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
   namespace name##device_type {                                                \
     static allocator_details::RawAllocator<at::DeviceType::device_type>::type  \
         raw_allocator;                                                         \
-    using AsyncMemPool =                                                       \
-        AsyncResourceQueue<std::tuple<void*, size_t>, dipu::EventsListener>;   \
+    using AsyncMemPool = AsyncResourceQueue<std::tuple<void*, size_t>,         \
+                                            dipu::detail::EventsListener>;     \
     static const std::function<c10::Allocator*(int)> allocator_get_fn =        \
         std::bind(                                                             \
             allocator_details::get_allocator<CachingAllocator, AsyncMemPool,   \
