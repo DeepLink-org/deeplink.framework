@@ -52,11 +52,15 @@ if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
 endif()
 
+if(EXISTS "${GENERATED_KERNELS}")
+  file(REMOVE "${GENERATED_KERNELS}")
+endif()
+
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
   COMMAND bash -c "${AUTOGEN_CODE_SH}" "${USE_AUTOCOMPARE}" "${UsedVendor}" "${Torch_VERSION}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-  )
+  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 
 # Collect source files.
 # You may use: find . -name "*.cpp" to update list.
