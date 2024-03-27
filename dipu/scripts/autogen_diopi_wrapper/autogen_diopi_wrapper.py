@@ -974,7 +974,7 @@ def boolean_string(s):
     elif s.lower() in ["false", "off", ""]:
         return False
     else:
-        raise ValueError("Not a valid boolean string")
+        raise ValueError("Not a valid boolean string.")
 
 
 def parse_args():
