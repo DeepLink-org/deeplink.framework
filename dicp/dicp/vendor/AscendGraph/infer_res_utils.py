@@ -47,9 +47,15 @@ def ascend_type_to_torch(ascend_type: str) -> torch.dtype:
 def get_fake_tensor_meta_val(
     x, req_dim=True, req_dtype=True
 ) -> Tuple[torch.Tensor, Union[torch.Size, list], int, Union[torch.dtype, type, None]]:
-    x_shape = x.size() if hasattr(x, "size") else [1]
+    if isinstance(x, torch.Tensor):
+        x_shape = x.size() if hasattr(x, "size") else [1]
+        x_dtype = x.dtype if hasattr(x, "dtype") else None
+    else:
+        # in case of ascend_op.Const
+        # x: ((list_data, torch_dtype, list_shape, str_ascend_format), {})
+        x_shape = x[0][2]
+        x_dtype = x[0][1]
     x_dim = len(x_shape)
-    x_dtype = x.dtype if hasattr(x, "dtype") else None
     return x, x_shape, x_dim, x_dtype
 
 

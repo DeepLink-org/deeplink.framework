@@ -130,6 +130,8 @@ def get_ascend_dtype_num(dtype: str):
         return AclDataType.ACL_UINT64.value
     elif dtype == "BF16":
         return AclDataType.ACL_BF16.value
+    elif dtype == "INT8":
+        return AclDataType.ACL_INT8.value
     else:
         raise RuntimeError(f"unknow torch data type ({dtype}) in get_ascend_dtype_num!")
 
@@ -149,6 +151,8 @@ def get_ascend_dtype(dtype: torch.dtype) -> str:
         return "COMPLEX64"
     elif dtype == torch.bfloat16:
         return "BF16"
+    elif dtype == torch.int8:
+        return "INT8"
     else:
         raise RuntimeError(f"unknow torch data type ({dtype}) in get_ascend_dtype!")
 
