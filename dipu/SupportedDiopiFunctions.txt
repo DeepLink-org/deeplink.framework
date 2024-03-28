@@ -205,6 +205,7 @@ diopiRandperm
 diopiReciprocal
 diopiRelu
 diopiReluInp
+diopiRemainder
 diopiRemainderScalar
 diopiRemainderTensor
 diopiRepeat
