@@ -16,8 +16,27 @@ namespace devapis {
 // =====================
 //  Device class related
 // =====================
-using ascend_deviceId = int32_t;
-thread_local int currentDeviceIndex = -1;
+
+using AscendDeviceId = int32_t;
+
+namespace {
+
+constexpr AscendDeviceId kDeviceIdUninit = -1;
+constexpr AscendDeviceId kDeviceIdDefault = 0;
+thread_local auto g_current_thread_device_id = kDeviceIdUninit;
+
+// atomically set global device id if it is uninit
+// and anyway return the global device id
+AscendDeviceId initOnceAndGetGlobalDeviceId(
+    AscendDeviceId device_id_if_uninit) {
+  static std::atomic global_device_id = kDeviceIdUninit;
+  auto expectedUninit = kDeviceIdUninit;
+  std::atomic_compare_exchange_strong(&global_device_id, &expectedUninit,
+                                      device_id_if_uninit);
+  return global_device_id.load();
+}
+
+}  // namespace
 
 void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
@@ -27,56 +46,35 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (currentDeviceIndex < 0) {
-    setDevice(-1);
-    DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
+  if (g_current_thread_device_id == kDeviceIdUninit) {
+    DIPU_LOGW(
+        "current_device() is called before setDevice(). Setting device to "
+        "default device.");
+    setDevice(kDeviceIdDefault);
   }
-  return static_cast<deviceId_t>(currentDeviceIndex);
-}
-
-int defaultDeviceIndex = -1;
-std::atomic_int defaultDeviceIndexAtomic(-1);
-
-void setDefalutDevice(int index) {
-  defaultDeviceIndexAtomic = index;
-  defaultDeviceIndex = index;
+  return static_cast<deviceId_t>(g_current_thread_device_id);
 }
 
 // set current device given device according to id
-void setDevice(deviceId_t devId) {
-  // In order to reduce performance loss, try to reduce the number of reads and
-  // writes of atomic variables.
-  // Atomic variables will only be manipulated when starting up.
-  // In most other cases, reading and writing atomic variables is no longer
-  // required. This function is called extremely frequently.
-  if (devId < 0) {
-    if (defaultDeviceIndex < 0) {
-      if (defaultDeviceIndexAtomic < 0) {
-        setDefalutDevice(0);
-      }
-    }
-    devId = defaultDeviceIndexAtomic;
-  } else {
-    if (defaultDeviceIndex < 0) {
-      if (defaultDeviceIndexAtomic < 0) {
-        setDefalutDevice(devId);
-      }
-    }
+void setDevice(deviceId_t device_id) {
+  if (device_id < 0) {
+    DIPU_LOGW("Requested device id is invalid. Ignoring the request.");
+    return;
   }
-  if (devId != defaultDeviceIndex) {
-    TORCH_WARN_ONCE(
+  auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
+  if (g_current_thread_device_id == kDeviceIdUninit) {
+    g_current_thread_device_id = initOnceAndGetGlobalDeviceId(ascend_device_id);
+  }
+  if (ascend_device_id != g_current_thread_device_id) {
+    DIPU_LOGW(
         "Trying to use multiple cards in the same process may cause unexpected "
         "results in hccl communication, such as sdma memory copy failure");
-  } else {
-    ascend_deviceId devId_ = static_cast<deviceId_t>(devId);
-    if (devId_ != currentDeviceIndex) {
-      DIPU_CALLACLRT(::aclrtSetDevice(devId_))
-      currentDeviceIndex = devId_;
-    }
+    return;
   }
+  DIPU_CALLACLRT(::aclrtSetDevice(ascend_device_id))
 }
 
-DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
+DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   const char* device_name;
   size_t device_free;
   size_t device_total;
