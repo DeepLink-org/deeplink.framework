@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -16,6 +17,8 @@
 #include <ATen/native/cpu/mixed_data_type.h>
 #include <ATen/ops/abs.h>
 #include <ATen/ops/allclose.h>
+#include <ATen/ops/empty_strided.h>
+#include <c10/core/Device.h>
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/Optional.h>
@@ -23,11 +26,27 @@
 #include <c10/util/string_view.h>
 
 #include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/device/deviceapis.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/Log.h"
 
 namespace dipu {
 namespace native {
+
+// avoid infinite recursion when dumpArg() before calling diopiCopy()
+inline at::Tensor toCpuTensorWithoutDiopiCopy(const at::Tensor& in) {
+  if (in.is_cpu()) {
+    return in;
+  }
+
+  at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
+                                     in.options().device(c10::Device("cpu")));
+  if (in.nbytes() > 0) {
+    dipu::devapis::memCopyD2H(out.storage().nbytes(), out.data_ptr(),
+                              in.data_ptr());
+  }
+  return out;
+}
 
 inline bool checkTensorDevice() {
   static bool enable = []() {
@@ -114,7 +133,7 @@ inline std::string dumpArg(const at::Tensor& tensor) {
            << ", storage_data_ptr: " << tensor.storage().data_ptr().get()
            << ", storage_offset: " << tensor.storage_offset();
     if (dumpOpArgLevel() > 2) {
-      stream << '\n' << tensor;
+      stream << '\n' << toCpuTensorWithoutDiopiCopy(tensor);
     }
   } else {
     stream << "undefined";

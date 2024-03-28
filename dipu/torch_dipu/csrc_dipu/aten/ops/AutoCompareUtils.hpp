@@ -1,34 +1,24 @@
 #pragma once
 
+#include <cstddef>
 #include <iomanip>
+#include <ostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include <ATen/core/TensorBody.h>
 #include <ATen/ops/abs.h>
 #include <ATen/ops/allclose.h>
+#include <ATen/ops/empty_strided.h>
+#include <c10/core/Device.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/Exception.h>
 
-#include "csrc_dipu/aten/ops/DIPUCopy.hpp"
-#include "csrc_dipu/runtime/device/deviceapis.h"
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
 
 namespace dipu {
 namespace native {
-
-inline at::Tensor to_cpu_without_diopi(const at::Tensor& in) {
-  if (in.is_cpu()) {
-    return in;
-  }
-
-  at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
-                                     in.options().device(c10::Device("cpu")));
-  if (in.nbytes() > 0) {
-    dipu::devapis::memCopyD2H(out.storage().nbytes(), out.data_ptr(),
-                              in.data_ptr());
-  }
-  return out;
-}
 
 inline std::string cpu_tensor_to_one_line_string(const at::Tensor& tensor) {
   /*
@@ -91,7 +81,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
       constexpr double tolerance_absolute = 1e-4;
       constexpr double tolerance_relative = 1e-5;
       const at::Tensor& tensor_cpu_from_device =
-          to_cpu_without_diopi(tensor_device);
+          toCpuTensorWithoutDiopiCopy(tensor_device);
       bool passed = at::allclose(tensor_cpu, tensor_cpu_from_device,
                                  tolerance_absolute, tolerance_relative, true);
       if (passed) {
