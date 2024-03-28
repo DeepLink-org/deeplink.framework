@@ -54,8 +54,10 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
+  COMMAND_EXPAND 1
   COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION}"
-  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
+  COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
+  )
 
 # Collect source files.
 # You may use: find . -name "*.cpp" to update list.
