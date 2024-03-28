@@ -38,11 +38,15 @@
     }
   interface: diopiAddInp(ctx, self, other, alpha)
 
+- schema: "add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  interface: diopiAdd(ctx, out, self, other, alpha)
+
+
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     if (other.dim() == 0 && other.is_cpu()) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
-    } 
+    }
     if (self.dim() == 0 && self.is_cpu()) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
@@ -54,6 +58,9 @@
 
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSubScalar(ctx, out, self, other, alpha)
+
+- schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  interface: diopiSub(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -76,6 +83,9 @@
         return dipu_sub__scalar(self, other.item(), alpha);
     }
   interface: diopiSubInp(ctx, self, other, alpha)
+
+- schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
+  interface: diopiDiv(ctx, out, self, other, RoundModeNone)
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |
@@ -129,6 +139,9 @@
     auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(selfTmp);
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(ctx, out, self_tmp_handle, other, mode)
+
+- schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
+  interface: diopiMul(ctx, out, self, other)
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = nodispatch::empty_like(self);
@@ -1024,7 +1037,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
-    } 
+    }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -1049,7 +1062,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size());
-    } 
+    }
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -1429,7 +1442,7 @@
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
     // todo:(wentao) temp solution, need using a type promotion strategy
-    at::Tensor out = self.dim() == 0 && self.is_cpu() ? 
+    at::Tensor out = self.dim() == 0 && self.is_cpu() ?
         nodispatch::empty_like(other) :
         nodispatch::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -2025,7 +2038,7 @@
     *   }
     *   '''
     */
-    
+
     constexpr int kSameAsInputSize = 7;
     std::vector<at::Tensor> outputs(kSameAsInputSize);
     outputs[0] = result;
