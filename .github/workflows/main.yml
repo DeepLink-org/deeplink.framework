@@ -353,6 +353,21 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+  
+  Build-Ascend-910b-with-autocompare:
+    name: Build-dipu-ascend-910b
+    needs: [Build-PyTorch-For-Ascend-910b]
+    runs-on: tps-ascend-ci-910b
+    steps:
+      - name: Build dipu
+        run: |
+          set -ex
+          export USE_COVERAGE=ON
+          export USE_AUTOCOMPARE=ON
+          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
+          source scripts/ci/ascend/ci_ascend_env.sh
+          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
+          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Ascend-910b:
     name: Test-dipu-ascend-910b
