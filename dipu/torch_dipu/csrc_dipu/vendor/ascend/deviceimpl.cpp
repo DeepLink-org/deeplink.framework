@@ -16,6 +16,7 @@ namespace devapis {
 // =====================
 //  Device class related
 // =====================
+
 using AscendDeviceId = int32_t;
 
 namespace {
