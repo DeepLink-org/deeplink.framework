@@ -13,17 +13,24 @@ function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     cmake ../  -DCMAKE_BUILD_TYPE=Release \
         -DDEVICE=ascend \
-        -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE} \
         -DWITH_DIOPI_LIBRARY=DISABLE
     cd ../
 }
 
 function config_all_ascend_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
-    cmake ../  -DCMAKE_BUILD_TYPE=Release \
-        -DDEVICE=ascend \
-        -DENABLE_COVERAGE=${USE_COVERAGE} \
-        -DWITH_DIOPI=INTERNAL
+    if [ -n "$USE_AUTOCOMPARE" ]; then
+        cmake ../  -DCMAKE_BUILD_TYPE=Release \
+            -DDEVICE=ascend \
+            -DENABLE_COVERAGE=${USE_COVERAGE} \
+            -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE} \
+            -DWITH_DIOPI=INTERNAL
+    else
+        cmake ../  -DCMAKE_BUILD_TYPE=Release \
+            -DDEVICE=ascend \
+            -DENABLE_COVERAGE=${USE_COVERAGE} \
+            -DWITH_DIOPI=INTERNAL
+    fi
     cd ../
 }
 

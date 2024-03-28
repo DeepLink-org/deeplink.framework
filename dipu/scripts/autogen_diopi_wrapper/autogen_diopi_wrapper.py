@@ -971,7 +971,7 @@ def functions_code_gen(fun_config):
 def boolean_string(s):
     if s.lower() in ["true", "on"]:
         return True
-    elif s.lower() in ["false", "off", ""]:
+    elif s.lower() in ["false", "off"]:
         return False
     else:
         raise ValueError("Not a valid boolean string.")
