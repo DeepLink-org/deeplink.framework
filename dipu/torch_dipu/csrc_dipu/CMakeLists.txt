@@ -56,10 +56,6 @@ file(WRITE "${CMAKE_BINARY_DIR}/env_config.cmake" "set(USE_AUTOCOMPARE \"$ENV{US
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
   COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION}"
-  DEPENDS
-    "${GENERATED_KERNELS_SCRIPT}"
-    "${GENERATED_KERNELS_CONFIG}"
-    "${CMAKE_BINARY_DIR}/env_config.cmake"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>")
 
 # Collect source files.
