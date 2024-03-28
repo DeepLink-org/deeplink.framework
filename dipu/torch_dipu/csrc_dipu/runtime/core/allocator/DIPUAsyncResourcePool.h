@@ -9,7 +9,7 @@
 
 namespace dipu {
 
-constexpr size_t kMaxAsyncResourcePoolLength = 3;
+constexpr size_t kMaxAsyncResourcePoolLength = 32;
 
 template <class T>
 class AsyncResourcePool {
@@ -31,7 +31,11 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
  public:
   void add(const T& t, std::deque<DIPUEvent>& events) override {
     std::lock_guard<mutex_t> lk(mutex_);
-    list_.emplace_back(t, std::move(events));
+    if (events.size() > 0) {
+      list_.emplace_back(t, std::move(events));
+    } else {
+      list_.emplace_front(t, std::move(events));
+    }
   }
 
   T get() override {
