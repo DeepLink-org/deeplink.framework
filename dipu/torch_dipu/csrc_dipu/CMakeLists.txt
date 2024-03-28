@@ -52,7 +52,6 @@ if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
 endif()
 
-file(WRITE "${CMAKE_BINARY_DIR}/env_config.cmake" "set(USE_AUTOCOMPARE \"$ENV{USE_AUTOCOMPARE}\")")
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
   COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION}"
