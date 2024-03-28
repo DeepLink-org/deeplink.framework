@@ -1,6 +1,5 @@
 import torch
 import torch.fx
-from typing import Tuple
 import operator
 
 from dicp.dynamo_bridge.operator import Operator
@@ -444,10 +443,13 @@ class BatchNormBackward(Operator):
         self.kwargs = kwargs
         self.torch_op = aten.native_batch_norm_backward.default
 
+
 """
 Enlarge torch_op scope to adjust args for aten._softmax.default,
 because the parameter half_to_float isn't needed in hlir_builder Softmax.
 """
+
+
 class Softmax(Operator):
     def __init__(self, *args, **kwargs):
         super().__init__("Softmax")
@@ -837,7 +839,7 @@ class GroupNorm(Operator):
         self.args = args
         self.kwargs = kwargs
         self.torch_op = aten.native_group_norm
-    
+
     def __call__(self, x, weight, bias, n, c, hw, group, eps, is_clast=False):
         if not is_clast:
             return super().__call__(x, weight, bias, n, c, hw, group, eps)
@@ -860,7 +862,7 @@ class LayerNorm(Operator):
         shape, dtype = x.meta["val"].shape, x.meta["val"].dtype
         with x.meta["val"].fake_mode:
             return tuple((aten.empty(shape, dtype=dtype), aten.empty(shape[:2], dtype=dtype),
-                            aten.empty(shape[:2], dtype=dtype)))
+                          aten.empty(shape[:2], dtype=dtype)))
 
 
 class UpsampleNearest2d(Operator):

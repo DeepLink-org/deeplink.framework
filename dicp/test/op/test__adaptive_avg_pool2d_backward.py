@@ -12,7 +12,7 @@ from ..common.utils import (
 
 class OpModule(torch.nn.Module):
     def forward(self, grad_output, x, device="cpu"):
-        res_default = torch.ops.aten._adaptive_avg_pool2d_backward.default(grad_output,x)
+        res_default = torch.ops.aten._adaptive_avg_pool2d_backward.default(grad_output, x)
         return res_default
 
 
@@ -35,7 +35,7 @@ class TestAdaptiveAvgPool2dBackward():
         dicp_x = x.to(device)
         dicp_grad = grad_output.to(device)
 
-        output = model(grad_output,x)
+        output = model(grad_output, x)
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_grad, dicp_x, device)
