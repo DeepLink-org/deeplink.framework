@@ -355,7 +355,7 @@ jobs:
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
   
   Build-Ascend-910b-with-autocompare:
-    name: Build-dipu-ascend-910b
+    name: Build-dipu-ascend-910b-with-autocompare
     needs: [Build-PyTorch-For-Ascend-910b]
     runs-on: tps-ascend-ci-910b
     steps:
