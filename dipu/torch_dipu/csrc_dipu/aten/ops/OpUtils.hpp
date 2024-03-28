@@ -133,7 +133,7 @@ inline std::string dumpArg(const at::Tensor& tensor) {
            << ", storage_data_ptr: " << tensor.storage().data_ptr().get()
            << ", storage_offset: " << tensor.storage_offset();
     if (dumpOpArgLevel() > 2) {
-      stream << '\n' <<toCpuTensorWithoutDiopiCopy(tensor);
+      stream << '\n' << toCpuTensorWithoutDiopiCopy(tensor);
     }
   } else {
     stream << "undefined";
