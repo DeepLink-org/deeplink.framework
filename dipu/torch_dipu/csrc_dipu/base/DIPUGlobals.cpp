@@ -1,39 +1,50 @@
+// Copyright (c) 2024, DeepLink.
+//
+// Main entry for DIPU initialization and resource management.
+//
+// TODO(lljbash): refactor resource management code, build a global context
+
 #include "DIPUGlobals.h"
 
-#include <atomic>
 #include <ctime>
 #include <iostream>
+#include <mutex>
+#include <string>
 
-#include "csrc_dipu/aten/RegisterDIPU.hpp"
+#include "csrc_dipu/aten/op_register.hpp"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/core/DIPUGeneratorImpl.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
 
-const char* getDipuCommitId() { return DIPU_GIT_HASH; }
+namespace {
 
-static void printPromptAtStartup() {
+void printPromptAtStartup() {
   auto time = std::time(nullptr);
   std::string time_str = std::ctime(&time);
   std::cout << time_str.substr(0, time_str.size() - 1)
-            << " dipu | git hash:" << getDipuCommitId() << std::endl;
+            << " dipu | git hash:" << DIPU_GIT_HASH << std::endl;
 }
 
-static void initResourceImpl() {
+void initResourceImpl() {
   static bool called(false);
   if (called) {
     return;
   }
   called = true;
 
-  printPromptAtStartup();
+  static std::once_flag print_prompt_flag;
+  std::call_once(print_prompt_flag, printPromptAtStartup);
+
   devproxy::initializeVendor();
   initCachedAllocator();
-  at::DIPUOpRegister::register_op();
+
+  at::DipuOpRegister::instance().applyDelayedRegister();
 }
 
-static void releaseAllResourcesImpl() {
+void releaseAllResourcesImpl() {
   static bool called(false);
   if (called) {
     return;
@@ -45,13 +56,13 @@ static void releaseAllResourcesImpl() {
   devproxy::finalizeVendor();
 }
 
-namespace {
 class DIPUIniter {
  public:
   DIPUIniter() { initResourceImpl(); }
 
   ~DIPUIniter() { releaseAllResourcesImpl(); }
 };
+
 }  // namespace
 
 void initResource() {
