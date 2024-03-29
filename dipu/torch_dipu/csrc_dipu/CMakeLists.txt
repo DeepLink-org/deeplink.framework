@@ -44,7 +44,7 @@ endif()
 
 # Auto generated code.
 # Consider moving it to other files.
-set(AUTOGEN_CODE_SH "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/auto_gen_code.sh")
+set(AUTOGEN_CODE_SH "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_wrapped_code.sh")
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 
