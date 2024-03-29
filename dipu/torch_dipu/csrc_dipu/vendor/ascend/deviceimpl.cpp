@@ -30,7 +30,6 @@ deviceId_t current_device() {
   if (currentDeviceIndex < 0) {
     return static_cast<deviceId_t>(0);
   }
-  DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
 
   return static_cast<deviceId_t>(currentDeviceIndex);
 }
