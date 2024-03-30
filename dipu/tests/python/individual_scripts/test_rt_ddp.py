@@ -153,7 +153,7 @@ def demo_allgather(rank, world_size, port):
     import torch_dipu
 
     setup(rank, world_size, port)
-    print(f'rank={rank}')
+    print(f"rank={rank}")
     src1 = torch.ones((2, 4)).to(rank)
     dests = torch.zeros((world_size * 2, 4)).to(rank)
     dests = [
