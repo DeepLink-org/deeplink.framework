@@ -65,8 +65,9 @@ class ToyModel(nn.Module):
 def demo_basic_ddp(rank, world_size, port):
     import torch_dipu
 
-    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
+    # print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
+    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     backend = "nccl"
     dev1 = rank
 
@@ -100,8 +101,9 @@ def demo_basic_ddp(rank, world_size, port):
 def demo_allreduce(rank, world_size, port):
     import torch_dipu
 
-    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
+    # print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     torch.cuda.set_device(rank)
+    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
     dev1 = rank
 
     setup(rank, world_size, port)
@@ -151,7 +153,7 @@ def demo_allgather(rank, world_size, port):
     import torch_dipu
 
     setup(rank, world_size, port)
-
+    print(f'rank={rank}')
     src1 = torch.ones((2, 4)).to(rank)
     dests = torch.zeros((world_size * 2, 4)).to(rank)
     dests = [
