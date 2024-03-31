@@ -28,7 +28,10 @@ void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
   if (currentDeviceIndex < 0) {
-    setDevice(-1);  // need fix......
+    int device_index = 0;
+    DIPU_CALLACLRT(::aclrtGetDevice(&device_index))
+    return device_index;
+    // setDevice(-1);  // need fix......
     // DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
   }
   return static_cast<deviceId_t>(currentDeviceIndex);
