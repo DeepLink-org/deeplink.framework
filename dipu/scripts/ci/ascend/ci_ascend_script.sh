@@ -15,6 +15,7 @@ function config_dipu_ascend_cmake() {
     if [ -n "$USE_AUTOCOMPARE" ]; then
         cmake_args+=" -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE}"
     fi
+    cmake ../ $cmake_args
     cd ../
 }
 
