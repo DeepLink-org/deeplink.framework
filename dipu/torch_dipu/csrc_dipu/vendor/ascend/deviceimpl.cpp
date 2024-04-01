@@ -4,6 +4,7 @@
 #include <acl/acl_op_compiler.h>
 #include <atomic>
 
+#include "csrc_dipu/runtime/device/basedef.h"
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
@@ -22,14 +23,18 @@ thread_local int currentDeviceIndex = -1;
 void initializeVendor() {
   DIPU_CALLACLRT(aclInit(nullptr));
   DIPU_CALLACLRT(aclrtSetDeviceSatMode(ACL_RT_OVERFLOW_MODE_INFNAN));
+  int device_index = 0;
+  aclrtContext context;
+  DIPU_CALLACLRT(aclrtCreateContext(&context, device_index));
 }
 
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
   if (currentDeviceIndex < 0) {
-    setDevice(-1);
-    DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
+    // setDevice(-1);
+    // DIPU_CALLACLRT(::aclrtGetDevice(&currentDeviceIndex))
+    return static_cast<deviceId_t>(0);
   }
   return static_cast<deviceId_t>(currentDeviceIndex);
 }
