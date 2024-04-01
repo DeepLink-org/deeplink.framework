@@ -117,12 +117,12 @@ def create_transform_input_to_cpu_code(fun_config):
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     for input in inputs:
         input_process_code += (
-            f"at::Tensor {input}_cpu = to_cpu_without_diopi({input});\n"
+            f"at::Tensor {input}_cpu = toCpuTensorWithoutDiopiCopy({input});\n"
         )
 
     optional_inputs = re.findall("Tensor *\? +([\w\d_]+)", schema[: schema.find("->")])
     for input in optional_inputs:
-        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>(to_cpu_without_diopi({input}.value())) : {input};\n"
+        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({input}.value())) : {input};\n"
 
     optional_tensor_list_inputs = re.findall(
         "Tensor *\? *\[ *\] +([\w\d_]+)", schema[: schema.find("->")]
@@ -139,10 +139,10 @@ def create_transform_input_to_cpu_code(fun_config):
     for output in outputs:
         if output.strip().endswith("?"):
             output = output.replace("?", "")
-            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>(to_cpu_without_diopi({output}.value()) : {output};\n"
+            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({output}.value()) : {output};\n"
         else:
             input_process_code += (
-                f"at::Tensor {output}_cpu = to_cpu_without_diopi({output});\n"
+                f"at::Tensor {output}_cpu = toCpuTensorWithoutDiopiCopy({output});\n"
             )
 
     tensors_arrays = re.findall(
@@ -161,7 +161,7 @@ def create_transform_input_to_cpu_code(fun_config):
             )
             input_process_code += (
                 f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)"
-                + "{return to_cpu_without_diopi(tensor);});\n"
+                + "{return toCpuTensorWithoutDiopiCopy(tensor);});\n"
             )
 
     return input_process_code
@@ -772,9 +772,10 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config["custom_code_at_the_beginning"] = (
-            create_code_to_print_fun_call_info_from_schema(fun_config)
-            + fun_config.get("custom_code_at_the_beginning", "")
+        fun_config[
+            "custom_code_at_the_beginning"
+        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
+            "custom_code_at_the_beginning", ""
         )
 
     if fun_config.get("print_op_args", False) == True:

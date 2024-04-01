@@ -1774,6 +1774,7 @@
   interface: diopiGather(ctx,out, self,  dim,  index)
 
 - schema: "index_select(Tensor self, int dim, Tensor index) -> Tensor"
+  autocompare: disable
   custom_code_at_the_beginning: |
     auto shape = self.sizes();
     std::vector<int64_t> output_shape(shape.begin(), shape.end());
@@ -2198,6 +2199,7 @@
 
 - schema: "index.Tensor_out(Tensor self, Tensor?[] indices, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
+  autocompare: disable
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> indices_tensor_vec(indices.size());
     std::vector<diopiConstTensorHandle_t> indices_vec(indices.size(), nullptr);
@@ -2212,12 +2214,14 @@
 
 - schema: "index.Tensor(Tensor self, Tensor?[] indices) -> Tensor"
   dummy_call_diopi: True
+  autocompare: disable
   custom_code_at_the_beginning: |
     at::Tensor out;
     return dipu_index_tensor_out(self, indices, out);
 
 - schema: "_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)"
   custom_fallback: True
+  autocompare: disable
   custom_code_at_the_beginning: |
     // add TORCH_CHECK for torch 2.1 new test which check if runtime exception throwed in this case.
     TORCH_CHECK(!indices.empty() || at::is_expandable_to(values.sizes(), self.sizes()), "shape mismatch: value tensor of shape ",
@@ -2280,9 +2284,11 @@
   interface: diopiAtan(ctx, out, self)
 
 - schema: "ones.out(SymInt[] size, *, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiOnes(ctx, out, size)
 
 - schema: "ones(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
+  autocompare: disable
   custom_code_at_the_beginning: |
     c10::TensorOptions option;
     auto shape = c10::asIntArrayRefUnchecked(size);
@@ -2290,6 +2296,7 @@
   interface: diopiOnes(ctx, out, size)
 
 - schema: "zeros(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
+  autocompare: disable
   custom_code_at_the_beginning: |
     c10::TensorOptions option;
     auto shape = c10::asIntArrayRefUnchecked(size);
@@ -2297,9 +2304,11 @@
   interface: diopiZeroInp(ctx, out)
 
 - schema: "zeros.out(SymInt[] size, *, Tensor(a!) out) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiZeros(ctx, out, size)
 
 - schema: "zero_(Tensor(a!) self) -> Tensor(a!)"
+  autocompare: disable
   interface: diopiZeroInp(ctx, self)
 
 - schema: "im2col(Tensor self, int[2] kernel_size, int[2] dilation, int[2] padding, int[2] stride) -> Tensor"
