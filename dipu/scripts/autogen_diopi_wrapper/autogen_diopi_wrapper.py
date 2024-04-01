@@ -772,10 +772,9 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config[
-            "custom_code_at_the_beginning"
-        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
-            "custom_code_at_the_beginning", ""
+        fun_config["custom_code_at_the_beginning"] = (
+            create_code_to_print_fun_call_info_from_schema(fun_config)
+            + fun_config.get("custom_code_at_the_beginning", "")
         )
 
     if fun_config.get("print_op_args", False) == True:
@@ -881,13 +880,15 @@ def functions_code_gen(fun_config):
             ],
             call_backward_impl_code=[
                 (
-                    "auto result = "
-                    + create_call_cpp_function_code_from_schema(
-                        fun_config["backward_schema"]
-                    ).replace("; ", ";\n")
+                    (
+                        "auto result = "
+                        + create_call_cpp_function_code_from_schema(
+                            fun_config["backward_schema"]
+                        ).replace("; ", ";\n")
+                    )
+                    if "backward_schema" in fun_config
+                    else ""
                 )
-                if "backward_schema" in fun_config
-                else ""
             ],
             backward_return_code=[
                 fun_config.get("backward_return_code", "").replace("; ", ";\n")
@@ -955,9 +956,11 @@ def functions_code_gen(fun_config):
                 )
             ],
             force_fallback=[
-                "false"
-                if fun_config.get("force_fallback", False) in [False, "False"]
-                else "true"
+                (
+                    "false"
+                    if fun_config.get("force_fallback", False) in [False, "False"]
+                    else "true"
+                )
             ],
             fallbackFunc=[
                 "dipu::native::"
