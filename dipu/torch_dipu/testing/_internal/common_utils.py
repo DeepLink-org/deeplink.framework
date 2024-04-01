@@ -70,13 +70,11 @@ def skipOn(vendor: str, reason: str):
 
 
 @overload
-def onlyOn(vendor: str):
-    ...
+def onlyOn(vendor: str): ...
 
 
 @overload
-def onlyOn(vendor: List[str]):
-    ...
+def onlyOn(vendor: List[str]): ...
 
 
 def onlyOn(vendor):
