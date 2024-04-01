@@ -14,6 +14,11 @@ class TestNeg(TestCase):
         x = torch.neg(self.input)
         self.assertEqual(x, self.ans)
 
+    def test_neg_out(self):
+        out_neg = torch.zeros_like(self.input).cuda()
+        torch.neg(self.input, out=out_neg)
+        self.assertEqual(out_neg, self.ans)
+
     def test_neg_(self):
         x = self.input.neg_()
         self.assertEqual(x, self.ans)

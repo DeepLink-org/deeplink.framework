@@ -73,6 +73,10 @@ class GraphTransformer:
             if 'val' not in n.meta:
                 n.meta['val'] = fake_value
                 n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
+            # Modify strides of channels last tensor to keep contiguous.
+            if os.getenv("DICP_SD_CLAST", default="False") == "True":
+                n.meta['val'] = fake_value.contiguous() if isinstance(fake_value, FakeTensor) else fake_value
+                n.meta["tensor_meta"] = make_tensor_meta(n.meta['val'])
 
     def codegen(self):
         return self.backend_codegen(self.gm, self.cpu_gm, self.folder, self.graph_key).codegen()

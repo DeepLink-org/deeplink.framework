@@ -1,0 +1,85 @@
+name: runs on nv step 1
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: Set up the runner
+        type: string
+        required: false
+        default: "tps-sco-ci"
+      deeplink_path:
+        description: ci work home
+        type: string
+        required: false
+        default: '/mnt/cache/share/deeplinkci/github/${{ github.repository }}/'
+      env_path:
+        description: env file path
+        type: string
+        required: false
+        default: '/mnt/cache/share/deeplinkci/github'
+
+jobs:
+  Build-Cuda:
+    name: Build-dipu-cuda
+    runs-on: ${{ inputs.runner }}
+    env:
+      GETRUNNER: ${{ inputs.runner }}
+      DEEPLINK_PATH: ${{ inputs.deeplink_path }}
+      ENV_PATH: ${{ inputs.env_path }}
+      CUDA_PARTATION: "pat_dev"
+    steps:
+      - name: Build dipu
+        run: |
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            set -e
+            cd ${DEEPLINK_PATH}/ && ls -al && find ${DEEPLINK_PATH}/ -maxdepth 1 -mmin +240 -type d |xargs rm -rf
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
+            srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
+            && source ${ENV_PATH}/dipu_env  \
+            && rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/ \
+            && bash scripts/ci/nv/ci_nv_script.sh build_dipu" || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          else
+            ssh SH1424 """
+            set -e
+            export USE_COVERAGE=ON
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
+            source ${ENV_PATH}/dipu_env
+            rsync -a /mnt/lustre/share_data/PAT/datasets/huggingface mmlab_pack/
+            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:1 --time=30 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+            || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+            """
+          fi
+
+  Tidy-Cuda:
+    name: Run tidy (cuda)
+    needs: [Build-Cuda]
+    runs-on: ${{ inputs.runner }}
+    env:
+      GETRUNNER: ${{ inputs.runner }}
+      DEEPLINK_PATH: ${{ inputs.deeplink_path }}
+      ENV_PATH: ${{ inputs.env_path }}
+      CUDA_PARTATION: "pat_dev"
+    steps:
+      - name: Check SupportedDiopiFunctions.txt
+        run: |
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
+            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
+            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+          else
+            ssh SH1424 """
+            cd $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda && \
+            git diff -s --exit-code dipu/SupportedDiopiFunctions.txt || \
+            { echo "::error file=dipu/SupportedDiopiFunctions.txt,title=File Not Match::Please commit your compiled SupportedDiopiFunctions.txt" && exit 1; }
+            """
+          fi
+      - name: Run clang-tidy
+        run: |
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            srun --job-name=$GITHUB_JOB bash -c "bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh"
+          else
+            ssh SH1424 """
+            bash $DEEPLINK_PATH/$GITHUB_RUN_NUMBER/Build-Cuda/dipu/scripts/ci/nv/ci_nv_tidy.sh
+            """
+          fi

@@ -189,6 +189,7 @@ class StreamContext:
         current device, this function will also change the current device to
         match the stream.
     """
+
     cur_stream: Optional["torch_dipu.dipu.Stream"]
 
     def __init__(self, stream):

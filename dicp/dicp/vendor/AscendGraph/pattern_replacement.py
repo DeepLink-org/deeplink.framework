@@ -44,6 +44,8 @@ class FusedRepeatInterleaveSelfInt(BackendPatternBase):
     def replacement(self, repeat, dim):
         return torch.ops.aten.repeat_interleave.self_int(self, repeat, dim)
 
+Muls = torch.fx.wrap(ascend_op.Muls.get_singleton())
+Shape = torch.fx.wrap(ascend_op.Shape.get_singleton())
 Const = torch.fx.wrap(ascend_op.Const.get_singleton())
 Transpose = torch.fx.wrap(ascend_op.Transpose.get_singleton())
 Identity = torch.fx.wrap(ascend_op.Identity.get_singleton())
@@ -69,6 +71,27 @@ class FuseBmmTransposeRhsPattern(BackendPatternBase):
         shape = Const([32, 32, 128], dtype)
         reshape = Reshape(x2, shape)
         return BatchMatMul(x1, reshape, adj_x1=False, adj_x2=True)
+
+
+@register_ascend_pattern
+class FuseBmmTransposeMulsPattern(BackendPatternBase):
+    @staticmethod
+    def pattern(x1, x2, c1, c2):
+        transpose = Transpose(x2, c1)
+        muls = Muls(transpose, 0.3535533905932738)
+        identity = Identity(muls, None)
+        identity1 = Identity(identity, None)
+        reshape = Reshape(identity1, c2)
+        return BatchMatMul(x1, reshape, False, False, 0)
+
+    @staticmethod
+    def replacement(x1, x2, c1, c2):
+        x2 = Reshape(x2, c2)
+        perm = Permute(x2, [0, 2, 1])
+        shape = Shape(perm)
+        reshape = Reshape(x2, shape)
+        muls = Muls(reshape, 0.3535533905932738)
+        return BatchMatMul(x1, muls, adj_x1=False, adj_x2=True, keep_dtype=0)
 
 
 # @pandaoxin negotiate with @tangzhiyi

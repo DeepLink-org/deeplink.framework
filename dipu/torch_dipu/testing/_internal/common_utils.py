@@ -61,18 +61,20 @@ def run_tests():
     unittest.main()
 
 
+def skipOnTorchVer(torchVer: str, reason: str = ""):
+    return unittest.skipIf(torch_dipu.dipu.get_dipu_torch_version() == torchVer, reason)
+
+
 def skipOn(vendor: str, reason: str):
     return unittest.skipIf(torch_dipu.dipu.vendor_type == vendor, reason)
 
 
 @overload
-def onlyOn(vendor: str):
-    ...
+def onlyOn(vendor: str): ...
 
 
 @overload
-def onlyOn(vendor: List[str]):
-    ...
+def onlyOn(vendor: List[str]): ...
 
 
 def onlyOn(vendor):

@@ -389,9 +389,11 @@ def dipu_build_table(
             _format_time_share(evt.self_cpu_time_total, sum_self_cpu_time_total),
             evt.self_cpu_time_total_str,  # Self CPU total
             # CPU total %, 0 for async events.
-            _format_time_share(evt.cpu_time_total, sum_self_cpu_time_total)
-            if not evt.is_async
-            else 0,
+            (
+                _format_time_share(evt.cpu_time_total, sum_self_cpu_time_total)
+                if not evt.is_async
+                else 0
+            ),
             evt.cpu_time_total_str,  # CPU total
             evt.cpu_time_str,  # CPU time avg
         ]
