@@ -57,6 +57,9 @@ add_custom_command(
   COMMAND_EXPAND 1
   COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
+  DEPENDS
+    "${GENERATED_KERNELS_SCRIPT}"
+    "${GENERATED_KERNELS_CONFIG}"
   )
 
 # Collect source files.
