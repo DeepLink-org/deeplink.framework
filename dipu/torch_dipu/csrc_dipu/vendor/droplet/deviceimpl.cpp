@@ -136,6 +136,8 @@ EventStatus getEventStatus(deviceEvent_t event) {
     ::tangGetLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   } else {
+    printf("call a tangrt function (tangEventQuery) failed. return code=%d",
+           ret);
     throw std::runtime_error("dipu device error");
   }
 }
