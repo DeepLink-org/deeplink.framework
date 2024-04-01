@@ -772,10 +772,9 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config[
-            "custom_code_at_the_beginning"
-        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
-            "custom_code_at_the_beginning", ""
+        fun_config["custom_code_at_the_beginning"] = (
+            create_code_to_print_fun_call_info_from_schema(fun_config)
+            + fun_config.get("custom_code_at_the_beginning", "")
         )
 
     if fun_config.get("print_op_args", False) == True:
