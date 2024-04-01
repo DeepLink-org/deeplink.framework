@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <ATen/ExpandUtils.h>
 #include <ATen/NamedTensorUtils.h>
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/TensorBody.h>
@@ -47,6 +48,13 @@ inline at::Tensor empty_cpu(
                               c10::get_contiguous_memory_format());
 }
 
+inline at::Tensor empty_strided(at::IntArrayRef size, at::IntArrayRef stride,
+                                at::TensorOptions options = {}) {
+  return dipu_aten::empty_strided(
+      size, stride, c10::optTypeMetaToScalarType(options.dtype_opt()),
+      options.layout_opt(), options.device_opt(), options.pinned_memory_opt());
+}
+
 inline at::Tensor empty_like(
     const at::Tensor& self, c10::optional<at::ScalarType> dtype,
     c10::optional<at::Layout> layout, c10::optional<at::Device> device,
@@ -70,12 +78,28 @@ inline at::Tensor empty_like(
 
   at::Tensor result;
 
-  // TODO(liuweiyu): need to implement nodispatch::empty_strided
   if (memory_format == at::MemoryFormat::Preserve) {
-    result =
-        empty(self.sizes(), options.memory_format(self.suggest_memory_format()),
-              c10::nullopt);
+    if (self.is_non_overlapping_and_dense()) {
+      result = empty_strided(self.sizes(), self.strides(),
+                             options.memory_format(c10::nullopt));
+    } else if (self.unsafeGetTensorImpl()->support_as_strided() &&
+               self.layout() == c10::kStrided) {
+      // If input tensor is not dense and non-overlapping but strided, we will
+      // infer an output strides which keeps the layout permutation of the input
+      // tensor.
+      std::vector<int64_t> strides =
+          at::infer_dense_strides(self.sizes(), self.strides());
+      // See Note [Explicit nullopt MemoryFormat argument]
+      result = empty_strided(self.sizes(), strides,
+                             options.memory_format(c10::nullopt));
+    } else {
+      // See Note [Explicit nullopt MemoryFormat argument]
+      result = empty(self.sizes(),
+                     options.memory_format(self.suggest_memory_format()),
+                     c10::nullopt);
+    }
   } else {
+    // See Note [Explicit nullopt MemoryFormat argument]
     result =
         empty(self.sizes(), options.memory_format(memory_format), c10::nullopt);
   }

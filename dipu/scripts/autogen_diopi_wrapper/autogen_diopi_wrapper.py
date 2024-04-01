@@ -324,18 +324,21 @@ def get_function_return_param_from_schema(schema):
         args = return_params[i]
         inplace_match = re.search("Tensor\([a-zA-Z]+!\)", args)
         pure_out_match = re.search("Tensor[ ,]?", args)
+        bool_out_match = re.search("bool", args)
         if inplace_match is not None:
             arg_label = re.sub(".*(\(.*\))", r"\1", inplace_match.group())
             index = schema.find(arg_label) + len(arg_label)
             param = re.search("[a-zA-Z0-9_::]+", schema[index:]).group()
             params.append(param)
-        elif inplace_match is None and pure_out_match is not None:
+        elif pure_out_match is not None:
             name_from_schema = re.sub("\(?Tensor[ ]+([\w\d_]+)\)?", R"\1", args)
             if name_from_schema == args:
                 name = "out" + (str(i) if len(return_params) > 1 else "")
             else:
                 name = name_from_schema
             params.append(name)
+        elif bool_out_match is not None:
+            params.append("out")
     return params
 
 
@@ -450,6 +453,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.dim_min", "_outf", opname)
     opname = re.sub("\.correction", "", opname)
     opname = re.sub("\.input", "", opname)
+    opname = re.sub("\.dim_IntList", "", opname)
     opname = opname.replace(".", "_")
     opname = opname.split(".")[0]
     if opname[-1] == "_" and len(get_function_return_param_from_schema(schema)) > 0:
@@ -768,10 +772,9 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config[
-            "custom_code_at_the_beginning"
-        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
-            "custom_code_at_the_beginning", ""
+        fun_config["custom_code_at_the_beginning"] = (
+            create_code_to_print_fun_call_info_from_schema(fun_config)
+            + fun_config.get("custom_code_at_the_beginning", "")
         )
 
     if fun_config.get("print_op_args", False) == True:
@@ -877,13 +880,15 @@ def functions_code_gen(fun_config):
             ],
             call_backward_impl_code=[
                 (
-                    "auto result = "
-                    + create_call_cpp_function_code_from_schema(
-                        fun_config["backward_schema"]
-                    ).replace("; ", ";\n")
+                    (
+                        "auto result = "
+                        + create_call_cpp_function_code_from_schema(
+                            fun_config["backward_schema"]
+                        ).replace("; ", ";\n")
+                    )
+                    if "backward_schema" in fun_config
+                    else ""
                 )
-                if "backward_schema" in fun_config
-                else ""
             ],
             backward_return_code=[
                 fun_config.get("backward_return_code", "").replace("; ", ";\n")
@@ -951,9 +956,11 @@ def functions_code_gen(fun_config):
                 )
             ],
             force_fallback=[
-                "false"
-                if fun_config.get("force_fallback", False) in [False, "False"]
-                else "true"
+                (
+                    "false"
+                    if fun_config.get("force_fallback", False) in [False, "False"]
+                    else "true"
+                )
             ],
             fallbackFunc=[
                 "dipu::native::"

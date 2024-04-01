@@ -1,24 +1,22 @@
 // Copyright (c) 2023, DeepLink.
 
 #include <array>
-#include <cstring>
-#include <limits>
+#include <cstdint>
 #include <sstream>
 
-#include <ATen/Device.h>
-#include <c10/util/Exception.h>
+#include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
 #include <c10/util/Optional.h>
 #include <torch/csrc/Device.h>
 #include <torch/csrc/Exceptions.h>
-#include <torch/csrc/Export.h>
-#include <torch/csrc/python_headers.h>
-#include <torch/csrc/utils/object_ptr.h>
-#include <torch/csrc/utils/pybind.h>
-#include <torch/csrc/utils/python_arg_parser.h>
 #include <torch/csrc/utils/python_numbers.h>
 #include <torch/csrc/utils/python_strings.h>
 
-#include <structmember.h>
+#include <Python.h>
+#include <descrobject.h>
+#include <object.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 #include <csrc_dipu/base/basedef.h>
 
@@ -72,7 +70,7 @@ PyObject* DIPU_THPDevice_repr(THPDevice* self) {
 
 PyObject* DIPU_THPDevice_str(THPDevice* self) {
   std::ostringstream oss;
-  oss << _get_dipu_python_type(self->device);
+  oss << at::Device(_get_dipu_python_type(self->device), self->device.index());
   return THPUtils_packString(oss.str().c_str());
 }
 

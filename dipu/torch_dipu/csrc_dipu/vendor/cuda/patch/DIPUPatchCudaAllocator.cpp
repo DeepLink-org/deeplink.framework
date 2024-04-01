@@ -101,7 +101,7 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     return false;
   }
 
-#else  // # DIPU_TORCH20101 or higher
+#else  // # DIPU_TORCH20100 or higher
   void beginAllocateStreamToPool(int device, cudaStream_t stream,
                                  MempoolId_t mempool_id) override {}
   void endAllocateStreamToPool(int device, cudaStream_t stream) override {}

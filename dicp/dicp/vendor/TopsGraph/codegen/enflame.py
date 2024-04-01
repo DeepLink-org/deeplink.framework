@@ -523,6 +523,8 @@ class EnflameOverrides(OpOverrides):
         src_code = IndentedBuffer()
 
         def convert_arg(arg):
+            if isinstance(arg, type(None)):
+                return "nullptr"
             if isinstance(arg, Node):
                 return args_dict[arg.name]
             elif isinstance(arg, bool):
@@ -550,8 +552,6 @@ class EnflameOverrides(OpOverrides):
         # op_var = node.name
 
         for arg in args:
-            if isinstance(arg, type(None)):
-                continue
             if isinstance(arg, (list, tuple)):
                 arg_list_str = []
                 for elem in arg:
@@ -893,11 +893,12 @@ class EnflameOverrides(OpOverrides):
         return f"auto {op_var} = enflame::BatchNorm(hlir_builder, {input}, {weight}, {bias}, {running_mean}, {running_var}, 1, {training}, {momentum}, {eps});"
 
     @staticmethod
-    def Conv2D(op_var, shape, dtype, inputs, *args, **kwargs_list):
-        stride = f"{{{', '.join(map(str, args[len(inputs)]))}}}"
-        padding = f"{{{args[len(inputs) + 1][0]}, {args[len(inputs) + 1][0]}, {args[len(inputs) + 1][1]}, {args[len(inputs) + 1][1]}}}"
-        dilation = f"{{{', '.join(map(str, args[len(inputs) + 2]))}}}"
-        return f'builder::Op {op_var} = builder::Conv2D({{{", ".join(inputs)}}}, 1, "NOTSET", "NCHW", {stride}, {padding}, {dilation});'
+    def Convolution(op_var, shape, dtype, x, weight, bias, stride, padding, dilation, transposed, output_padding, group, is_clast="false"):
+        inputs = f"{{{', '.join([item for item in (x, weight, bias) if item != 'nullptr'])}}}"
+        stride = f"{{{', '.join(map(str, stride))}}}"
+        padding = f"{{{padding[0]}, {padding[0]}, {padding[1]}, {padding[1]}}}"
+        dilation = f"{{{', '.join(map(str, dilation))}}}"
+        return f'auto {op_var} = enflame::Convolution(hlir_builder, {inputs}, {group}, {stride}, {padding}, {dilation}, {is_clast});'
 
     @staticmethod
     def Conv2DBackward(op_var, shape, dtype, inputs, *args, **kwargs_list):
@@ -984,3 +985,15 @@ class EnflameOverrides(OpOverrides):
                     f"builder::Op {op_var} = builder::Gather({operand}, {start_indices}, {op_var}_dimension_numbers, " \
                     f"{{{', '.join(map(str, slice_sizes))}}}, false, {op_type});"
         return src_code
+
+    @staticmethod
+    def GroupNorm(op_var, out_shape, out_dtype, x, weight, bias, n, c, hw, group, eps, is_clast="false"):
+        return f"builder::Op {op_var} = enflame::GroupNorm(hlir_builder, {x}, {weight}, {bias}, {group}, {eps}, {is_clast});"
+
+    @staticmethod
+    def LayerNorm(op_var, out_shape, out_dtype, x, normalized_shape, weight, bias, eps, is_clast="false"):
+        return f"builder::Op {op_var} = enflame::LayerNorm(hlir_builder, {x}, {weight}, {bias}, {eps}, {is_clast});"
+
+    @staticmethod
+    def UpsampleNearest2d(op_var, out_shape, out_dtype, x, output_size, scales_h, scales_w, is_clast="false"):
+        return f"builder::Op {op_var} = enflame::UpsampleNearest2d(hlir_builder, {x}, {{{', '.join(map(str, output_size))}}}, {scales_h}, {scales_w}, {is_clast});"

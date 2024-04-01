@@ -39,6 +39,8 @@ class TestStableDiffusion():
         prompt = "A photo of an astronaut riding a horse on mars."
         utils.update_dynamo_config(dynamic=dynamic)
         torch_dipu.dipu.set_device(device)
+        if backend == "ascendgraph":
+            os.environ["SD_FP16"] = "1"
 
         # CPU
         torch.manual_seed(1)

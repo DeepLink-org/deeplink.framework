@@ -283,5 +283,5 @@ def memory_summary(device=None, abbreviated=False):
     return "|" + "|\n|".join(lines).format(**fmt_dict) + "|\n"
 
 
-def reset_peak_memory_stats():
+def reset_peak_memory_stats(device: Union[Device, int] = None) -> None:
     pass

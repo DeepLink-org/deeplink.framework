@@ -51,4 +51,4 @@ jobs:
       - uses: psf/black@stable
         with: # see: https://black.readthedocs.io/en/stable/getting_started.html
           src: "dipu"
-          version: "~= 23.11.0"
+          version: "~= 24.3.0"
