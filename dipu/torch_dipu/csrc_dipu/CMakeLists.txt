@@ -60,6 +60,7 @@ add_custom_command(
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
     "${GENERATED_KERNELS_CONFIG}"
+    "${AUTOGEN_CODE_SH}"
   )
 
 # Collect source files.
