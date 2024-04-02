@@ -188,6 +188,7 @@ DIOPI_RT_API diopiError_t diopiGeneratorGetSeedAndOffset(
   auto generator = reinterpret_cast<at::Generator*>(th);
   auto gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
   {
+    std::lock_guard<std::mutex> lock(gen_impl->mutex_);
     offset = gen_impl->get_offset();
     seed = gen_impl->current_seed();
   }
@@ -200,6 +201,7 @@ DIOPI_RT_API diopiError_t diopiGeneratorSetSeedAndOffset(
   auto generator = reinterpret_cast<at::Generator*>(th);
   auto gen_impl = at::check_generator<dipu::DIPUGeneratorImpl>(*generator);
   {
+    std::lock_guard<std::mutex> lock(gen_impl->mutex_);
     gen_impl->set_offset(offset);
     gen_impl->set_current_seed(seed);
   }
