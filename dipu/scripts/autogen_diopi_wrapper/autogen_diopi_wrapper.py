@@ -549,7 +549,11 @@ def create_result_compare_code(fun_config):
     )
     for i in range(len(inputs)):
         code += separator_code
-        code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
+        if len(return_names) == 1 and ("_out" in op_name or ".out" in op_name):
+            code += f'if (({inputs[i]}.data_ptr()) == {return_names[0]}.data_ptr())\n\t std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare(result_cpu, {inputs[i]}) << std::endl;\n'
+            code += f'else\n\t std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n\n'
+        else:
+            code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n\n'
 
     return code
 
