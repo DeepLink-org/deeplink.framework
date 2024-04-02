@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "default build type is Release")
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
