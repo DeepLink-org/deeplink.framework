@@ -217,6 +217,7 @@ diopiSigmoid
 diopiSigmoidBackward
 diopiSign
 diopiSilu
+diopiSiluInp
 diopiSiluBackward
 diopiSin
 diopiSinInp
