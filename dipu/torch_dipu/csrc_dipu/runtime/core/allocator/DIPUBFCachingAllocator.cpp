@@ -29,7 +29,7 @@ class BFCachingAllocatorImpl {
   static constexpr size_t kMinAllocationSize = 512;
   static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
-  static constexpr size_t kMaxExtendSize = 256U << 20U;           // 256MB
+  static constexpr size_t kMaxExtendSize = 32 << 20U;             // 32MB
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
