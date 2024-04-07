@@ -138,21 +138,17 @@ def create_transform_input_to_cpu_code(fun_config):
         "Tensor\([a-z]!\)[ ]+([\w\d_]+){1}", schema[: schema.find("->")]
     )
     for output in outputs:
-        if output.strip().endswith("?"):
-            output = output.replace("?", "")
-            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({output}.value()) : {output};\n"
-        else:
-            input_process_code += (
-                f"at::Tensor {output}_cpu = toCpuTensorWithoutDiopiCopy({output});\n"
-            )
-            if ".out" in opname or "_out" in opname:
-                for i in range(len(inputs)):
-                    input_process_code += (
-                        f"if (({inputs[i]}.data_ptr()) == {output}.data_ptr())"
-                    )
-                    input_process_code += "{\n\t"
-                    input_process_code += f"{output}_cpu = {inputs[i]}_cpu;\n\t"
-                    input_process_code += "}\n"
+        input_process_code += (
+            f"at::Tensor {output}_cpu = toCpuTensorWithoutDiopiCopy({output});\n"
+        )
+        if ".out" in opname or "_out" in opname:
+            for i in range(len(inputs)):
+                input_process_code += (
+                    f"if (({inputs[i]}.data_ptr()) == {output}.data_ptr())"
+                )
+                input_process_code += "{\n\t"
+                input_process_code += f"{output}_cpu = {inputs[i]}_cpu;\n\t"
+                input_process_code += "}\n"
 
     tensors_arrays = re.findall(
         "Tensor *\[ *\] * +([\w\d_]+)", schema[: schema.find("->")]
@@ -782,9 +778,10 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config["custom_code_at_the_beginning"] = (
-            create_code_to_print_fun_call_info_from_schema(fun_config)
-            + fun_config.get("custom_code_at_the_beginning", "")
+        fun_config[
+            "custom_code_at_the_beginning"
+        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
+            "custom_code_at_the_beginning", ""
         )
 
     if fun_config.get("print_op_args", False) == True:
