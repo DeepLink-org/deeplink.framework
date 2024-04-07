@@ -12,6 +12,16 @@
 
 namespace dipu {
 
+const size_t DIPU_MAX_EXTEND_SIZE = [](){
+  size_t maxExtendSize = 64;
+  const char* env = std::getenv("DIPU_MAX_EXTEND_SIZE");
+  if (env != nullptr) {
+    maxExtendSize = std::atoi(env);
+  }
+  maxExtendSize = maxExtendSize << 20U; // MB
+  return maxExtendSize;
+}();
+
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -29,7 +39,7 @@ class BFCachingAllocatorImpl {
   static constexpr size_t kMinAllocationSize = 512;
   static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
-  static constexpr size_t kMaxExtendSize = 128 << 20U;            // 128MB
+  const size_t kMaxExtendSize = DIPU_MAX_EXTEND_SIZE;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
