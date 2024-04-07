@@ -114,6 +114,7 @@ def create_return_code_frome_schema(schema, allow_return_ref=True):
 def create_transform_input_to_cpu_code(fun_config):
     input_process_code = ""
     schema = fun_config["schema"]
+    opname = get_op_name_from_schema(schema)
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     for input in inputs:
         input_process_code += (
@@ -130,7 +131,7 @@ def create_transform_input_to_cpu_code(fun_config):
     for input in optional_tensor_list_inputs:
         input_process_code += f"\nc10::List<c10::optional<at::Tensor>> {input}_cpu;\n"
         input_process_code += f"for (int i = 0; i < {input}.size();++i)" + " {\n"
-        input_process_code += f"  {input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>(({input}[i].value())) : {input}[i]);\n"
+        input_process_code += f"  {input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({input}[i].value())) : {input}[i]);\n"
         input_process_code += "}\n"
 
     outputs = re.findall(
@@ -144,6 +145,14 @@ def create_transform_input_to_cpu_code(fun_config):
             input_process_code += (
                 f"at::Tensor {output}_cpu = toCpuTensorWithoutDiopiCopy({output});\n"
             )
+            if ".out" in opname or "_out" in opname:
+                for i in range(len(inputs)):
+                    input_process_code += (
+                        f"if (({inputs[i]}.data_ptr()) == {output}.data_ptr())"
+                    )
+                    input_process_code += "{\n\t"
+                    input_process_code += f"{output}_cpu = {inputs[i]}_cpu;\n\t"
+                    input_process_code += "}\n"
 
     tensors_arrays = re.findall(
         "Tensor *\[ *\] * +([\w\d_]+)", schema[: schema.find("->")]
@@ -163,7 +172,6 @@ def create_transform_input_to_cpu_code(fun_config):
                 f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)"
                 + "{return toCpuTensorWithoutDiopiCopy(tensor);});\n"
             )
-
     return input_process_code
 
 
@@ -487,6 +495,9 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
             code,
         )
 
+    if "device" in code:
+        code = code.replace("device", "at::kCPU")
+
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     optional_inputs = re.findall("Tensor *\? +([\w\d_]+)", schema[: schema.find("->")])
     outputs = re.findall(
@@ -549,12 +560,7 @@ def create_result_compare_code(fun_config):
     )
     for i in range(len(inputs)):
         code += separator_code
-        if len(return_names) == 1 and ("_out" in op_name or ".out" in op_name):
-            code += f'if (({inputs[i]}.data_ptr()) == {return_names[0]}.data_ptr())\n\t std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare(result_cpu, {inputs[i]}) << std::endl;\n'
-            code += f'else\n\t std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n\n'
-        else:
-            code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n\n'
-
+        code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
     return code
 
 
