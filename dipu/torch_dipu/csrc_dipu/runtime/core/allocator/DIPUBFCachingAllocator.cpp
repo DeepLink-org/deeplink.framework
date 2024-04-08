@@ -12,13 +12,14 @@
 
 namespace dipu {
 
-const size_t kMaxExtendSize = [](){
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+const size_t kMaxExtendSize = []() {
   size_t maxExtendSize = 64;
   const char* env = std::getenv("DIPU_MAX_EXTEND_SIZE");
   if (env != nullptr) {
     maxExtendSize = std::atoi(env);
   }
-  maxExtendSize = maxExtendSize << 20U; // MB
+  maxExtendSize = maxExtendSize << 20U;
   return maxExtendSize;
 }();
 
@@ -39,7 +40,6 @@ class BFCachingAllocatorImpl {
   static constexpr size_t kMinAllocationSize = 512;
   static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
-  //const size_t kMaxExtendSize = DIPU_MAX_EXTEND_SIZE;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
