@@ -183,21 +183,12 @@ python -c "import torch_dipu"
 
 #### 算子精度自动对比功能介绍
 
-由于该功能默认不开启，使用该功能时需要打开该功能并重新编译 DIPU。
+由于该功能默认不开启，使用该功能时需要打开该功能并重新编译DIPU。
 
-如在寒武纪设备上，可将 `dipu/torch_dipu/csrc_dipu/CMakeLists.txt` 中的 `autocompare` 修改为 `True`。
+可以通过设置环境变量USE_AUTOCOMPARE=ON，来开启该功能，然后需要重新编译DIPU。
 
-```cmake
-add_custom_command(
-  OUTPUT "${DIPU_AUTOGENED_KERNELS_CPP}"
-  COMMAND
-    python "${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}" --config
-    "${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG}" --out "${DIPU_AUTOGENED_KERNELS_CPP}"
-    --use_diopi_adapter False --autocompare True --print_func_call_info True
-    --print_op_arg True --fun_config_dict
-    '{\"current_device\": \"${UsedVendor}\"}'
-  DEPENDS ${DIPU_AUTOGEN_DIOPI_WRAPPER_SCRIPT}
-          ${DIPU_AUTOGEN_DIOPI_WRAPPER_CONFIG})
+```shell
+export USE_AUTOCOMPARE=ON
 ```
 
 以上方法是对所有算子开启自动精度对比。如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比，只需要在相关的配置文件（如 `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`）给相应的算子添加 `autocompare: True` 即可。
