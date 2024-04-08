@@ -147,7 +147,7 @@ def create_transform_input_to_cpu_code(fun_config):
                     f"if (({inputs[i]}.data_ptr()) == {output}.data_ptr())"
                 )
                 input_process_code += "{\n\t"
-                input_process_code += f"{output}_cpu = {inputs[i]}_cpu;\n\t"
+                input_process_code += f"{inputs[i]}_cpu = {output}_cpu;\n\t"
                 input_process_code += "}\n"
 
     tensors_arrays = re.findall(
