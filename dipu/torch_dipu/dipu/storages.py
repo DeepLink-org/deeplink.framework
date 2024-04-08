@@ -48,7 +48,7 @@ def _dipu_deserialize(obj, location):
 # this obj is storage, so it's device.type is real diputype (may be cuda or xpu depend on if set DIPU_PYTHON_DEVICE_AS_CUDA)
 def _dipu_tag(obj):
     if obj.device.type == __diputype__:
-        return __diputype__ + str(obj.device.index)
+        return __diputype__ + ':' + str(obj.device.index)
 
 
 # cuda is 20
