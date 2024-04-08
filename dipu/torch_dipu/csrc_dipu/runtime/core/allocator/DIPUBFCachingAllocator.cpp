@@ -432,13 +432,38 @@ class BFCachingAllocator : public CacheAllocator {
     }
     set_memory_reserved(impl->memory_reserved());
   }
-
+  #if 0
   void empty_resource_pool() const {
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
         std::this_thread::yield();
         continue;
+      }
+      const auto block = async_mem_pool()->get();
+      void* ptr = std::get<0>(block);
+      int id = static_cast<int>(std::get<1>(block));
+      DIPU_DEBUG_ALLOCATOR(
+          8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
+                                    << " ,id:" << id << " ,allocator:" << this
+                                    << ", device:" << device());
+      impl->releaseRaw(ptr, id);
+    }
+  }
+  #endif
+
+  void empty_resource_pool() const {
+    std::lock_guard<mutex_t> lk(resource_pool_mutex_);
+    auto start = std::chrono::system_clock::now();
+    while (!async_mem_pool()->empty()) {
+      if (!async_mem_pool()->ready()) {
+        auto elasped = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count();
+        if (elasped < 32) {
+          std::this_thread::yield();
+          continue;
+        } else {
+          return;
+        }
       }
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);
