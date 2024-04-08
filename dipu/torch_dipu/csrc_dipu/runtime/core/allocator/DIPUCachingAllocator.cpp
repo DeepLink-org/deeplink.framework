@@ -20,7 +20,7 @@ std::mutex DIPURawDeviceAllocator::mutex_;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 size_t kMaxAsyncResourcePoolLength = []() {
-  size_t maxAsyncResourcePoolLength = 8;
+  size_t maxAsyncResourcePoolLength = 32;
   const char* env = std::getenv("DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH");
   if (env != nullptr) {
     maxAsyncResourcePoolLength = std::atoi(env);

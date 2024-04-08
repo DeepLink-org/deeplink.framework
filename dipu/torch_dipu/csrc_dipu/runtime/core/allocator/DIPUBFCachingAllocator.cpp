@@ -14,7 +14,7 @@ namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const size_t kMaxExtendSize = []() {
-  size_t maxExtendSize = 64;
+  size_t maxExtendSize = 512;
   const char* env = std::getenv("DIPU_MAX_EXTEND_SIZE");
   if (env != nullptr) {
     maxExtendSize = std::atoi(env);
