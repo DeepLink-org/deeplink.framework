@@ -29,8 +29,6 @@ _is_in_bad_fork = getattr(torch_dipu._C, "_is_in_bad_fork", lambda: False)
 # as "gpu" or "cuda" (mock cuda is another problem)
 # only partially aligned now,
 __all__ = [
-    # resume initialize flag after random generator ready
-    # "is_initialized",
     # device
     "can_device_access_peer",
     "current_device",
@@ -42,6 +40,7 @@ __all__ = [
     "get_device_properties",
     "get_device_capability",
     "is_available",
+    "is_initialized",
     "set_device",
     "GetDeviceProxy",
     "GetDeviceStaticProxy",

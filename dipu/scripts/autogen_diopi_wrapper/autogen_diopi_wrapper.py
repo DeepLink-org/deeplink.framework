@@ -139,15 +139,16 @@ def create_return_code_frome_schema(schema, allow_return_ref=True):
 def create_transform_input_to_cpu_code(fun_config):
     input_process_code = ""
     schema = fun_config["schema"]
+    opname = get_op_name_from_schema(schema)
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     for input in inputs:
         input_process_code += (
-            f"at::Tensor {input}_cpu = to_cpu_without_diopi({input});\n"
+            f"at::Tensor {input}_cpu = toCpuTensorWithoutDiopiCopy({input});\n"
         )
 
     optional_inputs = re.findall("Tensor *\? +([\w\d_]+)", schema[: schema.find("->")])
     for input in optional_inputs:
-        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>(to_cpu_without_diopi({input}.value())) : {input};\n"
+        input_process_code += f"\nc10::optional<at::Tensor> {input}_cpu = {input}.has_value() && {input}.value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({input}.value())) : {input};\n"
 
     optional_tensor_list_inputs = re.findall(
         "Tensor *\? *\[ *\] +([\w\d_]+)", schema[: schema.find("->")]
@@ -155,20 +156,24 @@ def create_transform_input_to_cpu_code(fun_config):
     for input in optional_tensor_list_inputs:
         input_process_code += f"\nc10::List<c10::optional<at::Tensor>> {input}_cpu;\n"
         input_process_code += f"for (int i = 0; i < {input}.size();++i)" + " {\n"
-        input_process_code += f"  {input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>(({input}[i].value())) : {input}[i]);\n"
+        input_process_code += f"  {input}_cpu.push_back({input}[i].has_value() && {input}[i].value().defined() ? c10::make_optional<at::Tensor>(toCpuTensorWithoutDiopiCopy({input}[i].value())) : {input}[i]);\n"
         input_process_code += "}\n"
 
     outputs = re.findall(
         "Tensor\([a-z]!\)[ ]+([\w\d_]+){1}", schema[: schema.find("->")]
     )
     for output in outputs:
-        if output.strip().endswith("?"):
-            output = output.replace("?", "")
-            input_process_code += f"\nc10::optional<at::Tensor> {output}_cpu = {output}.has_value() && {output}.value().defined() ? c10::make_optional<at::Tensor>(to_cpu_without_diopi({output}.value()) : {output};\n"
-        else:
-            input_process_code += (
-                f"at::Tensor {output}_cpu = to_cpu_without_diopi({output});\n"
-            )
+        input_process_code += (
+            f"at::Tensor {output}_cpu = toCpuTensorWithoutDiopiCopy({output});\n"
+        )
+        if ".out" in opname or "_out" in opname:
+            for i in range(len(inputs)):
+                input_process_code += (
+                    f"if (({inputs[i]}.data_ptr()) == {output}.data_ptr())"
+                )
+                input_process_code += "{\n\t"
+                input_process_code += f"{inputs[i]}_cpu = {output}_cpu;\n\t"
+                input_process_code += "}\n"
 
     tensors_arrays = re.findall(
         "Tensor *\[ *\] * +([\w\d_]+)", schema[: schema.find("->")]
@@ -186,9 +191,8 @@ def create_transform_input_to_cpu_code(fun_config):
             )
             input_process_code += (
                 f"std::transform({tensors_arg}.begin(), {tensors_arg}.end(), {tensors_arg}_cpu.begin(), [](const at::Tensor& tensor)"
-                + "{return to_cpu_without_diopi(tensor);});\n"
+                + "{return toCpuTensorWithoutDiopiCopy(tensor);});\n"
             )
-
     return input_process_code
 
 
@@ -357,18 +361,21 @@ def get_function_return_param_from_schema(schema):
         args = return_params[i]
         inplace_match = re.search("Tensor\([a-zA-Z]+!\)", args)
         pure_out_match = re.search("Tensor[ ,]?", args)
+        bool_out_match = re.search("bool", args)
         if inplace_match is not None:
             arg_label = re.sub(".*(\(.*\))", r"\1", inplace_match.group())
             index = schema.find(arg_label) + len(arg_label)
             param = re.search("[a-zA-Z0-9_::]+", schema[index:]).group()
             params.append(param)
-        elif inplace_match is None and pure_out_match is not None:
+        elif pure_out_match is not None:
             name_from_schema = re.sub("\(?Tensor[ ]+([\w\d_]+)\)?", R"\1", args)
             if name_from_schema == args:
                 name = "out" + (str(i) if len(return_params) > 1 else "")
             else:
                 name = name_from_schema
             params.append(name)
+        elif bool_out_match is not None:
+            params.append("out")
     return params
 
 
@@ -483,6 +490,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.dim_min", "_outf", opname)
     opname = re.sub("\.correction", "", opname)
     opname = re.sub("\.input", "", opname)
+    opname = re.sub("\.dim_IntList", "", opname)
     opname = opname.replace(".", "_")
     opname = opname.split(".")[0]
     if opname[-1] == "_" and len(get_function_return_param_from_schema(schema)) > 0:
@@ -515,6 +523,9 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
             R"\1" + sym_int_param + R".expect_int()\2",
             code,
         )
+
+    if "device" in code:
+        code = code.replace("device", "at::kCPU")
 
     inputs = re.findall("Tensor +([\w\d_]+)", schema[: schema.find("->")])
     optional_inputs = re.findall("Tensor *\? +([\w\d_]+)", schema[: schema.find("->")])
@@ -579,7 +590,6 @@ def create_result_compare_code(fun_config):
     for i in range(len(inputs)):
         code += separator_code
         code += f'std::cout << "autocompare:\t{op_name}\t{inputs[i]}: " << std::endl << allclose_autocompare({inputs[i]}_cpu, {inputs[i]}) << std::endl;\n'
-
     return code
 
 
@@ -812,10 +822,9 @@ def functions_code_gen(fun_config, infer_ops):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config[
-            "custom_code_at_the_beginning"
-        ] = create_code_to_print_fun_call_info_from_schema(fun_config) + fun_config.get(
-            "custom_code_at_the_beginning", ""
+        fun_config["custom_code_at_the_beginning"] = (
+            create_code_to_print_fun_call_info_from_schema(fun_config)
+            + fun_config.get("custom_code_at_the_beginning", "")
         )
 
     if fun_config.get("print_op_args", False) == True:
@@ -1013,9 +1022,12 @@ def functions_code_gen(fun_config, infer_ops):
 
 
 def boolean_string(s):
-    if s not in {"False", "True"}:
-        raise ValueError("Not a valid boolean string")
-    return s == "True"
+    if s.lower() in ["true", "on"]:
+        return True
+    elif s.lower() in ["false", "off"]:
+        return False
+    else:
+        raise ValueError("Not a valid boolean string.")
 
 
 def parse_args():

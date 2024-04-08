@@ -100,9 +100,9 @@ class ConvertConfig(object):
                     detail = config[interface]
                     assert isinstance(detail, dict)
                     if "layout" in detail:
-                        self.convert_dict[interface][
-                            "layout"
-                        ] = self.layout2memoryformat(detail["layout"])
+                        self.convert_dict[interface]["layout"] = (
+                            self.layout2memoryformat(detail["layout"])
+                        )
 
     def layout2memoryformat(self, layout):
         # used when pasing convert_config.yaml, return the memory format based on NCHW/NHWC and other layout.

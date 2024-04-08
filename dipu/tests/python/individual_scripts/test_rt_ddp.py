@@ -289,11 +289,28 @@ def demo_allgather_gloo(rank, world_size, port):
     cleanup()
 
 
+def test_special_group_stuck(rank, world_size):
+    import torch_dipu
+
+    print(f"test special group stuck on rank {rank} ")
+
+    setup(rank, world_size)
+
+    # ranks check require len(ranks) <= world_size
+    if world_size >= 2:
+        # torch 2.0 gloo pg has such a limitition. pass in duplicated rank will stuck.
+        # but huawei do.
+        ranks_dup = [rank, rank]
+        group = torch.distributed.new_group(ranks_dup)
+        print(group)
+        dist.destroy_process_group(group)
+
+    cleanup()
+
+
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
-    # world_size = 1
-    # demo_allreduce(0, world_size)
-    # demo_basic_ddp(0, world_size)
+
     port = random.randint(10000, 60000)
 
     world_size = 1
@@ -311,3 +328,5 @@ if __name__ == "__main__":
     # run_demo(demo_bcast, world_size, port)
 
     # run_demo(demo_model_parallel, world_size)
+
+    # run_demo(test_special_group_stuck, world_size)

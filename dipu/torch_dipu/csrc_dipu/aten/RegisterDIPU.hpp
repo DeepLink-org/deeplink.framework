@@ -34,13 +34,13 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // NOLINTEND(bugprone-macro-parentheses)
 
 // Check the environment variable and call the DIPU_LOG_WARNING_ONCE
-#define DIPU_OP_LOG_WARNING_ONCE(...)                      \
-  do {                                                     \
-    const char* env = std::getenv("DIPU_DUMP_OP_ARGS");    \
-    int env_value = (env != nullptr) ? std::atoi(env) : 0; \
-    if (env_value >= 0) {                                  \
-      DIPU_LOG_WARNING_ONCE(__VA_ARGS__);                  \
-    }                                                      \
+#define DIPU_OP_LOG_WARNING_ONCE(...)                       \
+  do {                                                      \
+    const char* env = std::getenv("DIPU_DUMP_OP_ARGS");     \
+    int env_value = (env != nullptr) ? std::atoi(env) : -1; \
+    if (env_value >= 0) {                                   \
+      DIPU_LOG_WARNING_ONCE(__VA_ARGS__);                   \
+    }                                                       \
   } while (0)
 
 // Temporarily not implement 'sub-dispatch from box' (from torch box func ->

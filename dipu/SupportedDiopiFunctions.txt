@@ -85,6 +85,7 @@ diopiEq
 diopiEqInp
 diopiEqInpScalar
 diopiEqScalar
+diopiEqual
 diopiErfinv
 diopiErfinvInp
 diopiExp
@@ -129,6 +130,7 @@ diopiLerpScalar
 diopiLerpTensor
 diopiLeScalar
 diopiLinalgQR
+diopiLinalgVecNorm
 diopiLinear
 diopiLinearBackward
 diopiLinspace
@@ -181,6 +183,8 @@ diopiNeInpScalar
 diopiNeScalar
 diopiNLLLoss
 diopiNLLLossBackward
+diopiNLLLossV2
+diopiNLLLossV2Backward
 diopiNonzero
 diopiNorm
 diopiNormal
@@ -188,6 +192,7 @@ diopiNormalInp
 diopiNormalScalarTensor
 diopiNormalTensor
 diopiNormalTensorScalar
+diopiOnes
 diopiPolar
 diopiPow
 diopiPowInp
@@ -213,6 +218,7 @@ diopiSigmoidBackward
 diopiSign
 diopiSilu
 diopiSiluBackward
+diopiSiluInp
 diopiSin
 diopiSinInp
 diopiSmoothL1Loss
@@ -238,6 +244,7 @@ diopiTopk
 diopiTranspose
 diopiTril
 diopiTriu
+diopiTriuInp
 diopiUniformInp
 diopiUnique
 diopiUpsampleLinear
@@ -245,3 +252,5 @@ diopiUpsampleLinearBackward
 diopiUpsampleNearest
 diopiUpsampleNearestBackward
 diopiWhere
+diopiZeroInp
+diopiZeros
