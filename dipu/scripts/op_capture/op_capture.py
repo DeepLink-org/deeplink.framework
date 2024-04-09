@@ -48,6 +48,7 @@ def extract_op_arg(op):
         name = arg[0:index].strip()
         attrs = arg[index + 1 :]
         attrs = re.sub(", *data_ptr: 0x[\da-f]+", "", attrs)
+        attrs = re.sub(", *storage_data_ptr: 0x[\da-f]+", "", attrs)
         args_info.append(name + ":[" + attrs + "] ")
 
     return args_info

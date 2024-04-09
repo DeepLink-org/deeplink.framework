@@ -218,6 +218,7 @@ diopiSigmoidBackward
 diopiSign
 diopiSilu
 diopiSiluBackward
+diopiSiluInp
 diopiSin
 diopiSinInp
 diopiSmoothL1Loss
