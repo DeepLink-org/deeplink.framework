@@ -5,10 +5,10 @@
 namespace dipu {
 
 template <typename T>
-T get_env_or_default(const char* env_name, const T& defalut_value) {
+T get_env_or_default(const char* env_name, const T& default_value) {
   const char* env = std::getenv(env_name);
   if (env == nullptr) {
-    return defalut_value;
+    return default_value;
   }
   T value;
   std::istringstream(env) >> value;
