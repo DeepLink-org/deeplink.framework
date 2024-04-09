@@ -49,8 +49,8 @@ set(AUTOGEN_CODE_SH "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen
 # These parameters are also used in ${AUTOGEN_CODE_SH}, please do not modify these parameters separately
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
-set(GENERATED_KERNELS_SCRIPT "${DIPU_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
-set(GENERATED_KERNELS_CONFIG "${DIPU_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
+set(GENERATED_KERNELS_SCRIPT "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
+set(GENERATED_KERNELS_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
