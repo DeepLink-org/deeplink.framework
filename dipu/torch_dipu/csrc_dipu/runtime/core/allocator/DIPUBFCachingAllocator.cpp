@@ -15,8 +15,8 @@
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize =
-    get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024 << 20U);
+const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
+                              << 20U;
 
 class BFCachingAllocatorImpl {
  public:
@@ -436,8 +436,8 @@ class BFCachingAllocator : public CacheAllocator {
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
         auto now = std::chrono::steady_clock::now();
-        auto elasped = now - start;
-        if (elasped < maxWaitTime) {
+        auto elapsed = now - start;
+        if (elapsed < maxWaitTime) {
           std::this_thread::yield();
           continue;
         }
