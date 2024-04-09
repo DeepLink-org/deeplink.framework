@@ -15,7 +15,8 @@
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024);
+const size_t kMaxExtendSize =
+    get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024 << 20U);
 
 class BFCachingAllocatorImpl {
  public:
