@@ -5,6 +5,9 @@ USE_AUTOCOMPARE="$1"
 UsedVendor="$2"
 Torch_VERSION="$3"
 
+# The following parameters are used to auto_generated code.
+# These parameters are also used in ../../torch_dipu/csrc_dipu/CMakeLists.txt
+# Please do not modify these parameters separately.
 GENERATED_KERNELS=${DIPU_DIR}/torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
 GENERATED_KERNELS_SCRIPT=${DIPU_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py
 GENERATED_KERNELS_CONFIG=${DIPU_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml
