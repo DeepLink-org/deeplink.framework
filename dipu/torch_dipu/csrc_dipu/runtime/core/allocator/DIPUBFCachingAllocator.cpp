@@ -7,21 +7,15 @@
 #include <utility>
 #include <vector>
 
+#include "csrc_dipu/utils/env.hpp"
+
 #include "DIPUCachingAllocator.h"
 #include "DIPUSpinMutex.h"
 
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize = []() {
-  size_t maxExtendSize = 1024;
-  const char* env = std::getenv("DIPU_MAX_EXTEND_SIZE");
-  if (env != nullptr) {
-    maxExtendSize = std::atoi(env);
-  }
-  maxExtendSize = maxExtendSize << 20U;
-  return maxExtendSize;
-}();
+const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024);
 
 class BFCachingAllocatorImpl {
  public:
@@ -434,14 +428,15 @@ class BFCachingAllocator : public CacheAllocator {
   }
 
   void empty_resource_pool() const {
+    using namespace std::chrono_literals;
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
-    auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto maxWaitTime = 32us;
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
-        auto elasped = std::chrono::duration_cast<std::chrono::microseconds>(
-                           std::chrono::system_clock::now() - start)
-                           .count();
-        if (elasped < 32) {
+        auto now = std::chrono::steady_clock::now();
+        auto elasped = now - start;
+        if (elasped < maxWaitTime) {
           std::this_thread::yield();
           continue;
         } else {

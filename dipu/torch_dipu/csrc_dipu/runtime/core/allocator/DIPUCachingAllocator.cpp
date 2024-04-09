@@ -12,6 +12,7 @@
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
+#include "csrc_dipu/utils/env.hpp"
 
 namespace dipu {
 
@@ -19,14 +20,8 @@ namespace dipu {
 std::mutex DIPURawDeviceAllocator::mutex_;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-size_t kMaxAsyncResourcePoolLength = []() {
-  size_t maxAsyncResourcePoolLength = 64;
-  const char* env = std::getenv("DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH");
-  if (env != nullptr) {
-    maxAsyncResourcePoolLength = std::atoi(env);
-  }
-  return maxAsyncResourcePoolLength;
-}();
+size_t kMaxAsyncResourcePoolLength =
+    get_env_or_default("DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH", 64);
 
 namespace {
 
