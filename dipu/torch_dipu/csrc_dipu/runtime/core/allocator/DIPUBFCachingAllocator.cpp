@@ -440,9 +440,8 @@ class BFCachingAllocator : public CacheAllocator {
         if (elasped < maxWaitTime) {
           std::this_thread::yield();
           continue;
-        } else {
-          return;
         }
+        return;
       }
       const auto block = async_mem_pool()->get();
       void* ptr = std::get<0>(block);

@@ -13,7 +13,7 @@ namespace dipu {
 
 constexpr size_t kDefaultMermoryAlignment = 512;
 
-extern size_t kMaxAsyncResourcePoolLength;
+extern const size_t kMaxAsyncResourcePoolLength;
 
 class MemoryAlignmentStrategy {
   size_t kBytesAlign = kDefaultMermoryAlignment;
