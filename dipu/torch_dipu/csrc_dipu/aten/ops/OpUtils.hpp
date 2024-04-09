@@ -42,6 +42,7 @@ inline at::Tensor toCpuTensorWithoutDiopiCopy(const at::Tensor& in) {
   at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
                                      in.options().device(c10::Device("cpu")));
   if (in.nbytes() > 0) {
+    dipu::getCurrentDIPUStream().synchronize();
     dipu::devapis::memCopyD2H(out.storage().nbytes(), out.data_ptr(),
                               in.data_ptr());
   }

@@ -1648,6 +1648,9 @@
       auto out = nodispatch::empty_like(self);
   interface: diopiSiluBackward(ctx, out, grad_output, self)
 
+- schema: "silu_(Tensor(a!) self) -> Tensor(a!)"
+  interface: diopiSiluInp(ctx, self)
+
 - schema: "reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiReciprocal(ctx, out, self)
 
