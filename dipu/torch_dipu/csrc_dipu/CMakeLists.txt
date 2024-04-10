@@ -43,14 +43,14 @@ endif()
 #[[ Target: torch_dipu ]]
 
 # Auto generated code.
-set(AUTOGEN_CODE_SH "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_wrapped_code.sh")
+set(AUTOGEN_DIOPI_WRAPPER_DIR "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper")
+set(AUTOGEN_CODE_SH "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_wrapped_code.sh")
 
 # The following parameters are used to auto_generated code.
-# These parameters are also used in ${AUTOGEN_CODE_SH}, please do not modify these parameters separately
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
-set(GENERATED_KERNELS_SCRIPT "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py")
-set(GENERATED_KERNELS_CONFIG "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml")
+set(GENERATED_KERNELS_SCRIPT "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_diopi_wrapper.py")
+set(GENERATED_KERNELS_CONFIG "${AUTOGEN_DIOPI_WRAPPER_DIR}/diopi_functions.yaml")
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
@@ -58,7 +58,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
