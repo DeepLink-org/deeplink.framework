@@ -7,10 +7,16 @@
 #include <utility>
 #include <vector>
 
+#include "csrc_dipu/utils/env.hpp"
+
 #include "DIPUCachingAllocator.h"
 #include "DIPUSpinMutex.h"
 
 namespace dipu {
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
+                              << 20U;
 
 class BFCachingAllocatorImpl {
  public:
@@ -29,7 +35,6 @@ class BFCachingAllocatorImpl {
   static constexpr size_t kMinAllocationSize = 512;
   static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
-  static constexpr size_t kMaxExtendSize = 1U << 30U;             // 1GB
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -441,6 +446,33 @@ class BFCachingAllocator : public CacheAllocator {
     }
   }
 
+  bool try_empty_resource_pool() const {
+    using namespace std::chrono_literals;
+    std::lock_guard<mutex_t> lk(resource_pool_mutex_);
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto maxWaitTime = 32us;
+    while (!async_mem_pool()->empty()) {
+      if (!async_mem_pool()->ready()) {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = now - start;
+        if (elapsed < maxWaitTime) {
+          std::this_thread::yield();
+          continue;
+        }
+        return false;
+      }
+      const auto block = async_mem_pool()->get();
+      void* ptr = std::get<0>(block);
+      int id = static_cast<int>(std::get<1>(block));
+      DIPU_DEBUG_ALLOCATOR(
+          8, "BFCachingAllocator: " << __FUNCTION__ << " ,ptr:" << ptr
+                                    << " ,id:" << id << " ,allocator:" << this
+                                    << ", device:" << device());
+      impl->releaseRaw(ptr, id);
+    }
+    return true;
+  }
+
   void check_impl() const {
     if (impl) {
       return;
@@ -507,7 +539,7 @@ class BFCachingAllocator : public CacheAllocator {
   c10::DataPtr allocate(size_t size) const override {
     restore();
     if (async_mem_pool()->size() > kMaxAsyncResourcePoolLength) {
-      empty_resource_pool();
+      try_empty_resource_pool();
     }
     size = getMemoryAlignmentStrategy()->roundBytes(size);
     std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
