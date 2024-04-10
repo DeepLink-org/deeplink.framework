@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script is used by "dipu/torch_dipu/csrc_dipu/CMakeLists.txt", but you can also run it mannualy to generate wrapped_cpp code.
+
 DIPU_DIR=$(readlink -f $(dirname $(readlink -f "$0"))/../..)
 AUTOGEN_DIOPI_WRAPPER=$DIPU_DIR/scripts/autogen_diopi_wrapper
 
