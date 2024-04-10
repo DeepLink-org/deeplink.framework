@@ -1,13 +1,17 @@
 #!/bin/bash
 
-DIPU_DIR=$(dirname $(dirname $(dirname "$0")))
-USE_AUTOCOMPARE="$1"
-UsedVendor="$2"
-Torch_VERSION="$3"
+# This script is used by "dipu/torch_dipu/csrc_dipu/CMakeLists.txt", but you can also run it mannualy to generate wrapped_cpp code.
 
-GENERATED_KERNELS=${DIPU_DIR}/torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp
-GENERATED_KERNELS_SCRIPT=${DIPU_DIR}/scripts/autogen_diopi_wrapper/autogen_diopi_wrapper.py
-GENERATED_KERNELS_CONFIG=${DIPU_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml
+DIPU_DIR=$(readlink -f $(dirname $(readlink -f "$0"))/../..)
+AUTOGEN_DIOPI_WRAPPER=$DIPU_DIR/scripts/autogen_diopi_wrapper
+
+USE_AUTOCOMPARE=${1:-OFF}
+UsedVendor=${2:-cuda}
+Torch_VERSION=${3:-2.1.0}
+GENERATED_KERNELS_SCRIPT=${4:-$AUTOGEN_DIOPI_WRAPPER/autogen_diopi_wrapper.py}
+GENERATED_KERNELS_CONFIG=${5:-$AUTOGEN_DIOPI_WRAPPER/diopi_functions.yaml}
+GENERATED_KERNELS=${6:-$DIPU_DIR/torch_dipu/csrc_dipu/aten/ops/AutoGenedKernels.cpp}
+
 GENERATED_KERNELS_VENDOR=${DIPU_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml
 
 PYTHON_CMD="python3 ${GENERATED_KERNELS_SCRIPT} --out=${GENERATED_KERNELS} --config=${GENERATED_KERNELS_CONFIG} \
