@@ -3,6 +3,26 @@
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/diclapis.h>
 
+/*** NCCL CAPABILITY CHECK ***/
+
+// from torch/csrc/cuda/nccl.h
+#if defined(__CUDA_BF16_TYPES_EXIST__)
+#define HAS_NCCL_BF16_DATATYPE \
+  ((NCCL_MAJOR > 2) || (NCCL_MAJOR == 2) && (NCCL_MINOR >= 10))
+#elif defined(USE_ROCM) && (TORCH_HIP_VERSION >= 301)
+#define HAS_NCCL_BF16_DATATYPE 1
+#else
+#define HAS_NCCL_BF16_DATATYPE 0
+#endif
+
+// from torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp
+#if defined(NCCL_MAJOR) && \
+    ((NCCL_MAJOR > 2) || (NCCL_MAJOR == 2) && (NCCL_MINOR >= 10))
+#define NCCL_HAS_AVG 1
+#endif
+
+/*** NCCL CAPABILITY CHECK END ***/
+
 namespace dipu {
 
 namespace devapis {
