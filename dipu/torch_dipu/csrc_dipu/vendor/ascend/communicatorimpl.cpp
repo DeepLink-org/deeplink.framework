@@ -102,19 +102,11 @@ DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
                                     size_t count, at::ScalarType dataType,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
-  auto localDataType = dataType;
-  if (localDataType == at::kBool || localDataType == at::kByte) {
-    // todo change data
-  }
-  // check:
   // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
-  checkSupportedDataTypeOfAllReduce(getHcclDataType(localDataType));
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
-                           getHcclDataType(localDataType), hcclOp[reduceOp],
-                           comm, stream));
-  if (localDataType != dataType) {
-    // todo chage data
-  }
+                           getHcclDataType(dataType), hcclOp[reduceOp], comm,
+                           stream));
   return DICL_SUCCESS;
 }
 
