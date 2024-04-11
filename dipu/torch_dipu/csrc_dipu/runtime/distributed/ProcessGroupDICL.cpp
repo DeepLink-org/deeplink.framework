@@ -439,9 +439,25 @@ template <typename Fn>
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
     OpType opType) {
-  return collective(
-      inputs, outputs, fn, [](std::vector<std::shared_ptr<DICLComm>>&) {},
-      [](std::vector<std::shared_ptr<DICLComm>>&) {}, opType);
+  // original impl
+  // auto pre = [](std::vector<std::shared_ptr<DICLComm>>&) {};
+  // auto post = [](std::vector<std::shared_ptr<DICLComm>>&) {};
+  std::vector<at::Tensor> inputs_cp = {inputs[0]};
+  auto pre = [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+    if (inputs[0].scalar_type() == at::kBool ||
+        inputs[0].scalar_type() == at::kByte) {
+      DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
+      inputs_cp[0] = inputs[0].to(at::kInt);
+    }
+  };
+
+  auto post = [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+    if (inputs_cp[0].scalar_type() != inputs[0].scalar_type()) {
+      DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
+      outputs[0].copy_(inputs_cp[0]);
+    }
+  };
+  return collective(inputs_cp, inputs_cp, fn, pre, post, opType);
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
