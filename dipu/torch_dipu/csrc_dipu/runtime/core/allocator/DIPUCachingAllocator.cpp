@@ -252,15 +252,17 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
     auto currentStream = getCurrentDIPUStream();
     auto defaultStream = getDefaultDIPUStream();
     DIPUEvent event;
-    const bool currerntIsDefaultStream = currentStream == defaultStream;
-    if (!currerntIsDefaultStream) {
+    if (currentStream != defaultStream) {
+      // When allocating memory to a non-default stream, since record_stream is
+      // not performed on the default stream, the non-default stream needs to
+      // wait for the operation on the default stream to be completed. After
+      // adding non-default stream and other default stream operations here, the
+      // upper layer does not need to manually add a wait for the default stream
+      // when allocating memory on the non-default stream.
       event.record(defaultStream);
+      event.wait(currentStream);
     }
-    auto data_ptr = getAllocator(device_type_)->allocate(size);
-    if (!currerntIsDefaultStream) {
-      event.synchronize();
-    }
-    return data_ptr;
+    return getAllocator(device_type_)->allocate(size);
   }
 
   c10::DeleterFnPtr raw_deleter() const override {
