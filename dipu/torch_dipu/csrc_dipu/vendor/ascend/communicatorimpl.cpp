@@ -25,7 +25,7 @@ static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
 // HCCL DataType mapping
 static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 10>
     hcclDataTypes{{
-        {at::kByte, HCCL_DATA_TYPE_UINT8},
+        {at::kByte, HCCL_DATA_TYPE_INT8},
         {at::kChar, HCCL_DATA_TYPE_INT8},
         {at::kShort, HCCL_DATA_TYPE_INT16},
         {at::kInt, HCCL_DATA_TYPE_INT32},
@@ -33,7 +33,7 @@ static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 10>
         {at::kHalf, HCCL_DATA_TYPE_FP16},
         {at::kFloat, HCCL_DATA_TYPE_FP32},
         {at::kDouble, HCCL_DATA_TYPE_FP64},
-        {at::kBool, HCCL_DATA_TYPE_UINT8},
+        {at::kBool, HCCL_DATA_TYPE_INT8},
         {at::kBFloat16, HCCL_DATA_TYPE_BFP16},
     }};
 

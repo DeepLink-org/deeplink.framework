@@ -111,6 +111,11 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
+
+    for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
+        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        dist.all_reduce(te_result, op=op)
+
     cleanup()
 
 
