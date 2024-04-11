@@ -31,11 +31,11 @@ thread_local auto g_process_device_id_thread_cache = kDeviceIdUninit;
 // and anyway return the process-level device id
 AscendDeviceId tryInitAndAnywayGetProcessDevice(
     AscendDeviceId ascend_device_id) {
-  static std::atomic global_device_id = kDeviceIdUninit;
+  static std::atomic process_device_id = kDeviceIdUninit;
   auto expectedUninit = kDeviceIdUninit;
-  std::atomic_compare_exchange_strong(&global_device_id, &expectedUninit,
+  std::atomic_compare_exchange_strong(&process_device_id, &expectedUninit,
                                       ascend_device_id);
-  return global_device_id.load();
+  return process_device_id.load();
 }
 
 // If thread-level cache of process-level device id hasn't been initialized,
