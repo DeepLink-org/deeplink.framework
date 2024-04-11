@@ -11,6 +11,7 @@
 #include <c10/core/DeviceType.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/utils/env.hpp"
 
@@ -248,7 +249,18 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
   ~DIPUDeviceCachingProxy() override = default;
 
   c10::DataPtr allocate(size_t size) const override {
-    return getAllocator(device_type_)->allocate(size);
+    auto currentStream = getCurrentDIPUStream();
+    auto defaultStream = getDefaultDIPUStream();
+    DIPUEvent event;
+    const bool currerntIsDefaultStream = currentStream == defaultStream;
+    if (!currerntIsDefaultStream) {
+      event.record(defaultStream);
+    }
+    auto data_ptr = getAllocator(device_type_)->allocate(size);
+    if (!currerntIsDefaultStream) {
+      event.synchronize();
+    }
+    return data_ptr;
   }
 
   c10::DeleterFnPtr raw_deleter() const override {
