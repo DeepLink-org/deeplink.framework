@@ -11,6 +11,8 @@
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
+#include "distributedUtil.h"
+
 namespace dipu {
 
 using std::pair;
@@ -151,7 +153,9 @@ ProcessGroupDICL::WorkDICL::getFuture() {
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
                                    int rank, int size)
-    : c10d::Backend(rank, size), store_(store) {
+    : c10d::Backend(rank, size), store_(store), util_(new distributedUtil()) {
+  // : c10d::Backend(rank, size), store_(store), util_(new
+  // AscendDistributedUtil()) {
   char* blockingWait = getenv(DICL_BLOCKING_WAIT);
   try {
     if (blockingWait != nullptr) {
@@ -466,25 +470,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
-void allreducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
-                    std::vector<at::Tensor>& inputs,
-                    std::vector<at::Tensor>& outputs) {
-  if (inputs[0].scalar_type() == at::kBool ||
-      inputs[0].scalar_type() == at::kByte) {
-    DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
-    outputs[0] = inputs[0].to(at::kInt);
-  }
-}
-
-void allreducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
-                     std::vector<at::Tensor>& inputs,
-                     std::vector<at::Tensor>& outputs) {
-  if (inputs[0].scalar_type() != outputs[0].scalar_type()) {
-    DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
-    outputs[0].copy_(inputs[0]);
-  }
-}
-
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
@@ -504,10 +489,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        allreducePreFn(comms, tensors, tensors_cp);
+        util_->allreducePreFn(comms, tensors, tensors_cp);
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        allreducePostFn(comms, tensors_cp, tensors);
+        util_->allreducePostFn(comms, tensors_cp, tensors);
       },
       OpType::ALLREDUCE);
 }

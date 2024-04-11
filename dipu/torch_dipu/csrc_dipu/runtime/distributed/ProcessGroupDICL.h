@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "csrc_dipu/vendor/vendorapi.h"
 
 #include "DICLUtils.hpp"
+#include "distributedUtil.h"
 
 namespace dipu {
 
@@ -298,6 +300,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   // Device Indexes used for all collectives in this group
   std::set<int> usedDeviceIdxs_;
+
+  std::unique_ptr<distributedUtil> util_;
 
   // Whether or not wait() and synchronize() are blocking operations that wait
   // for the operation to complete.
