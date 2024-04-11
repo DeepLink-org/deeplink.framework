@@ -24,7 +24,7 @@ namespace {
 constexpr AscendDeviceId kDeviceIdUninit = -1;
 constexpr AscendDeviceId kDeviceIdDefault = 0;
 // Thread-level cache for process-level device id
-thread_local auto process_device_id_thread_cache = kDeviceIdUninit;
+thread_local auto g_process_device_id_thread_cache = kDeviceIdUninit;
 
 // Try to initialize process-level device id if it hasnt' been initialized,
 // which is designed to be written only once,
@@ -43,12 +43,12 @@ AscendDeviceId tryInitAndAnywayGetProcessDevice(
 // If process-level device id hasn't been initialized,
 // try to initialize process-level device id first using input ascend_device_id.
 void tryInitThreadDeviceCache(AscendDeviceId ascend_device_id) {
-  if (process_device_id_thread_cache == kDeviceIdUninit) {
+  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
     // Ensure that aclrtSetDevice is called
     // when and only when the thread-level cache is initialized.
-    process_device_id_thread_cache =
+    g_process_device_id_thread_cache =
         tryInitAndAnywayGetProcessDevice(ascend_device_id);
-    DIPU_CALLACLRT(::aclrtSetDevice(process_device_id_thread_cache))
+    DIPU_CALLACLRT(::aclrtSetDevice(g_process_device_id_thread_cache))
   }
 }
 
@@ -62,18 +62,18 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (process_device_id_thread_cache == kDeviceIdUninit) {
+  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
     DIPU_LOGW("current_device() is called before setDevice()");
     tryInitThreadDeviceCache(kDeviceIdDefault);
   }
-  return static_cast<deviceId_t>(process_device_id_thread_cache);
+  return static_cast<deviceId_t>(g_process_device_id_thread_cache);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t device_id) {
   auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
   tryInitThreadDeviceCache(ascend_device_id);
-  if (ascend_device_id != process_device_id_thread_cache) {
+  if (ascend_device_id != g_process_device_id_thread_cache) {
     DIPU_LOGW(
         "Trying to use multiple cards in the same process may cause unexpected "
         "results in hccl communication, such as sdma memory copy failure");
