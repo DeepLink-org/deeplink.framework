@@ -36,9 +36,6 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-using FnType =
-    std::function<void(at::Tensor&, at::Tensor&, diclComm_t, DIPUStream&)>;
-
 // ProcessGroupDICL implements DICLbindings for c10d.
 //
 // All functions of the class are expected to be called in the same order
@@ -242,9 +239,10 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const std::string& localCommsKey, const std::vector<at::Device>& devices,
       int commsRank, OpType opType);
 
+  template <typename Fn>
   c10::intrusive_ptr<Work> collective(std::vector<at::Tensor>& input,
-                                      std::vector<at::Tensor>& output,
-                                      FnType fn, OpType opType);
+                                      std::vector<at::Tensor>& output, Fn fn,
+                                      OpType opType);
 
   template <typename Fn, typename PreProcess, typename PostProcess>
   c10::intrusive_ptr<Work> collective(std::vector<at::Tensor>& inputs,

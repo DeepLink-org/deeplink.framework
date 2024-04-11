@@ -435,28 +435,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
+template <typename Fn>
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
-    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs,
-    FnType fn, OpType opType) {
-  // original impl
-  // auto pre = [](std::vector<std::shared_ptr<DICLComm>>&) {};
-  // auto post = [](std::vector<std::shared_ptr<DICLComm>>&) {};
-  std::vector<at::Tensor> inputs_cp = {inputs[0]};
-  auto pre = [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-    if (inputs[0].scalar_type() == at::kBool ||
-        inputs[0].scalar_type() == at::kByte) {
-      DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
-      inputs_cp[0] = inputs[0].to(at::kInt);
-    }
-  };
-
-  auto post = [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-    if (inputs_cp[0].scalar_type() != inputs[0].scalar_type()) {
-      DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
-      outputs[0].copy_(inputs_cp[0]);
-    }
-  };
-  return collective(inputs_cp, inputs_cp, std::move(fn), pre, post, opType);
+    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
+    OpType opType) {
+  return collective(
+      inputs, outputs, fn, [](std::vector<std::shared_ptr<DICLComm>>&) {},
+      [](std::vector<std::shared_ptr<DICLComm>>&) {}, opType);
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
@@ -486,8 +471,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
+  std::vector<at::Tensor> tensors_cp{tensors[0]};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
@@ -497,6 +483,19 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), opts.reduceOp, comm,
                                        stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (tensors[0].scalar_type() == at::kBool ||
+            tensors[0].scalar_type() == at::kByte) {
+          DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
+          tensors_cp[0] = tensors[0].to(at::kInt);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (tensors_cp[0].scalar_type() != tensors[0].scalar_type()) {
+          DIPUStreamGuard guard(comms[0]->diclStream_.unwrap());
+          tensors[0].copy_(tensors_cp[0]);
+        }
       },
       OpType::ALLREDUCE);
 }
