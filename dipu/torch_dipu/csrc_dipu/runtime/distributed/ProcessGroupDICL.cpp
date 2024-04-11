@@ -435,7 +435,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
     std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs,
     FnType fn, OpType opType) {
@@ -482,6 +481,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
+// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
