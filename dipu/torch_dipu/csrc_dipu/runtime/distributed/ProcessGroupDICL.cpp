@@ -11,6 +11,7 @@
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
+#include "UtilInstance.h"
 #include "distributedUtil.h"
 
 namespace dipu {
@@ -153,9 +154,7 @@ ProcessGroupDICL::WorkDICL::getFuture() {
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
                                    int rank, int size)
-    : c10d::Backend(rank, size), store_(store), util_(new distributedUtil()) {
-  // : c10d::Backend(rank, size), store_(store), util_(new
-  // AscendDistributedUtil()) {
+    : c10d::Backend(rank, size), store_(store) {
   char* blockingWait = getenv(DICL_BLOCKING_WAIT);
   try {
     if (blockingWait != nullptr) {
@@ -489,10 +488,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        util_->allreducePreFn(comms, tensors, tensors_cp);
+        Singleton::getInstance().getUtil()->allreducePreFn(comms, tensors,
+                                                           tensors_cp);
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        util_->allreducePostFn(comms, tensors_cp, tensors);
+        Singleton::getInstance().getUtil()->allreducePostFn(comms, tensors_cp,
+                                                            tensors);
       },
       OpType::ALLREDUCE);
 }

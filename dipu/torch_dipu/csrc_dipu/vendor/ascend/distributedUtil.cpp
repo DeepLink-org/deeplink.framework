@@ -1,6 +1,8 @@
 // Copyright (c) 2024, DeepLink.
 
-#include <csrc_dipu/runtime/distributed/distributedUtil.h>
+#include "csrc_dipu/runtime/distributed/distributedUtil.h"
+
+#include "csrc_dipu/runtime/distributed/UtilInstance.h"
 
 namespace dipu {
 
@@ -25,5 +27,13 @@ class AscendDistributedUtil : public distributedUtil {
     }
   }
 };
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static AscendDistributedUtil util;
+
+const static int32_t ascend_init = []() {
+  Singleton::getInstance().setUtilObj(&util);
+  return 1;
+}();
 
 }  // namespace dipu
