@@ -12,7 +12,6 @@
 #include "csrc_dipu/utils/helpfunc.hpp"
 
 #include "UtilInstance.h"
-#include "distributedUtil.h"
 
 namespace dipu {
 
@@ -488,12 +487,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        Singleton::getInstance().getUtil()->allreducePreFn(comms, tensors,
-                                                           tensors_cp);
+        UtilInstance::getInstance().getVendorImpl()->allreducePreFn(
+            comms, tensors, tensors_cp);
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        Singleton::getInstance().getUtil()->allreducePostFn(comms, tensors_cp,
-                                                            tensors);
+        UtilInstance::getInstance().getVendorImpl()->allreducePostFn(
+            comms, tensors_cp, tensors);
       },
       OpType::ALLREDUCE);
 }

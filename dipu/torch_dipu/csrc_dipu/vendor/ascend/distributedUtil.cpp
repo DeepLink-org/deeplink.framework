@@ -32,7 +32,7 @@ class AscendDistributedUtil : public distributedUtil {
 static AscendDistributedUtil util;
 
 const static int32_t ascend_init = []() {
-  Singleton::getInstance().setUtilObj(&util);
+  UtilInstance::getInstance().setVendorImpl(&util);
   return 1;
 }();
 

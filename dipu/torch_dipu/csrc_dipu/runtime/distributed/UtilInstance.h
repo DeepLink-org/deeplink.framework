@@ -5,23 +5,25 @@
 
 namespace dipu {
 
-class Singleton {
+class UtilInstance {
  public:
-  Singleton(const Singleton&) = delete;
-  Singleton& operator=(const Singleton&) = delete;
+  UtilInstance(const UtilInstance&) = delete;
+  UtilInstance& operator=(const UtilInstance&) = delete;
 
-  static Singleton& getInstance() {
-    static Singleton instance;
+  static UtilInstance& getInstance() {
+    static UtilInstance instance;
     return instance;
   }
 
-  distributedUtil* getUtil();
+  // get current device special impl object.
+  distributedUtil* getVendorImpl();
 
-  void setUtilObj(distributedUtil* obj);
+  // if not impl, will add a default impl.
+  void setVendorImpl(distributedUtil* obj);
 
  private:
-  Singleton() = default;
-  ~Singleton() = default;
+  UtilInstance() = default;
+  ~UtilInstance() = default;
 
   distributedUtil* util_ = nullptr;
 };

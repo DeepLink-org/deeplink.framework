@@ -7,13 +7,13 @@ namespace dipu {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static distributedUtil default_impl_;
 
-distributedUtil* Singleton::getUtil() {
+distributedUtil* UtilInstance::getVendorImpl() {
   if (!util_) {
     util_ = &default_impl_;
   }
   return util_;
 }
 
-void Singleton::setUtilObj(distributedUtil* obj) { util_ = obj; }
+void UtilInstance::setVendorImpl(distributedUtil* obj) { util_ = obj; }
 
 }  // namespace dipu
