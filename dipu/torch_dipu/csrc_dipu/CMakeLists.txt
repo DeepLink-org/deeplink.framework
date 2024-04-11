@@ -93,6 +93,7 @@ set(TORCH_DIPU_SOURCE
   profiler/patch.cpp
 
   runtime/distributed/ProcessGroupDICL.cpp
+  runtime/distributed/UtilInstance.cpp
   runtime/distributed/c10dOps.cpp
   runtime/devproxy/deviceproxy.cpp
   runtime/devproxy/diclproxy.cpp

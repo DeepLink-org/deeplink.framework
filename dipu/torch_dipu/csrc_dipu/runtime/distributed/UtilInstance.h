@@ -15,15 +15,15 @@ class Singleton {
     return instance;
   }
 
-  distributedUtil* getUtil() { return util_; }
+  distributedUtil* getUtil();
 
-  void setUtilObj(distributedUtil* obj) { util_ = obj; }
+  void setUtilObj(distributedUtil* obj);
 
  private:
   Singleton() = default;
   ~Singleton() = default;
 
-  distributedUtil* util_;
+  distributedUtil* util_ = nullptr;
 };
 
 }  // namespace dipu
