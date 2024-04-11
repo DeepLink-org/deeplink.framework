@@ -348,6 +348,8 @@ jobs:
       - name: Build dipu
         run: |
           set -ex
+          echo $PATH
+          echo "XXXXXXXXXXXXXXXXXXXX"
           export USE_COVERAGE=ON
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
           source scripts/ci/ascend/ci_ascend_env.sh
