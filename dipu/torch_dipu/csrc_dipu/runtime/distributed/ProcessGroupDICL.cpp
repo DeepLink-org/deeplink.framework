@@ -435,10 +435,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
-template <typename Fn>
+// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
-    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs, Fn fn,
-    OpType opType) {
+    std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs,
+    FnType fn, OpType opType) {
   // original impl
   // auto pre = [](std::vector<std::shared_ptr<DICLComm>>&) {};
   // auto post = [](std::vector<std::shared_ptr<DICLComm>>&) {};
@@ -457,7 +457,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
       outputs[0].copy_(inputs_cp[0]);
     }
   };
-  return collective(inputs_cp, inputs_cp, fn, pre, post, opType);
+  return collective(inputs_cp, inputs_cp, std::move(fn), pre, post, opType);
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
@@ -482,7 +482,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
