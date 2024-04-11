@@ -7,7 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_BUILD_TYPE "Release" CACHE STRING "default build type is Release")
+# the default CMAKE_BUILD_TYPE is Release
+if(CMAKE_BUILD_TYPE STREQUAL "")
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
+
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
 
