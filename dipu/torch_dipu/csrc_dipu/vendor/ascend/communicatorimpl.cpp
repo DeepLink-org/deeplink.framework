@@ -22,10 +22,16 @@ static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
     {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
 };
 
+static void convertType(at::ScalarType& datatype) {
+  if (datatype == at::ScalarType::Byte || datatype == at::ScalarType::Bool) {
+    datatype = at::kChar;
+  }
+}
+
 // HCCL DataType mapping
 static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 10>
     hcclDataTypes{{
-        {at::kByte, HCCL_DATA_TYPE_INT8},
+        {at::kByte, HCCL_DATA_TYPE_UINT8},
         {at::kChar, HCCL_DATA_TYPE_INT8},
         {at::kShort, HCCL_DATA_TYPE_INT16},
         {at::kInt, HCCL_DATA_TYPE_INT32},
@@ -33,7 +39,7 @@ static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 10>
         {at::kHalf, HCCL_DATA_TYPE_FP16},
         {at::kFloat, HCCL_DATA_TYPE_FP32},
         {at::kDouble, HCCL_DATA_TYPE_FP64},
-        {at::kBool, HCCL_DATA_TYPE_INT8},
+        {at::kBool, HCCL_DATA_TYPE_UINT8},
         {at::kBFloat16, HCCL_DATA_TYPE_BFP16},
     }};
 
@@ -71,6 +77,11 @@ DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
                                     size_t count, at::ScalarType dataType,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
+  // HcclAllReduce does not support uint8 (bool/bytes), but it does support int8
+  // (char), so we need to change the data type. For more details, please refer
+  // to the following website:
+  // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
+  convertType(dataType);
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
                            getHcclDataType(dataType), hcclOp[reduceOp], comm,
                            stream));
