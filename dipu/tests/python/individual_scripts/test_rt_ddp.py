@@ -111,10 +111,22 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
+        assert torch.all(te_result == torch.zeros((3, 4)).to(dev1) + rank + 2)
 
+    # bool
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.tensor(True, dtype=bool).to(dev1)
         dist.all_reduce(te_result, op=op)
+        assert torch.all(te_result == torch.tensor(True, dtype=bool).to(dev1))
+
+    # byte
+    total_ranks = dist.get_world_size()
+    for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
+        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        dist.all_reduce(te_result, op=op)
+        expected_tensor = torch.CharTensor([1, 2, 3]) * total_ranks * (total_ranks - 1) / 2
+        assert torch.all(te_result == expected_tensor)
+        print('bytes'*10)
 
     cleanup()
 
