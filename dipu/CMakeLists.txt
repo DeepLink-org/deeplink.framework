@@ -94,31 +94,12 @@ execute_process(
 )
 
 # abi_v, torch dir, abi flag, cmake path
-if(NOT DEFINED PYTORCH_DIR)
-  execute_process(
-  COMMAND
-    sh -c
-    "python -c 'import torch, builtins; from pathlib import Path;  \
-       print(next(item[-4:-2] for item in dir(builtins) \
-       if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item)); \
-       print(Path(torch.__path__[0]).parent.absolute()); \
-       print(1 if torch.compiled_with_cxx11_abi() else 0); \
-       print(torch.utils.cmake_prefix_path); '"
+execute_process(
+COMMAND
+  sh -c
+    "python ${CMAKE_CURRENT_SOURCE_DIR}/detect_env.py"
   OUTPUT_VARIABLE CHECK_TORCH_OUT
   OUTPUT_STRIP_TRAILING_WHITESPACE)
-else()
-  execute_process(
-  COMMAND
-    sh -c
-    "python -c 'import os,sys;sys.path.append(os.environ[\"PYTORCH_DIR\"]);import torch, builtins; from pathlib import Path;  \
-       print(next(item[-4:-2] for item in dir(builtins) \
-       if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item)); \
-       print(Path(torch.__path__[0]).parent.absolute()); \
-       print(1 if torch.compiled_with_cxx11_abi() else 0); \
-       print(torch.utils.cmake_prefix_path); '"
-  OUTPUT_VARIABLE CHECK_TORCH_OUT
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif()
 string(REGEX REPLACE "\n" ";" CHECK_TORCH_OUT_LIST "${CHECK_TORCH_OUT}")
 message(STATUS "CHECK_TORCH_OUT_LIST: " "${CHECK_TORCH_OUT_LIST}")
 
