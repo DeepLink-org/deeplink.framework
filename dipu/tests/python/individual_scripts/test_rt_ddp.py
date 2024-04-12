@@ -118,7 +118,7 @@ def demo_allreduce(rank, world_size, port):
         te_result = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         dist.all_reduce(te_result, op=op)
         if op == dist.reduce_op.SUM:
-            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+            expected_tensor = torch.tensor([world_size, 0, world_size], dtype=torch.bool).to(dev1)
         elif op == dist.reduce_op.MAX:
             expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         elif op == dist.reduce_op.MIN:
