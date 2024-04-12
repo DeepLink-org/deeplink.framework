@@ -100,9 +100,10 @@ def demo_basic_ddp(rank, world_size, port):
 def demo_allreduce(rank, world_size, port):
     import torch_dipu
 
-    print(f"Running basic DDP example on rank {rank} ")
+    print(f"Running basic DDP example on rank {rank}")
     torch.cuda.set_device(rank)
     dev1 = rank
+    print(f"dev1 {dev1}, current_device: {torch.cuda.current_device()}")
 
     setup(rank, world_size, port)
 
@@ -111,32 +112,47 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
+        print("te_result", te_result)
         if op == dist.reduce_op.SUM:
-            expected_tensor = torch.zeros((3, 4)).to(dev1) + (world_size - 1) * world_size / 2 + 2 * world_size
+            expected_tensor = (
+                torch.zeros((3, 4)).to(dev1)
+                + (world_size - 1 + 0) * world_size / 2
+                + 2 * world_size
+            )
         elif op == dist.reduce_op.MAX:
             expected_tensor = torch.zeros((3, 4)).to(dev1) + world_size + 1
         elif op == dist.reduce_op.MIN:
             expected_tensor = torch.zeros((3, 4)).to(dev1) + 2
+        print("expected_tensor", expected_tensor)
         assert torch.allclose(te_result, expected_tensor)
+        print(f"float opname {op}")
 
     # bool
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         dist.all_reduce(te_result, op=op)
         if op == dist.reduce_op.SUM:
-            expected_tensor = torch.tensor([world_size, 0, world_size], dtype=torch.bool).to(dev1)
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
         elif op == dist.reduce_op.MAX:
-            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
         elif op == dist.reduce_op.MIN:
-            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
-        assert torch.all(te_result == expected_tensor)
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        assert torch.equal(te_result.cpu(), expected_tensor.cpu())
 
     # byte
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         dist.all_reduce(te_result, op=op)
         if op == dist.reduce_op.SUM:
-            expected_tensor = torch.tensor([world_size, 2*world_size, 3*world_size], dtype=torch.uint8).to(dev1)
+            expected_tensor = torch.tensor(
+                [world_size, 2 * world_size, 3 * world_size], dtype=torch.uint8
+            ).to(dev1)
         elif op == dist.reduce_op.MAX:
             expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         elif op == dist.reduce_op.MIN:
