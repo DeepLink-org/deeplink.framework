@@ -115,18 +115,30 @@ def demo_allreduce(rank, world_size, port):
 
     # bool
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
-        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        te_result = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         dist.all_reduce(te_result, op=op)
-        assert torch.all(te_result == torch.tensor(True, dtype=bool).to(dev1))
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+        print('op=', op)
+        print('te_result=',te_result)
+        print('expected_tensor=',expected_tensor)
+        assert torch.all(te_result == expected_tensor)
 
     # byte
-    total_ranks = dist.get_world_size()
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
-        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        te_result = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         dist.all_reduce(te_result, op=op)
-        expected_tensor = torch.CharTensor([1, 2, 3]) * total_ranks * (total_ranks - 1) / 2
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor([world_size, 2*world_size, 3*world_size], dtype=torch.uint8).to(dev1)
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         assert torch.all(te_result == expected_tensor)
-        print('bytes'*10)
 
     cleanup()
 
