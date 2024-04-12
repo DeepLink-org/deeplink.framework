@@ -123,9 +123,6 @@ def demo_allreduce(rank, world_size, port):
             expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         elif op == dist.reduce_op.MIN:
             expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
-        print('op=', op)
-        print('te_result=',te_result)
-        print('expected_tensor=',expected_tensor)
         assert torch.all(te_result == expected_tensor)
 
     # byte
