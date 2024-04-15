@@ -101,7 +101,7 @@ inline bool useAutoCompare() {
   } else if (autocompareString == "off") {
     return false;
   } else {
-    std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'." << std::endl;
+    std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'.\n";
     return false;
   }
 }
