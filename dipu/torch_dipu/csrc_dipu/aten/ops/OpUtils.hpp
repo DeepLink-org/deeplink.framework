@@ -92,8 +92,8 @@ inline bool useAutoCompare() {
   }
 
   std::string autocompareString(autocomparePtr);
-  for(char& c : autocompareString) {
-    c = std::tolower(c);
+  for (size_t i = 0; i < autocompareString.length(); ++i) {
+    autocompareString[i] = std::tolower(autocompareString[i]);
   }
 
   if (autocompareString == "on") {
