@@ -905,8 +905,8 @@ def functions_code_gen(fun_config):
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
-
-    if fun_config.get("autocompare", False) in [True, "True"] and fun_config.get(
+    print("fun_config = ", fun_config)
+    if fun_config.get("autocompare") not in ["disable"] and fun_config.get(
         "register_op", True
     ) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
@@ -929,17 +929,16 @@ def functions_code_gen(fun_config):
                 ).replace(raw_fun_name, fun_name)
             ],
             transform_result_to_cpu_code=[],
-            result_compare_code=[
-                create_result_compare_code(fun_config)
-                + (
-                    "\nreturn result_device;\n"
-                    if len(get_function_return_param_from_schema(fun_config["schema"]))
-                    > 0
-                    else ""
-                )
-            ],
+            result_compare_code=[create_result_compare_code(fun_config)],
         )
         fbody += autocompare_code
+        last_brace_pos = fbody.rfind("}")
+        fbody = fbody[:last_brace_pos]
+        fbody += (
+            "\n\treturn result_device;\n}"
+            if len(get_function_return_param_from_schema(fun_config["schema"])) > 0
+            else "\n\t}"
+        )
         fun_name = auto_compare_fun_name
 
     if fun_config.get("custom_fallback", False) in ["False", False]:
@@ -1039,12 +1038,7 @@ def parse_args():
         type=boolean_string,
         help="whether generate code that prints op args",
     )
-    parser.add_argument(
-        "--autocompare",
-        default=False,
-        type=boolean_string,
-        help="whether generate code that compare device calculation results with cpu calculation results",
-    )
+
     parser.add_argument(
         "--fun_config_dict",
         type=json.loads,
