@@ -905,7 +905,6 @@ def functions_code_gen(fun_config):
         )
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
-    print("fun_config = ", fun_config)
     if fun_config.get("autocompare") not in ["disable"] and fun_config.get(
         "register_op", True
     ) in [True, "True"]:
