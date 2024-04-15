@@ -1,4 +1,6 @@
 // Copyright (c) 2023, DeepLink.
+#include <cstdio>
+
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
@@ -136,8 +138,9 @@ EventStatus getEventStatus(deviceEvent_t event) {
     ::tangGetLastError(); /* reset internal error state*/
     return devapis::EventStatus::PENDING;
   } else {
-    printf("call a tangrt function (tangEventQuery) failed. return code=%d",
+    printf("call a tangrt function (tangEventQuery) failed. return code=%d\n",
            ret);
+    fflush(stdout);
     throw std::runtime_error("dipu device error");
   }
 }
