@@ -93,16 +93,17 @@ inline bool useAutoCompare() {
 
   std::string autocompareString(autocomparePtr);
   for (char& c : autocompareString) {
-    c = std::tolower(c);
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   }
 
   if (autocompareString == "on") {
     return true;
-  } else if (autocompareString == "off") {
-    return false;
-  } else {
-    std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'.\n";
   }
+  if (autocompareString == "off") {
+    return false;
+  }
+
+  std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'.\n";
   return false;
 }
 
