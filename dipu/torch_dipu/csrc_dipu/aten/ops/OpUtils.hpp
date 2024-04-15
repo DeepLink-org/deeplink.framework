@@ -92,7 +92,7 @@ inline bool useAutoCompare() {
   }
 
   std::string autocompareString(autocomparePtr);
-  for(char& c : autocompareString) {
+  for(char& c: autocompareString) {
     c = std::tolower(c);
   }
 
