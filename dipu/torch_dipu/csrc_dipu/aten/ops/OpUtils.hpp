@@ -92,8 +92,8 @@ inline bool useAutoCompare() {
   }
 
   std::string autocompareString(autocomparePtr);
-  for (size_t i = 0; i < autocompareString.length(); ++i) {
-    autocompareString[i] = std::tolower(autocompareString[i]);
+  for (char& c : autocompareString) {
+    c = std::tolower(c);
   }
 
   if (autocompareString == "on") {
@@ -102,8 +102,8 @@ inline bool useAutoCompare() {
     return false;
   } else {
     std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'.\n";
-    return false;
   }
+  return false;
 }
 
 template <typename T>
