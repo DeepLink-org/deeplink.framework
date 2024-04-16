@@ -150,11 +150,15 @@ at::Tensor TensorInferer::infer_binary_op() {
 }
 
 at::Tensor TensorInferer::infer_unary_op() {
-  compute_shape();
-  compute_dtype();
-  return malloc_output();
+  // since `compute_shape` and `compute_dtype` are robust, we can reuse them
+  return infer_binary_op();
 }
 
+at::Tensor TensorInferer::infer_comparison_op() {
+  compute_shape();
+  dtype_ = at::ScalarType::Bool;
+  return malloc_output();
+}
 
 at::Tensor TensorInferer::infer_binary_float_op() {
   compute_shape();
