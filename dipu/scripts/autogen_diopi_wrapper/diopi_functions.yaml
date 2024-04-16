@@ -2141,6 +2141,20 @@
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
 
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+  device: [all, -ascend]
+  custom_code_at_the_beginning: | 
+    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    at::Tensor out;
+    if (dtype) {
+      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
+    } else {
+      out = nodispatch::empty(output_shape, self.options());
+      }
+    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
+    ::diopiSize_t diopi_size = toDiopiSize(dim);
+  interface: diopiNorm(ctx, out, self_diopi, ord, diopi_size);
+
+- schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [ascend]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
@@ -2154,30 +2168,16 @@
   interface: diopiLinalgVecNorm(ctx, out, self, ord, dimDiopi, keepdim);
 
 - schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
+  device: [all, -ascend]
+  custom_code_at_the_beginning: |
+    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
+  interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
+
+- schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
   device: [ascend]
   custom_code_at_the_beginning: |
     ::diopiSize_t dimDiopi = toDiopiSize(dim);
   interface: diopiLinalgVecNorm(ctx, out, self, ord, dimDiopi, keepdim);
-
-- schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
-  device: [cuda]
-  custom_code_at_the_beginning: | 
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-    at::Tensor out;
-    if (dtype) {
-      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
-    } else {
-      out = nodispatch::empty(output_shape, self.options());
-      }
-    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
-    ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiNorm(ctx, out, self_diopi, ord, diopi_size);
-
-- schema: linalg_vector_norm.out(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
-  device: [-ascend]
-  custom_code_at_the_beginning: |
-    ::diopiSize_t dimDiopiSize = toDiopiSize(dim);
-  interface: diopiNorm(ctx, out, self, ord, dimDiopiSize);
 
 - schema: "floor_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiFloorInp(ctx, self);
