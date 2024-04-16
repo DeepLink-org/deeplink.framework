@@ -107,6 +107,7 @@ set(TORCH_DIPU_SOURCE
   runtime/core/guardimpl/DIPUGuardImpl.cpp
   runtime/core/DIPUGeneratorImpl.cpp
   runtime/core/DIPUStream.cpp
+  runtime/core/DIPUTensorInferer.cpp
   runtime/device/deviceapis.cpp
 
   utils/helpfunc.cpp)

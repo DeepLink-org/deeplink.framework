@@ -250,5 +250,9 @@ at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
   return at::native::param_scalar_type(input, mixed);
 }
 
+inline bool is_wrapped_number(const at::Tensor& t) {
+  return t.unsafeGetTensorImpl()->is_wrapped_number();
+}
+
 }  // namespace native
 }  // namespace dipu
