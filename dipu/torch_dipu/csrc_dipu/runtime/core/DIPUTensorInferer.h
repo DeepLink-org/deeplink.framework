@@ -19,14 +19,16 @@ using DimVector = c10::SmallVector<int64_t, 4>;
 // for unary op:
 //    auto out = TensorInferer().add_input(t).infer_unary_op();
 // for reduce op:
-//    auto out = TensorInferer().add_input(self).infer_reduce_dim_op(dim, keepdim, dtype);
+//    auto out = TensorInferer().add_input(self).infer_reduce_dim_op(dim,
+//    keepdim, dtype);
 // for compare op:
 //    auto out = TensorInferer().add_input(t).infer_comparison_op();
 // for martix op:
-//    auto out = TensorInferer().add_input(self).add_input(mat2).infer_matrix_op();
-//    auto out = TensorInferer().add_input(self).add_input(mat1).add_input(mat2).infer_matrix_op();
+//    auto out =
+//    TensorInferer().add_input(self).add_input(mat2).infer_matrix_op(); auto
+//    out =
+//    TensorInferer().add_input(self).add_input(mat1).add_input(mat2).infer_matrix_op();
 class TensorInferer {
-
  public:
   TensorInferer() = default;
   ~TensorInferer() = default;

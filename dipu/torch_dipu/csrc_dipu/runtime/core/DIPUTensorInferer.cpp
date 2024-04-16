@@ -1,9 +1,11 @@
 // Copyright (c) 2024, DeepLink.
 #include "DIPUTensorInferer.h"
-#include <ATen/native/TypeProperties.h>
-#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 
 #include <bitset>
+
+#include <ATen/native/TypeProperties.h>
+
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 
 namespace dipu {
 
@@ -44,7 +46,8 @@ struct ResultTypeState {
   at::ScalarType zeroResult = at::ScalarType::Undefined;
 };
 
-static inline at::ScalarType promote_skip_undefined(at::ScalarType a, at::ScalarType b) {
+static inline at::ScalarType promote_skip_undefined(at::ScalarType a,
+                                                    at::ScalarType b) {
   if (a == at::ScalarType::Undefined) {
     return b;
   }
@@ -54,29 +57,31 @@ static inline at::ScalarType promote_skip_undefined(at::ScalarType a, at::Scalar
   return c10::promoteTypes(a, b);
 }
 
-ResultTypeState update_result_type_state(const at::Tensor& tensor, const ResultTypeState& in_state) {
+ResultTypeState update_result_type_state(const at::Tensor& tensor,
+                                         const ResultTypeState& in_state) {
   ResultTypeState new_state = in_state;
   at::ScalarType current = tensor.scalar_type();
   if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    if(c10::isComplexType(current)) {
+    if (c10::isComplexType(current)) {
       current = c10::typeMetaToScalarType(at::get_default_complex_dtype());
-    }
-    else if(c10::isFloatingType(current)) {
+    } else if (c10::isFloatingType(current)) {
       current = c10::typeMetaToScalarType(at::get_default_dtype());
     }
   }
-  if ( tensor.dim() > 0 ) {
+  if (tensor.dim() > 0) {
     new_state.dimResult = promote_skip_undefined(in_state.dimResult, current);
   } else if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    new_state.wrappedResult = promote_skip_undefined(in_state.wrappedResult, current);
+    new_state.wrappedResult =
+        promote_skip_undefined(in_state.wrappedResult, current);
   } else {
     new_state.zeroResult = promote_skip_undefined(in_state.zeroResult, current);
   }
   return new_state;
 }
 
-static inline at::ScalarType combine_categories(at::ScalarType higher, at::ScalarType lower) {
-  if(c10::isComplexType(higher)) {
+static inline at::ScalarType combine_categories(at::ScalarType higher,
+                                                at::ScalarType lower) {
+  if (c10::isComplexType(higher)) {
     return higher;
   } else if (c10::isComplexType(lower)) {
     // preserve value type of higher if it is floating type.
@@ -99,7 +104,9 @@ static inline at::ScalarType combine_categories(at::ScalarType higher, at::Scala
 }
 
 at::ScalarType result_type(const ResultTypeState& in_state) {
-  return combine_categories(in_state.dimResult, combine_categories(in_state.zeroResult, in_state.wrappedResult));
+  return combine_categories(
+      in_state.dimResult,
+      combine_categories(in_state.zeroResult, in_state.wrappedResult));
 }
 
 }  // namespace internal
@@ -159,10 +166,9 @@ at::Tensor TensorInferer::infer_binary_float_op() {
   return malloc_output();
 }
 
-at::Tensor TensorInferer::infer_reduce_op(
-    c10::OptionalIntArrayRef dim, bool keep_dim,
-    c10::optional<at::ScalarType> dtype) {
-
+at::Tensor TensorInferer::infer_reduce_op(c10::OptionalIntArrayRef dim,
+                                          bool keep_dim,
+                                          c10::optional<at::ScalarType> dtype) {
   TORCH_CHECK(!inputs_.empty(), "Reduce op requires at least one input.");
   const auto& input_tensor = inputs_[0];
   int64_t ndim = input_tensor.dim();
