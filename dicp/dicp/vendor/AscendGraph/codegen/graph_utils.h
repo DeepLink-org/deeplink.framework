@@ -32,7 +32,7 @@ using json = nlohmann::json;
 using namespace ge;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
-    "ConcatD", "IdentityN", "Pack", "SplitD"};
+    "ConcatD", "IdentityN", "Pack", "SplitD", "IncreFlashAttention"};
 
 void check_op(std::unordered_map<std::string, ge::Operator>& op_map,
               const std::string& op_name) {
@@ -91,7 +91,8 @@ class AclgraphBuilder {
         {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
         {AscendString(ge::ir_option::FUSION_SWITCH_FILE),
          AscendString(_fusion_switch_file.c_str())},
-        {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
+        // {AscendString(ge::ir_option::PRECISION_MODE_V2), "mixed_float16"},
+        {AscendString(ge::ir_option::PRECISION_MODE_V2), "fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
     if (status != GRAPH_SUCCESS) {
@@ -188,6 +189,41 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
   }
 }
 
+void parseIncreFlashAttentionDynamicInput(
+    std::unordered_map<std::string, ge::Operator>& op_map,
+    op::IncreFlashAttention& op, const json& node) {
+  if (node.contains("dynamic_inputs")) {
+    int kv_inputs_num = 0;
+    for (const auto& i : node["dynamic_inputs"]) {
+      auto num = i["num"].get<unsigned int>();
+      auto name = i["name"].get<std::string>();
+      if (name == "key") {
+        kv_inputs_num = static_cast<int>(num);
+        op.create_dynamic_input_byindex_key(num, 1);
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          op.set_dynamic_input_key(index, value);
+        }
+      } else if (name == "value") {
+        if (kv_inputs_num == 0 && num == kv_inputs_num) {
+          throw std::runtime_error(
+              "need first set dynamic key input for IncreFlashAttention Op"
+              "and kv_inputs_num == num !!");
+        }
+        op.create_dynamic_input_byindex_value(num, 1 + num);
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          op.set_dynamic_input_value(index, value);
+        }
+      } else {
+        throw std::runtime_error("invalid dynamic input name");
+      }
+    }
+  }
+}
+
 template <typename T>
 void parseDynamicOutput(T& op, const json& node) {
   if (node.contains("dynamic_outputs")) {
@@ -219,6 +255,10 @@ ge::Operator genDynamicOperator(
   } else if (op_type == "Pack") {
     auto op = genDynamicOp<op::Pack>(op_name);
     parseDynamicInput<op::Pack>(op_map, op, node);
+    return op;
+  } else if (op_type == "IncreFlashAttention") {
+    auto op = genDynamicOp<op::IncreFlashAttention>(op_name);
+    parseIncreFlashAttentionDynamicInput(op_map, op, node);
     return op;
   } else if (op_type == "SplitD") {
     auto op = genDynamicOp<op::SplitD>(op_name);
@@ -331,6 +371,7 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
               genTensorWithData<int64_t>(dims, format, data_type, value);
           op.SetAttr(attr_name.c_str(), tensor);
         } else {
+          std::cout << "cpp data type: " << cpp_data_type << std::endl;
           throw std::runtime_error("invalid cpp data type!");
         }
       } else {
@@ -340,7 +381,8 @@ void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
   }
 }
 
-void buildGraph(Graph& graph, const json& graph_json) {
+void buildGraph(Graph& graph, const json& graph_json,
+                std::vector<Tensor>& input_tensors) {
   std::unordered_map<std::string, ge::Operator> op_map;
   json data_nodes = graph_json["data_nodes"];
   for (const auto& node : graph_json["data_nodes"]) {
@@ -352,6 +394,11 @@ void buildGraph(Graph& graph, const json& graph_json) {
     check_op(op_map, node_name);
     op_map[node_name] = genInput(node_name, dims, format, data_type, index);
     graph.AddOp(op_map[node_name]);
+
+    // add tensor to inputs
+    TensorDesc cur_desc(ge::Shape(dims), format, data_type);
+    Tensor cur_tensor(cur_desc);
+    input_tensors.emplace_back(cur_tensor);
   }
   for (const auto& node : graph_json["common_nodes"]) {
     auto node_name = node["op_name"].get<std::string>();
@@ -378,4 +425,226 @@ void buildGraph(Graph& graph, const json& graph_json) {
   graph.SetInputs(graph_inputs).SetOutputs(graph_outputs);
 }
 
+class AclGraph {
+ public:
+  explicit AclGraph(int graph_id, Graph& graph)
+      : graph_id_(graph_id), graph_(std::move(graph)) {}
+
+  size_t const_memory_size() {
+    size_t size;
+    auto status = spec_->GetConstMemorySize(size);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "GetConstMemorySize failed!" << std::endl;
+    } else {
+      std::cout << "GetConstMemorySize success!" << std::endl;
+    }
+    return size;
+  }
+
+  size_t feature_memory_size() {
+    size_t size;
+    auto status = spec_->GetFeatureMemorySize(size);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "GetFeatureMemorySize failed!" << std::endl;
+    }
+    return size;
+  }
+
+  void prepare_output() {
+    std::vector<ge::Shape> shapes;
+    std::vector<ge::DataType> dtypes;
+    auto status = spec_->GetOutputShapes(shapes);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "GetOutputShapes failed!" << std::endl;
+    }
+    status = spec_->GetOutputDtypes(dtypes);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "GetOutputDtypes failed!" << std::endl;
+    }
+
+    for (unsigned long i = 0; i < shapes.size(); ++i) {
+      TensorDesc cur_desc(shapes[i], FORMAT_ND, dtypes[i]);
+      Tensor cur_tensor(cur_desc);
+      outputs.emplace_back(cur_tensor);
+    }
+  }
+
+  void prapare_input_output_tensordesc() {
+    for (const auto& i : inputs) {
+      inputs_desc.emplace_back(i.GetTensorDesc());
+    }
+    for (const auto& i : outputs) {
+      outputs_desc.emplace_back(i.GetTensorDesc());
+    }
+  }
+
+  std::vector<std::vector<int64_t>> get_input_shapes() {
+    std::vector<std::vector<int64_t>> res;
+    for (const auto& i : inputs) {
+      auto desc = i.GetTensorDesc();
+      auto dims = desc.GetShape().GetDims();
+      res.emplace_back(desc.GetShape().GetDims());
+    }
+    return res;
+  }
+
+  std::vector<int> get_input_dtypes() {
+    std::vector<int> res;
+    for (const auto& i : inputs) {
+      auto data_type = i.GetTensorDesc().GetDataType();
+      res.emplace_back(static_cast<int>(data_type));
+    }
+    return res;
+  }
+
+  std::vector<std::vector<int64_t>> get_output_shapes() {
+    std::vector<std::vector<int64_t>> res;
+    for (const auto& i : outputs) {
+      auto desc = i.GetTensorDesc();
+      auto dims = desc.GetShape().GetDims();
+      res.emplace_back(desc.GetShape().GetDims());
+    }
+    return res;
+  }
+
+  std::vector<int> get_output_dtypes() {
+    std::vector<int> res;
+    for (const auto& i : outputs) {
+      auto data_type = i.GetTensorDesc().GetDataType();
+      res.emplace_back(static_cast<int>(data_type));
+    }
+    return res;
+  }
+
+  void set_input_output_data(void* inputs_data[], void* outputs_data[],
+                             int64_t inputs_data_size[],
+                             int64_t outputs_data_size[]) {
+    const static ge::Tensor::DeleteFunc kDoNothing = [](uint8_t* data) {};
+    for (unsigned long i = 0; i < inputs.size(); ++i) {
+      // std::cout << "input: " << i << "  size: " << inputs_data_size[i] << "
+      // data_ptr is null: " << (inputs_data[i] == nullptr) << " shapesizes:" <<
+      // inputs[i].GetTensorDesc().GetShape().GetShapeSize() << std::endl;
+      auto status = inputs[i].ResetData(
+          static_cast<uint8_t*>(inputs_data[i]),
+          static_cast<size_t>(inputs_data_size[i]), kDoNothing);
+      // auto status =
+      // inputs[i].SetData(reinterpret_cast<uint8_t*>(inputs_data[i]),
+      // inputs_data_size[i], kDoNothing);
+      if (status != ge::GRAPH_SUCCESS) {
+        std::cout << "Set input " << i << " tensor data failed!" << std::endl;
+      }
+    }
+    for (unsigned long i = 0; i < outputs.size(); ++i) {
+      // std::cout << "output: " << i << "  size: " << outputs_data_size[i] << "
+      // data_ptr is null: " << (outputs_data[i] == nullptr) << " shapesise:" <<
+      // outputs[i].GetTensorDesc().GetShape().GetShapeSize() << std::endl;
+
+      auto status = outputs[i].ResetData(
+          static_cast<uint8_t*>(outputs_data[i]),
+          static_cast<size_t>(outputs_data_size[i]), kDoNothing);
+      // auto status =
+      // outputs[i].SetData(reinterpret_cast<uint8_t*>(outputs_data[i]),
+      // outputs_data_size[i], kDoNothing);
+      if (status != ge::GRAPH_SUCCESS) {
+        std::cout << "Set input " << i << " tensor data failed!" << std::endl;
+      }
+    }
+  }
+
+  int graph_id_;
+  Graph graph_;
+  std::shared_ptr<CompiledGraphSummary> spec_;
+  std::vector<Tensor> inputs;
+  std::vector<Tensor> outputs;
+  std::vector<TensorDesc> inputs_desc;
+  std::vector<TensorDesc> outputs_desc;
+};
+
+class AclGraphRunner {
+ public:
+  explicit AclGraphRunner(int device_id) : device_id_(device_id) { init(); }
+
+  explicit AclGraphRunner() {}
+
+  void set_device_id(int device_id) { device_id_ = device_id; }
+
+  void init() {
+    // 1. ge init
+    std::string device_id = std::to_string(device_id_);
+    std::map<AscendString, AscendString> config = {
+        {"ge.exec.deviceId", device_id.c_str()},
+        {"ge.graphRunMode", "0"},
+        {"ge.socVersion", "Ascend910B3"},
+    };
+
+    auto status = ge::GEInitialize(config);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "GEInitialize failed!" << std::endl;
+    } else {
+      std::cout << "GEInitialize success!" << std::endl;
+    }
+
+    // 2. add session
+    std::map<AscendString, AscendString> options;
+    session_ = new Session(options);
+    if (session_ == nullptr) {
+      std::cout << "Create session failed." << std::endl;
+    } else {
+      std::cout << "Create session success." << std::endl;
+    }
+  }
+
+  std::shared_ptr<CompiledGraphSummary> addGraph(int graph_id,
+                                                 const Graph& graph) {
+    auto status = session_->AddGraph(graph_id, graph);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "session AddGraph failed!" << std::endl;
+    }
+    status = session_->CompileGraph(graph_id);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "session CompileGraph failed!" << std::endl;
+    }
+
+    return session_->GetCompiledGraphSummary(graph_id);
+  }
+
+  void runGraphWithStreamAsync(int graph_id, void* stream,
+                               const std::vector<Tensor>& inputs,
+                               std::vector<Tensor>& outputs) {
+    auto status =
+        session_->RunGraphWithStreamAsync(graph_id, stream, inputs, outputs);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "session RunGraphWithStreamAsync failed!" << std::endl;
+    }
+  }
+
+  void setConstMem(int graph_id, const void* const memory, size_t size) {
+    auto status = session_->SetGraphConstMemoryBase(graph_id, memory, size);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "session SetGraphConstMemoryBase failed!" << std::endl;
+    }
+  }
+
+  void setWorkSpace(int graph_id, const void* const memory, size_t size) {
+    auto status =
+        session_->UpdateGraphFeatureMemoryBase(graph_id, memory, size);
+    if (status != GRAPH_SUCCESS) {
+      std::cout << "session UpdateGraphFeatureMemoryBase failed!" << std::endl;
+      std::cout << "size: " << size << std::endl;
+    }
+  }
+
+  ~AclGraphRunner() {
+    std::cout << "### start to call GEFinalize() !!" << std::endl;
+    delete session_;
+    ge::GEFinalize();
+    std::cout << "~AclGraphRunner success!" << std::endl;
+  }
+
+ private:
+  int device_id_;
+  ge::Session* session_;
+};
+
 #endif  // DAVINCI_GRAPH_UTILS_H
+
