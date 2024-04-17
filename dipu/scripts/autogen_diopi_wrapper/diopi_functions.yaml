@@ -362,13 +362,19 @@
 
 - schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_wrapped_number(other)) {
         return dipu_eq_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_wrapped_number(self)) {
         return dipu_eq_scalar_out(other, self.item(), out);
     }
   interface: diopiEq(ctx, out, self, other)
+
+- schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = TensorInferer().add_input(self).add_input(other).infer_comparison_op();
+    return dipu_eq_tensor_out(self, other, out);
 
 - schema: "eq_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiEqInpScalar(ctx, self, other)
@@ -1735,6 +1741,12 @@
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
+
+- schema: "matmul(Tensor self, Tensor other) -> Tensor"
+  device: [all, -droplet]
+  custom_code_at_the_beginning: |
+    auto out = TensorInferer().add_input(self).add_input(other).infer_matrix_op();
+  interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
   device: [droplet]

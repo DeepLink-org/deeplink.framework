@@ -40,6 +40,57 @@ DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   return result;
 }
 
+DimVector compute_broadcast_matrix_shape(const at::Tensor& t1,
+                                         const at::Tensor& t2) {
+  TORCH_CHECK(t1.dim() >= 1 && t2.dim() >= 1,
+              "Input tensors must have at least 1 dimension");
+
+  if (t1.dim() == 1 && t2.dim() == 1) {
+    TORCH_CHECK(t1.size(0) == t2.size(0),
+                "For dot product, both tensors must have the same size");
+    return DimVector{};
+  }
+
+  if (t1.dim() == 1 && t2.dim() == 2) {
+    TORCH_CHECK(t1.size(0) == t2.size(0),
+                "The size of the 1D tensor must match the first dimension of "
+                "the 2D tensor for matrix-vector multiplication");
+    return DimVector{t2.size(1)};
+  }
+  if (t1.dim() == 2 && t2.dim() == 1) {
+    TORCH_CHECK(t1.size(1) == t2.size(0),
+                "The second dimension of the 2D tensor must match the size of "
+                "the 1D tensor for matrix-vector multiplication");
+    return DimVector{t1.size(0)};
+  }
+
+  TORCH_CHECK(t1.size(-1) == t2.size(-2),
+              "The inner dimensions of the input tensors must match for matrix "
+              "multiplication");
+
+  DimVector result_shape;
+  // Accounting for matrix dimensions
+  result_shape.reserve(std::max(t1.dim(), t2.dim()) - 2 + 2);
+
+  // Handle broadcasting for non-matrix dimensions
+  for (int i = 0; i < std::max(t1.dim() - 2, t2.dim() - 2); ++i) {
+    auto t1_dim = i < t1.dim() - 2 ? t1.size(i) : 1;
+    auto t2_dim = i < t2.dim() - 2 ? t2.size(i) : 1;
+
+    // Ensure dimensions align or can be broadcast
+    TORCH_CHECK(t1_dim == t2_dim || t1_dim == 1 || t2_dim == 1,
+                "Broadcasting rule failure: dimensions do not align");
+
+    result_shape.push_back(std::max(t1_dim, t2_dim));
+  }
+
+  // Set the resulting matrix dimensions
+  result_shape.push_back(t1.size(-2));  // M from (M x N)
+  result_shape.push_back(t2.size(-1));  // P from (N x P)
+
+  return result_shape;
+}
+
 struct ResultTypeState {
   at::ScalarType dimResult = at::ScalarType::Undefined;
   at::ScalarType wrappedResult = at::ScalarType::Undefined;
@@ -201,6 +252,15 @@ at::Tensor TensorInferer::infer_reduce_op(c10::OptionalIntArrayRef dim,
     }
   }
 
+  compute_dtype();
+  return malloc_output();
+}
+
+at::Tensor TensorInferer::infer_matrix_op() {
+  // Ensure there are at least two tensors for matrix multiplication
+  TORCH_CHECK(inputs_.size() >= 2,
+              "Matrix operations require at least two input tensors");
+  shape_ = internal::compute_broadcast_matrix_shape(inputs_[0], inputs_[1]);
   compute_dtype();
   return malloc_output();
 }
