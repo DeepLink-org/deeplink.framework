@@ -23,9 +23,8 @@ namespace dnative = dipu::native::dipu_aten;
 namespace dipu {
 namespace {
 
-std::vector<std::regex> load_fallback_matcher() {
-  auto constexpr env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
-  auto constexpr file_name = ".dipu_force_fallback_op_list.config";
+// load_matcher is used to get regex matcher from env_name and config
+std::vector<std::regex> load_matcher(const char* env_name, const char* config_name) {
 
   auto append = [](std::istream& input, std::vector<std::regex>& output) {
     auto constexpr separator = ',';
@@ -52,13 +51,15 @@ std::vector<std::regex> load_fallback_matcher() {
     auto iss = std::istringstream(env);
     append(iss, list);
   }
-  if (auto file = std::ifstream(file_name, std::ios::binary)) {
+  if (auto file = std::ifstream(config_name, std::ios::binary)) {
     append(file, list);
   }
   return list;
 }
 
-auto const force_fallback_matchers = load_fallback_matcher();
+const char*  fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
+const char*  fallback_config_name = ".dipu_force_fallback_op_list.config";
+auto const force_fallback_matchers = load_matcher(fallback_env_name, fallback_config_name);
 
 }  // end of namespace
 

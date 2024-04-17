@@ -906,7 +906,7 @@ def functions_code_gen(fun_config):
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
 
-    if fun_config.get("autocompare", False) in [True, "True"] and fun_config.get(
+    if fun_config.get("autocompare") not in ["disable"] and fun_config.get(
         "register_op", True
     ) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
@@ -1038,12 +1038,6 @@ def parse_args():
         default=False,
         type=boolean_string,
         help="whether generate code that prints op args",
-    )
-    parser.add_argument(
-        "--autocompare",
-        default=False,
-        type=boolean_string,
-        help="whether generate code that compare device calculation results with cpu calculation results",
     )
     parser.add_argument(
         "--fun_config_dict",
