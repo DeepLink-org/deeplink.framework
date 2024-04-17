@@ -10,6 +10,29 @@
 namespace dipu {
 
 namespace internal {
+
+inline bool cat_should_skip_tensor(const at::Tensor& t) {
+  return t.numel() == 0 && t.dim() == 1;
+}
+
+ // Check to see if the shape of tensors is compatible
+ // for being concatenated along a given dimension.
+inline void check_cat_shape_except_dim(const at::Tensor & first, const at::Tensor & second, int64_t dimension, int64_t index) {
+   int64_t first_dims = first.dim();
+   int64_t second_dims = second.dim();
+   TORCH_CHECK(first_dims == second_dims, "Tensors must have same number of dimensions: got ",
+               first_dims, " and ", second_dims);
+   for (const auto dim : c10::irange(first_dims)) {
+     if (dim == dimension) {
+       continue;
+     }
+     int64_t first_dim_size = first.sizes()[dim];
+     int64_t second_dim_size = second.sizes()[dim];
+     TORCH_CHECK(first_dim_size == second_dim_size, "Sizes of tensors must match except in dimension ",
+                 dimension, ". Expected size ", static_cast<long long>(first_dim_size), " but got size ", static_cast<long long>(second_dim_size), " for tensor number ", index, " in the list.");
+   }
+ }
+
 DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   // coumpute broadcast shape
   // for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
@@ -20,10 +43,12 @@ DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   DimVector result(ndim);
 
   // Use ptrdiff_t to ensure signed comparison.
-  for (ptrdiff_t i = (ptrdiff_t)ndim - 1; i >= 0; --i) {
+  for (ptrdiff_t i = static_cast<ptrdiff_t>(ndim) - 1; i >= 0; --i) {
     // starting from the last index of a and b, then moving forward
-    ptrdiff_t dim_a = ndim_a - ndim + i;
-    ptrdiff_t dim_b = ndim_b - ndim + i;
+    ptrdiff_t dim_a =
+        static_cast<ptrdiff_t>(ndim_a) - static_cast<ptrdiff_t>(ndim) + i;
+    ptrdiff_t dim_b =
+        static_cast<ptrdiff_t>(ndim_b) - static_cast<ptrdiff_t>(ndim) + i;
     // if the index is smaller than 0, consider it as 1
     auto size_a = (dim_a >= 0) ? a[dim_a] : 1;
     auto size_b = (dim_b >= 0) ? b[dim_b] : 1;
@@ -40,55 +65,47 @@ DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   return result;
 }
 
-DimVector compute_broadcast_matrix_shape(const at::Tensor& t1,
-                                         const at::Tensor& t2) {
-  TORCH_CHECK(t1.dim() >= 1 && t2.dim() >= 1,
-              "Input tensors must have at least 1 dimension");
+std::vector<int64_t> compute_broadcast_matrix_shape(const at::Tensor& t1,
+                                                    const at::Tensor& t2) {
+  const int64_t nA = t1.dim();
+  const int64_t nB = t2.dim();
+  std::vector<int64_t> output_shape;
 
-  if (t1.dim() == 1 && t2.dim() == 1) {
-    TORCH_CHECK(t1.size(0) == t2.size(0),
-                "For dot product, both tensors must have the same size");
-    return DimVector{};
+  if (nA == nB && nB == 2) {
+    output_shape = {t1.size(0), t2.size(1)};
+  } else if (nA == 1 && nB == 2) {
+    TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
+    output_shape = {t2.size(1)};
+  } else if (nA == 2 && nB == 1) {
+    TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
+    output_shape = {t1.size(0)};
+  } else if (nA > 2 && nB == 1) {
+    TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
+    output_shape =
+        std::vector<int64_t>(t1.sizes().begin(), t1.sizes().end() - 1);
+  } else if (nA == 1 && nB > 2) {
+    TORCH_CHECK(t1.size(0) == t2.size(-2), "Inner dimensions must match.");
+    output_shape = std::vector<int64_t>(t2.sizes().begin(), t2.sizes().end());
+    output_shape.erase(output_shape.end() - 2);
+  } else if (nA >= 2 && nB >= 2) {
+    TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
+    const int64_t nC = std::max(nA, nB);
+    output_shape = std::vector<int64_t>(nC, 1);
+    output_shape[nC - 1] = t2.size(nB - 1);
+    output_shape[nC - 2] = t1.size(nA - 2);
+    for (int i = 3; i <= nC; ++i) {
+      int dim = nC - i;
+      if (nA - i >= 0 && nB - i >= 0) {
+        output_shape[dim] = std::max(t1.size(nA - i), t2.size(nB - i));
+      } else if (nA - i >= 0) {
+        output_shape[dim] = t1.size(nA - i);
+      } else if (nB - i >= 0) {
+        output_shape[dim] = t2.size(nB - i);
+      }
+    }
   }
 
-  if (t1.dim() == 1 && t2.dim() == 2) {
-    TORCH_CHECK(t1.size(0) == t2.size(0),
-                "The size of the 1D tensor must match the first dimension of "
-                "the 2D tensor for matrix-vector multiplication");
-    return DimVector{t2.size(1)};
-  }
-  if (t1.dim() == 2 && t2.dim() == 1) {
-    TORCH_CHECK(t1.size(1) == t2.size(0),
-                "The second dimension of the 2D tensor must match the size of "
-                "the 1D tensor for matrix-vector multiplication");
-    return DimVector{t1.size(0)};
-  }
-
-  TORCH_CHECK(t1.size(-1) == t2.size(-2),
-              "The inner dimensions of the input tensors must match for matrix "
-              "multiplication");
-
-  DimVector result_shape;
-  // Accounting for matrix dimensions
-  result_shape.reserve(std::max(t1.dim(), t2.dim()) - 2 + 2);
-
-  // Handle broadcasting for non-matrix dimensions
-  for (int i = 0; i < std::max(t1.dim() - 2, t2.dim() - 2); ++i) {
-    auto t1_dim = i < t1.dim() - 2 ? t1.size(i) : 1;
-    auto t2_dim = i < t2.dim() - 2 ? t2.size(i) : 1;
-
-    // Ensure dimensions align or can be broadcast
-    TORCH_CHECK(t1_dim == t2_dim || t1_dim == 1 || t2_dim == 1,
-                "Broadcasting rule failure: dimensions do not align");
-
-    result_shape.push_back(std::max(t1_dim, t2_dim));
-  }
-
-  // Set the resulting matrix dimensions
-  result_shape.push_back(t1.size(-2));  // M from (M x N)
-  result_shape.push_back(t2.size(-1));  // P from (N x P)
-
-  return result_shape;
+  return output_shape;
 }
 
 struct ResultTypeState {
@@ -134,7 +151,8 @@ static inline at::ScalarType combine_categories(at::ScalarType higher,
                                                 at::ScalarType lower) {
   if (c10::isComplexType(higher)) {
     return higher;
-  } else if (c10::isComplexType(lower)) {
+  }
+  if (c10::isComplexType(lower)) {
     // preserve value type of higher if it is floating type.
     if (c10::isFloatingType(higher)) {
       return c10::toComplexType(higher);
@@ -262,6 +280,64 @@ at::Tensor TensorInferer::infer_matrix_op() {
               "Matrix operations require at least two input tensors");
   shape_ = internal::compute_broadcast_matrix_shape(inputs_[0], inputs_[1]);
   compute_dtype();
+  return malloc_output();
+}
+
+at::Tensor TensorInferer::infer_cat(int64_t dim) {
+
+  TORCH_CHECK(!inputs_.empty(),
+              "torch.cat(): expected a non-empty list of Tensors");
+  size_t i = 0;
+  for (const at::Tensor& t : inputs_) {
+    TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
+                ") cannot be concatenated");
+    i++;
+  }
+
+  for (const at::Tensor& t : inputs_) {
+    if (t.dim() == 1 && t.size(0) == 0) {
+      continue;
+    }
+    dim = c10::maybe_wrap_dim(dim, t.dim());
+    break;
+  }
+
+  // Look for the first valid tensor.
+  size_t valid = inputs_.size();
+  for (const auto i : c10::irange(inputs_.size())) {
+    if (!internal::cat_should_skip_tensor(inputs_[i])) {
+      valid = i;
+      break;
+    }
+  }
+
+  compute_dtype();
+
+  shape_ = {0};
+
+  // If we found a valid tensor, check whether the input tensors
+  // are compatible, i.e. we can execute `cat` on them.
+  bool found_valid_tensor = valid < inputs_.size();
+  if (found_valid_tensor) {
+    TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ",
+                dim, "out of range");
+
+    // Compute the output tensor size.
+    // It should have the same shape as any other valid tensor,
+    // except in the dimension 'dim'.
+    size_t size_at_dim = 0;
+    for (const auto i : c10::irange(inputs_.size())) {
+      const at::Tensor& t = inputs_[i];
+      if (!internal::cat_should_skip_tensor(t)) {
+        internal::check_cat_shape_except_dim(inputs_[valid], t, dim, i);
+        size_at_dim += t.size(dim);
+      }
+    }
+
+    shape_ = inputs_[valid].sizes();
+    shape_[dim] = size_at_dim;
+  }
+
   return malloc_output();
 }
 

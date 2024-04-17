@@ -47,6 +47,7 @@ class TensorInferer {
       c10::optional<at::ScalarType> dtype = c10::nullopt);
   at::Tensor infer_comparison_op();
   at::Tensor infer_matrix_op();
+  at::Tensor infer_cat(int64_t dim);
 
  private:
   // Computes the shape of the output, supporting broadcasting rules.
