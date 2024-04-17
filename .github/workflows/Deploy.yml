@@ -1,0 +1,18 @@
+name: Deploy on Tag
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  deploy:
+    runs-on: github-poc-ci
+
+    steps:
+      - name: Run deployment trigger
+        run: |
+          TAG=${GITHUB_REF#refs/tags/} # Extract the tag name
+          echo $TAG
+          curl --connect-timeout 10 -X POST \
+              "http://builder:${{ secrets.jenkins_builder_token }@ci.parrots.sensetime.com:8080/job/Deploy_DIPU_trigger/buildWithParameters?token=${{ secrets.jenkins_Deploy_DIPU_trigger_token }}&DIPU_commit=${TAG}"
