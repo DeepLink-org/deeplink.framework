@@ -47,7 +47,8 @@ def _test_dipu_fallback():
         _ = x - x
 
     test_fallback(
-        ["add.out", "sub.out"], ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
+        ["add.Tensor", "add.out", "sub.Tensor", "sub.out"],
+        ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
     )
 
 
