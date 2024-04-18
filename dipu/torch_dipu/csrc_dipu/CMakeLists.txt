@@ -75,6 +75,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
+  aten/ops/OpRegexMatch.cpp
   aten/RegisterDIPU.cpp
   aten/CPUFallback.cpp
 

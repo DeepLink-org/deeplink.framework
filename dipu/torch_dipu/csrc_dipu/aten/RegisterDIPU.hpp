@@ -9,15 +9,9 @@
 #include <torch/library.h>
 
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
-
-namespace dipu {
-
-bool get_force_fallback(const char* opname);
-
-};  // namespace dipu
+#include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
 
 namespace at {
-
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                    torch::jit::Stack* stack);
 
@@ -55,7 +49,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wapperFunc)                       \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \
-        (!dipu::get_force_fallback(opname))) {                               \
+        (!dipu::whetherOpMatch(opname, fallbackMatchers))) {                               \
       m.impl(opname, TORCH_FN(wapperFunc));                                  \
     } else {                                                                 \
       if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                 \
@@ -77,7 +71,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       break;                                                                  \
     }                                                                         \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
-        !((force_fallback) || dipu::get_force_fallback(opname))) {            \
+        !((force_fallback) || dipu::whetherOpMatch(opname, fallbackMatchers))) {            \
       m.impl(opname, TORCH_FN(wapper_func));                                  \
     } else {                                                                  \
       if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {                 \

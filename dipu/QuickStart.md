@@ -185,10 +185,10 @@ python -c "import torch_dipu"
 
 由于该功能默认不开启，使用该功能时需要打开该功能并重新编译DIPU。
 
-可以通过设置环境变量USE_AUTOCOMPARE=ON，来开启该功能，然后需要重新编译DIPU。
+可以通过设置环境变量USE_GLOBAL_AUTOCOMPARE=ON，来开启该功能，然后需要重新编译DIPU。
 
 ```shell
-export USE_AUTOCOMPARE=ON
+export USE_GLOBAL_AUTOCOMPARE=ON
 ```
 
 以上方法是对所有算子开启自动精度对比。如果只需要对特定算子做精度对比，也可只给需要的算子做精度对比，只需要在相关的配置文件（如 `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml`）给相应的算子添加 `autocompare: True` 即可。

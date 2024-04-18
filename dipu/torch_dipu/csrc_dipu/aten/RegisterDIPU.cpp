@@ -21,58 +21,6 @@
 namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
-namespace {
-
-// load_matcher is used to get regex matcher from env_name and config
-std::vector<std::regex> load_matcher(const char* env_name, const char* config_name) {
-
-  auto append = [](std::istream& input, std::vector<std::regex>& output) {
-    auto constexpr separator = ',';
-
-    auto line = std::string();
-    while (std::getline(input, line)) {
-      auto buffer = std::istringstream(line);
-      auto pattern = std::string();
-      while (std::getline(buffer, pattern, separator)) {
-        if (pattern.empty()) {
-          continue;
-        }
-        try {
-          output.emplace_back(pattern);
-        } catch (const std::regex_error& e) {
-          TORCH_CHECK(false, e.what());
-        }
-      }
-    }
-  };
-
-  auto list = std::vector<std::regex>();
-  if (auto env = std::getenv(env_name)) {
-    auto iss = std::istringstream(env);
-    append(iss, list);
-  }
-  if (auto file = std::ifstream(config_name, std::ios::binary)) {
-    append(file, list);
-  }
-  return list;
-}
-
-const char*  fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
-const char*  fallback_config_name = ".dipu_force_fallback_op_list.config";
-auto const force_fallback_matchers = load_matcher(fallback_env_name, fallback_config_name);
-
-}  // end of namespace
-
-bool get_force_fallback(const char* opname) {
-  if (force_fallback_matchers.empty() || opname == nullptr) {
-    return false;
-  }
-
-  return std::any_of(
-      force_fallback_matchers.begin(), force_fallback_matchers.end(),
-      [&opname](auto& matcher) { return std::regex_match(opname, matcher); });
-}
-
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }  // end of namespace native
