@@ -11,6 +11,7 @@
 #include <c10/core/DeviceType.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/utils/env.hpp"
 
@@ -248,6 +249,19 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
   ~DIPUDeviceCachingProxy() override = default;
 
   c10::DataPtr allocate(size_t size) const override {
+    auto currentStream = getCurrentDIPUStream();
+    auto defaultStream = getDefaultDIPUStream();
+    DIPUEvent event;
+    if (currentStream != defaultStream) {
+      // When allocating memory to a non-default stream, since record_stream is
+      // not performed on the default stream, the non-default stream needs to
+      // wait for the operation on the default stream to be completed. After
+      // adding non-default stream and other default stream operations here, the
+      // upper layer does not need to manually add a wait for the default stream
+      // when allocating memory on the non-default stream.
+      event.record(defaultStream);
+      event.wait(currentStream);
+    }
     return getAllocator(device_type_)->allocate(size);
   }
 
