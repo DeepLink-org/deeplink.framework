@@ -165,7 +165,9 @@
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    // if (is_wrapped_number(other)) {
+    // Pytorch 2.0 has a bug, causing for_each mul passing a cpu scalar tensor. Fixed in PyTorch 2.1
+    if (other.dim() == 0 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
     }
     if (is_wrapped_number(self)) {
