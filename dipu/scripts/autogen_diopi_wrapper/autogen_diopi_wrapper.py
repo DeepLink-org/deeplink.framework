@@ -9,6 +9,7 @@ from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
     op_register_template_content,
+    op_register_disable_autocompare_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
     op_with_custom_fallback_register_template_content,
@@ -673,6 +674,10 @@ fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
 
+op_disable_autocompare_register_template = CodeTemplate(
+    op_register_disable_autocompare_template_content
+)
+
 op_with_custom_fallback_register_template = CodeTemplate(
     op_with_custom_fallback_register_template_content
 )
@@ -940,32 +945,35 @@ def functions_code_gen(fun_config):
             ],
         )
         fbody += autocompare_code
-        fun_name = auto_compare_fun_name
 
-    if fun_config.get("custom_fallback", False) in ["False", False]:
-        op_name = get_op_name_from_schema(fun_config["schema"])
-        raw_fun_name = fun_name.replace("_autocompare", "")
+    # generate the OP_register code
+    if fun_config.get("custom_fallback", False) in ["False", False] and fun_config.get(
+        "autocompare", True
+    ) in ["True", True]:
         register_body = op_register_template.substitute(
-            register_name=[op_name],
-            aten_fun_name=[
-                "dipu::whetherAutoCompare("
-                +'"'
-                + op_name
-                +'"'
-                + ", autocompareMatchers"
-                + ") ? "
-                + "dipu::native::"
-                + fun_name
-                + " : "
-                + "dipu::native::"
-                + raw_fun_name
-            ],
+            register_name=[get_op_name_from_schema(fun_config["schema"])],
+            aten_fun_name=["dipu::native::" + fun_name],
             diopi_fun_name=[
                 get_fun_name_from_cppsignature(diopi_interface).replace(
                     "diopi", "::diopi"
                 )
             ],
         )
+
+    elif fun_config.get("custom_fallback", False) in [
+        "False",
+        False,
+    ] and fun_config.get("autocompare") in ["disable"]:
+        register_body = op_disable_autocompare_register_template.substitute(
+            register_name=[get_op_name_from_schema(fun_config["schema"])],
+            aten_fun_name=["dipu::native::" + fun_name],
+            diopi_fun_name=[
+                get_fun_name_from_cppsignature(diopi_interface).replace(
+                    "diopi", "::diopi"
+                )
+            ],
+        )
+
     else:
         register_body = op_with_custom_fallback_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config["schema"])],
@@ -988,6 +996,7 @@ def functions_code_gen(fun_config):
                 + fun_name.replace("_autocompare", "")
             ],
         )
+
     return fbody, register_body
 
 
