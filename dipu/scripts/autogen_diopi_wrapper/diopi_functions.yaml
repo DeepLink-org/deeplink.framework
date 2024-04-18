@@ -1349,6 +1349,16 @@
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), static_cast<int64_t>(tensors.size()), dim);
 
+- schema: "aten::cat(const at::ITensorListRef & tensors, int dim=0) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto inferer = TensorInferer();
+    for (auto & t: tensors) {
+      inferer.add_input(t);
+    }
+    auto out = inferer.infer_cat(dim);
+    return dipu_cat_out(tensors, dim, out);
+
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty_like(self);
@@ -1747,6 +1757,19 @@
   custom_code_at_the_beginning: |
     auto out = TensorInferer().add_input(self).add_input(other).infer_matrix_op();
   interface: diopiMatmul(ctx, out, self, other)
+
+- schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
+  device: [all, -droplet]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input, grad_other;
+    if (mask[0]) {
+      grad_input = nodispatch::empty_like(input);
+    }
+    if (mask[1]) {
+      grad_other = nodispatch::empty_like(other);
+    }
+  interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
   device: [droplet]
