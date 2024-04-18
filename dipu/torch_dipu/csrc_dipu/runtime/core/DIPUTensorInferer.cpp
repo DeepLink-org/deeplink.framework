@@ -15,23 +15,29 @@ inline bool cat_should_skip_tensor(const at::Tensor& t) {
   return t.numel() == 0 && t.dim() == 1;
 }
 
- // Check to see if the shape of tensors is compatible
- // for being concatenated along a given dimension.
-inline void check_cat_shape_except_dim(const at::Tensor & first, const at::Tensor & second, int64_t dimension, int64_t index) {
-   int64_t first_dims = first.dim();
-   int64_t second_dims = second.dim();
-   TORCH_CHECK(first_dims == second_dims, "Tensors must have same number of dimensions: got ",
-               first_dims, " and ", second_dims);
-   for (const auto dim : c10::irange(first_dims)) {
-     if (dim == dimension) {
-       continue;
-     }
-     int64_t first_dim_size = first.sizes()[dim];
-     int64_t second_dim_size = second.sizes()[dim];
-     TORCH_CHECK(first_dim_size == second_dim_size, "Sizes of tensors must match except in dimension ",
-                 dimension, ". Expected size ", static_cast<long long>(first_dim_size), " but got size ", static_cast<long long>(second_dim_size), " for tensor number ", index, " in the list.");
-   }
- }
+// Check to see if the shape of tensors is compatible
+// for being concatenated along a given dimension.
+inline void check_cat_shape_except_dim(const at::Tensor& first,
+                                       const at::Tensor& second,
+                                       int64_t dimension, int64_t index) {
+  int64_t first_dims = first.dim();
+  int64_t second_dims = second.dim();
+  TORCH_CHECK(first_dims == second_dims,
+              "Tensors must have same number of dimensions: got ", first_dims,
+              " and ", second_dims);
+  for (const auto dim : c10::irange(first_dims)) {
+    if (dim == dimension) {
+      continue;
+    }
+    int64_t first_dim_size = first.sizes()[dim];
+    int64_t second_dim_size = second.sizes()[dim];
+    TORCH_CHECK(first_dim_size == second_dim_size,
+                "Sizes of tensors must match except in dimension ", dimension,
+                ". Expected size ", static_cast<long long>(first_dim_size),
+                " but got size ", static_cast<long long>(second_dim_size),
+                " for tensor number ", index, " in the list.");
+  }
+}
 
 DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   // coumpute broadcast shape
@@ -93,8 +99,8 @@ std::vector<int64_t> compute_broadcast_matrix_shape(const at::Tensor& t1,
     output_shape = std::vector<int64_t>(nC, 1);
     output_shape[nC - 1] = t2.size(nB - 1);
     output_shape[nC - 2] = t1.size(nA - 2);
-    for (int i = 3; i <= nC; ++i) {
-      int dim = nC - i;
+    for (int64_t i = 3; i <= nC; ++i) {
+      int64_t dim = nC - i;
       if (nA - i >= 0 && nB - i >= 0) {
         output_shape[dim] = std::max(t1.size(nA - i), t2.size(nB - i));
       } else if (nA - i >= 0) {
@@ -160,7 +166,8 @@ static inline at::ScalarType combine_categories(at::ScalarType higher,
     // in case of integral input
     // lower complex takes precedence.
     return lower;
-  } else if (c10::isFloatingType(higher)) {
+  }
+  if (c10::isFloatingType(higher)) {
     return higher;
   }
   if (higher == at::ScalarType::Bool || c10::isFloatingType(lower)) {
@@ -284,7 +291,6 @@ at::Tensor TensorInferer::infer_matrix_op() {
 }
 
 at::Tensor TensorInferer::infer_cat(int64_t dim) {
-
   TORCH_CHECK(!inputs_.empty(),
               "torch.cat(): expected a non-empty list of Tensors");
   size_t i = 0;
@@ -319,13 +325,13 @@ at::Tensor TensorInferer::infer_cat(int64_t dim) {
   // are compatible, i.e. we can execute `cat` on them.
   bool found_valid_tensor = valid < inputs_.size();
   if (found_valid_tensor) {
-    TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ",
-                dim, "out of range");
+    TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
+                "out of range");
 
     // Compute the output tensor size.
     // It should have the same shape as any other valid tensor,
     // except in the dimension 'dim'.
-    size_t size_at_dim = 0;
+    int64_t size_at_dim = 0;
     for (const auto i : c10::irange(inputs_.size())) {
       const at::Tensor& t = inputs_[i];
       if (!internal::cat_should_skip_tensor(t)) {
