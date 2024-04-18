@@ -19,7 +19,7 @@ inline bool cat_should_skip_tensor(const at::Tensor& t) {
 // for being concatenated along a given dimension.
 inline void check_cat_shape_except_dim(const at::Tensor& first,
                                        const at::Tensor& second,
-                                       int64_t dimension, int64_t index) {
+                                       int64_t dimension, size_t index) {
   int64_t first_dims = first.dim();
   int64_t second_dims = second.dim();
   TORCH_CHECK(first_dims == second_dims,
