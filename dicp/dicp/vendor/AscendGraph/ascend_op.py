@@ -970,6 +970,14 @@ class LogicalOr(Operator):
         return common_binary_op_infer(x1, x2, torch.bool)
 
 
+class LogicalNot(Operator):
+    def __init__(self):
+        super().__init__("LogicalNot")
+
+    def infer_result(self, x):
+        return common_binary_op_infer(x, torch.bool)
+
+
 class Tril(Operator):
     def __init__(self):
         super().__init__("Tril")
@@ -1060,7 +1068,15 @@ class PromptFlashAttention(Operator):
     def __init__(self):
         super().__init__("PromptFlashAttention")
 
-    def infer_result(self, q, k, v, num_head, seqlen):
+    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim):
+        return torch.empty_like(q)
+
+
+class IncreFlashAttention(Operator):
+    def __init__(self):
+        super().__init__("IncreFlashAttention")
+
+    def infer_result(self, q, k, v, head_num):
         return torch.empty_like(q)
 
 
@@ -1084,6 +1100,57 @@ class TensorScatterUpdate(Operator):
         inner_shape = x_shape[index_depth:]
         assert updates_shape == batch_shape + inner_shape
         return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
+class Gather(Operator):
+    def __init__(self):
+        super().__init__("Gather")
+
+    def infer_result(self, x, index):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
+        idx_shape = list(idx_shape)
+        idx_shape.append(x_shape[-1])
+        return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
+class InplaceCopyWithOffset(Operator):
+    def __init__(self):
+        super().__init__("InplaceCopyWithOffset")
+
+    def infer_result(self, x, src, dim, offset):
+        return src
+
+
+class ExpandDims(Operator):
+    def __init__(self):
+        super().__init__("ExpandDims")
+
+    def infer_result(self, x, axis):
+        return torch.unsqueeze(x, axis)
+
+
+class MaskedScatter(Operator):
+    def __init__(self):
+        super().__init__("MaskedScatter")
+
+    def infer_result(self, x, mask, updates):
+        return x
+
+class ViewCopy(Operator):
+    def __init__(self):
+        super().__init__("ViewCopy")
+
+    def infer_result(self, dst, dst_size, dst_stride, dst_storage_offset, src, src_size, src_stride, src_storage_offset):
+        return x
+
+
+class ScatterNdUpdate(Operator):
+    def __init__(self):
+        super().__init__("ScatterNdUpdate")
+
+    def infer_result(self, x, indices, updates):
+        return x
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

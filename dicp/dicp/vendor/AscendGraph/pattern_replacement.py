@@ -27,6 +27,7 @@ class ReplaceVarMean(BackendPatternBase):
         varVal = torch.ops.aten.var(input, dims, correction=1, keepdim=True)
         return ascend_op.ret_tuple(varVal, meanVal)
 
+
 @register_aten_pattern
 class FusedRepeatInterleaveSelfInt(BackendPatternBase):
     @staticmethod
@@ -43,6 +44,22 @@ class FusedRepeatInterleaveSelfInt(BackendPatternBase):
     @staticmethod
     def replacement(self, repeat, dim):
         return torch.ops.aten.repeat_interleave.self_int(self, repeat, dim)
+    
+
+@register_aten_pattern
+class ReplaceAtenSliceScatter(BackendPatternBase):
+    @staticmethod
+    def pattern(arg0, arg1, start_index, end_index):
+        slice = torch.ops.aten.slice.Tensor(arg0, 0, start_index, end_index)
+        copy = torch.ops.aten.copy.default(slice, arg1)
+        slice_scatter = torch.ops.aten.slice_scatter.default(arg0, copy, 0, start_index, end_index)
+        copy_ = torch.ops.aten.copy_.default(slice_scatter, arg0)
+        return slice_scatter
+
+    @staticmethod
+    def replacement(arg0, arg1, start_index, end_index):
+        slice_scatter = torch.ops.lightllm.copy_with_offset.default(arg0, arg1, start_index, end_index)
+        return slice_scatter
 
 Muls = torch.fx.wrap(ascend_op.Muls.get_singleton())
 Shape = torch.fx.wrap(ascend_op.Shape.get_singleton())

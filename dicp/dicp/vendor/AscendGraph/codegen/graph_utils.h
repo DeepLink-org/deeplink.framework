@@ -91,7 +91,8 @@ class AclgraphBuilder {
         {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
         {AscendString(ge::ir_option::FUSION_SWITCH_FILE),
          AscendString(_fusion_switch_file.c_str())},
-        // {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
+        // {AscendString(ge::ir_option::PRECISION_MODE_V2), "mixed_float16"},
+        // {AscendString(ge::ir_option::PRECISION_MODE_V2), "fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
     if (status != GRAPH_SUCCESS) {
@@ -191,23 +192,28 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
 void parseIncreFlashAttentionDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
                        op::IncreFlashAttention& op, const json& node) {
   if (node.contains("dynamic_inputs")) {
+    int kv_inputs_num = 0;
     for (const auto& i : node["dynamic_inputs"]) {
       auto num = i["num"].get<unsigned int>();
       auto name = i["name"].get<std::string>();
-      if (name == "key" || name == "value") {
-        if (name == "key") {
-          op.create_dynamic_input_key(num);
-        } else {
-          op.create_dynamic_input_value(num);
-        }
+      if (name == "key") {
+        kv_inputs_num = static_cast<int>(num);
+        op.create_dynamic_input_byindex_key(num, 1);
         for (const auto& item : i["value"]) {
           auto index = item["index"].get<uint32_t>();
           auto value = op_map[item["value"].get<std::string>()];
-          if (name == "key") {
-            op.set_dynamic_input_key(index, value);
-          } else {
-            op.set_dynamic_input_value(index, value);
-          }
+          op.set_dynamic_input_key(index, value);
+        }
+      } else if (name == "value") {
+        if (kv_inputs_num == 0 && num == kv_inputs_num) {
+          throw std::runtime_error("need first set dynamic key input for IncreFlashAttention Op"
+                                   "and kv_inputs_num == num !!");
+        }
+        op.create_dynamic_input_byindex_value(num, 1 + num);
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          op.set_dynamic_input_value(index, value);
         }
       } else {
         throw std::runtime_error("invalid dynamic input name");

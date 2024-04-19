@@ -178,8 +178,9 @@ class AscendExecutor(object):
             self.weight_ptr = None
 
     def load_model(self):
-        # work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
-        # check_ret("acl.mdl.query_size", ret)
+        work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
+        check_ret("acl.mdl.query_size", ret)
+        # print('### query_size:', work_size)
         # if work_size == 0:
         #     work_size = memory_pool.work_size
         # elif work_size > memory_pool.work_size:
@@ -196,45 +197,40 @@ class AscendExecutor(object):
         #                                                 ACL_MEM_MALLOC_HUGE_FIRST)
         #         check_ret("acl.rt.malloc", ret)
 
-        # self.weight_ptr, ret = acl.rt.malloc(weight_size,
-        #                                      ACL_MEM_MALLOC_HUGE_FIRST)
-        # check_ret("acl.rt.malloc", ret)
-        # config_handle = acl.mdl.create_config_handle()
-        # ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
-        # check_ret("set_config_opt", ret)
+        self.weight_ptr, ret = acl.rt.malloc(weight_size,
+                                             ACL_MEM_MALLOC_HUGE_FIRST)
+        check_ret("acl.rt.malloc", ret)
+        config_handle = acl.mdl.create_config_handle()
+        ret = acl.mdl.set_config_opt(config_handle, ACL_MDL_LOAD_TYPE_SIZET, 2)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_PATH_PTR, self.model_path)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_PATH_PTR, self.model_path)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_WEIGHT_ADDR_PTR, self.weight_ptr)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_WEIGHT_ADDR_PTR, self.weight_ptr)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_WEIGHT_SIZET, weight_size)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_WORKSPACE_ADDR_PTR, memory_pool.work_ptr)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_WORKSPACE_SIZET, memory_pool.work_size)
+        check_ret("set_config_opt", ret)
 
-        # ret = acl.mdl.set_config_opt(
-        #     config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
-        # check_ret("set_config_opt", ret)
+        ret = acl.mdl.set_config_opt(
+            config_handle, ACL_MDL_WORKSPACE_MEM_OPTIMIZE, 1)
+        check_ret("set_config_opt", ret)
 
-        # self.model_id, ret = acl.mdl.load_with_config(config_handle)
-        # check_ret("acl.mdl.load_with_config", ret)
+        self.model_id, ret = acl.mdl.load_with_config(config_handle)
+        check_ret("acl.mdl.load_with_config", ret)
         # print("model_id:{}".format(self.model_id))
-        
-        
-        self.model_id, ret = acl.mdl.load_from_file(self.model_path)
-        check_ret("acl.mdl.load_from_file", ret)
-        print("model_id:{}".format(self.model_id))
 
         self.model_desc = acl.mdl.create_desc()
         ret = acl.mdl.get_desc(self.model_desc, self.model_id)
@@ -303,7 +299,7 @@ class AscendExecutor(object):
                 assert (dataset == self.input_dataset)
 
     @record_function('load_and_run_prepare_output')
-    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output):
+    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output, allocated_output_with_offset_tensor):
         for i in range(self.num_outputs):
             if allocated_output and i in allocated_output.keys():
                 item = allocated_output[i]
@@ -345,8 +341,7 @@ class AscendExecutor(object):
     # @record_function(f'load_and_run_run')
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
-            allocated_output=None):
-        # print('### load_and_run: model_id:', self.model_id)
+            allocated_output=None, allocated_with_offset_output=None):
         with record_function(f'load_and_run_run_{self.model_id}'):
             assert len(images) > 0
             input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
@@ -356,6 +351,13 @@ class AscendExecutor(object):
                 allocated_output_tensor = {}
                 for output_index, input_index in allocated_output.items():
                     allocated_output_tensor[output_index] = input[input_index]
+
+            allocated_output_with_offset_tensor = None
+            if allocated_with_offset_output:
+                allocated_output_with_offset_tensor = {}
+                for item in allocated_with_offset_output:
+                    allocated_output_with_offset_tensor[item['output_index']] = {'input_tensor': input[item['input_index']], 'offset': item['offset']}
+
             self._prepare_input(input, dims)
             output = []
             if output_shape:
@@ -363,7 +365,7 @@ class AscendExecutor(object):
                     output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
             else:
                 self._prepare_output(
-                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
+                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor, allocated_output_with_offset_tensor)
             self.forward()
             self._destroy_databuffer()
             return output
@@ -388,8 +390,8 @@ class AscendModel():
         self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None, output_shape=None,
-            out_stride=None, out_storage_offset=None, allocated_output=None):
-        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output)
+            out_stride=None, out_storage_offset=None, allocated_output=None, allocated_with_offset_output=None):
+        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output, allocated_with_offset_output)
 
     def cleanup(self):
         if hasattr(self, 'exe'):

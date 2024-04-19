@@ -21,9 +21,7 @@ from dicp.vendor.AscendGraph.codegen.utils import (
 )
 from dicp.dynamo_bridge.conversion import register_conversion_impl
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
-
-# from dicp_ext_ops import lightllm
-
+from dicp.vendor.AscendGraph import ext_ops
 
 aten = torch.ops.aten
 prims = torch.ops.prims
@@ -53,7 +51,7 @@ def try_to_get_dtype(x):
 
 
 def is_dicp_cpp_support_dtype(dtype):
-    if dtype in [torch.float32, torch.float, torch.float16, torch.int32, torch.int64]:
+    if dtype in [torch.float32, torch.float, torch.float16, torch.int32, torch.int64, torch.bool]:
         return True
     return False
 
@@ -136,14 +134,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # concat all ops
         return self.get_proxy(ascend_op.ConcatD, (x_names, 0))
 
-    def get_shape_proxy(self, shape):
+    def get_shape_proxy(self, shape, dtype= torch.int32):
         if isinstance(shape, torch.fx.proxy.Proxy) or isinstance(shape, FakeTensor):
             return shape
         elif isinstance(shape, list) and symint_in_shape(shape):
             return self.process_dynamic_shape(shape)
         else:
             return self.get_proxy(
-                ascend_op.Const, (shape, torch.int32, [len(shape)]))
+                ascend_op.Const, (shape, dtype, [len(shape)]))
 
     def get_const_proxy(self, param, dtype, format=None, target_shape=None):
         if not isinstance(param, torch.fx.proxy.Proxy) and not isinstance(param, FakeTensor):
@@ -154,6 +152,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 shape = target_shape
             param = param if isinstance(param, list) else [param]
             if is_dicp_cpp_support_dtype(dtype):
+                if isinstance(param, list) and len(param) == 1:
+                    param = param[0]
                 param = self.get_proxy(
                     ascend_op.Const, (param, dtype, shape, format))
             else:
@@ -242,12 +242,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def add(self, x, y, alpha: Optional[Number] = 1):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         if not isinstance(y, torch.fx.proxy.Proxy):
-            y = y * alpha
+            y = y * alpha if alpha != 1 else y
             if out_dtype in [torch.float, torch.float16]:
                 return self.get_proxy(ascend_op.Adds, (x, float(y)), {})
             y = self.get_const_proxy(y, out_dtype)
         else:
-            y = self.mul(y, alpha)
+            y = self.mul(y, alpha) if alpha != 1 else y
             x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
         return self.get_proxy(ascend_op.AddV2, (x, y), {})
 
@@ -333,6 +333,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # TODO(tangzhiyi): miss step parameter
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
+        # y_shape = fx_traceback.get_current_meta()['val'].shape
         dim = int(dim)
         start = int(start) if start is not None else 0
         start = start if start >= 0 else x_shape[dim] + start
@@ -340,6 +341,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert start is None or start >= 0 and start < x_shape[dim]
         offset = [0] * len(x_shape)
         offset[dim] = start
+        # import pdb; pdb.set_trace()
+        
         offset = self.get_shape_proxy(offset)
         size = self.get_shape_proxy(y_shape)
         return self.get_proxy(ascend_op.Slice, (x, offset, size))
@@ -360,7 +363,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.empty_like(x)
 
     @register_conversion(aten.empty)
-    def empty(self, size, dtype=torch.int64, layout=torch.strided, device='cpu', memory_format=torch.contiguous_format):
+    def empty(self, size, dtype=torch.int64, layout=torch.strided, device='cpu', memory_format=torch.contiguous_format, pin_memory=False):
         shape_op = self.get_proxy(
             ascend_op.Const, (size, torch.int32, [len(size)]))
         return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device, memory_format))
@@ -870,7 +873,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # stack to construct param 'indices' in tf.tensor_scatter_nd_update
         x_shape = list(x.node.meta['val'].shape)
         index = indices[0]
-        if len(indices) == 1 and index.node.meta['val'].dtype == torch.bool:
+        if len(indices) == 1 and ('val' in index.node.meta.keys()) and index.node.meta['val'].dtype == torch.bool:
             index_shape = list(index.node.meta['val'].shape)
             if len(index_shape) == len(x_shape):
                 return self.masked_fill(x, index, values)
@@ -1487,6 +1490,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def LogicalOr(self, x, y):
         return self.get_proxy(ascend_op.LogicalOr, (x, y))
 
+    @register_conversion(torch.ops.aten.logical_not.default)
+    def LogicalNot(self, x):
+        return self.get_proxy(ascend_op.LogicalNot, (x,))
+
     @register_conversion(torch.ops.aten.slice_scatter.default)
     def SliceScatter(self, operand, src, dim=0, start=None, end=None, step=1):
         # modified from torchair
@@ -1531,10 +1538,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def lightllm_rotary_emb(self, x, cos, sin):
         x_shape = list(x.node.meta['val'].shape)
         assert len(x_shape) == 3
-
+        
         seq_len = x_shape[0]
         dim = x_shape[2]
-
+        
         cos_sin_shape = self.get_const_proxy([seq_len, 1, dim // 2], torch.int32)
         cos = self.get_proxy(ascend_op.Reshape, (cos, cos_sin_shape))
         sin = self.get_proxy(ascend_op.Reshape, (sin, cos_sin_shape))
@@ -1551,9 +1558,96 @@ class AtenToAscendTransformer(SingleOpTransformer):
         out = self.get_proxy(ascend_op.RmsNorm, (x, weight, eps))
         return self.get_proxy(ascend_op.Identity, (out, 0))
 
-
     @register_conversion(torch.ops.lightllm.prompt_attention_inference.default)
-    def prompt_attention_inference(self, q, k, v, num_head, seqlen):
-        fa = self.get_proxy(ascend_op.PromptFlashAttention, (q, k, v, num_head, seqlen))
-        # fa = self.get_proxy(ascend_op.Identity, (fa, 3))
+    def prompt_attention_inference(self, q, k, v, seqlen, num_head, head_dim):
+        q_shape = list(q.node.meta['val'].shape)
+        seq_len = q_shape[1]
+        shape = [seq_len, seq_len]
+        shape = self.get_proxy(ascend_op.Const, (shape, torch.int32, [len(shape)]))
+        mask = self.get_proxy(ascend_op.Empty, (shape, torch.bool))
+        mask = self.get_proxy(ascend_op.OnesLike, (mask,))
+        mask = self.get_proxy(ascend_op.Tril, (mask,))
+        mask = self.get_proxy(ascend_op.LogicalNot, (mask,))
+        fa = self.get_proxy(ascend_op.PromptFlashAttention, (q, k, v, num_head, seqlen, mask, head_dim))
         return fa
+
+    def incre_flash_attention(self, q, k, v, head_num, kv_head_num, dim):
+        k_list = []
+        v_list = []
+        if not isinstance(k, list):
+            k_list.append(k)
+        else:
+            k_list = k
+        if not isinstance(v, list):
+            v_list.append(v)
+        else:
+            v_list = v
+        assert len(k_list) == len(v_list)
+        kv_input_num = len(k_list)
+        out = self.get_proxy(ascend_op.IncreFlashAttention, (q, k_list, v_list, kv_input_num, kv_head_num, head_num, dim, "BSH"))
+        return out
+
+    @register_conversion(aten.select_scatter.default)
+    def select_scatter(self, x, src, dim, index):
+        if not isinstance(index, torch.fx.proxy.Proxy):
+            index = self.get_const_proxy(index, torch.int32)
+        input_sizes = self.get_proxy(ascend_op.Shape, (x,))
+        index = self.get_proxy(ascend_op.BroadcastTo, (index, input_sizes))
+        dim_op = self.get_const_proxy(dim, torch.int32)
+        src = self.get_proxy(ascend_op.ExpandDims, (src, dim_op))
+        src = self.get_proxy(ascend_op.BroadcastTo, (src, input_sizes))
+        
+        return self.get_proxy(ascend_op.ScatterElements, (x, index, src, dim))
+
+    @register_conversion(torch.ops.lightllm.copy_with_offset.default)
+    def copy_with_offset2(self, x, src, start_dim, end_dim):
+        dims = [x for x in range(start_dim, end_dim)]
+        dims = self.get_const_proxy(dims, torch.int32, target_shape=[len(dims), 1])
+        return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
+
+    @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
+    def flash_attention_inference2(self, q, all_k, all_v, current_len, max_len):
+        q_shape = list(q.node.meta['val'].shape)
+        batch, head, dim = q_shape[0], q_shape[1], q_shape[2]
+        
+        res = []
+        compute_batch = 1
+        select_axis = self.get_const_proxy(0, torch.int32)
+
+        for i in range(batch):
+            current_len = current_len[i]
+            select_index = self.get_const_proxy(i, torch.int32)
+            xq = self.get_proxy(ascend_op.GatherV2, (q, select_index, select_axis))
+
+            kv_start_index = self.get_const_proxy([i * max_len, 0, 0], torch.int32)
+            kv_end_index = self.get_const_proxy([i * max_len + current_len, head, dim], torch.int32)
+            kv_seq_len = current_len
+
+            kv_gather_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head, dim])
+            kv_compute_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head * dim])
+            
+            # fetch k
+            k = self.get_proxy(ascend_op.Slice, (all_k, kv_start_index, kv_end_index))
+            k = self.get_proxy(ascend_op.Reshape, (k, kv_gather_shape))
+            k = self.get_proxy(ascend_op.Reshape, (k, kv_compute_shape))
+
+            # fetch v
+            v = self.get_proxy(ascend_op.Slice, (all_v, kv_start_index, kv_end_index))
+            v = self.get_proxy(ascend_op.Reshape, (v, kv_gather_shape))
+            v = self.get_proxy(ascend_op.Reshape, (v, kv_compute_shape))
+
+            # k,v shape: batch, kv_seq_len, head, dim
+            q_shape = self.get_shape_proxy([compute_batch, 1, head, dim])
+            q_compute_shape = self.get_shape_proxy([compute_batch, 1, head * dim])
+            xq = self.get_proxy(ascend_op.Reshape, (xq, q_shape))
+            xq = self.get_proxy(ascend_op.Reshape, (xq, q_compute_shape))
+            
+            out = self.incre_flash_attention(xq, k, v, head, head, dim)  # q shape is BSH
+            out_shape = self.get_shape_proxy([compute_batch, 1, head, dim])
+            out_shape2 = self.get_shape_proxy([compute_batch, head, dim])
+            out = self.get_proxy(ascend_op.Reshape, (out, out_shape))
+            out = self.get_proxy(ascend_op.Reshape, (out, out_shape2))
+            res.append(out)
+        
+        res = self.get_proxy(ascend_op.ConcatD, (res, 0))
+        return res

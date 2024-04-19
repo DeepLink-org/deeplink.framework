@@ -1,9 +1,11 @@
 import json
 import os
+import math
 import uuid
 import torch
 from typing import Any, List
 from torch.fx.node import Node
+from torch.utils._pytree import tree_map_only
 from torch._inductor.utils import IndentedBuffer
 from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
@@ -11,6 +13,8 @@ from dicp.vendor.AscendGraph.codegen.utils import (
     get_cpp_dtype,
     get_ascend_dtype_num
 )
+
+need_profile = False
 
 graph_id = 0
 
@@ -72,6 +76,7 @@ class AscendCodegen(torch.fx.Interpreter):
         # for modified args return
         self.assign_args = []
         self.cpu_tensor = []
+        self.assign_with_offset_args = []
 
         super().__init__(graph)
 
@@ -135,6 +140,8 @@ class AscendCodegen(torch.fx.Interpreter):
                 self.cpu_tensor.append(self.cur_node.meta['prop']['cpu_tensor'])
             if 'prop' in self.cur_node.meta and 'assign_args' in self.cur_node.meta['prop']:
                 self.assign_args.append(self.cur_node.meta['prop']['assign_args'])
+            if 'prop' in self.cur_node.meta and 'assign_with_offset_args' in self.cur_node.meta['prop']:
+                self.assign_with_offset_args.append(self.cur_node.meta['prop']['assign_with_offset_args'])
 
         _, args_list = AscendOverrides.gen_args(
             self.args_dict[name], self.args_dict, args)
@@ -197,6 +204,10 @@ class AscendCodegen(torch.fx.Interpreter):
 
         if len(self.assign_args) > 0:
             self.graph_output_names.extend(list(zip(*self.assign_args))[0])
+        current_index = len(self.graph_output_names)
+        for i in range(len(self.assign_with_offset_args)):
+            self.assign_with_offset_args[i]['output_index'] = current_index
+            current_index += 1
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -374,7 +385,15 @@ class AscendCodegen(torch.fx.Interpreter):
             output_index = self.graph_output_names.index(item[0])
             allocated_output[output_index] = input_index
         call_body.writeline(f'allocated_output= {allocated_output}')
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output)']
+        
+        allocated_output_with_offset = {}
+        for item in self.assign_with_offset_args:
+            # input_index = item['input_index']
+            output_index = item['output_index']
+            # offset = item['offset']
+            allocated_output_with_offset[output_index] = item
+        call_body.writeline(f'allocated_with_offset_output= {self.assign_with_offset_args}')
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output, allocated_with_offset_output)']
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
@@ -492,10 +511,14 @@ class AscendCodegen(torch.fx.Interpreter):
         self.parse_outputs()
         self.gen_build_options()
         has_dynamic_shape = False if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0 else True
+        with_copy_inplace = self.graph_output_names
+        for i in self.assign_with_offset_args:
+            with_copy_inplace.append(i['name'])
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
-            "output_names": self.graph_output_names,
+            # "output_names": self.graph_output_names,
+            "output_names": with_copy_inplace,
             "has_dynamic_shape": has_dynamic_shape,
             "build_options": self.build_options,
             "data_nodes": self.data_nodes,
@@ -527,8 +550,8 @@ class AscendOperator:
         self.op_name = op_name
         self.op_type = op_type
         self.inputs = []
-        self.optional_inputs = []
         self.outputs = []
+        self.optional_inputs = []
         self.attrs = []
         self.dynamic_inputs = []
         self.dynamic_outputs = []
@@ -540,10 +563,10 @@ class AscendOperator:
         }
         if len(self.inputs) > 0:
             node["inputs"] = self.inputs
-        if len(self.optional_inputs) > 0:
-            node["optional_inputs"] = self.optional_inputs
         if len(self.outputs) > 0:
             node["outputs"] = self.outputs
+        if len(self.optional_inputs) > 0:
+            node["optional_inputs"] = self.optional_inputs
         if len(self.attrs) > 0:
             node["attrs"] = self.attrs
         if len(self.dynamic_inputs) > 0:
@@ -701,11 +724,13 @@ class AscendOverrides:
     def gen_args(op_var, args_dict, args):
         src_code = IndentedBuffer()
         args_str = [op_var]
-        for i in range(len(args)):
-            if isinstance(args[i], Node):
-                args_str.append(args_dict[args[i].name])
-            else:
-                args_str.append(args[i])
+        args_str.extend(tree_map_only(Node, lambda x: args_dict[x.name], args))
+
+        # for i in range(len(args)):
+        #     if isinstance(args[i], Node):
+        #         args_str.append(args_dict[args[i].name])
+        #     else:
+        #         args_str.append(args[i])
         return src_code, args_str
 
     @staticmethod
@@ -1067,9 +1092,6 @@ class AscendOverrides:
     def Const(name, x, dtype, dims=None, format="ND"):
         if not isinstance(x, list):
             x = [x]
-        if len(x) <= 0:
-            import pdb;pdb.set_trace()
-            pass
         # assert len(x) > 0
         ascend_dtype = get_ascend_dtype(dtype)
         cpp_dtype = get_cpp_dtype(dtype)
@@ -1399,7 +1421,8 @@ class AscendOverrides:
         x_name = []
         for elem in x:
             if elem is not None:
-                x_name.append(elem.name)
+                # x_name.append(elem.name)
+                x_name.append(elem)
 
         op = OP(name, "Pack")
         op.set_dynamic_input("x", len(x_name), x_name)
@@ -1604,6 +1627,12 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def LogicalNot(name, x):
+        op = OP(name, "LogicalNot")
+        op.set_input("x", x)
+        return op.to_node()
+
+    @staticmethod
     def TileWithAxis(name, x, axis, tiles):
         op = OP(name, "TileWithAxis")
         op.set_input("x", x)
@@ -1635,21 +1664,86 @@ class AscendOverrides:
         op.set_attr_float("epsilon", float(eps))
         return op.to_node()
 
-
     @staticmethod
-    def PromptFlashAttention(name, q, k, v, head_num, seqlen):
+    def PromptFlashAttention(name, q, k, v, head_num, seqlen, mask, head_dim):
+        # import pdb; pdb.set_trace()
         op = OP(name, "PromptFlashAttention")
         op.set_input("query", q)
         op.set_input("key", k)
         op.set_input("value", v)
-        op.set_optional_input("actual_seq_lengths", seqlen)
+        op.set_input("atten_mask", mask)
+        # op.set_optional_input("atten_mask", mask)
+        # op.set_optional_input("padding_mask", mask)
+        # op.set_input("actual_seq_lengths", seqlen)
         # op.set_optional_input("actual_seq_lengths_kv", seqlen)
         op.set_attr_int("num_heads", head_num)
-        # op.set_attr_float("scale_value", float(1 / 0.0078125))】
-        # op.set_attr_float("scale_value", float(1 / 2))
-        op.set_attr_float("scale_value", float(1 / 11.313708498984761))
-        # op.set_attr_float("scale_value", float(1 / 5.656854249492381))
-        op.set_attr_str("input_layout", "BSH")
+        # op.set_attr_float("scale_value", float(1 / 11.313708498984761))
+        op.set_attr_float("scale_value", float(1 / math.sqrt(head_dim)))
+        # op.set_attr_int("pre_tokens", 214748647)
+        # op.set_attr_int("next_tokens", 0)
         # op.set_attr_int("num_key_value_heads", head_num)
+        op.set_attr_str("input_layout", "BSH")
+        # op.set_attr_int("num_key_value_heads", 0)
+        return op.to_node()
 
+
+    @staticmethod
+    def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, head_num, kv_head_num, dim, input_layout="BSH"):
+        op = OP(name, "IncreFlashAttention")
+        op.set_input("query", q)
+        op.set_dynamic_input("key", kv_input_num, k_list)
+        op.set_dynamic_input("value", kv_input_num, v_list)
+        op.set_attr_int("num_heads", head_num)
+        op.set_attr_float("scale_value", float(1 / math.sqrt(dim)))
+        op.set_attr_int("num_key_value_heads", kv_head_num)
+        op.set_attr_str("input_layout", input_layout)
+        return op.to_node()
+
+    @staticmethod
+    def Gather(name, x, indices):
+        gather_op = OP(name, "Gather")
+        gather_op.set_input("x", x)
+        gather_op.set_input("indices", indices)
+        return gather_op.to_node()
+
+    @staticmethod
+    def ExpandDims(name, x, axis):
+        gather_op = OP(name, "ExpandDims")
+        gather_op.set_input("x", x)
+        gather_op.set_input("axis", axis)
+        return gather_op.to_node()
+
+    @staticmethod
+    def InplaceCopyWithOffset(name, x, src, dim, offset):
+        op = OP(name, "Identity")
+        op.set_input("x", src)
+        return op.to_node()
+
+    @staticmethod
+    def MaskedScatter(name, x, mask, updates):
+        op = OP(name, "MaskedScatter")
+        op.set_input("x", x)
+        op.set_input("mask", mask)
+        op.set_input("updates", updates)
+        return op.to_node()
+
+    @staticmethod
+    def ViewCopy(name, dst, dst_size, dst_stride, dst_storage_offset, src, src_size, src_stride, src_storage_offset):
+        op = OP(name, "ViewCopy")
+        op.set_input("dst", dst)
+        op.set_input("dst_size", dst_size)
+        op.set_input("dst_stride", dst_stride)
+        op.set_input("dst_storage_offset", dst_storage_offset)
+        op.set_input("src", src)
+        op.set_input("src_size", src_size)
+        op.set_input("src_stride", src_stride)
+        op.set_input("src_storage_offset", src_storage_offset)
+        return op.to_node()
+
+    @staticmethod
+    def ScatterNdUpdate(name, x, indices, updates):
+        op = OP(name, "ScatterNdUpdate")
+        op.set_input("var", x)
+        op.set_input("indices", indices)
+        op.set_input("updates", updates)
         return op.to_node()
