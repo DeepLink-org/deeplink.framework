@@ -1,12 +1,12 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <torch/library.h>
-
 #include <deque>
 #include <fstream>
 #include <iostream>
 #include <mutex>
+
+#include <torch/library.h>
 
 #include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"

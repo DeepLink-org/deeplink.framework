@@ -1,17 +1,17 @@
 // Copyright (c) 2023, DeepLink.
 #include "RegisterDIPU.hpp"
 
+#include <algorithm>
+#include <ios>
+#include <iostream>
+#include <regex>
+
 #include <ATen/EmptyTensor.h>
 #include <ATen/core/op_registration/adaption.h>
 #include <ATen/native/CPUFallback.h>
 #include <c10/core/Storage.h>
 #include <c10/util/Exception.h>
 #include <c10/util/irange.h>
-
-#include <algorithm>
-#include <ios>
-#include <iostream>
-#include <regex>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/basedef.h"
