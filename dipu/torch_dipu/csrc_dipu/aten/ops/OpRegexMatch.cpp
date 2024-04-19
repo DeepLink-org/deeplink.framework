@@ -48,7 +48,8 @@ std::vector<std::regex> loadMatcher(const char* env_name,
   return list;
 }
 
-bool whetherOpMatch(const char* opname, std::vector<std::regex> regexMatchers) {
+bool whetherOpMatch(const char* opname,
+                    const std::vector<std::regex>& regexMatchers) {
   if (regexMatchers.empty() || opname == nullptr) {
     return false;
   }
@@ -59,7 +60,7 @@ bool whetherOpMatch(const char* opname, std::vector<std::regex> regexMatchers) {
 }
 
 bool whetherGlobalAutocompare() {
-  static const char* globalAutocompare = std::getenv("USE_GLOBAL_AUTOCOMPARE");
+  const char* globalAutocompare = std::getenv("USE_GLOBAL_AUTOCOMPARE");
   if (globalAutocompare == nullptr) {
     return false;
   }
@@ -84,7 +85,7 @@ bool whetherGlobalAutocompare() {
 // Whether to enable AutoCompare is based on USE_GLOBAL_AUTOCOMPARE and
 // SPECIFIED_AUTOCOMPARE_OPS_LIST
 bool whetherAutoCompare(const char* opname,
-                        std::vector<std::regex> autocompareMatchers) {
+                        const std::vector<std::regex>& autocompareMatchers) {
   // if USE_GLOBAL_AUTOCOMPARE is true, global autocompare is enabled regardless
   // the value of SPECIFIED_AUTOCOMPARE_OPS_LIST
   if (whetherGlobalAutocompare()) {
@@ -98,11 +99,11 @@ bool whetherAutoCompare(const char* opname,
 
 const char* fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
 const char* fallback_config_name = ".dipu_force_fallback_op_list.config";
-std::vector<std::regex> fallbackMatchers =
+const std::vector<std::regex> fallbackMatchers =
     dipu::loadMatcher(fallback_env_name, fallback_config_name);
 
 const char* specified_autocompare_env_name = "SPECIFIED_AUTOCOMPARE_OPS_LIST";
 const char* specified_autocompare_config_name =
     ".specified_autocompare_op_list.config";
-std::vector<std::regex> autocompareMatchers = dipu::loadMatcher(
+const std::vector<std::regex> autocompareMatchers = dipu::loadMatcher(
     specified_autocompare_env_name, specified_autocompare_config_name);
