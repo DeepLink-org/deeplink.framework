@@ -1,4 +1,6 @@
 // Copyright (c) 2023, DeepLink.
+#include "RegisterDIPU.hpp"
+
 #include <ATen/EmptyTensor.h>
 #include <ATen/core/op_registration/adaption.h>
 #include <ATen/native/CPUFallback.h>
@@ -11,7 +13,6 @@
 #include <iostream>
 #include <regex>
 
-#include "RegisterDIPU.hpp"
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/profiler/profiler.h"

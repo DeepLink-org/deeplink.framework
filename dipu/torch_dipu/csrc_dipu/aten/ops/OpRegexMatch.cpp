@@ -1,3 +1,6 @@
+// Copyright (c) 2024, DeepLink.
+#include "OpRegexMatch.hpp"
+
 #include <c10/util/Exception.h>
 
 #include <algorithm>
@@ -5,8 +8,6 @@
 #include <ios>
 #include <iostream>
 #include <regex>
-
-#include "OpRegexMatch.hpp"
 
 // loadMatcher is used to get regex matcher from env_name and config
 // fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST"; fallback_config_name =
