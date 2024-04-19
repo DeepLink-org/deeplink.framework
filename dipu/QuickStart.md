@@ -158,7 +158,8 @@ sh ./tests/python/run_tests.sh
 
 ### 算子库拓展功能
 
-#### 算子Fallback功能 
+#### 算子Fallback功能
+
 Fallback指的是使用算子的CPU实现，而非设备实现。  
 Fallback给定算子：
 
@@ -182,7 +183,9 @@ python -c "import torch_dipu"
 ```
 
 #### 算子精度自动对比功能
+
 算子精度自动对比功能用于确保算子计算结果的正确性，通过将设备参数拷贝到CPU上，对比CPU和设备的计算结果来判断精度是否达标。以下是算子精度自动对比功能的使用例子：
+
 ```shell
 $ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制 fallback到CPU, 可选
 $ python
@@ -213,8 +216,11 @@ autocompare:    add.out other: allclose
 可以看到，输出包括 CPU 和设备计算结果的 `shape`、`stride`、`dtype` 等信息， 最终结果是CPU和设备的self和out都是allclose的。
 
 ##### 算子精度自动对比功能的设置
+
 算子精度自动对比功能默认不开启，可以设置环境变量`USE_GLOBAL_AUTOCOMPARE`和`SPECIFIED_AUTOCOMPARE_OPS_LIST`来控制该功能，在开启算子自动对比功能前，必须unset  `DIPU_FORCE_FALLBACK_OPS_LIST`
+
 - 可以通过设置环境变量`USE_GLOBAL_AUTOCOMPARE=ON`，开启全局的精度对比，这种情况下所有调用的算子都会进行精度对比，也可以设置为OFF来关闭所有算子的精度自动对比功能
+
 ```shell
 # 开启全局的算子精度自动对比功能
 export USE_GLOBAL_AUTOCOMPARE=ON
@@ -228,7 +234,8 @@ export USE_GLOBAL_AUTOCOMPARE=OFF
 export SPECIFIED_AUTOCOMPARE_OPS_LIST=add*
 ```
 
-NOTE: 
+NOTE:
+
 1. 部分算子并不支持自动精度对比功能，可以查看[diopi_functions.yaml](https://github.com/DeepLink-org/deeplink.framework/blob/main/dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml)，其中的`autocompare`配置项为`disable`即不支持自动精度对比功能，同时也可以修改`diopi_functions.yaml`，将某些算子的`autocompare`配置项设置为`disable`来禁用自动对比功能。
 2. `dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml` 中配置了 `autograd:True` 的算子 (`cross_entropy_loss`、`conv2d`、`dropout`、`dropout_`、`linear`) 暂不支持 *backward* 的精度自动对比。如模型精度对不齐，可根据需要先将这几个算子 fallback 到 CPU 来确定问题。
 3. 对输入参数(self)做检查是确保算子的输入不被意外修改。
