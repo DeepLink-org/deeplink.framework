@@ -229,9 +229,9 @@ export USE_GLOBAL_AUTOCOMPARE=ON
 - 在未开启`USE_GLOBAL_AUTOCOMPARE`的前提下，可以设置`SPECIFIED_AUTOCOMPARE_OPS_LIST`来指定算子开启自动精度对比，支持正则表达式匹配。算子名可以参考[diopi_functions.yaml](https://github.com/DeepLink-org/deeplink.framework/blob/main/dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml)。
 
 ```shell
-# 关闭全局的算子精度自动对比功能，并指定add*算子进行对比
+# 关闭全局的算子精度自动对比功能，并指定add.*?算子进行对比
 export USE_GLOBAL_AUTOCOMPARE=OFF
-export SPECIFIED_AUTOCOMPARE_OPS_LIST=add*
+export SPECIFIED_AUTOCOMPARE_OPS_LIST=add.*?
 ```
 
 NOTE:
