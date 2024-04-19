@@ -84,10 +84,8 @@ bool whetherAutoCompare(const char* opname, std::vector<std::regex> autocompareM
     return true;
   } 
   // else if opname in SPECIFIED_AUTOCOMPARE_OPS_LIST, the specified op will be autocomapred
-  // return whetherOpMatch(opname, autocompareMatchers);
-  return false;
-
-}
+  return whetherOpMatch(opname, autocompareMatchers);
+  }
 } // end of namespace dipu
 
 const char*  fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
