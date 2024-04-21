@@ -29,6 +29,7 @@ class AscendCompileJob(DeviceCompileJob):
                   'local_rank' + str(self._local_rank) + code_hash(compile_file_code)
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
+        print('output_path: ', self._output_graph_path)
         self._model_path = [f'{self._output_graph_path}.om',
                             f'{self._output_graph_path}_linux_x86_64.om']
         self._lib_path = "/tmp/dicp_ascend/graph_compile"
@@ -65,7 +66,6 @@ class AscendCompileJob(DeviceCompileJob):
             os.system("mkdir -p /tmp/dicp_ascend")
             start = time.time()
             try:
-                print(' '.join(self._cmd))
                 subprocess.check_output(self._cmd, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 raise exc.CppCompileError(self._cmd, e.output) from e
@@ -78,9 +78,7 @@ class AscendCompileJob(DeviceCompileJob):
         self._compile()
         cmd = [self._lib_path, output_path, graph_path, self.fusion_switch_file]
         try:
-            print(' '.join(cmd))
-            out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            print(out.decode('utf-8'))
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             raise exc.CppCompileError(cmd, e.output) from e
 

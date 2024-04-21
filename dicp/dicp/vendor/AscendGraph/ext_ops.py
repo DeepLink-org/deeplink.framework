@@ -54,11 +54,10 @@ def lightllm_prompt_attention_inference_abstract(q: Tensor, k: Tensor, v: Tensor
 
 @prompt_attention_inference.impl(['cpu', 'cuda'])
 def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim):
-    # prompt attention just support bs=1 for now.
-    assert q.shape[0] == 1
+    assert q.shape[0] == 1, "prompt attention just support bs=1 for now."
     bs = q.shape[0]
     seqlen = seqlen.item()
-
+    
     xq = q.view(bs, seqlen, num_head, head_dim)
     xk = k.view(bs, seqlen, num_head, head_dim)
     xv = v.view(bs, seqlen, num_head, head_dim)

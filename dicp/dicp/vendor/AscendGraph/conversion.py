@@ -152,8 +152,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 shape = target_shape
             param = param if isinstance(param, list) else [param]
             if is_dicp_cpp_support_dtype(dtype):
-                if isinstance(param, list) and len(param) == 1:
-                    param = param[0]
                 param = self.get_proxy(
                     ascend_op.Const, (param, dtype, shape, format))
             else:
@@ -504,21 +502,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dynamic_shape and (self.shape_prod(y_shape) < self.shape_prod(out)):
             y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
         return self.get_proxy(ascend_op.Less, (x, y))
-
-    
-        # y_shape = [1]
-        # if isinstance(y, torch.fx.proxy.Proxy):
-        #     y_shape = list(y.node.meta['val'].shape)
-        # x_shape = list(x.node.meta['val'].shape)
-        # out = list(fx_traceback.get_current_meta()['val'].shape)
-        # out_shape = self.get_shape_proxy(out)
-        # x, y = self.binary_cmp_cast_input(x, y)
-
-        # # if self.shape_prod(x_shape) < self.shape_prod(out):
-        # #     x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
-        # # if self.shape_prod(y_shape) < self.shape_prod(out):
-        # #     y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
-        # return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
     def masked_fill(self, x, mask, value):
@@ -1606,7 +1589,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
-    def flash_attention_inference2(self, q, all_k, all_v, current_len, max_len):
+    def flash_attention_inference(self, q, all_k, all_v, current_len, max_len):
         q_shape = list(q.node.meta['val'].shape)
         batch, head, dim = q_shape[0], q_shape[1], q_shape[2]
         

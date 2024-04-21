@@ -180,22 +180,21 @@ class AscendExecutor(object):
     def load_model(self):
         work_size, weight_size, ret = acl.mdl.query_size(self.model_path)
         check_ret("acl.mdl.query_size", ret)
-        # print('### query_size:', work_size)
-        # if work_size == 0:
-        #     work_size = memory_pool.work_size
-        # elif work_size > memory_pool.work_size:
-        #     free, _, ret = acl.rt.get_mem_info(ACL_HBM_MEM)
-        #     check_ret("acl.rt.get_mem_info", ret)
-        #     # If free < work_size, means that memory is insufficient.
-        #     # Just ignore and continue, it may be work.
-        #     if free > work_size:
-        #         memory_pool.work_size = work_size
-        #         memory_pool.release_memory()
-        #         import pdb;pdb.set_trace()
-        #         print("Adjust memory pool allocation.")
-        #         memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
-        #                                                 ACL_MEM_MALLOC_HUGE_FIRST)
-        #         check_ret("acl.rt.malloc", ret)
+        if work_size == 0:
+            work_size = memory_pool.work_size
+        elif work_size > memory_pool.work_size:
+            free, _, ret = acl.rt.get_mem_info(ACL_HBM_MEM)
+            check_ret("acl.rt.get_mem_info", ret)
+            # If free < work_size, means that memory is insufficient.
+            # Just ignore and continue, it may be work.
+            if free > work_size:
+                memory_pool.work_size = work_size
+                memory_pool.release_memory()
+                import pdb;pdb.set_trace()
+                print("Adjust memory pool allocation.")
+                memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
+                                                        ACL_MEM_MALLOC_HUGE_FIRST)
+                check_ret("acl.rt.malloc", ret)
 
         self.weight_ptr, ret = acl.rt.malloc(weight_size,
                                              ACL_MEM_MALLOC_HUGE_FIRST)
@@ -230,7 +229,7 @@ class AscendExecutor(object):
 
         self.model_id, ret = acl.mdl.load_with_config(config_handle)
         check_ret("acl.mdl.load_with_config", ret)
-        # print("model_id:{}".format(self.model_id))
+        print("model_id:{}".format(self.model_id))
 
         self.model_desc = acl.mdl.create_desc()
         ret = acl.mdl.get_desc(self.model_desc, self.model_id)
@@ -338,7 +337,7 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    # @record_function(f'load_and_run_run')
+    @record_function(f'load_and_run_run')
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
             allocated_output=None, allocated_with_offset_output=None):

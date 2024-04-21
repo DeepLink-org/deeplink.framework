@@ -14,7 +14,6 @@ from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype_num
 )
 
-need_profile = False
 
 graph_id = 0
 
@@ -67,8 +66,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.folder = folder
         self.graph_key = graph_key
 
-        # aten_graph.print_readable()
-        # graph.print_readable()
 
         self.sym_to_inputs = {}
         self.sym_in_args = {}
@@ -551,7 +548,6 @@ class AscendOperator:
         self.op_type = op_type
         self.inputs = []
         self.outputs = []
-        self.optional_inputs = []
         self.attrs = []
         self.dynamic_inputs = []
         self.dynamic_outputs = []
@@ -565,8 +561,6 @@ class AscendOperator:
             node["inputs"] = self.inputs
         if len(self.outputs) > 0:
             node["outputs"] = self.outputs
-        if len(self.optional_inputs) > 0:
-            node["optional_inputs"] = self.optional_inputs
         if len(self.attrs) > 0:
             node["attrs"] = self.attrs
         if len(self.dynamic_inputs) > 0:
@@ -577,12 +571,6 @@ class AscendOperator:
 
     def set_input(self, name, value):
         self.inputs.append({
-            "name": name,
-            "value": value,
-        })
-
-    def set_optional_input(self, name, value):
-        self.optional_inputs.append({
             "name": name,
             "value": value,
         })
@@ -1092,7 +1080,7 @@ class AscendOverrides:
     def Const(name, x, dtype, dims=None, format="ND"):
         if not isinstance(x, list):
             x = [x]
-        # assert len(x) > 0
+        assert len(x) > 0
         ascend_dtype = get_ascend_dtype(dtype)
         cpp_dtype = get_cpp_dtype(dtype)
         const_op = OP(name, "Const")
@@ -1421,7 +1409,6 @@ class AscendOverrides:
         x_name = []
         for elem in x:
             if elem is not None:
-                # x_name.append(elem.name)
                 x_name.append(elem)
 
         op = OP(name, "Pack")
@@ -1666,24 +1653,14 @@ class AscendOverrides:
 
     @staticmethod
     def PromptFlashAttention(name, q, k, v, head_num, seqlen, mask, head_dim):
-        # import pdb; pdb.set_trace()
         op = OP(name, "PromptFlashAttention")
         op.set_input("query", q)
         op.set_input("key", k)
         op.set_input("value", v)
         op.set_input("atten_mask", mask)
-        # op.set_optional_input("atten_mask", mask)
-        # op.set_optional_input("padding_mask", mask)
-        # op.set_input("actual_seq_lengths", seqlen)
-        # op.set_optional_input("actual_seq_lengths_kv", seqlen)
         op.set_attr_int("num_heads", head_num)
-        # op.set_attr_float("scale_value", float(1 / 11.313708498984761))
         op.set_attr_float("scale_value", float(1 / math.sqrt(head_dim)))
-        # op.set_attr_int("pre_tokens", 214748647)
-        # op.set_attr_int("next_tokens", 0)
-        # op.set_attr_int("num_key_value_heads", head_num)
         op.set_attr_str("input_layout", "BSH")
-        # op.set_attr_int("num_key_value_heads", 0)
         return op.to_node()
 
 
