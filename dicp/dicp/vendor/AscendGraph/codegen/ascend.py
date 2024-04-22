@@ -281,7 +281,7 @@ class AscendCodegen(torch.fx.Interpreter):
         # dynamic shape feature
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             args = ['_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg for arg in self.args]
-            call_body.writeline("({','.join(args)}) = args")
+            call_body.writeline(f"({','.join(args)}) = args")
 
         # generate input dims
         if len(self.dynamic_inputs) > 0:
