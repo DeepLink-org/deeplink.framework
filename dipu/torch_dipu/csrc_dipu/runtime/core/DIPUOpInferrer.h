@@ -22,6 +22,7 @@ class OpInferrer {
 
   DimVector target_shape() const { return shape_; }
 
+ protected:
   void add_inputs(const std::vector<at::Tensor>& inputs) {
     TORCH_CHECK(!inputs.empty(), "Input tensors must not be empty");
     for (const auto& tensor : inputs) {
@@ -29,11 +30,6 @@ class OpInferrer {
     }
     inputs_ = inputs;
   }
-
-  // core logic to infer
-  virtual void infer() = 0;
-
- protected:
   // Computes the shape of the output, supporting broadcasting rules.
   void compute_shape();
 
@@ -48,7 +44,6 @@ class OpInferrer {
     return native::nodispatch::empty(shape_, options);
   }
 
-  // Member Variables
   c10::SmallVector<at::Tensor, 4> inputs_;
   DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
@@ -57,62 +52,33 @@ class OpInferrer {
 
 class BinaryOpInferrer final : public OpInferrer {
  public:
-  void meta(const at::Tensor& self, const at::Tensor& other) {
-    add_inputs({self, other});
-    infer();
-  }
-  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other) {
-    meta(self, other);
-    return malloc_output();
-  }
-
- private:
-  void infer() override;
+  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
 };
 
 class BinaryFloatOpInferrer final : public OpInferrer {
  public:
-  void meta(const at::Tensor& self, const at::Tensor& other) {
-    add_inputs({self, other});
-    infer();
-  }
-  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other) {
-    meta(self, other);
-    return malloc_output();
-  }
-
- private:
-  void infer() override;
+  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
 };
 
 class UnaryOpInferrer final : public OpInferrer {
  public:
-  void meta(const at::Tensor& self) {
-    add_inputs({self});
-    infer();
-  }
-  at::Tensor infer_out(const at::Tensor& self) {
-    meta(self);
-    return malloc_output();
-  }
-
- private:
-  void infer() override;
+  at::Tensor infer_out(const at::Tensor& self);
 };
 
 class ComparisonOpInferrer final : public OpInferrer {
  public:
-  void meta(const at::Tensor& self, const at::Tensor& other) {
-    add_inputs({self, other});
-    infer();
-  }
-  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other) {
-    meta(self, other);
-    return malloc_output();
-  }
-
- private:
-  void infer() override;
+  at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
 };
+
+class ReduceOpInferrer final : public OpInferrer {
+ public:
+  at::Tensor infer_out(const at::Tensor& self, c10::OptionalIntArrayRef dim,
+                       bool keep_dim, c10::optional<at::ScalarType> dtype);
+};
+
+// class MatrixOpInferrer final : public OpInferrer {
+//   at::Tensor infer_out(const at::Tensor& self, c10::OptionalIntArrayRef dim,
+//                        bool keep_dim, c10::optional<at::ScalarType> dtype);
+// };
 
 }  // namespace dipu

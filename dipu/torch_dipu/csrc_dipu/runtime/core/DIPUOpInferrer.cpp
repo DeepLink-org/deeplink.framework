@@ -211,65 +211,76 @@ void OpInferrer::compute_dtype() {
   TORCH_INTERNAL_ASSERT(dtype_ != at::ScalarType::Undefined);
 }
 
-void BinaryOpInferrer::infer() {
+at::Tensor BinaryOpInferrer::infer_out(const at::Tensor& self,
+                                       const at::Tensor& other) {
+  add_inputs({self, other});
   compute_shape();
   compute_dtype();
+  return malloc_output();
 }
 
-void BinaryFloatOpInferrer::infer() {
+at::Tensor BinaryFloatOpInferrer::infer_out(const at::Tensor& self,
+                                            const at::Tensor& other) {
+  add_inputs({self, other});
   compute_shape();
   compute_dtype();
   // Promotes common dtype to the default float scalar type, if needed
   if (c10::isIntegralType(dtype_, /*includeBool=*/true)) {
     dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
+  return malloc_output();
 }
 
-void UnaryOpInferrer::infer() {
+at::Tensor UnaryOpInferrer::infer_out(const at::Tensor& self) {
+  add_inputs({self});
   compute_shape();
   compute_dtype();
+  return malloc_output();
 }
 
-void ComparisonOpInferrer::infer() {
+at::Tensor ComparisonOpInferrer::infer_out(const at::Tensor& self,
+                                           const at::Tensor& other) {
+  add_inputs({self, other});
   compute_shape();
   dtype_ = at::ScalarType::Bool;
+  return malloc_output();
 }
 
-// at::Tensor OpInferrer::infer_reduce_op(c10::OptionalIntArrayRef dim,
-//                                           bool keep_dim,
-//                                           c10::optional<at::ScalarType>
-//                                           dtype) {
-//   TORCH_CHECK(!inputs_.empty(), "Reduce op requires at least one input.");
-//   const auto& input_tensor = inputs_[0];
-//   int64_t ndim = input_tensor.dim();
+at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
+                                       c10::OptionalIntArrayRef dim,
+                                       bool keep_dim,
+                                       c10::optional<at::ScalarType> dtype) {
+  add_inputs({self});
+  const auto& input_tensor = inputs_[0];
+  int64_t ndim = input_tensor.dim();
 
-//   constexpr int64_t bitset_size = 64;
-//   std::bitset<bitset_size> dim_mask;
-//   if (!dim.has_value() || dim->empty()) {
-//     dim_mask.flip();  // All dimensions are reduced if `dim` is empty.
-//   } else {
-//     for (const auto& d : dim.value()) {
-//       TORCH_CHECK(d < ndim, "Dimension out of range.");
-//       TORCH_CHECK(!dim_mask[d], "Dimension ", d,
-//                   " appears multiple times in the list of dimensions.");
-//       dim_mask.set(d);
-//     }
-//   }
+  constexpr int64_t bitset_size = 64;
+  std::bitset<bitset_size> dim_mask;
+  if (!dim.has_value() || dim->empty()) {
+    dim_mask.flip();  // All dimensions are reduced if `dim` is empty.
+  } else {
+    for (const auto& d : dim.value()) {
+      TORCH_CHECK(d < ndim, "Dimension out of range.");
+      TORCH_CHECK(!dim_mask[d], "Dimension ", d,
+                  " appears multiple times in the list of dimensions.");
+      dim_mask.set(d);
+    }
+  }
 
-//   shape_ = input_tensor.sizes();
-//   for (int64_t i = ndim - 1; i >= 0; --i) {
-//     if (dim_mask[i]) {
-//       if (keep_dim) {
-//         shape_[i] = 1;
-//       } else {
-//         shape_.erase(shape_.begin() + i);
-//       }
-//     }
-//   }
+  shape_ = input_tensor.sizes();
+  for (int64_t i = ndim - 1; i >= 0; --i) {
+    if (dim_mask[i]) {
+      if (keep_dim) {
+        shape_[i] = 1;
+      } else {
+        shape_.erase(shape_.begin() + i);
+      }
+    }
+  }
 
-//   compute_dtype();
-//   return malloc_output();
-// }
+  compute_dtype();
+  return malloc_output();
+}
 
 // at::Tensor OpInferrer::infer_matrix_op() {
 //   // Ensure there are at least two tensors for matrix multiplication
