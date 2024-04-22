@@ -187,7 +187,7 @@ python -c "import torch_dipu"
 算子精度自动对比功能用于确保算子计算结果的正确性，通过将设备参数拷贝到CPU上，对比CPU和设备的计算结果来判断精度是否达标。以下是算子精度自动对比功能的使用例子：
 
 ```shell
-$ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制 fallback到CPU, 可选
+$ unset  DIPU_FORCE_FALLBACK_OPS_LIST # 主要是确保要比较的算子没有强制 fallback 到 CPU, 可选
 $ python
 >>> import torch
 >>> import torch_dipu
