@@ -1513,4 +1513,5 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.scalar_tensor.default)
     def scalar_tensor(self, x, dtype=None, layout=None, device=None, pin_memory=None):
+        print("test")
         return self.get_const_proxy(x, dtype)
