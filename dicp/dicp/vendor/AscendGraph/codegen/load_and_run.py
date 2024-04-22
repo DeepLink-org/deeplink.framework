@@ -340,27 +340,26 @@ class AscendExecutor(object):
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
             allocated_output=None):
-        with record_function(f'load_and_run_run_{self.model_id}'):
-            assert len(images) > 0
-            input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
-                     and x.device.type != dipu_device_str else x for x in images]
-            allocated_output_tensor = None
-            if allocated_output:
-                allocated_output_tensor = {}
-                for output_index, input_index in allocated_output.items():
-                    allocated_output_tensor[output_index] = input[input_index]
+        assert len(images) > 0
+        input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
+                    and x.device.type != dipu_device_str else x for x in images]
+        allocated_output_tensor = None
+        if allocated_output:
+            allocated_output_tensor = {}
+            for output_index, input_index in allocated_output.items():
+                allocated_output_tensor[output_index] = input[input_index]
 
-            self._prepare_input(input, dims)
-            output = []
-            if output_shape:
-                self._prepare_dynamic_output(
-                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
-            else:
-                self._prepare_output(
-                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
-            self.forward()
-            self._destroy_databuffer()
-            return output
+        self._prepare_input(input, dims)
+        output = []
+        if output_shape:
+            self._prepare_dynamic_output(
+                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
+        else:
+            self._prepare_output(
+                output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
+        self.forward()
+        self._destroy_databuffer()
+        return output
 
     @record_function('load_and_run_forward')
     def forward(self):
