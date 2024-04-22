@@ -42,6 +42,7 @@
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    alpha_check(out.scalar_type(), alpha);
     if (is_wrapped_number(other)) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } 
@@ -64,16 +65,9 @@
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
-        return dipu_sub_scalar_out(self, other.item(), alpha, out);
-    }
-    if (is_wrapped_number(self)) {
-        at::Tensor selfTensor = nodispatch::empty_like(other);
-        dipu_fill__scalar(selfTensor, self.item());
-        return dipu_sub_out(selfTensor, other, alpha, out);
-    }
-  interface: diopiSub(ctx, out, self, other, alpha)
+    return dipu_add_out(self, other, -alpha, out);
 
 - schema: "sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   interface: diopiSubInpScalar(ctx, self, other, alpha)
@@ -86,14 +80,9 @@
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    TORCH_CHECK(self.scalar_type() != at::kBool || other.scalar_type() != at::kBool,
-                "Subtraction, the `-` operator, with two bool tensors is not supported. "
-                "Use the `^` or `logical_xor()` operator instead.")
-    TORCH_CHECK(self.scalar_type() != at::kBool && other.scalar_type() != at::kBool,
-                "Subtraction, the `-` operator, with a bool tensor is not supported. "
-                "If you are trying to invert a mask, use the `~` or `logical_not()` operator instead.");
+    sub_check(self, other);
     auto out = BinaryOpInferrer().infer_out(self, other);
-    return dipu_sub_out(self, other, alpha, out);
+    return dipu_add_out(self, other, -alpha, out);
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |
