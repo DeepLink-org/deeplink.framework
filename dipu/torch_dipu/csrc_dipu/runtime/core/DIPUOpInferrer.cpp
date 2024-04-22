@@ -1,5 +1,5 @@
 // Copyright (c) 2024, DeepLink.
-#include "DIPUTensorInferer.h"
+#include "DIPUOpInferrer.h"
 
 #include <bitset>
 
@@ -187,7 +187,7 @@ at::ScalarType result_type(const ResultTypeState& in_state) {
 
 }  // namespace internal
 
-void TensorInferer::compute_shape() {
+void OpInferrer::compute_shape() {
   TORCH_CHECK(!inputs_.empty(),
               "No input tensors provided for shape computation");
 
@@ -201,7 +201,7 @@ void TensorInferer::compute_shape() {
   }
 }
 
-void TensorInferer::compute_dtype() {
+void OpInferrer::compute_dtype() {
   internal::ResultTypeState state = {};
   for (const auto& t : inputs_) {
     state = internal::update_result_type_state(t, state);
@@ -211,140 +211,130 @@ void TensorInferer::compute_dtype() {
   TORCH_INTERNAL_ASSERT(dtype_ != at::ScalarType::Undefined);
 }
 
-at::Tensor TensorInferer::malloc_output() {
-  TORCH_CHECK(dtype_ != at::ScalarType::Undefined,
-              "Data type (dtype) for the tensor is undefined.")
-  // Allocate the tensor with the given dtype and shape
-  at::TensorOptions options = at::TensorOptions().dtype(dtype_).device(device_);
-  return native::nodispatch::empty(shape_, options);
-}
-
-at::Tensor TensorInferer::infer_binary_op() {
+void BinaryOpInferrer::infer() {
   compute_shape();
   compute_dtype();
-  return malloc_output();
 }
 
-at::Tensor TensorInferer::infer_unary_op() {
-  // since `compute_shape` and `compute_dtype` are robust, we can reuse them
-  return infer_binary_op();
-}
-
-at::Tensor TensorInferer::infer_comparison_op() {
-  compute_shape();
-  dtype_ = at::ScalarType::Bool;
-  return malloc_output();
-}
-
-at::Tensor TensorInferer::infer_binary_float_op() {
+void BinaryFloatOpInferrer::infer() {
   compute_shape();
   compute_dtype();
   // Promotes common dtype to the default float scalar type, if needed
   if (c10::isIntegralType(dtype_, /*includeBool=*/true)) {
     dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
-  return malloc_output();
 }
 
-at::Tensor TensorInferer::infer_reduce_op(c10::OptionalIntArrayRef dim,
-                                          bool keep_dim,
-                                          c10::optional<at::ScalarType> dtype) {
-  TORCH_CHECK(!inputs_.empty(), "Reduce op requires at least one input.");
-  const auto& input_tensor = inputs_[0];
-  int64_t ndim = input_tensor.dim();
-
-  constexpr int64_t bitset_size = 64;
-  std::bitset<bitset_size> dim_mask;
-  if (!dim.has_value() || dim->empty()) {
-    dim_mask.flip();  // All dimensions are reduced if `dim` is empty.
-  } else {
-    for (const auto& d : dim.value()) {
-      TORCH_CHECK(d < ndim, "Dimension out of range.");
-      TORCH_CHECK(!dim_mask[d], "Dimension ", d,
-                  " appears multiple times in the list of dimensions.");
-      dim_mask.set(d);
-    }
-  }
-
-  shape_ = input_tensor.sizes();
-  for (int64_t i = ndim - 1; i >= 0; --i) {
-    if (dim_mask[i]) {
-      if (keep_dim) {
-        shape_[i] = 1;
-      } else {
-        shape_.erase(shape_.begin() + i);
-      }
-    }
-  }
-
+void UnaryOpInferrer::infer() {
+  compute_shape();
   compute_dtype();
-  return malloc_output();
 }
 
-at::Tensor TensorInferer::infer_matrix_op() {
-  // Ensure there are at least two tensors for matrix multiplication
-  TORCH_CHECK(inputs_.size() >= 2,
-              "Matrix operations require at least two input tensors");
-  shape_ = internal::compute_broadcast_matrix_shape(inputs_[0], inputs_[1]);
-  compute_dtype();
-  return malloc_output();
+void ComparisonOpInferrer::infer() {
+  compute_shape();
+  dtype_ = at::ScalarType::Bool;
 }
 
-at::Tensor TensorInferer::infer_cat(int64_t dim) {
-  TORCH_CHECK(!inputs_.empty(),
-              "torch.cat(): expected a non-empty list of Tensors");
-  size_t i = 0;
-  for (const at::Tensor& t : inputs_) {
-    TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
-                ") cannot be concatenated");
-    i++;
-  }
+// at::Tensor OpInferrer::infer_reduce_op(c10::OptionalIntArrayRef dim,
+//                                           bool keep_dim,
+//                                           c10::optional<at::ScalarType>
+//                                           dtype) {
+//   TORCH_CHECK(!inputs_.empty(), "Reduce op requires at least one input.");
+//   const auto& input_tensor = inputs_[0];
+//   int64_t ndim = input_tensor.dim();
 
-  for (const at::Tensor& t : inputs_) {
-    if (t.dim() == 1 && t.size(0) == 0) {
-      continue;
-    }
-    dim = c10::maybe_wrap_dim(dim, t.dim());
-    break;
-  }
+//   constexpr int64_t bitset_size = 64;
+//   std::bitset<bitset_size> dim_mask;
+//   if (!dim.has_value() || dim->empty()) {
+//     dim_mask.flip();  // All dimensions are reduced if `dim` is empty.
+//   } else {
+//     for (const auto& d : dim.value()) {
+//       TORCH_CHECK(d < ndim, "Dimension out of range.");
+//       TORCH_CHECK(!dim_mask[d], "Dimension ", d,
+//                   " appears multiple times in the list of dimensions.");
+//       dim_mask.set(d);
+//     }
+//   }
 
-  // Look for the first valid tensor.
-  size_t valid = inputs_.size();
-  for (const auto i : c10::irange(inputs_.size())) {
-    if (!internal::cat_should_skip_tensor(inputs_[i])) {
-      valid = i;
-      break;
-    }
-  }
+//   shape_ = input_tensor.sizes();
+//   for (int64_t i = ndim - 1; i >= 0; --i) {
+//     if (dim_mask[i]) {
+//       if (keep_dim) {
+//         shape_[i] = 1;
+//       } else {
+//         shape_.erase(shape_.begin() + i);
+//       }
+//     }
+//   }
 
-  compute_dtype();
+//   compute_dtype();
+//   return malloc_output();
+// }
 
-  shape_ = {0};
+// at::Tensor OpInferrer::infer_matrix_op() {
+//   // Ensure there are at least two tensors for matrix multiplication
+//   TORCH_CHECK(inputs_.size() >= 2,
+//               "Matrix operations require at least two input tensors");
+//   shape_ = internal::compute_broadcast_matrix_shape(inputs_[0], inputs_[1]);
+//   compute_dtype();
+//   return malloc_output();
+// }
 
-  // If we found a valid tensor, check whether the input tensors
-  // are compatible, i.e. we can execute `cat` on them.
-  bool found_valid_tensor = valid < inputs_.size();
-  if (found_valid_tensor) {
-    TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
-                "out of range");
+// at::Tensor OpInferrer::infer_cat(int64_t dim) {
+//   TORCH_CHECK(!inputs_.empty(),
+//               "torch.cat(): expected a non-empty list of Tensors");
+//   size_t i = 0;
+//   for (const at::Tensor& t : inputs_) {
+//     TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
+//                 ") cannot be concatenated");
+//     i++;
+//   }
 
-    // Compute the output tensor size.
-    // It should have the same shape as any other valid tensor,
-    // except in the dimension 'dim'.
-    int64_t size_at_dim = 0;
-    for (const auto i : c10::irange(inputs_.size())) {
-      const at::Tensor& t = inputs_[i];
-      if (!internal::cat_should_skip_tensor(t)) {
-        internal::check_cat_shape_except_dim(inputs_[valid], t, dim, i);
-        size_at_dim += t.size(dim);
-      }
-    }
+//   for (const at::Tensor& t : inputs_) {
+//     if (t.dim() == 1 && t.size(0) == 0) {
+//       continue;
+//     }
+//     dim = c10::maybe_wrap_dim(dim, t.dim());
+//     break;
+//   }
 
-    shape_ = inputs_[valid].sizes();
-    shape_[dim] = size_at_dim;
-  }
+//   // Look for the first valid tensor.
+//   size_t valid = inputs_.size();
+//   for (const auto i : c10::irange(inputs_.size())) {
+//     if (!internal::cat_should_skip_tensor(inputs_[i])) {
+//       valid = i;
+//       break;
+//     }
+//   }
 
-  return malloc_output();
-}
+//   compute_dtype();
+
+//   shape_ = {0};
+
+//   // If we found a valid tensor, check whether the input tensors
+//   // are compatible, i.e. we can execute `cat` on them.
+//   bool found_valid_tensor = valid < inputs_.size();
+//   if (found_valid_tensor) {
+//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
+//                 "out of range");
+
+//     // Compute the output tensor size.
+//     // It should have the same shape as any other valid tensor,
+//     // except in the dimension 'dim'.
+//     int64_t size_at_dim = 0;
+//     for (const auto i : c10::irange(inputs_.size())) {
+//       const at::Tensor& t = inputs_[i];
+//       if (!internal::cat_should_skip_tensor(t)) {
+//         internal::check_cat_shape_except_dim(inputs_[valid], t, dim, i);
+//         size_at_dim += t.size(dim);
+//       }
+//     }
+
+//     shape_ = inputs_[valid].sizes();
+//     shape_[dim] = size_at_dim;
+//   }
+
+//   return malloc_output();
+// }
 
 }  // namespace dipu

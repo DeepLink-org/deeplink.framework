@@ -57,7 +57,7 @@
 - schema: "add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_binary_op();
+    auto out = BinaryOpInferrer().infer_out(self, other);
     return dipu_add_out(self, other, alpha, out);
 
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
@@ -79,7 +79,7 @@
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_binary_op();
+    auto out = BinaryOpInferrer().infer_out(self, other);
     return dipu_add_out(self, other, -alpha, out);
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
@@ -116,7 +116,7 @@
 - schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_binary_float_op();
+    auto out = BinaryFloatOpInferrer().infer_out(self, other);
     return dipu_div_out(self, other, out);
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
@@ -143,7 +143,7 @@
 - schema: "div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_binary_float_op();
+    auto out = BinaryFloatOpInferrer().infer_out(self, other);
     return dipu_div_out_mode(self, other, rounding_mode, out);
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
@@ -178,7 +178,7 @@
 - schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_binary_op();
+    auto out = BinaryOpInferrer().infer_out(self, other);
     return dipu_mul_out(self, other, out);
 
 - schema: "logical_and.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
@@ -372,11 +372,11 @@
     }
   interface: diopiEq(ctx, out, self, other)
 
-- schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
-  dummy_call_diopi: True
-  custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_comparison_op();
-    return dipu_eq_tensor_out(self, other, out);
+# - schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
+#   dummy_call_diopi: True
+#   custom_code_at_the_beginning: |
+#     auto out = OpInferrer().add_input(self).add_input(other).infer_comparison_op();
+#     return dipu_eq_tensor_out(self, other, out);
 
 - schema: "eq_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiEqInpScalar(ctx, self, other)
@@ -760,10 +760,10 @@
 - schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiSqrtInp(ctx, self)
 
-- schema: "sqrt(Tensor self) -> Tensor"
-  custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).infer_unary_op();
-  interface: diopiSqrt(ctx, out, self)
+# - schema: "sqrt(Tensor self) -> Tensor"
+#   custom_code_at_the_beginning: |
+#     auto out = OpInferrer().add_input(self).infer_unary_op();
+#   interface: diopiSqrt(ctx, out, self)
 
 - schema: "all.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAll(ctx, out, self, &dim)
@@ -798,12 +798,11 @@
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self_dtype_diopi, diopi_size);
 
-- schema: "mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
-  dummy_call_diopi: True
-  custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).infer_reduce_op(dim, keepdim, dtype);
-    return dipu_mean_out(self, dim, keepdim, dtype, out);
-  interface: diopiMean(ctx, out, dtype, dim);
+# - schema: "mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+#   dummy_call_diopi: True
+#   custom_code_at_the_beginning: |
+#     auto out = OpInferrer().add_input(self).infer_reduce_op(dim, keepdim, dtype);
+#     return dipu_mean_out(self, dim, keepdim, dtype, out);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20000",]
@@ -1351,15 +1350,15 @@
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), static_cast<int64_t>(tensors.size()), dim);
 
-- schema: "aten::cat(const at::ITensorListRef & tensors, int dim=0) -> Tensor"
-  dummy_call_diopi: True
-  custom_code_at_the_beginning: |
-    auto inferer = TensorInferer();
-    for (auto & t: tensors) {
-      inferer.add_input(t);
-    }
-    auto out = inferer.infer_cat(dim);
-    return dipu_cat_out(tensors, dim, out);
+# - schema: "aten::cat(const at::ITensorListRef & tensors, int dim=0) -> Tensor"
+#   dummy_call_diopi: True
+#   custom_code_at_the_beginning: |
+#     auto inferer = OpInferrer();
+#     for (auto & t: tensors) {
+#       inferer.add_input(t);
+#     }
+#     auto out = inferer.infer_cat(dim);
+#     return dipu_cat_out(tensors, dim, out);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1754,11 +1753,11 @@
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
 
-- schema: "matmul(Tensor self, Tensor other) -> Tensor"
-  device: [all, -droplet]
-  custom_code_at_the_beginning: |
-    auto out = TensorInferer().add_input(self).add_input(other).infer_matrix_op();
-  interface: diopiMatmul(ctx, out, self, other)
+# - schema: "matmul(Tensor self, Tensor other) -> Tensor"
+#   device: [all, -droplet]
+#   custom_code_at_the_beginning: |
+#     auto out = OpInferrer().add_input(self).add_input(other).infer_matrix_op();
+#   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
   device: [all, -droplet]
