@@ -64,9 +64,16 @@
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
-  dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    return dipu_add_out(self, other, -alpha, out);
+    if (is_wrapped_number(other)) {
+        return dipu_sub_scalar_out(self, other.item(), alpha, out);
+    }
+    if (is_wrapped_number(self)) {
+        at::Tensor selfTensor = nodispatch::empty_like(other);
+        dipu_fill__scalar(selfTensor, self.item());
+        return dipu_sub_out(selfTensor, other, alpha, out);
+    }
+  interface: diopiSub(ctx, out, self, other, alpha)
 
 - schema: "sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   interface: diopiSubInpScalar(ctx, self, other, alpha)
@@ -80,7 +87,7 @@
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     auto out = BinaryOpInferrer().infer_out(self, other);
-    return dipu_add_out(self, other, -alpha, out);
+    return dipu_sub_out(self, other, alpha, out);
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |

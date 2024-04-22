@@ -55,7 +55,7 @@ class OpInferrer {
   at::Device device_ = dipu::DIPU_DEVICE_TYPE;
 };
 
-class BinaryOpInferrer final: public OpInferrer {
+class BinaryOpInferrer final : public OpInferrer {
  public:
   void meta(const at::Tensor& self, const at::Tensor& other) {
     add_inputs({self, other});
@@ -70,7 +70,7 @@ class BinaryOpInferrer final: public OpInferrer {
   void infer() override;
 };
 
-class BinaryFloatOpInferrer final: public OpInferrer {
+class BinaryFloatOpInferrer final : public OpInferrer {
  public:
   void meta(const at::Tensor& self, const at::Tensor& other) {
     add_inputs({self, other});
@@ -85,7 +85,7 @@ class BinaryFloatOpInferrer final: public OpInferrer {
   void infer() override;
 };
 
-class UnaryOpInferrer final: public OpInferrer  {
+class UnaryOpInferrer final : public OpInferrer {
  public:
   void meta(const at::Tensor& self) {
     add_inputs({self});
@@ -100,7 +100,7 @@ class UnaryOpInferrer final: public OpInferrer  {
   void infer() override;
 };
 
-class ComparisonOpInferrer final: public OpInferrer {
+class ComparisonOpInferrer final : public OpInferrer {
  public:
   void meta(const at::Tensor& self, const at::Tensor& other) {
     add_inputs({self, other});
