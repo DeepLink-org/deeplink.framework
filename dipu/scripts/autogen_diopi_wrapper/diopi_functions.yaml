@@ -86,6 +86,12 @@
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
+    TORCH_CHECK(self.scalar_type() != at::kBool || other.scalar_type() != at::kBool,
+                "Subtraction, the `-` operator, with two bool tensors is not supported. "
+                "Use the `^` or `logical_xor()` operator instead.")
+    TORCH_CHECK(self.scalar_type() != at::kBool && other.scalar_type() != at::kBool,
+                "Subtraction, the `-` operator, with a bool tensor is not supported. "
+                "If you are trying to invert a mask, use the `~` or `logical_not()` operator instead.");
     auto out = BinaryOpInferrer().infer_out(self, other);
     return dipu_sub_out(self, other, alpha, out);
 
