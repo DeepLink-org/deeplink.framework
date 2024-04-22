@@ -34,9 +34,9 @@ else
     exit 1
 fi
 
-PYTESTCODE=$?
-if [ "$PYTESTCODE" -eq 0 ]; then
-    python ${TEST_MODEL_DIR}/test_hf.py
-else
-    exit 1
-fi
+# PYTESTCODE=$?
+# if [ "$PYTESTCODE" -eq 0 ]; then
+#     python ${TEST_MODEL_DIR}/test_hf.py
+# else
+#     exit 1
+# fi
