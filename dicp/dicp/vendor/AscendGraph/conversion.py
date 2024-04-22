@@ -1565,7 +1565,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.ScatterElements, (x, index, src, dim))
 
     @register_conversion(torch.ops.lightllm.copy_with_offset.default)
-    def copy_with_offset2(self, x, src, start_dim, end_dim):
+    def copy_with_offset(self, x, src, start_dim, end_dim):
         dims = [x for x in range(start_dim, end_dim)]
         dims = self.get_const_proxy(dims, torch.int32, target_shape=[len(dims), 1])
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))

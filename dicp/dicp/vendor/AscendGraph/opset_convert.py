@@ -32,7 +32,6 @@ class OutputMarkPass:
     def __init__(self):
         self.assign_args = []
         self.cpu_tensor = []
-        self.assign_with_offset_args = {}
 
     def transform(self, gm: torch.fx.graph_module):
         # dynamic shape feature

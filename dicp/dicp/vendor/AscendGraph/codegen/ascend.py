@@ -491,14 +491,10 @@ class AscendCodegen(torch.fx.Interpreter):
         self.parse_outputs()
         self.gen_build_options()
         has_dynamic_shape = False if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0 else True
-        with_copy_inplace = self.graph_output_names
-        for i in self.assign_with_offset_args:
-            with_copy_inplace.append(i['name'])
         graph = {
             "name": "graph",
             "input_names": self.graph_input_names,
-            # "output_names": self.graph_output_names,
-            "output_names": with_copy_inplace,
+            "output_names": self.graph_output_names,
             "has_dynamic_shape": has_dynamic_shape,
             "build_options": self.build_options,
             "data_nodes": self.data_nodes,
@@ -696,12 +692,6 @@ class AscendOverrides:
         src_code = IndentedBuffer()
         args_str = [op_var]
         args_str.extend(tree_map_only(Node, lambda x: args_dict[x.name], args))
-
-        # for i in range(len(args)):
-        #     if isinstance(args[i], Node):
-        #         args_str.append(args_dict[args[i].name])
-        #     else:
-        #         args_str.append(args[i])
         return src_code, args_str
 
     @staticmethod
