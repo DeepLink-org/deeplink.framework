@@ -103,7 +103,8 @@ const char* const fallback_config_name = ".dipu_force_fallback_op_list.config";
 const std::vector<std::regex> fallbackMatchers =
     dipu::loadMatcher(fallback_env_name, fallback_config_name);
 
-const char* const specified_autocompare_env_name = "SPECIFIED_AUTOCOMPARE_OPS_LIST";
+const char* const specified_autocompare_env_name =
+    "SPECIFIED_AUTOCOMPARE_OPS_LIST";
 const char* const specified_autocompare_config_name =
     ".specified_autocompare_op_list.config";
 const std::vector<std::regex> autocompareMatchers = dipu::loadMatcher(
