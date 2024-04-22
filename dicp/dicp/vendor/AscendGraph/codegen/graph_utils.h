@@ -91,8 +91,7 @@ class AclgraphBuilder {
         {AscendString(ge::ir_option::SOC_VERSION), AscendString(kSocVersion)},
         {AscendString(ge::ir_option::FUSION_SWITCH_FILE),
          AscendString(_fusion_switch_file.c_str())},
-        // {AscendString(ge::ir_option::PRECISION_MODE_V2), "mixed_float16"},
-        // {AscendString(ge::ir_option::PRECISION_MODE_V2), "fp16"},
+        {AscendString(ge::ir_option::PRECISION_MODE), "allow_fp32_to_fp16"},
     };
     auto status = aclgrphBuildInitialize(global_options);
     if (status != GRAPH_SUCCESS) {
