@@ -1,7 +1,6 @@
 import json
 import os
 import math
-import uuid
 import torch
 from typing import Any, List
 from torch.fx.node import Node
@@ -66,7 +65,6 @@ class AscendCodegen(torch.fx.Interpreter):
         self.folder = folder
         self.graph_key = graph_key
 
-
         self.sym_to_inputs = {}
         self.sym_in_args = {}
 
@@ -96,7 +94,7 @@ class AscendCodegen(torch.fx.Interpreter):
             for idx, dim in enumerate(fake_tensor.shape):
                 if isinstance(dim, torch.SymInt):
                     st = dim.node.str()
-                    if not st in self.sym_in_args:
+                    if st not in self.sym_in_args:
                         self.sym_in_args[st] = (name, idx)
 
             # deal with dynamic shape -1
@@ -289,8 +287,8 @@ class AscendCodegen(torch.fx.Interpreter):
 
         # dynamic shape feature
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-            args = ['_' if not arg in shape_symint and not arg in self.sym_to_inputs.values() else arg for arg in self.args]
-            call_body.writeline(f"({','.join(args)}) = args")
+            args = ['_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg for arg in self.args]
+            call_body.writeline("({','.join(args)}) = args")
 
         # generate input dims
         if len(self.dynamic_inputs) > 0:
@@ -307,14 +305,14 @@ class AscendCodegen(torch.fx.Interpreter):
             dims = dims[:-1] + '}'
             call_body.writeline(dims)
         else:
-            call_body.writeline(f'''dims = None''')
+            call_body.writeline('''dims = None''')
 
         # generate output shapes
         # dynamic shape feature
         extra_stride_str = ''
         extra_storage_offset_str = ''
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-            shape_str = f'''output_shape = ['''
+            shape_str = '''output_shape = ['''
             for elem in self.output_args:
                 if hasattr(elem, 'meta'):
                     elem = elem.meta['val']
@@ -340,11 +338,11 @@ class AscendCodegen(torch.fx.Interpreter):
                 stride = [self.process_sym_name(str(dim)) for dim in stride]
                 extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
                 extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
-            shape_str = shape_str[:-1] + f''']'''
+            shape_str = shape_str[:-1] + ''']'''
             call_body.writeline(shape_str)
         else:
             call_body.writeline('''output_shape = None''')
-        
+
         # add stride & storage_offset info
         out_strides = []
         out_storage_offsets = []
@@ -355,7 +353,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 out_strides.append('[1]')
                 out_storage_offsets.append('0')
                 continue
-            if elem.dim()==0: # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
+            if elem.dim() == 0:  # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
                 out_strides.append('[1]')
                 out_storage_offsets.append('0')
                 continue
@@ -382,7 +380,7 @@ class AscendCodegen(torch.fx.Interpreter):
             output_index = self.graph_output_names.index(item[0])
             allocated_output[output_index] = input_index
         call_body.writeline(f'allocated_output= {allocated_output}')
-        
+
         allocated_output_with_offset = {}
         for item in self.assign_with_offset_args:
             # input_index = item['input_index']
@@ -394,11 +392,11 @@ class AscendCodegen(torch.fx.Interpreter):
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
-            call_str.append(f"import sys")
+            call_str.append("import sys")
             call_str.append(f"if '{self.folder}' not in sys.path:")
             call_str.append(f"    sys.path.insert(0, '{self.folder}')")
             call_str.append(f"from {self.graph_key[:4]} import {self.graph_key} as graph_module")
-            call_str.append(f"aten_call = graph_module()")
+            call_str.append("aten_call = graph_module()")
 
             call_str.append('aten_args = list(map(lambda x: x.to("cpu"), args))')
             call_str.append('for idx in modified:')
@@ -1555,27 +1553,13 @@ class AscendOverrides:
         op.set_input("mask", mask)
         op.set_input("keep_prob", keep_prob)
         return op.to_node()
-    
+
     @staticmethod
     def GatherElements(name, x, index, dim):
         op = OP(name, "GatherElements")
         op.set_input("x", x)
         op.set_input("index", index)
         op.set_attr_int("dim", dim)
-        return op.to_node()
-    
-    @staticmethod
-    def AdaptiveAvgPool2D(name, x, output_size):
-        op = OP(name, "AdaptiveAvgPool2d")
-        op.set_input("x", x)
-        op.set_attr_list_int("output_size", output_size)
-        return op.to_node()
-    
-    @staticmethod
-    def AdaptiveAvgPool2DGrad(name, input_grad, orig_input_shape):
-        op = OP(name, "AdaptiveAvgPool2dGrad")
-        op.set_input("input_grad", input_grad)
-        op.set_attr_list_int("orig_input_shape", orig_input_shape)
         return op.to_node()
 
     @staticmethod
@@ -1662,7 +1646,6 @@ class AscendOverrides:
         op.set_attr_float("scale_value", float(1 / math.sqrt(head_dim)))
         op.set_attr_str("input_layout", "BSH")
         return op.to_node()
-
 
     @staticmethod
     def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, head_num, kv_head_num, dim, input_layout="BSH"):

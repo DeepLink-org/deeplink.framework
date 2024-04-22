@@ -1,8 +1,7 @@
-import math
-
 import torch
 
-from dicp.dynamo_bridge.decompositions import register_decomposition_for_dicp, get_decompositions
+from dicp.dynamo_bridge.decompositions import get_decompositions
+
 
 def get_decomp():
     aten = torch.ops.aten

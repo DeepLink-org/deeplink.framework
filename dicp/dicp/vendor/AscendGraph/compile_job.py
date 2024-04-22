@@ -26,7 +26,7 @@ class AscendCompileJob(DeviceCompileJob):
             source_code.strip(),
             "json",
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) +
-                  'local_rank' + str(self._local_rank) + code_hash(compile_file_code)
+            'local_rank' + str(self._local_rank) + code_hash(compile_file_code)
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
         print('output_path: ', self._output_graph_path)

@@ -189,8 +189,9 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
   }
 }
 
-void parseIncreFlashAttentionDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
-                       op::IncreFlashAttention& op, const json& node) {
+void parseIncreFlashAttentionDynamicInput(
+    std::unordered_map<std::string, ge::Operator>& op_map,
+    op::IncreFlashAttention& op, const json& node) {
   if (node.contains("dynamic_inputs")) {
     int kv_inputs_num = 0;
     for (const auto& i : node["dynamic_inputs"]) {
@@ -206,8 +207,9 @@ void parseIncreFlashAttentionDynamicInput(std::unordered_map<std::string, ge::Op
         }
       } else if (name == "value") {
         if (kv_inputs_num == 0 && num == kv_inputs_num) {
-          throw std::runtime_error("need first set dynamic key input for IncreFlashAttention Op"
-                                   "and kv_inputs_num == num !!");
+          throw std::runtime_error(
+              "need first set dynamic key input for IncreFlashAttention Op"
+              "and kv_inputs_num == num !!");
         }
         op.create_dynamic_input_byindex_value(num, 1 + num);
         for (const auto& item : i["value"]) {

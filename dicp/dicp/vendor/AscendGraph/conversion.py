@@ -16,8 +16,7 @@ from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.dynamo_bridge.utils import symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
-    get_ascend_dtype,
-    get_cpp_dtype
+    get_ascend_dtype
 )
 from dicp.dynamo_bridge.conversion import register_conversion_impl
 from dicp.dynamo_bridge.op_transformer import SingleOpTransformer
@@ -134,7 +133,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # concat all ops
         return self.get_proxy(ascend_op.ConcatD, (x_names, 0))
 
-    def get_shape_proxy(self, shape, dtype= torch.int32):
+    def get_shape_proxy(self, shape, dtype=torch.int32):
         if isinstance(shape, torch.fx.proxy.Proxy) or isinstance(shape, FakeTensor):
             return shape
         elif isinstance(shape, list) and symint_in_shape(shape):
@@ -318,7 +317,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.split.Tensor)
     def split(self, x, split_size, dim=0):
-        splitD_kw = { "from_view_complex": False }
+        splitD_kw = {"from_view_complex": False}
         shape = list(x.node.meta['val'].shape)
         if dim < 0:
             dim += len(shape)
@@ -340,7 +339,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         offset = [0] * len(x_shape)
         offset[dim] = start
         # import pdb; pdb.set_trace()
-        
+
         offset = self.get_shape_proxy(offset)
         size = self.get_shape_proxy(y_shape)
         return self.get_proxy(ascend_op.Slice, (x, offset, size))
@@ -373,11 +372,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
             dtype = x.node.meta['val'].dtype
         if layout is not None and (layout != torch.strided):
             raise NotImplementedError("torch.ops.aten.empty_like.default is "
-                        "only supported on dense tensor now.")
+                                      "only supported on dense tensor now.")
         if memory_format is not None and memory_format != torch.contiguous_format \
                 and memory_format != torch.preserve_format:
             raise NotImplementedError("torch.ops.aten.empty_like.default is only supported "
-                    "contiguous_format and preserve_format now.")
+                                      "contiguous_format and preserve_format now.")
         shape = self.get_proxy(ascend_op.Shape, (x,))
         return self.get_proxy(ascend_op.Empty, (shape, dtype))
 
@@ -441,7 +440,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.IdentityN, (real_reshape, imag_reshape))
         else:
             return self.get_proxy(ascend_op.Reshape, (x, shape))
-               
+
     @register_conversion(torch.ops.aten.where)
     def where(self, condition, x1, x2):
         # TODO(tangzhiyi): need to process scalars
@@ -459,9 +458,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert isinstance(end, torch.fx.proxy.Proxy) or type(end) in [int, float]
         assert isinstance(step, torch.fx.proxy.Proxy) or type(step) in [int, float]
 
-        if not isinstance(start, torch.fx.proxy.Proxy): # scalar const
+        if not isinstance(start, torch.fx.proxy.Proxy):  # scalar const
             start = self.get_const_proxy(start, out_dtype)
-        elif start.node.meta['val'] != out_dtype: # align tensor dtype
+        elif start.node.meta['val'] != out_dtype:  # align tensor dtype
             start = self.get_proxy(ascend_op.Cast, (start, get_ascend_dtype(out_dtype)), {})
         if not isinstance(end, torch.fx.proxy.Proxy):
             end = self.get_const_proxy(end, out_dtype)
@@ -583,7 +582,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert x_val.dtype == torch.float32
         assert x_shape[-1] == 2
         dim = len(x_shape) - 1
-        splitD_kw = { "from_view_complex": True }
+        splitD_kw = {"from_view_complex": True}
         return self.get_proxy(ascend_op.SplitD, (x, dim, 2, 2), splitD_kw)
 
     @register_conversion(torch.ops.aten.full.default)
@@ -867,7 +866,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
             self.compute_stacked_indices(indices, x.node.meta['val'].shape)
-        values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:] # batch_shape + inner_shape
+        values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:]  # batch_shape + inner_shape
         values_broadcast_shape_op = self.get_const_proxy(values_broadcast_shape, torch.int32)
         broadcasted_values = self.get_proxy(ascend_op.BroadcastTo, (values, values_broadcast_shape_op))
         return self.get_proxy(ascend_op.TensorScatterUpdate, (x, stacked_indices, broadcasted_values))
@@ -1227,7 +1226,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         transpose_perm_proxy = self.get_shape_proxy(transpose_perm)
         transpose_proxy = self.get_proxy(ascend_op.Transpose, (reshape_proxy, transpose_perm_proxy))
 
-        result_reshape = x_shape[:dim] + [x_shape[dim] * repeats] + x_shape[dim+1:]
+        result_reshape = x_shape[:dim] + [x_shape[dim] * repeats] + x_shape[dim + 1:]
         result_reshape_shape_proxy = self.get_const_proxy(result_reshape, torch.int32)
         return self.get_proxy(ascend_op.Reshape, (transpose_proxy, result_reshape_shape_proxy))
 
@@ -1418,10 +1417,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         p = 1. - scale
         prob_op = self.get_const_proxy(float(p), dtype)
         return self.get_proxy(ascend_op.DropOutDoMaskV3, (grad_output, mask, prob_op))
-    
+
     @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
     def adaptiveavgpool2d(self, x, output_size):
-        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
+        assert isinstance(output_size, int) or (len(output_size) in range(1, 3) and any(output_size))
         if not isinstance(output_size, list):
             if isinstance(output_size, tuple):
                 output_size = list(output_size)
@@ -1429,23 +1428,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 output_size = [output_size, output_size]
             else:
                 raise RuntimeError("not supported output type!")
-        return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
-    
-    @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
-    def adaptiveavgpool2dBackward(self, grad, input):
-        input_shape = list(input.node.meta['val'].shape)
-        return self.get_proxy(ascend_op.AdaptiveAvgPool2DGrad, (grad, input_shape))
-
-    @register_conversion([torch.ops.aten._adaptive_avg_pool2d.default])
-    def adaptiveavgpool2d(self, x, output_size):
-        assert isinstance(output_size, int) or ( len(output_size) in range(1,3) and any(output_size) )
-        if not isinstance(output_size, list):
-            if isinstance(output_size, tuple):
-                output_size = list(output_size)
-            elif isinstance(output_size, int):
-                output_size = [output_size, output_size]
-            else:
-                raise RuntimeError("not supported output size!")
         return self.get_proxy(ascend_op.AdaptiveAvgPool2D, (x, output_size))
 
     @register_conversion([torch.ops.aten._adaptive_avg_pool2d_backward.default])
@@ -1521,10 +1503,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def lightllm_rotary_emb(self, x, cos, sin):
         x_shape = list(x.node.meta['val'].shape)
         assert len(x_shape) == 3
-        
+
         seq_len = x_shape[0]
         dim = x_shape[2]
-        
+
         cos_sin_shape = self.get_const_proxy([seq_len, 1, dim // 2], torch.int32)
         cos = self.get_proxy(ascend_op.Reshape, (cos, cos_sin_shape))
         sin = self.get_proxy(ascend_op.Reshape, (sin, cos_sin_shape))
@@ -1579,7 +1561,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         dim_op = self.get_const_proxy(dim, torch.int32)
         src = self.get_proxy(ascend_op.ExpandDims, (src, dim_op))
         src = self.get_proxy(ascend_op.BroadcastTo, (src, input_sizes))
-        
+
         return self.get_proxy(ascend_op.ScatterElements, (x, index, src, dim))
 
     @register_conversion(torch.ops.lightllm.copy_with_offset.default)
@@ -1592,7 +1574,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def flash_attention_inference(self, q, all_k, all_v, current_len, max_len):
         q_shape = list(q.node.meta['val'].shape)
         batch, head, dim = q_shape[0], q_shape[1], q_shape[2]
-        
+
         res = []
         compute_batch = 1
         select_axis = self.get_const_proxy(0, torch.int32)
@@ -1608,7 +1590,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
             kv_gather_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head, dim])
             kv_compute_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head * dim])
-            
+
             # fetch k
             k = self.get_proxy(ascend_op.Slice, (all_k, kv_start_index, kv_end_index))
             k = self.get_proxy(ascend_op.Reshape, (k, kv_gather_shape))
@@ -1624,13 +1606,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
             q_compute_shape = self.get_shape_proxy([compute_batch, 1, head * dim])
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_shape))
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_compute_shape))
-            
+
             out = self.incre_flash_attention(xq, k, v, head, head, dim)  # q shape is BSH
             out_shape = self.get_shape_proxy([compute_batch, 1, head, dim])
             out_shape2 = self.get_shape_proxy([compute_batch, head, dim])
             out = self.get_proxy(ascend_op.Reshape, (out, out_shape))
             out = self.get_proxy(ascend_op.Reshape, (out, out_shape2))
             res.append(out)
-        
+
         res = self.get_proxy(ascend_op.ConcatD, (res, 0))
         return res

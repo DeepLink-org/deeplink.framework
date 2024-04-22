@@ -33,18 +33,18 @@ class FusedRepeatInterleaveSelfInt(BackendPatternBase):
     @staticmethod
     def pattern(self, repeat, dim, input_shape, empty_device, view_1_shape,
                 expand_1_shape, repeat_interleave_output_size):
-        empty = torch.ops.aten.empty.memory_format(input_shape, dtype = torch.int64, layout = torch.strided, device=empty_device)
+        empty = torch.ops.aten.empty.memory_format(input_shape, dtype=torch.int64, layout=torch.strided, device=empty_device)
         fill = torch.ops.aten.fill.Scalar(empty, repeat)
         view_1 = torch.ops.aten.view.default(fill, view_1_shape)
         expand_1 = torch.ops.aten.expand.default(view_1, expand_1_shape)
-        repeat_interleave = torch.ops.aten.repeat_interleave.Tensor(expand_1, output_size = repeat_interleave_output_size)
+        repeat_interleave = torch.ops.aten.repeat_interleave.Tensor(expand_1, output_size=repeat_interleave_output_size)
         index_select = torch.ops.aten.index_select.default(self, dim, repeat_interleave)
         return index_select
 
     @staticmethod
     def replacement(self, repeat, dim):
         return torch.ops.aten.repeat_interleave.self_int(self, repeat, dim)
-    
+
 
 @register_aten_pattern
 class ReplaceAtenSliceScatter(BackendPatternBase):
@@ -60,6 +60,7 @@ class ReplaceAtenSliceScatter(BackendPatternBase):
     def replacement(arg0, arg1, start_index, end_index):
         slice_scatter = torch.ops.lightllm.copy_with_offset.default(arg0, arg1, start_index, end_index)
         return slice_scatter
+
 
 Muls = torch.fx.wrap(ascend_op.Muls.get_singleton())
 Shape = torch.fx.wrap(ascend_op.Shape.get_singleton())
@@ -81,6 +82,7 @@ Select = torch.fx.wrap(ascend_op.Select.get_singleton())
 Mul = torch.fx.wrap(ascend_op.Mul.get_singleton())
 Div = torch.fx.wrap(ascend_op.Div.get_singleton())
 RmsNorm = torch.fx.wrap(ascend_op.RmsNorm.get_singleton())
+
 
 # @register_ascend_pattern
 class FuseBmmTransposeRhsPattern(BackendPatternBase):
@@ -120,10 +122,11 @@ class FuseBmmTransposeMulsPattern(BackendPatternBase):
         muls = Muls(reshape, 0.3535533905932738)
         return BatchMatMul(x1, muls, adj_x1=False, adj_x2=True, keep_dtype=0)
 
+
 @register_ascend_pattern
 class FuseLightLLMRmsNorm(BackendPatternBase):
     @staticmethod
-    def pattern(arg0_1, arg1_1):    
+    def pattern(arg0_1, arg1_1):
         const = Const([2], torch.float32)
         pow_1 = Pow(arg0_1, const)
         reduce_mean_d = ReduceMeanD(pow_1, [-1], True, False)

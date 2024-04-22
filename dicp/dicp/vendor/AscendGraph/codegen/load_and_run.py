@@ -65,6 +65,7 @@ ACL_DDR_MEM_P2P_NORMAL = 7
 ACL_HBM_MEM_P2P_HUGE = 8
 ACL_HBM_MEM_P2P_NORMAL = 9
 
+
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
         return np.float32
@@ -190,10 +191,9 @@ class AscendExecutor(object):
             if free > work_size:
                 memory_pool.work_size = work_size
                 memory_pool.release_memory()
-                import pdb;pdb.set_trace()
                 print("Adjust memory pool allocation.")
                 memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
-                                                        ACL_MEM_MALLOC_HUGE_FIRST)
+                                                          ACL_MEM_MALLOC_HUGE_FIRST)
                 check_ret("acl.rt.malloc", ret)
 
         self.weight_ptr, ret = acl.rt.malloc(weight_size,
@@ -264,7 +264,6 @@ class AscendExecutor(object):
             self.output_data_buffers.append(data_buf)
             _, ret = acl.mdl.add_dataset_buffer(self.output_dataset, data_buf)
             check_ret("acl.add_dataset_buffer", ret)
-
 
     @record_function('load_and_run_prepare_input')
     def _prepare_input(self, images, dims):
@@ -337,14 +336,14 @@ class AscendExecutor(object):
                 self.output_data_buffers[i], item.data_ptr(), self.output_size[i])
             check_ret("acl.update_data_buffer", ret)
 
-    @record_function(f'load_and_run_run')
+    @record_function('load_and_run_run')
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
             allocated_output=None, allocated_with_offset_output=None):
         with record_function(f'load_and_run_run_{self.model_id}'):
             assert len(images) > 0
             input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
-                    and x.device.type != dipu_device_str else x for x in images]
+                     and x.device.type != dipu_device_str else x for x in images]
             allocated_output_tensor = None
             if allocated_output:
                 allocated_output_tensor = {}
