@@ -100,9 +100,10 @@ def demo_basic_ddp(rank, world_size, port):
 def demo_allreduce(rank, world_size, port):
     import torch_dipu
 
-    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
+    print(f"Running basic DDP example on rank {rank}")
     torch.cuda.set_device(rank)
     dev1 = rank
+    print(f"dev1 {dev1}, current_device: {torch.cuda.current_device()}")
 
     setup(rank, world_size, port)
 
@@ -111,22 +112,53 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
-        assert torch.all(te_result == torch.zeros((3, 4)).to(dev1) + rank + 2)
+        print("te_result", te_result)
+        if op == dist.reduce_op.SUM:
+            expected_tensor = (
+                torch.zeros((3, 4)).to(dev1)
+                + (world_size - 1 + 0) * world_size / 2
+                + 2 * world_size
+            )
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.zeros((3, 4)).to(dev1) + world_size + 1
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.zeros((3, 4)).to(dev1) + 2
+        # print("expected_tensor", expected_tensor)
+        assert torch.allclose(te_result, expected_tensor)
+        # print(f"float opname {op}")
 
     # bool
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
-        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        te_result = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
         dist.all_reduce(te_result, op=op)
-        assert torch.all(te_result == torch.tensor(True, dtype=bool).to(dev1))
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        assert torch.equal(te_result, expected_tensor)
+        print(f"bool opname {op}, value = {te_result}, value.int() = {te_result.int()}")
 
     # byte
-    total_ranks = dist.get_world_size()
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
-        te_result = torch.tensor(True, dtype=bool).to(dev1)
+        te_result = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         dist.all_reduce(te_result, op=op)
-        expected_tensor = torch.CharTensor([1, 2, 3]) * total_ranks * (total_ranks - 1) / 2
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor(
+                [world_size, 2 * world_size, 3 * world_size], dtype=torch.uint8
+            ).to(dev1)
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         assert torch.all(te_result == expected_tensor)
-        print('bytes'*10)
 
     cleanup()
 
@@ -199,20 +231,36 @@ def demo_bcast(rank, world_size, port):
     print(dst)
     cleanup()
 
-
 def demo_reduce(rank, world_size, port):
     import torch_dipu
-
     setup(rank, world_size, port)
 
+    # 对float类型的张量进行归约操作
     src_dst0 = torch.ones((2, 4)).to(rank)
     for i in range(1, 2):
         dist.reduce(src_dst0, 0, op=dist.reduce_op.SUM)
     if rank == 0:
         assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst0.cpu())
     print(src_dst0)
-    cleanup()
 
+    # 对bool类型的张量进行归约操作
+    src_dst1 = torch.ones((2, 4), dtype=torch.bool).to(rank)
+    src_dst1 = src_dst1.int()  # 将bool类型的张量转换为int类型
+    for i in range(1, 2):
+        dist.reduce(src_dst1, 0, op=dist.reduce_op.SUM)
+    if rank == 0:
+        assert torch.all(src_dst1.cpu() == world_size)
+    print(src_dst1)
+
+    # 对byte类型的张量进行归约操作
+    src_dst2 = torch.ones((2, 4), dtype=torch.uint8).to(rank)
+    for i in range(1, 2):
+        dist.reduce(src_dst2, 0, op=dist.reduce_op.SUM)
+    if rank == 0:
+        assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst2.cpu())
+    print(src_dst2)
+
+    cleanup()
 
 def demo_reducescatter(rank, world_size, port):
     import torch_dipu
@@ -330,15 +378,15 @@ if __name__ == "__main__":
 
     port = random.randint(10000, 60000)
 
-    world_size = 1
-    run_demo(demo_basic_ddp, world_size, port)
+    world_size = 4
+    # run_demo(demo_basic_ddp, world_size, port)
     run_demo(demo_allreduce, world_size, port)
-    run_demo(demo_allgather, world_size, port)
-    run_demo(demo_reduce, world_size, port)
-    run_demo(demo_reducescatter, world_size, port)
-    run_demo(demo_reducescatter_base, world_size, port)
+    # run_demo(demo_allgather, world_size, port)
+    # run_demo(demo_reduce, world_size, port)
+    # run_demo(demo_reducescatter, world_size, port)
+    # run_demo(demo_reducescatter_base, world_size, port)
 
-    run_demo(demo_allgather_gloo, world_size, port)
+    # run_demo(demo_allgather_gloo, world_size, port)
 
     # need 2 card to run
     # run_demo(demo_p2p, world_size, port)

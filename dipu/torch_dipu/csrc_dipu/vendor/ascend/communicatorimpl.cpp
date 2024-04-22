@@ -1,4 +1,6 @@
 
+#include "csrc_dipu/runtime/device/diclapis.h"
+
 #include "basecommimpl.hpp"
 
 #define HCCL_THROW(cmd)                                           \
@@ -22,9 +24,12 @@ static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
     {ReduceOp::PRODUCT, HCCL_REDUCE_PROD},
 };
 
-static void convertType(at::ScalarType& datatype) {
+static void convertTypeAndOp(at::ScalarType& datatype, ReduceOp& reduceOp) {
   if (datatype == at::ScalarType::Byte || datatype == at::ScalarType::Bool) {
     datatype = at::kChar;
+    if (datatype == at::ScalarType::Bool && reduceOp == ReduceOp::SUM) {
+      reduceOp = ReduceOp::MAX;
+    }
   }
 }
 
@@ -81,9 +86,10 @@ DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
   // (char), so we need to change the data type. For more details, please refer
   // to the following website:
   // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
-  convertType(dataType);
+  ReduceOp op = reduceOp;
+  convertTypeAndOp(dataType, op);
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
-                           getHcclDataType(dataType), hcclOp[reduceOp], comm,
+                           getHcclDataType(dataType), hcclOp[op], comm,
                            stream));
   return DICL_SUCCESS;
 }
