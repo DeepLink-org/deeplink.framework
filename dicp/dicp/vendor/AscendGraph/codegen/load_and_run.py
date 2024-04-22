@@ -297,7 +297,7 @@ class AscendExecutor(object):
                 assert (dataset == self.input_dataset)
 
     @record_function('load_and_run_prepare_output')
-    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output, allocated_output_with_offset_tensor):
+    def _prepare_output(self, output_tensor, output_shape, out_stride, out_storage_offset, allocated_output):
         for i in range(self.num_outputs):
             if allocated_output and i in allocated_output.keys():
                 item = allocated_output[i]
@@ -339,7 +339,7 @@ class AscendExecutor(object):
     @record_function('load_and_run_run')
     def run(self, images, dims=None, output_shape=None,
             out_stride=None, out_storage_offset=None,
-            allocated_output=None, allocated_with_offset_output=None):
+            allocated_output=None):
         with record_function(f'load_and_run_run_{self.model_id}'):
             assert len(images) > 0
             input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
@@ -350,12 +350,6 @@ class AscendExecutor(object):
                 for output_index, input_index in allocated_output.items():
                     allocated_output_tensor[output_index] = input[input_index]
 
-            allocated_output_with_offset_tensor = None
-            if allocated_with_offset_output:
-                allocated_output_with_offset_tensor = {}
-                for item in allocated_with_offset_output:
-                    allocated_output_with_offset_tensor[item['output_index']] = {'input_tensor': input[item['input_index']], 'offset': item['offset']}
-
             self._prepare_input(input, dims)
             output = []
             if output_shape:
@@ -363,7 +357,7 @@ class AscendExecutor(object):
                     output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
             else:
                 self._prepare_output(
-                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor, allocated_output_with_offset_tensor)
+                    output, output_shape, out_stride, out_storage_offset, allocated_output_tensor)
             self.forward()
             self._destroy_databuffer()
             return output
@@ -388,8 +382,8 @@ class AscendModel():
         self.exe = AscendExecutor(device_id, model_path)
 
     def run(self, images, dims=None, output_shape=None,
-            out_stride=None, out_storage_offset=None, allocated_output=None, allocated_with_offset_output=None):
-        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output, allocated_with_offset_output)
+            out_stride=None, out_storage_offset=None, allocated_output=None):
+        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output)
 
     def cleanup(self):
         if hasattr(self, 'exe'):

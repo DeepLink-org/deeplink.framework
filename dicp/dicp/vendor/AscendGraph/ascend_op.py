@@ -1115,14 +1115,6 @@ class Gather(Operator):
         return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
-class InplaceCopyWithOffset(Operator):
-    def __init__(self):
-        super().__init__("InplaceCopyWithOffset")
-
-    def infer_result(self, x, src, dim, offset):
-        return src
-
-
 class ExpandDims(Operator):
     def __init__(self):
         super().__init__("ExpandDims")
@@ -1144,7 +1136,7 @@ class ViewCopy(Operator):
         super().__init__("ViewCopy")
 
     def infer_result(self, dst, dst_size, dst_stride, dst_storage_offset, src, src_size, src_stride, src_storage_offset):
-        return x
+        return dst
 
 
 class ScatterNdUpdate(Operator):
