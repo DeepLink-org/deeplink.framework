@@ -79,7 +79,7 @@ class AscendCodegen(torch.fx.Interpreter):
         self.input_args.append(self.cur_node)
 
         fake_tensor = self.cur_node.meta['val']
-        format = "ND"
+        format = "NCHW"
         index = -1
 
         if isinstance(fake_tensor, torch.SymInt):
