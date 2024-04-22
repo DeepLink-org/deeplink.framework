@@ -260,10 +260,11 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
     dim_mask.flip();  // All dimensions are reduced if `dim` is empty.
   } else {
     for (const auto& d : dim.value()) {
-      TORCH_CHECK(d < ndim, "Dimension out of range.");
-      TORCH_CHECK(!dim_mask[d], "Dimension ", d,
+      auto idx = c10::maybe_wrap_dim(d, ndim);
+      TORCH_CHECK(idx >= 0 && idx < ndim, "Dimension out of range.");
+      TORCH_CHECK(!dim_mask[idx], "Dimension ", idx,
                   " appears multiple times in the list of dimensions.");
-      dim_mask.set(d);
+      dim_mask.set(idx);
     }
   }
 
