@@ -71,7 +71,6 @@ class AscendCodegen(torch.fx.Interpreter):
         # for modified args return
         self.assign_args = []
         self.cpu_tensor = []
-        self.assign_with_offset_args = []
 
         super().__init__(graph)
 
@@ -135,8 +134,6 @@ class AscendCodegen(torch.fx.Interpreter):
                 self.cpu_tensor.append(self.cur_node.meta['prop']['cpu_tensor'])
             if 'prop' in self.cur_node.meta and 'assign_args' in self.cur_node.meta['prop']:
                 self.assign_args.append(self.cur_node.meta['prop']['assign_args'])
-            if 'prop' in self.cur_node.meta and 'assign_with_offset_args' in self.cur_node.meta['prop']:
-                self.assign_with_offset_args.append(self.cur_node.meta['prop']['assign_with_offset_args'])
 
         _, args_list = AscendOverrides.gen_args(
             self.args_dict[name], self.args_dict, args)
@@ -199,10 +196,6 @@ class AscendCodegen(torch.fx.Interpreter):
 
         if len(self.assign_args) > 0:
             self.graph_output_names.extend(list(zip(*self.assign_args))[0])
-        current_index = len(self.graph_output_names)
-        for i in range(len(self.assign_with_offset_args)):
-            self.assign_with_offset_args[i]['output_index'] = current_index
-            current_index += 1
 
     def gen_import_code(self):
         self.import_code.splice(
@@ -380,15 +373,7 @@ class AscendCodegen(torch.fx.Interpreter):
             output_index = self.graph_output_names.index(item[0])
             allocated_output[output_index] = input_index
         call_body.writeline(f'allocated_output= {allocated_output}')
-
-        allocated_output_with_offset = {}
-        for item in self.assign_with_offset_args:
-            # input_index = item['input_index']
-            output_index = item['output_index']
-            # offset = item['offset']
-            allocated_output_with_offset[output_index] = item
-        call_body.writeline(f'allocated_with_offset_output= {self.assign_with_offset_args}')
-        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output, allocated_with_offset_output)']
+        call_str = ['output_tensor = kernel_cpp_0(args, dims, output_shape, out_stride, out_storage_offset, allocated_output)']
 
         if precision_check and self.aten_graph is not None:
             # import aten graph
@@ -1672,12 +1657,6 @@ class AscendOverrides:
         gather_op.set_input("x", x)
         gather_op.set_input("axis", axis)
         return gather_op.to_node()
-
-    @staticmethod
-    def InplaceCopyWithOffset(name, x, src, dim, offset):
-        op = OP(name, "Identity")
-        op.set_input("x", src)
-        return op.to_node()
 
     @staticmethod
     def MaskedScatter(name, x, mask, updates):

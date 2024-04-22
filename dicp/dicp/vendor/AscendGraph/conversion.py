@@ -1574,7 +1574,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def flash_attention_inference(self, q, all_k, all_v, current_len, max_len):
         q_shape = list(q.node.meta['val'].shape)
         batch, head, dim = q_shape[0], q_shape[1], q_shape[2]
-
+        k_shape = list(all_k.node.meta['val'].shape)
+        kvhead = k_shape[1]
+        
         res = []
         compute_batch = 1
         select_axis = self.get_const_proxy(0, torch.int32)
@@ -1585,12 +1587,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
             xq = self.get_proxy(ascend_op.GatherV2, (q, select_index, select_axis))
 
             kv_start_index = self.get_const_proxy([i * max_len, 0, 0], torch.int32)
-            kv_end_index = self.get_const_proxy([i * max_len + current_len, head, dim], torch.int32)
+            kv_end_index = self.get_const_proxy([i * max_len + current_len, kvhead, dim], torch.int32)
             kv_seq_len = current_len
 
-            kv_gather_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head, dim])
-            kv_compute_shape = self.get_shape_proxy([compute_batch, kv_seq_len, head * dim])
-
+            kv_gather_shape = self.get_shape_proxy([compute_batch, kv_seq_len, kvhead, dim])
+            kv_compute_shape = self.get_shape_proxy([compute_batch, kv_seq_len, kvhead * dim])
+            
             # fetch k
             k = self.get_proxy(ascend_op.Slice, (all_k, kv_start_index, kv_end_index))
             k = self.get_proxy(ascend_op.Reshape, (k, kv_gather_shape))
@@ -1606,13 +1608,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
             q_compute_shape = self.get_shape_proxy([compute_batch, 1, head * dim])
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_shape))
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_compute_shape))
-
-            out = self.incre_flash_attention(xq, k, v, head, head, dim)  # q shape is BSH
+            
+            out = self.incre_flash_attention(xq, k, v, kvhead, head, dim)  # q shape is BSH
             out_shape = self.get_shape_proxy([compute_batch, 1, head, dim])
             out_shape2 = self.get_shape_proxy([compute_batch, head, dim])
             out = self.get_proxy(ascend_op.Reshape, (out, out_shape))
             out = self.get_proxy(ascend_op.Reshape, (out, out_shape2))
             res.append(out)
-
+        
         res = self.get_proxy(ascend_op.ConcatD, (res, 0))
         return res
