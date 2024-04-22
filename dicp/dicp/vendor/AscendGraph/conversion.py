@@ -382,10 +382,36 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.select.int)
     def select(self, x, dim, index):
-        axis = self.get_const_proxy(dim, torch.int32)
-        if not isinstance(index, torch.fx.proxy.Proxy):
-            index = self.get_const_proxy(index, torch.int32)
-        return self.get_proxy(ascend_op.GatherV2, (x, index, axis))
+        x_shape = list(x.node.meta['val'].shape)
+        y_shape = list(fx_traceback.get_current_meta()['val'].shape)
+        dim = int(dim)
+        index = int(index)
+        assert dim >= 0 and dim < len(x_shape)
+        start = index if index >= 0 else index + x_shape[dim]
+        end = start + 1
+        offset = [0] * len(x_shape)
+        offset[dim] = start
+        size = []
+        for i, v in enumerate(x_shape):
+            if i != dim:
+                size.append(v - offset[i])
+            else:
+                size.append(end - offset[i])
+        offset = self.get_shape_proxy(offset)
+        size = self.get_shape_proxy(size)
+        slice = self.get_proxy(ascend_op.Slice, (x, offset, size))
+        y_shape = self.get_shape_proxy(y_shape)
+        Reshape_kw = {
+            "ori_op": "Select",
+            "params_passed": {
+                "sel_dim": dim,
+            },
+        }
+        return self.get_proxy(ascend_op.Reshape, (slice, y_shape), Reshape_kw)
+        # axis = self.get_const_proxy(dim, torch.int32)
+        # if not isinstance(index, torch.fx.proxy.Proxy):
+        #     index = self.get_const_proxy(index, torch.int32)
+        # return self.get_proxy(ascend_op.GatherV2, (x, index, axis))
 
     @register_conversion(_operator.add)
     def inadd(self, x, y):
