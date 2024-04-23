@@ -1103,19 +1103,6 @@ class TensorScatterUpdate(Operator):
         return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
 
 
-class Gather(Operator):
-    def __init__(self):
-        super().__init__("Gather")
-
-    def infer_result(self, x, index):
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        idx, idx_shape, idx_dim, idx_dtype = get_fake_tensor_meta_val(index)
-        # compute idx_shape for some special cases.
-        idx_shape = list(idx_shape)
-        idx_shape.append(x_shape[-1])
-        return torch.empty(idx_shape, dtype=x_dtype, memory_format=get_memory_format(x))
-
-
 class ExpandDims(Operator):
     def __init__(self):
         super().__init__("ExpandDims")

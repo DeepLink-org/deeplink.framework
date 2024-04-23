@@ -1635,13 +1635,6 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def Gather(name, x, indices):
-        gather_op = OP(name, "Gather")
-        gather_op.set_input("x", x)
-        gather_op.set_input("indices", indices)
-        return gather_op.to_node()
-
-    @staticmethod
     def ExpandDims(name, x, axis):
         gather_op = OP(name, "ExpandDims")
         gather_op.set_input("x", x)
