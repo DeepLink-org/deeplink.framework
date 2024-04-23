@@ -1,6 +1,9 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
+#include <atomic>
+#include <cstdio>   // for printf
+#include <cstdlib>  // for std::getenv
 #include <deque>
 #include <fstream>
 #include <iostream>
