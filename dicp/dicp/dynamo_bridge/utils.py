@@ -7,6 +7,13 @@ from torch._inductor.codecache import code_hash
 from torch.fx.node import Argument, Target
 
 
+def proxy_in_shape(shape):
+    for elem in shape:
+        if isinstance(elem, torch.fx.proxy.Proxy):
+            return True
+    return False
+
+
 def symint_in_shape(shape):
     for elem in shape:
         if isinstance(elem, torch.SymInt):
