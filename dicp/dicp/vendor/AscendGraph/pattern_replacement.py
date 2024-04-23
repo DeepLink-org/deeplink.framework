@@ -72,17 +72,6 @@ BatchMatMul = torch.fx.wrap(ascend_op.BatchMatMul.get_singleton())
 Permute = torch.fx.wrap(ascend_op.Permute.get_singleton())
 MatMul = torch.fx.wrap(ascend_op.MatMul.get_singleton())
 
-Pow = torch.fx.wrap(ascend_op.Pow.get_singleton())
-ReduceMeanD = torch.fx.wrap(ascend_op.ReduceMeanD.get_singleton())
-Adds = torch.fx.wrap(ascend_op.Adds.get_singleton())
-Rsqrt = torch.fx.wrap(ascend_op.Rsqrt.get_singleton())
-ZerosLike = torch.fx.wrap(ascend_op.ZerosLike.get_singleton())
-Less = torch.fx.wrap(ascend_op.Less.get_singleton())
-Select = torch.fx.wrap(ascend_op.Select.get_singleton())
-Mul = torch.fx.wrap(ascend_op.Mul.get_singleton())
-Div = torch.fx.wrap(ascend_op.Div.get_singleton())
-RmsNorm = torch.fx.wrap(ascend_op.RmsNorm.get_singleton())
-
 
 # @register_ascend_pattern
 class FuseBmmTransposeRhsPattern(BackendPatternBase):
@@ -121,29 +110,6 @@ class FuseBmmTransposeMulsPattern(BackendPatternBase):
         reshape = Reshape(x2, shape)
         muls = Muls(reshape, 0.3535533905932738)
         return BatchMatMul(x1, muls, adj_x1=False, adj_x2=True, keep_dtype=0)
-
-
-@register_ascend_pattern
-class FuseLightLLMRmsNorm(BackendPatternBase):
-    @staticmethod
-    def pattern(arg0_1, arg1_1):
-        const = Const([2], torch.float32)
-        pow_1 = Pow(arg0_1, const)
-        reduce_mean_d = ReduceMeanD(pow_1, [-1], True, False)
-        adds = Adds(reduce_mean_d, 0.001)
-        rsqrt = Rsqrt(adds)
-        zeros_like = ZerosLike(adds)
-        div = Div(zeros_like, zeros_like)
-        less = Less(adds, zeros_like)
-        select = Select(less, div, rsqrt)
-        mul = Mul(arg0_1, select)
-        mul_1 = Mul(mul, arg1_1)
-        return mul_1
-
-    @staticmethod
-    def replacement(arg0_1, arg1_1):
-        rms_norm = RmsNorm(arg0_1, arg1_1, 0.001)
-        return Identity(rms_norm, 0)
 
 
 # @pandaoxin negotiate with @tangzhiyi

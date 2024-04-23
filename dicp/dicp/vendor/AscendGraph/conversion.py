@@ -408,10 +408,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
             },
         }
         return self.get_proxy(ascend_op.Reshape, (slice, y_shape), Reshape_kw)
-        # axis = self.get_const_proxy(dim, torch.int32)
-        # if not isinstance(index, torch.fx.proxy.Proxy):
-        #     index = self.get_const_proxy(index, torch.int32)
-        # return self.get_proxy(ascend_op.GatherV2, (x, index, axis))
 
     @register_conversion(_operator.add)
     def inadd(self, x, y):

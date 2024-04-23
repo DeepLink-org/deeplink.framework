@@ -342,7 +342,7 @@ class AscendExecutor(object):
             allocated_output=None):
         assert len(images) > 0
         input = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
-                    and x.device.type != dipu_device_str else x for x in images]
+                 and x.device.type != dipu_device_str else x for x in images]
         allocated_output_tensor = None
         if allocated_output:
             allocated_output_tensor = {}
