@@ -98,7 +98,7 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/} # Extract the tag name
           echo $TAG
-          bash /mnt/cache/share/platform/env/Deploy_DIPU_trigger.sh "$TAG"
+          bash /mnt/cache/share/platform/dep/Deploy_DIPU_trigger.sh "$TAG"
           
   Build-Camb:
     name: Build-dipu-camb
