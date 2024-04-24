@@ -71,49 +71,6 @@ DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   return result;
 }
 
-std::vector<int64_t> compute_broadcast_matrix_shape(const at::Tensor& t1,
-                                                    const at::Tensor& t2) {
-  const int64_t nA = t1.dim();
-  const int64_t nB = t2.dim();
-  std::vector<int64_t> output_shape;
-
-  if (nA == nB && nB == 2) {
-    output_shape = {t1.size(0), t2.size(1)};
-  } else if (nA == 1 && nB == 2) {
-    TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
-    output_shape = {t2.size(1)};
-  } else if (nA == 2 && nB == 1) {
-    TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
-    output_shape = {t1.size(0)};
-  } else if (nA > 2 && nB == 1) {
-    TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
-    output_shape =
-        std::vector<int64_t>(t1.sizes().begin(), t1.sizes().end() - 1);
-  } else if (nA == 1 && nB > 2) {
-    TORCH_CHECK(t1.size(0) == t2.size(-2), "Inner dimensions must match.");
-    output_shape = std::vector<int64_t>(t2.sizes().begin(), t2.sizes().end());
-    output_shape.erase(output_shape.end() - 2);
-  } else if (nA >= 2 && nB >= 2) {
-    TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
-    const int64_t nC = std::max(nA, nB);
-    output_shape = std::vector<int64_t>(nC, 1);
-    output_shape[nC - 1] = t2.size(nB - 1);
-    output_shape[nC - 2] = t1.size(nA - 2);
-    for (int64_t i = 3; i <= nC; ++i) {
-      int64_t dim = nC - i;
-      if (nA - i >= 0 && nB - i >= 0) {
-        output_shape[dim] = std::max(t1.size(nA - i), t2.size(nB - i));
-      } else if (nA - i >= 0) {
-        output_shape[dim] = t1.size(nA - i);
-      } else if (nB - i >= 0) {
-        output_shape[dim] = t2.size(nB - i);
-      }
-    }
-  }
-
-  return output_shape;
-}
-
 struct ResultTypeState {
   at::ScalarType dimResult = at::ScalarType::Undefined;
   at::ScalarType wrappedResult = at::ScalarType::Undefined;
@@ -256,20 +213,20 @@ bool OpInferrer::fast_compute_memory_format() {
 }
 
 std::vector<StrideVector> OpInferrer::compute_effective_strides() {
-    std::vector<StrideVector> strides(ntensors(), StrideVector(ndim(), 0));
-    for (int i = 0; i < ntensors(); ++i) {
-        auto& t = inputs_[i];
-        auto original_shape = t.sizes();
-        auto original_stride = t.strides();
-        auto offset = ndim() - original_shape.size();
+  std::vector<StrideVector> strides(ntensors(), StrideVector(ndim(), 0));
+  for (int i = 0; i < ntensors(); ++i) {
+    auto& t = inputs_[i];
+    auto original_shape = t.sizes();
+    auto original_stride = t.strides();
+    auto offset = ndim() - original_shape.size();
 
-        for (int j = 0; j < original_shape.size(); ++j) {
-            if (!(original_shape[j] == 1 && shape_[offset + j] != 1)) {
-                strides[i][offset + j] = original_stride[j];
-            }
-        }
+    for (int j = 0; j < original_shape.size(); ++j) {
+      if (!(original_shape[j] == 1 && shape_[offset + j] != 1)) {
+        strides[i][offset + j] = original_stride[j];
+      }
     }
-    return strides;
+  }
+  return strides;
 }
 
 // Calculate perm_ to sort the dimensions based on strides in ascending order.
@@ -309,8 +266,8 @@ void OpInferrer::compute_perm() {
 
   // insertion sort with support for ambiguous comparisons
   for (const auto i : c10::irange(ndim())) {
-    int dim1 = i;
-    for (int dim0 = i - 1; dim0 >= 0; dim0--) {
+    size_t dim1 = i;
+    for (size_t dim0 = i - 1; dim0 >= 0; dim0--) {
       int comparison = should_swap(perm_[dim0], perm_[dim1]);
       if (comparison > 0) {
         std::swap(perm_[dim0], perm_[dim1]);
@@ -420,18 +377,58 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
   return malloc_output();
 }
 
-// at::Tensor OpInferrer::infer_matrix_op() {
-//   // Ensure there are at least two tensors for matrix multiplication
-//   TORCH_CHECK(ntensors() >= 2,
-//               "Matrix operations require at least two input tensors");
-//   shape_ = internal::compute_broadcast_matrix_shape(inputs_[0],
-//   inputs_[1]); compute_dtype(); compute_memory_format(); return
-//   malloc_output();
+// void MatrixOpInferrer::compute_broadcast_matrix_shape() {
+//   auto& t1 = inputs_[0];
+//   auto& t2 = inputs_[1];
+//   const int64_t nA = t1.dim();
+//   const int64_t nB = t2.dim();
+
+//   if (nA == nB && nB == 2) {
+//     shape_ = {t1.size(0), t2.size(1)};
+//   } else if (nA == 1 && nB == 2) {
+//     TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
+//     shape_ = {t2.size(1)};
+//   } else if (nA == 2 && nB == 1) {
+//     TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
+//     shape_ = {t1.size(0)};
+//   } else if (nA > 2 && nB == 1) {
+//     TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
+//     shape_ = std::vector<int64_t>(t1.sizes().begin(), t1.sizes().end() - 1);
+//   } else if (nA == 1 && nB > 2) {
+//     TORCH_CHECK(t1.size(0) == t2.size(-2), "Inner dimensions must match.");
+//     shape_ = std::vector<int64_t>(t2.sizes().begin(), t2.sizes().end());
+//     shape_.erase(shape_.end() - 2);
+//   } else if (nA >= 2 && nB >= 2) {
+//     TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
+//     const int64_t nC = std::max(nA, nB);
+//     shape_ = std::vector<int64_t>(nC, 1);
+//     shape_[nC - 1] = t2.size(nB - 1);
+//     shape_[nC - 2] = t1.size(nA - 2);
+//     for (int64_t i = 3; i <= nC; ++i) {
+//       int64_t dim = nC - i;
+//       if (nA - i >= 0 && nB - i >= 0) {
+//         shape_[dim] = std::max(t1.size(nA - i), t2.size(nB - i));
+//       } else if (nA - i >= 0) {
+//         shape_[dim] = t1.size(nA - i);
+//       } else if (nB - i >= 0) {
+//         shape_[dim] = t2.size(nB - i);
+//       }
+//     }
+//   }
 // }
 
-// at::Tensor OpInferrer::infer_cat(int64_t dim) {
-//   TORCH_CHECK(!inputs_.empty(),
-//               "torch.cat(): expected a non-empty list of Tensors");
+// at::Tensor MatrixOpInferrer::infer_out(const at::Tensor& self,
+//                                        const at::Tensor& other) {
+//   add_inputs({self, other});
+//   compute_broadcast_matrix_shape();
+//   compute_dtype();
+//   compute_memory_format();
+//   return malloc_output();
+// }
+
+// at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
+//                                     int64_t dim) {
+//   add_inputs(tensors);
 //   size_t i = 0;
 //   for (const at::Tensor& t : inputs_) {
 //     TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
@@ -464,8 +461,7 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
 //   // are compatible, i.e. we can execute `cat` on them.
 //   bool found_valid_tensor = valid < ntensors();
 //   if (found_valid_tensor) {
-//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ",
-//     dim,
+//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
 //                 "out of range");
 
 //     // Compute the output tensor size.

@@ -104,8 +104,16 @@ class ReduceOpInferrer final : public OpInferrer {
 };
 
 // class MatrixOpInferrer final : public OpInferrer {
-//   at::Tensor infer_out(const at::Tensor& self, c10::OptionalIntArrayRef dim,
-//                        bool keep_dim, c10::optional<at::ScalarType> dtype);
+//  public:
+//   at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
+
+//  private:
+//   void compute_broadcast_matrix_shape();
+// };
+
+// class CatOpInferrer final : public OpInferrer {
+//  public:
+//   at::Tensor infer_out(const at::ITensorListRef & tensors, int64_t dim);
 // };
 
 }  // namespace dipu
