@@ -52,10 +52,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 #define DIOPI_ATEN_FUNC(opname, diopiFunc, wrapperFunc)                      \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \
-        (!dipu::op_regex_match::isOpMatch(                                \
-            opname, dipu::op_regex_match::fallbackMatchers))) {                \
-      if (dipu::op_regex_match::isOpMatch(                                \
-              opname, dipu::op_regex_match::autocompareMatchers)) {            \
+        (!dipu::op_regex_match::isOpMatch(                                   \
+            opname, dipu::op_regex_match::fallbackMatchers))) {              \
+      if (dipu::op_regex_match::isOpMatch(                                   \
+              opname, dipu::op_regex_match::autocompareMatchers)) {          \
         m.impl(opname, TORCH_FN(wrapperFunc##_autocompare));                 \
       } else {                                                               \
         m.impl(opname, TORCH_FN(wrapperFunc));                               \
@@ -74,8 +74,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 #define DIOPI_ATEN_FUNC_DISABLE_AUTOCOMPARE(opname, diopiFunc, wrapperFunc)  \
   do {                                                                       \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                   \
-        (!dipu::op_regex_match::isOpMatch(                                \
-            opname, dipu::op_regex_match::fallbackMatchers))) {                \
+        (!dipu::op_regex_match::isOpMatch(                                   \
+            opname, dipu::op_regex_match::fallbackMatchers))) {              \
       m.impl(opname, TORCH_FN(wrapperFunc));                                 \
     } else {                                                                 \
       if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                 \
@@ -98,10 +98,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                         \
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                   \
         !((force_fallback) ||                                                 \
-          dipu::op_regex_match::isOpMatch(                                 \
-              opname, dipu::op_regex_match::fallbackMatchers))) {               \
-      if (dipu::op_regex_match::isOpMatch(                                 \
-              opname, dipu::op_regex_match::autocompareMatchers)) {             \
+          dipu::op_regex_match::isOpMatch(                                    \
+              opname, dipu::op_regex_match::fallbackMatchers))) {             \
+      if (dipu::op_regex_match::isOpMatch(                                    \
+              opname, dipu::op_regex_match::autocompareMatchers)) {           \
         m.impl(opname, TORCH_FN(wrapper_func##_autocompare));                 \
       } else {                                                                \
         m.impl(opname, TORCH_FN(wrapper_func));                               \

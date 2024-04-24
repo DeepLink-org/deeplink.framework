@@ -2748,7 +2748,6 @@
 
 # this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
-  autocompare: disable
   dummy_call_diopi: True
   custom_fallback: True
   device: [cuda, camb, ascend, droplet, supa, kunlunxin]
@@ -2760,7 +2759,6 @@
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
-  autocompare: disable
   custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |

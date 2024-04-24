@@ -51,7 +51,7 @@ std::vector<std::regex> loadMatcher(const char* env_name,
 }
 
 bool isOpMatch(const char* opname,
-                    const std::vector<std::regex>& regexMatchers) {
+               const std::vector<std::regex>& regexMatchers) {
   if (regexMatchers.empty() || opname == nullptr) {
     return false;
   }
@@ -71,6 +71,6 @@ const char* const specified_autocompare_config_name =
     ".specified_autocompare_op_list.config";
 const std::vector<std::regex> autocompareMatchers =
     dipu::op_regex_match::loadMatcher(specified_autocompare_env_name,
-                                    specified_autocompare_config_name);
+                                      specified_autocompare_config_name);
 }  // namespace op_regex_match
 }  // namespace dipu
