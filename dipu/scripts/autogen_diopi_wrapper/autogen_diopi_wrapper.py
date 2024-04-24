@@ -948,6 +948,7 @@ def functions_code_gen(fun_config):
 
     # generate the OP_register code
     # case 1: custom_fallback=False and autocompare not disabled
+    register_body = ""
     if fun_config.get("custom_fallback", False) in ["False", False] and fun_config.get(
         "autocompare", True
     ) in ["True", True]:
@@ -975,8 +976,10 @@ def functions_code_gen(fun_config):
                 )
             ],
         )
-    # case3: custom_fallback=True
-    elif fun_config.get("custom_fallback", False) in ["True", True]:
+    # case3: custom_fallback=True and autocompare not disable
+    elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
+        "autocompare", True
+    ) in ["True", True]:
         register_body = op_with_custom_fallback_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config["schema"])],
             aten_fun_name=["dipu::native::" + fun_name],
@@ -992,11 +995,7 @@ def functions_code_gen(fun_config):
                     else "true"
                 )
             ],
-            fallbackFunc=[
-                "dipu::native::"
-                + "custom_fallback_"
-                + fun_name.replace("_autocompare", "")
-            ],
+            fallbackFunc=["dipu::native::" + "custom_fallback_" + fun_name],
         )
 
     return fbody, register_body

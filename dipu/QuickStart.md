@@ -220,11 +220,11 @@ autocompare:    add.out other: allclose
 
 算子精度自动对比功能默认不开启，可以设置环境变量`DIPU_AUTOCOMPARE_OPS_LIST`来控制该功能，在开启算子自动对比功能前，必须unset  `DIPU_FORCE_FALLBACK_OPS_LIST`
 
-- 可以通过设置环境变量`DIPU_AUTOCOMPARE_OPS_LIST=‘.*’`，开启全局的精度对比，这种情况下所有调用的算子都会进行精度对比。
+- 可以通过设置环境变量`DIPU_AUTOCOMPARE_OPS_LIST='.*'`，开启全局的精度对比，这种情况下所有调用的算子都会进行精度对比。
 
 ```shell
 # 开启全局的算子精度自动对比功能
-export DIPU_AUTOCOMPARE_OPS_LIST=‘.*’
+export DIPU_AUTOCOMPARE_OPS_LIST='.*'
 ```
 
 - 可以设置`DIPU_AUTOCOMPARE_OPS_LIST`来指定算子开启自动精度对比，支持正则表达式匹配，也可以指定多个算子开启自动精度对比。算子名可以参考[diopi_functions.yaml](https://github.com/DeepLink-org/deeplink.framework/blob/main/dipu/scripts/autogen_diopi_wrapper/diopi_functions.yaml)。
