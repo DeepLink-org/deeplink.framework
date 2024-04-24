@@ -61,13 +61,15 @@ bool isOpMatch(const char* opname,
       [&opname](auto& matcher) { return std::regex_match(opname, matcher); });
 }
 
-const char* const fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
-const char* const fallback_config_name = ".dipu_force_fallback_op_list.config";
+constexpr const char* fallback_env_name = "DIPU_FORCE_FALLBACK_OPS_LIST";
+constexpr const char* fallback_config_name =
+    ".dipu_force_fallback_op_list.config";
 const std::vector<std::regex> fallbackMatchers =
     dipu::op_regex_match::loadMatcher(fallback_env_name, fallback_config_name);
 
-const char* const specified_autocompare_env_name = "DIPU_AUTOCOMPARE_OPS_LIST";
-const char* const specified_autocompare_config_name =
+constexpr const char* specified_autocompare_env_name =
+    "DIPU_AUTOCOMPARE_OPS_LIST";
+constexpr const char* specified_autocompare_config_name =
     ".specified_autocompare_op_list.config";
 const std::vector<std::regex> autocompareMatchers =
     dipu::op_regex_match::loadMatcher(specified_autocompare_env_name,
