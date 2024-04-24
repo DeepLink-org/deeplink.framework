@@ -15,7 +15,7 @@ init() {( set -e
 # >>> DIPU Initialize >>>
 # !! Contents within this block are managed by 'dipu_autoload.sh init' !!
 import os
-if os.environ.get('DIPU_AUTOLOAD', '1') != '0':
+if os.environ.get('DIPU_AUTOLOAD', '0') != '0':
     print("DIPU is being automatically loaded with sitecustomize.py. To disable this behavior, set \`DIPU_AUTOLOAD=0\` in your environment or execute \`dipu_autoload.sh deinit\`.")
     import torch_dipu
 # <<< DIPU Initialize <<<
@@ -23,7 +23,7 @@ EOF
    echo "DIPU autoload has been successfully configured in ${sitecustomize_path}."
   fi
 
-  echo "DIPU will be automatically loaded when python starts if DIPU_AUTOLOAD is not set to 0."
+  echo "DIPU will be automatically loaded when python starts if DIPU_AUTOLOAD is set to a nonzero value."
 )}
 
 deinit() {( set -e
