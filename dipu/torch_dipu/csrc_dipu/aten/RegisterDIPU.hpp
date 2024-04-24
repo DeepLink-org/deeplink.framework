@@ -102,8 +102,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                                            << (opname)                      \
                                            << " will be fallback to cpu"    \
                                            << "\n");                        \
-    }                                                                       \
-    \                                                
+    }                                                                       \                                               
     else if (((force_fallback) ||                                           \
               dipu::op_regex_match::isOpMatch(                              \
                   opname, dipu::op_regex_match::fallbackMatchers))) {       \
