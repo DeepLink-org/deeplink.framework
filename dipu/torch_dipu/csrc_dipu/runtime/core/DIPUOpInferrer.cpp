@@ -196,6 +196,7 @@ void OpInferrer::compute_shape() {
     if (shape_.empty()) {
       shape_ = shape;
     } else if (!shape.equals(shape_)) {
+      all_same_shape_ = false;
       shape_ = internal::compute_broadcast_shape(shape_, shape);
     }
   }
@@ -211,11 +212,178 @@ void OpInferrer::compute_dtype() {
   TORCH_INTERNAL_ASSERT(dtype_ != at::ScalarType::Undefined);
 }
 
+bool OpInferrer::fast_compute_memory_format() {
+  if (!all_same_shape_) {
+    return false;
+  }
+
+  bool is_contiguous = true;
+  bool is_channels_last = true;
+  bool is_non_overlapping_and_dense = true;
+
+  // Iterate through input tensors to check their properties
+  for (const auto& t : inputs_) {
+    if (t.defined()) {
+      is_contiguous &= t.is_contiguous(at::MemoryFormat::Contiguous);
+      is_channels_last &= t.is_contiguous(at::MemoryFormat::ChannelsLast);
+      is_non_overlapping_and_dense &= t.is_non_overlapping_and_dense();
+    }
+  }
+
+  // Decide the memory format based on properties
+  if (is_contiguous) {
+    memory_format_ = at::MemoryFormat::Contiguous;
+    return true;
+  }
+  if (is_channels_last) {
+    memory_format_ = at::MemoryFormat::ChannelsLast;
+    return true;
+  }
+  if (is_non_overlapping_and_dense) {
+    // Additional check for matching strides
+    int64_t prev = -1;
+    for (int64_t i = ntensors() - 1; i >= 0; --i) {
+      const auto& t = inputs_[i];
+      if (prev < 0) {
+        prev = i;
+        continue;
+      }
+      if (!inputs_[prev].strides().equals(t.strides())) {
+        return false;
+      }
+    }
+    // Use memory_format of the first input
+    memory_format_ = inputs_[0].suggest_memory_format();
+    return true;
+  }
+
+  return false;
+}
+
+void OpInferrer::calculate_perm() {
+  perm_.resize(ndim());
+  if (ndim() == 1) {
+    perm_[0] = 0;
+    return;
+  }
+
+  // initialize perm with n-1, n-2, ..., 1, 0
+  std::iota(perm_.rbegin(), perm_.rend(), 0);
+
+  std::vector<StrideVector> strides;
+  strides.resize(ntensors());
+  for (const auto i : c10::irange(ntensors())) {
+    auto& t = inputs_[i];
+    at::IntArrayRef original_shape = t.sizes();
+    auto original_stride = t.strides();
+    auto offset = ndim() - original_shape.size();
+    if (offset > 0)
+      strides[i].resize(ndim(), 0);
+    else
+      strides[i].resize(ndim());
+    for (const auto j : c10::irange(original_shape.size())) {
+      if (original_shape[j] == 1 && shape_[offset + j] != 1) {
+        strides[i][offset + j] = 0;
+      } else {
+        strides[i][offset + j] = original_stride[j];
+      }
+    }
+  }
+  // returns 1 if the dim0 should come after dim1, -1 if dim0 should come
+  // before dim1, and 0 if the comparison is ambiguous.
+  auto should_swap = [&](size_t dim0, size_t dim1) {
+    for (const auto i : c10::irange(ntensors())) {
+      int64_t stride0 = strides[i][dim0];
+      int64_t stride1 = strides[i][dim1];
+      // broadcasting case
+      // move on to the next input if one of the dimensions is broadcasted
+      if (stride0 == 0 || stride1 == 0) {
+        continue;
+        // it is important to return here only with strict comparisons, for
+        // equal strides we try to break the tie later by comparing
+        // corresponding dimensions or if that does not work, moving on to the
+        // next tensor
+      } else if (stride0 < stride1) {
+        return -1;
+      } else if (stride0 > stride1) {
+        return 1;
+      } else {  // equal strides, use dimensions themselves as the
+                // tie-breaker.
+        // at this point, with zero strides out of the way, we are guaranteed
+        // that operand dimensions are equal to shape_
+        auto t_dim0 = shape_[dim0];
+        auto t_dim1 = shape_[dim1];
+        // return only if dimensions should be swapped, otherwise move on to
+        // the next tensor
+        if (t_dim0 > t_dim1) {
+          return 1;
+        }
+      }
+    }
+    return 0;
+  };
+
+  // insertion sort with support for ambiguous comparisons
+  for (const auto i : c10::irange(ndim())) {
+    int dim1 = i;
+    for (int dim0 = i - 1; dim0 >= 0; dim0--) {
+      int comparison = should_swap(perm_[dim0], perm_[dim1]);
+      if (comparison > 0) {
+        std::swap(perm_[dim0], perm_[dim1]);
+        dim1 = dim0;
+      } else if (comparison < 0) {
+        break;
+      }
+    }
+  }
+}
+
+void OpInferrer::compute_memory_format() {
+  if (fast_compute_memory_format()) {
+    return;
+  }
+  calculate_perm();
+
+  // Permutes dimensions based on perm_
+  auto shape = DimVector(shape_.size(), 0);
+  for (const auto i : c10::irange(perm_.size())) {
+    shape[i] = shape_[perm_[i]];
+  }
+
+  // Calculate strides based on new shape
+  auto strides = StrideVector();
+  int64_t next_stride = 1;
+  for (const auto dim : c10::irange(ndim())) {
+    strides.push_back(next_stride);
+    next_stride *= shape[dim];
+  }
+
+  // check if permutation is just an inverted order
+  bool inverted = true;
+  for (const auto j : c10::irange(ndim())) {
+    if (perm_[j] != ndim() - j - 1) {
+      inverted = false;
+      break;
+    }
+  }
+  if (inverted) {
+    // can just return contiguous output
+    memory_format_ = at::MemoryFormat::Contiguous;
+  } else {
+    // should directly set the strides
+    strides_.resize(strides.size());
+    for (const auto dim : c10::irange(ndim())) {
+      strides_[perm_[dim]] = strides[dim];
+    }
+  }
+}
+
 at::Tensor BinaryOpInferrer::infer_out(const at::Tensor& self,
                                        const at::Tensor& other) {
   add_inputs({self, other});
   compute_shape();
   compute_dtype();
+  compute_memory_format();
   return malloc_output();
 }
 
@@ -224,6 +392,7 @@ at::Tensor BinaryFloatOpInferrer::infer_out(const at::Tensor& self,
   add_inputs({self, other});
   compute_shape();
   compute_dtype();
+  compute_memory_format();
   // Promotes common dtype to the default float scalar type, if needed
   if (c10::isIntegralType(dtype_, /*includeBool=*/true)) {
     dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
@@ -235,6 +404,7 @@ at::Tensor UnaryOpInferrer::infer_out(const at::Tensor& self) {
   add_inputs({self});
   compute_shape();
   compute_dtype();
+  compute_memory_format();
   return malloc_output();
 }
 
@@ -243,6 +413,7 @@ at::Tensor ComparisonOpInferrer::infer_out(const at::Tensor& self,
   add_inputs({self, other});
   compute_shape();
   dtype_ = at::ScalarType::Bool;
+  compute_memory_format();
   return malloc_output();
 }
 
@@ -280,16 +451,17 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
   }
 
   compute_dtype();
+  compute_memory_format();
   return malloc_output();
 }
 
 // at::Tensor OpInferrer::infer_matrix_op() {
 //   // Ensure there are at least two tensors for matrix multiplication
-//   TORCH_CHECK(inputs_.size() >= 2,
+//   TORCH_CHECK(ntensors() >= 2,
 //               "Matrix operations require at least two input tensors");
-//   shape_ = internal::compute_broadcast_matrix_shape(inputs_[0], inputs_[1]);
-//   compute_dtype();
-//   return malloc_output();
+//   shape_ = internal::compute_broadcast_matrix_shape(inputs_[0],
+//   inputs_[1]); compute_dtype(); compute_memory_format(); return
+//   malloc_output();
 // }
 
 // at::Tensor OpInferrer::infer_cat(int64_t dim) {
@@ -311,8 +483,8 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
 //   }
 
 //   // Look for the first valid tensor.
-//   size_t valid = inputs_.size();
-//   for (const auto i : c10::irange(inputs_.size())) {
+//   size_t valid = ntensors();
+//   for (const auto i : c10::irange(ntensors())) {
 //     if (!internal::cat_should_skip_tensor(inputs_[i])) {
 //       valid = i;
 //       break;
@@ -325,16 +497,17 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
 
 //   // If we found a valid tensor, check whether the input tensors
 //   // are compatible, i.e. we can execute `cat` on them.
-//   bool found_valid_tensor = valid < inputs_.size();
+//   bool found_valid_tensor = valid < ntensors();
 //   if (found_valid_tensor) {
-//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
+//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ",
+//     dim,
 //                 "out of range");
 
 //     // Compute the output tensor size.
 //     // It should have the same shape as any other valid tensor,
 //     // except in the dimension 'dim'.
 //     int64_t size_at_dim = 0;
-//     for (const auto i : c10::irange(inputs_.size())) {
+//     for (const auto i : c10::irange(ntensors())) {
 //       const at::Tensor& t = inputs_[i];
 //       if (!internal::cat_should_skip_tensor(t)) {
 //         internal::check_cat_shape_except_dim(inputs_[valid], t, dim, i);
@@ -345,7 +518,7 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
 //     shape_ = inputs_[valid].sizes();
 //     shape_[dim] = size_at_dim;
 //   }
-
+//   compute_memory_format();
 //   return malloc_output();
 // }
 

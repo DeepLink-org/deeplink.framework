@@ -10,8 +10,9 @@
 namespace dipu {
 
 using DimVector = c10::SmallVector<int64_t, 4>;
+using StrideVector = c10::SmallVector<int64_t, 6>;
 
-// Base Class for inferring the shape and dtype of an output Tensor
+// Base Class for inferring the shape, dtype, and memory format of output Tensor
 // based on its inputs, then malloc the output tensor.
 class OpInferrer {
  public:
@@ -21,6 +22,8 @@ class OpInferrer {
   at::ScalarType common_dtype() const { return dtype_; }
 
   DimVector target_shape() const { return shape_; }
+
+  at::MemoryFormat memory_format() const { return memory_format_; }
 
  protected:
   void add_inputs(const std::vector<at::Tensor>& inputs) {
@@ -33,21 +36,41 @@ class OpInferrer {
   // Computes the shape of the output, supporting broadcasting rules.
   void compute_shape();
 
+  int ndim() const { return shape_.size(); }
+  int ntensors() const { return inputs_.size(); }
+
   // Computes the dtype of the output based on all input tensors,
   // supporting dtype promotion
   void compute_dtype();
 
-  // Allocates the output Tensor based on the inferred shape and dtype.
+  bool fast_compute_memory_format();
+  void calculate_perm();
+
+  // Determine the best memory format for the output tensor based on input
+  // tensors.
+  void compute_memory_format();
+
+  // Allocates the output Tensor based on the inferred attributes, if strides_
+  // inferred, use it.
   at::Tensor malloc_output() {
     at::TensorOptions options =
         at::TensorOptions().dtype(dtype_).device(device_);
-    return native::nodispatch::empty(shape_, options);
+    auto out = native::nodispatch::empty(shape_, options, memory_format_);
+
+    if (!strides_.empty()) {
+      out.as_strided_(shape_, strides_);
+    }
+    return out;
   }
 
+  bool all_same_shape_ = true;
   c10::SmallVector<at::Tensor, 4> inputs_;
   DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
   at::Device device_ = dipu::DIPU_DEVICE_TYPE;
+  at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
+  StrideVector strides_;
+  DimVector perm_;
 };
 
 class BinaryOpInferrer final : public OpInferrer {
