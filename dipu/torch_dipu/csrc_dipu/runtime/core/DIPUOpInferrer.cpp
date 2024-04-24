@@ -355,10 +355,10 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
 
 // Check to see if the shape of tensors is compatible
 // for being concatenated along a given dimension.
-void CatOpInferrer::check_cat_shape_except_dim(const at::Tensor& first,
-                                               const at::Tensor& second,
-                                               int64_t dimension,
-                                               size_t index) {
+void CatOpInferrer::check_cat_shape_except_dim(size_t index, size_t index_2,
+                                               int64_t dimension) {
+  auto& first = inputs_[index];
+  auto& second = inputs_[index_2];
   int64_t first_dims = first.dim();
   int64_t second_dims = second.dim();
   TORCH_CHECK(first_dims == second_dims,
@@ -374,7 +374,7 @@ void CatOpInferrer::check_cat_shape_except_dim(const at::Tensor& first,
                 "Sizes of tensors must match except in dimension ", dimension,
                 ". Expected size ", static_cast<long long>(first_dim_size),
                 " but got size ", static_cast<long long>(second_dim_size),
-                " for tensor number ", index, " in the list.");
+                " for tensor number ", index_2, " in the list.");
   }
 }
 
@@ -383,8 +383,8 @@ void CatOpInferrer::compute_memory_format() {
   for (const at::Tensor& t : inputs_) {
     auto f = t.suggest_memory_format();
     if (f == c10::MemoryFormat::Contiguous) {
-        memory_format_ = f;
-        return ;
+      memory_format_ = f;
+      return;
     }
     if (format.has_value() && format.value() != f) {
       memory_format_ = c10::MemoryFormat::Contiguous;
@@ -431,7 +431,7 @@ at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
     for (const auto i : c10::irange(ntensors())) {
       const at::Tensor& t = inputs_[i];
       if (!cat_should_skip_tensor(t)) {
-        check_cat_shape_except_dim(inputs_[valid], t, dim, i);
+        check_cat_shape_except_dim(valid, i, dim);
         size_at_dim += t.size(dim);
       }
     }

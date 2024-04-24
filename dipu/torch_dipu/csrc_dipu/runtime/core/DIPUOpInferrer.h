@@ -120,9 +120,8 @@ class CatOpInferrer final : public OpInferrer {
     return t.numel() == 0 && t.dim() == 1;
   }
 
-  void check_cat_shape_except_dim(const at::Tensor& first,
-                                  const at::Tensor& second, int64_t dimension,
-                                  size_t index);
+  void check_cat_shape_except_dim(size_t index, size_t index_2,
+                                  int64_t dimension);
 };
 
 }  // namespace dipu
