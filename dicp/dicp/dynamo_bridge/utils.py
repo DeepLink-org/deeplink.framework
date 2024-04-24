@@ -7,9 +7,9 @@ from torch._inductor.codecache import code_hash
 from torch.fx.node import Argument, Target
 
 
-def proxy_in_shape(shape):
+def not_all_num_shape(shape):
     for elem in shape:
-        if isinstance(elem, torch.fx.proxy.Proxy):
+        if not isinstance(elem, int):
             return True
     return False
 

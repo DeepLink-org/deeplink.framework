@@ -10,11 +10,12 @@ from torch.types import (
     Number,
 )
 import numpy as np
+import sympy
 import torch.fx.traceback as fx_traceback
 from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
-from dicp.dynamo_bridge.utils import proxy_in_shape
+from dicp.dynamo_bridge.utils import not_all_num_shape, symint_in_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype,
     get_cpp_dtype
@@ -79,22 +80,32 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 ascend_op.Const, (shapes, torch.int32, [len(shapes)]))
             x_names.append(const_op)
 
-        def generate_sym_int(elem):
+        def generate_sym_or_proxy(elem):
             elem_str = str(elem)
             elems = elem_str.strip().split(' ')
 
             # dynamic shape feature
-            assert 'gather' in elems[0] or 'arg' in elems[0]
-            replace_node = elem
+            replace_node = None
+            if isinstance(elem, torch.fx.proxy.Proxy):
+                assert 'gather' in elems[0] or 'arg' in elems[0]
+                replace_node = elem
+            else:
+                for convert in self.sym_to_inputs.values():
+                    if elems[0] == str(convert):
+                        replace_node = convert
+                        break
+                assert replace_node is not None
 
+            # process simple expression including +/-
+            # or single node for else block
             if len(elems) > 1:
-                import pdb; pdb.set_trace()
                 assert len(elems) == 3
                 assert elems[2].isdigit()
                 assert elems[1] == '+' or elems[1] == '-'
                 const_op = self.get_proxy(
                     ascend_op.Const, ([int(elems[2])], torch.int32, [1]))
                 args = (replace_node, const_op)
+
                 if elems[1] == '+':
                     x_names.append(self.get_proxy(ascend_op.Add, args))
                 else:
@@ -104,7 +115,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         dims = []
         for elem in shape:
-            if not isinstance(elem, torch.fx.proxy.Proxy):
+            # process number
+            if isinstance(elem, int):
                 dims.append(elem)
                 continue
             st = str(elem)
@@ -112,21 +124,46 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 dims.append(int(st))
                 continue
 
+            # process SymInt or NodeProxy
             if len(dims) > 0:
                 generate_digits_op(dims)
                 dims = []
-            generate_sym_int(elem)
+            generate_sym_or_proxy(elem)
+
+        # last number block
         if len(dims) > 0:
             generate_digits_op(dims)
+
         # concat all ops
         return self.get_proxy(ascend_op.ConcatD, (x_names, 0))
 
     def get_shape_proxy(self, shape):
+        def symint_to_str(shape):
+            result_shape = []
+            for dim in shape:
+                if isinstance(dim, torch.SymInt):
+                    # split expression elements to compare SymInt string
+                    dim_str = dim.node.str()
+                    elems = dim_str.strip().split(' ')
+
+                    # replace SymInt in expression using sympy function
+                    for elem in elems:
+                        if 's' in elem:
+                            dim_str = str(sympy.simplify(dim_str).subs(elem, str(self.sym_to_inputs[elem])))
+                    result_shape.append(dim_str)
+                else:
+                    result_shape.append(dim)
+            return result_shape
+
         if isinstance(shape, torch.fx.proxy.Proxy) or isinstance(shape, FakeTensor):
             return shape
         elif isinstance(shape, list):
-            shape = [self.sym_to_inputs[dim.node.str()] if isinstance(dim, torch.SymInt) else dim for dim in shape]
-            if proxy_in_shape(shape):
+            # handle SymInt alone
+            if symint_in_shape(shape):
+                shape = symint_to_str(shape)
+
+            # both fit for SymInt & NodeProxy, pass all number cases
+            if not_all_num_shape(shape):
                 return self.process_dynamic_shape(shape)
         return self.get_proxy(
             ascend_op.Const, (shape, torch.int32, [len(shape)]))
@@ -500,8 +537,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         out = list(fx_traceback.get_current_meta()['val'].shape)
         out_shape = self.get_shape_proxy(out)
         x, y = self.binary_cmp_cast_input(x, y)
-        dynamic_shape = proxy_in_shape(x_shape) or proxy_in_shape(
-            y_shape) or proxy_in_shape(out)
+        dynamic_shape = not_all_num_shape(x_shape) or not_all_num_shape(
+            y_shape) or not_all_num_shape(out)
         if dynamic_shape and (self.shape_prod(x_shape) < self.shape_prod(out)):
             x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
         if dynamic_shape and (self.shape_prod(y_shape) < self.shape_prod(out)):
@@ -600,8 +637,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if len(dims) == 0:
             return self.get_const_proxy(value, torch_dtype)
 
-        # dims = [dim.node.meta['val'] if isinstance(dim, torch.fx.proxy.Proxy) and hasattr(
-        #     dim.node, 'meta') else dim for dim in dims]
         if isinstance(value, torch.fx.proxy.Proxy) and hasattr(value.node, 'meta'):
             value = value.node.meta['val']
         dims = self.get_shape_proxy(dims)
@@ -774,7 +809,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     tensor_unsqueeze_len = none_count_in_indices - i if contiguous_flag \
                         else none_count_in_indices
                 indice_i_shape = index.node.meta['val'].shape
-                assert not proxy_in_shape(indice_i_shape)
+                assert not not_all_num_shape(indice_i_shape)
                 tensor_reshape_shape.append(list(indice_i_shape) + [1] * tensor_unsqueeze_len)
         assert first_tensor_pos != -1, "all elements of indices is None, unsupported"
         tensor_broadcast_shape = list(torch.broadcast_shapes(*tensor_reshape_shape))
@@ -1030,9 +1065,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.Identity, (x, None))
         if x.node.meta['val'].dtype == torch.int64:
             x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
-        # shape = [dim.node.meta['val'] if hasattr(
-        #     dim, 'node') else dim for dim in shape]
-        if isinstance(shape, list) and proxy_in_shape(shape):
+        if isinstance(shape, list) and not_all_num_shape(shape):
             preprocess_shape = self.process_dynamic_shape(shape)
             return self.get_proxy(ascend_op.Expand, (x, preprocess_shape))
         else:
