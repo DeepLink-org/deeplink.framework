@@ -35,6 +35,11 @@ class OpInferrer {
     }
     inputs_ = inputs;
   }
+  void add_input(const at::Tensor& tensor) {
+    TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
+    inputs_.push_back(tensor);
+  }
+
   // Computes the shape of the output, supporting broadcasting rules.
   void compute_shape();
 
@@ -47,7 +52,7 @@ class OpInferrer {
 
   // Determine the best memory format for the output tensor based on input
   // tensors.
-  void compute_memory_format();
+  virtual void compute_memory_format();
 
   // Allocates the output Tensor based on the inferred attributes, if strides_
   // inferred, use it.
@@ -62,6 +67,7 @@ class OpInferrer {
     return out;
   }
 
+  // TODO(ywt): we may use c10::MaybeOwned to improve efficiency.
   c10::SmallVector<at::Tensor, 4> inputs_;
   DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
@@ -103,17 +109,20 @@ class ReduceOpInferrer final : public OpInferrer {
                        bool keep_dim, c10::optional<at::ScalarType> dtype);
 };
 
-// class MatrixOpInferrer final : public OpInferrer {
-//  public:
-//   at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
+class CatOpInferrer final : public OpInferrer {
+ public:
+  at::Tensor infer_out(const at::ITensorListRef& tensors, int64_t dim);
 
-//  private:
-//   void compute_broadcast_matrix_shape();
-// };
+ protected:
+  void compute_memory_format() override;
 
-// class CatOpInferrer final : public OpInferrer {
-//  public:
-//   at::Tensor infer_out(const at::ITensorListRef & tensors, int64_t dim);
-// };
+  inline bool cat_should_skip_tensor(const at::Tensor& t) {
+    return t.numel() == 0 && t.dim() == 1;
+  }
+
+  void check_cat_shape_except_dim(const at::Tensor& first,
+                                  const at::Tensor& second, int64_t dimension,
+                                  size_t index);
+};
 
 }  // namespace dipu

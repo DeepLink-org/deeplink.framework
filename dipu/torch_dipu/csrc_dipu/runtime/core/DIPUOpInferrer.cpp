@@ -11,34 +11,6 @@ namespace dipu {
 
 namespace internal {
 
-inline bool cat_should_skip_tensor(const at::Tensor& t) {
-  return t.numel() == 0 && t.dim() == 1;
-}
-
-// Check to see if the shape of tensors is compatible
-// for being concatenated along a given dimension.
-inline void check_cat_shape_except_dim(const at::Tensor& first,
-                                       const at::Tensor& second,
-                                       int64_t dimension, size_t index) {
-  int64_t first_dims = first.dim();
-  int64_t second_dims = second.dim();
-  TORCH_CHECK(first_dims == second_dims,
-              "Tensors must have same number of dimensions: got ", first_dims,
-              " and ", second_dims);
-  for (const auto dim : c10::irange(first_dims)) {
-    if (dim == dimension) {
-      continue;
-    }
-    int64_t first_dim_size = first.sizes()[dim];
-    int64_t second_dim_size = second.sizes()[dim];
-    TORCH_CHECK(first_dim_size == second_dim_size,
-                "Sizes of tensors must match except in dimension ", dimension,
-                ". Expected size ", static_cast<long long>(first_dim_size),
-                " but got size ", static_cast<long long>(second_dim_size),
-                " for tensor number ", index, " in the list.");
-  }
-}
-
 DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   // coumpute broadcast shape
   // for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
@@ -230,7 +202,7 @@ std::vector<StrideVector> OpInferrer::compute_effective_strides() {
 }
 
 // Calculate perm_ to sort the dimensions based on strides in ascending order.
-// strides[0] is the fastest moving dimension instead of strides[ndim - 1].
+// Then we can use the perm_ to calculate the output stride
 void OpInferrer::compute_perm() {
   perm_.resize(ndim());
   if (ndim() == 1) {
@@ -242,6 +214,7 @@ void OpInferrer::compute_perm() {
   std::iota(perm_.rbegin(), perm_.rend(), 0);
 
   auto strides = compute_effective_strides();
+
   // returns 1 if the dim0 should come after dim1, -1 if dim0 should come
   // before dim1, and 0 if the comparison is ambiguous.
   auto should_swap = [&](size_t dim0, size_t dim1) {
@@ -267,7 +240,7 @@ void OpInferrer::compute_perm() {
   };
 
   // insertion sort with support for ambiguous comparisons
-  for (const auto i : c10::irange(ndim())) {
+  for (const auto i : c10::irange(1, ndim())) {
     size_t dim1 = i;
     // dim0 >= 0; dim0-- causes overflow
     for (size_t dim0 = i; dim0-- > 0;) {
@@ -288,7 +261,7 @@ void OpInferrer::compute_memory_format() {
   }
   compute_perm();
 
-  // Calculate strides based on permuted shape
+  // Calculate strides based on perm_
   auto strides = StrideVector();
   int64_t next_stride = 1;
   for (const auto dim : c10::irange(ndim())) {
@@ -380,110 +353,95 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
   return malloc_output();
 }
 
-// void MatrixOpInferrer::compute_broadcast_matrix_shape() {
-//   auto& t1 = inputs_[0];
-//   auto& t2 = inputs_[1];
-//   const int64_t nA = t1.dim();
-//   const int64_t nB = t2.dim();
+// Check to see if the shape of tensors is compatible
+// for being concatenated along a given dimension.
+void CatOpInferrer::check_cat_shape_except_dim(const at::Tensor& first,
+                                               const at::Tensor& second,
+                                               int64_t dimension,
+                                               size_t index) {
+  int64_t first_dims = first.dim();
+  int64_t second_dims = second.dim();
+  TORCH_CHECK(first_dims == second_dims,
+              "Tensors must have same number of dimensions: got ", first_dims,
+              " and ", second_dims);
+  for (const auto dim : c10::irange(first_dims)) {
+    if (dim == dimension) {
+      continue;
+    }
+    int64_t first_dim_size = first.sizes()[dim];
+    int64_t second_dim_size = second.sizes()[dim];
+    TORCH_CHECK(first_dim_size == second_dim_size,
+                "Sizes of tensors must match except in dimension ", dimension,
+                ". Expected size ", static_cast<long long>(first_dim_size),
+                " but got size ", static_cast<long long>(second_dim_size),
+                " for tensor number ", index, " in the list.");
+  }
+}
 
-//   if (nA == nB && nB == 2) {
-//     shape_ = {t1.size(0), t2.size(1)};
-//   } else if (nA == 1 && nB == 2) {
-//     TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
-//     shape_ = {t2.size(1)};
-//   } else if (nA == 2 && nB == 1) {
-//     TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
-//     shape_ = {t1.size(0)};
-//   } else if (nA > 2 && nB == 1) {
-//     TORCH_CHECK(t1.size(-1) == t2.size(0), "Inner dimensions must match.");
-//     shape_ = std::vector<int64_t>(t1.sizes().begin(), t1.sizes().end() - 1);
-//   } else if (nA == 1 && nB > 2) {
-//     TORCH_CHECK(t1.size(0) == t2.size(-2), "Inner dimensions must match.");
-//     shape_ = std::vector<int64_t>(t2.sizes().begin(), t2.sizes().end());
-//     shape_.erase(shape_.end() - 2);
-//   } else if (nA >= 2 && nB >= 2) {
-//     TORCH_CHECK(t1.size(-1) == t2.size(-2), "Inner dimensions must match.");
-//     const int64_t nC = std::max(nA, nB);
-//     shape_ = std::vector<int64_t>(nC, 1);
-//     shape_[nC - 1] = t2.size(nB - 1);
-//     shape_[nC - 2] = t1.size(nA - 2);
-//     for (int64_t i = 3; i <= nC; ++i) {
-//       int64_t dim = nC - i;
-//       if (nA - i >= 0 && nB - i >= 0) {
-//         shape_[dim] = std::max(t1.size(nA - i), t2.size(nB - i));
-//       } else if (nA - i >= 0) {
-//         shape_[dim] = t1.size(nA - i);
-//       } else if (nB - i >= 0) {
-//         shape_[dim] = t2.size(nB - i);
-//       }
-//     }
-//   }
-// }
+void CatOpInferrer::compute_memory_format() {
+  c10::optional<c10::MemoryFormat> format = c10::nullopt;
+  for (const at::Tensor& t : inputs_) {
+    auto f = t.suggest_memory_format();
+    if (f == c10::MemoryFormat::Contiguous) {
+        memory_format_ = f;
+        return ;
+    }
+    if (format.has_value() && format.value() != f) {
+      memory_format_ = c10::MemoryFormat::Contiguous;
+      return;
+    }
+    format = f;
+  }
+  memory_format_ = format.value();
+}
 
-// at::Tensor MatrixOpInferrer::infer_out(const at::Tensor& self,
-//                                        const at::Tensor& other) {
-//   add_inputs({self, other});
-//   compute_broadcast_matrix_shape();
-//   compute_dtype();
-//   compute_memory_format();
-//   return malloc_output();
-// }
+at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
+                                    int64_t dim) {
+  for (auto& t : tensors) {
+    add_input(t);
+  }
+  TORCH_CHECK(!inputs_.empty(),
+              "torch.cat(): expected a non-empty list of Tensors");
 
-// at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
-//                                     int64_t dim) {
-//   add_inputs(tensors);
-//   size_t i = 0;
-//   for (const at::Tensor& t : inputs_) {
-//     TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
-//                 ") cannot be concatenated");
-//     i++;
-//   }
+  // Look for the first valid tensor.
+  size_t valid = ntensors();
+  for (const auto i : c10::irange(ntensors())) {
+    auto& t = inputs_[i];
+    TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
+                ") cannot be concatenated");
+    if (!cat_should_skip_tensor(t)) {
+      valid = i;
+      dim = c10::maybe_wrap_dim(dim, t.dim());
+      break;
+    }
+  }
 
-//   for (const at::Tensor& t : inputs_) {
-//     if (t.dim() == 1 && t.size(0) == 0) {
-//       continue;
-//     }
-//     dim = c10::maybe_wrap_dim(dim, t.dim());
-//     break;
-//   }
+  shape_ = {0};
 
-//   // Look for the first valid tensor.
-//   size_t valid = ntensors();
-//   for (const auto i : c10::irange(ntensors())) {
-//     if (!internal::cat_should_skip_tensor(inputs_[i])) {
-//       valid = i;
-//       break;
-//     }
-//   }
+  // If we found a valid tensor, check whether the input tensors
+  // are compatible
+  if (valid < ntensors()) {
+    TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
+                "out of range");
 
-//   compute_dtype();
+    // Compute the output tensor size.
+    // It should have the same shape as any other valid tensor,
+    // except in the dimension 'dim'.
+    int64_t size_at_dim = 0;
+    for (const auto i : c10::irange(ntensors())) {
+      const at::Tensor& t = inputs_[i];
+      if (!cat_should_skip_tensor(t)) {
+        check_cat_shape_except_dim(inputs_[valid], t, dim, i);
+        size_at_dim += t.size(dim);
+      }
+    }
 
-//   shape_ = {0};
-
-//   // If we found a valid tensor, check whether the input tensors
-//   // are compatible, i.e. we can execute `cat` on them.
-//   bool found_valid_tensor = valid < ntensors();
-//   if (found_valid_tensor) {
-//     TORCH_CHECK(dim <= inputs_[valid].dim(), "torch.cat(): dimension ", dim,
-//                 "out of range");
-
-//     // Compute the output tensor size.
-//     // It should have the same shape as any other valid tensor,
-//     // except in the dimension 'dim'.
-//     int64_t size_at_dim = 0;
-//     for (const auto i : c10::irange(ntensors())) {
-//       const at::Tensor& t = inputs_[i];
-//       if (!internal::cat_should_skip_tensor(t)) {
-//         internal::check_cat_shape_except_dim(inputs_[valid], t, dim, i);
-//         size_at_dim += t.size(dim);
-//       }
-//     }
-
-//     shape_ = inputs_[valid].sizes();
-//     shape_[dim] = size_at_dim;
-//   }
-//   compute_memory_format();
-//   return malloc_output();
-// }
+    shape_ = inputs_[valid].sizes();
+    shape_[dim] = size_at_dim;
+  }
+  compute_dtype();
+  compute_memory_format();
+  return malloc_output();
+}
 
 }  // namespace dipu
