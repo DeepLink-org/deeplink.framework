@@ -71,7 +71,7 @@ def register_conversion(aten_fn):
 class AtenToAscendTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
-    
+
     def process_dynamic_shape(self, shape):
         x_names = []
 

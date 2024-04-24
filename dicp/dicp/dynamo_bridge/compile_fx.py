@@ -47,8 +47,6 @@ def get_fake_mode_from_tensors(input_tensors):
 
 def used_nodes_all_symint(nodes):
     for node in nodes:
-        # if 'view' in str(node) or 'reshape' in str(node):
-        #     import pdb; pdb.set_trace()
         if node.op == 'placeholder' and len(node.users) > 0:
             if hasattr(node, 'meta'):
                 node = node.meta['val']
