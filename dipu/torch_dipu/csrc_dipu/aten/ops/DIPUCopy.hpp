@@ -75,9 +75,7 @@ inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
       src.device().index() == dst.device().index()) {
     return DIPUCopyType::D2Self;
   }
-  if (!isSrcDevice && !isDstDevice) {
-    return DIPUCopyType::H2H;
-  }
+  return DIPUCopyType::H2H;
 }
 
 inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
