@@ -269,7 +269,8 @@ void OpInferrer::compute_perm() {
   // insertion sort with support for ambiguous comparisons
   for (const auto i : c10::irange(ndim())) {
     size_t dim1 = i;
-    for (size_t dim0 = i - 1; dim0 >= 0; dim0--) {
+    // dim0 >= 0; dim0-- causes overflow
+    for (size_t dim0 = i; dim0-- > 0;) {
       int comparison = should_swap(perm_[dim0], perm_[dim1]);
       if (comparison > 0) {
         std::swap(perm_[dim0], perm_[dim1]);
