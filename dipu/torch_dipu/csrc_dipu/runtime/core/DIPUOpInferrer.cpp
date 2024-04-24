@@ -260,6 +260,8 @@ bool OpInferrer::fast_compute_memory_format() {
   return false;
 }
 
+// Calculate perm_ to sort the dimensions based on strides in ascending order.
+// strides[0] is the fastest moving dimension instead of strides[ndim - 1].
 void OpInferrer::calculate_perm() {
   perm_.resize(ndim());
   if (ndim() == 1) {
@@ -274,17 +276,15 @@ void OpInferrer::calculate_perm() {
   strides.resize(ntensors());
   for (const auto i : c10::irange(ntensors())) {
     auto& t = inputs_[i];
-    at::IntArrayRef original_shape = t.sizes();
+    auto original_shape = t.sizes();
     auto original_stride = t.strides();
     auto offset = ndim() - original_shape.size();
-    if (offset > 0)
-      strides[i].resize(ndim(), 0);
-    else
-      strides[i].resize(ndim());
+
+    strides[i].assign(ndim(), 0);
+
     for (const auto j : c10::irange(original_shape.size())) {
-      if (original_shape[j] == 1 && shape_[offset + j] != 1) {
-        strides[i][offset + j] = 0;
-      } else {
+      if (!(original_shape[j] == 1 && shape_[offset + j] != 1)) {
+        // not broadcast case
         strides[i][offset + j] = original_stride[j];
       }
     }
@@ -307,17 +307,16 @@ void OpInferrer::calculate_perm() {
         return -1;
       } else if (stride0 > stride1) {
         return 1;
-      } else {  // equal strides, use dimensions themselves as the
-                // tie-breaker.
-        // at this point, with zero strides out of the way, we are guaranteed
-        // that operand dimensions are equal to shape_
-        auto t_dim0 = shape_[dim0];
-        auto t_dim1 = shape_[dim1];
-        // return only if dimensions should be swapped, otherwise move on to
-        // the next tensor
-        if (t_dim0 > t_dim1) {
-          return 1;
-        }
+      }
+      // equal strides, use dimensions themselves as the tie-breaker.
+      // at this point, with zero strides out of the way, we are guaranteed
+      // that operand dimensions are equal to shape_
+      auto t_dim0 = shape_[dim0];
+      auto t_dim1 = shape_[dim1];
+      // return only if dimensions should be swapped, otherwise move on to
+      // the next tensor
+      if (t_dim0 > t_dim1) {
+        return 1;
       }
     }
     return 0;
@@ -358,23 +357,9 @@ void OpInferrer::compute_memory_format() {
     next_stride *= shape[dim];
   }
 
-  // check if permutation is just an inverted order
-  bool inverted = true;
-  for (const auto j : c10::irange(ndim())) {
-    if (perm_[j] != ndim() - j - 1) {
-      inverted = false;
-      break;
-    }
-  }
-  if (inverted) {
-    // can just return contiguous output
-    memory_format_ = at::MemoryFormat::Contiguous;
-  } else {
-    // should directly set the strides
-    strides_.resize(strides.size());
-    for (const auto dim : c10::irange(ndim())) {
-      strides_[perm_[dim]] = strides[dim];
-    }
+  strides_.resize(strides.size());
+  for (const auto dim : c10::irange(ndim())) {
+    strides_[perm_[dim]] = strides[dim];
   }
 }
 
