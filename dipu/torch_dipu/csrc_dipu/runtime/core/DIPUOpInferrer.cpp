@@ -242,7 +242,6 @@ void OpInferrer::compute_perm() {
   std::iota(perm_.rbegin(), perm_.rend(), 0);
 
   auto strides = compute_effective_strides();
-
   // returns 1 if the dim0 should come after dim1, -1 if dim0 should come
   // before dim1, and 0 if the comparison is ambiguous.
   auto should_swap = [&](size_t dim0, size_t dim1) {
@@ -253,8 +252,14 @@ void OpInferrer::compute_perm() {
         // move on to the next input if one of the dimensions is broadcasted
         continue;
       }
-      if (stride0 != stride1) {
-        return stride0 > stride1 ? 1 : -1;
+      //       if (stride0 != stride1) {
+      //         return stride0 > stride1 ? 1 : -1;
+      //       }
+      if (stride0 < stride1) {
+        return -1;
+      }
+      if (stride0 > stride1) {
+        return 1;
       }
       // equal strides, use dimensions themselves as the tie-breaker.
       if (shape_[dim0] > shape_[dim1]) {
@@ -266,8 +271,8 @@ void OpInferrer::compute_perm() {
 
   // insertion sort with support for ambiguous comparisons
   for (const auto i : c10::irange(ndim())) {
-    size_t dim1 = i;
-    for (size_t dim0 = i - 1; dim0 >= 0; dim0--) {
+    int dim1 = i;
+    for (int dim0 = i - 1; dim0 >= 0; dim0--) {
       int comparison = should_swap(perm_[dim0], perm_[dim1]);
       if (comparison > 0) {
         std::swap(perm_[dim0], perm_[dim1]);
