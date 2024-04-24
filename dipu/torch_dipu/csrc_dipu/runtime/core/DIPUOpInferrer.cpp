@@ -241,18 +241,13 @@ bool OpInferrer::fast_compute_memory_format() {
   }
   if (is_non_overlapping_and_dense) {
     // Additional check for matching strides
-    int64_t prev = -1;
-    for (int64_t i = ntensors() - 1; i >= 0; --i) {
-      const auto& t = inputs_[i];
-      if (prev < 0) {
-        prev = i;
-        continue;
-      }
-      if (!inputs_[prev].strides().equals(t.strides())) {
+    const auto& reference_strides = inputs_[0].strides();
+    for (int64_t i = 1; i < ntensors(); ++i) {
+      if (!reference_strides.equals(inputs_[i].strides())) {
         return false;
       }
     }
-    // Use memory_format of the first input
+    // Use memory format of the first input
     memory_format_ = inputs_[0].suggest_memory_format();
     return true;
   }
@@ -303,9 +298,11 @@ void OpInferrer::calculate_perm() {
         // equal strides we try to break the tie later by comparing
         // corresponding dimensions or if that does not work, moving on to the
         // next tensor
-      } else if (stride0 < stride1) {
+      }
+      if (stride0 < stride1) {
         return -1;
-      } else if (stride0 > stride1) {
+      }
+      if (stride0 > stride1) {
         return 1;
       }
       // equal strides, use dimensions themselves as the tie-breaker.
@@ -343,20 +340,15 @@ void OpInferrer::compute_memory_format() {
   }
   calculate_perm();
 
-  // Permutes dimensions based on perm_
-  auto shape = DimVector(shape_.size(), 0);
-  for (const auto i : c10::irange(perm_.size())) {
-    shape[i] = shape_[perm_[i]];
-  }
-
-  // Calculate strides based on new shape
+  // Calculate strides based on permuted shape
   auto strides = StrideVector();
   int64_t next_stride = 1;
   for (const auto dim : c10::irange(ndim())) {
     strides.push_back(next_stride);
-    next_stride *= shape[dim];
+    next_stride *= shape_[perm_[dim]];
   }
 
+  // calculate the final strides_
   strides_.resize(strides.size());
   for (const auto dim : c10::irange(ndim())) {
     strides_[perm_[dim]] = strides[dim];
