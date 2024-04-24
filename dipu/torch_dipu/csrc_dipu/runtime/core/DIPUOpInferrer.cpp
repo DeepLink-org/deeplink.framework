@@ -255,9 +255,26 @@ bool OpInferrer::fast_compute_memory_format() {
   return false;
 }
 
+std::vector<StrideVector> OpInferrer::compute_effective_strides() {
+    std::vector<StrideVector> strides(ntensors(), StrideVector(ndim(), 0));
+    for (int i = 0; i < ntensors(); ++i) {
+        auto& t = inputs_[i];
+        auto original_shape = t.sizes();
+        auto original_stride = t.strides();
+        auto offset = ndim() - original_shape.size();
+
+        for (int j = 0; j < original_shape.size(); ++j) {
+            if (!(original_shape[j] == 1 && shape_[offset + j] != 1)) {
+                strides[i][offset + j] = original_stride[j];
+            }
+        }
+    }
+    return strides;
+}
+
 // Calculate perm_ to sort the dimensions based on strides in ascending order.
 // strides[0] is the fastest moving dimension instead of strides[ndim - 1].
-void OpInferrer::calculate_perm() {
+void OpInferrer::compute_perm() {
   perm_.resize(ndim());
   if (ndim() == 1) {
     perm_[0] = 0;
@@ -267,52 +284,23 @@ void OpInferrer::calculate_perm() {
   // initialize perm with n-1, n-2, ..., 1, 0
   std::iota(perm_.rbegin(), perm_.rend(), 0);
 
-  std::vector<StrideVector> strides;
-  strides.resize(ntensors());
-  for (const auto i : c10::irange(ntensors())) {
-    auto& t = inputs_[i];
-    auto original_shape = t.sizes();
-    auto original_stride = t.strides();
-    auto offset = ndim() - original_shape.size();
+  auto strides = compute_effective_strides();
 
-    strides[i].assign(ndim(), 0);
-
-    for (const auto j : c10::irange(original_shape.size())) {
-      if (!(original_shape[j] == 1 && shape_[offset + j] != 1)) {
-        // not broadcast case
-        strides[i][offset + j] = original_stride[j];
-      }
-    }
-  }
   // returns 1 if the dim0 should come after dim1, -1 if dim0 should come
   // before dim1, and 0 if the comparison is ambiguous.
   auto should_swap = [&](size_t dim0, size_t dim1) {
     for (const auto i : c10::irange(ntensors())) {
       int64_t stride0 = strides[i][dim0];
       int64_t stride1 = strides[i][dim1];
-      // broadcasting case
-      // move on to the next input if one of the dimensions is broadcasted
       if (stride0 == 0 || stride1 == 0) {
+        // move on to the next input if one of the dimensions is broadcasted
         continue;
-        // it is important to return here only with strict comparisons, for
-        // equal strides we try to break the tie later by comparing
-        // corresponding dimensions or if that does not work, moving on to the
-        // next tensor
       }
-      if (stride0 < stride1) {
-        return -1;
-      }
-      if (stride0 > stride1) {
-        return 1;
+      if (stride0 != stride1) {
+        return stride0 > stride1 ? 1 : -1;
       }
       // equal strides, use dimensions themselves as the tie-breaker.
-      // at this point, with zero strides out of the way, we are guaranteed
-      // that operand dimensions are equal to shape_
-      auto t_dim0 = shape_[dim0];
-      auto t_dim1 = shape_[dim1];
-      // return only if dimensions should be swapped, otherwise move on to
-      // the next tensor
-      if (t_dim0 > t_dim1) {
+      if (shape_[dim0] > shape_[dim1]) {
         return 1;
       }
     }
@@ -338,7 +326,7 @@ void OpInferrer::compute_memory_format() {
   if (fast_compute_memory_format()) {
     return;
   }
-  calculate_perm();
+  compute_perm();
 
   // Calculate strides based on permuted shape
   auto strides = StrideVector();

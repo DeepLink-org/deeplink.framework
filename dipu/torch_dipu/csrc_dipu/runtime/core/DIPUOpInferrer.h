@@ -9,8 +9,10 @@
 
 namespace dipu {
 
-using DimVector = c10::SmallVector<int64_t, 4>;
-using StrideVector = c10::SmallVector<int64_t, 6>;
+constexpr size_t kMaxTensorDimensions = 6;
+
+using DimVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
+using StrideVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
 
 // Base Class for inferring the shape, dtype, and memory format of output Tensor
 // based on its inputs, then malloc the output tensor.
@@ -36,15 +38,12 @@ class OpInferrer {
   // Computes the shape of the output, supporting broadcasting rules.
   void compute_shape();
 
-  int ndim() const { return shape_.size(); }
-  int ntensors() const { return inputs_.size(); }
+  size_t ndim() const { return shape_.size(); }
+  size_t ntensors() const { return inputs_.size(); }
 
   // Computes the dtype of the output based on all input tensors,
   // supporting dtype promotion
   void compute_dtype();
-
-  bool fast_compute_memory_format();
-  void calculate_perm();
 
   // Determine the best memory format for the output tensor based on input
   // tensors.
@@ -54,7 +53,7 @@ class OpInferrer {
   // inferred, use it.
   at::Tensor malloc_output() {
     at::TensorOptions options =
-        at::TensorOptions().dtype(dtype_).device(device_);
+        at::TensorOptions().dtype(dtype_).device(dipu::DIPU_DEVICE_TYPE);
     auto out = native::nodispatch::empty(shape_, options, memory_format_);
 
     if (!strides_.empty()) {
@@ -63,14 +62,19 @@ class OpInferrer {
     return out;
   }
 
-  bool all_same_shape_ = true;
   c10::SmallVector<at::Tensor, 4> inputs_;
   DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
-  at::Device device_ = dipu::DIPU_DEVICE_TYPE;
   at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
-  StrideVector strides_;
+
+ private:
+  bool fast_compute_memory_format();
+  void compute_perm();
+  std::vector<StrideVector> compute_effective_strides();
+
+  bool all_same_shape_ = true;
   DimVector perm_;
+  StrideVector strides_;
 };
 
 class BinaryOpInferrer final : public OpInferrer {
