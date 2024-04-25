@@ -1,5 +1,5 @@
 - schema: "exampleop.overloadname(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   # op gen only on these torch version. use it only if op has different signature on different torch.
   # if it's only different on implementation , please use compile macro DIPU_TORCHXXX.
   # torch version number, 5 in total: {X-major}{XX-minor}{XX-patch}
@@ -309,7 +309,7 @@
   interface: diopiLayerNormBackward(ctx, grad_input, grad_weight, grad_bias, grad_out, input, weight,  bias, mean, rstd, normalized_shape);
 
 - schema: "adaptive_avg_pool2d.out(Tensor self, SymInt[2] output_size, *, Tensor(a!) out) -> Tensor(a!)"
-  #autocompare: disable # TODO: cpu impl not support half now
+  #autocompare: False # TODO: cpu impl not support half now
   interface: diopiAdaptiveAvgPool2d(ctx, out, self, output_size)
 
 - schema: "_adaptive_avg_pool2d(Tensor self, SymInt[2] output_size) -> Tensor"
@@ -486,13 +486,13 @@
   interface: diopiRelu(ctx, out, self)
 
 - schema: "randperm.out(int n, *, Tensor(a!) out) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   custom_code_at_the_beginning: |
     diopiGeneratorHandle_t generatorDiopiGenerator = toDiopiGeneratorHandle(getDefaultDIPUGenerator());
   interface: diopiRandperm(ctx, out, n, generatorDiopiGenerator)
 
 - schema: "randperm.generator_out(int n, *, Generator? generator, Tensor(a!) out) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiRandperm(ctx, out, n, generator)
 
 - schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
@@ -686,7 +686,7 @@
   interface: diopiMul(ctx, out, out, out)
 
 - schema: "bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiBernoulliScalar(ctx, self, p, generatorDiopiGenerator);
 
 - schema: "log.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1095,7 +1095,7 @@
   interface: diopiRsqrt(ctx, out, self)
 
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiUniformInp(ctx, self, from, to, generator)
 
 - schema: "tril(Tensor self, int diagonal=0) -> Tensor"
@@ -1177,15 +1177,15 @@
   interface: diopiClamp(ctx, out, self, min, max)
 
 - schema: "random_(Tensor(a!) self, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiRandomInp(ctx, self, 0, nullptr, generator)
 
 - schema: "random_.to(Tensor(a!) self, int to, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiRandomInp(ctx, self, 0, &to, generator)
 
 - schema: "random_.from(Tensor(a!) self, int from, int? to, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: "diopiRandomInp(ctx, self, from, to.has_value() ? &to.value() : nullptr, generator)"
 
 - schema: "nonzero(Tensor self) -> Tensor"
@@ -1239,7 +1239,7 @@
   interface: diopiProd(ctx, out, self_dtype_diopi, &dim)
 
 - schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
-  autocompare: disable
+  autocompare: False
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(repeats.size());
     for (int i = 0;i< repeats.size();++i) {
@@ -1655,41 +1655,41 @@
   interface: diopiReciprocal(ctx, out, self)
 
 - schema: "normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)"
-  autocompare: disable
+  autocompare: False
   interface: diopiNormalInp(ctx, self, mean, std, generator)
 
 - schema: normal.Tensor_float_out(Tensor mean, float std=1, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
-  autocompare: disable
+  autocompare: False
   interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
 
 - schema: normal.Tensor_float(Tensor mean, float std=1, *, Generator? generator=None) -> Tensor
-  autocompare: disable
+  autocompare: False
   custom_code_at_the_beginning: |
       auto out = nodispatch::empty_like(mean);
   interface: diopiNormalTensorScalar(ctx, out, mean, std, generator)
 
 - schema: normal.float_Tensor_out(float mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
-  autocompare: disable
+  autocompare: False
   interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
 
 - schema: normal.float_Tensor(float mean, Tensor std, *, Generator? generator=None) -> Tensor
-  autocompare: disable
+  autocompare: False
   custom_code_at_the_beginning: |
       auto out = nodispatch::empty_like(std);
   interface: diopiNormalScalarTensor(ctx, out, mean, std, generator)
 
 - schema: normal.Tensor_Tensor_out(Tensor mean, Tensor std, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
-  autocompare: disable
+  autocompare: False
   interface: diopiNormalTensor(ctx, out, mean, std, generator)
 
 - schema: normal.Tensor_Tensor(Tensor mean, Tensor std, *, Generator? generator=None) -> Tensor
-  autocompare: disable
+  autocompare: False
   custom_code_at_the_beginning: |
       auto out = nodispatch::empty_like(mean);
   interface: diopiNormalTensor(ctx, out, mean, std, generator)
 
 - schema: normal.float_float_out(float mean, float std, SymInt[] size, *, Generator? generator=None, Tensor(a!) out) -> Tensor(a!)
-  autocompare: disable
+  autocompare: False
   interface: diopiNormal(ctx, out, mean, std, generator)
 
 - schema: "mm(Tensor self, Tensor mat2) -> Tensor"
@@ -1829,7 +1829,7 @@
 
 - schema: "ctc_loss_tensor_backward(Tensor grad_output, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
-  autocompare: disable
+  autocompare: False
   register_op: False
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -1925,7 +1925,7 @@
 
 - schema: "ctc_loss_intlist_backward(Tensor grad_output, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
-  autocompare: disable
+  autocompare: False
   register_op: False
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
@@ -2767,7 +2767,7 @@
   interface: diopiCopyInp(ctx, src, self)
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
-  autocompare: disable
+  autocompare: False
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
@@ -2779,7 +2779,7 @@
     // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
   interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), static_cast<int64_t>(self.size()), found_inf, inv_scale)
   # TODO(someone): fix this issue when `autocompare` is on
-  autocompare: disable
+  autocompare: False
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
   custom_fallback: True

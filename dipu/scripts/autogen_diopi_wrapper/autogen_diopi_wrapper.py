@@ -9,10 +9,8 @@ from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
     op_register_template_content,
-    op_register_disable_autocompare_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
-    op_with_custom_fallback_register_template_content,
 )
 
 
@@ -677,14 +675,6 @@ fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
 
-op_disable_autocompare_register_template = CodeTemplate(
-    op_register_disable_autocompare_template_content
-)
-
-op_with_custom_fallback_register_template = CodeTemplate(
-    op_with_custom_fallback_register_template_content
-)
-
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 autocompare_template = CodeTemplate(autocompare_template_content)
@@ -914,7 +904,7 @@ def functions_code_gen(fun_config):
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
 
-    if fun_config.get("autocompare") not in ["disable"] and fun_config.get(
+    if fun_config.get("autocompare") not in [False] and fun_config.get(
         "register_op", True
     ) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
@@ -949,58 +939,16 @@ def functions_code_gen(fun_config):
         )
         fbody += autocompare_code
 
-    # generate the OP_register code
-    # case 1: custom_fallback=False and autocompare not disabled
-    register_body = ""
-    if fun_config.get("custom_fallback", False) in ["False", False] and fun_config.get(
-        "autocompare", True
-    ) in ["True", True]:
-        register_body = op_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config["schema"])],
-            aten_fun_name=["dipu::native::" + fun_name],
-            diopi_fun_name=[
-                get_fun_name_from_cppsignature(diopi_interface).replace(
-                    "diopi", "::diopi"
-                )
-            ],
-        )
-
-    # case2: custom_fallback=False and autocompare=disable
-    elif fun_config.get("custom_fallback", False) in [
-        "False",
-        False,
-    ] and fun_config.get("autocompare") in ["disable"]:
-        register_body = op_disable_autocompare_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config["schema"])],
-            aten_fun_name=["dipu::native::" + fun_name],
-            diopi_fun_name=[
-                get_fun_name_from_cppsignature(diopi_interface).replace(
-                    "diopi", "::diopi"
-                )
-            ],
-        )
-    # case3: custom_fallback=True and autocompare not disable
-    elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
-        "autocompare", True
-    ) in ["True", True]:
-        register_body = op_with_custom_fallback_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config["schema"])],
-            aten_fun_name=["dipu::native::" + fun_name],
-            diopi_fun_name=[
-                get_fun_name_from_cppsignature(diopi_interface).replace(
-                    "diopi", "::diopi"
-                )
-            ],
-            force_fallback=[
-                (
-                    "false"
-                    if fun_config.get("force_fallback", False) in [False, "False"]
-                    else "true"
-                )
-            ],
-            fallbackFunc=["dipu::native::" + "custom_fallback_" + fun_name],
-        )
-
+    # generate the op_register code
+    register_body = op_register_template.substitute(
+        register_name=[get_op_name_from_schema(fun_config["schema"])],
+        aten_fun_name=["dipu::native::" + fun_name],
+        diopi_fun_name=[
+            get_fun_name_from_cppsignature(diopi_interface).replace("diopi", "::diopi")
+        ],
+        custom_fallback_config=str(fun_config.get("custom_fallback", False)).lower(),
+        autocompare_config=str(fun_config.get("autocompare", True)).lower(),
+    )
     return fbody, register_body
 
 
