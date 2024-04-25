@@ -42,8 +42,7 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
 }
 
 static at::Tensor custom_fallback_dipu_silu(const at::Tensor& self) {
-  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu"
-                           << std::endl);
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu" << std::endl);
   auto self_cpu = to_cpu_with_half_to_float(self);
   return at::silu(self_cpu);
 }
