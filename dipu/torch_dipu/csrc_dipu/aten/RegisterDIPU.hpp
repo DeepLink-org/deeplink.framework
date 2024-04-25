@@ -116,8 +116,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                                 \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, "               \
                                  << (opname) << " will be fallback to cpu\n"); \
-        m.impl(opname, TORCH_FN(custom_fallback_func));                        \
       }                                                                        \
+      m.impl(opname, TORCH_FN(custom_fallback_func));                          \
     }                                                                          \
   } while (false);
 
@@ -140,8 +140,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       } else {                                                                 \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, "               \
                                  << (opname) << " will be fallback to cpu\n"); \
-        m.impl(opname, TORCH_FN(custom_fallback_func));                        \
       }                                                                        \
+      m.impl(opname, TORCH_FN(custom_fallback_func));                          \
     }                                                                          \
   } while (false);
 
