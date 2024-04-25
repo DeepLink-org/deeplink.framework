@@ -15,7 +15,7 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
-from dicp.dynamo_bridge.utils import symint_in_shape, not_all_num_shape
+from dicp.dynamo_bridge.utils import symint_in_shape, not_all_num_shape, process_sym_name
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype,
     get_cpp_dtype
@@ -109,6 +109,22 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     ascend_op.Const, ([int(elem_str)], torch.int32, [1]))
                 return const_op
 
+            # handle with NodeProxy string
+            if 'Proxy' in elem_str:
+                # recover '()' from '[]'
+                elem_str = elem_str.replace('[', '(')
+                elem_str = elem_str.replace(']', ')')
+
+                # search & replace
+                replace_proxy = None
+                arg_symint_candidate = [value[0] for value in self.sym_in_args.values()] + list(self.sym_to_inputs.values())
+                for convert in arg_symint_candidate:
+                    if elem_str == str(convert):
+                        replace_proxy = convert
+                        break
+                assert replace_proxy is not None
+                return replace_proxy
+
             # handle if elem in shape of InputArgs
             if elem_str in self.sym_in_args:
                 arg, idx = self.sym_in_args[elem_str]
@@ -125,12 +141,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.sym_to_inputs[elem_str]
 
         def generate_not_num(elem):
+            # dynamic shape feature
             # situation for NodeProxy
             if isinstance(elem, torch.fx.proxy.Proxy):
                 x_names.append(elem)
                 return
 
-            elem_str = elem.node.str()
+            # string form of NodeProxy, convert it
+            if isinstance(elem, str) and 'Proxy' in elem:
+                # special case handling '()' in NodeProxy string
+                # '[]' will not mixed with expression calculation priority
+                elem = elem.replace('(', '[')
+                elem = elem.replace(')', ']')
+            elif not isinstance(elem, torch.SymInt):
+                raise RuntimeError("Not num objects only include SymInt or NodeProxy!")
+
+            # case for NodeProxy string or SymInt
+            elem_str = process_sym_name(elem)
             elem_str = elem_str.replace('+', ' + ')
             elem_str = elem_str.replace('-', ' - ')
             elem_str = elem_str.replace('*', ' * ')
@@ -140,7 +167,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             elems = elem_str.split(' ')
             elems = [e for e in elems if e != '']
 
-            # dynamic shape feature
+            # prepare for expression calculation
             if len(elems) > 1:
                 set_num = []
                 priority = []

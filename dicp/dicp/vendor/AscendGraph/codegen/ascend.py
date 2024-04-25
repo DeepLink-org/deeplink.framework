@@ -5,7 +5,7 @@ import torch
 from typing import Any, List
 from torch.fx.node import Node
 from torch._inductor.utils import IndentedBuffer
-from dicp.dynamo_bridge.utils import symint_in_shape
+from dicp.dynamo_bridge.utils import symint_in_shape, process_sym_name
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype,
     get_cpp_dtype,
@@ -223,14 +223,6 @@ class AscendCodegen(torch.fx.Interpreter):
                 return True
         return False
 
-    def process_sym_name(self, st):
-        # dynamic shape feature
-        # return string wrapper in new version
-        # node.str() will not fallback SymInt value form
-        if isinstance(st, torch.SymInt):
-            return st.node.str()
-        return str(st)
-
     def gen_call_func(self):
         # TODO check scalar input
         call_body = IndentedBuffer()
@@ -262,7 +254,7 @@ class AscendCodegen(torch.fx.Interpreter):
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
-                elem = [self.process_sym_name(dim) for dim in elem]
+                elem = [process_sym_name(dim) for dim in elem]
                 dims += str(self.dynamic_index[idx]) + \
                     ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + '}'
@@ -285,7 +277,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(elem.shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(dim) for dim in shape]
+                shape = [process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
@@ -293,12 +285,12 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(dim) for dim in shape]
+                shape = [process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
                 stride = list(self.input_args[elem[1]].meta['val'].stride())
                 if len(stride) == 0:
                     raise RuntimeError("Error handling empty output_stride")
-                stride = [self.process_sym_name(dim) for dim in stride]
+                stride = [process_sym_name(dim) for dim in stride]
                 extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
                 extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
             shape_str = shape_str[:-1] + f''']'''
@@ -321,7 +313,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 out_storage_offsets.append('0')
                 continue
             stride = list(elem.stride())
-            stride = [self.process_sym_name(dim) for dim in stride]
+            stride = [process_sym_name(dim) for dim in stride]
             out_strides.append(str(stride))
             out_storage_offsets.append(elem.storage_offset())
         call_body.writeline(f'out_stride = {out_strides}')

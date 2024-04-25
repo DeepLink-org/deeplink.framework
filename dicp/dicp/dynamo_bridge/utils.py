@@ -21,11 +21,13 @@ def symint_in_shape(shape):
     return False
 
 
-def not_all_num_shape(shape):
-    for elem in shape:
-        if not isinstance(elem, int):
-            return True
-    return False
+def process_sym_name(st):
+    # dynamic shape feature
+    # return string wrapper in new version
+    # node.str() will not fallback SymInt value form
+    if isinstance(st, torch.SymInt):
+        return st.node.str()
+    return str(st)
 
 
 def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
