@@ -585,8 +585,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         shape = list(result_val.shape)
         if x.node.meta["val"].dtype == torch.complex64:
             shape.append(1)
-            size_tmp = [s for s in size]
-            size_tmp.append(1)
+            size_tmp = [s for s in size] + [1]
             size = immutable_list(size_tmp)
         numel = result_val.numel()
         neg = False
