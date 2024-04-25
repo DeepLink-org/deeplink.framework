@@ -105,6 +105,7 @@ class ReduceOpInferrer final : public OpInferrer {
 
  protected:
   void compute_shape(c10::OptionalIntArrayRef dim, bool keep_dim);
+  void compute_dtype() override;
 };
 
 class CatOpInferrer final : public OpInferrer {

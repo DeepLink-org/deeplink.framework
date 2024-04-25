@@ -345,6 +345,13 @@ void ReduceOpInferrer::compute_shape(c10::OptionalIntArrayRef dim,
   }
 }
 
+void ReduceOpInferrer::compute_dtype() {
+  dtype_ = inputs_[0].scalar_type();
+  if (at::isIntegralType(dtype_, /*includeBool=*/true)) {
+    dtype_ = c10::kLong;
+  }
+}
+
 at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
                                        c10::OptionalIntArrayRef dim,
                                        bool keep_dim,

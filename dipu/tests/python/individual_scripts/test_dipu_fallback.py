@@ -191,7 +191,7 @@ def _test_dipu_silu_fallback():
         assert torch.allclose(out_dipu.cpu(), out_cpu)
 
     test_fallback(
-        ["silu.out"],
+        ["silu.out", "silu"],
         ["diopiSilu"],
         fn,
         ["custom fallback to cpu, name=silu_out"],
