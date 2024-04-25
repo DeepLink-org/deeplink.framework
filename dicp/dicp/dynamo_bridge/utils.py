@@ -21,6 +21,13 @@ def symint_in_shape(shape):
     return False
 
 
+def not_all_num_shape(shape):
+    for elem in shape:
+        if not isinstance(elem, int):
+            return True
+    return False
+
+
 def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
     Path(folder).mkdir(exist_ok=True)
     cpu_gm = copy_gm_to_cpu(gm)

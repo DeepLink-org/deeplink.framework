@@ -15,7 +15,7 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
-from dicp.dynamo_bridge.utils import not_all_num_shape, symint_in_shape
+from dicp.dynamo_bridge.utils import symint_in_shape, not_all_num_shape
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype,
     get_cpp_dtype
@@ -80,38 +80,140 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 ascend_op.Const, (shapes, torch.int32, [len(shapes)]))
             x_names.append(const_op)
 
-        def generate_sym_or_proxy(elem):
-            elem_str = str(elem)
-            elems = elem_str.strip().split(' ')
+        def find_root_num(set_num, num):
+            while set_num[num] != num:
+                num = set_num[num]
+            return num
+
+        def merge_disjoint_set(set_num, idx_a, idx_b):
+            root_a = find_root_num(set_num, idx_a)
+            root_b = find_root_num(set_num, idx_b)
+            # an example for (s5 / 8) - (s5 / 16)
+            # num: 0 1 2 3
+            # step1 - > set_num: 0 1 2 3
+            # step2 - > set_num: 0 0 2 2
+            # step3 - > set_num: 0 0 0 0
+
+            # return merged set from root_b to root_a
+            return [root_a if find_root_num(set_num, s) == root_b else s for s in set_num]
+
+        def replace_elem_proxy(elem_str):
+            # exit if already a proxy
+            if isinstance(elem_str, torch.fx.proxy.Proxy):
+                return elem_str
+            assert not elem_str in ['+', '-', '*', '//', '(', ')']
+
+            # handle with integer
+            if elem_str.isdigit():
+                const_op = self.get_proxy(
+                    ascend_op.Const, ([int(elem_str)], torch.int32, [1]))
+                return const_op
+
+            # handle if elem in shape of InputArgs
+            if elem_str in self.sym_in_args:
+                arg, idx = self.sym_in_args[elem_str]
+                shape = self.get_proxy(ascend_op.Shape, (arg,))
+                axis = self.get_proxy(
+                    ascend_op.Const, ([0], torch.int32, [1]))
+                indice = self.get_proxy(
+                    ascend_op.Const, ([idx], torch.int32, [1]))
+                gather = self.get_proxy(
+                    ascend_op.GatherV2, (shape, indice, axis))
+                return gather
+
+            # handle if SymInt InputArg needed
+            return self.sym_to_inputs[elem_str]
+
+        def generate_not_num(elem):
+            # situation for NodeProxy
+            if isinstance(elem, torch.fx.proxy.Proxy):
+                x_names.append(elem)
+                return
+
+            elem_str = elem.node.str()
+            elem_str = elem_str.replace('+', ' + ')
+            elem_str = elem_str.replace('-', ' - ')
+            elem_str = elem_str.replace('*', ' * ')
+            elem_str = elem_str.replace('//', ' // ')
+            elem_str = elem_str.replace('(', ' ( ')
+            elem_str = elem_str.replace(')', ' ) ')
+            elems = elem_str.split(' ')
+            elems = [e for e in elems if e != '']
 
             # dynamic shape feature
-            replace_node = None
-            if isinstance(elem, torch.fx.proxy.Proxy):
-                assert 'gather' in elems[0] or 'arg' in elems[0]
-                replace_node = elem
-            else:
-                for convert in self.sym_to_inputs.values():
-                    if elems[0] == str(convert):
-                        replace_node = convert
-                        break
-                assert replace_node is not None
-
-            # process simple expression including +/-
-            # or single node for else block
             if len(elems) > 1:
-                assert len(elems) == 3
-                assert elems[2].isdigit()
-                assert elems[1] == '+' or elems[1] == '-'
-                const_op = self.get_proxy(
-                    ascend_op.Const, ([int(elems[2])], torch.int32, [1]))
-                args = (replace_node, const_op)
+                set_num = []
+                priority = []
+                nest = 0
 
-                if elems[1] == '+':
-                    x_names.append(self.get_proxy(ascend_op.Add, args))
-                else:
-                    x_names.append(self.get_proxy(ascend_op.Sub, args))
+                # calculate priority for each operator
+                # set initial set number
+                for idx, e in enumerate(elems):
+                    if e == '+' or e =='-':
+                        priority.append(nest * 3 + 0)
+                    elif e == '*' or e == '//':
+                        priority.append(nest * 3 + 1)
+                    else:
+                        if e == '(':
+                            nest += 1
+                        elif e == ')':
+                            nest -= 1
+                        priority.append(-1)
+
+                    # init set number
+                    if not e in ['+', '-', '*', '//', '(', ')']:
+                        set_num.append(idx)
+                    else:
+                        set_num.append(-1)
+
+                # start merge disjoint-set
+                if len(set_num) > 1:
+                    while len(set(set_num)) > 2:
+                        # seek the highest priority operator
+                        max = -1
+                        m_idx = -1
+                        for idx, prio in enumerate(priority):
+                            if prio > max:
+                                max = prio
+                                m_idx = idx
+
+                        # merge the highest priority two elements calculation
+                        # find left & right element
+                        left_idx = m_idx - 1
+                        while left_idx > 0 and str(elems[left_idx]) in ['(', ')']:
+                            left_idx -= 1
+                        right_idx = m_idx + 1
+                        while right_idx < len(elems) - 1 and str(elems[right_idx]) in ['(', ')']:
+                            right_idx += 1
+                        left_idx = find_root_num(set_num, set_num[left_idx])
+                        right_idx = find_root_num(set_num, set_num[right_idx])
+                        left_elem = replace_elem_proxy(elems[left_idx])
+                        right_elem = replace_elem_proxy(elems[right_idx])
+
+                        # generate calculation operator
+                        if elems[m_idx] == '+':
+                            elems[left_idx] = self.get_proxy(ascend_op.Add, (left_elem, right_elem))
+                        elif elems[m_idx] == '-':
+                            elems[left_idx] = self.get_proxy(ascend_op.Sub, (left_elem, right_elem))
+                        elif elems[m_idx] == '*':
+                            elems[left_idx] = self.get_proxy(ascend_op.Mul, (left_elem, right_elem))
+                        else:
+                            elems[left_idx] = self.get_proxy(ascend_op.Div, (left_elem, right_elem))
+
+                        # merge set number and priority
+                        set_num = merge_disjoint_set(set_num, left_idx, right_idx)
+                        priority[m_idx] = -1
+
+                # add final element proxy
+                final_idx = 0
+                while final_idx < len(elems) - 1 and str(elems[final_idx]) in ['(', ')']:
+                    final_idx += 1
+                final_elem = replace_elem_proxy(elems[final_idx])
+                x_names.append(final_elem)
             else:
-                x_names.append(replace_node)
+                # only one not num element
+                node = replace_elem_proxy(elems[0])
+                x_names.append(node)
 
         dims = []
         for elem in shape:
@@ -124,13 +226,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 dims.append(int(st))
                 continue
 
-            # process SymInt or NodeProxy
+            # add number block
             if len(dims) > 0:
                 generate_digits_op(dims)
                 dims = []
-            generate_sym_or_proxy(elem)
+            generate_not_num(elem)
 
-        # last number block
+        # add last number block
         if len(dims) > 0:
             generate_digits_op(dims)
 
@@ -332,12 +434,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y = self.get_const_proxy(y, torch.int32)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
-    @register_conversion(aten.div)
+    @register_conversion([aten.div, _operator.floordiv])
     def div(self, x, y):
         if isinstance(y, torch.fx.proxy.Proxy):
             return self.get_proxy(ascend_op.DivNoNan, (x, y))
         assert y != 0
-        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+        out = fx_traceback.get_current_meta()['val']
+        if not isinstance(out, torch.SymInt):
+            out_dtype = out.dtype
+        else:
+            out_dtype = torch.int32
         y_op = self.get_const_proxy(y, out_dtype)
         return self.get_proxy(ascend_op.Div, (x, y_op), {})
 
@@ -357,10 +463,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
         dim = int(dim)
-        start = int(start) if start is not None else 0
-        start = start if start >= 0 else x_shape[dim] + start
+        if not isinstance(start, torch.fx.proxy.Proxy):
+            start = int(start) if start is not None else 0
+            start = start if start >= 0 else x_shape[dim] + start
+            assert start is None or start >= 0 and start < x_shape[dim]
+
         assert dim == -1 or dim >= 0 and dim < len(x_shape)
-        assert start is None or start >= 0 and start < x_shape[dim]
         offset = [0] * len(x_shape)
         offset[dim] = start
         offset = self.get_shape_proxy(offset)
