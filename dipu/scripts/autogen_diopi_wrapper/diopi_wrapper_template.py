@@ -129,7 +129,7 @@ $cppsignautre {
 """
 
 op_no_fallback_with_autocompare_register_template_content = """
-NO_FALLBACK_with_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
+NO_FALLBACK_WITH_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
 """
 
 op_no_fallback_no_autocompare_register_template_content = """

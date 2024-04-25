@@ -49,27 +49,27 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // It mat be necessary to determine whether to keep torchop default impl
 // for non-custom ops through function dipuKeepTorchopDefaultImpl firstly in the
 // future, and we use force fallback to keep torchop default impl now.
-#define NO_FALLBACK_with_AUTOCOMPARE_REGISTER(opname, diopiFunc, wrapperFunc) \
-  do {                                                                        \
-    if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                    \
-        (!dipu::op_regex_match::isOpMatch(                                    \
-            opname, dipu::op_regex_match::fallbackMatchers))) {               \
-      if (dipu::op_regex_match::isOpMatch(                                    \
-              opname, dipu::op_regex_match::autocompareMatchers)) {           \
-        m.impl(opname, TORCH_FN(wrapperFunc##_autocompare));                  \
-      } else {                                                                \
-        m.impl(opname, TORCH_FN(wrapperFunc));                                \
-      }                                                                       \
-    } else {                                                                  \
-      if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                  \
-        DIPU_OP_LOG_WARNING_ONCE(#diopiFunc << " is not yet implemented, "    \
-                                            << (opname)                       \
-                                            << " will be fallback to cpu\n"); \
-      } else {                                                                \
-        DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, "              \
+#define NO_FALLBACK_WITH_AUTOCOMPARE_REGISTER(opname, diopiFunc, wrapperFunc)  \
+  do {                                                                         \
+    if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                     \
+        (!dipu::op_regex_match::isOpMatch(                                     \
+            opname, dipu::op_regex_match::fallbackMatchers))) {                \
+      if (dipu::op_regex_match::isOpMatch(                                     \
+              opname, dipu::op_regex_match::autocompareMatchers)) {            \
+        m.impl(opname, TORCH_FN(wrapperFunc##_autocompare));                   \
+      } else {                                                                 \
+        m.impl(opname, TORCH_FN(wrapperFunc));                                 \
+      }                                                                        \
+    } else {                                                                   \
+      if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                   \
+        DIPU_OP_LOG_WARNING_ONCE(#diopiFunc << " is not yet implemented, "     \
+                                            << (opname)                        \
+                                            << " will be fallback to cpu\n");  \
+      } else {                                                                 \
+        DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, "               \
                                  << (opname) << " will be fallback to cpu\n"); \
-      }                                                                       \
-    }                                                                         \
+      }                                                                        \
+    }                                                                          \
   } while (false);
 
 #define NO_FALLBACK_NO_AUTOCOMPARE_REGISTER(opname, diopiFunc, wrapperFunc)    \
