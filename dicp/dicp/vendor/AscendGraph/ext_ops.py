@@ -84,7 +84,7 @@ def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim
     scores = F.softmax(scores + mask.float(), dim=-1).type_as(xq)
     output = torch.matmul(scores, values).transpose(1, 2).contiguous().reshape(-1, num_head, head_dim)
 
-    return output
+    return output.half()
 
 
 @torch._custom_op.impl.custom_op('lightllm::flash_attention_inference')
