@@ -93,7 +93,7 @@ class UnaryOpInferrer final : public OpInferrer {
   at::Tensor infer_out(const at::Tensor& self);
 };
 
-class ComparisonOpInferrer final : public OpInferrer {
+class LogicOpInferrer final : public OpInferrer {
  public:
   at::Tensor infer_out(const at::Tensor& self, const at::Tensor& other);
 };
