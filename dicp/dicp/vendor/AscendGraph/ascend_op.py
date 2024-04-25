@@ -14,6 +14,7 @@ from dicp.dynamo_bridge.utils import get_memory_format
 
 aten = torch.ops.aten
 
+
 def negative_in_shape(shape):
     for elem in shape:
         if elem < 0:
@@ -43,12 +44,12 @@ class BroadcastTo(Operator):
 
     def infer_result(self, x, shape):
         x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
-        if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor): # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
+        if isinstance(shape, torch._subclasses.fake_tensor.FakeTensor):  # case1: shape is a fakeTensor, like conversion for 'scatter' and 'where'
             shape, shape_shape, _, _ = get_fake_tensor_meta_val(shape)
             shape = shape_shape
-        elif isinstance(shape, Tuple): # case2: shape is tuple from 'Const' , like conversion for 'lt' 
-            shape, _, _, _ =get_op_const_arg_kwarg(shape)
-        else: # other cases, unsupported yet
+        elif isinstance(shape, Tuple):  # case2: shape is tuple from 'Const' , like conversion for 'lt'
+            shape, _, _, _ = get_op_const_arg_kwarg(shape)
+        else:  # other cases, unsupported yet
             assert False, self.__class__.__name__ + "unsupported 'shape' input type!"
 
         out_shape = get_broadcast_res_two_shape(x_shape, shape)
@@ -97,7 +98,7 @@ class Cumsum(Operator):
 class MatMul(Operator):
     def __init__(self):
         super().__init__("MatMul")
-    
+
     def infer_result(self, x1, x2, adj_x1=False, adj_x2=False):
         attr = acl.op.create_attr()
         check_ret("acl.op.set_attr_bool", acl.op.set_attr_bool(attr, "transpose_x1", adj_x1))
@@ -285,6 +286,14 @@ class SoftmaxV2(Operator):
 class ReduceSumD(Operator):
     def __init__(self):
         super().__init__("ReduceSumD")
+
+    def infer_result(self, x, dims, keepdim):
+        return reduce_op_infer(x, dims, keepdim)
+
+
+class ReduceSum(Operator):
+    def __init__(self):
+        super().__init__("ReduceSum")
 
     def infer_result(self, x, dims, keepdim):
         return reduce_op_infer(x, dims, keepdim)
@@ -628,7 +637,7 @@ class GatherNd(Operator):
 
         # assume not none index, and replace prefix x_shape dims
         len_idx_shape = len(orig_index)
-        assert(len_idx_shape > 0)
+        assert (len_idx_shape > 0)
         bcast_index_shape = list(orig_index[0].shape)
         x_shape = bcast_index_shape + list(x_shape[len_idx_shape:])
         return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
@@ -962,6 +971,14 @@ class LogicalOr(Operator):
         return common_binary_op_infer(x1, x2, torch.bool)
 
 
+class LogicalNot(Operator):
+    def __init__(self):
+        super().__init__("LogicalNot")
+
+    def infer_result(self, x):
+        return common_binary_op_infer(x, torch.bool)
+
+
 class Tril(Operator):
     def __init__(self):
         super().__init__("Tril")
@@ -1023,13 +1040,45 @@ class BNTrainingUpdate(Operator):
         output_batch_var = torch.empty(
             [channel_size], dtype=torch.float32, memory_format=torch.contiguous_format
         )
-        return [output_y,output_mean,output_var,output_batch_mean,output_batch_var]
+        return [output_y, output_mean, output_var, output_batch_mean, output_batch_var]
 
 
 class TileWithAxis(Operator):
     def __init__(self):
         super().__init__("TileWithAxis")
         self.torch_op = aten.repeat_interleave.self_int
+
+
+class RotaryMul(Operator):
+    def __init__(self):
+        super().__init__("RotaryMul")
+
+    def infer_result(self, x, cos, sin):
+        return torch.empty_like(x)
+
+
+class RmsNorm(Operator):
+    def __init__(self):
+        super().__init__("RmsNorm")
+
+    def infer_result(self, x, weight, eps):
+        return torch.empty_like(x)
+
+
+class PromptFlashAttention(Operator):
+    def __init__(self):
+        super().__init__("PromptFlashAttention")
+
+    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim):
+        return torch.empty_like(q)
+
+
+class IncreFlashAttention(Operator):
+    def __init__(self):
+        super().__init__("IncreFlashAttention")
+
+    def infer_result(self, q, k, v, head_num):
+        return torch.empty_like(q)
 
 
 class TensorScatterUpdate(Operator):
@@ -1052,6 +1101,38 @@ class TensorScatterUpdate(Operator):
         inner_shape = x_shape[index_depth:]
         assert updates_shape == batch_shape + inner_shape
         return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
+class ExpandDims(Operator):
+    def __init__(self):
+        super().__init__("ExpandDims")
+
+    def infer_result(self, x, axis):
+        return torch.unsqueeze(x, axis)
+
+
+class MaskedScatter(Operator):
+    def __init__(self):
+        super().__init__("MaskedScatter")
+
+    def infer_result(self, x, mask, updates):
+        return x
+
+
+class ViewCopy(Operator):
+    def __init__(self):
+        super().__init__("ViewCopy")
+
+    def infer_result(self, dst, dst_size, dst_stride, dst_storage_offset, src, src_size, src_stride, src_storage_offset):
+        return dst
+
+
+class ScatterNdUpdate(Operator):
+    def __init__(self):
+        super().__init__("ScatterNdUpdate")
+
+    def infer_result(self, x, indices, updates):
+        return x
 
 
 def ret_triple(a, b, c) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
