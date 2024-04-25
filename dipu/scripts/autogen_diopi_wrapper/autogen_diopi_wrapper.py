@@ -448,6 +448,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.Tensor", "", opname)
     opname = re.sub("_?\.to", "", opname)
     opname = re.sub("_?\.from", "", opname)
+    opname = re.sub("_mode", "", opname)
     opname = re.sub("\.Scalar", "", opname)
     opname = re.sub("\.self", "", opname)
     opname = re.sub("\.values_stable", "_outf", opname)
@@ -459,7 +460,6 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.input", "", opname)
     opname = re.sub("\.dim_IntList", "", opname)
     opname = re.sub("\.dim", "", opname)
-    opname = re.sub("\.mode", "", opname)
     opname = opname.replace(".", "_")
     opname = opname.split(".")[0]
     if opname[-1] == "_" and len(get_function_return_param_from_schema(schema)) > 0:
