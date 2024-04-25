@@ -443,7 +443,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
         shape = list(result_val.shape)
         if x.node.meta["val"].dtype == torch.complex64:
             shape.append(1)
-            size.append(1)
+            size_tmp = [s for s in size]
+            size_tmp.append(1)
+            size = immutable_list(size_tmp)
         numel = result_val.numel()
         neg = False
         for i in shape:
@@ -463,7 +465,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
             real_shape = []
             for i in shape:
-                if not isinstance(i, torch.fx.proxy.Proxy):
+                if not isinstance(i, torch.SymInt):
                     if i > 0:
                         real_shape.append(str(i))
                     else:
@@ -472,7 +474,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     raise RuntimeError(
                         "cannot handle with both negative and symint!")
             shape = real_shape
-        else:
+        elif not_all_num_shape(shape):
             shape = size
         shape = self.get_shape_proxy(shape)
         if x.node.meta["val"].dtype == torch.complex64:
