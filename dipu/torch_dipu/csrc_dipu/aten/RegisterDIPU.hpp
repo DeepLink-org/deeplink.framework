@@ -64,10 +64,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                  \
         DIPU_OP_LOG_WARNING_ONCE(                                             \
             #diopiFunc                                                        \
-            << " is not yet implemented, will be fallback to cpu\n");         \
+            << " is not yet implemented, (opname) will be fallback to cpu\n");         \
       } else {                                                                \
         DIPU_OP_LOG_WARNING_ONCE(                                             \
-            "force fallback has been set,  will be fallback to cpu\n");       \
+            "force fallback has been set, (opname) will be fallback to cpu\n");       \
       }                                                                       \
     }                                                                         \
   } while (false);
@@ -82,10 +82,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
             #diopiFunc                                                      \
-            << " is not yet implemented,  will be fallback to cpu\n");      \
+            << " is not yet implemented, (opname) will be fallback to cpu\n");      \
       } else {                                                              \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
-            "force fallback has been set,  will be fallback to cpu\n");     \
+            "force fallback has been set, (opname) will be fallback to cpu\n");     \
       }                                                                     \
     }                                                                       \
   } while (false);
@@ -112,10 +112,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {               \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
             #diopi_func                                                     \
-            << " is not yet implemented,  will be fallback to cpu\n");      \
+            << " is not yet implemented, (opname) will be fallback to cpu\n");      \
       } else {                                                              \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
-            "force fallback has been set,  will be fallback to cpu\n");     \
+            "force fallback has been set, (opname) will be fallback to cpu\n");     \
         m.impl(opname, TORCH_FN(custom_fallback_func));                     \
       }                                                                     \
     }                                                                       \
@@ -136,10 +136,10 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
       if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {               \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
             #diopi_func                                                     \
-            << " is not yet implemented,  will be fallback to cpu\n");      \
+            << " is not yet implemented, (opname) will be fallback to cpu\n");      \
       } else {                                                              \
         DIPU_OP_LOG_WARNING_ONCE(                                           \
-            "force fallback has been set,  will be fallback to cpu\n");     \
+            "force fallback has been set, (opname) will be fallback to cpu\n");     \
         m.impl(opname, TORCH_FN(custom_fallback_func));                     \
       }                                                                     \
     }                                                                       \
