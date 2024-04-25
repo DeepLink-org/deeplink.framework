@@ -117,9 +117,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 # search & replace
                 replace_proxy = None
                 arg_symint_candidate = [value[0] for value in self.sym_in_args.values()] + list(self.sym_to_inputs.values())
-                for convert in arg_symint_candidate:
-                    if elem_str == str(convert):
-                        replace_proxy = convert
+                for arg_sym in arg_symint_candidate:
+                    if elem_str == str(arg_sym):
+                        replace_proxy = arg_sym
                         break
                 assert replace_proxy is not None
                 return replace_proxy
@@ -146,7 +146,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 x_names.append(elem)
                 return
 
-            # string form of NodeProxy, convert it
+            # string form of NodeProxy
             if isinstance(elem, str) and 'Proxy' in elem:
                 # special case handling '()' in NodeProxy string
                 # '[]' will not mixed with expression calculation priority
