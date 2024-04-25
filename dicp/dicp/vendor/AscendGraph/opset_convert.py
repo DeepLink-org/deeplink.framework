@@ -1,7 +1,7 @@
 import torch
 import torch_dipu
 from dicp.dynamo_bridge.compile_fx import is_torch_210
-from dicp.vendor.AscendGraph.ascend_op import MatMul, CastToCpu, IdentityInp
+from dicp.vendor.AscendGraph.ascend_op import CastToCpu, IdentityInp
 from dicp.vendor.AscendGraph.conversion import AtenToAscendTransformer
 from ...dynamo_bridge.graph import GraphTransformer
 
@@ -43,9 +43,9 @@ class OutputMarkPass:
         for n in gm.graph.nodes:
             if n.op != 'call_function':
                 continue
-            if type(n.target) == CastToCpu:
+            if isinstance(n.target, CastToCpu):
                 self.cpu_tensor.append(n.name)
-            elif type(n.target) == IdentityInp:
+            elif isinstance(n.target, IdentityInp):
                 if len(n.args) == 2 and n.args[1] is not None and str(n.args[1]) in input_names:
                     self.assign_args.append((n.name, input_names.index(str(n.args[1]))))
                 else:
@@ -55,10 +55,10 @@ class OutputMarkPass:
             if n.op == 'call_function':
                 prop = {}
                 if n.name in self.cpu_tensor:
-                    prop.update({'cpu_tensor' : n.name})
+                    prop.update({'cpu_tensor': n.name})
                 if len(self.assign_args) > 0 and n.name in list(zip(*self.assign_args))[0]:
                     idx = list(zip(*self.assign_args))[0].index(n.name)
-                    prop.update({'assign_args' : (self.assign_args[idx][0], self.assign_args[idx][1])})
+                    prop.update({'assign_args': (self.assign_args[idx][0], self.assign_args[idx][1])})
                 n.meta['prop'] = prop
         return gm
 
@@ -76,6 +76,7 @@ def symint_in_inputs(nodes):
                     if isinstance(dim, torch.SymInt):
                         return True
     return False
+
 
 def ascendgraph_opset_convert(
     gm: torch.fx.GraphModule,

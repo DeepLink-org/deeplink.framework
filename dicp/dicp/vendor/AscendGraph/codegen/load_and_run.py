@@ -65,6 +65,7 @@ ACL_DDR_MEM_P2P_NORMAL = 7
 ACL_HBM_MEM_P2P_HUGE = 8
 ACL_HBM_MEM_P2P_NORMAL = 9
 
+
 def get_np_dtype(dtype):
     if dtype == ACL_FLOAT:
         return np.float32
@@ -121,7 +122,7 @@ class MemoryPool:
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 18 * 1024 * 1024 * 1024
+            self.work_size = 26 * 1024 * 1024 * 1024
             self.work_ptr, ret = acl.rt.malloc(self.work_size,
                                                ACL_MEM_MALLOC_HUGE_FIRST)
             check_ret("acl.rt.malloc", ret)
@@ -192,7 +193,7 @@ class AscendExecutor(object):
                 memory_pool.release_memory()
                 print("Adjust memory pool allocation.")
                 memory_pool.work_ptr, ret = acl.rt.malloc(work_size,
-                                                        ACL_MEM_MALLOC_HUGE_FIRST)
+                                                          ACL_MEM_MALLOC_HUGE_FIRST)
                 check_ret("acl.rt.malloc", ret)
 
         self.weight_ptr, ret = acl.rt.malloc(weight_size,
@@ -263,7 +264,6 @@ class AscendExecutor(object):
             self.output_data_buffers.append(data_buf)
             _, ret = acl.mdl.add_dataset_buffer(self.output_dataset, data_buf)
             check_ret("acl.add_dataset_buffer", ret)
-
 
     @record_function('load_and_run_prepare_input')
     def _prepare_input(self, images, dims):
@@ -348,6 +348,7 @@ class AscendExecutor(object):
             allocated_output_tensor = {}
             for output_index, input_index in allocated_output.items():
                 allocated_output_tensor[output_index] = input[input_index]
+
         self._prepare_input(input, dims)
         output = []
         if output_shape:
