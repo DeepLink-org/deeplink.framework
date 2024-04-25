@@ -306,7 +306,7 @@ at::Tensor UnaryOpInferrer::infer_out(const at::Tensor& self) {
 }
 
 at::Tensor LogicOpInferrer::infer_out(const at::Tensor& self,
-                                           const at::Tensor& other) {
+                                      const at::Tensor& other) {
   add_inputs({self, other});
   compute_shape();
   dtype_ = at::ScalarType::Bool;
