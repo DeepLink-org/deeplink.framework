@@ -67,7 +67,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                                             << " will be fallback to cpu\n"); \
       } else {                                                                \
         DIPU_OP_LOG_WARNING_ONCE("force fallback has been set, "              \
-                                 << (opname) << "will be fallback to cpu\n"); \
+                                 << (opname) << " will be fallback to cpu\n"); \
       }                                                                       \
     }                                                                         \
   } while (false);
