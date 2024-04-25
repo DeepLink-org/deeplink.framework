@@ -41,6 +41,13 @@ static at::Tensor& custom_fallback_dipu_silu_out(const at::Tensor& self,
   return out;
 }
 
+static at::Tensor custom_fallback_dipu_silu(const at::Tensor& self) {
+  DIPU_OP_LOG_WARNING_ONCE("custom fallback to cpu, name=silu"
+                           << std::endl);
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  return at::silu(self_cpu);
+}
+
 static c10::List<c10::optional<at::Tensor>> to_cpu(
     const c10::List<c10::optional<at::Tensor>>& indices) {
   c10::List<c10::optional<at::Tensor>> indices_cpu;
@@ -450,6 +457,11 @@ static at::Tensor& custom_fallback_dipu_rsqrt_out(const at::Tensor& self,
   auto out_cpu = at::rsqrt(self_cpu);
   out.copy_(out_cpu);
   return out;
+}
+
+static at::Tensor custom_fallback_dipu_rsqrt(const at::Tensor& self) {
+  auto self_cpu = to_cpu_with_half_to_float(self);
+  return at::rsqrt(self_cpu);
 }
 
 static at::Tensor& custom_fallback_dipu__softmax_out(const at::Tensor& self,

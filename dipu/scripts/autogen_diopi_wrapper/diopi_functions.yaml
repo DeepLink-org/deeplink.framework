@@ -527,25 +527,6 @@
   autocompare: disable
   interface: diopiRandperm(ctx, out, n, generator)
 
-- schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
-  device: [cuda, ascend]
-  custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-    at::Tensor out;
-    if (dtype) {
-      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
-    } else {
-      if (c10::isFloatingType(self.scalar_type())) {
-        out = nodispatch::empty(output_shape, self.options());
-      } else {
-        out = nodispatch::empty(output_shape, self.options().dtype(at::kLong));
-      }
-    }
-    
-    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
-    ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiSum(ctx, out, self_diopi, diopi_size)
-
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
@@ -556,6 +537,14 @@
     }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
+
+- schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = ReduceOpInferrer().infer_out(self, dim, keepdim, dtype);
+    return dipu_sum_intlist_out(self, dim, keepdim, dtype, out);
+  interface: diopiSum(ctx, out, dtype, dim)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
@@ -1138,6 +1127,12 @@
   custom_fallback: True
   interface: diopiRsqrt(ctx, out, self)
 
+- schema: "rsqrt(Tensor self) -> Tensor"
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiRsqrt(ctx, out, self)
+
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
   interface: diopiUniformInp(ctx, self, from, to, generator)
@@ -1251,12 +1246,17 @@
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
-# - schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
-#   custom_code_at_the_beginning: |
-#     auto out = nodispatch::empty(self.sizes(), self.options());
-#   interface: diopiPow(ctx, out, self, exponent);
+- schema: pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiPowTensor(ctx, out, self, exponent);
 
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiPow(ctx, out, self, exponent);
+
+- schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
   interface: diopiPow(ctx, out, self, exponent);
 
 - schema: pow_.Tensor(Tensor(a!) self, Tensor exponent) -> Tensor(a!)
@@ -1688,6 +1688,12 @@
 
 - schema: "silu.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
+  interface: diopiSilu(ctx, out, self)
+
+- schema: "silu(Tensor self) -> Tensor"
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
   interface: diopiSilu(ctx, out, self)
 
 - schema: "silu_backward.grad_input(Tensor grad_output, Tensor self, *, Tensor(a!) grad_input) -> Tensor(a!)"
