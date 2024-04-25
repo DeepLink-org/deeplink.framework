@@ -363,7 +363,7 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
   } else {
     compute_dtype();
   }
-  compute_memory_format();
+  memory_format_ = at::MemoryFormat::Contiguous;
   return malloc_output();
 }
 

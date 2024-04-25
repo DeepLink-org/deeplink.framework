@@ -1260,7 +1260,7 @@
     TORCH_CHECK(!(isIntegralType(self.scalar_type(), true) &&
                 exponent.isIntegral(true) && exponent.toLong() < 0),
                 "Integers to negative integer powers are not allowed.");
-    // same logic with pytorch
+    // same logic with pytorch, aten/src/ATen/native/Pow.cpp 
     auto common_dtype = at::result_type(self, exponent);
     auto out = UnaryOpInferrer().infer_out(self.to(common_dtype));
   interface: diopiPow(ctx, out, self, exponent);
@@ -1763,12 +1763,6 @@
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
-
-# - schema: "matmul(Tensor self, Tensor other) -> Tensor"
-#   device: [all, -droplet]
-#   custom_code_at_the_beginning: |
-#     auto out = OpInferrer().add_input(self).add_input(other).infer_matrix_op();
-#   interface: diopiMatmul(ctx, out, self, other)
 
 - schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
   device: [all, -droplet]

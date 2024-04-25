@@ -443,6 +443,7 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("(_foreach_[\w\d_]+_?)\.List", R"\1", opname)
     opname = re.sub("ctc_loss\.IntList", "ctc_loss", opname)
     opname = re.sub("\.(Scalar)?(Tensor)?[\w_\d]*_out", "_outf", opname)
+    opname = re.sub("\.(Scalar)?(Tensor)?[\w_\d]*", "", opname)
     opname = re.sub("\.out[\w_\d]*", "_outf", opname)
     opname = re.sub("\.Tensor_Scalar_out", "_outf", opname)
     opname = re.sub("\.Tensor", "", opname)
