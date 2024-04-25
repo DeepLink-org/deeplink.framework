@@ -116,7 +116,7 @@ class CatOpInferrer final : public OpInferrer {
  protected:
   void compute_memory_format() override;
 
-  inline bool cat_should_skip_tensor(const at::Tensor& t) {
+  static inline bool cat_should_skip_tensor(const at::Tensor& t) {
     return t.numel() == 0 && t.dim() == 1;
   }
 
