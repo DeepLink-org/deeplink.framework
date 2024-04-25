@@ -11,7 +11,7 @@ namespace op_regex_match {
 std::vector<std::regex> loadMatcher(const char* env_name,
                                     const char* config_name);
 bool isOpMatch(const char* opname,
-                    const std::vector<std::regex>& regexMatchers);
+               const std::vector<std::regex>& regexMatchers);
 
 extern const char* const fallback_env_name;
 extern const char* const fallback_config_name;
