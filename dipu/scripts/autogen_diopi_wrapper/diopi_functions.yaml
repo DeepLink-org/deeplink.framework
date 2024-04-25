@@ -1248,7 +1248,7 @@
 
 - schema: pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor
   custom_code_at_the_beginning: |
-    auto out = UnaryOpInferrer().infer_out(self);
+    auto out = BinaryOpInferrer().infer_out(self, exponent);
   interface: diopiPowTensor(ctx, out, self, exponent);
 
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
@@ -1256,7 +1256,13 @@
 
 - schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = UnaryOpInferrer().infer_out(self);
+    // Numpy compatibility check:
+    TORCH_CHECK(!(isIntegralType(self.scalar_type(), true) &&
+                exponent.isIntegral(true) && exponent.toLong() < 0),
+                "Integers to negative integer powers are not allowed.");
+    // same logic with pytorch
+    auto common_dtype = at::result_type(self, exponent);
+    auto out = UnaryOpInferrer().infer_out(self.to(common_dtype));
   interface: diopiPow(ctx, out, self, exponent);
 
 - schema: pow_.Tensor(Tensor(a!) self, Tensor exponent) -> Tensor(a!)
