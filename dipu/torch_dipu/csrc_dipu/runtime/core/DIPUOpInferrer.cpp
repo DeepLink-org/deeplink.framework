@@ -11,38 +11,6 @@ namespace dipu {
 
 namespace internal {
 
-DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
-  // coumpute broadcast shape
-  // for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
-  size_t ndim_a = a.size();
-  size_t ndim_b = b.size();
-  size_t ndim = ndim_a > ndim_b ? ndim_a : ndim_b;
-  // size of result is the bigger ndim
-  DimVector result(ndim);
-
-  // Use ptrdiff_t to ensure signed comparison.
-  for (ptrdiff_t i = static_cast<ptrdiff_t>(ndim) - 1; i >= 0; --i) {
-    // starting from the last index of a and b, then moving forward
-    ptrdiff_t dim_a =
-        static_cast<ptrdiff_t>(ndim_a) - static_cast<ptrdiff_t>(ndim) + i;
-    ptrdiff_t dim_b =
-        static_cast<ptrdiff_t>(ndim_b) - static_cast<ptrdiff_t>(ndim) + i;
-    // if the index is smaller than 0, consider it as 1
-    auto size_a = (dim_a >= 0) ? a[dim_a] : 1;
-    auto size_b = (dim_b >= 0) ? b[dim_b] : 1;
-
-    TORCH_CHECK(size_a == size_b || size_a == 1 || size_b == 1,
-                "The size of tensor a (", size_a,
-                ") must match the size of tensor b (", size_b,
-                ") at non-singleton dimension ", i);
-
-    // 1 is mapped to the other size (even for 0).
-    result[i] = size_a == 1 ? size_b : size_a;
-  }
-
-  return result;
-}
-
 struct ResultTypeState {
   at::ScalarType dimResult = at::ScalarType::Undefined;
   at::ScalarType wrappedResult = at::ScalarType::Undefined;
@@ -116,6 +84,37 @@ at::ScalarType result_type(const ResultTypeState& in_state) {
 
 }  // namespace internal
 
+// coumpute broadcast shape
+void OpInferrer::compute_broadcast_shape(c10::IntArrayRef shape) {
+  size_t ndim_a = shape_.size();
+  size_t ndim_b = shape.size();
+  size_t ndim = ndim_a > ndim_b ? ndim_a : ndim_b;
+  // size of result is the bigger ndim
+  DimVector result(ndim);
+
+  // Use ptrdiff_t to ensure signed comparison.
+  for (ptrdiff_t i = static_cast<ptrdiff_t>(ndim) - 1; i >= 0; --i) {
+    // starting from the last index of a and b, then moving forward
+    ptrdiff_t dim_a =
+        static_cast<ptrdiff_t>(ndim_a) - static_cast<ptrdiff_t>(ndim) + i;
+    ptrdiff_t dim_b =
+        static_cast<ptrdiff_t>(ndim_b) - static_cast<ptrdiff_t>(ndim) + i;
+    // if the index is smaller than 0, consider it as 1
+    auto size_a = (dim_a >= 0) ? shape_[dim_a] : 1;
+    auto size_b = (dim_b >= 0) ? shape[dim_b] : 1;
+
+    TORCH_CHECK(size_a == size_b || size_a == 1 || size_b == 1,
+                "The size of tensor a (", size_a,
+                ") must match the size of tensor b (", size_b,
+                ") at non-singleton dimension ", i);
+
+    // 1 is mapped to the other size (even for 0).
+    result[i] = size_a == 1 ? size_b : size_a;
+  }
+
+  shape_ = result;
+}
+
 void OpInferrer::compute_shape() {
   TORCH_CHECK(!inputs_.empty(),
               "No input tensors provided for shape computation");
@@ -126,7 +125,7 @@ void OpInferrer::compute_shape() {
       shape_ = shape;
     } else if (!shape.equals(shape_)) {
       all_same_shape_ = false;
-      shape_ = internal::compute_broadcast_shape(shape_, shape);
+      compute_broadcast_shape(shape);
     }
   }
 }
@@ -290,11 +289,11 @@ at::Tensor BinaryFloatOpInferrer::infer_out(const at::Tensor& self,
   add_inputs({self, other});
   compute_shape();
   compute_dtype();
-  compute_memory_format();
   // Promotes common dtype to the default float scalar type, if needed
   if (c10::isIntegralType(dtype_, /*includeBool=*/true)) {
     dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
+  compute_memory_format();
   return malloc_output();
 }
 
@@ -315,11 +314,8 @@ at::Tensor ComparisonOpInferrer::infer_out(const at::Tensor& self,
   return malloc_output();
 }
 
-at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
-                                       c10::OptionalIntArrayRef dim,
-                                       bool keep_dim,
-                                       c10::optional<at::ScalarType> dtype) {
-  add_inputs({self});
+void ReduceOpInferrer::compute_shape(c10::OptionalIntArrayRef dim,
+                                     bool keep_dim) {
   const auto& input_tensor = inputs_[0];
   int64_t ndim = input_tensor.dim();
 
@@ -347,8 +343,19 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
       }
     }
   }
+}
 
-  compute_dtype();
+at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
+                                       c10::OptionalIntArrayRef dim,
+                                       bool keep_dim,
+                                       c10::optional<at::ScalarType> dtype) {
+  add_inputs({self});
+  compute_shape(dim, keep_dim);
+  if (dtype.has_value()) {
+    dtype_ = dtype.value();
+  } else {
+    compute_dtype();
+  }
   compute_memory_format();
   return malloc_output();
 }
@@ -395,14 +402,7 @@ void CatOpInferrer::compute_memory_format() {
   memory_format_ = format.value();
 }
 
-at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
-                                    int64_t dim) {
-  for (auto& t : tensors) {
-    add_input(t);
-  }
-  TORCH_CHECK(!inputs_.empty(),
-              "torch.cat(): expected a non-empty list of Tensors");
-
+void CatOpInferrer::compute_shape(int64_t dim) {
   // Look for the first valid tensor.
   size_t valid = ntensors();
   for (const auto i : c10::irange(ntensors())) {
@@ -439,6 +439,17 @@ at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
     shape_ = inputs_[valid].sizes();
     shape_[dim] = size_at_dim;
   }
+}
+
+at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
+                                    int64_t dim) {
+  for (auto& t : tensors) {
+    add_input(t);
+  }
+  TORCH_CHECK(!inputs_.empty(),
+              "torch.cat(): expected a non-empty list of Tensors");
+
+  compute_shape(dim);
   compute_dtype();
   compute_memory_format();
   return malloc_output();

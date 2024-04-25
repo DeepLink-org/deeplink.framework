@@ -40,18 +40,11 @@ class OpInferrer {
     inputs_.push_back(tensor);
   }
 
-  // Computes the shape of the output, supporting broadcasting rules.
-  void compute_shape();
-
   size_t ndim() const { return shape_.size(); }
   size_t ntensors() const { return inputs_.size(); }
 
-  // Computes the dtype of the output based on all input tensors,
-  // supporting dtype promotion
-  void compute_dtype();
-
-  // Determine the best memory format for the output tensor based on input
-  // tensors.
+  virtual void compute_shape();
+  virtual void compute_dtype();
   virtual void compute_memory_format();
 
   // Allocates the output Tensor based on the inferred attributes, if strides_
@@ -74,8 +67,10 @@ class OpInferrer {
   at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
 
  private:
+  // common logic for calculation, not inherited by children.
   bool fast_compute_memory_format();
   void compute_perm();
+  void compute_broadcast_shape(c10::IntArrayRef shape);
   std::vector<StrideVector> compute_effective_strides();
 
   bool all_same_shape_ = true;
@@ -107,6 +102,9 @@ class ReduceOpInferrer final : public OpInferrer {
  public:
   at::Tensor infer_out(const at::Tensor& self, c10::OptionalIntArrayRef dim,
                        bool keep_dim, c10::optional<at::ScalarType> dtype);
+
+ protected:
+  void compute_shape(c10::OptionalIntArrayRef dim, bool keep_dim);
 };
 
 class CatOpInferrer final : public OpInferrer {
@@ -115,6 +113,7 @@ class CatOpInferrer final : public OpInferrer {
 
  protected:
   void compute_memory_format() override;
+  void compute_shape(int64_t dim);
 
   static inline bool cat_should_skip_tensor(const at::Tensor& t) {
     return t.numel() == 0 && t.dim() == 1;
