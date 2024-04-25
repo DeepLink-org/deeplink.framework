@@ -1,14 +1,15 @@
 import torch
 
-from torch._decomp import get_decompositions
-
-
-aten = torch.ops.aten
-decomp_keys = []
+from dicp.dynamo_bridge.decompositions import get_decompositions
 
 
 def get_decomp():
-    return get_decompositions(decomp_keys)
+    aten = torch.ops.aten
+    return get_decompositions(
+        [
+            aten.count_nonzero.default,
+        ]
+    )
 
 
 decomp = get_decomp()
