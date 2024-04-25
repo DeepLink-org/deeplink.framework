@@ -128,16 +128,20 @@ $cppsignautre {
 }
 """
 
-op_register_template_content = """
-DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
+op_no_fallback_with_autocompare_register_template_content = """
+NO_FALLBACK_with_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
 """
 
-op_register_disable_autocompare_template_content = """
-DIOPI_ATEN_FUNC_DISABLE_AUTOCOMPARE("$register_name", $diopi_fun_name, $aten_fun_name);
+op_no_fallback_no_autocompare_register_template_content = """
+NO_FALLBACK_NO_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
 """
 
-op_with_custom_fallback_register_template_content = """
-DIOPI_ATEN_FUNC_CUSTOM_FALLBACK("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
+op_with_fallback_with_autocompare_register_template_content = """
+WITH_FALLBACK_WITH_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
+"""
+
+op_with_fallback_no_autocompare_register_template_content = """
+WITH_FALLBACK_NO_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
 """
 
 custom_autograd_template_content = """

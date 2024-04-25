@@ -8,11 +8,12 @@ from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
-    op_register_template_content,
-    op_register_disable_autocompare_template_content,
+    op_no_fallback_with_autocompare_register_template_content,
+    op_no_fallback_no_autocompare_register_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
-    op_with_custom_fallback_register_template_content,
+    op_with_fallback_with_autocompare_register_template_content,
+    op_with_fallback_no_autocompare_register_template_content,
 )
 
 
@@ -672,14 +673,20 @@ file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
-op_register_template = CodeTemplate(op_register_template_content)
-
-op_disable_autocompare_register_template = CodeTemplate(
-    op_register_disable_autocompare_template_content
+op_no_fallback_with_autocompare_register_template = CodeTemplate(
+    op_no_fallback_with_autocompare_register_template_content
 )
 
-op_with_custom_fallback_register_template = CodeTemplate(
-    op_with_custom_fallback_register_template_content
+op_no_fallback_no_autocompare_register_template = CodeTemplate(
+    op_no_fallback_no_autocompare_register_template_content
+)
+
+op_with_fallback_with_autocompare_register_template = CodeTemplate(
+    op_with_fallback_with_autocompare_register_template_content
+)
+
+op_with_fallback_no_autocompare_register_template = CodeTemplate(
+    op_with_fallback_no_autocompare_register_template_content
 )
 
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
@@ -952,7 +959,7 @@ def functions_code_gen(fun_config):
     if fun_config.get("custom_fallback", False) in ["False", False] and fun_config.get(
         "autocompare", True
     ) in ["True", True]:
-        register_body = op_register_template.substitute(
+        register_body = op_no_fallback_with_autocompare_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config["schema"])],
             aten_fun_name=["dipu::native::" + fun_name],
             diopi_fun_name=[
@@ -962,12 +969,12 @@ def functions_code_gen(fun_config):
             ],
         )
 
-    # case2: custom_fallback=False and autocompare=disable
+    # case2: custom_fallback=False and autocompare=disabled
     elif fun_config.get("custom_fallback", False) in [
         "False",
         False,
     ] and fun_config.get("autocompare") in ["disable"]:
-        register_body = op_disable_autocompare_register_template.substitute(
+        register_body = op_no_fallback_no_autocompare_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config["schema"])],
             aten_fun_name=["dipu::native::" + fun_name],
             diopi_fun_name=[
@@ -976,11 +983,32 @@ def functions_code_gen(fun_config):
                 )
             ],
         )
-    # case3: custom_fallback=True and autocompare not disable
+    # case3: custom_fallback=True and autocompare not disabled
     elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
         "autocompare", True
     ) in ["True", True]:
-        register_body = op_with_custom_fallback_register_template.substitute(
+        register_body = op_with_fallback_with_autocompare_register_template.substitute(
+            register_name=[get_op_name_from_schema(fun_config["schema"])],
+            aten_fun_name=["dipu::native::" + fun_name],
+            diopi_fun_name=[
+                get_fun_name_from_cppsignature(diopi_interface).replace(
+                    "diopi", "::diopi"
+                )
+            ],
+            force_fallback=[
+                (
+                    "false"
+                    if fun_config.get("force_fallback", False) in [False, "False"]
+                    else "true"
+                )
+            ],
+            fallbackFunc=["dipu::native::" + "custom_fallback_" + fun_name],
+        )
+    # case4: custom_fallback=True and autocompare disabled
+    elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
+        "autocompare", True
+    ) in ["disable"]:
+        register_body = op_with_fallback_no_autocompare_register_template.substitute(
             register_name=[get_op_name_from_schema(fun_config["schema"])],
             aten_fun_name=["dipu::native::" + fun_name],
             diopi_fun_name=[

@@ -2768,6 +2768,7 @@
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
   autocompare: disable
+  # TODO(someone): fix this issue when `autocompare` is on
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
@@ -2778,8 +2779,6 @@
     });
     // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
   interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), static_cast<int64_t>(self.size()), found_inf, inv_scale)
-  # TODO(someone): fix this issue when `autocompare` is on
-  autocompare: disable
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
   custom_fallback: True
