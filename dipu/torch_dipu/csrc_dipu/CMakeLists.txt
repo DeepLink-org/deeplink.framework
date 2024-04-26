@@ -74,6 +74,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/OpUtils.cpp
   aten/ops/StorageShapeKernel.cpp
   aten/ops/DIPUAmp.cpp
+  aten/ops/DIPUOpInferrer.cpp
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
@@ -108,7 +109,6 @@ set(TORCH_DIPU_SOURCE
   runtime/core/guardimpl/DIPUGuardImpl.cpp
   runtime/core/DIPUGeneratorImpl.cpp
   runtime/core/DIPUStream.cpp
-  runtime/core/DIPUOpInferrer.cpp
   runtime/device/deviceapis.cpp
 
   utils/helpfunc.cpp)
