@@ -12,7 +12,7 @@ std::vector<std::regex> loadMatcher(const char* env_name,
                                     const char* config_name);
 bool isOpMatch(const char* opname,
                const std::vector<std::regex>& regexMatchers);
-extern const std::vector<std::regex> fallbackMatchers;
-extern const std::vector<std::regex> autocompareMatchers;
+extern const std::vector<std::regex> kFallbackMatchers;
+extern const std::vector<std::regex> kAutocompareMatchers;
 }  // namespace op_regex_match
 }  // namespace dipu

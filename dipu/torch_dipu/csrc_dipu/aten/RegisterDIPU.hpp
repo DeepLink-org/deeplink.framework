@@ -54,9 +54,9 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   do {                                                                         \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                     \
         (!dipu::op_regex_match::isOpMatch(                                     \
-            opname, dipu::op_regex_match::fallbackMatchers))) {                \
+            opname, dipu::op_regex_match::kFallbackMatchers))) {               \
       if (dipu::op_regex_match::isOpMatch(                                     \
-              opname, dipu::op_regex_match::autocompareMatchers)) {            \
+              opname, dipu::op_regex_match::kAutocompareMatchers)) {           \
         m.impl(opname, TORCH_FN(wrapperFunc##_autocompare));                   \
       } else {                                                                 \
         m.impl(opname, TORCH_FN(wrapperFunc));                                 \
@@ -78,7 +78,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   do {                                                                         \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                     \
         (!dipu::op_regex_match::isOpMatch(                                     \
-            opname, dipu::op_regex_match::fallbackMatchers))) {                \
+            opname, dipu::op_regex_match::kFallbackMatchers))) {               \
       m.impl(opname, TORCH_FN(wrapperFunc));                                   \
     } else {                                                                   \
       if ((reinterpret_cast<void*>(diopiFunc) == nullptr)) {                   \
@@ -103,9 +103,9 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                    \
         !((force_fallback) ||                                                  \
           dipu::op_regex_match::isOpMatch(                                     \
-              opname, dipu::op_regex_match::fallbackMatchers))) {              \
+              opname, dipu::op_regex_match::kFallbackMatchers))) {             \
       if (dipu::op_regex_match::isOpMatch(                                     \
-              opname, dipu::op_regex_match::autocompareMatchers)) {            \
+              opname, dipu::op_regex_match::kAutocompareMatchers)) {           \
         m.impl(opname, TORCH_FN(wrapper_func##_autocompare));                  \
       } else {                                                                 \
         m.impl(opname, TORCH_FN(wrapper_func));                                \
@@ -132,7 +132,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     if ((reinterpret_cast<void*>(diopi_func) != nullptr) &&                    \
         !((force_fallback) ||                                                  \
           dipu::op_regex_match::isOpMatch(                                     \
-              opname, dipu::op_regex_match::fallbackMatchers))) {              \
+              opname, dipu::op_regex_match::kFallbackMatchers))) {             \
       m.impl(opname, TORCH_FN(wrapper_func));                                  \
     } else {                                                                   \
       if ((reinterpret_cast<void*>(diopi_func) == nullptr)) {                  \

@@ -64,14 +64,14 @@ bool isOpMatch(const char* opname,
 constexpr const char* kFallbackEnvName = "DIPU_FORCE_FALLBACK_OPS_LIST";
 constexpr const char* kFallbackConfigName =
     ".dipu_force_fallback_op_list.config";
-const std::vector<std::regex> fallbackMatchers =
+const std::vector<std::regex> kFallbackMatchers =
     dipu::op_regex_match::loadMatcher(kFallbackEnvName, kFallbackConfigName);
 
 constexpr const char* kSpecifiedAutocompareEnvName =
     "DIPU_AUTOCOMPARE_OPS_LIST";
 constexpr const char* kSpecifiedAutocompareConfigName =
     ".specified_autocompare_op_list.config";
-const std::vector<std::regex> autocompareMatchers =
+const std::vector<std::regex> kAutocompareMatchers =
     dipu::op_regex_match::loadMatcher(kSpecifiedAutocompareEnvName,
                                       kSpecifiedAutocompareConfigName);
 }  // namespace op_regex_match
