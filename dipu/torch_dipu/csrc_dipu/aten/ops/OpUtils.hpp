@@ -85,6 +85,28 @@ inline int dumpOpArgLevel() {
   return level;
 }
 
+inline bool useAutoCompare() {
+  static const char* autocomparePtr = std::getenv("USE_AUTOCOMPARE");
+  if (autocomparePtr == nullptr) {
+    return false;
+  }
+
+  std::string autocompareString(autocomparePtr);
+  for (char& c : autocompareString) {
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+
+  if (autocompareString == "on") {
+    return true;
+  }
+  if (autocompareString == "off") {
+    return false;
+  }
+
+  std::cerr << "Error: USE_AUTOCOMPARE can only be set to 'ON' or 'OFF'.\n";
+  return false;
+}
+
 template <typename T>
 std::string dumpArg(const T& t) {
   std::stringstream stream;

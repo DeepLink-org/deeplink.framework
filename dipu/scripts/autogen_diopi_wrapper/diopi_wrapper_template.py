@@ -171,12 +171,14 @@ $cppsignautre {
   std::cout << std::endl << __FUNCTION__ << std::endl;
   $transform_input_to_cpu_code
 
-  $execute_op_on_cpu_code
-
   $execute_op_on_device_code
+  
+  if (useAutoCompare()) {
+    $execute_op_on_cpu_code
 
-  $transform_result_to_cpu_code
+    $transform_result_to_cpu_code
 
-  $result_compare_code
+    $result_compare_code
+  }
 }
 """
