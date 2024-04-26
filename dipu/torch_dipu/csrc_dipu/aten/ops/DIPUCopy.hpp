@@ -127,6 +127,7 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
 
   MemChecker::instance().check(src);
   MemChecker::instance().check(dst);
+  dipu::DIPUGuard guard(src.device());
   if (isSynchronousCopy) {
     dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
                                src.device().index(), src_ptr);
