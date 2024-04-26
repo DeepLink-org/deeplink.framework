@@ -125,6 +125,7 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
 
   MemChecker::instance().check(src);
   MemChecker::instance().check(dst);
+  #if 0
   if (isSynchronousCopy) {
     dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
                                src.device().index(), src_ptr);
@@ -133,6 +134,9 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                                     dst.device().index(), dst_ptr,
                                     src.device().index(), src_ptr);
   }
+  #endif
+  auto temp = src.cpu();
+  dst.copy_(temp);
 }
 
 inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
@@ -260,7 +264,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
                                DIPUStream& curStream) {
     // syncAfterCopy
     if (!non_blocking) {
-      dipu::devapis::syncStream(curStream.rawstream());
+      curStream.synchronize();
     }
   }
 
