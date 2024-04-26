@@ -657,22 +657,26 @@ def create_device_check_code(fun_config):
 
 def create_device_guard_code(fun_config):
     code = ""
-    tensors = re.findall('Tensor\(\w!\) +[\w\d_]+', fun_config["schema"]) + re.findall('Tensor +[\w\d_]+', fun_config["schema"])
+    tensors = re.findall("Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]) + re.findall(
+        "Tensor +[\w\d_]+", fun_config["schema"]
+    )
     if len(tensors) > 0:
-        tensor = tensors[0].split(' ')[1]
+        tensor = tensors[0].split(" ")[1]
         code += f"dipu::DIPUGuard guard({tensor}.device());"
     else:
-        try :
-            device_args = re.findall('Device. [\w\d_]+', fun_config["schema"])[0].split(' ')
-            if device_args[0].endwith('?'):
+        try:
+            device_args = re.findall("Device. [\w\d_]+", fun_config["schema"])[0].split(
+                " "
+            )
+            if device_args[0].endwith("?"):
                 code += f"dipu::OptionalDIPUGuard guard({device_args[1]});"
             else:
                 code += f"dipu::DIPUGuard guard({device_args[1]});"
         except:
             pass
 
-
     return code
+
 
 def create_optional_generator_process_code(arg_name):
     process_template = CodeTemplate(
