@@ -22,14 +22,12 @@
 
 - schema: "aten::add.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAddScalar(ctx, out, self, other, alpha)
-  register_op: False
 
 - schema: "add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     TORCH_CHECK(!( (c10::isFloatingType(other.type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
         " result type Float can't be cast to the desired output type Int");
   interface: diopiAddInpScalar(ctx, self, other, alpha)
-  register_op: False
 
 - schema: "add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -751,10 +749,10 @@
 - schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiSqrtInp(ctx, self)
 
-# - schema: "sqrt(Tensor self) -> Tensor"
-#   custom_code_at_the_beginning: |
-#     auto out = OpInferrer().add_input(self).infer_unary_op();
-#   interface: diopiSqrt(ctx, out, self)
+- schema: "sqrt(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiSqrt(ctx, out, self)
 
 - schema: "all.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAll(ctx, out, self, &dim)
