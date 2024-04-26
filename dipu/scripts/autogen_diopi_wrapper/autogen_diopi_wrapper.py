@@ -85,6 +85,31 @@ def get_op_name_from_schema(schema):
     return op_name
 
 
+def need_infer_out(schema, infer_ops):
+    op_name = get_op_name_from_schema(schema)
+    if "." in op_name:
+        name, overload = op_name.split(".")
+        name = re.sub("aten::", "", name)
+        if (
+            name.endswith("_")
+            or name not in infer_ops
+            or "out" in overload
+            or "Scalar" in overload
+        ):
+            return False
+    else:
+        name = re.sub("aten::", "", op_name)
+        if name.endswith("_") or name not in infer_ops:
+            return False
+    return True
+
+
+# add.Tensor --> Infer_add_Tensor
+def create_infer_name_from_schema(schema):
+    op_name = get_op_name_from_schema(schema)
+    return "Infer_" + "_".join(op_name.split("."))
+
+
 def create_fun_name_from_schema(schema):
     schema = schema.strip()
     op_name = schema[0 : schema.find("(")]
@@ -233,6 +258,14 @@ def create_param_list_from_schema(schema):
     for pattern, cpp_type in args_type_map.items():
         param_list = re.sub(str(pattern), str(cpp_type), param_list)
     return param_list
+
+
+def create_arguement_list_from_schema(schema):
+    param_list = create_param_list_from_schema(schema)
+    param_list = param_list.split(",")
+    arguement_list = [param.split(" ")[-1] for param in param_list]
+    arguements = ",".join(arguement_list)
+    return arguements
 
 
 def get_function_inputs_from_schema(schema):
@@ -682,7 +715,7 @@ custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 autocompare_template = CodeTemplate(autocompare_template_content)
 
 
-def functions_code_gen(fun_config):
+def functions_code_gen(fun_config, infer_ops):
     if "interface" in fun_config:
         diopi_fun_call_code = fun_config["interface"] + ";"
     else:
@@ -692,6 +725,17 @@ def functions_code_gen(fun_config):
         diopi_fun_call_code = diopi_interface + ";"
 
     input_process_code = ""
+    if need_infer_out(fun_config["schema"], infer_ops):
+        input_process_code += (
+            create_infer_name_from_schema(fun_config["schema"]) + " op;\n"
+        )
+        input_process_code += (
+            "op.meta("
+            + create_arguement_list_from_schema(fun_config["schema"])
+            + ");\n"
+        )
+        input_process_code += "auto out = infer_out(op);\n"
+
     diopi_tensor_suffix = "DiopiTensorHandle"
 
     for input in set(
@@ -997,6 +1041,12 @@ def parse_args():
         help="path to functions config file",
     )
     parser.add_argument(
+        "--infer_ops_config",
+        type=str,
+        default="infer_ops.yaml",
+        help="path to ops that need to be inferred",
+    )
+    parser.add_argument(
         "--convert_config",
         type=str,
         dest="convert_config",
@@ -1063,6 +1113,11 @@ def main():
         file_data = diopi_functions_file.read()
         funcs_config = yaml.load(file_data, Loader=yaml.FullLoader)
 
+    with open(args.infer_ops_config) as infer_ops_file:
+        ops_data = infer_ops_file.read()
+        infer_ops_dict = yaml.load(ops_data, Loader=yaml.FullLoader)
+        infer_ops = [op for ops in infer_ops_dict.values() for op in ops]
+
     from op_memory_format_converter import OpMemoryFormatConverter
 
     memory_format_converter = OpMemoryFormatConverter(args.convert_config)
@@ -1111,7 +1166,7 @@ def main():
         if in_torch_vers is not None and cur_torch_ver not in in_torch_vers:
             continue
 
-        fun_code, register_code = functions_code_gen(merged_fun_config)
+        fun_code, register_code = functions_code_gen(merged_fun_config, infer_ops)
 
         # The class object memory_format_converter will replace the prefered memory format placeholder to the prefered memory format based on the device's convert_config.yaml
         fun_code = memory_format_converter.convert(fun_code, fun_config)
