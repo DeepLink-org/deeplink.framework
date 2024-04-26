@@ -10,9 +10,9 @@
 #include <c10/util/Exception.h>
 
 // loadMatcher is used to get regex matcher from env_name and config
-// fallbackEnvName = "DIPU_FORCE_FALLBACK_OPS_LIST"; fallbackConfigName =
-// ".dipu_force_fallback_op_list.config" specifiedAutocompareEnvName =
-// "DIPU_AUTOCOMPARE_OPS_LIST"; specifiedAutocompareConfigName =
+// kFallbackEnvName = "DIPU_FORCE_FALLBACK_OPS_LIST"; kFallbackConfigName =
+// ".dipu_force_fallback_op_list.config" kSpecifiedAutocompareEnvName =
+// "DIPU_AUTOCOMPARE_OPS_LIST"; kSpecifiedAutocompareConfigName =
 // ".specified_autocompare_op_list.config"
 
 namespace dipu {
@@ -61,17 +61,17 @@ bool isOpMatch(const char* opname,
       [&opname](auto& matcher) { return std::regex_match(opname, matcher); });
 }
 
-constexpr const char* fallbackEnvName = "DIPU_FORCE_FALLBACK_OPS_LIST";
-constexpr const char* fallbackConfigName =
+constexpr const char* kFallbackEnvName = "DIPU_FORCE_FALLBACK_OPS_LIST";
+constexpr const char* kFallbackConfigName =
     ".dipu_force_fallback_op_list.config";
 const std::vector<std::regex> fallbackMatchers =
-    dipu::op_regex_match::loadMatcher(fallbackEnvName, fallbackConfigName);
+    dipu::op_regex_match::loadMatcher(kFallbackEnvName, kFallbackConfigName);
 
-constexpr const char* specifiedAutocompareEnvName = "DIPU_AUTOCOMPARE_OPS_LIST";
-constexpr const char* specifiedAutocompareConfigName =
+constexpr const char* kSpecifiedAutocompareEnvName = "DIPU_AUTOCOMPARE_OPS_LIST";
+constexpr const char* kSpecifiedAutocompareConfigName =
     ".specified_autocompare_op_list.config";
 const std::vector<std::regex> autocompareMatchers =
-    dipu::op_regex_match::loadMatcher(specifiedAutocompareEnvName,
-                                      specifiedAutocompareConfigName);
+    dipu::op_regex_match::loadMatcher(kSpecifiedAutocompareEnvName,
+                                      kSpecifiedAutocompareConfigName);
 }  // namespace op_regex_match
 }  // namespace dipu

@@ -2768,7 +2768,7 @@
 
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> void
   autocompare: disable
-  # TODO(someone): fix this issue when `autocompare` is on
+  # TODO(zhangqiu): fix this issue when `autocompare` is on
   custom_fallback: True
   custom_code_at_the_beginning: |
     std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
