@@ -716,7 +716,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
-        target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
+        if target.node.meta['val'].dtype != torch.int32:
+            target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
         weight = self.get_proxy(ascend_op.FillV2D, (1.0, csize))
         return self.get_proxy(ascend_op.NLLLoss, (x, target, weight, reduction_str, ignore_index))
 
@@ -726,7 +727,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert ignore_index == -100
         reduction_str = get_reduction_str(reduction)
         csize = [list(x.node.meta['val'].shape)[1]]
-        target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
+        if target.node.meta['val'].dtype != torch.int32:
+            target = self.get_proxy(ascend_op.Cast, (target, "INT32"))
         weight = self.get_proxy(ascend_op.FillV2D, (1.0, csize))
         return self.get_proxy(ascend_op.NLLLossGrad, (x, grad_output, target,
                                                       weight, total_weight,
@@ -1219,11 +1221,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.Identity, (x, None))
         if x.node.meta['val'].dtype == torch.int64:
             x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
-        if isinstance(shape, list) and not_all_num_shape(shape):
-            preprocess_shape = self.process_dynamic_shape(shape)
-            return self.get_proxy(ascend_op.Expand, (x, preprocess_shape))
         else:
-            return self.get_proxy(ascend_op.ExpandD, (x, shape))
+            # check situation other than integer type
+            assert x.node.meta['val'].dtype == torch.int32
+
+        shape = self.get_shape_proxy(shape)
+        return self.get_proxy(ascend_op.Expand, (x, shape))
 
     @register_conversion(torch.ops.aten.slice_backward.default)
     def slice_backward(self, grad, input_shape, dim, start, end, step):
@@ -1349,12 +1352,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y = self.get_proxy_from_node(y.node.args[0])
             trans_y = True
         mm = self.get_proxy(ascend_op.MatMul, (x, y, trans_x, trans_y))
+
+        # TODO! complicated logic in MatMul output dtype
         return self.get_proxy(ascend_op.Cast, (mm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(aten.bmm.default)
     def bmm(self, x, y):
         out_dtype = fx_traceback.get_current_meta()['val'].dtype
         bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False, sd_fp16 ^ 1))
+
+        # TODO! complicated logic in BatchMatMul output dtype
         return self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
 
     @register_conversion(torch.torch.ops.aten.addmm)
@@ -1565,7 +1572,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def GtScalar(self, x, y):
         dtype = get_ascend_dtype(x.node.meta['val'].dtype)
         scalar_op = self.get_const_proxy(float(y), torch.float32)
-        cast_op = self.get_proxy(ascend_op.Cast, (scalar_op, dtype))
+        if dtype != torch.float32:
+            cast_op = self.get_proxy(ascend_op.Cast, (scalar_op, dtype))
         return self.get_proxy(ascend_op.Greater, (x, cast_op))
 
     @register_conversion(torch.ops.aten.addcmul.default)

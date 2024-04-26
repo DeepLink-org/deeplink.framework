@@ -305,11 +305,9 @@ class AscendCodegen(torch.fx.Interpreter):
         for elem in self.output_args:
             if hasattr(elem, 'meta'):
                 elem = elem.meta['val']
-            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
-                out_strides.append('[1]')
-                out_storage_offsets.append('0')
-                continue
-            if elem.dim() == 0:  # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
+
+            # temporary solution for sum.default(a) whose result is scalar or with no dim no stride
+            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool) or elem.dim() == 0:
                 out_strides.append('[1]')
                 out_storage_offsets.append('0')
                 continue
@@ -319,6 +317,10 @@ class AscendCodegen(torch.fx.Interpreter):
             out_storage_offsets.append(elem.storage_offset())
         call_body.writeline(f'out_stride = {out_strides}')
         call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
+
+        # In precision debug mode, modified array recording InputArgs integer needed
+        if precision_check and self.aten_graph is not None:
+            call_body.writeline(f"modified = [idx for idx in range(len(args))] if isinstance(args[idx], int)")
 
         call_body.splice("""
                              import torch_dipu
