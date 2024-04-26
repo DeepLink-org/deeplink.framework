@@ -335,23 +335,6 @@ def _dipu_record_stream(self, s: Stream):
     return __Raw_record_stream(self, rawTHPStream)
 
 
-def _dipu_set_stream(
-    stream_id: int = 0, device_index: int = 0, device_type: int = 0
-) -> None:
-    """
-    Sets the stream for dipu processing.
-
-    The `device_type` parameter is retained for compatibility
-    with external calls but is ignored internally.
-
-    Args:
-    stream_id (int): The identifier of the stream. Defaults to 0.
-    device_index (int): The index of the device on which the stream should be set. Defaults to 0.
-    device_type (int): Device type identifier passed for compatibility but not used.
-    """
-    _C._dipu_setStream(stream_id, device_index)
-
-
 def apply_stream_patch():
     # in cuda, torch.cuda export struct THCPStream which is subclass of torch._C.Stream(struct THPStream)
     # dipu Stream already has all properties of THPStream（stream_id，device_type/index),
