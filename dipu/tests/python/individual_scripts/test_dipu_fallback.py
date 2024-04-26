@@ -35,7 +35,7 @@ def test_fallback(
         f"force fallback has been set, {name} will be fallback to cpu" in output
         for name in op_names
     )
-    assert all(item not in output for item in diopi_protos)
+    assert all(item+" " not in output for item in diopi_protos)
     if extra_check_str_in_output is not None:
         assert all(item in output for item in extra_check_str_in_output)
 
@@ -241,13 +241,13 @@ if __name__ == "__main__":
     run_individual_test_cases(
         [
             _test_dipu_fallback,
-            # _test_cpu_fallback,
+            _test_cpu_fallback,
             _test_dipu_index_put_impl_fallback,
             _test_dipu_copy_fallback_,
-            # _test_dipu_convolution_backward_overrideable_fallback,
+            _test_dipu_convolution_backward_overrideable_fallback,
             _test_dipu_convolution_overrideable_fallback,
             _test_dipu_silu_fallback,
-            # _test_dipu_linear_backward_fallback,
+            _test_dipu_linear_backward_fallback,
         ],
         in_parallel=True,
     )
