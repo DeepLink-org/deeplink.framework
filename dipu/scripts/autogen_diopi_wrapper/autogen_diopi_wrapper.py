@@ -904,39 +904,54 @@ def functions_code_gen(fun_config):
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
 
-    if fun_config.get("autocompare") not in [False] and fun_config.get(
-        "register_op", True
-    ) in [True, "True"]:
+    if fun_config.get("register_op", True) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
-        autocompare_code = autocompare_template.substitute(
-            cppsignautre=[
-                create_cpp_signature_from_schema(fun_config["schema"]).replace(
-                    raw_fun_name, auto_compare_fun_name
-                )
-            ],
-            transform_input_to_cpu_code=[
-                create_transform_input_to_cpu_code(fun_config)
-            ],
-            execute_op_on_cpu_code=[
-                create_call_aten_cpu_cpp_function_code_from_config(fun_config)
-            ],
-            comment=[fun_config["schema"]],
-            execute_op_on_device_code=[
-                create_call_dipu_cpp_function_code_from_schema(
-                    fun_config["schema"]
-                ).replace(raw_fun_name, fun_name)
-            ],
-            transform_result_to_cpu_code=[],
-            result_compare_code=[
-                create_result_compare_code(fun_config)
-                + (
-                    "\nreturn result_device;\n"
-                    if len(get_function_return_param_from_schema(fun_config["schema"]))
-                    > 0
-                    else ""
-                )
-            ],
-        )
+        autocompare_code = ""
+        if fun_config.get("autocompare", True) not in [False]:
+            autocompare_code = autocompare_template.substitute(
+                cppsignautre=[
+                    create_cpp_signature_from_schema(fun_config["schema"]).replace(
+                        raw_fun_name, auto_compare_fun_name
+                    )
+                ],
+                transform_input_to_cpu_code=[
+                    create_transform_input_to_cpu_code(fun_config)
+                ],
+                execute_op_on_cpu_code=[
+                    create_call_aten_cpu_cpp_function_code_from_config(fun_config)
+                ],
+                comment=[fun_config["schema"]],
+                execute_op_on_device_code=[
+                    create_call_dipu_cpp_function_code_from_schema(
+                        fun_config["schema"]
+                    ).replace(raw_fun_name, fun_name)
+                ],
+                transform_result_to_cpu_code=[],
+                result_compare_code=[
+                    create_result_compare_code(fun_config)
+                    + (
+                        "\nreturn result_device;\n"
+                        if len(
+                            get_function_return_param_from_schema(fun_config["schema"])
+                        )
+                        > 0
+                        else ""
+                    )
+                ],
+            )
+        if fun_config.get("autocompare", True) in [False]:
+            disable_autocompare_comment = (
+                "// since autocompare is disabled, "
+                + auto_compare_fun_name
+                + " will do nothing.\n"
+            )
+            autocompare_code = (
+                disable_autocompare_comment
+                + "void "
+                + auto_compare_fun_name
+                + "() "
+                + "{}\n"
+            )
         fbody += autocompare_code
 
     # generate the op_register code
