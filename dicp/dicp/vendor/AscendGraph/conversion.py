@@ -1219,12 +1219,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
         if x_shape == y_shape:
             return self.get_proxy(ascend_op.Identity, (x, None))
+
+        # Cast needed only when x_dtype is int64
         if x.node.meta['val'].dtype == torch.int64:
             x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
-        else:
-            # check situation other than integer type
-            assert x.node.meta['val'].dtype == torch.int32
-
         shape = self.get_shape_proxy(shape)
         return self.get_proxy(ascend_op.Expand, (x, shape))
 
