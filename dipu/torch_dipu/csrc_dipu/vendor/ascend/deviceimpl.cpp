@@ -22,7 +22,7 @@ using AscendDeviceId = int32_t;
 
 namespace {
 constexpr AscendDeviceId kDeviceIdUninit = -1;
-constexpr AscendDeviceId kDeviceIdDefault = 0;
+std::atomic<AscendDeviceId> kDeviceIdDefault = 0;
 thread_local AscendDeviceId kCurrentDevice = kDeviceIdUninit;
 
 }  // namespace
@@ -48,6 +48,8 @@ void setDevice(deviceId_t device_id) {
     kCurrentDevice = device_id;
     if (kCurrentDevice < 0) {
       kCurrentDevice = kDeviceIdDefault;
+    } else {
+      kDeviceIdDefault = kCurrentDevice;
     }
     DIPU_CALLACLRT(aclrtSetDevice(device_id));
   }
