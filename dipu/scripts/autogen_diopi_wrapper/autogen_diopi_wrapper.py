@@ -11,7 +11,6 @@ from diopi_wrapper_template import (
     op_register_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
-    op_with_custom_fallback_register_template_content,
 )
 
 
@@ -458,6 +457,9 @@ def create_call_aten_cpu_cpp_function_code_from_config(fun_config):
     opname = re.sub("\.correction", "", opname)
     opname = re.sub("\.input", "", opname)
     opname = re.sub("\.dim_IntList", "", opname)
+    opname = re.sub("\.dim", "", opname)
+    opname = re.sub("\.mode", "", opname)
+
     opname = opname.replace(".", "_")
     opname = opname.split(".")[0]
     if opname[-1] == "_" and len(get_function_return_param_from_schema(schema)) > 0:
@@ -672,10 +674,6 @@ file_template = CodeTemplate(diopi_wrapper_file_template_content)
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
 op_register_template = CodeTemplate(op_register_template_content)
-
-op_with_custom_fallback_register_template = CodeTemplate(
-    op_with_custom_fallback_register_template_content
-)
 
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
@@ -906,74 +904,66 @@ def functions_code_gen(fun_config):
         fbody += custom_autograd_function_code
         fun_name = wrapper_fun_name
 
-    if fun_config.get("autocompare", False) in [True, "True"] and fun_config.get(
-        "register_op", True
-    ) in [True, "True"]:
+    if fun_config.get("register_op", True) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
-        autocompare_code = autocompare_template.substitute(
-            cppsignautre=[
-                create_cpp_signature_from_schema(fun_config["schema"]).replace(
-                    raw_fun_name, auto_compare_fun_name
-                )
-            ],
-            transform_input_to_cpu_code=[
-                create_transform_input_to_cpu_code(fun_config)
-            ],
-            execute_op_on_cpu_code=[
-                create_call_aten_cpu_cpp_function_code_from_config(fun_config)
-            ],
-            comment=[fun_config["schema"]],
-            execute_op_on_device_code=[
-                create_call_dipu_cpp_function_code_from_schema(
-                    fun_config["schema"]
-                ).replace(raw_fun_name, fun_name)
-            ],
-            transform_result_to_cpu_code=[],
-            result_compare_code=[
-                create_result_compare_code(fun_config)
-                + (
-                    "\nreturn result_device;\n"
-                    if len(get_function_return_param_from_schema(fun_config["schema"]))
-                    > 0
-                    else ""
-                )
-            ],
-        )
+        autocompare_code = ""
+        if fun_config.get("autocompare", True) not in [False]:
+            autocompare_code = autocompare_template.substitute(
+                cppsignautre=[
+                    create_cpp_signature_from_schema(fun_config["schema"]).replace(
+                        raw_fun_name, auto_compare_fun_name
+                    )
+                ],
+                transform_input_to_cpu_code=[
+                    create_transform_input_to_cpu_code(fun_config)
+                ],
+                execute_op_on_cpu_code=[
+                    create_call_aten_cpu_cpp_function_code_from_config(fun_config)
+                ],
+                comment=[fun_config["schema"]],
+                execute_op_on_device_code=[
+                    create_call_dipu_cpp_function_code_from_schema(
+                        fun_config["schema"]
+                    ).replace(raw_fun_name, fun_name)
+                ],
+                transform_result_to_cpu_code=[],
+                result_compare_code=[
+                    create_result_compare_code(fun_config)
+                    + (
+                        "\nreturn result_device;\n"
+                        if len(
+                            get_function_return_param_from_schema(fun_config["schema"])
+                        )
+                        > 0
+                        else ""
+                    )
+                ],
+            )
+        if fun_config.get("autocompare", True) in [False]:
+            disable_autocompare_comment = (
+                "// since autocompare is disabled, "
+                + auto_compare_fun_name
+                + " will do nothing.\n"
+            )
+            autocompare_code = (
+                disable_autocompare_comment
+                + "void "
+                + auto_compare_fun_name
+                + "() "
+                + "{}\n"
+            )
         fbody += autocompare_code
-        fun_name = auto_compare_fun_name
 
-    if fun_config.get("custom_fallback", False) in ["False", False]:
-        register_body = op_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config["schema"])],
-            aten_fun_name=["dipu::native::" + fun_name],
-            diopi_fun_name=[
-                get_fun_name_from_cppsignature(diopi_interface).replace(
-                    "diopi", "::diopi"
-                )
-            ],
-        )
-    else:
-        register_body = op_with_custom_fallback_register_template.substitute(
-            register_name=[get_op_name_from_schema(fun_config["schema"])],
-            aten_fun_name=["dipu::native::" + fun_name],
-            diopi_fun_name=[
-                get_fun_name_from_cppsignature(diopi_interface).replace(
-                    "diopi", "::diopi"
-                )
-            ],
-            force_fallback=[
-                (
-                    "false"
-                    if fun_config.get("force_fallback", False) in [False, "False"]
-                    else "true"
-                )
-            ],
-            fallbackFunc=[
-                "dipu::native::"
-                + "custom_fallback_"
-                + fun_name.replace("_autocompare", "")
-            ],
-        )
+    # generate the op_register code
+    register_body = op_register_template.substitute(
+        register_name=[get_op_name_from_schema(fun_config["schema"])],
+        aten_fun_name=["dipu::native::" + fun_name],
+        diopi_fun_name=[
+            get_fun_name_from_cppsignature(diopi_interface).replace("diopi", "::diopi")
+        ],
+        custom_fallback_config=str(fun_config.get("custom_fallback", False)).lower(),
+        autocompare_config=str(fun_config.get("autocompare", True)).lower(),
+    )
     return fbody, register_body
 
 
@@ -1038,12 +1028,6 @@ def parse_args():
         default=False,
         type=boolean_string,
         help="whether generate code that prints op args",
-    )
-    parser.add_argument(
-        "--autocompare",
-        default=False,
-        type=boolean_string,
-        help="whether generate code that compare device calculation results with cpu calculation results",
     )
     parser.add_argument(
         "--fun_config_dict",

@@ -12,9 +12,6 @@ function build_diopi_lib() {
 function config_dipu_ascend_cmake() {
     mkdir -p build && cd ./build
     cmake_args="-DCMAKE_BUILD_TYPE=Release -DDEVICE=ascend -DWITH_DIOPI_LIBRARY=DISABLE"
-    if [ -n "$USE_AUTOCOMPARE" ]; then
-        cmake_args+=" -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE}"
-    fi
     cmake ../ $cmake_args
     cd ../
 }
@@ -22,9 +19,6 @@ function config_dipu_ascend_cmake() {
 function config_all_ascend_cmake() {
     mkdir -p build && cd ./build
     cmake_args="-DCMAKE_BUILD_TYPE=Release -DDEVICE=ascend -DENABLE_COVERAGE=${USE_COVERAGE} -DWITH_DIOPI=INTERNAL"
-    if [ -n "$USE_AUTOCOMPARE" ]; then
-        cmake_args+=" -DUSE_AUTOCOMPARE=${USE_AUTOCOMPARE}"
-    fi
     cmake ../ $cmake_args
     cd ../
 }
