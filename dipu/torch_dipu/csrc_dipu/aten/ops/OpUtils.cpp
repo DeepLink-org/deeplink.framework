@@ -45,7 +45,6 @@ static inline at::ScalarType promote_skip_undefined(at::ScalarType a,
   return c10::promoteTypes(a, b);
 }
 
-
 static inline at::ScalarType combine_categories(at::ScalarType higher,
                                                 at::ScalarType lower) {
   if (c10::isComplexType(higher)) {

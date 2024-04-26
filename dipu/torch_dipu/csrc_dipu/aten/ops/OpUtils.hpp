@@ -284,7 +284,6 @@ inline void sub_check(const at::Tensor& self, const at::Tensor& other) {
 // for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
 at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b);
 
-
 struct ResultTypeState {
   at::ScalarType dimResult = at::ScalarType::Undefined;
   at::ScalarType wrappedResult = at::ScalarType::Undefined;
@@ -294,13 +293,14 @@ struct ResultTypeState {
 ResultTypeState update_result_type_state(const at::Tensor& tensor,
                                          const ResultTypeState& in_state);
 
-ResultTypeState update_result_type_state(const at::Scalar& scalar, const ResultTypeState& in_state);
+ResultTypeState update_result_type_state(const at::Scalar& scalar,
+                                         const ResultTypeState& in_state);
 
 at::ScalarType result_type(const ResultTypeState& in_state);
 
-at::ScalarType result_type(const at::Tensor &tensor, const at::Tensor &other);
+at::ScalarType result_type(const at::Tensor& tensor, const at::Tensor& other);
 
-at::ScalarType result_type(const at::Tensor &tensor, const at::Scalar& other);
+at::ScalarType result_type(const at::Tensor& tensor, const at::Scalar& other);
 
 }  // namespace native
 }  // namespace dipu
