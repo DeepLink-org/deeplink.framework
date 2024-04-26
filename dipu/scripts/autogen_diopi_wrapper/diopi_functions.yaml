@@ -33,7 +33,7 @@
   custom_code_at_the_beginning: |
     TORCH_CHECK(!( (c10::isFloatingType(other.scalar_type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
         " result type Float can't be cast to the desired output type Int");
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_add__scalar(self, other.item(), alpha);
     }
   interface: diopiAddInp(ctx, self, other, alpha)
@@ -41,10 +41,10 @@
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     alpha_check(out.scalar_type(), alpha);
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } 
-    if (is_wrapped_number(self)) {
+    if (is_scalar_on_cpu(self)) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
@@ -95,17 +95,17 @@
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div__scalar(self, other.item());
     }
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div_scalar_out(self, other.item(), out);
     }
-    if (is_wrapped_number(self)) {
+    if (is_scalar_on_cpu(self)) {
         at::Tensor selfD = nodispatch::empty_like(other);
         dipu_fill__scalar(selfD, self.item());
         return dipu_div_out(selfD, other, out);
@@ -126,11 +126,11 @@
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     }
     at::Tensor selfTmp;
-    if (is_wrapped_number(self)) {
+    if (is_scalar_on_cpu(self)) {
         selfTmp = nodispatch::empty_like(other);
         dipu_fill__scalar(selfTmp, self.item());
     } else {
@@ -158,19 +158,19 @@
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_mul__scalar(self, other.item());
     }
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    // if (is_wrapped_number(other)) {
+    // if (is_scalar_on_cpu(other)) {
     // Pytorch 2.0 has a bug, causing for_each mul passing a cpu scalar tensor. Fixed in PyTorch 2.1
     if (other.dim() == 0 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
     }
-    if (is_wrapped_number(self)) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_mul_scalar_out(other, self.item(), out);
     }
   interface: diopiMul(ctx, out, self, other)
@@ -364,19 +364,19 @@
 
 - schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (is_wrapped_number(other)) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_eq_scalar_out(self, other.item(), out);
     }
-    if (is_wrapped_number(self)) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_eq_scalar_out(other, self.item(), out);
     }
   interface: diopiEq(ctx, out, self, other)
 
-# - schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
-#   dummy_call_diopi: True
-#   custom_code_at_the_beginning: |
-#     auto out = OpInferrer().add_input(self).add_input(other).infer_comparison_op();
-#     return dipu_eq_tensor_out(self, other, out);
+- schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = LogicOpInferrer().infer_out(self, other);
+    return dipu_eq_tensor_out(self, other, out);
 
 - schema: "eq_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiEqInpScalar(ctx, self, other)
