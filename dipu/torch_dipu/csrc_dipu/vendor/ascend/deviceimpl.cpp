@@ -4,6 +4,7 @@
 #include <acl/acl_op_compiler.h>
 #include <atomic>
 
+#include "csrc_dipu/runtime/device/basedef.h"
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
 
@@ -20,37 +21,9 @@ namespace devapis {
 using AscendDeviceId = int32_t;
 
 namespace {
-
 constexpr AscendDeviceId kDeviceIdUninit = -1;
 constexpr AscendDeviceId kDeviceIdDefault = 0;
-// Thread-level cache for process-level device id
-thread_local auto g_process_device_id_thread_cache = kDeviceIdUninit;
-
-// Try to initialize process-level device id if it hasnt' been initialized,
-// which is designed to be written only once,
-// and anyway return the process-level device id
-AscendDeviceId tryInitAndAnywayGetProcessDevice(
-    AscendDeviceId ascend_device_id) {
-  static std::atomic process_device_id = kDeviceIdUninit;
-  auto expectedUninit = kDeviceIdUninit;
-  std::atomic_compare_exchange_strong(&process_device_id, &expectedUninit,
-                                      ascend_device_id);
-  return process_device_id.load();
-}
-
-// If thread-level cache of process-level device id hasn't been initialized,
-// try to initialize thread-level cache, which is designed to be written once.
-// If process-level device id hasn't been initialized,
-// try to initialize process-level device id first using input ascend_device_id.
-void tryInitThreadDeviceCache(AscendDeviceId ascend_device_id) {
-  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
-    // Ensure that aclrtSetDevice is called
-    // when and only when the thread-level cache is initialized.
-    g_process_device_id_thread_cache =
-        tryInitAndAnywayGetProcessDevice(ascend_device_id);
-    DIPU_CALLACLRT(::aclrtSetDevice(g_process_device_id_thread_cache))
-  }
-}
+thread_local AscendDeviceId kCurrentDevice = kDeviceIdUninit;
 
 }  // namespace
 
@@ -62,21 +35,21 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
-    DIPU_LOGW("current_device() is called before setDevice()");
-    tryInitThreadDeviceCache(kDeviceIdDefault);
+  if (kCurrentDevice == kDeviceIdUninit) {
+    setDevice(kDeviceIdDefault);
+    return static_cast<deviceId_t>(kDeviceIdDefault);
   }
-  return static_cast<deviceId_t>(g_process_device_id_thread_cache);
+  return static_cast<deviceId_t>(kCurrentDevice);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t device_id) {
-  auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
-  tryInitThreadDeviceCache(ascend_device_id);
-  if (ascend_device_id != g_process_device_id_thread_cache) {
-    DIPU_LOGW(
-        "Trying to use multiple cards in the same process may cause unexpected "
-        "results in hccl communication, such as sdma memory copy failure");
+  if (device_id != kCurrentDevice || kCurrentDevice < 0) {
+    kCurrentDevice = device_id;
+    if (kCurrentDevice < 0) {
+      kCurrentDevice = kDeviceIdDefault;
+    }
+    DIPU_CALLACLRT(aclrtSetDevice(device_id));
   }
 }
 

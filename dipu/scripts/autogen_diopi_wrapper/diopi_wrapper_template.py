@@ -99,6 +99,7 @@ diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
   dipu::profile::RecordBlockCreator _(__FUNCTION__);
+  $device_guard_code
   $custom_code_at_the_beginning
 
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
