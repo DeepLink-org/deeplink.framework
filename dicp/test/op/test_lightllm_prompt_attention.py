@@ -42,7 +42,7 @@ class TestLightllmPromptAttention():
         dicp_input3 = input3.to(device)
         dicp_input4 = input4.to(device)
 
-        output = model(input1, input2, input3, input4, num_head, head_dim).view(size[1][0], num_head * head_dim)
+        output = model(input1, input2, input3, input4, num_head, head_dim).view(size[1][0], num_head * head_dim).half()
         dynamo.reset()
         update_dynamo_config(compiled_model.dynamic)
         dicp_output = compiled_model.model(dicp_input1.view(1, -1, num_head * head_dim), dicp_input2.view(1, -1, num_head * head_dim), dicp_input3.view(1, -1, num_head * head_dim), dicp_input4, num_head, head_dim).view(size[1][0], num_head * head_dim)
