@@ -220,104 +220,108 @@ class AscendCodegen(torch.fx.Interpreter):
         return self.import_code.getvalue()
 
     def operator_in_str(self, st):
-        return any(op in st for op in ['+', '-', '*', '/'])
+        for op in ['+', '-', '*', '/']:
+            if op in st:
+                return True
+        return False
 
     def gen_call_func(self):
-        def _generate_output_shapes(call_body):
-            # dynamic shape feature
-            # generate output shapes
-            extra_stride_str = ''
-            extra_storage_offset_str = ''
-            if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-                # process if has dynamic shape
-                shape_str = '''output_shape = ['''
-                for elem in self.output_args:
-                    if hasattr(elem, 'meta'):
-                        elem = elem.meta['val']
-                    if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
-                        shape_str += '[1],'
-                        continue
-                    shape = list(elem.shape)
-                    if len(shape) == 0:
-                        raise RuntimeError("Error handling empty output_shape")
-                    shape = [process_sym_name(dim) for dim in shape]
-                    shape_str += "[" + ','.join(map(str, shape)) + "],"
-
-                # process output_shape with modified args
-                for elem in self.assign_args:
-                    shape = list(self.input_args[elem[1]].meta['val'].shape)
-                    if len(shape) == 0:
-                        raise RuntimeError("Error handling empty output_shape")
-                    shape = [process_sym_name(dim) for dim in shape]
-                    shape_str += "[" + ','.join(map(str, shape)) + "],"
-                    stride = list(self.input_args[elem[1]].meta['val'].stride())
-                    if len(stride) == 0:
-                        raise RuntimeError("Error handling empty output_stride")
-                    stride = [process_sym_name(dim) for dim in stride]
-                    extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
-                    extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
-                shape_str = shape_str[:-1] + ''']'''
-                call_body.writeline(shape_str)
-            else:
-                call_body.writeline('''output_shape = None''')
-
-        def _handle_output_strides_and_offsets(call_body):
-            # add stride & storage_offset info
-            out_strides = []
-            out_storage_offsets = []
-            for elem in self.output_args:
-                if hasattr(elem, 'meta'):
-                    elem = elem.meta['val']
-
-                # temporary solution for sum.default(a) whose result is scalar or with no dim no stride
-                if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool) or elem.dim() == 0:
-                    out_strides.append('[1]')
-                    out_storage_offsets.append('0')
-                    continue
-                stride = list(elem.stride())
-                stride = [process_sym_name(dim) for dim in stride]
-                out_strides.append(str(stride))
-                out_storage_offsets.append(elem.storage_offset())
-            call_body.writeline(f'out_stride = {out_strides}')
-            call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
-
         # TODO check scalar input
         call_body = IndentedBuffer()
         self.args = [self.args_dict[x.name] for x in self.input_args]
         shape_symint = [value[0] for value in self.sym_in_args.values()]
 
         # dynamic shape feature
-        # assign SymInt to InputArgs relationship
-        args_condition = lambda arg: '_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg
-        args = map(args_condition, self.args)
-        call_body.writeline(f"({','.join(args)}) = args")
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            args = ['_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg for arg in self.args]
+            call_body.writeline(f"({','.join(args)}) = args")
 
-        # combine dicts for simplicity
-        # cover sym_to_inputs for higher priority to sym_in_args
-        sym_keys = {**self.sym_to_inputs, **self.sym_in_args}
-        for key, val in sym_keys.items():
-            # skip if key is a digit or contains an operator
-            if key.isdigit() or self.operator_in_str(key):
-                continue
-            shape = f"{val[0]}.shape[{val[1]}]" if key in self.sym_in_args.keys() else val
-            call_body.writeline(f"{key} = {shape}")
+            # assign SymInt to InputArgs relationship
+            if len(self.sym_in_args) > 0:
+                for key in self.sym_in_args.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_in_args[key][0]}.shape[{self.sym_in_args[key][1]}]")
+            if len(self.sym_to_inputs) > 0:
+                for key in self.sym_to_inputs.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_to_inputs[key]}")
 
         # generate input dims
-        if self.dynamic_inputs:
-            dims = {self.dynamic_index[idx]: [process_sym_name(dim) for dim in elem] 
-                    for idx, elem in enumerate(self.actual_shape) if len(elem) > 0}
-            call_body.writeline(f"dims = {dims}".replace("'",""))
+        if len(self.dynamic_inputs) > 0:
+            dim_len = 0
+            for shape in self.actual_shape:
+                dim_len += len(shape)
+            dims = 'dims = {'
+            for idx, elem in enumerate(self.actual_shape):
+                if len(elem) == 0:
+                    continue
+                elem = [process_sym_name(dim) for dim in elem]
+                dims += str(self.dynamic_index[idx]) + \
+                    ":[" + ','.join(map(str, elem)) + '],'
+            dims = dims[:-1] + '}'
+            call_body.writeline(dims)
         else:
-            call_body.writeline("dims = None")
+            call_body.writeline('''dims = None''')
 
-        _generate_output_shapes(call_body)
-        _handle_output_strides_and_offsets(call_body)
+        # generate output shapes
+        # dynamic shape feature
+        extra_stride_str = ''
+        extra_storage_offset_str = ''
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            shape_str = '''output_shape = ['''
+            for elem in self.output_args:
+                if hasattr(elem, 'meta'):
+                    elem = elem.meta['val']
+                if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
+                    shape_str += '[1],'
+                    continue
+                shape = list(elem.shape)
+                if len(shape) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                shape = [process_sym_name(dim) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
+
+            # process output_shape with modified args
+            for elem in self.assign_args:
+                shape = list(self.input_args[elem[1]].meta['val'].shape)
+                if len(shape) == 0:
+                    raise RuntimeError("Error handling empty output_shape")
+                shape = [process_sym_name(dim) for dim in shape]
+                shape_str += "[" + ','.join(map(str, shape)) + "],"
+                stride = list(self.input_args[elem[1]].meta['val'].stride())
+                if len(stride) == 0:
+                    raise RuntimeError("Error handling empty output_stride")
+                stride = [process_sym_name(dim) for dim in stride]
+                extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
+                extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
+            shape_str = shape_str[:-1] + ''']'''
+            call_body.writeline(shape_str)
+        else:
+            call_body.writeline('''output_shape = None''')
+
+        # add stride & storage_offset info
+        out_strides = []
+        out_storage_offsets = []
+        for elem in self.output_args:
+            if hasattr(elem, 'meta'):
+                elem = elem.meta['val']
+
+            # temporary solution for sum.default(a) whose result is scalar or with no dim no stride
+            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool) or elem.dim() == 0:
+                out_strides.append('[1]')
+                out_storage_offsets.append('0')
+                continue
+            stride = list(elem.stride())
+            stride = [process_sym_name(dim) for dim in stride]
+            out_strides.append(str(stride))
+            out_storage_offsets.append(elem.storage_offset())
+        call_body.writeline(f'out_stride = {out_strides}')
+        call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
 
         # In precision debug mode, modified array recording InputArgs integer needed
         if precision_check and self.aten_graph is not None:
             call_body.writeline(f"modified = [idx for idx in range(len(args))] if isinstance(args[idx], int)")
 
-        # Conversion for integer args
         call_body.splice("""
                              import torch_dipu
                              dipu_device_str = torch_dipu.dipu.device.__diputype__
