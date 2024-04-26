@@ -94,7 +94,6 @@ inline void doMemCopyH2D(const at::Tensor& dst, const at::Tensor& src,
   void* dst_ptr = dst.data_ptr();
 
   MemChecker::instance().check(dst);
-  dipu::DIPUGuard guard(dst.device());
   if (isSynchronousCopy) {
     dipu::devproxy::memCopyH2D(nbytes, dst_ptr, src_ptr);
   } else {
@@ -110,7 +109,6 @@ inline void doMemCopyD2H(const at::Tensor& dst, const at::Tensor& src,
   void* dst_ptr = dst.data_ptr();
 
   MemChecker::instance().check(src);
-  dipu::DIPUGuard guard(src.device());
   if (isSynchronousCopy) {
     dipu::devproxy::memCopyD2H(nbytes, dst_ptr, src_ptr);
   } else {
@@ -127,7 +125,6 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
 
   MemChecker::instance().check(src);
   MemChecker::instance().check(dst);
-  dipu::DIPUGuard guard(src.device());
   if (isSynchronousCopy) {
     dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
                                src.device().index(), src_ptr);
