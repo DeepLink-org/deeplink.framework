@@ -1261,7 +1261,7 @@
                 exponent.isIntegral(true) && exponent.toLong() < 0),
                 "Integers to negative integer powers are not allowed.");
     // same logic with pytorch, aten/src/ATen/native/Pow.cpp 
-    auto common_dtype = at::result_type(self, exponent);
+    auto common_dtype = native::result_type(self, exponent);
     auto out = UnaryOpInferrer().infer_out(self.to(common_dtype));
   interface: diopiPow(ctx, out, self, exponent);
 

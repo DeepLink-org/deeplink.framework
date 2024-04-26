@@ -6,114 +6,9 @@
 #include <ATen/native/TypeProperties.h>
 
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
 
 namespace dipu {
-
-namespace internal {
-
-struct ResultTypeState {
-  at::ScalarType dimResult = at::ScalarType::Undefined;
-  at::ScalarType wrappedResult = at::ScalarType::Undefined;
-  at::ScalarType zeroResult = at::ScalarType::Undefined;
-};
-
-static inline at::ScalarType promote_skip_undefined(at::ScalarType a,
-                                                    at::ScalarType b) {
-  if (a == at::ScalarType::Undefined) {
-    return b;
-  }
-  if (b == at::ScalarType::Undefined) {
-    return a;
-  }
-  return c10::promoteTypes(a, b);
-}
-
-ResultTypeState update_result_type_state(const at::Tensor& tensor,
-                                         const ResultTypeState& in_state) {
-  ResultTypeState new_state = in_state;
-  at::ScalarType current = tensor.scalar_type();
-  if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    if (c10::isComplexType(current)) {
-      current = c10::typeMetaToScalarType(at::get_default_complex_dtype());
-    } else if (c10::isFloatingType(current)) {
-      current = c10::typeMetaToScalarType(at::get_default_dtype());
-    }
-  }
-  if (tensor.dim() > 0) {
-    new_state.dimResult = promote_skip_undefined(in_state.dimResult, current);
-  } else if (tensor.unsafeGetTensorImpl()->is_wrapped_number()) {
-    new_state.wrappedResult =
-        promote_skip_undefined(in_state.wrappedResult, current);
-  } else {
-    new_state.zeroResult = promote_skip_undefined(in_state.zeroResult, current);
-  }
-  return new_state;
-}
-
-static inline at::ScalarType combine_categories(at::ScalarType higher,
-                                                at::ScalarType lower) {
-  if (c10::isComplexType(higher)) {
-    return higher;
-  }
-  if (c10::isComplexType(lower)) {
-    // preserve value type of higher if it is floating type.
-    if (c10::isFloatingType(higher)) {
-      return c10::toComplexType(higher);
-    }
-    // in case of integral input
-    // lower complex takes precedence.
-    return lower;
-  }
-  if (c10::isFloatingType(higher)) {
-    return higher;
-  }
-  if (higher == at::ScalarType::Bool || c10::isFloatingType(lower)) {
-    return promote_skip_undefined(higher, lower);
-  }
-  if (higher != at::ScalarType::Undefined) {
-    return higher;
-  }
-  return lower;
-}
-
-at::ScalarType result_type(const ResultTypeState& in_state) {
-  return combine_categories(
-      in_state.dimResult,
-      combine_categories(in_state.zeroResult, in_state.wrappedResult));
-}
-
-}  // namespace internal
-
-// coumpute broadcast shape
-void OpInferrer::compute_broadcast_shape(c10::IntArrayRef shape) {
-  size_t ndim_a = shape_.size();
-  size_t ndim_b = shape.size();
-  size_t ndim = ndim_a > ndim_b ? ndim_a : ndim_b;
-  // size of result is the bigger ndim
-  DimVector result(ndim);
-
-  // Use ptrdiff_t to ensure signed comparison.
-  for (ptrdiff_t i = static_cast<ptrdiff_t>(ndim) - 1; i >= 0; --i) {
-    // starting from the last index of a and b, then moving forward
-    ptrdiff_t dim_a =
-        static_cast<ptrdiff_t>(ndim_a) - static_cast<ptrdiff_t>(ndim) + i;
-    ptrdiff_t dim_b =
-        static_cast<ptrdiff_t>(ndim_b) - static_cast<ptrdiff_t>(ndim) + i;
-    // if the index is smaller than 0, consider it as 1
-    auto size_a = (dim_a >= 0) ? shape_[dim_a] : 1;
-    auto size_b = (dim_b >= 0) ? shape[dim_b] : 1;
-
-    TORCH_CHECK(size_a == size_b || size_a == 1 || size_b == 1,
-                "The size of tensor a (", size_a,
-                ") must match the size of tensor b (", size_b,
-                ") at non-singleton dimension ", i);
-
-    // 1 is mapped to the other size (even for 0).
-    result[i] = size_a == 1 ? size_b : size_a;
-  }
-
-  shape_ = result;
-}
 
 void OpInferrer::compute_shape() {
   TORCH_CHECK(!inputs_.empty(),
@@ -125,18 +20,41 @@ void OpInferrer::compute_shape() {
       shape_ = shape;
     } else if (!shape.equals(shape_)) {
       all_same_shape_ = false;
-      compute_broadcast_shape(shape);
+      shape_ = native::compute_broadcast_shape(shape_, shape);
     }
   }
 }
 
+void OpInferrer::add_inputs(const std::vector<at::Tensor>& inputs) {
+  TORCH_CHECK(!inputs.empty(), "Input tensors must not be empty");
+  for (const auto& tensor : inputs) {
+    TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
+  }
+  inputs_ = inputs;
+}
+void OpInferrer::add_input(const at::Tensor& tensor) {
+  TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
+  inputs_.push_back(tensor);
+}
+
+at::Tensor OpInferrer::malloc_output() {
+  at::TensorOptions options =
+      at::TensorOptions().dtype(dtype_).device(dipu::DIPU_DEVICE_TYPE);
+  auto out = native::nodispatch::empty(shape_, options, memory_format_);
+
+  if (!strides_.empty()) {
+    out.as_strided_(shape_, strides_);
+  }
+  return out;
+}
+
 void OpInferrer::compute_dtype() {
-  internal::ResultTypeState state = {};
+  native::ResultTypeState state = {};
   for (const auto& t : inputs_) {
-    state = internal::update_result_type_state(t, state);
+    state = native::update_result_type_state(t, state);
   }
 
-  dtype_ = internal::result_type(state);
+  dtype_ = native::result_type(state);
   TORCH_INTERNAL_ASSERT(dtype_ != at::ScalarType::Undefined);
 }
 
@@ -298,7 +216,7 @@ at::Tensor BinaryFloatOpInferrer::infer_out(const at::Tensor& self,
 }
 
 at::Tensor UnaryOpInferrer::infer_out(const at::Tensor& self) {
-  add_inputs({self});
+  add_input(self);
   compute_shape();
   compute_dtype();
   compute_memory_format();
@@ -356,7 +274,7 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
                                        c10::OptionalIntArrayRef dim,
                                        bool keep_dim,
                                        c10::optional<at::ScalarType> dtype) {
-  add_inputs({self});
+  add_input(self);
   compute_shape(dim, keep_dim);
   if (dtype.has_value()) {
     dtype_ = dtype.value();

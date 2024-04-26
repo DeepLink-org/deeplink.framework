@@ -9,7 +9,7 @@
 
 namespace dipu {
 
-constexpr size_t kMaxTensorDimensions = 6;
+constexpr size_t kMaxTensorDimensions = 5;
 
 using DimVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
 using StrideVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
@@ -22,23 +22,12 @@ class OpInferrer {
   virtual ~OpInferrer() = default;
 
   at::ScalarType common_dtype() const { return dtype_; }
-
   DimVector target_shape() const { return shape_; }
-
   at::MemoryFormat memory_format() const { return memory_format_; }
 
  protected:
-  void add_inputs(const std::vector<at::Tensor>& inputs) {
-    TORCH_CHECK(!inputs.empty(), "Input tensors must not be empty");
-    for (const auto& tensor : inputs) {
-      TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
-    }
-    inputs_ = inputs;
-  }
-  void add_input(const at::Tensor& tensor) {
-    TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
-    inputs_.push_back(tensor);
-  }
+  void add_inputs(const std::vector<at::Tensor>& inputs);
+  void add_input(const at::Tensor& tensor);
 
   size_t ndim() const { return shape_.size(); }
   size_t ntensors() const { return inputs_.size(); }
@@ -47,18 +36,8 @@ class OpInferrer {
   virtual void compute_dtype();
   virtual void compute_memory_format();
 
-  // Allocates the output Tensor based on the inferred attributes, if strides_
-  // inferred, use it.
-  at::Tensor malloc_output() {
-    at::TensorOptions options =
-        at::TensorOptions().dtype(dtype_).device(dipu::DIPU_DEVICE_TYPE);
-    auto out = native::nodispatch::empty(shape_, options, memory_format_);
-
-    if (!strides_.empty()) {
-      out.as_strided_(shape_, strides_);
-    }
-    return out;
-  }
+  // Allocates the output based on the inferred attributes, use strides_ if set
+  at::Tensor malloc_output();
 
   // TODO(ywt): we may use c10::MaybeOwned to improve efficiency.
   c10::SmallVector<at::Tensor, 4> inputs_;
@@ -70,7 +49,6 @@ class OpInferrer {
   // common logic for calculation, not inherited by children.
   bool fast_compute_memory_format();
   void compute_perm();
-  void compute_broadcast_shape(c10::IntArrayRef shape);
   std::vector<StrideVector> compute_effective_strides();
 
   bool all_same_shape_ = true;

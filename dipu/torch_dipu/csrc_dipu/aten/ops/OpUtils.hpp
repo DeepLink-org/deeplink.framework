@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <array>
@@ -278,6 +279,28 @@ inline void sub_check(const at::Tensor& self, const at::Tensor& other) {
       "If you are trying to invert a mask, use the `~` or `logical_not()` "
       "operator instead.");
 }
+
+// coumpute broadcast shape based on two inputs
+// for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
+at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b);
+
+
+struct ResultTypeState {
+  at::ScalarType dimResult = at::ScalarType::Undefined;
+  at::ScalarType wrappedResult = at::ScalarType::Undefined;
+  at::ScalarType zeroResult = at::ScalarType::Undefined;
+};
+
+ResultTypeState update_result_type_state(const at::Tensor& tensor,
+                                         const ResultTypeState& in_state);
+
+ResultTypeState update_result_type_state(const at::Scalar& scalar, const ResultTypeState& in_state);
+
+at::ScalarType result_type(const ResultTypeState& in_state);
+
+at::ScalarType result_type(const at::Tensor &tensor, const at::Tensor &other);
+
+at::ScalarType result_type(const at::Tensor &tensor, const at::Scalar& other);
 
 }  // namespace native
 }  // namespace dipu
