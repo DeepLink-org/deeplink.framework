@@ -49,7 +49,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 // It mat be necessary to determine whether to keep torchop default impl
 // for non-custom ops through function dipuKeepTorchopDefaultImpl firstly in the
 // future, and we use force fallback to keep torchop default impl now.
-#define NO_FALLBACK_WITH_AUTOCOMPARE_REGISTER(opname, diopiFunc, wrapperFunc)  \
+#define NO_CUSTOMFALLBACK_WITH_AUTOCOMPARE_REGISTER(opname, diopiFunc,         \
+                                                    wrapperFunc)               \
   do {                                                                         \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                     \
         (!dipu::op_regex_match::isOpMatch(                                     \
@@ -72,7 +73,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                          \
   } while (false);
 
-#define NO_FALLBACK_NO_AUTOCOMPARE_REGISTER(opname, diopiFunc, wrapperFunc)    \
+#define NO_CUSTOMFALLBACK_NO_AUTOCOMPARE_REGISTER(opname, diopiFunc,           \
+                                                  wrapperFunc)                 \
   do {                                                                         \
     if ((reinterpret_cast<void*>(diopiFunc) != nullptr) &&                     \
         (!dipu::op_regex_match::isOpMatch(                                     \
@@ -92,7 +94,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
 
 // Determine whether to keep torchop default impl for custom ops through
 // function dipuKeepTorchopDefaultImpl firstly.
-#define WITH_FALLBACK_WITH_AUTOCOMPARE_REGISTER(                               \
+#define WITH_CUSTOMFALLBACK_WITH_AUTOCOMPARE_REGISTER(                         \
     opname, diopi_func, force_fallback, wrapper_func, custom_fallback_func)    \
   do {                                                                         \
     if (dipu::native::dipuKeepTorchopDefaultImpl(opname)) {                    \
@@ -121,7 +123,7 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                          \
   } while (false);
 
-#define WITH_FALLBACK_NO_AUTOCOMPARE_REGISTER(                                 \
+#define WITH_CUSTOMFALLBACK_NO_AUTOCOMPARE_REGISTER(                           \
     opname, diopi_func, force_fallback, wrapper_func, custom_fallback_func)    \
   do {                                                                         \
     if (dipu::native::dipuKeepTorchopDefaultImpl(opname)) {                    \
