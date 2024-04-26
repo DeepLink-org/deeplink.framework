@@ -208,7 +208,8 @@ def compile_fx_210(
     def fw_compiler_base(model: torch.fx.GraphModule, example_inputs, is_inference):
         if is_inference:
             # partition_fn won't be called
-            joint_graph_passes(model)
+            # joint_graph_passes(model)
+            pass
 
         fixed = len(example_inputs) - num_example_inputs
         return inner_compile(
