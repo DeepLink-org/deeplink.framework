@@ -63,6 +63,27 @@ class TestCopy(TestCase):
         dst1.copy_(src)
         self.assertEqual(dst1.cpu(), src.cpu())
 
+    def test_d2d_peer_copy_(self):
+        dst = torch.rand((6, 4), device="cuda:0")
+        src = torch.rand((6, 4), device="cuda:1")
+        dst.copy_(src)
+        self.assertEqual(dst.cpu(), src.cpu())
+        self.assertEqual(dst.device.index, 0)
+        self.assertEqual(src.device.index, 1)
+
+        dst = torch.rand((6, 4), device="cuda:1")
+        src = torch.rand((6, 4), device="cuda:0")
+        dst.copy_(src)
+        self.assertEqual(dst.cpu(), src.cpu())
+        self.assertEqual(dst.device.index, 1)
+        self.assertEqual(src.device.index, 0)
+
+    def test_d2d_copy_(self):
+        dst = torch.rand((6, 4), device="cuda:1")
+        src = torch.rand((6, 4), device="cuda:1")
+        dst.copy_(src)
+        self.assertEqual(dst.cpu(), src.cpu())
+
 
 if __name__ == "__main__":
     run_tests()
