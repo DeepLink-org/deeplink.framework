@@ -135,13 +135,13 @@ void freeDevice(void* p) {
   DIPU_CALLACLRT(::aclrtFree(p))
 }
 
-// (synchronous) copy from device to a device
-void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
-                deviceId_t srcDevId, const void* src) {
+inline void enableP2PMemcpy(deviceId_t dstDevId, deviceId_t srcDevId) {
   if (dstDevId != srcDevId) {
     int32_t canAccessPeer = 0;
-    DIPU_CALLACLRT(::aclrtDeviceCanAccessPeer(&canAccessPeer, srcDevId, dstDevId));
-    TORCH_CHECK(canAccessPeer == 1, "can not copy memory form", srcDevId, " to ", dstDevId);
+    DIPU_CALLACLRT(
+        ::aclrtDeviceCanAccessPeer(&canAccessPeer, srcDevId, dstDevId));
+    TORCH_CHECK(canAccessPeer == 1, "can not copy memory form", srcDevId,
+                " to ", dstDevId);
     int32_t currentDevice = -1;
     DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
 
@@ -152,8 +152,16 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
 
     DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
   }
+}
+
+// (synchronous) copy from device to a device
+void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
+                deviceId_t srcDevId, const void* src) {
+  if (dstDevId != srcDevId) {
+    enableP2PMemcpy(dstDevId, srcDevId);
+  }
   DIPU_CALLACLRT(
-        ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
+      ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
 }
 
 // (synchronous) copy from host to a device
@@ -172,12 +180,11 @@ void memCopyD2H(size_t nbytes, void* dst, const void* src) {
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
-  if (dstDevId == srcDevId) {
-    DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
-                                      ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
-  } else {
-    memCopyD2D(nbytes, dstDevId, dst, srcDevId, src);
+  if (dstDevId != srcDevId) {
+    enableP2PMemcpy(dstDevId, srcDevId);
   }
+  DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
+                                    ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
 }
 
 // (asynchronous) copy from host to a device

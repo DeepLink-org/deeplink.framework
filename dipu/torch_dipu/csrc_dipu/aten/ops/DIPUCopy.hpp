@@ -130,10 +130,11 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
   // copy may occur asynchronously with respect to the host. For other cases,
   // this argument has no effect.
   {
+    // Maybe this operation should be done by users?
     c10::DeviceGuard guard(src.device());
     getCurrentDIPUStream().synchronize();
   }
-  if ((!isSynchronousCopy) && dst.device().index() == src.device().index()) {
+  if ((!isSynchronousCopy)) {
     dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                     dst.device().index(), dst_ptr,
                                     src.device().index(), src_ptr);
