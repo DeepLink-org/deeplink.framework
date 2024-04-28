@@ -1,5 +1,10 @@
 import atexit
+import ctypes
 import os
+import math
+
+from pathlib import Path
+
 
 import acl
 import numpy as np
@@ -18,10 +23,9 @@ ACL_MEMCPY_HOST_TO_HOST = 0
 ACL_MEMCPY_HOST_TO_DEVICE = 1
 ACL_MEMCPY_DEVICE_TO_HOST = 2
 ACL_MEMCPY_DEVICE_TO_DEVICE = 3
+
 # error code
 ACL_SUCCESS = 0
-# images format
-IMG_EXT = ['.jpg', '.JPG', '.png', '.PNG', '.bmp', '.BMP', '.jpeg', '.JPEG']
 # data format
 NPY_FLOAT32 = 11
 ACL_DT_UNDEFINED = -1
@@ -66,24 +70,6 @@ ACL_HBM_MEM_P2P_HUGE = 8
 ACL_HBM_MEM_P2P_NORMAL = 9
 
 
-def get_np_dtype(dtype):
-    if dtype == ACL_FLOAT:
-        return np.float32
-    elif dtype == ACL_INT64:
-        return np.int64
-    elif dtype == ACL_INT32:
-        return np.int32
-    elif dtype == ACL_BOOL:
-        return np.bool_
-    elif dtype == ACL_DOUBLE:
-        return np.float64
-    elif dtype == ACL_COMPLEX64:
-        return np.complex64
-    elif dtype == ACL_FLOAT16:
-        return np.float16
-    raise RuntimeError("unsupported np dtype!")
-
-
 def get_tensor_dtype(dtype):
     if dtype == ACL_FLOAT:
         return torch.float32
@@ -102,12 +88,6 @@ def get_tensor_dtype(dtype):
     raise RuntimeError(f"can not convert acl dtype:{dtype} to torch dtype")
 
 
-buffer_method = {
-    "in": acl.mdl.get_input_size_by_index,
-    "out": acl.mdl.get_output_size_by_index
-}
-
-
 def check_ret(message, ret):
     if ret != ACL_SUCCESS:
         raise Exception("{} failed ret={}"
@@ -122,21 +102,205 @@ class MemoryPool:
 
     def init_work_weight_ptr(self):
         if self.work_ptr is None:
-            self.work_size = 26 * 1024 * 1024 * 1024
-            self.work_ptr, ret = acl.rt.malloc(self.work_size,
-                                               ACL_MEM_MALLOC_HUGE_FIRST)
-            check_ret("acl.rt.malloc", ret)
+            self.work_size = int(16 * 1024 * 1024 * 1024)
+            self.work_tensor = torch.empty(
+                self.work_size, dtype=torch.bool, device=dipu_device_str)
+            self.work_ptr = self.work_tensor.data_ptr()
 
     def release_memory(self):
         print("Release bufferPtr from MemoryPool.")
-        if self.work_ptr is not None:
-            ret = acl.rt.free(self.work_ptr)
-            check_ret("acl.rt.free", ret)
-            self.work_ptr = None
+        self.work_tensor = None
 
 
-zero_tensor = torch.randn(1).to(dipu_device_str)
+class GraphCompiler:
+    def __init__(self):
+        self._lib_path = os.environ.get(
+            "DICP_ASCEND_GE_GRAPH_EXECUTOR", "/tmp/dicp_ascend/ge_graph.so")
+        self.graph_compiler = ctypes.CDLL(self._lib_path)
+
+
+class GraphManager:
+    def __init__(self):
+        device_id = torch_dipu.current_device()
+        self._lib_path = os.environ.get(
+            "DICP_ASCEND_GE_GRAPH_EXECUTOR", "/tmp/dicp_ascend/ge_graph.so")
+        self.config_file = os.path.join(
+            str(Path(__file__).resolve().parent), 'ge_init_config.json')
+        self.graph_manager = ctypes.CDLL(self._lib_path)
+        self.graph_manager.init(device_id, self.config_file.encode())
+        atexit.register(self.release_graph)
+
+    def release_graph(self):
+        self.graph_manager.release()
+
+
+zero_tensor = torch.empty(1, device=dipu_device_str)
+graph_manager = None
+graph_compiler = None
 memory_pool = MemoryPool()
+graph_id = 0
+
+
+def get_graph_manager():
+    global graph_manager
+    if graph_manager is None:
+        graph_manager = GraphManager()
+    return graph_manager.graph_manager
+
+
+def get_graph_compiler():
+    global graph_compiler
+    if graph_compiler is None:
+        graph_compiler = GraphCompiler()
+    return graph_compiler.graph_compiler
+
+
+class GEStaticGraphExecutor(object):
+    def __init__(self, graph_id, device_id):
+        self.device_id = device_id
+        self.graph_id = graph_id
+
+        print('### graph_id:', self.graph_id)
+
+        # init
+        self.const_mem_size = graph_manager.graph_manager.get_const_size(
+            self.graph_id)
+        self.workspace_mem_size = graph_manager.graph_manager.get_workspace_size(
+            self.graph_id)
+
+        # alloc memory
+        self.const_tensor = torch.empty(
+            self.const_mem_size, dtype=torch.bool, device='dipu')
+        self.const_ptr = self.const_tensor.data_ptr()
+        graph_manager.graph_manager.set_graph_memory(self.graph_id, ctypes.c_void_p(
+            self.const_ptr), ctypes.c_void_p(memory_pool.work_ptr), self.const_mem_size, self.workspace_mem_size)
+
+        # prapare output info
+        output_shape_buffer = ctypes.create_string_buffer(10000)
+        output_dtype_buffer = ctypes.create_string_buffer(10000)
+        graph_manager.graph_manager.get_output_shapes(
+            self.graph_id, output_shape_buffer)
+        graph_manager.graph_manager.get_output_dtypes(
+            self.graph_id, output_dtype_buffer)
+
+        output_shape_str = output_shape_buffer.value.decode('utf-8')
+        output_dtype_str = output_dtype_buffer.value.decode('utf-8')
+        shapes = output_shape_str.split(';')
+        dtypes = output_dtype_str.split(',')
+
+        assert len(shapes) == len(dtypes)
+
+        self.output_shapes = []
+        self.output_dtypes = []
+        self.output_datasize = []
+        for item in shapes:
+            elems = item.split(',')
+            elems = [int(x) for x in elems]
+            self.output_shapes.append(elems)
+        for item in dtypes:
+            elem = int(item)
+            self.output_dtypes.append(elem)
+        for i in range(len(shapes)):
+            elem_size = math.prod(self.output_shapes[i])
+            self.output_datasize.append(
+                elem_size * acl.data_type_size(self.output_dtypes[i]))
+        self.output_datasize_c = (
+            ctypes.c_int64 * len(self.output_datasize))(*self.output_datasize)
+
+        # prapare input info
+        input_shape_buffer = ctypes.create_string_buffer(50000)
+        input_dtype_buffer = ctypes.create_string_buffer(50000)
+        graph_manager.graph_manager.get_input_shapes(
+            self.graph_id, input_shape_buffer)
+        graph_manager.graph_manager.get_input_dtypes(
+            self.graph_id, input_dtype_buffer)
+
+        input_shape_str = input_shape_buffer.value.decode('utf-8')
+        input_dtype_str = input_dtype_buffer.value.decode('utf-8')
+        shapes = input_shape_str.split(';')
+        dtypes = input_dtype_str.split(',')
+
+        assert len(shapes) == len(dtypes)
+
+        self.input_shapes = []
+        self.input_dtypes = []
+        self.input_datasize = []
+
+        for item in shapes:
+            elems = item.split(',')
+            elems = [int(x) for x in elems]
+            self.input_shapes.append(elems)
+        for item in dtypes:
+            elem = int(item)
+            self.input_dtypes.append(elem)
+        for i in range(len(shapes)):
+            elem_size = math.prod(self.input_shapes[i])
+            self.input_datasize.append(
+                elem_size * acl.data_type_size(self.input_dtypes[i]))
+        self.input_datasize_c = (
+            ctypes.c_int64 * len(self.input_datasize))(*self.input_datasize)
+
+    @record_function('load_and_run_run')
+    def run(self, images, dims=None, output_shape=None,
+            out_stride=None, out_storage_offset=None,
+            allocated_output=None):
+
+        def get_data_ptr(data):
+            if data.device.dtype != dipu_device_str:
+                data = data.to(dipu_device_str)
+            return data.data_ptr()
+
+        inputs = [x.to(dipu_device_str) if isinstance(x, torch.Tensor)
+                  and x.device.type != dipu_device_str else x for x in images]
+        input_ptrs = [x.data_ptr() for x in inputs]
+
+        input_ptrs_c = (ctypes.c_void_p * len(inputs))(*input_ptrs)
+        output_ptrs = []
+        output_tensors = []
+
+        if allocated_output:
+            allocated_output_tensor = {}
+            for output_index, input_index in allocated_output.items():
+                allocated_output_tensor[output_index] = inputs[input_index]
+            for i, shape in enumerate(self.output_shapes):
+                if i in allocated_output.keys():
+                    item = allocated_output_tensor[i]
+                else:
+                    item = torch.empty(shape, dtype=get_tensor_dtype(
+                        self.output_dtypes[i]), device=dipu_device_str)
+                output_ptrs.append(item.data_ptr())
+                output_tensors.append(item)
+        else:
+            for i, shape in enumerate(self.output_shapes):
+                item = torch.empty(shape, dtype=get_tensor_dtype(
+                    self.output_dtypes[i]), device=dipu_device_str)
+                output_ptrs.append(item.data_ptr())
+                output_tensors.append(item)
+
+        output_ptrs_c = (ctypes.c_void_p * len(output_tensors))(*output_ptrs)
+        current_stream = torch_dipu.current_stream(self.device_id).dipu_stream
+        graph_manager.graph_manager.run(self.graph_id, current_stream, input_ptrs_c,
+                                        output_ptrs_c, self.input_datasize_c, self.output_datasize_c)
+        ret = acl.rt.synchronize_stream(current_stream)
+        check_ret("acl.rt.synchronize_stream", ret)
+        return output_tensors
+
+
+class GEModel():
+    def __init__(self, graph_id, device_id, is_static=True) -> None:
+        atexit.register(self.cleanup)
+        if is_static:
+            self.exe = GEStaticGraphExecutor(graph_id, device_id)
+        else:
+            raise RuntimeError("current GEModel only support static graph!!")
+
+    def run(self, images, dims=None, output_shape=None,
+            out_stride=None, out_storage_offset=None, allocated_output=None):
+        return self.exe.run(images, dims, output_shape, out_stride, out_storage_offset, allocated_output)
+
+    def cleanup(self):
+        if hasattr(self, 'exe'):
+            del self.exe
 
 
 class AscendExecutor(object):
@@ -390,15 +554,4 @@ class AscendModel():
 
 
 if __name__ == '__main__':
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(current_dir, "build", "demo_add_add.om")
-
-    exe = AscendExecutor(0, model_path)
-
-    # make input data
-    input_data = np.random.randn(1, 1, 28, 28)
-
-    exe.run([input_data])
-
-    print("*****run finish******")
-    exe.release_resource()
+    pass

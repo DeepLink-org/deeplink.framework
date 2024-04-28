@@ -1640,3 +1640,29 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         res = self.get_proxy(ascend_op.ConcatD, (res, 0))
         return res
+
+    @register_conversion(torch.ops.c10d_functional.all_gather_into_tensor.default)
+    def all_gather_into_tensor(self, x, tag, rankset, group_size):
+        rank = torch.distributed.get_rank()
+        pg = torch.distributed.distributed_c10d._find_or_create_pg_by_ranks_and_tag(
+            tag, rankset, group_size)
+        device = torch.distributed.distributed_c10d._get_pg_default_device(pg)
+        process_group_dicl = pg._get_backend(device)
+        hcom_name = process_group_dicl.get_comm_name(rank)
+        return self.get_proxy(ascend_op.HcomAllGather, (x, group_size, hcom_name))
+
+    @register_conversion(torch.ops.c10d_functional.wait_tensor.default)
+    def wait_tensor(self, x):
+        return self.get_proxy(ascend_op.Identity, (x, None))
+
+    @register_conversion(torch.ops.c10d_functional.all_reduce.default)
+    def all_reduce(self, x: torch.Tensor, reduce_type: str, tag: str, ranklist, groupsize: int):
+        rank = torch.distributed.get_rank()
+        pg = torch.distributed.distributed_c10d._find_or_create_pg_by_ranks_and_tag(
+            tag, ranklist, groupsize)
+        device = torch.distributed.distributed_c10d._get_pg_default_device(pg)
+        assert device.type in [
+            'cuda', 'dipu'], f"invalid device_type({device.type}) in all_reduce!"
+        process_group_dicl = pg._get_backend(device)
+        hcom_name = process_group_dicl.get_comm_name(rank)
+        return self.get_proxy(ascend_op.HcomAllReduce, (x, reduce_type, hcom_name, ranklist))

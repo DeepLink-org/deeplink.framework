@@ -1043,6 +1043,26 @@ class BNTrainingUpdate(Operator):
         return [output_y, output_mean, output_var, output_batch_mean, output_batch_var]
 
 
+class HcomAllReduce(Operator):
+    def __init__(self):
+        super().__init__("HcomAllReduce")
+
+    def infer_result(self, x, reduction, group, fusion, fusion_id):
+        return x
+
+
+class HcomAllGather(Operator):
+    def __init__(self):
+        super().__init__("HcomAllGather")
+
+    def infer_result(self, x, group_size, tag):
+        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
+        # x_shape_list = list(x_shape)
+        # TODO handle gather at all dims in x
+        x_shape[0] = x_shape[0] * group_size
+        return torch.empty(x_shape, dtype=x_dtype, memory_format=get_memory_format(x))
+
+
 class TileWithAxis(Operator):
     def __init__(self):
         super().__init__("TileWithAxis")

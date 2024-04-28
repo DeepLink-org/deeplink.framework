@@ -206,7 +206,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 import random
                 from torch import empty_strided, as_strided, device
                 from dicp.dynamo_bridge.compile import AsyncCompileKernel
-                from dicp.vendor.AscendGraph.compile_job import AscendCompileJob
+                from dicp.vendor.AscendGraph.compile_job import AscendGECompileAclRunJob, AscendGECompileGERunJob
 
                 aten = torch.ops.aten
                 assert_size_stride = torch._C._dynamo.guards.assert_size_stride
@@ -506,9 +506,11 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
         graph_json = self.gen_graph_json()
+        has_dynamic_shape = False if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0 else True
+        compile_job_type = 'AscendGECompileAclRunJob' if has_dynamic_shape else 'AscendGECompileGERunJob'
         compile_graph_code.splice(
             f"""
-                ascend_compile_job = AscendCompileJob('''{graph_json}''')
+                ascend_compile_job = {compile_job_type}('''{graph_json}''')
                 async_compile = AsyncCompileKernel()
                 kernel_cpp_0 = async_compile.compile_kernel(ascend_compile_job)
             """, strip=True
@@ -1668,4 +1670,23 @@ class AscendOverrides:
         op.set_input("var", x)
         op.set_input("indices", indices)
         op.set_input("updates", updates)
+        return op.to_node()
+
+    @staticmethod
+    def HcomAllGather(name, x, group_size, tag):
+        op = OP(name, "HcomAllGather")
+        op.set_input("x", x)
+        op.set_attr_int("rank_size", group_size)
+        op.set_attr_str("group", tag)
+        return op.to_node()
+
+    @staticmethod
+    def HcomAllReduce(name, x, reduction, group, ranklist, fusion=0, fusion_id=-1):
+        op = OP(name, "HcomAllReduce")
+        op.set_input("x", x)
+        op.set_attr_str("reduction", reduction) 
+        op.set_attr_str("group", group)
+        op.set_attr_int("fusion", fusion)
+        op.set_attr_int("fusion_id", fusion_id)
+        op.set_attr_list_int("ranklist", ranklist)
         return op.to_node()
