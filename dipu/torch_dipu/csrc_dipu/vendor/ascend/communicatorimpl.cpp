@@ -170,5 +170,10 @@ DIPU_API diclResult_t diclBroadcast(const void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
+DIPU_API diclResult_t diclGetCommName(char* commName, diclComm_t comm) {
+  HCCL_THROW(HcclGetCommName(comm, commName));
+  return DICL_SUCCESS;
+}
+
 }  // end namespace devapis
 }  // end namespace dipu

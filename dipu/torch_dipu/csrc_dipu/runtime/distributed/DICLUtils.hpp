@@ -41,6 +41,12 @@ class DICLComm {
     return comm;
   }
 
+  std::string getName() {
+    std::vector<char> commName(128);
+    devproxy::diclGetCommName(commName.data(), rawComm_);
+    return std::string(commName.data());
+  }
+
   // Must not be copyable
   DICLComm(const DICLComm&) = delete;
   DICLComm& operator=(const DICLComm&) = delete;

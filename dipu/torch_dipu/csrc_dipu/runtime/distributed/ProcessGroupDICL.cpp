@@ -253,6 +253,51 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(
   return devDICLCommsMap_[localCommsKey];
 }
 
+std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getOrCreateDICLComm(
+    const std::string& localCommsKey, const std::vector<at::Device>& devices, int commsRank) {
+  // Sanity check
+  if (localCommsKey.empty()) {
+    throw std::runtime_error(
+        "Not able to create/get the DICL Communicator since "
+        "the DIPU devices are not known");
+  }
+  {
+    std::lock_guard<std::mutex> lock(devDICLCommMapLock_);
+    auto it = devDICLCommsMap_.find(localCommsKey);
+    if (it != devDICLCommsMap_.end()) {
+      return it->second;
+    }
+  }
+  // not cached, create a new entry
+  std::vector<std::shared_ptr<DICLComm>> diclComms;
+  int devSize = static_cast<int>(devices.size());
+  diclComms.resize(devSize);
+  int deviceWorldSize = getSize() * devSize;
+
+  commUniqueId diclID;
+  if (commsRank == 0) {
+    devproxy::diclGetUniqueId(&diclID);
+  }
+
+  std::string bcastKey = std::to_string(diclCommCounter_++);
+  broadcastUniqueID(&diclID, bcastKey, commsRank);
+
+  OptionalDIPUGuard dipuGuard;
+  for (int i = 0; i < devSize; i++) {
+    int deviceCommRank = getRank() * devSize + i;
+    dipuGuard.reset_device(devices[i]);
+    auto commStream = getDIPUStreamFromPool(devices[i].index());
+    diclComms[i] =
+        DICLComm::create(deviceWorldSize, deviceCommRank, diclID, commStream);
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(devDICLCommMapLock_);
+    devDICLCommsMap_.emplace(localCommsKey, std::move(diclComms));
+    return devDICLCommsMap_[localCommsKey];
+  }
+}
+
 namespace {
 
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
@@ -558,6 +603,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
     std::vector<at::Tensor>& inputs, const GatherOptions& opts) {
   TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
+
+// NOLINTNEXTLINE(google-default-arguments)
+std::string ProcessGroupDICL::getCommName(int device_index) {
+  auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);
+  std::vector<at::Device> devices{device};
+  const auto localCommsKey = getDevieceIds(devices);
+  auto diclComms = getOrCreateDICLComm(localCommsKey, devices, this->rank_);
+  return diclComms[0]->getName();
+}
+
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(

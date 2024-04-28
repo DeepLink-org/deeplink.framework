@@ -167,6 +167,9 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
+  // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
+  std::string getCommName(int device_index);
+
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;
@@ -226,6 +229,10 @@ class DIPU_API ProcessGroupDICL : public Backend {
   virtual std::vector<std::shared_ptr<DICLComm>>& getDICLComms(
       const std::string& localCommsKey, const std::vector<at::Device>& devices,
       int commsRank, OpType opType);
+
+  virtual std::vector<std::shared_ptr<DICLComm>>& getOrCreateDICLComm(
+      const std::string& localCommsKey, const std::vector<at::Device>& devices,
+      int commsRank);
 
   template <typename Fn>
   c10::intrusive_ptr<Work> collective(std::vector<at::Tensor>& input,

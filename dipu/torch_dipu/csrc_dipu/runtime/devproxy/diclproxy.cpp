@@ -74,5 +74,9 @@ devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
   return devapis::diclRecv(recvbuff, count, datatype, peer, comm, stream);
 }
 
+devapis::diclResult_t diclGetCommName(char* commName, diclComm_t comm) {
+  return devapis::diclGetCommName(commName, comm);
+}
+
 }  // namespace devproxy
 }  // namespace dipu

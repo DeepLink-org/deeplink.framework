@@ -226,6 +226,10 @@ static void exportCommunicator(py::module& m) {
            py::arg("timeout") = kBackendDefaultTimeout,
            py::call_guard<py::gil_scoped_release>())
       .def("store", &ProcessGroupDICL::getStore)
+      .def("get_comm_name",
+           [](ProcessGroupDICL& self, int device_index) {
+             return self.getCommName(device_index);
+           })
       .def("timeout", [](ProcessGroupDICL& self) {
         // need enhance to support tiemout
         return kBackendDefaultTimeout;
