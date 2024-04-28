@@ -9,6 +9,7 @@
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -125,18 +126,21 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
 
   MemChecker::instance().check(src);
   MemChecker::instance().check(dst);
-  #if 0
-  if (isSynchronousCopy) {
-    dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
-                               src.device().index(), src_ptr);
-  } else {
+  // non_blocking (bool) – if True and this copy is between CPU and GPU, the
+  // copy may occur asynchronously with respect to the host. For other cases,
+  // this argument has no effect.
+  {
+    c10::DeviceGuard guard(src.device());
+    getCurrentDIPUStream().synchronize();
+  }
+  if ((!isSynchronousCopy) && dst.device().index() == src.device().index()) {
     dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                     dst.device().index(), dst_ptr,
                                     src.device().index(), src_ptr);
+  } else {
+    dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
+                               src.device().index(), src_ptr);
   }
-  #endif
-  auto temp = src.cpu();
-  dst.copy_(temp);
 }
 
 inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
@@ -224,7 +228,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (dst.numel() == 0 || dst.is_same(src)) {
       return;
     }
-    const c10::DeviceGuard guard(dst.is_cpu() ? src.device() : dst.device());
+    const DIPUGuard guard(dst.is_cpu() ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
 
     auto info = CopyParamsInfo(dst, src, curStream);
