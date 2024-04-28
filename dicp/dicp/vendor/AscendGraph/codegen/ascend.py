@@ -248,9 +248,6 @@ class AscendCodegen(torch.fx.Interpreter):
 
         # generate input dims
         if len(self.dynamic_inputs) > 0:
-            dim_len = 0
-            for shape in self.actual_shape:
-                dim_len += len(shape)
             dims = 'dims = {'
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:

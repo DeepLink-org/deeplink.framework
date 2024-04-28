@@ -75,8 +75,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         x_names = []
 
         def generate_digits_op(shapes):
-            const_op = self.get_proxy(
-                ascend_op.Const, (shapes, torch.int32, [len(shapes)]))
+            const_op = self.get_const_proxy(shapes, torch.int32)
             x_names.append(const_op)
 
         def find_root_num(set_num, num):
@@ -104,9 +103,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
             # handle with integer
             if elem_str.isdigit():
-                const_op = self.get_proxy(
-                    ascend_op.Const, ([int(elem_str)], torch.int32, [1]))
-                return const_op
+                return self.get_const_proxy(int(elem_str), torch.int32)
 
             # handle with NodeProxy string
             if 'Proxy' in elem_str:
@@ -128,10 +125,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
             if elem_str in self.sym_in_args:
                 arg, idx = self.sym_in_args[elem_str]
                 shape = self.get_proxy(ascend_op.Shape, (arg,))
-                axis = self.get_proxy(
-                    ascend_op.Const, ([0], torch.int32, [1]))
-                indice = self.get_proxy(
-                    ascend_op.Const, ([idx], torch.int32, [1]))
+                axis = self.get_const_proxy(0, torch.int32)
+                indice = self.get_const_proxy(idx, torch.int32)
                 gather = self.get_proxy(
                     ascend_op.GatherV2, (shape, indice, axis))
                 return gather
@@ -293,8 +288,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             # both fit for SymInt & NodeProxy, pass all number cases
             if not_all_num_shape(shape):
                 return self.process_dynamic_shape(shape)
-        return self.get_proxy(
-            ascend_op.Const, (shape, dtype, [len(shape)]))
+        return self.get_const_proxy(shape, dtype)
 
     def get_const_proxy(self, param, dtype, format=None, target_shape=None):
         if not isinstance(param, torch.fx.proxy.Proxy) and not isinstance(param, FakeTensor):
