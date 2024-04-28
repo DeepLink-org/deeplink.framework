@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <c10/util/Exception.h>
+#include <torch/csrc/distributed/c10d/Work.hpp>
 
 #include "csrc_dipu/runtime/device/basedef.h"
 #include <csrc_dipu/common.h>
@@ -27,6 +29,61 @@ namespace {
 constexpr AscendDeviceId kDeviceIdUninit = -1;
 std::atomic<AscendDeviceId> kDeviceIdDefault = 0;
 thread_local AscendDeviceId kCurrentDevice = kDeviceIdUninit;
+
+class NpuP2PInfo {
+  enum class P2pStatus : int8_t {
+    UNKNOWN = -1,
+    COPY_NOT_ALLOWED = 0,
+    COPY_ALLOWED = 1
+  };
+ public:
+  static NpuP2PInfo& getInstance() {
+    static NpuP2PInfo instance;
+    return instance;
+  }
+
+  bool enableP2P(int32_t srcDevId, int32_t dstDevId) {
+    const int32_t index = srcDevId * num_devices_ + dstDevId;
+    auto& status = p2p_access_enabled_cache_.at(index);
+    if (status != P2pStatus::UNKNOWN) {
+      return static_cast<bool>(status);
+    }
+
+    int32_t canAccessPeer = 0;
+    DIPU_CALLACLRT(
+        ::aclrtDeviceCanAccessPeer(&canAccessPeer, srcDevId, dstDevId));
+    if (canAccessPeer != 1) {
+      TORCH_WARN("can not copy memory form device ", srcDevId, " to device ",
+                 dstDevId);
+      status = P2pStatus::COPY_NOT_ALLOWED;
+      return false;
+    }
+    int32_t currentDevice = -1;
+    DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
+
+    DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
+    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(srcDevId, 0 /*reserved*/));
+    DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
+    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(dstDevId, 0 /*reserved*/));
+
+    DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
+    if (canAccessPeer == 1) {
+      status = P2pStatus::COPY_ALLOWED;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  // Use a 1-dimensional vector to store 2-dimensional data
+  std::vector<P2pStatus> p2p_access_enabled_cache_;
+
+  const int64_t num_devices_;
+  NpuP2PInfo() : num_devices_(getDeviceCount()) {
+    p2p_access_enabled_cache_ =
+        std::vector<P2pStatus>(num_devices_ * num_devices_, P2pStatus::UNKNOWN);
+  }
+};
 
 }  // namespace
 
@@ -135,30 +192,11 @@ void freeDevice(void* p) {
   DIPU_CALLACLRT(::aclrtFree(p))
 }
 
-inline void enableP2PMemcpy(deviceId_t dstDevId, deviceId_t srcDevId) {
-  if (dstDevId != srcDevId) {
-    int32_t canAccessPeer = 0;
-    DIPU_CALLACLRT(
-        ::aclrtDeviceCanAccessPeer(&canAccessPeer, srcDevId, dstDevId));
-    TORCH_CHECK(canAccessPeer == 1, "can not copy memory form", srcDevId,
-                " to ", dstDevId);
-    int32_t currentDevice = -1;
-    DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
-
-    DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
-    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(srcDevId, 0 /*reserved*/));
-    DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
-    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(dstDevId, 0 /*reserved*/));
-
-    DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
-  }
-}
-
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
   if (dstDevId != srcDevId) {
-    enableP2PMemcpy(dstDevId, srcDevId);
+    NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId);
   }
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
@@ -181,7 +219,7 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
   if (dstDevId != srcDevId) {
-    enableP2PMemcpy(dstDevId, srcDevId);
+    NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId);
   }
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
