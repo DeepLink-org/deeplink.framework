@@ -1,5 +1,4 @@
 #[[ Dependencies ]]
-option(USE_AUTOCOMPARE "whether to use USE_AUTOCOMPARE" OFF)
 
 # Import Python3::Python, Python3_EXECUTABLE
 # Also see https://cmake.org/cmake/help/latest/module/FindPython3.html
@@ -58,7 +57,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
@@ -76,6 +75,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
+  aten/ops/OpRegexMatch.cpp
   aten/RegisterDIPU.cpp
   aten/CPUFallback.cpp
 

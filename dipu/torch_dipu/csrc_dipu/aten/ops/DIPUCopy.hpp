@@ -35,6 +35,8 @@ enum class DIPUCopyType {
   D2H,
   // from host to device
   H2D,
+  // from host to host
+  H2H,
 };
 
 // Align with pytorch's behavior, see TensorIterator.cpp compute_mem_overlaps()
@@ -59,16 +61,24 @@ inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
   bool isSrcDevice = dipu::isDeviceTensor(src);
   bool isDstDevice = dipu::isDeviceTensor(dst);
-  if (!isSrcDevice) {
-    return DIPUCopyType::H2D;  // this op not handle h2h, dest always device
+  if (!isSrcDevice && isDstDevice) {
+    return DIPUCopyType::H2D;
   }
-  if (!isDstDevice) {
-    return DIPUCopyType::D2H;  // here src always device
+  if (!isDstDevice && isSrcDevice) {
+    return DIPUCopyType::D2H;
   }
-  if (src.device().index() != dst.device().index()) {
+  if (isSrcDevice && isDstDevice &&
+      src.device().index() != dst.device().index()) {
     return DIPUCopyType::D2OtherD;
   }
-  return DIPUCopyType::D2Self;
+  if (isSrcDevice && isDstDevice &&
+      src.device().index() == dst.device().index()) {
+    return DIPUCopyType::D2Self;
+  }
+  if (!isSrcDevice && !isDstDevice) {
+    return DIPUCopyType::H2H;
+  }
+  return DIPUCopyType::H2H;
 }
 
 inline int64_t getMemCopyBytes(const at::Tensor& dst, const at::Tensor& src,
@@ -117,6 +127,17 @@ inline void doMemCopyD2H(const at::Tensor& dst, const at::Tensor& src,
   }
 }
 
+inline void doMemCopyH2H(const at::Tensor& dst, const at::Tensor& src,
+                         int64_t nbytes) {
+  if (!dst.is_contiguous() || !src.is_contiguous()) {
+    std::cerr << "Tensors must be contiguous for memory copy." << std::endl;
+    return;
+  }
+  void* src_ptr = src.data_ptr();
+  void* dst_ptr = dst.data_ptr();
+  memcpy(dst_ptr, src_ptr, nbytes);
+}
+
 inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                          dipu::DIPUStream& stream, int64_t nbytes,
                          bool isSynchronousCopy) {
@@ -147,6 +168,9 @@ inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
     case DIPUCopyType::D2H:
       // dst is cpu.
       doMemCopyD2H(dst, src, stream, nbytes, isSynchronousCopy);
+      break;
+    case DIPUCopyType::H2H:
+      doMemCopyH2H(dst, src, nbytes);
       break;
     default:  // device to device
       doMemCopyD2D(dst, src, stream, nbytes, isSynchronousCopy);
@@ -294,7 +318,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (native::dumpOpArgLevel() > 0) {
       printf("--%-50s %-30s \n", "[copy_]:", "doDirectMemCopy");
     }
-
     memCopy(dst, src, curStream, copyType, /*nonOverlappingAndDense=*/true,
             /*isSynchronousCopy=*/false);
 
