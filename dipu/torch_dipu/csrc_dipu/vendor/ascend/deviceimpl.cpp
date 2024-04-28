@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+
 #include <c10/util/Exception.h>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
@@ -36,6 +37,7 @@ class NpuP2PInfo {
     COPY_NOT_ALLOWED = 0,
     COPY_ALLOWED = 1
   };
+
  public:
   static NpuP2PInfo& getInstance() {
     static NpuP2PInfo instance;
