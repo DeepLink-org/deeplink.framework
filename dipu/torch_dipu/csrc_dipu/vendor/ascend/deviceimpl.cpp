@@ -11,8 +11,10 @@
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
 #include "csrc_dipu/runtime/device/basedef.h"
+#include "csrc_dipu/utils/env.hpp"
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/utils/env.hpp>
 
 #include "basecommimpl.hpp"
 
@@ -30,6 +32,9 @@ namespace {
 constexpr AscendDeviceId kDeviceIdUninit = -1;
 std::atomic<AscendDeviceId> kDeviceIdDefault = 0;
 thread_local AscendDeviceId kCurrentDevice = kDeviceIdUninit;
+
+const bool forceFallbackP2PCopy =
+    get_env_or_default("DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", false);
 
 class NpuP2PInfo {
   enum class P2pStatus : int8_t {
@@ -194,11 +199,30 @@ void freeDevice(void* p) {
   DIPU_CALLACLRT(::aclrtFree(p))
 }
 
+void memCopyD2DFallback(size_t nbytes, deviceId_t dstDevId, void* dst,
+                        deviceId_t srcDevId, const void* src) {
+  int32_t currentDevice = -1;
+  DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
+  void* hostBuffer = nullptr;
+  mallocHost(&hostBuffer, nbytes);
+  std::shared_ptr<void> hostBufferUnique(hostBuffer,
+                                         freeHost);  // for exception safety
+  DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
+  memCopyD2H(nbytes, hostBuffer, src);
+  DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
+  memCopyH2D(nbytes, dst, hostBuffer);
+  DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
+}
+
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
   if (dstDevId != srcDevId) {
-    NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId);
+    if (forceFallbackP2PCopy ||
+        NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId) == false) {
+      memCopyD2DFallback(nbytes, dstDevId, dst, srcDevId, src);
+      return;
+    }
   }
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
@@ -221,7 +245,11 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
   if (dstDevId != srcDevId) {
-    NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId);
+    if (forceFallbackP2PCopy ||
+        NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId) == false) {
+      memCopyD2DFallback(nbytes, dstDevId, dst, srcDevId, src);
+      return;
+    }
   }
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
