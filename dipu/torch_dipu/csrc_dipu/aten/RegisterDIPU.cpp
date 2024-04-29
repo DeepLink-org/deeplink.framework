@@ -190,7 +190,6 @@ at::Tensor wrapper_DIPU_empty_memory_format(
     c10::optional<at::MemoryFormat> memory_format_opt) {
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   dipu::OptionalDIPUGuard guard(device_opt);
-  const DeviceGuard device_guard(device_or_default(device_opt));
   return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt,
                         memory_format_opt);
 }

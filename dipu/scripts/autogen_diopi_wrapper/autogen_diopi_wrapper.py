@@ -657,8 +657,8 @@ def create_device_check_code(fun_config):
 
 def create_device_guard_code(fun_config):
     code = ""
-    tensors = re.findall("Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]) + re.findall(
-        "Tensor +[\w\d_]+", fun_config["schema"]
+    tensors = re.findall("Tensor +[\w\d_]+", fun_config["schema"]) + re.findall(
+        "Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]
     )
     if len(tensors) > 0:
         tensor = tensors[0].split(" ")[1]
