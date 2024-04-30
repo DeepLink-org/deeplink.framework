@@ -389,8 +389,8 @@ at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self,
 }
 
 void wrapper_DIPU__record_stream(at::Tensor& self, at::Stream s) {
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   const OptionalDeviceGuard device_guard(device_of(self));
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
 }
 

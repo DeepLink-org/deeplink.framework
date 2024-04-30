@@ -662,16 +662,18 @@ def create_device_guard_code(fun_config):
     )
     if len(tensors) > 0:
         tensor = tensors[0].split(" ")[1]
-        code += f"dipu::DIPUGuard guard({tensor}.device());"
+        code += f"c10::OptionalDeviceGuard guard(at::device_of({tensor}));"
     else:
         try:
             device_args = re.findall("Device. [\w\d_]+", fun_config["schema"])[0].split(
                 " "
             )
             if device_args[0].endswith("?"):
-                code += f"dipu::OptionalDIPUGuard guard({device_args[1]});"
+                code += f"c10::OptionalDeviceGuard guard({device_args[1]});"
             else:
-                code += f"dipu::DIPUGuard guard({device_args[1]});"
+                code += (
+                    f"c10::OptionalDeviceGuard guard(at::device_of({device_args[1]}));"
+                )
         except:
             pass
 
