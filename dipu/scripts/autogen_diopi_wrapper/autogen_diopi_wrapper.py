@@ -668,7 +668,7 @@ def create_device_guard_code(fun_config):
             device_args = re.findall("Device. [\w\d_]+", fun_config["schema"])[0].split(
                 " "
             )
-            if device_args[0].endwith("?"):
+            if device_args[0].endswith("?"):
                 code += f"dipu::OptionalDIPUGuard guard({device_args[1]});"
             else:
                 code += f"dipu::DIPUGuard guard({device_args[1]});"

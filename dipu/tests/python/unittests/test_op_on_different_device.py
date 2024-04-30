@@ -29,6 +29,23 @@ class TestOpOnDifferentDevice(TestCase):
         for i in range(torch.cuda.device_count()):
             self._test_add_on_device(i)
 
+    def test_allocate_tensor_on_different_device(self):
+        device_count = torch.cuda.device_count()
+        for index in range(device_count):
+            shape = [2, 4, 5, 6]
+            dtype = torch.float
+            a = torch.empty(shape, dtype=dtype, device="cuda:" + str(index))
+            assert a.device.index == index
+
+            b = torch.ones(shape, dtype=dtype, device="cuda:" + str(index))
+            assert b.device.index == index
+
+            c = torch.zeros(shape, dtype=dtype, device="cuda:" + str(index))
+            assert c.device.index == index
+
+            d = torch.full(shape, index, dtype=dtype, device="cuda:" + str(index))
+            assert d.device.index == index
+
 
 if __name__ == "__main__":
     run_tests()

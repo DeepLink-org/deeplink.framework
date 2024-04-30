@@ -98,8 +98,8 @@ DIPU_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
 diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
-  dipu::profile::RecordBlockCreator _(__FUNCTION__);
   $device_guard_code
+  dipu::profile::RecordBlockCreator _(__FUNCTION__);
   $custom_code_at_the_beginning
 
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
