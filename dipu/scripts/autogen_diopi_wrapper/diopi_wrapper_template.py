@@ -50,6 +50,7 @@ diopi_wrapper_file_template_content = """// autogened file
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
+#include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
@@ -128,12 +129,20 @@ $cppsignautre {
 }
 """
 
-op_register_template_content = """
-DIOPI_ATEN_FUNC("$register_name", $diopi_fun_name, $aten_fun_name);
+op_no_customfallback_with_autocompare_register_template_content = """
+NO_CUSTOMFALLBACK_WITH_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
 """
 
-op_with_custom_fallback_register_template_content = """
-DIOPI_ATEN_FUNC_CUSTOM_FALLBACK("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
+op_no_customfallback_no_autocompare_register_template_content = """
+NO_CUSTOMFALLBACK_NO_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
+"""
+
+op_with_customfallback_with_autocompare_register_template_content = """
+WITH_CUSTOMFALLBACK_WITH_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
+"""
+
+op_with_customfallback_no_autocompare_register_template_content = """
+WITH_CUSTOMFALLBACK_NO_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $force_fallback /*whether force fallback*/, $aten_fun_name, $fallbackFunc);
 """
 
 custom_autograd_template_content = """
