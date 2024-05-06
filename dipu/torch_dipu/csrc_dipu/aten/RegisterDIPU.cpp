@@ -302,8 +302,8 @@ at::Tensor wrapper_DIPU__unfold(const at::Tensor& self, int64_t dimension,
 }
 
 at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor& self) {
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   const OptionalDeviceGuard device_guard(device_of(self));
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::_local_scalar_dense_dipu(self);
 }
 
@@ -378,13 +378,15 @@ at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self,
 
 bool wrapper_DIPU_is_pinned(const at::Tensor& self,
                             c10::optional<at::Device> device) {
-  const OptionalDeviceGuard device_guard(device_of(self));
+  dipu::DIPUGuard grard(c10::Device(dipu::DIPU_DEVICE_TYPE));
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::is_pinned(self, device);
 }
 
 at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self,
                                     c10::optional<at::Device> device) {
-  const OptionalDeviceGuard device_guard(device_of(self));
+  dipu::DIPUGuard grard(c10::Device(dipu::DIPU_DEVICE_TYPE));
+  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::_pin_memory(self, device);
 }
 

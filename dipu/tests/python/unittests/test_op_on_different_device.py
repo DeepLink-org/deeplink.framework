@@ -7,8 +7,9 @@ from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 class TestOpOnDifferentDevice(TestCase):
     def _test_add_on_device(self, device_index):
         torch.cuda.set_device(device_index)
-        x = torch.randn(3, 4).cuda()
-        y = x.cpu()
+        x = torch.randn(3, 4)
+        y = x.pin_memory()
+        x = x.cuda()
 
         self.assertEqual((x + x).cpu(), y + y)
         self.assertEqual((x + x).cpu(), y + y)
@@ -35,16 +36,21 @@ class TestOpOnDifferentDevice(TestCase):
             shape = [2, 4, 5, 6]
             dtype = torch.float
             a = torch.empty(shape, dtype=dtype, device="cuda:" + str(index))
-            assert a.device.index == index
+            assert a.device.index == index and a.device.type == "cuda"
+            a = a.cpu()
 
             b = torch.ones(shape, dtype=dtype, device="cuda:" + str(index))
-            assert b.device.index == index
+            assert b.device.index == index and b.device.type == "cuda"
+            b = b.cpu()
+
 
             c = torch.zeros(shape, dtype=dtype, device="cuda:" + str(index))
-            assert c.device.index == index
+            assert c.device.index == index and c.device.type == "cuda"
+            c = c.cpu()
 
             d = torch.full(shape, index, dtype=dtype, device="cuda:" + str(index))
-            assert d.device.index == index
+            assert d.device.index == index and d.device.type == "cuda"
+            d = d.cpu()
 
 
 if __name__ == "__main__":
