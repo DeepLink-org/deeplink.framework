@@ -36,9 +36,6 @@ struct DIPUGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 
   void setDevice(c10::Device device) const override {
-    if (devproxy::current_device() < 0) {
-      return;
-    }
     AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
     devproxy::setDevice(device.index());
   }
