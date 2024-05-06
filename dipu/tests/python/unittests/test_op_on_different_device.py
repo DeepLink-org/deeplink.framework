@@ -43,7 +43,6 @@ class TestOpOnDifferentDevice(TestCase):
             assert b.device.index == index and b.device.type == "cuda"
             b = b.cpu()
 
-
             c = torch.zeros(shape, dtype=dtype, device="cuda:" + str(index))
             assert c.device.index == index and c.device.type == "cuda"
             c = c.cpu()
