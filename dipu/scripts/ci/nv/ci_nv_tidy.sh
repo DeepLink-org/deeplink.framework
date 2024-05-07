@@ -16,12 +16,17 @@ set -euo pipefail
 self=$(dirname "$(realpath -s "${BASH_SOURCE[0]}")")
 repo=$(cd "$self" && git rev-parse --show-toplevel)
 tidy=${1:-$self/clangd-tidy}
+tlog=${2:+-o\ $2}
 
 # Download clangd-tidy scripts.
+echo "check clangd-tidy"
 [ -d "$tidy" ] ||
     git -c advice.detachedHead=false clone --depth 1 -b v0.2.0 https://github.com/lljbash/clangd-tidy.git "$tidy"
 
 # Collect source files and run tidy.
+echo "start clangd-tidy"
 (cd "$repo/dipu" &&
     find torch_dipu ! -path '*/vendor/*' ! -name 'AutoGenedKernels.cpp' \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) |
-    xargs "$tidy/clangd-tidy" -j4)
+    xargs "$tidy/clangd-tidy" --github --git-root="$repo" -j4 "$tlog")
+
+echo "all done"
