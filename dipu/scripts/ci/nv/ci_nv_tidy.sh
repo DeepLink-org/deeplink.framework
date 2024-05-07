@@ -15,7 +15,7 @@ set -euo pipefail
 # Get current folder.
 self=$(dirname "$(realpath -s "${BASH_SOURCE[0]}")")
 repo=$(cd "$self" && git rev-parse --show-toplevel)
-tidy={1:-$self/clangd-tidy}
+tidy=${1:-$self/clangd-tidy}
 
 # Download clangd-tidy scripts.
 [ -d "$tidy" ] ||
