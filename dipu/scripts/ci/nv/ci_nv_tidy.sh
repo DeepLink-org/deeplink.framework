@@ -27,6 +27,6 @@ echo "check clangd-tidy"
 echo "start clangd-tidy"
 (cd "$repo/dipu" &&
     find torch_dipu ! -path '*/vendor/*' ! -name 'AutoGenedKernels.cpp' \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) |
-    xargs "$tidy/clangd-tidy" --github --git-root="$repo" -j4 "$tlog")
+    xargs "$tidy/clangd-tidy" -j4 "$tlog") # TODO(wy,llj) --github --git-root="$repo"
 
 echo "all done"
