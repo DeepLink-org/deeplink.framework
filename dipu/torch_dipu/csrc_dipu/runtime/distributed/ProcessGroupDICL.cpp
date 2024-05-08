@@ -15,9 +15,6 @@ namespace dipu {
 
 using std::pair;
 
-std::unordered_map<std::string, PreFnType> ProcessGroupDICL::preFnMap;
-std::unordered_map<std::string, PostFnType> ProcessGroupDICL::postFnMap;
-
 namespace {
 
 // Get the list of devices from list of tensors, collective comm always use all
@@ -171,6 +168,7 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
     throw std::runtime_error("Invalid value for environment variable: " +
                              std::string(DICL_BLOCKING_WAIT));
   }
+  allReduceStrategy_ = std::move(createAllReduceStrategy());
 }
 
 ProcessGroupDICL::~ProcessGroupDICL() = default;
@@ -488,13 +486,15 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (preFnMap.count("ALLREDUCE") > 0) {
-          preFnMap["ALLREDUCE"](comms, tensors, tensors_cp);
+        if (allReduceStrategy_ != nullptr &&
+            allReduceStrategy_->getPreFn() != nullptr) {
+          allReduceStrategy_->getPreFn()(comms, tensors, tensors_cp);
         }
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (postFnMap.count("ALLREDUCE") > 0) {
-          postFnMap["ALLREDUCE"](comms, tensors_cp, tensors);
+        if (allReduceStrategy_ != nullptr &&
+            allReduceStrategy_->getPostFn() != nullptr) {
+          allReduceStrategy_->getPostFn()(comms, tensors_cp, tensors);
         }
       },
       OpType::ALLREDUCE);

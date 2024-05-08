@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -36,12 +37,15 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-using PreFnType =
+using AllReduceFnType =
     std::function<void(std::vector<std::shared_ptr<DICLComm>>&,
                        std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
-using PostFnType =
-    std::function<void(std::vector<std::shared_ptr<DICLComm>>&,
-                       std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
+
+class AllReduceStrategy {
+ public:
+  virtual AllReduceFnType getPreFn() { return nullptr; };
+  virtual AllReduceFnType getPostFn() { return nullptr; };
+};
 
 // ProcessGroupDICL implements DICLbindings for c10d.
 //
@@ -181,14 +185,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   ~ProcessGroupDICL() override;
 
-  static void setPreFn(const std::string& key, PreFnType preFn) {
-    preFnMap[key] = std::move(preFn);
-  }
-
-  static void setPostFn(const std::string& key, PostFnType postFn) {
-    postFnMap[key] = std::move(postFn);
-  }
-
   // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
   const std::string getBackendName() const override {
     return DICL_BACKEND_NAME;
@@ -240,11 +236,9 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
-  // key: string of collective type, value: function pointer
+  // NOTE: need init in vendor files.
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static std::unordered_map<std::string, PreFnType> preFnMap;
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static std::unordered_map<std::string, PostFnType> postFnMap;
+  static AllReduceFnType allReducePreFn_, allReducePostFn_;
 
  protected:
   // different device may need extend this func to do device specific check
@@ -325,7 +319,11 @@ class DIPU_API ProcessGroupDICL : public Backend {
   bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
+
+  std::unique_ptr<AllReduceStrategy> allReduceStrategy_;
 };
+
+std::unique_ptr<AllReduceStrategy> createAllReduceStrategy();
 
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const c10::intrusive_ptr<::c10d::Store>& store, int rank, int size,
