@@ -9,6 +9,13 @@
 
 namespace dipu {
 
+namespace native {
+// coumpute broadcast shape based on two inputs
+// for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
+at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b);
+
+}  // namespace native
+
 // Base Class for inferring the shape, dtype, and memory format of output Tensor
 // based on its inputs, then malloc the output tensor.
 class OpInferrer {

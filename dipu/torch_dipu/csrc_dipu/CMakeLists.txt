@@ -70,7 +70,6 @@ add_custom_command(
 set(TORCH_DIPU_SOURCE
   aten/ops/CustomFallbackFunctionsForAmpGradScaler.cpp
   aten/ops/DIPUCopy.cpp
-  aten/ops/OpUtils.cpp
   aten/ops/StorageShapeKernel.cpp
   aten/ops/DIPUAmp.cpp
   aten/ops/DIPUOpInferrer.cpp
