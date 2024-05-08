@@ -42,12 +42,12 @@ at::Tensor OpInferrer::malloc_output() {
 }
 
 void OpInferrer::compute_dtype() {
-  native::ResultTypeState state = {};
+  at::native::ResultTypeState state = {};
   for (const auto i : c10::irange(ntensors())) {
-    state = native::update_result_type_state(tensor(i), state);
+    state = at::native::update_result_type_state(tensor(i), state);
   }
 
-  dtype_ = native::result_type(state);
+  dtype_ = at::native::result_type(state);
   TORCH_INTERNAL_ASSERT(dtype_ != at::ScalarType::Undefined);
 }
 
