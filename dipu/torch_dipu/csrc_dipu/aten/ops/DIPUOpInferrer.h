@@ -20,6 +20,7 @@ at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b);
 // directly.
 class OpInferrerMeta {
  public:
+  virtual ~OpInferrerMeta() = default;
   at::ScalarType common_dtype() const { return dtype_; }
   c10::DimVector target_shape() const { return shape_; }
   at::MemoryFormat memory_format() const { return memory_format_; }
@@ -27,7 +28,6 @@ class OpInferrerMeta {
  protected:
   // Protected constructor to prevent direct instantiation
   OpInferrerMeta() = default;
-  virtual ~OpInferrerMeta() = default;
 
   void add_input(const at::Tensor& tensor);
 
@@ -49,9 +49,12 @@ class OpInferrerMeta {
 // This class is intended as a base class only and should not be instantiated
 // directly.
 class OpInferrer : public OpInferrerMeta {
+ public:
+  virtual ~OpInferrer() override = default;
+
  protected:
   OpInferrer() = default;
-  virtual ~OpInferrer() = default;
+
   void compute_shape();
   void compute_dtype();
   void compute_memory_format();
