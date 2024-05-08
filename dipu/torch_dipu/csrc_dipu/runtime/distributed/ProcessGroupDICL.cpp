@@ -15,11 +15,11 @@ namespace dipu {
 
 using std::pair;
 
-
 std::unordered_map<std::string, PreFnType> ProcessGroupDICL::preFnMap;
 std::unordered_map<std::string, PostFnType> ProcessGroupDICL::postFnMap;
 
 namespace {
+
 // Get the list of devices from list of tensors, collective comm always use all
 // ranks, so no rank prefix required in key.
 std::string getDevieceIds(const std::vector<at::Device>& devices) {

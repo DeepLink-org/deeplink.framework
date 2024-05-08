@@ -154,7 +154,6 @@ def demo_allreduce(rank, world_size, port):
         elif op == dist.reduce_op.MIN:
             expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
         assert torch.allclose(te_result, expected_tensor)
-
     cleanup()
 
 

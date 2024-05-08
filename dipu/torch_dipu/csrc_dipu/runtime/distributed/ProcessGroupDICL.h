@@ -36,8 +36,12 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-using PreFnType = std::function<void(std::vector<std::shared_ptr<DICLComm>>&, std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
-using PostFnType = std::function<void(std::vector<std::shared_ptr<DICLComm>>&, std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
+using PreFnType =
+    std::function<void(std::vector<std::shared_ptr<DICLComm>>&,
+                       std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
+using PostFnType =
+    std::function<void(std::vector<std::shared_ptr<DICLComm>>&,
+                       std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
 
 // ProcessGroupDICL implements DICLbindings for c10d.
 //
@@ -177,13 +181,13 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   ~ProcessGroupDICL() override;
 
-    static void setPreFn(const std::string& key, PreFnType preFn) {
-        preFnMap[key] = std::move(preFn);
-    }
+  static void setPreFn(const std::string& key, PreFnType preFn) {
+    preFnMap[key] = std::move(preFn);
+  }
 
-    static void setPostFn(const std::string& key, PostFnType postFn) {
-        postFnMap[key] = std::move(postFn);
-    }
+  static void setPostFn(const std::string& key, PostFnType postFn) {
+    postFnMap[key] = std::move(postFn);
+  }
 
   // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
   const std::string getBackendName() const override {
@@ -236,9 +240,9 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
-    // key: string of collective type, value: function pointer
-    static std::unordered_map<std::string, PreFnType> preFnMap;
-    static std::unordered_map<std::string, PostFnType> postFnMap;
+  // key: string of collective type, value: function pointer
+  static std::unordered_map<std::string, PreFnType> preFnMap;
+  static std::unordered_map<std::string, PostFnType> postFnMap;
 
  protected:
   // different device may need extend this func to do device specific check
