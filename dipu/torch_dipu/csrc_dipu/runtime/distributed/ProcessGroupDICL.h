@@ -236,10 +236,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
-  // NOTE: need init in vendor files.
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  static AllReduceFnType allReducePreFn_, allReducePostFn_;
-
  protected:
   // different device may need extend this func to do device specific check
   virtual void checkDeviceTensors(const std::vector<at::Tensor>& tensors);
