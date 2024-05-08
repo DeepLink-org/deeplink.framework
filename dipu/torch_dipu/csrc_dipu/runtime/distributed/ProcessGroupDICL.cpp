@@ -15,8 +15,11 @@ namespace dipu {
 
 using std::pair;
 
-namespace {
 
+std::unordered_map<std::string, PreFnType> ProcessGroupDICL::preFnMap;
+std::unordered_map<std::string, PostFnType> ProcessGroupDICL::postFnMap;
+
+namespace {
 // Get the list of devices from list of tensors, collective comm always use all
 // ranks, so no rank prefix required in key.
 std::string getDevieceIds(const std::vector<at::Device>& devices) {
@@ -471,8 +474,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
@@ -482,6 +486,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), opts.reduceOp, comm,
                                        stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (preFnMap.count("ALLREDUCE") > 0) {
+          preFnMap["ALLREDUCE"](comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (postFnMap.count("ALLREDUCE") > 0) {
+          postFnMap["ALLREDUCE"](comms, tensors_cp, tensors);
+        }
       },
       OpType::ALLREDUCE);
 }

@@ -67,10 +67,43 @@ DIPU_API diclResult_t diclCommDestroy(diclComm_t comm) {
   return DICL_SUCCESS;
 }
 
+std::map<HcclDataType, std::string> kHcclDataTypeToStringMap = {
+    {HCCL_DATA_TYPE_UINT8, "at::kByte/at::kBool"},
+    {HCCL_DATA_TYPE_INT8, "at::kChar"},
+    {HCCL_DATA_TYPE_INT16, "at::kShort"},
+    {HCCL_DATA_TYPE_INT32, "at::kInt"},
+    {HCCL_DATA_TYPE_INT64, "at::kLong"},
+    {HCCL_DATA_TYPE_FP16, "at::kHalf"},
+    {HCCL_DATA_TYPE_FP32, "at::kFloat"},
+    {HCCL_DATA_TYPE_FP64, "at::kDouble"},
+    {HCCL_DATA_TYPE_BFP16, "at::kBFloat16"},
+};
+
+std::string getHcclDataTypeSerialString(HcclDataType type) {
+  const auto& iter = kHcclDataTypeToStringMap.find(type);
+  if (iter != kHcclDataTypeToStringMap.end()) {
+    return iter->second;
+  }
+  TORCH_WARN_ONCE("Can not serialize undefined hccl data type.");
+  return "";
+}
+
+void checkSupportedDataTypeOfAllReduce(HcclDataType type) {
+  static std::set<HcclDataType> allReduceSupportedDataTypes = {
+      HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
+      HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32,  HCCL_DATA_TYPE_BFP16,
+      HCCL_DATA_TYPE_INT64};
+  TORCH_CHECK(allReduceSupportedDataTypes.count(type) != 0,
+              "HCCL AllReduce & Reduce: Unsupported data type ",
+              getHcclDataTypeSerialString(type));
+}
+
 DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
                                     size_t count, at::ScalarType dataType,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
+  // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
                            getHcclDataType(dataType), hcclOp[reduceOp], comm,
                            stream));
