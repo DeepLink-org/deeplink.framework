@@ -9,11 +9,6 @@
 
 namespace dipu {
 
-constexpr size_t kMaxTensorDimensions = 5;
-
-using DimVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
-using StrideVector = c10::SmallVector<int64_t, kMaxTensorDimensions>;
-
 // Base Class for inferring the shape, dtype, and memory format of output Tensor
 // based on its inputs, then malloc the output tensor.
 class OpInferrer {
@@ -22,7 +17,7 @@ class OpInferrer {
   virtual ~OpInferrer() = default;
 
   at::ScalarType common_dtype() const { return dtype_; }
-  DimVector target_shape() const { return shape_; }
+  c10::DimVector target_shape() const { return shape_; }
   at::MemoryFormat memory_format() const { return memory_format_; }
 
  protected:
@@ -41,7 +36,7 @@ class OpInferrer {
   at::Tensor malloc_output();
 
   c10::SmallVector<c10::MaybeOwned<at::Tensor>, 4> inputs_;
-  DimVector shape_;
+  c10::DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
   at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
 
@@ -49,11 +44,11 @@ class OpInferrer {
   // common logic for calculation, not inherited by children.
   bool fast_compute_memory_format();
   void compute_perm();
-  std::vector<StrideVector> compute_effective_strides();
+  std::vector<c10::DimVector> compute_effective_strides();
 
   bool all_same_shape_ = true;
-  DimVector perm_;
-  StrideVector strides_;
+  c10::DimVector perm_;
+  c10::DimVector strides_;
 };
 
 class BinaryOpInferrer final : public OpInferrer {

@@ -22,6 +22,7 @@ diopi_wrapper_file_template_content = """// autogened file
 #include <ATen/core/List.h>
 #include <ATen/core/TensorBody.h>
 #include <ATen/native/ReduceOpsUtils.h>
+#include <ATen/native/BinaryOps.h>
 #include <ATen/ops/empty.h>
 #include <ATen/ops/empty_like.h>
 #include <ATen/ops/scalar_tensor.h>

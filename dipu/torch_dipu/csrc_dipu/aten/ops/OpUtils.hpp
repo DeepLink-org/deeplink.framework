@@ -255,31 +255,6 @@ inline bool is_scalar_on_cpu(const at::Tensor& t) {
   return t.unsafeGetTensorImpl()->is_wrapped_number();
 }
 
-inline void alpha_check(const at::ScalarType dtype, const at::Scalar& alpha) {
-  TORCH_CHECK(!alpha.isBoolean() || dtype == at::ScalarType::Bool,
-              "Boolean alpha only supported for Boolean results.");
-  TORCH_CHECK(
-      isFloatingType(dtype) || isComplexType(dtype) || alpha.isIntegral(true),
-      "For integral input tensors, argument alpha must not be a floating point "
-      "number.");
-  TORCH_CHECK(isComplexType(dtype) || !alpha.isComplex(),
-              "For non-complex input tensors, argument alpha must not be a "
-              "complex number.")
-}
-
-// Basic checking for all sub functions.
-inline void sub_check(const at::Tensor& self, const at::Tensor& other) {
-  TORCH_CHECK(
-      self.scalar_type() != c10::kBool || other.scalar_type() != c10::kBool,
-      "Subtraction, the `-` operator, with two bool tensors is not supported. "
-      "Use the `^` or `logical_xor()` operator instead.")
-  TORCH_CHECK(
-      self.scalar_type() != c10::kBool && other.scalar_type() != c10::kBool,
-      "Subtraction, the `-` operator, with a bool tensor is not supported. "
-      "If you are trying to invert a mask, use the `~` or `logical_not()` "
-      "operator instead.");
-}
-
 // coumpute broadcast shape based on two inputs
 // for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
 at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b);

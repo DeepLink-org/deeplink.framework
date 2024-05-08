@@ -95,8 +95,8 @@ bool OpInferrer::fast_compute_memory_format() {
   return false;
 }
 
-std::vector<StrideVector> OpInferrer::compute_effective_strides() {
-  std::vector<StrideVector> strides(ntensors(), StrideVector(ndim(), 0));
+std::vector<c10::DimVector> OpInferrer::compute_effective_strides() {
+  std::vector<c10::DimVector> strides(ntensors(), c10::DimVector(ndim(), 0));
   for (int i = 0; i < ntensors(); ++i) {
     auto& t = tensor(i);
     auto original_shape = t.sizes();
@@ -173,7 +173,7 @@ void OpInferrer::compute_memory_format() {
   compute_perm();
 
   // Calculate strides based on perm_
-  auto strides = StrideVector();
+  auto strides = c10::DimVector();
   int64_t next_stride = 1;
   for (const auto dim : c10::irange(ndim())) {
     strides.push_back(next_stride);

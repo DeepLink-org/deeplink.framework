@@ -40,7 +40,7 @@
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    alpha_check(out.scalar_type(), alpha);
+    at::native::alpha_check(out.scalar_type(), alpha);
     if (is_scalar_on_cpu(other)) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } 
@@ -78,7 +78,7 @@
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    sub_check(self, other);
+    at::native::sub_check(self, other);
     auto out = BinaryOpInferrer().infer_out(self, other);
     return dipu_add_out(self, other, -alpha, out);
 
