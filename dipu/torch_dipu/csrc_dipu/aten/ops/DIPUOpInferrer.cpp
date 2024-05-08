@@ -59,12 +59,12 @@ void OpInferrer::compute_shape() {
   }
 }
 
-void OpInferrer::add_input(const at::Tensor& tensor) {
+void OpInferrerMeta::add_input(const at::Tensor& tensor) {
   TORCH_CHECK(tensor.defined(), "Input tensor is undefined");
   inputs_.push_back(c10::MaybeOwned<at::Tensor>::borrowed(tensor));
 }
 
-at::Tensor OpInferrer::malloc_output() {
+at::Tensor OpInferrerMeta::malloc_output() {
   at::TensorOptions options =
       at::TensorOptions().dtype(dtype_).device(dipu::DIPU_DEVICE_TYPE);
   auto out = native::nodispatch::empty(shape_, options, memory_format_);
@@ -406,7 +406,7 @@ at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
               "torch.cat(): expected a non-empty list of Tensors");
 
   compute_shape(dim);
-  compute_dtype();
+  auto out_dtype = at::native::result_type(tensors);
   compute_memory_format();
   return malloc_output();
 }
