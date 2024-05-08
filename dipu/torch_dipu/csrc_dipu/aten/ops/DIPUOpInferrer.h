@@ -50,7 +50,7 @@ class OpInferrerMeta {
 // directly.
 class OpInferrer : public OpInferrerMeta {
  public:
-  virtual ~OpInferrer() override = default;
+  ~OpInferrer() override = default;
 
  protected:
   OpInferrer() = default;
