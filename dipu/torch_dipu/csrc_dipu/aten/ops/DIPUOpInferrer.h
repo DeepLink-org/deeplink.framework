@@ -26,8 +26,9 @@ class OpInferrer {
   at::MemoryFormat memory_format() const { return memory_format_; }
 
  protected:
-  void add_inputs(const std::vector<at::Tensor>& inputs);
   void add_input(const at::Tensor& tensor);
+
+  const at::Tensor& tensor(int idx) { return *inputs_[idx]; }
 
   size_t ndim() const { return shape_.size(); }
   size_t ntensors() const { return inputs_.size(); }
@@ -39,8 +40,7 @@ class OpInferrer {
   // Allocates the output based on the inferred attributes, use strides_ if set
   at::Tensor malloc_output();
 
-  // TODO(ywt): we may use c10::MaybeOwned to improve efficiency.
-  c10::SmallVector<at::Tensor, 4> inputs_;
+  c10::SmallVector<c10::MaybeOwned<at::Tensor>, 4> inputs_;
   DimVector shape_;
   at::ScalarType dtype_ = at::ScalarType::Undefined;
   at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
