@@ -241,7 +241,9 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
   // key: string of collective type, value: function pointer
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::unordered_map<std::string, PreFnType> preFnMap;
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   static std::unordered_map<std::string, PostFnType> postFnMap;
 
  protected:
