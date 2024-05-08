@@ -28,7 +28,7 @@ class OpInferrer {
  protected:
   void add_input(const at::Tensor& tensor);
 
-  const at::Tensor& tensor(int idx) { return *inputs_[idx]; }
+  const at::Tensor& tensor(size_t idx) { return *inputs_[idx]; }
 
   size_t ndim() const { return shape_.size(); }
   size_t ntensors() const { return inputs_.size(); }

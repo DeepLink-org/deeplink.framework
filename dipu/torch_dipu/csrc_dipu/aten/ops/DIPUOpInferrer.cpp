@@ -82,7 +82,7 @@ bool OpInferrer::fast_compute_memory_format() {
   if (is_non_overlapping_and_dense) {
     // Additional check for matching strides
     const auto& reference_strides = tensor(0).strides();
-    for (int64_t i = 1; i < ntensors(); ++i) {
+    for (const auto i : c10::irange(1, ntensors())) {
       if (!reference_strides.equals(tensor(i).strides())) {
         return false;
       }
