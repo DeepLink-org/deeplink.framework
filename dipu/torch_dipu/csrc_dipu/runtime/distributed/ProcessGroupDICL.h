@@ -2,9 +2,7 @@
 #pragma once
 
 #include <chrono>
-#include <memory>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include <c10/core/Device.h>
@@ -37,21 +35,6 @@ using c10d::Work;
 // non-blocking.
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
-
-class DiclHooks {
- public:
-  virtual ~DiclHooks() = default;
-  virtual void allReducePreFn(std::vector<std::shared_ptr<DICLComm>>&,
-                              std::vector<at::Tensor>&,
-                              std::vector<at::Tensor>&) {
-    return;
-  };
-  virtual void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>&,
-                               std::vector<at::Tensor>&,
-                               std::vector<at::Tensor>&) {
-    return;
-  };
-};
 
 // ProcessGroupDICL implements DICLbindings for c10d.
 //
@@ -196,10 +179,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
-  void setDiclHooks(std::unique_ptr<DiclHooks> diclHooks) {
-    diclHooks_ = std::move(diclHooks);
-  }
-
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;
@@ -325,11 +304,19 @@ class DIPU_API ProcessGroupDICL : public Backend {
   bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
-
-  std::unique_ptr<DiclHooks> diclHooks_;
 };
 
-DIPU_WEAK std::unique_ptr<DiclHooks> createDiclHooks();
+namespace dicl_hook {
+
+DIPU_WEAK void allReducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                              std::vector<at::Tensor>& inputs,
+                              std::vector<at::Tensor>& outputs);
+
+DIPU_WEAK void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                               std::vector<at::Tensor>& inputs,
+                               std::vector<at::Tensor>& outputs);
+
+}  // namespace dicl_hook
 
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const c10::intrusive_ptr<::c10d::Store>& store, int rank, int size,

@@ -485,13 +485,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (diclHooks_.get() != nullptr) {
-          diclHooks_->allReducePreFn(comms, tensors, tensors_cp);
+        if (dicl_hook::allReducePreFn) {
+          dicl_hook::allReducePreFn(comms, tensors, tensors_cp);
         }
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (diclHooks_.get() != nullptr) {
-          diclHooks_->allReducePostFn(comms, tensors_cp, tensors);
+        if (dicl_hook::allReducePostFn) {
+          dicl_hook::allReducePostFn(comms, tensors_cp, tensors);
         }
       },
       OpType::ALLREDUCE);
@@ -763,13 +763,7 @@ c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const std::chrono::milliseconds& timeout) {
   auto options = c10::make_intrusive<ProcessGroupDICL::Options>();
   options->timeout = timeout;
-  if (createDiclHooks()) {
-    auto dicl = c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
-    dicl->setDiclHooks(createDiclHooks());
-    return dicl;
-  } else {
-    return c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
-  }
+  return c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
 }
 
 }  // namespace dipu
