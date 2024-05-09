@@ -43,6 +43,7 @@ using AllReduceFnType =
 
 class AllReduceStrategy {
  public:
+  virtual ~AllReduceStrategy() = default;
   virtual AllReduceFnType getPreFn() { return nullptr; };
   virtual AllReduceFnType getPostFn() { return nullptr; };
 };
