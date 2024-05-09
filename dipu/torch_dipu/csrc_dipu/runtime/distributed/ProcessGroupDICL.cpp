@@ -168,7 +168,6 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
     throw std::runtime_error("Invalid value for environment variable: " +
                              std::string(DICL_BLOCKING_WAIT));
   }
-  allReduceStrategy_ = std::move(createAllReduceStrategy());
 }
 
 ProcessGroupDICL::~ProcessGroupDICL() = default;
@@ -486,15 +485,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        stream.rawstream());
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (allReduceStrategy_ != nullptr &&
-            allReduceStrategy_->getPreFn() != nullptr) {
-          allReduceStrategy_->getPreFn()(comms, tensors, tensors_cp);
+        if (diclHooks_.get() != nullptr) {
+          diclHooks_->allReducePreFn(comms, tensors, tensors_cp);
         }
       },
       [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
-        if (allReduceStrategy_ != nullptr &&
-            allReduceStrategy_->getPostFn() != nullptr) {
-          allReduceStrategy_->getPostFn()(comms, tensors_cp, tensors);
+        if (diclHooks_.get() != nullptr) {
+          diclHooks_->allReducePostFn(comms, tensors_cp, tensors);
         }
       },
       OpType::ALLREDUCE);
@@ -766,7 +763,13 @@ c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const std::chrono::milliseconds& timeout) {
   auto options = c10::make_intrusive<ProcessGroupDICL::Options>();
   options->timeout = timeout;
-  return c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
+  if (createDiclHooks()) {
+    auto dicl = c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
+    dicl->setDiclHooks(createDiclHooks());
+    return dicl;
+  } else {
+    return c10::make_intrusive<ProcessGroupDICL>(store, rank, size);
+  }
 }
 
 }  // namespace dipu

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <c10/core/Device.h>
@@ -37,15 +38,19 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-using AllReduceFnType =
-    std::function<void(std::vector<std::shared_ptr<DICLComm>>&,
-                       std::vector<at::Tensor>&, std::vector<at::Tensor>&)>;
-
-class AllReduceStrategy {
+class DiclHooks {
  public:
-  virtual ~AllReduceStrategy() = default;
-  virtual AllReduceFnType getPreFn() { return nullptr; };
-  virtual AllReduceFnType getPostFn() { return nullptr; };
+  virtual ~DiclHooks() = default;
+  virtual void allReducePreFn(std::vector<std::shared_ptr<DICLComm>>&,
+                              std::vector<at::Tensor>&,
+                              std::vector<at::Tensor>&) {
+    return;
+  };
+  virtual void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>&,
+                               std::vector<at::Tensor>&,
+                               std::vector<at::Tensor>&) {
+    return;
+  };
 };
 
 // ProcessGroupDICL implements DICLbindings for c10d.
@@ -191,6 +196,10 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
+  void setDiclHooks(std::unique_ptr<DiclHooks> diclHooks) {
+    diclHooks_ = std::move(diclHooks);
+  }
+
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;
@@ -317,10 +326,10 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 
-  std::unique_ptr<AllReduceStrategy> allReduceStrategy_;
+  std::unique_ptr<DiclHooks> diclHooks_;
 };
 
-std::unique_ptr<AllReduceStrategy> createAllReduceStrategy();
+DIPU_WEAK std::unique_ptr<DiclHooks> createDiclHooks();
 
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const c10::intrusive_ptr<::c10d::Store>& store, int rank, int size,
