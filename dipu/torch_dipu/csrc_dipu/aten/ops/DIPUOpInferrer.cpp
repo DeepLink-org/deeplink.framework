@@ -406,7 +406,7 @@ at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
               "torch.cat(): expected a non-empty list of Tensors");
 
   compute_shape(dim);
-  auto out_dtype = at::native::result_type(tensors);
+  dtype_ = at::native::result_type(tensors);
   compute_memory_format();
   return malloc_output();
 }
