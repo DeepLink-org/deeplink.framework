@@ -2488,8 +2488,8 @@
     at::Tensor out2;
     at::Tensor out3;
     if(input_g){
-      out0 = nodispatch::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
-      out1 = nodispatch::empty({shape}, input.options().dtype(at::kFloat), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+      out0 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
+      out1 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
     }
     if(weight_g){
       out2 = nodispatch::empty({shape}, input.options().dtype(at::kFloat));
