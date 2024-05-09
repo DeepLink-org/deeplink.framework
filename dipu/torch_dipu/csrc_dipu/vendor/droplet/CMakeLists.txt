@@ -5,10 +5,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(DROPLET_INSTALL "/usr/local/tangrt")
 include(cmake/FindDropletCompiler.cmake)
 
-set(USE_PCCL "ON" CACHE STRING "Used to control whether to auto load and compile PCCL" FORCE)
+set(USE_PCCL "OFF" CACHE STRING "Used to force load and compile PCCL" FORCE)
 
 find_package(PCCL)
-if (USE_PCCL == "ON" && PCCL_FOUND) 
+if (USE_PCCL == "ON" OR PCCL_FOUND) 
     message(STATUS "Use PCCL to implement communicator")
     message(STATUS "PCCL_LIBRARY: " ${PCCL_LIBRARY})
     message(STATUS "PCCL_INCLUDE_DIR: " ${PCCL_INCLUDE_DIR})
