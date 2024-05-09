@@ -107,10 +107,6 @@ class CatOpInferrer final : public OpInferrerMeta {
   void compute_memory_format();
   void compute_shape(int64_t dim);
 
-  static inline bool cat_should_skip_tensor(const at::Tensor& t) {
-    return t.numel() == 0 && t.dim() == 1;
-  }
-
   void check_cat_shape_except_dim(size_t index, size_t index_2,
                                   int64_t dimension);
 };

@@ -42,6 +42,10 @@ at::DimVector compute_broadcast_shape(c10::IntArrayRef a, c10::IntArrayRef b) {
   return result;
 }
 
+inline bool cat_should_skip_tensor(const at::Tensor& t) {
+  return t.numel() == 0 && t.dim() == 1;
+}
+
 }  // namespace native
 
 void OpInferrer::compute_shape() {
@@ -365,7 +369,7 @@ void CatOpInferrer::compute_shape(int64_t dim) {
     auto& t = tensor(i);
     TORCH_CHECK(t.dim() > 0, "zero-dimensional tensor (at position ", i,
                 ") cannot be concatenated");
-    if (!cat_should_skip_tensor(t)) {
+    if (!native::cat_should_skip_tensor(t)) {
       valid = i;
       dim = c10::maybe_wrap_dim(dim, t.dim());
       break;
@@ -386,7 +390,7 @@ void CatOpInferrer::compute_shape(int64_t dim) {
     int64_t size_at_dim = 0;
     for (const auto i : c10::irange(ntensors())) {
       const at::Tensor& t = tensor(i);
-      if (!cat_should_skip_tensor(t)) {
+      if (!native::cat_should_skip_tensor(t)) {
         check_cat_shape_except_dim(valid, i, dim);
         size_at_dim += t.size(dim);
       }
