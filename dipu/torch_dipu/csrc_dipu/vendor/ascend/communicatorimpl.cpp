@@ -122,6 +122,7 @@ DIPU_API diclResult_t diclReduce(const void* sendBuf, void* recvBuf,
                                  size_t count, at::ScalarType dataType,
                                  const ReduceOp& reduceOp, int root,
                                  diclComm_t comm, deviceStream_t stream) {
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclReduce(const_cast<void*>(sendBuf), recvBuf, count,
                         getHcclDataType(dataType), hcclOp[reduceOp], root, comm,
                         stream));

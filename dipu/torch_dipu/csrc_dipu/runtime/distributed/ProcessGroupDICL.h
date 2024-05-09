@@ -316,6 +316,14 @@ DIPU_WEAK void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
                                std::vector<at::Tensor>& inputs,
                                std::vector<at::Tensor>& outputs);
 
+DIPU_WEAK void reducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                           std::vector<at::Tensor>& inputs,
+                           std::vector<at::Tensor>& outputs);
+
+DIPU_WEAK void reducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                            std::vector<at::Tensor>& inputs,
+                            std::vector<at::Tensor>& outputs);
+
 }  // namespace dicl_hook
 
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
