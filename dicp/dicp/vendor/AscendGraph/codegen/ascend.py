@@ -310,9 +310,9 @@ class AscendCodegen(torch.fx.Interpreter):
                 continue
             stride = list(elem.stride())
             stride = [process_sym_name(dim) for dim in stride]
-            out_strides.append(str(stride))
+            out_strides.append('[' + ','.join(map(str, stride)) + ']')
             out_storage_offsets.append(elem.storage_offset())
-        call_body.writeline(f'out_stride = {out_strides}')
+        call_body.writeline(f'''out_stride = [{','.join(out_strides)}]''')
         call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
 
         # In precision debug mode, modified array recording InputArgs integer needed

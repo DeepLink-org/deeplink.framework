@@ -15,7 +15,7 @@ import torch.fx.traceback as fx_traceback
 from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
-from dicp.dynamo_bridge.utils import symint_in_shape, not_all_num_shape, process_sym_name
+from dicp.dynamo_bridge.utils import symint_in_shape, neg_in_shape, not_all_num_shape, process_sym_name
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype
 )
@@ -71,6 +71,18 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
 
+    def preprocess_expression(self, expr):
+        elem_str = process_sym_name(expr)
+        elem_str = elem_str.replace('+', ' + ')
+        elem_str = elem_str.replace('-', ' - ')
+        elem_str = elem_str.replace('*', ' * ')
+        elem_str = elem_str.replace('//', ' // ')
+        elem_str = elem_str.replace('(', ' ( ')
+        elem_str = elem_str.replace(')', ' ) ')
+        elems = elem_str.split(' ')
+        elems = [e for e in elems if e != '']
+        return elems
+
     def process_dynamic_shape(self, shape):
         x_names = []
 
@@ -111,12 +123,25 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 elem_str = elem_str.replace('[', '(')
                 elem_str = elem_str.replace(']', ')')
 
+                # split for sym_in_args candidate
+                idx = -1
+                if elem_str[0] == '(' and elem_str[-1] == ')':
+                    elem_str, idx = elem_str.strip('()').split(',')
+
                 # search & replace
                 replace_proxy = None
                 arg_symint_candidate = [value[0] for value in self.sym_in_args.values()] + list(self.sym_to_inputs.values())
                 for arg_sym in arg_symint_candidate:
                     if elem_str == str(arg_sym):
-                        replace_proxy = arg_sym
+                        # is sym_in_args candidate
+                        if int(idx) > -1:
+                            shape = self.get_proxy(ascend_op.Shape, (arg_sym,))
+                            axis = self.get_const_proxy(0, torch.int32)
+                            indice = self.get_const_proxy(int(idx), torch.int32)
+                            replace_proxy = self.get_proxy(
+                                ascend_op.GatherV2, (shape, indice, axis))
+                        else:
+                            replace_proxy = arg_sym
                         break
                 assert replace_proxy is not None
                 return replace_proxy
@@ -141,25 +166,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 x_names.append(elem)
                 return
 
-            # string form of NodeProxy
-            if isinstance(elem, str) and 'Proxy' in elem:
-                # special case handling '()' in NodeProxy string
-                # '[]' will not mixed with expression calculation priority
-                elem = elem.replace('(', '[')
-                elem = elem.replace(')', ']')
-            elif not isinstance(elem, torch.SymInt):
-                raise RuntimeError("Not num objects only include SymInt or NodeProxy!")
-
             # case for NodeProxy string or SymInt
-            elem_str = process_sym_name(elem)
-            elem_str = elem_str.replace('+', ' + ')
-            elem_str = elem_str.replace('-', ' - ')
-            elem_str = elem_str.replace('*', ' * ')
-            elem_str = elem_str.replace('//', ' // ')
-            elem_str = elem_str.replace('(', ' ( ')
-            elem_str = elem_str.replace(')', ' ) ')
-            elems = elem_str.split(' ')
-            elems = [e for e in elems if e != '']
+            elems = self.preprocess_expression(elem)
 
             # prepare for expression calculation
             if len(elems) > 1:
@@ -258,7 +266,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
             generate_digits_op(dims)
 
         # concat all ops
-        return self.get_proxy(ascend_op.ConcatD, (x_names, 0))
+        pack = self.get_proxy(ascend_op.Pack, (x_names, 0))
+        const_shape = self.get_const_proxy([len(shape)], torch.int32)
+        return self.get_proxy(ascend_op.Reshape, (pack, const_shape))
 
     def get_shape_proxy(self, shape, dtype=torch.int32):
         def symint_to_str(shape):
@@ -267,12 +277,19 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 if isinstance(dim, torch.SymInt):
                     # split expression elements to compare SymInt string
                     dim_str = dim.node.str()
-                    elems = dim_str.strip().split(' ')
+                    elems = self.preprocess_expression(dim_str)
 
                     # replace SymInt in expression using sympy function
                     for elem in elems:
                         if 's' in elem:
-                            dim_str = str(sympy.simplify(dim_str).subs(elem, str(self.sym_to_inputs[elem])))
+                            # cover sym_to_inputs for higher priority to sym_in_args
+                            sym_keys = {**self.sym_to_inputs, **self.sym_in_args}
+                            replace_str = str(sym_keys[elem]).replace(' ', '')
+
+                            # '[]' will not mixed with expression calculation priority
+                            replace_str = replace_str.replace('(', '[')
+                            replace_str = replace_str.replace(')', ']')
+                            dim_str = dim_str.replace(elem, replace_str)
                     result_shape.append(dim_str)
                 else:
                     result_shape.append(dim)
@@ -294,7 +311,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if not isinstance(param, torch.fx.proxy.Proxy) and not isinstance(param, FakeTensor):
             format = "ND" if format is None else format
             if target_shape is None:
-                shape = [len(param)] if isinstance(param, list) else []
+                shape = [len(param)] if isinstance(param, list) and len(param) > 1 else []
             else:
                 shape = target_shape
             param = param if isinstance(param, list) else [param]
@@ -492,7 +509,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         assert dim == -1 or dim >= 0 and dim < len(x_shape)
         offset = [0] * len(x_shape)
         offset[dim] = start
-        # import pdb; pdb.set_trace()
 
         offset = self.get_shape_proxy(offset)
         size = self.get_shape_proxy(y_shape)
@@ -515,8 +531,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.empty)
     def empty(self, size, dtype=torch.int64, layout=torch.strided, device='cpu', memory_format=torch.contiguous_format, pin_memory=False):
-        shape_op = self.get_proxy(
-            ascend_op.Const, (size, torch.int32, [len(size)]))
+        shape_op = self.get_shape_proxy(size)
         return self.get_proxy(ascend_op.Empty, (shape_op, dtype, layout, device, memory_format))
 
     @register_conversion(aten.empty_like.default)
@@ -565,12 +580,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(_operator.add)
     def inadd(self, x, y):
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
         if not isinstance(x, torch.fx.proxy.Proxy):
             assert isinstance(x, int)
             x = self.get_proxy(ascend_op.Const, (x, torch.int32))
         if not isinstance(y, torch.fx.proxy.Proxy):
             assert isinstance(y, int)
             y = self.get_proxy(ascend_op.Const, (y, torch.int32))
+        x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
         return self.get_proxy(ascend_op.AddV2, (x, y))
 
     @register_conversion([aten.view.default, aten._unsafe_view, aten._unsafe_view.default])
@@ -582,12 +599,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             size_tmp = [s for s in size] + [1]
             size = immutable_list(size_tmp)
         numel = result_val.numel()
-        neg = False
-        for i in shape:
-            if not isinstance(i, torch.SymInt):
-                if i == -1:
-                    neg = True
-                    break
+        neg = neg_in_shape(shape)
         if neg:
             prod = 1
             for i in shape:
@@ -609,7 +621,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     raise RuntimeError(
                         "cannot handle with both negative and symint!")
             shape = real_shape
-        elif not_all_num_shape(shape):
+        elif not neg_in_shape(size) and not_all_num_shape(shape):
             shape = size
         shape = self.get_shape_proxy(shape)
         if x.node.meta["val"].dtype == torch.complex64:
@@ -1018,7 +1030,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 return self.masked_fill(x, index, values)
             reshape_shape = index_shape + [1] * \
                 (x_shape_size - index_shape_size)
-            reshape_op = self.get_const_proxy(reshape_shape, torch.int32)
+            reshape_op = self.get_shape_proxy(reshape_shape)
             index = self.get_proxy(ascend_op.Reshape, (index, reshape_op))
             return self.masked_fill(x, index, values)
 
@@ -1313,15 +1325,15 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(_operator.mul)
     def inmul(self, x, y):
-        assert (not isinstance(y, torch.fx.proxy.Proxy))
-        y = self.get_const_proxy(y, torch.int32)
+        if not isinstance(y, torch.fx.proxy.Proxy):
+            y = self.get_const_proxy(y, torch.int32)
         return self.get_proxy(ascend_op.Mul, (x, y))
 
     @register_conversion(torch.ops.aten.sym_size)
     def symsize(self, x, dim):
         dim = [dim] if not isinstance(dim, list) else dim
         shape = self.get_proxy(ascend_op.Shape, (x,))
-        axis = self.get_const_proxy(0, torch.int32, target_shape=[1])
+        axis = self.get_const_proxy(0, torch.int32)
         indices = self.get_const_proxy(dim, torch.int32)
         return self.get_proxy(ascend_op.GatherV2, (shape, indices, axis))
 
@@ -1374,7 +1386,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.cumsum.default)
     def cumsum(self, x, dim, dtype=None):
-        dim_const = self.get_const_proxy(dim, torch.int32, target_shape=[1])
+        dim_const = self.get_const_proxy(dim, torch.int32)
         return self.get_proxy(ascend_op.Cumsum, (x, dim_const))
 
     @register_conversion(torch.ops.aten._log_softmax.default)
@@ -1447,7 +1459,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def embedding(self, weight, indices, padding_idx=-1):
         # TODO! consider situation for padding_idx
         # during training stage
-        axis = self.get_const_proxy(0, torch.int32, target_shape=[1])
+        axis = self.get_const_proxy(0, torch.int32)
         return self.get_proxy(ascend_op.GatherV2, (weight, indices, axis))
 
     @register_conversion(torch.ops.aten.gather)
@@ -1628,9 +1640,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion([torch.ops.aten.ge.Scalar, torch.ops.aten.ge.Tensor])
     def Ge(self, x, y):
+        x_dtype = x.node.meta['val'].dtype
         if not isinstance(y, torch.fx.proxy.Proxy):
-            dtype = x.node.meta['val'].dtype
-            y = self.get_const_proxy(y, dtype)
+            y = self.get_const_proxy(y, x_dtype)
+        else:
+            if not isinstance(y.node.meta['val'], torch.SymInt):
+                y_dtype = y.node.meta['val'].dtype
+            else:
+                y_dtype = torch.int32
+            if x_dtype != y_dtype:
+                y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
     @register_conversion(torch.ops.aten.logical_or.default)
@@ -1689,7 +1708,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         seq_len = x_shape[0]
         dim = x_shape[2]
 
-        cos_sin_shape = self.get_const_proxy([seq_len, 1, dim // 2], torch.int32)
+        cos_sin_shape = self.get_shape_proxy([seq_len, 1, dim // 2])
         cos = self.get_proxy(ascend_op.Reshape, (cos, cos_sin_shape))
         sin = self.get_proxy(ascend_op.Reshape, (sin, cos_sin_shape))
 
@@ -1710,7 +1729,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         q_shape = list(q.node.meta['val'].shape)
         seq_len = q_shape[1]
         shape = [seq_len, seq_len]
-        shape = self.get_proxy(ascend_op.Const, (shape, torch.int32, [len(shape)]))
+        shape = self.get_shape_proxy(shape)
         mask = self.get_proxy(ascend_op.Empty, (shape, torch.bool))
         mask = self.get_proxy(ascend_op.OnesLike, (mask,))
         mask = self.get_proxy(ascend_op.Tril, (mask,))
@@ -1748,8 +1767,20 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.lightllm.copy_with_offset.default)
     def copy_with_offset(self, x, src, start_dim, end_dim):
-        dims = [x for x in range(start_dim, end_dim)]
-        dims = self.get_const_proxy(dims, torch.int32, target_shape=[len(dims), 1])
+        if isinstance(start_dim, int) and isinstance(end_dim, int):
+            dims = [x for x in range(start_dim, end_dim)]
+            dims = self.get_const_proxy(dims, torch.int32)
+        else:
+            step = self.get_const_proxy(1, torch.int32)
+            if isinstance(start_dim, int):
+                start_dim = self.get_const_proxy(start_dim, torch.int32)
+            if isinstance(end_dim, int):
+                end_dim = self.get_const_proxy(end_dim, torch.int32)
+            dims = self.get_proxy(ascend_op.Range, (start_dim, end_dim, step))
+            # dims = self.arange(end_dim, start_dim)
+        dims = self.get_proxy(ascend_op.Unsqueeze, (dims, [-1]))
+        x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float)))
+        src = self.get_proxy(ascend_op.Cast, (src, get_ascend_dtype(torch.float)))
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)

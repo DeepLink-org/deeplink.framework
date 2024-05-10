@@ -21,6 +21,14 @@ def symint_in_shape(shape):
     return False
 
 
+def neg_in_shape(shape):
+    for elem in shape:
+        if isinstance(elem, int):
+            if elem < 0:
+                return True
+    return False
+
+
 def process_sym_name(st):
     # dynamic shape feature
     # return string wrapper in new version
