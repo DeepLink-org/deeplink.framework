@@ -47,7 +47,10 @@ def _test_dipu_fallback():
         _ = x - x
 
     test_fallback(
-        ["add.out", "sub.out"], ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
+        ["add.Tensor", "add.out", "sub.Tensor", "sub.out"],
+        ["diopiAdd", "diopiSub"],
+        fn,
+        ["dipu_fallback"],
     )
 
 
@@ -188,10 +191,10 @@ def _test_dipu_silu_fallback():
         assert torch.allclose(out_dipu.cpu(), out_cpu)
 
     test_fallback(
-        ["silu.out"],
+        ["silu"],
         ["diopiSilu"],
         fn,
-        ["custom fallback to cpu, name=silu_out"],
+        ["custom fallback to cpu, name=silu"],
     )
 
 
