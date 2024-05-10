@@ -67,24 +67,29 @@ DIPU_API diclResult_t diclCommDestroy(diclComm_t comm) {
   return DICL_SUCCESS;
 }
 
-std::map<HcclDataType, std::string> kHcclDataTypeToStringMap = {
-    {HCCL_DATA_TYPE_UINT8, "at::kByte/at::kBool"},
-    {HCCL_DATA_TYPE_INT8, "at::kChar"},
-    {HCCL_DATA_TYPE_INT16, "at::kShort"},
-    {HCCL_DATA_TYPE_INT32, "at::kInt"},
-    {HCCL_DATA_TYPE_INT64, "at::kLong"},
-    {HCCL_DATA_TYPE_FP16, "at::kHalf"},
-    {HCCL_DATA_TYPE_FP32, "at::kFloat"},
-    {HCCL_DATA_TYPE_FP64, "at::kDouble"},
-    {HCCL_DATA_TYPE_BFP16, "at::kBFloat16"},
-};
-
 std::string getHcclDataTypeSerialString(HcclDataType type) {
-  const auto& iter = kHcclDataTypeToStringMap.find(type);
-  if (iter != kHcclDataTypeToStringMap.end()) {
-    return iter->second;
+  switch (type) {
+    case HCCL_DATA_TYPE_UINT8:
+      return "at::kByte/at::kBool";
+    case HCCL_DATA_TYPE_INT8:
+      return "at::kChar";
+    case HCCL_DATA_TYPE_INT16:
+      return "at::kShort";
+    case HCCL_DATA_TYPE_INT32:
+      return "at::kInt";
+    case HCCL_DATA_TYPE_INT64:
+      return "at::kLong";
+    case HCCL_DATA_TYPE_FP16:
+      return "at::kHalf";
+    case HCCL_DATA_TYPE_FP32:
+      return "at::kFloat";
+    case HCCL_DATA_TYPE_FP64:
+      return "at::kDouble";
+    case HCCL_DATA_TYPE_BFP16:
+      return "at::kBFloat16";
+    default:
+      TORCH_WARN_ONCE("Can not serialize undefined hccl data type.");
   }
-  TORCH_WARN_ONCE("Can not serialize undefined hccl data type.");
   return "";
 }
 

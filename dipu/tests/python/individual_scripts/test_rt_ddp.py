@@ -234,22 +234,20 @@ def demo_reduce(rank, world_size, port):
 
     src_dst0 = torch.ones((2, 4)).to(rank)
     for i in range(1, 2):
-        dist.reduce(src_dst0, 0, op=dist.reduce_op.SUM)
+        dist.reduce(src_dst0, 0, op=dist.ReduceOp.SUM)
     if rank == 0:
         assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst0.cpu())
     print(src_dst0)
 
     # bool
     src_dst1 = torch.tensor([True, False, True, False]*2, dtype=torch.bool).reshape((2, 4)).to(rank)
-    for i in range(1, 2):
-        dist.reduce(src_dst1, 0, op=dist.reduce_op.BOR)
+    dist.reduce(src_dst1, 0, op=dist.ReduceOp.MAX)
     if rank == 0:
         assert torch.allclose(torch.tensor([True, False, True, False]*2, dtype=torch.bool).reshape((2, 4)).cuda(), src_dst1)
 
     # byte
     src_dst2 = torch.tensor([1, 2, 3, 4]*2, dtype=torch.uint8).reshape((2, 4)).to(rank)
-    for i in range(1, 2):
-        dist.reduce(src_dst2, 0, op=dist.reduce_op.SUM)
+    dist.reduce(src_dst2, 0, op=dist.ReduceOp.SUM)
     if rank == 0:
         assert torch.allclose(torch.tensor([1, 2, 3, 4]*2, dtype=torch.uint8).reshape((2, 4)).cuda() * world_size, src_dst2)
 
