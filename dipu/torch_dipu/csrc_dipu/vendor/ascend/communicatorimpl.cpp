@@ -94,7 +94,7 @@ std::string getHcclDataTypeSerialString(HcclDataType type) {
 }
 
 void checkSupportedDataTypeOfAllReduce(HcclDataType type) {
-  static std::set<HcclDataType> allReduceSupportedDataTypes = {
+  static const std::unordered_set<HcclDataType> allReduceSupportedDataTypes = {
       HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
       HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32,  HCCL_DATA_TYPE_BFP16,
       HCCL_DATA_TYPE_INT64};
