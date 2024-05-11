@@ -306,6 +306,70 @@ class DIPU_API ProcessGroupDICL : public Backend {
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 };
 
+namespace dicl_hook {
+
+/**
+ * @brief Preprocessing function to be executed before the allReduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no preprocessing will be performed before
+ * the allReduce operation.
+ */
+DIPU_WEAK void allReducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                              std::vector<at::Tensor>& inputs,
+                              std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Postprocessing function to be executed after the allReduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no postprocessing will be performed after
+ * the allReduce operation.
+ */
+DIPU_WEAK void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                               std::vector<at::Tensor>& inputs,
+                               std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Preprocessing function to be executed before the reduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no preprocessing will be performed before
+ * the reduce operation.
+ */
+DIPU_WEAK void reducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                           std::vector<at::Tensor>& inputs,
+                           std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Postprocessing function to be executed after the reduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no postprocessing will be performed after
+ * the reduce operation.
+ */
+DIPU_WEAK void reducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                            std::vector<at::Tensor>& inputs,
+                            std::vector<at::Tensor>& outputs);
+
+}  // namespace dicl_hook
+
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const c10::intrusive_ptr<::c10d::Store>& store, int rank, int size,
     const std::chrono::milliseconds& timeout);

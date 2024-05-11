@@ -471,8 +471,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
@@ -482,6 +483,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), opts.reduceOp, comm,
                                        stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePreFn) {
+          dicl_hook::allReducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePostFn) {
+          dicl_hook::allReducePostFn(comms, tensors_cp, tensors);
+        }
       },
       OpType::ALLREDUCE);
 }
@@ -516,8 +527,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 
   auto tensor = tensors.back();
   int dev_in_group = 0;
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
@@ -528,6 +540,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
             input.data_ptr(), output.data_ptr(),
             static_cast<size_t>(input.numel()), input.scalar_type(),
             opts.reduceOp, static_cast<int>(root), comm, stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePreFn) {
+          dicl_hook::reducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePostFn) {
+          dicl_hook::reducePostFn(comms, tensors_cp, tensors);
+        }
       },
       OpType::REDUCE);
 }
