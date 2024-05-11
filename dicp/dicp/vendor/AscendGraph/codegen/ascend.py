@@ -878,6 +878,14 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def SequenceAt(name, input, index=None):
+        op = OP(name, "SequenceAt")
+        assert index is not None
+        op.set_input("handle", input)
+        op.set_input("index", index)
+        return op.to_node()
+
+    @staticmethod
     def IdentityInp(name, input, dst=None):
         op = OP(name, "Identity")
         op.set_input("x", input)
@@ -1337,6 +1345,15 @@ class AscendOverrides:
         split_op.set_attr_int("split_dim", dim)
         split_op.set_attr_int("num_split", num_split)
         split_op.set_dynamic_output("y", y)
+        return split_op.to_node()
+
+    @staticmethod
+    def SplitToSequence(name, x, dim, split_size, y, from_view_complex):
+        split_op = OP(name, "SplitToSequence")
+        split_op.set_input("x", x)
+        split_op.set_input("split", split_size)
+        split_op.set_attr_int("axis", dim)
+        # split_op.set_dynamic_output("y", y)
         return split_op.to_node()
 
     @staticmethod
