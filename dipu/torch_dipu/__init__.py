@@ -1,6 +1,6 @@
 # Copyright (c) 2023, DeepLink.
 import os
-
+print("test camb ci")
 # os.environ['DIPU_MEM_CHECK'] = '1'
 # os.environ['DIPU_MEM_CHECK_MAX_BLOCK'] = '10000'
 # os.environ['DIPU_MEM_CHECK_LOG_INTERVAL'] = '1000'
