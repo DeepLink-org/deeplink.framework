@@ -1819,8 +1819,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
             kv_start_index = self.get_const_proxy([i * max_len, 0, 0], torch.int32)
             imax_const = self.get_const_proxy(i * max_len, torch.int32)
-            end_proxy = self.get_proxy(ascend_op.Add, (current_len, imax_const))
-            # kv_end_index = self.get_const_proxy([i * max_len + current_len, kvhead, dim], torch.int32)
+            curlen_const = self.get_const_proxy(current_len, torch.int32)
+            end_proxy = self.get_proxy(ascend_op.Add, (curlen_const, imax_const))
             kv_end_index = self.get_shape_proxy([end_proxy, kvhead, dim], torch.int32)
             kv_seq_len = current_len
 
