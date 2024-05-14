@@ -254,7 +254,8 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(
 }
 
 std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getOrCreateDICLComm(
-    const std::string& localCommsKey, const std::vector<at::Device>& devices, int commsRank) {
+    const std::string& localCommsKey, const std::vector<at::Device>& devices,
+    int commsRank) {
   // Sanity check
   if (localCommsKey.empty()) {
     throw std::runtime_error(
@@ -605,14 +606,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
 }
 
 // NOLINTNEXTLINE(google-default-arguments)
-std::string ProcessGroupDICL::getCommName(int device_index) {
+std::string ProcessGroupDICL::getCommName(at::DeviceIndex device_index) {
   auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);
   std::vector<at::Device> devices{device};
-  const auto localCommsKey = getDevieceIds(devices);
+  const auto localCommsKey = getDeviceIds(devices);
   auto diclComms = getOrCreateDICLComm(localCommsKey, devices, this->rank_);
   return diclComms[0]->getName();
 }
-
 
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(

@@ -12,6 +12,8 @@
 
 namespace dipu {
 
+constexpr const int MAX_COMM_NAME_LENGTH = 128;
+
 // wrapper of vendor raw communicator
 class DICLComm {
  private:
@@ -42,9 +44,9 @@ class DICLComm {
   }
 
   std::string getName() {
-    std::vector<char> commName(128);
+    std::vector<char> commName(MAX_COMM_NAME_LENGTH);
     devproxy::diclGetCommName(commName.data(), rawComm_);
-    return std::string(commName.data());
+    return {commName.data()};
   }
 
   // Must not be copyable
