@@ -794,21 +794,8 @@ class SplitToSequence(Operator):
     def __init__(self):
         super().__init__("SplitToSequence")
 
-    def infer_result(self, x, split_dim, split_size, y, from_view_complex=False):
-        assert from_view_complex == True, (
-            self.__class__.__name__
-            + ": currently available only in op view_as_complex!"
-        )
-        x, x_shape, x_dim, x_dtype = get_fake_tensor_meta_val(x)
-        split_dim = (split_dim + x_dim) % x_dim
-        out_shape = list(x_shape)
-        del out_shape[-1]
-        return torch.empty(
-            out_shape,
-            dtype=torch.complex64 if from_view_complex else x_dtype,
-            memory_format=get_memory_format(x),
-        )
-
+    def infer_result(self, x, split_dim, split_size):
+        torch.split(x, split_size, split_dim)
 
 class Slice(Operator):
     def __init__(self):

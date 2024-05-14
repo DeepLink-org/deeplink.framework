@@ -1348,12 +1348,11 @@ class AscendOverrides:
         return split_op.to_node()
 
     @staticmethod
-    def SplitToSequence(name, x, dim, split_size, y, from_view_complex):
+    def SplitToSequence(name, x, dim, split_size):
         split_op = OP(name, "SplitToSequence")
         split_op.set_input("x", x)
         split_op.set_input("split", split_size)
         split_op.set_attr_int("axis", dim)
-        # split_op.set_dynamic_output("y", y)
         return split_op.to_node()
 
     @staticmethod

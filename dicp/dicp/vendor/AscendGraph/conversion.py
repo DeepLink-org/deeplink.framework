@@ -493,9 +493,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dim < 0:
             dim += len(shape)
         assert shape[dim] > 0
-        # num_split = int((shape[dim] + split_size - 1) / split_size)
-        split_size = self.get_const_proxy(split_size, torch.int32)
-        return self.get_proxy(ascend_op.SplitToSequence, (x, dim, split_size, split_size), splitD_kw)
+        split_size = self.get_proxy(ascend_op.Squeeze, (split_size, [0]))
+        return self.get_proxy(ascend_op.SplitToSequence, (x, dim, split_size))
 
     @register_conversion(aten.slice.Tensor)
     def slice(self, x, dim=0, start=None, end=None, step=1):
