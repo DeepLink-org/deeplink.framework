@@ -67,10 +67,48 @@ DIPU_API diclResult_t diclCommDestroy(diclComm_t comm) {
   return DICL_SUCCESS;
 }
 
+std::string getHcclDataTypeSerialString(HcclDataType type) {
+  switch (type) {
+    case HCCL_DATA_TYPE_UINT8:
+      return "at::kByte/at::kBool";
+    case HCCL_DATA_TYPE_INT8:
+      return "at::kChar";
+    case HCCL_DATA_TYPE_INT16:
+      return "at::kShort";
+    case HCCL_DATA_TYPE_INT32:
+      return "at::kInt";
+    case HCCL_DATA_TYPE_INT64:
+      return "at::kLong";
+    case HCCL_DATA_TYPE_FP16:
+      return "at::kHalf";
+    case HCCL_DATA_TYPE_FP32:
+      return "at::kFloat";
+    case HCCL_DATA_TYPE_FP64:
+      return "at::kDouble";
+    case HCCL_DATA_TYPE_BFP16:
+      return "at::kBFloat16";
+    default:
+      TORCH_WARN_ONCE("Can not serialize undefined hccl data type.");
+  }
+  return "";
+}
+
+void checkSupportedDataTypeOfAllReduce(HcclDataType type) {
+  static const std::unordered_set<HcclDataType> allReduceSupportedDataTypes = {
+      HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
+      HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32,  HCCL_DATA_TYPE_BFP16,
+      HCCL_DATA_TYPE_INT64};
+  TORCH_CHECK(allReduceSupportedDataTypes.count(type) != 0,
+              "HCCL AllReduce & Reduce: Unsupported data type ",
+              getHcclDataTypeSerialString(type));
+}
+
 DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
                                     size_t count, at::ScalarType dataType,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
+  // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
                            getHcclDataType(dataType), hcclOp[reduceOp], comm,
                            stream));
@@ -89,6 +127,7 @@ DIPU_API diclResult_t diclReduce(const void* sendBuf, void* recvBuf,
                                  size_t count, at::ScalarType dataType,
                                  const ReduceOp& reduceOp, int root,
                                  diclComm_t comm, deviceStream_t stream) {
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclReduce(const_cast<void*>(sendBuf), recvBuf, count,
                         getHcclDataType(dataType), hcclOp[reduceOp], root, comm,
                         stream));

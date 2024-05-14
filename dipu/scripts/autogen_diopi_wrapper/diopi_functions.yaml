@@ -33,17 +33,18 @@
   custom_code_at_the_beginning: |
     TORCH_CHECK(!( (c10::isFloatingType(other.scalar_type())) && (!c10::isFloatingType(self.scalar_type())) ), __FUNCTION__, ":", __FILE__, ":", __LINE__,
         " result type Float can't be cast to the desired output type Int");
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_add__scalar(self, other.item(), alpha);
     }
   interface: diopiAddInp(ctx, self, other, alpha)
 
 - schema: "aten::add.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    at::native::alpha_check(out.scalar_type(), alpha);
+    if (is_scalar_on_cpu(other)) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
     } 
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
@@ -52,30 +53,34 @@
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
+- schema: "add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = BinaryOpInferrer().infer_out(self, other);
+    return dipu_add_out(self, other, alpha, out);
+
 - schema: "aten::sub.Scalar_out(Tensor self, Scalar other, Scalar alpha=1, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiSubScalar(ctx, out, self, other, alpha)
 
 - schema: "aten::sub.out(Tensor self, Tensor other, *, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
+  dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_sub_scalar_out(self, other.item(), alpha, out);
-    }
-    if (self.dim() == 0 && self.is_cpu()) {
-        at::Tensor selfTensor = nodispatch::empty_like(other);
-        dipu_fill__scalar(selfTensor, self.item());
-        return dipu_sub_out(selfTensor, other, alpha, out);
-    }
-  interface: diopiSub(ctx, out, self, other, alpha)
+    return dipu_add_out(self, other, -alpha, out);
 
 - schema: "sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)"
   interface: diopiSubInpScalar(ctx, self, other, alpha)
 
 - schema: "sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)"
+  dummy_call_diopi: True
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
-        return dipu_sub__scalar(self, other.item(), alpha);
-    }
-  interface: diopiSubInp(ctx, self, other, alpha)
+    return dipu_add__tensor(self, other, -alpha);
+
+- schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    at::native::sub_check(self, other);
+    auto out = BinaryOpInferrer().infer_out(self, other);
+    return dipu_add_out(self, other, -alpha, out);
 
 - schema: "div.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: |
@@ -90,24 +95,29 @@
 
 - schema: "div_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div__scalar(self, other.item());
     }
   interface: diopiDivInp(ctx, self, other, RoundModeNone)
 
 - schema: "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
-        // todo:(wentao) temp solution, need using a type promotion strategy
+    if (is_scalar_on_cpu(self)) {
         at::Tensor selfD = nodispatch::empty_like(other);
         dipu_fill__scalar(selfD, self.item());
         return dipu_div_out(selfD, other, out);
     }
     const auto mode = toDiopiRoundMode("none");
   interface: diopiDiv(ctx, out, self, other, mode)
+
+- schema: "div.Tensor(Tensor self, Tensor other) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = BinaryFloatOpInferrer().infer_out(self, other);
+    return dipu_div_out(self, other, out);
 
 - schema: "aten::div.Scalar_mode_out(Tensor self, Scalar other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -116,11 +126,11 @@
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     }
     at::Tensor selfTmp;
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         selfTmp = nodispatch::empty_like(other);
         dipu_fill__scalar(selfTmp, self.item());
     } else {
@@ -129,6 +139,12 @@
     auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(selfTmp);
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
   interface: diopiDiv(ctx, out, self_tmp_handle, other, mode)
+
+- schema: "div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = BinaryFloatOpInferrer().infer_out(self, other);
+    return dipu_div_out_mode(self, other, rounding_mode, out);
 
 - schema: "mul.Scalar(Tensor self, Scalar other) -> Tensor"
   custom_code_at_the_beginning: auto out = nodispatch::empty_like(self);
@@ -142,20 +158,28 @@
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_mul__scalar(self, other.item());
     }
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
+    // if (is_scalar_on_cpu(other)) {
+    // Pytorch 2.0 has a bug, causing for_each mul passing a cpu scalar tensor. Fixed in PyTorch 2.1
     if (other.dim() == 0 && other.is_cpu()) {
         return dipu_mul_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_mul_scalar_out(other, self.item(), out);
     }
   interface: diopiMul(ctx, out, self, other)
+
+- schema: "mul.Tensor(Tensor self, Tensor other) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = BinaryOpInferrer().infer_out(self, other);
+    return dipu_mul_out(self, other, out);
 
 - schema: "logical_and.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
@@ -340,13 +364,19 @@
 
 - schema: "eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_eq_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_eq_scalar_out(other, self.item(), out);
     }
   interface: diopiEq(ctx, out, self, other)
+
+- schema: "eq.Tensor(Tensor self, Tensor other) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = LogicOpInferrer().infer_out(self, other);
+    return dipu_eq_tensor_out(self, other, out);
 
 - schema: "eq_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)"
   interface: diopiEqInpScalar(ctx, self, other)
@@ -495,25 +525,6 @@
   autocompare: disable
   interface: diopiRandperm(ctx, out, n, generator)
 
-- schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
-  device: [cuda, ascend]
-  custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
-    at::Tensor out;
-    if (dtype) {
-      out = nodispatch::empty(output_shape, self.options().dtype(dtype));
-    } else {
-      if (c10::isFloatingType(self.scalar_type())) {
-        out = nodispatch::empty(output_shape, self.options());
-      } else {
-        out = nodispatch::empty(output_shape, self.options().dtype(at::kLong));
-      }
-    }
-    
-    ::diopiConstTensorHandle_t self_diopi = dipu::diopi_helper::toDiopiTensorHandle(self);
-    ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiSum(ctx, out, self_diopi, diopi_size)
-
 - schema: "aten::sum.IntList_out(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
@@ -524,6 +535,14 @@
     }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiSum(ctx, out, self_dtype_diopi, diopi_size)
+
+- schema: "aten::sum.dim_IntList(Tensor self, int[1]? dim, bool keepdim=False, * ScalarType? dtype=None) -> Tensor"
+  device: [cuda, ascend]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = ReduceOpInferrer().infer_out(self, dim, keepdim, dtype);
+    return dipu_sum_intlist_out(self, dim, keepdim, dtype, out);
+  interface: diopiSum(ctx, out, dtype, dim)
 
 - schema: "addmm.out(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1, Scalar alpha=1, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
@@ -730,6 +749,11 @@
 - schema: "sqrt_(Tensor(a!) self) -> Tensor(a!)"
   interface: diopiSqrtInp(ctx, self)
 
+- schema: "sqrt(Tensor self) -> Tensor"
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiSqrt(ctx, out, self)
+
 - schema: "all.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)"
   interface: diopiAll(ctx, out, self, &dim)
 
@@ -762,6 +786,13 @@
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiMean(ctx, out, self_dtype_diopi, diopi_size);
+
+- schema: "mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = ReduceOpInferrer().infer_out(self, dim, keepdim, dtype);
+    return dipu_mean_out(self, dim, keepdim, dtype, out);
+  interface: diopiMean(ctx, out, dtype, dim);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20000",]
@@ -1094,6 +1125,12 @@
   custom_fallback: True
   interface: diopiRsqrt(ctx, out, self)
 
+- schema: "rsqrt(Tensor self) -> Tensor"
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiRsqrt(ctx, out, self)
+
 - schema: "uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)"
   autocompare: disable
   interface: diopiUniformInp(ctx, self, from, to, generator)
@@ -1207,12 +1244,23 @@
 - schema: pow.Tensor_Tensor_out(Tensor self, Tensor exponent, *, Tensor(a!) out) -> Tensor(a!)
   interface: diopiPowTensor(ctx, out, self, exponent);
 
-# - schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
-#   custom_code_at_the_beginning: |
-#     auto out = nodispatch::empty(self.sizes(), self.options());
-#   interface: diopiPow(ctx, out, self, exponent);
+- schema: pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor
+  custom_code_at_the_beginning: |
+    auto out = BinaryOpInferrer().infer_out(self, exponent);
+  interface: diopiPowTensor(ctx, out, self, exponent);
 
 - schema: pow.Tensor_Scalar_out(Tensor self, Scalar exponent, *, Tensor(a!) out) -> Tensor(a!)
+  interface: diopiPow(ctx, out, self, exponent);
+
+- schema: "pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor"
+  custom_code_at_the_beginning: |
+    // Numpy compatibility check:
+    TORCH_CHECK(!(isIntegralType(self.scalar_type(), true) &&
+                exponent.isIntegral(true) && exponent.toLong() < 0),
+                "Integers to negative integer powers are not allowed.");
+    // same logic with pytorch, aten/src/ATen/native/Pow.cpp 
+    auto common_dtype = at::native::result_type(self, exponent);
+    auto out = UnaryOpInferrer().infer_out(self.to(common_dtype));
   interface: diopiPow(ctx, out, self, exponent);
 
 - schema: pow_.Tensor(Tensor(a!) self, Tensor exponent) -> Tensor(a!)
@@ -1308,6 +1356,12 @@
         return dipu::diopi_helper::toDiopiTensorHandle(tensor);
     });
   interface: diopiCat(ctx, out, diopiTensorHandles.data(), static_cast<int64_t>(tensors.size()), dim);
+
+- schema: "aten::cat(const at::ITensorListRef & tensors, int dim=0) -> Tensor"
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto out = CatOpInferrer().infer_out(tensors, dim);
+    return dipu_cat_out(tensors, dim, out);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1640,6 +1694,12 @@
   custom_fallback: True
   interface: diopiSilu(ctx, out, self)
 
+- schema: "silu(Tensor self) -> Tensor"
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    auto out = UnaryOpInferrer().infer_out(self);
+  interface: diopiSilu(ctx, out, self)
+
 - schema: "silu_backward.grad_input(Tensor grad_output, Tensor self, *, Tensor(a!) grad_input) -> Tensor(a!)"
   interface: diopiSiluBackward(ctx, grad_input, grad_output, self)
 
@@ -1701,6 +1761,19 @@
 - schema: "mm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)"
   custom_fallback: True
   interface: diopiMm(ctx, out, self, mat2)
+
+- schema: "matmul_backward(Tensor grad_out, Tensor input, Tensor other, bool[2] mask) -> (Tensor grad_input, Tensor grad_other)"
+  device: [all, -droplet]
+  custom_fallback: True
+  custom_code_at_the_beginning: |
+    at::Tensor grad_input, grad_other;
+    if (mask[0]) {
+      grad_input = nodispatch::empty_like(input);
+    }
+    if (mask[1]) {
+      grad_other = nodispatch::empty_like(other);
+    }
+  interface: diopiMatmulBackward(ctx, grad_input, grad_other, grad_out, input, other)
 
 - schema: "matmul(Tensor self, Tensor other) -> Tensor"
   device: [droplet]
