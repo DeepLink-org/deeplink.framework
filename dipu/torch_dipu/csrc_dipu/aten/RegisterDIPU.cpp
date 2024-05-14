@@ -329,14 +329,14 @@ at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self,
 
 bool wrapper_DIPU_is_pinned(const at::Tensor& self,
                             c10::optional<at::Device> device) {
-  dipu::DIPUGuard grard(c10::Device(dipu::DIPU_DEVICE_TYPE));
+  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::is_pinned(self, device);
 }
 
 at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self,
                                     c10::optional<at::Device> device) {
-  dipu::DIPUGuard grard(c10::Device(dipu::DIPU_DEVICE_TYPE));
+  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::_pin_memory(self, device);
 }

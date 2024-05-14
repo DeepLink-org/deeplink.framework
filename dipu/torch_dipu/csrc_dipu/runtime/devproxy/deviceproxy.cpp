@@ -29,7 +29,10 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   return {};
 }
 
+namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 thread_local deviceId_t kCurrentDevice = -1;
+}  // namespace
 
 deviceId_t current_device() {
   if (kCurrentDevice < 0) {
