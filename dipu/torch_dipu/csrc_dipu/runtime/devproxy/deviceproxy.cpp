@@ -45,6 +45,9 @@ deviceId_t current_device() {
 void setDevice(deviceId_t devId) {
   if (devId != kCurrentDevice) {
     kCurrentDevice = devId;
+    if (kCurrentDevice < 0) {
+      kCurrentDevice = 0;
+    }
     return devapis::setDevice(kCurrentDevice);
   }
 }
