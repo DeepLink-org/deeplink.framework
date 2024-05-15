@@ -1,7 +1,10 @@
 // Copyright (c) 2023, DeepLink.
 #include "deviceproxy.h"
 
+#include <c10/util/Exception.h>
+
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/device/deviceapis.h"
 
 namespace dipu {
 namespace devproxy {
@@ -32,7 +35,16 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
 }
 
 // set current device given device according to id
-void setDevice(deviceId_t devId) { return devapis::setDevice(devId); }
+void setDevice(deviceId_t devId) {
+  if (devId < 0) {
+    devId = devapis::current_device();
+  }
+  static int deviceCount = getDeviceCount();
+  TORCH_CHECK(devId < deviceCount,
+              "invalid device id: ", static_cast<int>(devId),
+              " , device count:", deviceCount)
+  devapis::setDevice(devId);
+}
 
 void resetDevice(deviceId_t devId) { return devapis::resetDevice(devId); }
 

@@ -64,6 +64,8 @@ class TestCopy(TestCase):
         self.assertEqual(dst1.cpu(), src.cpu())
 
     def test_d2d_peer_copy_(self):
+        if torch.cuda.device_count() < 2:
+            return
         dst = torch.rand((6, 4), device="cuda:0")
         src = torch.rand((6, 4), device="cuda:1")
         dst.copy_(src)
@@ -79,8 +81,9 @@ class TestCopy(TestCase):
         self.assertEqual(src.device.index, 0)
 
     def test_d2d_copy_(self):
-        dst = torch.rand((6, 4), device="cuda:1")
-        src = torch.rand((6, 4), device="cuda:1")
+        index = torch.cuda.device_count() - 1
+        dst = torch.rand((6, 4), device="cuda:" + str(index))
+        src = torch.rand((6, 4), device="cuda:" + str(index))
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
 
