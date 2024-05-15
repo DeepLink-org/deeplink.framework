@@ -77,13 +77,19 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
 template <class T, at::DeviceType device_type, int algorithm>
 class AsyncResourceMultiStreamPoolImpl : public AsyncResourcePool<T> {
  private:
-  struct Resource {
+  struct Resource final {
     const T t;
     int event_count;
     const std::deque<DIPUEvent> events;
 
     Resource(const T& t, int event_count, std::deque<DIPUEvent>& events)
         : t(t), event_count(event_count), events(std::move(events)) {}
+
+    ~Resource() = default;
+    Resource(const Resource&) = delete;
+    Resource& operator=(const Resource&) = delete;
+    Resource(Resource&&) = delete;
+    Resource& operator=(Resource&&) = delete;
   };
   ska::flat_hash_map<c10::StreamId,
                      std::queue<std::pair<std::shared_ptr<Resource>, int>>>
