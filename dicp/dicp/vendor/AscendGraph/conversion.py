@@ -1783,6 +1783,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.lightllm.copy_with_offset.default)
     def copy_with_offset(self, x, src, start_dim, end_dim):
+        # dynamic feature for lightllm llama 7B
+        if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0:
+            dims = [x for x in range(start_dim, end_dim)]
+            dims = self.get_const_proxy(dims, torch.int32, target_shape=[len(dims), 1])
+            return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
+
         if isinstance(start_dim, int) and isinstance(end_dim, int):
             dims = [x for x in range(start_dim, end_dim)]
             dims = self.get_const_proxy(dims, torch.int32)
@@ -1793,7 +1799,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
             if isinstance(end_dim, int):
                 end_dim = self.get_const_proxy(end_dim, torch.int32)
             dims = self.get_proxy(ascend_op.Range, (start_dim, end_dim, step))
-            # dims = self.arange(end_dim, start_dim)
         dims = self.get_proxy(ascend_op.Unsqueeze, (dims, [-1]))
         x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float)))
         src = self.get_proxy(ascend_op.Cast, (src, get_ascend_dtype(torch.float)))
