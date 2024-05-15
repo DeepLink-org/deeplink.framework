@@ -21,7 +21,17 @@ void finalizeVendor() {
   }
 }
 
-deviceId_t current_device() { return devapis::current_device(); }
+namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+thread_local deviceId_t kCurrentDevice = -1;
+}  // namespace
+
+deviceId_t current_device() {
+  if (kCurrentDevice < 0) {
+    setDevice(0);
+  }
+  return kCurrentDevice;
+}
 
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return devapis::getDeviceProperties(device_index);
@@ -36,14 +46,17 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
 
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
-  if (devId < 0) {
-    devId = devapis::current_device();
-  }
   static int deviceCount = getDeviceCount();
   TORCH_CHECK(devId < deviceCount,
               "invalid device id: ", static_cast<int>(devId),
               " , device count:", deviceCount)
-  devapis::setDevice(devId);
+  if (devId < 0) {
+    devId = devapis::current_device();
+  }
+  if (kCurrentDevice != devId) {
+    devapis::setDevice(devId);
+    kCurrentDevice = devId;
+  }
 }
 
 void resetDevice(deviceId_t devId) { return devapis::resetDevice(devId); }
