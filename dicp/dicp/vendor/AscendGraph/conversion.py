@@ -410,9 +410,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             y = self.get_const_proxy(y, out_dtype)
         else:
             y = self.mul(y, alpha) if alpha != 1 else y
-            # x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
-        x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(out_dtype)))
-        y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(out_dtype)))
+            x, y = self.promote_dtype(x, y, target_dtype=out_dtype)
         return self.get_proxy(ascend_op.AddV2, (x, y), {})
 
     @register_conversion(torch.ops.aten.add.Scalar)
@@ -1348,14 +1346,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.mm.default)
     def mm(self, x, y):
+        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+
         # TODO! MatMul not support fp32 input
         # for higher precision in some cases
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             x = self.get_proxy(ascend_op.Unsqueeze, (x, [0]))
             y = self.get_proxy(ascend_op.Unsqueeze, (y, [0]))
-            mm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
-            return self.get_proxy(ascend_op.Squeeze, (mm, [0]))
-        out_dtype = fx_traceback.get_current_meta()['val'].dtype
+            bmm = self.get_proxy(ascend_op.BatchMatMul, (x, y, False, False))
+            cast = self.get_proxy(ascend_op.Cast, (bmm, get_ascend_dtype(out_dtype)))
+            return self.get_proxy(ascend_op.Squeeze, (cast, [0]))
+
         trans_x = False
         trans_y = False
         if isinstance(x.node.target, ascend_op.Permute) and x.node.args[1] == [1, 0]:
@@ -1783,25 +1784,23 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.lightllm.copy_with_offset.default)
     def copy_with_offset(self, x, src, start_dim, end_dim):
-        # dynamic feature for lightllm llama 7B
-        if len(self.sym_in_args) == 0 and len(self.sym_to_inputs) == 0:
+        if isinstance(start_dim, int) and isinstance(end_dim, int):
             dims = [x for x in range(start_dim, end_dim)]
             dims = self.get_const_proxy(dims, torch.int32, target_shape=[len(dims), 1])
             return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
-        if isinstance(start_dim, int) and isinstance(end_dim, int):
-            dims = [x for x in range(start_dim, end_dim)]
-            dims = self.get_const_proxy(dims, torch.int32)
-        else:
-            step = self.get_const_proxy(1, torch.int32)
-            if isinstance(start_dim, int):
-                start_dim = self.get_const_proxy(start_dim, torch.int32)
-            if isinstance(end_dim, int):
-                end_dim = self.get_const_proxy(end_dim, torch.int32)
-            dims = self.get_proxy(ascend_op.Range, (start_dim, end_dim, step))
+        step = self.get_const_proxy(1, torch.int32)
+        if isinstance(start_dim, int):
+            start_dim = self.get_const_proxy(start_dim, torch.int32)
+        if isinstance(end_dim, int):
+            end_dim = self.get_const_proxy(end_dim, torch.int32)
+        dims = self.get_proxy(ascend_op.Range, (start_dim, end_dim, step))
         dims = self.get_proxy(ascend_op.Unsqueeze, (dims, [-1]))
-        x = self.get_proxy(ascend_op.Cast, (x, get_ascend_dtype(torch.float)))
-        src = self.get_proxy(ascend_op.Cast, (src, get_ascend_dtype(torch.float)))
+
+        x_dtype = x.node.meta['val'].dtype
+        src_dtype = src.node.meta['val'].dtype
+        if x_dtype != src_dtype:
+            src = self.get_proxy(ascend_op.Cast, (src, get_ascend_dtype(src_dtype)))
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
