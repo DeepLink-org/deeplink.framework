@@ -18,6 +18,8 @@ void finalizeVendor() {
   }
 }
 
+deviceId_t current_device() { return devapis::current_device(); }
+
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return devapis::getDeviceProperties(device_index);
 }
@@ -29,28 +31,8 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   return {};
 }
 
-namespace {
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-thread_local deviceId_t kCurrentDevice = -1;
-}  // namespace
-
-deviceId_t current_device() {
-  if (kCurrentDevice < 0) {
-    kCurrentDevice = devapis::current_device();
-  }
-  return kCurrentDevice;
-}
-
 // set current device given device according to id
-void setDevice(deviceId_t devId) {
-  if (devId != kCurrentDevice) {
-    kCurrentDevice = devId;
-    if (kCurrentDevice < 0) {
-      kCurrentDevice = 0;
-    }
-    return devapis::setDevice(kCurrentDevice);
-  }
-}
+void setDevice(deviceId_t devId) { return devapis::setDevice(devId); }
 
 void resetDevice(deviceId_t devId) { return devapis::resetDevice(devId); }
 
