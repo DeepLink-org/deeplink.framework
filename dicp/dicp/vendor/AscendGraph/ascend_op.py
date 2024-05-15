@@ -217,6 +217,14 @@ class Rsqrt(Operator):
         return common_unary_op_infer(x)
 
 
+class Triu(Operator):
+    def __init__(self):
+        super().__init__("Triu")
+
+    def infer_result(self, x, diag):
+        return common_unary_op_infer(x)
+
+
 class Sqrt(Operator):
     def __init__(self):
         super().__init__("Sqrt")

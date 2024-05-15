@@ -466,6 +466,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         cond_op = self.get_proxy(ascend_op.Less, (x, zero_op))
         return self.get_proxy(ascend_op.Select, (cond_op, nan_op, rsqrt_op))
 
+    @register_conversion(aten.triu)
+    def triu(self, x, diag):
+        return self.get_proxy(ascend_op.Triu, (x, diag))
+
     @register_conversion(_operator.ge)
     def inge(self, x, y):
         if not isinstance(y, torch.fx.proxy.Proxy):
@@ -493,8 +497,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dim < 0:
             dim += len(shape)
         assert shape[dim] > 0
-        split_size = self.get_proxy(ascend_op.Squeeze, (split_size, [0]))
-        return self.get_proxy(ascend_op.SplitToSequence, (x, dim, split_size))
+        # dynamic feature for lightllm llama 7B
+        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
+            split_size = self.get_proxy(ascend_op.Squeeze, (split_size, [0]))
+            return self.get_proxy(ascend_op.SplitToSequence, (x, dim, split_size))
+
+        num_split = int((shape[dim] + split_size - 1) / split_size)
+        return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
     @register_conversion(aten.slice.Tensor)
     def slice(self, x, dim=0, start=None, end=None, step=1):

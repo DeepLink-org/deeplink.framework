@@ -790,6 +790,13 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def Triu(name, x, diag):
+        op = OP(name, "Triu")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diag)
+        return op.to_node()
+
+    @staticmethod
     def Conv2D(name, input, weight, stride, padding,
                dilation, groups, format, bias):
         op = OP(name, "Conv2D")
