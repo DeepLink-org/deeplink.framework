@@ -249,7 +249,7 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
     static allocator_details::RawAllocator<at::DeviceType::device_type>::type  \
         raw_allocator;                                                         \
     using AsyncMemPool =                                                       \
-        AsyncResourcePoolImpl<std::tuple<void*, size_t>,                       \
+        AsyncResourceMultiStreamPoolImpl<std::tuple<void*, size_t>,            \
                               at::DeviceType::device_type, priority>;          \
     static const std::function<c10::Allocator*(int)> allocator_get_fn =        \
         std::bind(                                                             \
