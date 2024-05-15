@@ -1,8 +1,7 @@
 import os
 import sys
 
-if os.getenv("PYTORCH_DIR", default=None):
-    sys.path.append(os.getenv("PYTORCH_DIR", default=None))
+sys.path.append(os.getenv("PYTORCH_DIR", default=""))
 import torch
 import builtins
 from pathlib import Path
