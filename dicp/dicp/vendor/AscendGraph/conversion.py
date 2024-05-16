@@ -483,7 +483,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # TODO(tangzhiyi): miss step parameter
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
-        # y_shape = fx_traceback.get_current_meta()['val'].shape
         dim = int(dim)
         if not isinstance(start, torch.fx.proxy.Proxy):
             start = int(start) if start is not None else 0
@@ -1779,22 +1778,17 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
-    def flash_attention_inference(self, q, all_k, all_v, current_lens, max_len):
+    def flash_attention_inference(self, q, all_k, all_v, current_lens, max_len, kvhead=None, head=None, dim=None):
         q_shape = list(q.node.meta['val'].shape)
-        batch, head, dim = q_shape[0], q_shape[1], q_shape[2]
-
-        # head_num not change for common cases
-        if isinstance(head, torch.SymInt):
-            head = head.node.hint
-        if isinstance(dim, torch.SymInt):
-            dim = dim.node.hint
+        batch = q_shape[0]
+        if head is None:
+            head = q_shape[1]
+        if dim is None:
+            dim = q_shape[2]
 
         k_shape = list(all_k.node.meta['val'].shape)
-        kvhead = k_shape[1]
-
-        # the same for kvhead
-        if isinstance(kvhead, torch.SymInt):
-            kvhead = kvhead.node.hint
+        if kvhead is None:
+            kvhead = k_shape[1]
 
         res = []
         compute_batch = 1
