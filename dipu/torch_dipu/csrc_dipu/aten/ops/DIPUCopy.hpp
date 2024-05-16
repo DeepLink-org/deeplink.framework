@@ -160,9 +160,10 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
 
   if (!is_same_device) {
     c10::DeviceGuard dst_guard(dst_device);
+    auto dstCurrentStream = dipu::getCurrentDIPUStream(dst_device.index());
     DIPUEvent dstEvent;
-    dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
-    dstEvent.synchronize();
+    dstEvent.record(dstCurrentStream);
+    dstEvent.wait(dstCurrentStream);
   }
   dipu::devproxy::memCopyD2DAsync(copy_stream.rawstream(), nbytes,
                                   dst.device().index(), dst.data_ptr(),
@@ -170,7 +171,7 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
   if (!is_same_device) {
     DIPUEvent srcEvent;
     srcEvent.record(copy_stream);
-    srcEvent.synchronize();
+    srcEvent.wait(copy_stream);
   }
 }
 

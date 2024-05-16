@@ -29,9 +29,6 @@ namespace devapis {
 using AscendDeviceId = int32_t;
 
 namespace {
-constexpr AscendDeviceId kDeviceIdUninit = -1;
-std::atomic<AscendDeviceId> kDeviceIdDefault = 0;
-thread_local AscendDeviceId kCurrentDevice = kDeviceIdUninit;
 
 const bool forceFallbackP2PCopy =
     get_env_or_default("DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", false);
@@ -102,24 +99,14 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (kCurrentDevice == kDeviceIdUninit) {
-    setDevice(kDeviceIdDefault);
-    return static_cast<deviceId_t>(kDeviceIdDefault);
-  }
-  return static_cast<deviceId_t>(kCurrentDevice);
+  int32_t deviceId = 0;
+  DIPU_CALLACLRT(aclrtGetDevice(&deviceId));
+  return static_cast<deviceId_t>(deviceId);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t device_id) {
-  if (device_id != kCurrentDevice || kCurrentDevice < 0) {
-    kCurrentDevice = device_id;
-    if (kCurrentDevice < 0) {
-      kCurrentDevice = kDeviceIdDefault;
-    } else {
-      kDeviceIdDefault = kCurrentDevice;
-    }
-    DIPU_CALLACLRT(aclrtSetDevice(device_id));
-  }
+  DIPU_CALLACLRT(aclrtSetDevice(device_id));
 }
 
 DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
@@ -205,8 +192,9 @@ void memCopyD2DFallback(size_t nbytes, deviceId_t dstDevId, void* dst,
   DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
   void* hostBuffer = nullptr;
   mallocHost(&hostBuffer, nbytes);
-  std::shared_ptr<void> hostBufferUnique(hostBuffer,
-                                         freeHost);  // for exception safety
+  std::unique_ptr<void, void (*)(void*)> hostBufferUnique(
+      hostBuffer,
+      freeHost);  // for exception safety
   DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
   memCopyD2H(nbytes, hostBuffer, src);
   DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
