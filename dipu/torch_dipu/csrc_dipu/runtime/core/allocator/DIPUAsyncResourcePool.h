@@ -74,8 +74,9 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
   }
 };
 
-template <class T, at::DeviceType device_type, int algorithm>
-class AsyncResourceMultiStreamPoolImpl : public AsyncResourcePool<T> {
+// This implementation provides a separate queue for each stream
+template <class T, at::DeviceType device_type>
+class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
  private:
   struct Resource final {
     const T t;

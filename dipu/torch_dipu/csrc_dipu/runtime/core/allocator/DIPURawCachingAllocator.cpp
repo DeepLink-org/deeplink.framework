@@ -40,8 +40,8 @@ class RawCachingAllocator : public CacheAllocator {
     size_t nbytes = getAllocateSize(size);
     empty_cache();
     DIPU_DEBUG_ALLOCATOR(4, "RawCachingAllocator: malloc "
-                                << nbytes << " nbytes"
-                                << ", requires:" << size << " bytes");
+                                << nbytes << " nbytes" << ", requires:" << size
+                                << " bytes");
     auto ptr = raw_allocator()->raw_allocate(nbytes);
     set_memory_reserved(memory_reserved() + nbytes);
     set_memory_allocated(memory_allocated() + nbytes);
@@ -77,8 +77,8 @@ static void deleteRawCachingAllocatorContext(void* ptr) {
 }
 // TODO(allocator) - Refactor it!
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
-DIPU_REGISTER_ALLOCATOR(RAW, DIPU_DEVICE_TYPE_MACRO, RawCachingAllocator, 0);
-DIPU_REGISTER_ALLOCATOR(RAW, CPU, RawCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(RAW, DIPU_DEVICE_TYPE_MACRO, RawCachingAllocator, 1, 0);
+DIPU_REGISTER_ALLOCATOR(RAW, CPU, RawCachingAllocator, 1, 0);
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu

@@ -244,18 +244,20 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
 }
 #undef DIPU_ALLOCATOR_DISPATCH_DEVICE_ID
 
-#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority) \
-  namespace name##device_type {                                                \
-    static allocator_details::RawAllocator<at::DeviceType::device_type>::type  \
-        raw_allocator;                                                         \
-    using AsyncMemPool = AsyncResourceMultiStreamPoolImpl<                     \
-        std::tuple<void*, size_t>, at::DeviceType::device_type, priority>;     \
-    static const std::function<c10::Allocator*(int)> allocator_get_fn =        \
-        std::bind(                                                             \
-            allocator_details::get_allocator<CachingAllocator, AsyncMemPool>,  \
-            std::placeholders::_1, &raw_allocator);                            \
-    static const allocator_details::AllocatorRegisterer g_allocator(           \
-        #name, at::DeviceType::device_type, allocator_get_fn, priority);       \
+#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator,          \
+                                algorithm, priority)                          \
+  namespace name##device_type {                                               \
+    static allocator_details::RawAllocator<at::DeviceType::device_type>::type \
+        raw_allocator;                                                        \
+    using AsyncMemPool =                                                      \
+        AsyncResourcePoolImpl<std::tuple<void*, size_t>,                      \
+                              at::DeviceType::device_type, algorithm>;        \
+    static const std::function<c10::Allocator*(int)> allocator_get_fn =       \
+        std::bind(                                                            \
+            allocator_details::get_allocator<CachingAllocator, AsyncMemPool>, \
+            std::placeholders::_1, &raw_allocator);                           \
+    static const allocator_details::AllocatorRegisterer g_allocator(          \
+        #name, at::DeviceType::device_type, allocator_get_fn, priority);      \
   }
 }  // namespace allocator_details
 
