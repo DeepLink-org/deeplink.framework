@@ -171,6 +171,7 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
     DIPUEvent srcEvent;
     srcEvent.record(stream);
     srcEvent.wait(stream);
+    // srcEvent.synchronize();
   }
 }
 
@@ -265,6 +266,9 @@ class DIPUCopyInplace : public DIPUCopyBase {
     // We always perform the copy on the source device when do copy_d2d
     const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
+    if ((!src.is_cpu()) && (!dst.is_cpu())) {
+      non_blocking = true;
+    }
 
     auto info = CopyParamsInfo(dst, src, curStream);
     // Exit early if dst and src are views of the same data

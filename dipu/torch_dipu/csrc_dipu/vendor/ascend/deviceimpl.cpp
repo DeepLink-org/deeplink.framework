@@ -241,6 +241,11 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
   }
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
+  if (dstDevId != srcDevId) {
+    // When the event is on other devices, the Huawei software stack does not
+    // support streamWaitEvent(event), so a synchronization is called here.
+    syncStream(stream);
+  }
 }
 
 // (asynchronous) copy from host to a device
