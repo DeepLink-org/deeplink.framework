@@ -156,22 +156,21 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
   // current streams for completion of the copy. We have to explicitly do this
   // for non-contig copies. This mimics the behavior of cross-device
   // cudaMemcpyAsync on the default stream.
-  DIPUStream copy_stream = dipu::getCurrentDIPUStream(src_device.index());
 
   if (!is_same_device) {
-    c10::DeviceGuard dst_guard(dst_device);
-    auto dstCurrentStream = dipu::getCurrentDIPUStream(dst_device.index());
+    src_guard.set_index(dst_device.index());
     DIPUEvent dstEvent;
-    dstEvent.record(dstCurrentStream);
-    dstEvent.wait(dstCurrentStream);
+    dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
+    src_guard.set_index(src_device.index());
+    dstEvent.wait(stream);
   }
-  dipu::devproxy::memCopyD2DAsync(copy_stream.rawstream(), nbytes,
+  dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                   dst.device().index(), dst.data_ptr(),
                                   src.device().index(), src.data_ptr());
   if (!is_same_device) {
     DIPUEvent srcEvent;
-    srcEvent.record(copy_stream);
-    srcEvent.wait(copy_stream);
+    srcEvent.record(stream);
+    srcEvent.wait(stream);
   }
 }
 
@@ -263,7 +262,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (dst.numel() == 0 || dst.is_same(src)) {
       return;
     }
-    const DIPUGuard guard(dst.is_cpu() ? src.device() : dst.device());
+    // We always perform the copy on the source device when do copy_d2d
+    const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
 
     auto info = CopyParamsInfo(dst, src, curStream);
