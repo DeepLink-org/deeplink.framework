@@ -267,7 +267,9 @@ class DIPUCopyInplace : public DIPUCopyBase {
     const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
     if ((!src.is_cpu()) && (!dst.is_cpu())) {
-      non_blocking = true;
+      if (src.device().index() == dst.device().index()) {
+        non_blocking = true;
+      }
     }
 
     auto info = CopyParamsInfo(dst, src, curStream);
