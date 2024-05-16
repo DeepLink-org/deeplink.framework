@@ -16,6 +16,7 @@ from torch.fx.immutable_collections import immutable_list
 from torch._subclasses import FakeTensor
 import dicp.vendor.AscendGraph.ascend_op as ascend_op
 from dicp.dynamo_bridge.utils import symint_in_shape, neg_in_shape, not_all_num_shape, process_sym_name
+from dicp.dynamo_bridge.utils import preprocess_expression, find_root_num, merge_disjoint_set
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype
 )
@@ -71,41 +72,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def __init__(self, gm):
         super().__init__(gm, conversions)
 
-    def preprocess_expression(self, expr):
-        elem_str = process_sym_name(expr)
-        elem_str = elem_str.replace('+', ' + ')
-        elem_str = elem_str.replace('-', ' - ')
-        elem_str = elem_str.replace('*', ' * ')
-        elem_str = elem_str.replace('//', ' // ')
-        elem_str = elem_str.replace('(', ' ( ')
-        elem_str = elem_str.replace(')', ' ) ')
-        elems = elem_str.split(' ')
-        elems = [e for e in elems if e != '']
-        return elems
-
     def process_dynamic_shape(self, shape):
         x_names = []
 
         def generate_digits_op(shapes):
             const_op = self.get_const_proxy(shapes, torch.int32)
             x_names.append(const_op)
-
-        def find_root_num(set_num, num):
-            while set_num[num] != num:
-                num = set_num[num]
-            return num
-
-        def merge_disjoint_set(set_num, idx_a, idx_b):
-            root_a = find_root_num(set_num, idx_a)
-            root_b = find_root_num(set_num, idx_b)
-            # an example for (s5 / 8) - (s5 / 16)
-            # num: 0 1 2 3
-            # step1 - > set_num: 0 1 2 3
-            # step2 - > set_num: 0 0 2 2
-            # step3 - > set_num: 0 0 0 0
-
-            # return merged set from root_b to root_a
-            return [root_a if find_root_num(set_num, s) == root_b else s for s in set_num]
 
         def replace_elem_proxy(elem_str):
             # exit if already a proxy
@@ -167,7 +139,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 return
 
             # case for NodeProxy string or SymInt
-            elems = self.preprocess_expression(elem)
+            elems = preprocess_expression(elem)
 
             # prepare for expression calculation
             if len(elems) > 1:
@@ -277,7 +249,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 if isinstance(dim, torch.SymInt):
                     # split expression elements to compare SymInt string
                     dim_str = dim.node.str()
-                    elems = self.preprocess_expression(dim_str)
+                    elems = preprocess_expression(dim_str)
 
                     # replace SymInt in expression using sympy function
                     for elem in elems:
