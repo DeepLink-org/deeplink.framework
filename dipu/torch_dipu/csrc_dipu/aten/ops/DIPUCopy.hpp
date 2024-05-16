@@ -4,11 +4,13 @@
 #include <ATen/ATen.h>
 #include <ATen/MemoryOverlap.h>
 #include <ATen/Tensor.h>
+#include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
@@ -142,26 +144,33 @@ inline void doMemCopyH2H(const at::Tensor& dst, const at::Tensor& src,
 inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                          dipu::DIPUStream& stream, int64_t nbytes,
                          bool isSynchronousCopy) {
-  void* src_ptr = src.data_ptr();
-  void* dst_ptr = dst.data_ptr();
-
-  MemChecker::instance().check(src);
-  MemChecker::instance().check(dst);
+  const auto src_device = src.device();
+  const auto dst_device = dst.device();
+  const bool is_same_device = dst_device.index() == src_device.index();
+  c10::DeviceGuard src_guard(src_device);
   // non_blocking (bool) – if True and this copy is between CPU and GPU, the
   // copy may occur asynchronously with respect to the host. For other cases,
   // this argument has no effect.
-  {
-    // Maybe this operation should be done by users?
-    c10::DeviceGuard guard(src.device());
-    getCurrentDIPUStream().synchronize();
+  // We always perform the copy on the source device, using the current stream
+  // on the source device, and we fully synchronize on both src and dst's
+  // current streams for completion of the copy. We have to explicitly do this
+  // for non-contig copies. This mimics the behavior of cross-device
+  // cudaMemcpyAsync on the default stream.
+  DIPUStream copy_stream = dipu::getCurrentDIPUStream(src_device.index());
+
+  if (!is_same_device) {
+    c10::DeviceGuard dst_guard(dst_device);
+    DIPUEvent dstEvent;
+    dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
+    dstEvent.synchronize();
   }
-  if ((!isSynchronousCopy)) {
-    dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
-                                    dst.device().index(), dst_ptr,
-                                    src.device().index(), src_ptr);
-  } else {
-    dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
-                               src.device().index(), src_ptr);
+  dipu::devproxy::memCopyD2DAsync(copy_stream.rawstream(), nbytes,
+                                  dst.device().index(), dst.data_ptr(),
+                                  src.device().index(), src.data_ptr());
+  if (!is_same_device) {
+    DIPUEvent srcEvent;
+    srcEvent.record(copy_stream);
+    srcEvent.synchronize();
   }
 }
 
