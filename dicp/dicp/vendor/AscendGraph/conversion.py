@@ -484,10 +484,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
         x_shape = list(x.node.meta['val'].shape)
         y_shape = list(fx_traceback.get_current_meta()['val'].shape)
         dim = int(dim)
-        if not isinstance(start, torch.fx.proxy.Proxy):
-            start = int(start) if start is not None else 0
-            start = start if start >= 0 else x_shape[dim] + start
-            assert start is None or start >= 0 and start < x_shape[dim]
+        start = int(start) if start is not None else 0
+        start = start if start >= 0 else x_shape[dim] + start
+        assert start is None or start >= 0 and start < x_shape[dim]
 
         assert dim == -1 or dim >= 0 and dim < len(x_shape)
         offset = [0] * len(x_shape)
