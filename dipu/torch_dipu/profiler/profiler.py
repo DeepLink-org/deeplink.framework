@@ -18,10 +18,15 @@ from torch.autograd.profiler_util import (
     _format_memory,
 )
 
-
 def dipu_kineto_available():
     return True
 
+def get_evt_name(evt):
+    try:
+        name = evt.name()
+        return name
+    except:
+        return "UDName"
 
 class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
@@ -29,11 +34,13 @@ class TorchProfile(torch.autograd.profiler.profile):
 
         trace_start_us = result.trace_start_us()
         mem_records = [
-            [evt, False] for evt in result.events() if evt.name() == MEMORY_EVENT_NAME
+            [evt, False] for evt in result.events() if get_evt_name(evt) == MEMORY_EVENT_NAME
         ]
         oom_records = [
-            evt for evt in result.events() if evt.name() == OUT_OF_MEMORY_EVENT_NAME
+            evt for evt in result.events() if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
         ]
+
+
         mem_records_acc = MemRecordsAcc(mem_records)
 
         def _cpu_memory_usage(mem_record):
@@ -56,7 +63,7 @@ class TorchProfile(torch.autograd.profiler.profile):
         cuda_corr_map: Dict[int, List[FunctionEvent]] = {}
         max_evt_id = 0
         for kineto_event in result.events():
-            if _filter_name(kineto_event.name()):
+            if _filter_name(get_evt_name(kineto_event)):
                 continue
             rel_start_us = kineto_event.start_us() - trace_start_us
             rel_end_us = rel_start_us + kineto_event.duration_us()
@@ -79,8 +86,8 @@ class TorchProfile(torch.autograd.profiler.profile):
 
             fe = FunctionEvent(
                 id=kineto_event.correlation_id(),
-                name=_rewrite_name(name=kineto_event.name(), with_wildcard=True),
-                trace_name=_rewrite_name(name=kineto_event.name(), with_wildcard=False),
+                name=_rewrite_name(name=get_evt_name(kineto_event), with_wildcard=True),
+                trace_name=_rewrite_name(name=get_evt_name(kineto_event), with_wildcard=False),
                 thread=kineto_event.start_thread_id(),
                 start_us=rel_start_us,
                 end_us=rel_end_us,
