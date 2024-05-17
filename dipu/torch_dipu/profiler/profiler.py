@@ -42,7 +42,7 @@ class TorchProfile(torch.autograd.profiler.profile):
             if get_evt_name(evt) == MEMORY_EVENT_NAME
         ]
         oom_records = [
-            evt 
+            evt
             for evt in result.events()
             if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
         ]
