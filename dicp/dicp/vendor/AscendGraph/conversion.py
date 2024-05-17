@@ -467,15 +467,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if dim < 0:
             dim += len(shape)
         assert shape[dim] > 0
-        # dynamic feature for lightllm llama 7B
-        if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
-            if isinstance(split_size, int):
-                split_size = self.get_const_proxy(split_size, torch.int32)
-            else:
-                split_size = self.get_proxy(ascend_op.Squeeze, (split_size, [0]))
-            return self.get_proxy(ascend_op.SplitToSequence, (x, dim, split_size))
 
-        num_split = int((shape[dim] + split_size - 1) / split_size)
+        num_split = len(fx_traceback.get_current_meta()['val'])
         return self.get_proxy(ascend_op.SplitD, (x, dim, num_split, num_split), splitD_kw)
 
     @register_conversion(aten.slice.Tensor)
