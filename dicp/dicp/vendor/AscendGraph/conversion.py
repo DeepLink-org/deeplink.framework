@@ -1209,8 +1209,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # Cast needed only when x_dtype is int64
         if x.node.meta['val'].dtype == torch.int64:
             x = self.get_proxy(ascend_op.Cast, (x, "INT32"))
-        shape = self.get_shape_proxy(shape)
-        return self.get_proxy(ascend_op.Expand, (x, shape))
+
+        if isinstance(shape, list) and not_all_num_shape(shape):
+            shape = self.get_shape_proxy(shape)
+            return self.get_proxy(ascend_op.Expand, (x, shape))
+        else:
+            return self.get_proxy(ascend_op.ExpandD, (x, shape))
 
     @register_conversion(torch.ops.aten.slice_backward.default)
     def slice_backward(self, grad, input_shape, dim, start, end, step):
@@ -1369,7 +1373,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(torch.ops.aten.cumsum.default)
     def cumsum(self, x, dim, dtype=None):
-        dim_const = self.get_const_proxy(dim, torch.int32)
+        dim_const = self.get_const_proxy(dim, torch.int32, target_shape=[1])
         return self.get_proxy(ascend_op.Cumsum, (x, dim_const))
 
     @register_conversion(torch.ops.aten._log_softmax.default)
@@ -1777,16 +1781,16 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
-    def flash_attention_inference(self, q, all_k, all_v, current_lens, max_len, kvhead=None, head=None, dim=None):
+    def flash_attention_inference(self, q, all_k, all_v, current_lens, max_len, kvhead=-1, head=-1, dim=-1):
         q_shape = list(q.node.meta['val'].shape)
         batch = q_shape[0]
-        if head is None:
+        if head < 0:
             head = q_shape[1]
-        if dim is None:
+        if dim < 0:
             dim = q_shape[2]
 
         k_shape = list(all_k.node.meta['val'].shape)
-        if kvhead is None:
+        if kvhead < 0:
             kvhead = k_shape[1]
 
         res = []

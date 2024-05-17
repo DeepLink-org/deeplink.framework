@@ -14,7 +14,7 @@ from ..common.utils import (
 
 class OpModule(torch.nn.Module):
     def forward(self, q, k, v, int_index_list, max_seq_length):
-        res = torch.ops.lightllm.flash_attention_inference.default(q, k, v, int_index_list, max_seq_length)
+        res = torch.ops.lightllm.flash_attention_inference.default(q, k, v, int_index_list, max_seq_length, -1, -1, -1)
         return res
 
 

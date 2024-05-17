@@ -98,12 +98,12 @@ def lightllm_flash_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v:
 
 
 @flash_attention_inference.impl(['cpu', 'cuda'])
-def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len, kvhead=None, head=None, dim=None):
+def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len, kvhead=-1, head=-1, dim=-1):
     # q: batch, head, dim
     batch = q.shape[0]
-    if head is None:
+    if head < 0:
         head = q.shape[1]
-    if dim is None:
+    if dim < 0:
         dim = q.shape[2]
     res = []
     compute_batch = 1
