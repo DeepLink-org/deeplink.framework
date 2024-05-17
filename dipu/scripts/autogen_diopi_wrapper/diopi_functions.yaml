@@ -608,7 +608,7 @@
     at::Tensor grad_bias;
     std::vector<int64_t> bias_sizes;
     if (output_mask[0]) {
-      grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+      grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
     }
     if (output_mask[1]) {
       grad_weight = nodispatch::empty(weight.sizes(), weight.options().dtype(at::kFloat).memory_format(weight.suggest_memory_format()));
@@ -628,7 +628,7 @@
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
-    grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
     grad_weight = nodispatch::empty(weight.sizes(), weight.options().dtype(at::kFloat));
     if (output_mask[2]) {
         grad_bias = nodispatch::empty({grad_output.size(1)}, grad_output.options());
@@ -650,7 +650,7 @@
     const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
     const int64_t c_out = weight.size(1) * groups;
     auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
-    auto out = nodispatch::empty(output_shape, input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty(output_shape, input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
   interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
   forward_process_code: |
     bool bias_has_value = (bias.has_value()) ? bias.value().requires_grad() : false;
@@ -1560,7 +1560,7 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
-    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-self.suggest_memory_format()});
   interface: diopiUpsampleNearest(ctx, out, self, size);
 
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
@@ -1590,7 +1590,7 @@
       size[0] = std::floor(self.size(-2) * scales_h.value_or(1.0));
       size[1] = std::floor(self.size(-1) * scales_w.value_or(1.0));
     }
-    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto out = nodispatch::empty({self.size(0),self.size(1),size[0],size[1]},self.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-self.suggest_memory_format()});
     const char* mode = "bilinear";
   interface: diopiUpsampleLinear(ctx, out, self, size, align_corners, mode);
 
@@ -1614,7 +1614,7 @@
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
     std::vector<int64_t> grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
-    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-grad_output.suggest_memory_format()});
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1645,7 +1645,7 @@
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
     std::vector<int64_t> grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
-    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt});
+    auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-grad_output.suggest_memory_format()});
   custom_code_before_call_diopi: |
     if (output_size.size() > 0) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
