@@ -44,6 +44,8 @@ deviceId_t lastDevice = -1;
 
 deviceId_t current_device() {
   if (currentDevice < 0) {
+    // Because on some software stacks, getDevice is not allowed to be called
+    // before setDevice is called. So we do this
     if (lastDevice > 0) {
       setDevice(lastDevice);
       TORCH_WARN_ONCE(
@@ -61,12 +63,9 @@ deviceId_t current_device() {
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
   static const int kDeviceCount = getDeviceCount();
-  TORCH_CHECK(devId < kDeviceCount,
+  TORCH_CHECK(devId < kDeviceCount && devId >= 0,
               "invalid device id: ", static_cast<int>(devId),
               " , device count:", kDeviceCount)
-  if (devId < 0) {
-    devId = devapis::current_device();
-  }
   if (currentDevice != devId) {
     devapis::setDevice(devId);
     if (currentDevice < 0) {
@@ -84,7 +83,13 @@ void setDevice(deviceId_t devId) {
   }
 }
 
-void resetDevice(deviceId_t devId) { return devapis::resetDevice(devId); }
+void resetDevice(deviceId_t devId) {
+  currentDevice = devId;
+  if (lastDevice < 0) {
+    lastDevice = devId;
+  }
+  return devapis::resetDevice(devId);
+}
 
 void syncDevice() { return devapis::syncDevice(); }
 
