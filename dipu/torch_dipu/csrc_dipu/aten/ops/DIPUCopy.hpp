@@ -168,10 +168,11 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                                   dst.device().index(), dst.data_ptr(),
                                   src.device().index(), src.data_ptr());
   if (!is_same_device) {
+    src_guard.set_index(dst_device.index());
     DIPUEvent srcEvent;
     srcEvent.record(stream);
-    srcEvent.wait(stream);
-    // srcEvent.synchronize();
+    srcEvent.wait(dipu::getCurrentDIPUStream(dst_device.index()));
+    // srcEvent.synchronize(); // No need to block the CPU here?
   }
 }
 
@@ -266,13 +267,12 @@ class DIPUCopyInplace : public DIPUCopyBase {
     // We always perform the copy on the source device when do copy_d2d
     const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
-    if ((!src.is_cpu()) && (!dst.is_cpu())) {
-      if (src.device().index() == dst.device().index()) {
-        non_blocking = true;
-      }
-    }
 
     auto info = CopyParamsInfo(dst, src, curStream);
+    if (info.copyType_ == DIPUCopyType::D2Self) {
+      non_blocking = true;
+    }
+
     // Exit early if dst and src are views of the same data
     if ((dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
          info.sameStride_ && info.sameDtype_)) {
