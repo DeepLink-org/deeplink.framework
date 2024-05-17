@@ -177,7 +177,6 @@ at::Tensor wrapper_CPU_empty_strided(at::IntArrayRef size,
 at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor& self,
                                         c10::SymIntArrayRef size,
                                         c10::SymIntArrayRef stride) {
-  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::_reshape_alias(self, C10_AS_INTARRAYREF_SLOW(size),
                                     C10_AS_INTARRAYREF_SLOW(stride));

@@ -663,6 +663,9 @@ def create_device_check_code(fun_config):
 
 def create_device_guard_code(fun_config):
     code = ""
+    if fun_config.get('generate_device_guard', True) in ['False', False]:
+        return code
+
     tensors = re.findall("Tensor +[\w\d_]+", fun_config["schema"]) + re.findall(
         "Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]
     )
@@ -1110,6 +1113,12 @@ def parse_args():
         default=True,
         type=boolean_string,
         help="whether use diopi adapter",
+    )
+    parser.add_argument(
+        "--generate_device_guard",
+        default=True,
+        type=boolean_string,
+        help="whether generate device guard code",
     )
     parser.add_argument(
         "--diopi_adapter_header",

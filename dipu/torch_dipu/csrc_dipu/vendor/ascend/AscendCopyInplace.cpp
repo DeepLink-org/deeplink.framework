@@ -21,8 +21,8 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
       tryRecordStream(src, info.curStream_, is_default_stream);
     }
 
-    if ((DIPUCopyType::H2D == info.copyType_ ||
-         DIPUCopyType::D2H == info.copyType_)) {
+    if (!non_blocking && (DIPUCopyType::H2D == info.copyType_ ||
+                          DIPUCopyType::D2H == info.copyType_)) {
       // According to our benchmark for H2D/D2H synchronous direct memory copy,
       // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
       // So do an advance sync here
