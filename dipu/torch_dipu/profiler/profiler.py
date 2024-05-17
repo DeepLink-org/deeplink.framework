@@ -34,10 +34,14 @@ class TorchProfile(torch.autograd.profiler.profile):
 
         trace_start_us = result.trace_start_us()
         mem_records = [
-            [evt, False] for evt in result.events() if get_evt_name(evt) == MEMORY_EVENT_NAME
+            [evt, False]
+            for evt in result.events() 
+            if get_evt_name(evt) == MEMORY_EVENT_NAME
         ]
         oom_records = [
-            evt for evt in result.events() if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
+            evt 
+            for evt in result.events() 
+            if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
         ]
 
         mem_records_acc = MemRecordsAcc(mem_records)
@@ -86,7 +90,9 @@ class TorchProfile(torch.autograd.profiler.profile):
             fe = FunctionEvent(
                 id=kineto_event.correlation_id(),
                 name=_rewrite_name(name=get_evt_name(kineto_event), with_wildcard=True),
-                trace_name=_rewrite_name(name=get_evt_name(kineto_event), with_wildcard=False),
+                trace_name=_rewrite_name(
+                    name=get_evt_name(kineto_event), with_wildcard=False
+                ),
                 thread=kineto_event.start_thread_id(),
                 start_us=rel_start_us,
                 end_us=rel_end_us,
