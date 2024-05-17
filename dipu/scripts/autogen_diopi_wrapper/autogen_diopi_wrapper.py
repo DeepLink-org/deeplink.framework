@@ -669,8 +669,12 @@ def create_device_guard_code(fun_config):
     tensors = re.findall("Tensor +[\w\d_]+", fun_config["schema"]) + re.findall(
         "Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]
     )
-    if len(tensors) > 0:
-        tensor = tensors[0].split(" ")[1]
+    arg = fun_config.get("device_guard_arg", None)
+    if len(tensors) > 0 or arg is not None:
+        if arg is not None:
+            tensor = arg
+        else:
+            tensor = tensors[0].split(" ")[1]
         code += f"c10::OptionalDeviceGuard guard(at::device_of({tensor}));"
     else:
         try:
