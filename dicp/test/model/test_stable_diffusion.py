@@ -54,8 +54,8 @@ class TestStableDiffusion():
         dicp_pipe.unet = torch.compile(dicp_pipe.unet, backend=backend, dynamic=dynamic)
 
         # Temporarily run decoder on CPU
-        # if backend == "ascendgraph":
-        #     dicp_pipe.vae.decoder = torch.compile(dicp_pipe.vae.decoder, backend=backend, dynamic=dynamic)
+        if backend == "ascendgraph":
+            dicp_pipe.vae.decoder = torch.compile(dicp_pipe.vae.decoder, backend=backend, dynamic=dynamic)
         dicp_image = dicp_pipe(prompt, num_inference_steps=num_inference_steps).images[0]
 
         similarity = get_similarity(cpu_image, dicp_image)

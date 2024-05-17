@@ -317,7 +317,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(aten.split.Tensor)
     def split(self, x, split_size, dim=0):
-        # test ci
         splitD_kw = {"from_view_complex": False}
         shape = list(x.node.meta['val'].shape)
         if dim < 0:
