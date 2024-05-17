@@ -40,7 +40,6 @@ class TorchProfile(torch.autograd.profiler.profile):
             evt for evt in result.events() if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
         ]
 
-
         mem_records_acc = MemRecordsAcc(mem_records)
 
         def _cpu_memory_usage(mem_record):
