@@ -1524,13 +1524,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion(operator.getitem)
     def identity(self, x, idx):
-        # common case
-        if not 'split_to_sequence' in str(x):
-            return self.get_proxy(ascend_op.Identity, (x, idx))
-        # split_to_sequence return handle sequence
-        else:
-            idx = self.get_const_proxy(idx, torch.int32)
-            return self.get_proxy(ascend_op.SequenceAt, (x, idx))
+        return self.get_proxy(ascend_op.Identity, (x, idx))
 
     @register_conversion(torch.ops.aten.full_like)
     def fulllike(self, x, value, dtype=torch.float32, layout=torch.strided,
@@ -1562,9 +1556,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
     def GtScalar(self, x, y):
         dtype = get_ascend_dtype(x.node.meta['val'].dtype)
         scalar_op = self.get_const_proxy(float(y), torch.float32)
-        if dtype != torch.float32:
-            cast_op = self.get_proxy(ascend_op.Cast, (scalar_op, dtype))
-        return self.get_proxy(ascend_op.Greater, (x, cast_op))
+        x, scalar_op = self.promote_dtype(x, scalar_op, target_dtype=dtype)
+        return self.get_proxy(ascend_op.Greater, (x, scalar_op))
 
     @register_conversion(torch.ops.aten.addcmul.default)
     def AddCMul(self, a, b, c, value=1):
@@ -1630,12 +1623,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
         if not isinstance(y, torch.fx.proxy.Proxy):
             y = self.get_const_proxy(y, x_dtype)
         else:
-            if not isinstance(y.node.meta['val'], torch.SymInt):
-                y_dtype = y.node.meta['val'].dtype
-            else:
-                y_dtype = torch.int32
-            if x_dtype != y_dtype:
-                y = self.get_proxy(ascend_op.Cast, (y, get_ascend_dtype(x_dtype)))
+            if isinstance(y.node.meta['val'], torch.SymInt):
+                y = self.get_shape_proxy([y])
+            y = self.get_proxy(ascend_op.Squeeze, (y, [0]))
+            x, y = self.promote_dtype(x, y, target_dtype=x_dtype)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
     @register_conversion(torch.ops.aten.logical_or.default)
