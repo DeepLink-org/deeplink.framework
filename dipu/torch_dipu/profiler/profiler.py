@@ -18,8 +18,10 @@ from torch.autograd.profiler_util import (
     _format_memory,
 )
 
+
 def dipu_kineto_available():
     return True
+
 
 def get_evt_name(evt):
     try:
@@ -28,6 +30,7 @@ def get_evt_name(evt):
     except:
         return "UDName"
 
+
 class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
         # result.events() has most of the events - PyTorch op-level and device-level events
@@ -35,12 +38,12 @@ class TorchProfile(torch.autograd.profiler.profile):
         trace_start_us = result.trace_start_us()
         mem_records = [
             [evt, False]
-            for evt in result.events() 
+            for evt in result.events()
             if get_evt_name(evt) == MEMORY_EVENT_NAME
         ]
         oom_records = [
             evt 
-            for evt in result.events() 
+            for evt in result.events()
             if get_evt_name(evt) == OUT_OF_MEMORY_EVENT_NAME
         ]
 
