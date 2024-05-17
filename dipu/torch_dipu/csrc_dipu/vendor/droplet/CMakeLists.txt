@@ -16,7 +16,7 @@ if (${USE_PCCL} AND ${PCCL_FOUND})
     set(DIPU_VENDOR_LIB ${DIPU_VENDOR_LIB} ${PCCL_LIBRARY})
     set(VENDOR_INCLUDE_DIRS ${VENDOR_INCLUDE_DIRS} ${PCCL_INCLUDE_DIR})
 else()
-    message(STATUS "Cannot find PCCL to implement communicator, i.e. not support distributed on droplet")
+    message(STATUS "Cannot find PCCL to implement communicator, i.e. not support distributed on droplet or disabled by env vars(USE_PCCL)!")
 endif()
 
 
