@@ -69,21 +69,21 @@ class DIPU_API DIPUEvent {
   void record() { record(getCurrentDIPUStream()); }
 
   void recordOnce(const DIPUStream& stream) {
-    if (!was_recorded_) {
+    if (-1 == stream_id_) {
       record(stream);
     }
   }
 
   void record(const DIPUStream& stream) {
     if (!isCreated()) {
-      createEvent(stream);
+      createEvent(stream.device_index());
     }
     TORCH_CHECK(device_index_ == stream.device_index(), "Event device ",
                 device_index_, " does not match recording stream's device ",
                 stream.device_index(), ".");
     DIPUGuard guard(device_index_);
     devproxy::recordEvent(event_, stream.rawstream());
-    was_recorded_ = true;
+    stream_id_ = stream.id();
   }
 
   void wait(const DIPUStream& stream) {
@@ -112,14 +112,12 @@ class DIPU_API DIPUEvent {
 
  private:
   unsigned int flags_ = 0;
-  bool was_recorded_ = false;
   c10::DeviceIndex device_index_ = -1;
   c10::StreamId stream_id_ = -1;
   deviceEvent_t event_ = nullptr;
 
-  void createEvent(const DIPUStream& stream) {
-    device_index_ = stream.device_index();
-    stream_id_ = stream.id();
+  void createEvent(c10::DeviceIndex device_index) {
+    device_index_ = device_index;
     DIPUGuard guard(device_index_);
     devproxy::createEvent(&event_);
   }
