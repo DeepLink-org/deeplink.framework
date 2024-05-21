@@ -36,52 +36,40 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-// ProcessGroupDICL implements DICLbindings for c10d.
-//
-// All functions of the class are expected to be called in the same order
-// across all processes in the process group.  This is the only way that we
-// can guarantee to match up the same calls among all processes.
-//
-// All DICLfunctions provided by this class are asynchronous functions. More
-// specifically, each DICLcall is scheduled on a separate DIPU stream that is
-// different from the current DIPU stream. This is for the purpose of
-// achieving potentially concurrency and better performance. As a result,
-// it is the callers' responsibilty to make sure that the DIPU stream their
-// code works on needs to wait for the DICLoperation from
-// this class.
-//
-// This can be done by calling:
-//
-// either WorkDICL::wait() or WorkDICL::synchronize(), both achieves the same
-// functionality and are synonyms.
-//
-// Note that WorkDICL::isSuccess() and WorkDICL::isCompleted() will always
-// return true since ProcessGroupDICL is single threaded. Every single DICL
-// or DIPU failure will simply raise std::runtime_error.
-//
-// Therefore, WorkDICL::exception() is not supported since isSuccess() always
-// returns true.
-//
-// Also note that WorkDICL::finishedDIPUExecution() is a helper function only
-// provided by ProcessGroupDICL to check if the DICL operation of WorkDICL has
-// finished execution on the DIPU (not just scheduled).
-//
-// Example on using the DICL process group
-//
-//   ProcessGroupDICL pg(store, rank, size);
-//   std::shared_ptr<WorkDICL> work = pg.allreduce(tensors);
-//
-//   // At this point, DICL kernel has already by queued successfully
-//   // Now, let current stream wait for the DICL to finish, originally this
-//   function is
-//   // async operation as well, but currently DIPU is sync.
-//
-//   work->wait()
-//
-//   // Now continue on other work in the current stream.
-
-// not support gather/ all _coalesced func func now,
-// If needed in the future, we will add
+/**
+ * ProcessGroupDICL implements DICLbindings for c10d.
+ *
+ * @author fandaoyi
+ *
+ * All functions of this class are expected to be called in the same order
+ * across all processes in the process group. This is the only way that we can
+ * guarantee to match up the same calls among all processes.
+ *
+ * All DICLfunctions provided by this class are asynchronous functions. More
+ * specifically, each DICLcall is scheduled on a separate DIPU stream that is
+ * different from the current DIPU stream. This is for the purpose of achieving
+ * potentially concurrency and better performance. As a result, it is the
+ * callers' responsibility to make sure that the DIPU stream their code works on
+ * needs to wait for the DICLoperation from this class. This can be done by
+ * calling either WorkDICL::wait() or WorkDICL::synchronize(), both achieves the
+ * same functionality and are synonyms.
+ *
+ * @note Every single DICL or DIPU failure will simply raise std::runtime_error.
+ * Therefore, WorkDICL::exception() is not supported, and WorkDICL::isSuccess()
+ * will always return true if the operation has completed.
+ *
+ * @warning Not supporting gather and all _coalesced functions now. We will add
+ * them in the future if needed.
+ *
+ * Example on using DICL process group:
+ *
+ *     ProcessGroupDICL pg(store, rank, size);
+ *     std::shared_ptr<WorkDICL> work = pg.allreduce(tensors);
+ *     // At this point, DICL kernel has already been queued successfully.
+ *     // Now, let current stream wait for DICL to finish (async).
+ *     work->wait()
+ *     // Now continue on other work in current stream.
+ */
 class DIPU_API ProcessGroupDICL : public Backend {
  public:
   class WorkDICL : public Work {
@@ -94,7 +82,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
           opTimeout_(opTimeout),
           workStartTime_(std::chrono::steady_clock::now()) {
       workEvents_.resize(diclComms_.size());
-    }  // NOLINT
+    }
 
     ~WorkDICL() override = default;
 
