@@ -219,58 +219,19 @@ class AscendCodegen(torch.fx.Interpreter):
         )
         return self.import_code.getvalue()
 
+    def operator_in_str(self, st):
+        for op in ['+', '-', '*', '/']:
+            if op in st:
+                return True
+        return False
+
     def process_sym_name(self, st):
         # dynamic shape feature
-        if st.isdigit():
-            return st
-        elif '+' in st:
-            sp = st.split('+')
-            if len(sp) > 2:
-                sp = [sp[0], '+'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0].isdigit():
-                (sp[1], sp[0]) = (sp[0], sp[1])
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '+' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '+' + sp[1]
-        elif '-' in st:
-            sp = st.split('-')
-            if len(sp) > 2:
-                sp = [sp[0], '-'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '-' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '-' + sp[1]
-        elif '*' in st:
-            sp = st.split('*')
-            if len(sp) > 2:
-                sp = [sp[0], '*'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0].isdigit():
-                (sp[1], sp[0]) = (sp[0], sp[1])
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '*' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '*' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '*' + sp[1]
-        else:
-            if st in self.sym_in_args:
-                arg, idx = self.sym_in_args[st]
-                return "{}.shape[{}]".format(arg, idx)
-            return self.sym_to_inputs[st]
+        # return string wrapper in new version
+        # node.str() will not fallback SymInt value form
+        if isinstance(st, torch.SymInt):
+            return st.node.str()
+        return str(st)
 
     def gen_call_func(self):
         # TODO check scalar input
@@ -282,6 +243,16 @@ class AscendCodegen(torch.fx.Interpreter):
         if len(self.sym_in_args) > 0 or len(self.sym_to_inputs) > 0:
             args = ['_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
+
+            # assign SymInt to InputArgs relationship
+            if len(self.sym_in_args) > 0:
+                for key in self.sym_in_args.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_in_args[key][0]}.shape[{self.sym_in_args[key][1]}]")
+            if len(self.sym_to_inputs) > 0:
+                for key in self.sym_to_inputs.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_to_inputs[key]}")
 
         # generate input dims
         if len(self.dynamic_inputs) > 0:
@@ -315,7 +286,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(elem.shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape = [self.process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
@@ -323,12 +294,12 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape = [self.process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
                 stride = list(self.input_args[elem[1]].meta['val'].stride())
                 if len(stride) == 0:
                     raise RuntimeError("Error handling empty output_stride")
-                stride = [self.process_sym_name(str(dim)) for dim in stride]
+                stride = [self.process_sym_name(dim) for dim in stride]
                 extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
                 extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
             shape_str = shape_str[:-1] + ''']'''
@@ -351,7 +322,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 out_storage_offsets.append('0')
                 continue
             stride = list(elem.stride())
-            stride = [self.process_sym_name(str(dim)) for dim in stride]
+            stride = [self.process_sym_name(dim) for dim in stride]
             out_strides.append(str(stride))
             out_storage_offsets.append(elem.storage_offset())
         call_body.writeline(f'out_stride = {out_strides}')
