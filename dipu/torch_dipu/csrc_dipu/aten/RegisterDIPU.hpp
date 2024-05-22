@@ -10,7 +10,7 @@
 #include <c10/util/Optional.h>
 #include <torch/library.h>
 
-#include "op_register.hpp"  // IWYU pragma: export
+#include "OpRegister.hpp"  // IWYU pragma: export
 #include "ops/OpRegexMatch.hpp"
 
 namespace at {

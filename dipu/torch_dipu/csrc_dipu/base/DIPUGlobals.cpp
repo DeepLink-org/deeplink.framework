@@ -11,7 +11,7 @@
 #include <mutex>
 #include <string>
 
-#include "csrc_dipu/aten/op_register.hpp"
+#include "csrc_dipu/aten/OpRegister.hpp"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/core/DIPUGeneratorImpl.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"

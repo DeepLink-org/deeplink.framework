@@ -22,7 +22,7 @@ inline std::string_view getEnvOrEmpty(const char* env_var) {
 inline int getEnvIntOrDefault(const char* env_var, int default_value = 0) {
   int value = default_value;
   auto env = getEnvOrEmpty(env_var);
-  std::from_chars(env.data(), env.data() + env.size(), value);
+  std::from_chars(env.begin(), env.end(), value);
   return value;
 }
 
