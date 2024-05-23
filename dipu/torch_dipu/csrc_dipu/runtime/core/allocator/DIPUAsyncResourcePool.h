@@ -2,7 +2,6 @@
 #pragma once
 
 #include <deque>
-#include <memory>
 #include <mutex>
 #include <queue>
 #include <tuple>
