@@ -78,6 +78,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/CustomFallbackFunctionsForCopy.cpp
   aten/ops/OpRegexMatch.cpp
   aten/RegisterDIPU.cpp
+
   base/DIPUGlobals.cpp
 
   diopirt/diopirt_impl.cpp
@@ -109,6 +110,11 @@ set(TORCH_DIPU_SOURCE
   runtime/device/deviceapis.cpp
 
   utils/helpfunc.cpp)
+
+if (${Torch_VERSION} LESS 20100)
+  set(TORCH_DIPU_SOURCE ${TORCH_DIPU_SOURCE} aten/CPUFallback.cpp)
+endif()
+
 
 add_library(torch_dipu SHARED ${TORCH_DIPU_SOURCE} ${GENERATED_KERNELS} ${VENDOR_FILES} ${VENDOR_OUTPUT_HEADER})
 target_include_directories(torch_dipu PUBLIC ..)
