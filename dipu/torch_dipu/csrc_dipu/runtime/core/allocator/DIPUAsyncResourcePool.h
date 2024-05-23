@@ -97,6 +97,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
       queues;
 
   std::shared_ptr<Resource> ready_resource;
+  size_t total_size;
 
   using mutex_t = std::mutex;
   mutable mutex_t mutex;
@@ -113,6 +114,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
         queues[resource->events[i].stream_id()].push({resource, i});
       }
     }
+    ++total_size;
   }
 
   T get() override {
@@ -120,12 +122,13 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     TORCH_CHECK(ready_resource, "No ready resource to get!")
     T t = ready_resource->t;
     ready_resource.reset();
+    --total_size;
     return t;
   }
 
   bool empty() const override {
     std::lock_guard<mutex_t> lk(mutex);
-    return queues.empty();
+    return total_size > 0;
   }
 
   // Remove completed events in queues and decrease event_count until a resource
@@ -166,11 +169,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
 
   size_t size() const override {
     std::lock_guard<mutex_t> lk(mutex);
-    size_t size_sum = 0;
-    for (auto& [stream_id, queue] : queues) {
-      size_sum += queue.size();
-    }
-    return size_sum;
+    return total_size;
   }
 };
 
