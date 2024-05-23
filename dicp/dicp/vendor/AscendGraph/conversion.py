@@ -315,12 +315,12 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     max_prio = cur_prio
 
         # align priority between arg max and target_dtype
-        ascend_dtype = get_ascend_dtype(target_dtype)
         cur_prio = priority[target_dtype]
         if cur_prio > max_prio:
             max_prio = cur_prio
         assert max_prio > -1
         target_dtype = list(priority.keys())[max_prio]
+        ascend_dtype = get_ascend_dtype(target_dtype)
 
         # core of dtype conversion
         for arg in args:
