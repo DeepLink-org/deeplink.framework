@@ -101,7 +101,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
   // Place them in a special queue for higher performance.
   std::queue<T> queue_without_events;
 
-  size_t total_size;
+  size_t total_size = 0;
 
   using mutex_t = std::mutex;
   mutable mutex_t mutex;
@@ -112,7 +112,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     if (events.empty()) {
       queue_without_events.push(t);
     } else {
-      Resource* resource = new Resource(t, events.size(), events);
+      auto resource = new Resource(t, events.size(), events);
       for (int i = 0; i < resource->event_count; ++i) {
         queues_with_events[resource->events[i].stream_id()].emplace(resource,
                                                                     i);
