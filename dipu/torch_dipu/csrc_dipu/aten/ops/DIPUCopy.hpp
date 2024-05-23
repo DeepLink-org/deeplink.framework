@@ -340,9 +340,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
   void doDirectMemCopy(at::Tensor& dst, const at::Tensor& src,
                        DIPUStream& curStream, DIPUCopyType copyType,
                        bool needMemCpSync = true) {
-    if (native::dumpOpArgLevel() > 0) {
-      printf("--%-50s %-30s \n", "[copy_]:", "doDirectMemCopy");
-    }
     memCopy(dst, src, curStream, copyType, /*nonOverlappingAndDense=*/true,
             /*isSynchronousCopy=*/false);
 
@@ -491,10 +488,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
  */
   void doCpuRelayCopy(at::Tensor& dst, const at::Tensor& src,
                       DIPUStream& curStream, bool non_blocking) {
-    if (native::dumpOpArgLevel() > 0) {
-      printf("--%-50s %-30s \n", "[copy_]:", "doCpuRelayCopy");
-    }
-
     at::Tensor src_cpu = src;
     if (dipu::isDeviceTensor(src)) {
       src_cpu = makeSameStrideTensor(src, curStream,
