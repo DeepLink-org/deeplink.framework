@@ -78,6 +78,7 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
 template <class T, at::DeviceType device_type>
 class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
  private:
+  // Resources that have events to wait for
   struct Resource final {
     const T t;
     int event_count;
@@ -93,8 +94,14 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     Resource& operator=(Resource&&) = delete;
   };
   ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, int>>>
-      queues;
+      queues_with_events;
   Resource* ready_resource = nullptr;
+
+  // Resources that have no events to wait for.
+  // In other words, they are already ready.
+  // Place them in a special queue for higher performance.
+  std::queue<T> queue_without_events;
+
   size_t total_size;
 
   using mutex_t = std::mutex;
@@ -103,13 +110,13 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
  public:
   void add(const T& t, std::deque<DIPUEvent>& events) override {
     std::lock_guard<mutex_t> lk(mutex);
-    Resource * resource = new Resource(t, events.size(), events);
-    if (0 == resource->event_count) {
-      // Special queue for resources that have no events to wait
-      queues[-1].push({resource, -1});
+    if (events.empty()) {
+      queue_without_events.push(t);
     } else {
+      Resource* resource = new Resource(t, events.size(), events);
       for (int i = 0; i < resource->event_count; ++i) {
-        queues[resource->events[i].stream_id()].push({resource, i});
+        queues_with_events[resource->events[i].stream_id()].emplace(resource,
+                                                                    i);
       }
     }
     ++total_size;
@@ -117,6 +124,14 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
 
   T get() override {
     std::lock_guard<mutex_t> lk(mutex);
+
+    if (!queue_without_events.empty()) {
+      T t = queue_without_events.front();
+      queue_without_events.pop();
+      --total_size;
+      return t;
+    }
+
     TORCH_CHECK(ready_resource, "No ready resource to get!")
     T t = ready_resource->t;
     delete ready_resource;
@@ -130,36 +145,40 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     return total_size > 0;
   }
 
-  // Remove completed events in queues and decrease event_count until a resource
-  // with event_count of 0 is found, then save it to ready_resource
+  // If there is no ready resource, remove completed events in queues
+  // and decrease event_count until a resource with event_count of 0 is found,
+  // then save it as a ready resource
   bool ready() override {
     std::lock_guard<mutex_t> lk(mutex);
+
+    if (!queue_without_events.empty()) {
+      return true;
+    }
 
     if (ready_resource) {
       return true;
     }
 
-    for (auto it = queues.begin(); it != queues.end();) {
+    for (auto it = queues_with_events.begin();
+         it != queues_with_events.end();) {
       auto& [stream_id, queue] = *it;
       auto& [resource, event_id] = queue.front();
-      if (0 == resource->event_count || resource->events[event_id].query()) {
-        // Skip --event_count for resources in the special queue
-        // since their event_count is already 0
-        if (resource->event_count > 0) {
-          --resource->event_count;
-        }
+      if (resource->events[event_id].query()) {
+        --resource->event_count;
         if (0 == resource->event_count) {
           ready_resource = resource;
         }
         queue.pop();
-        if (queue.empty()) {
-          it = queues.erase(it);
-        } else {
-          ++it;
-        }
-        if (ready_resource) {
-          return true;
-        }
+      }
+
+      if (queue.empty()) {
+        it = queues_with_events.erase(it);
+      } else {
+        ++it;
+      }
+
+      if (ready_resource) {
+        return true;
       }
     }
 
