@@ -92,11 +92,9 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     Resource(Resource&&) = delete;
     Resource& operator=(Resource&&) = delete;
   };
-  ska::flat_hash_map<c10::StreamId,
-                     std::queue<std::pair<std::shared_ptr<Resource>, int>>>
+  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, int>>>
       queues;
-
-  std::shared_ptr<Resource> ready_resource;
+  Resource* ready_resource = nullptr;
   size_t total_size;
 
   using mutex_t = std::mutex;
@@ -105,7 +103,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
  public:
   void add(const T& t, std::deque<DIPUEvent>& events) override {
     std::lock_guard<mutex_t> lk(mutex);
-    auto resource = std::make_shared<Resource>(t, events.size(), events);
+    Resource * resource = new Resource(t, events.size(), events);
     if (0 == resource->event_count) {
       // Special queue for resources that have no events to wait
       queues[-1].push({resource, -1});
@@ -121,7 +119,8 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     std::lock_guard<mutex_t> lk(mutex);
     TORCH_CHECK(ready_resource, "No ready resource to get!")
     T t = ready_resource->t;
-    ready_resource.reset();
+    delete ready_resource;
+    ready_resource = nullptr;
     --total_size;
     return t;
   }
