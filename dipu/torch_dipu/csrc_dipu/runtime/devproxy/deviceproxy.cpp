@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include "deviceproxy.h"
 
+#include "csrc_dipu/metrics/default.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 
 namespace dipu {
@@ -109,16 +110,26 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 void mallocHost(void** p, size_t nbytes) {
-  return devapis::mallocHost(p, nbytes);
+  devapis::mallocHost(p, nbytes);
+  default_host_allocator_metrics_producer().allocate(p ? *p : nullptr, nbytes);
 }
 
-void freeHost(void* p) { return devapis::freeHost(p); }
+void freeHost(void* p) {
+  default_host_allocator_metrics_producer().deallocate(p);
+  return devapis::freeHost(p);
+}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
-  return devapis::mallocDevice(p, nbytes, throwExcepion);
+  auto code = devapis::mallocDevice(p, nbytes, throwExcepion);
+  default_device_allocator_metrics_producer().allocate(p ? *p : nullptr,
+                                                       nbytes);
+  return code;
 }
 
-void freeDevice(void* p) { return devapis::freeDevice(p); }
+void freeDevice(void* p) {
+  default_device_allocator_metrics_producer().deallocate(p);
+  return devapis::freeDevice(p);
+}
 
 bool isPinnedPtr(const void* p) { return devapis::isPinnedPtr(p); }
 

@@ -1,5 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include <sstream>
+#include <tuple>
+#include <utility>
 
 #include <ATen/autocast_mode.h>
 #include <c10/core/Device.h>
@@ -7,9 +9,14 @@
 #include <torch/csrc/utils/pybind.h>
 
 #include <pybind11/chrono.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/DIPUGlobals.h"
+#include "csrc_dipu/metrics/default.h"
+#include "csrc_dipu/metrics/statistics.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include "csrc_dipu/utils/vender_helper.hpp"
@@ -347,6 +354,64 @@ static void exportUtils(py::module& m) {
   m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
+static void exportMetricsCollector(py::module& m) {
+  m.def("fetch_collected_metrics", []() -> metrics::statistics {
+    return default_metrics_collector().fetch();
+  });
+}
+
+static void exportMetricsValue(py::module& m) {
+  {
+    using t = metrics::allocator_statistics;
+    using r = t const&;
+    auto v = [](char const* first, auto&& second) {
+      return std::make_pair(first, std::forward<decltype(second)>(second));
+    };
+
+    auto static constexpr mapping = std::make_tuple(
+        v("allocate_size_count", [](r x) { return x.allocate_size.count; }),
+        v("allocate_size_sum", [](r x) { return x.allocate_size.summation; }),
+        v("allocate_size_min", [](r x) { return x.allocate_size.minimum; }),
+        v("allocate_size_max", [](r x) { return x.allocate_size.maximum; }),
+        v("allocate_size_frequency_exp2",
+          [](r x) { return x.allocate_size_frequency.value; }),
+        v("allocate_nullptr_count",
+          [](r x) { return x.allocate_nullptr_count; }),
+        v("allocate_duplicated_count",
+          [](r x) { return x.allocate_duplicated_count; }),
+
+        v("deallocate_size_count", [](r x) { return x.deallocate_size.count; }),
+        v("deallocate_size_sum",
+          [](r x) { return x.deallocate_size.summation; }),
+        v("deallocate_size_min", [](r x) { return x.deallocate_size.minimum; }),
+        v("deallocate_size_max", [](r x) { return x.deallocate_size.maximum; }),
+        v("deallocate_size_frequency_exp2",
+          [](r x) { return x.deallocate_size_frequency.value; }),
+        v("deallocate_nullptr_count",
+          [](r x) { return x.deallocate_nullptr_count; }),
+        v("deallocate_unexpected_count",
+          [](r x) { return x.deallocate_unexpected_count; }),
+
+        v("used_size_summation", [](r x) { return x.used_size_summation; }),
+        v("used_size_frequency_exp2",
+          [](r x) { return x.used_size_frequency.value; }));
+
+    auto clazz = py::class_<t>(m, "allocator_statistics");
+    auto def_properties = [&clazz](auto&&... p) -> py::class_<t>& {
+      return (clazz.def_property_readonly(p.first, p.second), ...);
+    };
+    auto as_dict = [](r x) {
+      auto o = py::dict();
+      auto f = [&o, &x](auto&&... p) { ((o[p.first] = p.second(x)), ...); };
+      std::apply(f, mapping);
+      return o;
+    };
+
+    std::apply(def_properties, mapping)
+        .def("asdict", as_dict, py::return_value_policy::move);
+  }
+}
+
 extern void patchTorchCsrcDevice(PyObject* module);
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
@@ -363,5 +428,7 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportGenerator(m);
   exportAutocast(m);
   exportUtils(m);
+  exportMetricsCollector(m);
+  exportMetricsValue(m);
 }
 }  // namespace dipu
