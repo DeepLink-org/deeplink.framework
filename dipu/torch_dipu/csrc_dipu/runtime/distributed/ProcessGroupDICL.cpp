@@ -19,7 +19,7 @@ namespace {
 
 // Get the list of devices from list of tensors, collective comm always use all
 // ranks, so no rank prefix required in key.
-std::string getDevieceIds(const std::vector<at::Device>& devices) {
+std::string getDeviceIds(const std::vector<at::Device>& devices) {
   std::string deviceList;
   for (auto& device : devices) {
     if (deviceList.empty()) {
@@ -73,8 +73,6 @@ void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
 }  // anonymous namespace
 
 // start WorkDICL
-
-// ProcessGroupDICL::WorkDICL::~WorkDICL() {}
 
 // currently DICL do not support error check
 bool ProcessGroupDICL::WorkDICL::isCompleted() {
@@ -428,7 +426,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
               "ncclGroupStart/End, ",
               "but we cannot support group based comm now.");
 
-  const auto localCommsKey = getDevieceIds(devices);
+  const auto localCommsKey = getDeviceIds(devices);
 
   // collective use PG.rank_ as comsBaseRank
   auto diclComms = getDICLComms(localCommsKey, devices, this->rank_, opType);
