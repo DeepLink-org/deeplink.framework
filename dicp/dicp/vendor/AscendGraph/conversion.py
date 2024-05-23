@@ -1742,7 +1742,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         # cast back fa to float32
         if q_dtype != torch.float16:
-            fa = self.get_proxy(ascend_op.Cast, (fa, get_ascend_dtype(torch.float32)))
+            return self.get_proxy(ascend_op.Cast, (fa, get_ascend_dtype(q_dtype)))
         return fa
 
     def incre_flash_attention(self, q, k, v, head_num, kv_head_num, dim):
