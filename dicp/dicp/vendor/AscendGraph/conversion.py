@@ -1625,7 +1625,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         else:
             if isinstance(y.node.meta['val'], torch.SymInt):
                 y = self.get_shape_proxy([y])
-            y = self.get_proxy(ascend_op.Squeeze, (y, [0]))
+                y = self.get_proxy(ascend_op.Squeeze, (y, [0]))
             x, y = self.promote_dtype(x, y, target_dtype=x_dtype)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
