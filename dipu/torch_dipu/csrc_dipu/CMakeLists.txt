@@ -78,8 +78,6 @@ set(TORCH_DIPU_SOURCE
   aten/ops/CustomFallbackFunctionsForCopy.cpp
   aten/ops/OpRegexMatch.cpp
   aten/RegisterDIPU.cpp
-  aten/CPUFallback.cpp
-
   base/DIPUGlobals.cpp
 
   diopirt/diopirt_impl.cpp
