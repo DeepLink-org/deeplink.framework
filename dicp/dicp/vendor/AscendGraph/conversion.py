@@ -297,8 +297,32 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return param
 
     def promote_dtype(self, *args, target_dtype):
+        priority = {torch.bool:0,
+                    torch.int32:1,
+                    torch.int64:2,
+                    torch.float16:3,
+                    torch.float32:4,
+                    torch.float64:5,
+                    None:-1}
         result = []
+
+        # align maximum arg priority
+        max_prio = -1
+        for arg in args:
+            if isinstance(arg, torch.fx.proxy.Proxy):
+                cur_prio = priority[try_to_get_dtype(arg)]
+                if cur_prio > max_prio:
+                    max_prio = cur_prio
+
+        # align priority between arg max and target_dtype
         ascend_dtype = get_ascend_dtype(target_dtype)
+        cur_prio = priority[target_dtype]
+        if cur_prio > max_prio:
+            max_prio = cur_prio
+        assert max_prio > -1
+        target_dtype = list(priority.keys())[max_prio]
+
+        # core of dtype conversion
         for arg in args:
             if isinstance(arg, torch.fx.proxy.Proxy):
                 current_dtype = try_to_get_dtype(arg)
@@ -653,9 +677,18 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
     @register_conversion([aten.lt.Scalar, aten.lt.Tensor])
     def lt(self, x, y):
-        if not isinstance(y, torch.fx.proxy.Proxy):
-            x_dtype = x.node.meta['val'].dtype
-            y = self.get_const_proxy(y, x_dtype)
+        x_shape = list(x.node.meta['val'].shape)
+        y_shape = [] if not isinstance(
+            y, torch.fx.proxy.Proxy) else list(y.node.meta['val'].shape)
+        out = list(fx_traceback.get_current_meta()['val'].shape)
+        out_shape = self.get_shape_proxy(out)
+        x, y = self.binary_cmp_cast_input(x, y)
+        dynamic_shape = not_all_num_shape(x_shape) or not_all_num_shape(
+            y_shape) or not_all_num_shape(out)
+        if dynamic_shape and (self.shape_prod(x_shape) < self.shape_prod(out)):
+            x = self.get_proxy(ascend_op.BroadcastTo, (x, out_shape))
+        if dynamic_shape and (self.shape_prod(y_shape) < self.shape_prod(out)):
+            y = self.get_proxy(ascend_op.BroadcastTo, (y, out_shape))
         return self.get_proxy(ascend_op.Less, (x, y))
 
     @register_conversion(aten.masked_fill.Scalar)
