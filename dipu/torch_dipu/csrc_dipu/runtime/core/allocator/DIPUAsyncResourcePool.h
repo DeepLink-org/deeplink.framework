@@ -81,10 +81,8 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
   struct Resource final {
     const T t;
     int event_count;
-    const std::deque<DIPUEvent> events;
 
-    Resource(const T& t, int event_count, std::deque<DIPUEvent>& events)
-        : t(t), event_count(event_count), events(std::move(events)) {}
+    Resource(const T& t, int event_count) : t(t), event_count(event_count) {}
 
     ~Resource() = default;
     Resource(const Resource&) = delete;
@@ -92,7 +90,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     Resource(Resource&&) = delete;
     Resource& operator=(Resource&&) = delete;
   };
-  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, int>>>
+  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, DIPUEvent>>>
       queues_with_events;
   Resource* ready_resource = nullptr;
 
@@ -112,10 +110,10 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     if (events.empty()) {
       queue_without_events.push(t);
     } else {
-      auto resource = new Resource(t, events.size(), events);
-      for (int i = 0; i < resource->event_count; ++i) {
-        queues_with_events[resource->events[i].stream_id()].emplace(resource,
-                                                                    i);
+      auto resource = new Resource(t, events.size());
+      for (DIPUEvent& event : events) {
+        queues_with_events[event.stream_id()].emplace(resource,
+                                                        std::move(event));
       }
     }
     ++total_size;
@@ -161,8 +159,8 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
     for (auto it = queues_with_events.begin();
          it != queues_with_events.end();) {
       auto& [stream_id, queue] = *it;
-      auto& [resource, event_id] = queue.front();
-      if (resource->events[event_id].query()) {
+      auto& [resource, event] = queue.front();
+      if (event.query()) {
         --resource->event_count;
         if (0 == resource->event_count) {
           ready_resource = resource;
