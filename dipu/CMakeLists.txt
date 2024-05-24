@@ -12,8 +12,8 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-# enable Link Time Optimization on Release mode
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
+option(ENABLE_LTO "Enable Link Time Optimization in Release build" ON)
+if(ENABLE_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
   include(CheckIPOSupported)
   check_ipo_supported(RESULT supported OUTPUT error)
   if(supported)
@@ -21,10 +21,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
     set(CMAKE_POLICY_DEFAULT_CMP0069
         "NEW"
-        CACHE STRING "enforce IPO on subprojects" FORCE)
+        CACHE STRING "enforce IPO in subprojects" FORCE)
   else()
     message(STATUS "IPO / LTO not supported: <${error}>")
   endif()
+else()
+  message(STATUS "IPO / LTO disabled")
 endif()
 
 option(TESTS "Whether to build unit tests" OFF)
