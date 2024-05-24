@@ -113,7 +113,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
       auto resource = new Resource(t, events.size());
       for (DIPUEvent& event : events) {
         queues_with_events[event.stream_id()].emplace(resource,
-                                                        std::move(event));
+                                                      std::move(event));
       }
     }
     ++total_size;
