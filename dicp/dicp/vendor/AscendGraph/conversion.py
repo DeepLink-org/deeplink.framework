@@ -48,6 +48,14 @@ def try_to_get_dtype(x):
             return x.node.meta['val'].dtype
         else:
             return None
+
+    # handle with basic scalar type
+    if isinstance(x, bool):
+        return torch.bool
+    elif isinstance(x, int):
+        return torch.int32
+    elif isinstance(x, float):
+        return torch.float32
     return None
 
 
@@ -309,10 +317,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
         # align maximum arg priority
         max_prio = -1
         for arg in args:
-            if isinstance(arg, torch.fx.proxy.Proxy):
-                cur_prio = priority[try_to_get_dtype(arg)]
-                if cur_prio > max_prio:
-                    max_prio = cur_prio
+            cur_prio = priority[try_to_get_dtype(arg)]
+            if cur_prio > max_prio:
+                max_prio = cur_prio
 
         # align priority between arg max and target_dtype
         cur_prio = priority[target_dtype]
@@ -333,6 +340,9 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 # 1. unable to get tensor dtype
                 # 2. current_dtype != target_dtype
                 result.append(self.get_proxy(ascend_op.Cast, (arg, ascend_dtype)))
+            elif try_to_get_dtype(arg) is not None:
+                # handle with scalar case
+                result.append(self.get_const_proxy(arg, target_dtype))
             else:
                 raise RuntimeError("Not implemented")
         return tuple(result) if len(result) > 1 else result[0]
@@ -1579,7 +1589,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion(torch.ops.aten.gt.Scalar)
     def GtScalar(self, x, y):
         dtype = get_ascend_dtype(x.node.meta['val'].dtype)
-        scalar_op = self.get_const_proxy(float(y), torch.float32)
         x, scalar_op = self.promote_dtype(x, scalar_op, target_dtype=dtype)
         return self.get_proxy(ascend_op.Greater, (x, scalar_op))
 
@@ -1644,13 +1653,10 @@ class AtenToAscendTransformer(SingleOpTransformer):
     @register_conversion([torch.ops.aten.ge.Scalar, torch.ops.aten.ge.Tensor])
     def Ge(self, x, y):
         x_dtype = x.node.meta['val'].dtype
-        if not isinstance(y, torch.fx.proxy.Proxy):
-            y = self.get_const_proxy(y, x_dtype)
-        else:
-            if isinstance(y.node.meta['val'], torch.SymInt):
-                y = self.get_shape_proxy([y])
-                y = self.get_proxy(ascend_op.Squeeze, (y, [0]))
-            x, y = self.promote_dtype(x, y, target_dtype=x_dtype)
+        if isinstance(y, torch.fx.proxy.Proxy) and isinstance(y.node.meta['val'], torch.SymInt):
+            y = self.get_shape_proxy([y])
+            y = self.get_proxy(ascend_op.Squeeze, (y, [0]))
+        x, y = self.promote_dtype(x, y, target_dtype=x_dtype)
         return self.get_proxy(ascend_op.GreaterEqual, (x, y))
 
     @register_conversion(torch.ops.aten.logical_or.default)
