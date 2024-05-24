@@ -139,7 +139,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
 
   bool empty() const override {
     std::lock_guard<mutex_t> lk(mutex);
-    return total_size > 0;
+    return 0 == total_size;
   }
 
   // If there is no ready resource, remove completed events in queues
