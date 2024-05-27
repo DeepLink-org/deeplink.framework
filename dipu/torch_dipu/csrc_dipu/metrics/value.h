@@ -118,11 +118,11 @@ class histogram {
 
   explicit histogram(std::vector<value_type> thresholds)
       : thresholds(monotonic(std::move(thresholds))),
-        buckets(thresholds.size() + 1 /* +inf */) {}
+        buckets(this->thresholds.size() + 1 /* +inf */) {}
 
   histogram(std::initializer_list<value_type> thresholds)
       : thresholds(monotonic(thresholds)),
-        buckets(thresholds.size() + 1 /* +inf */) {}
+        buckets(this->thresholds.size() + 1 /* +inf */) {}
 
   histogram(value_type start, value_type delta, std::size_t number)
       : thresholds(number), buckets(number + 1 /* +inf */) {
