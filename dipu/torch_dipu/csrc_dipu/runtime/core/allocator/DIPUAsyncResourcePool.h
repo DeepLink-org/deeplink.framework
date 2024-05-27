@@ -5,6 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <tuple>
+#include <utility>
 
 #include <c10/util/Exception.h>
 #include <c10/util/flat_hash_map.h>
@@ -115,6 +116,7 @@ class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
         queues_with_events[event.stream_id()].emplace(resource,
                                                       std::move(event));
       }
+      events.clear();
     }
     ++total_size;
   }
