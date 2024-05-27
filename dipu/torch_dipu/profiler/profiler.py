@@ -26,10 +26,10 @@ def dipu_kineto_available():
 def get_evt_name(evt):
     try:
         name = evt.name()
-        return name
-    except:
-        return "UDName"
-
+    # the characters encoded not by utf-8 in c++ profiler code can't  decoded by utf-8 in python.
+    except UnicodeDecodeError:
+        name = "UnicodeDecodeErrorName"
+    return name
 
 class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
