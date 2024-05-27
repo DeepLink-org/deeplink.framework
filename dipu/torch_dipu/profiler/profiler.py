@@ -26,7 +26,7 @@ def dipu_kineto_available():
 def get_evt_name(evt):
     try:
         name = evt.name()
-    # the characters encoded not by utf-8 in c++ profiler code can't  decoded by utf-8 in python.
+    # the characters encoded not by utf-8 in c++ profiler code can't be decoded by utf-8 in python.
     except UnicodeDecodeError:
         name = "UnicodeDecodeErrorName"
     return name
