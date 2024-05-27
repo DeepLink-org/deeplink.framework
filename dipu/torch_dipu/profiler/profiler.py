@@ -3,8 +3,7 @@ import torch
 from torch_dipu import _C
 from operator import attrgetter
 import math
-from torch.autograd import _KinetoEvent
-from torch.autograd import DeviceType
+from torch.autograd import DeviceType, _KinetoEvent
 from torch.autograd.profiler_util import (
     _filter_name,
     _filter_stack_entry,
