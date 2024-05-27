@@ -46,7 +46,7 @@ def try_to_get_dtype(x):
     if isinstance(x, torch.fx.proxy.Proxy):
         if hasattr(x.node, "meta") and "val" in x.node.meta.keys():
             return x.node.meta['val'].dtype
-        elif 'const' in str(x):
+        elif isinstance(x.node.target, ascend_op.Const):
             # handle with const proxy dtype
             assert len(x.node.args) > 1
             return x.node.args[1]
