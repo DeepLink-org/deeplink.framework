@@ -3,6 +3,7 @@ import torch
 from torch_dipu import _C
 from operator import attrgetter
 import math
+from torch.autograd import _KinetoEvent
 from torch.autograd import DeviceType
 from torch.autograd.profiler_util import (
     _filter_name,
@@ -23,7 +24,7 @@ def dipu_kineto_available():
     return True
 
 
-def get_evt_name(evt):
+def get_evt_name(evt: _KinetoEvent):
     try:
         name = evt.name()
     # the characters encoded not by utf-8 in c++ profiler code can't be decoded by utf-8 in python.
