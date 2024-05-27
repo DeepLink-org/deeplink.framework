@@ -31,6 +31,7 @@ def get_evt_name(evt):
         name = "UnicodeDecodeErrorName"
     return name
 
+
 class TorchProfile(torch.autograd.profiler.profile):
     def _parse_kineto_results(self, result):
         # result.events() has most of the events - PyTorch op-level and device-level events
