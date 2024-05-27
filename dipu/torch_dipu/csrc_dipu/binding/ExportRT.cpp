@@ -15,8 +15,7 @@
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/DIPUGlobals.h"
-#include "csrc_dipu/metrics/default.h"
-#include "csrc_dipu/metrics/statistics.h"
+#include "csrc_dipu/metrics/export.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include "csrc_dipu/utils/vender_helper.hpp"
@@ -354,62 +353,24 @@ static void exportUtils(py::module& m) {
   m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
-static void exportMetricsCollector(py::module& m) {
-  m.def("fetch_collected_metrics", []() -> metrics::statistics {
-    return default_metrics_collector().fetch();
+static void exportMetrics(py::module& m) {
+  using metrics_value = metrics::exported_value<char>;
+  m.def("fetch_collected_metrics", []() -> std::vector<metrics_value> {
+    return default_metrics_collector().export_values();
   });
-}
 
-static void exportMetricsValue(py::module& m) {
-  {
-    using t = metrics::allocator_statistics;
-    using r = t const&;
-    auto v = [](char const* first, auto&& second) {
-      return std::make_pair(first, std::forward<decltype(second)>(second));
-    };
-
-    auto static constexpr mapping = std::make_tuple(
-        v("allocate_size_count", [](r x) { return x.allocate_size.count; }),
-        v("allocate_size_sum", [](r x) { return x.allocate_size.summation; }),
-        v("allocate_size_min", [](r x) { return x.allocate_size.minimum; }),
-        v("allocate_size_max", [](r x) { return x.allocate_size.maximum; }),
-        v("allocate_size_frequency_exp2",
-          [](r x) { return x.allocate_size_frequency.value; }),
-        v("allocate_nullptr_count",
-          [](r x) { return x.allocate_nullptr_count; }),
-        v("allocate_duplicated_count",
-          [](r x) { return x.allocate_duplicated_count; }),
-
-        v("deallocate_size_count", [](r x) { return x.deallocate_size.count; }),
-        v("deallocate_size_sum",
-          [](r x) { return x.deallocate_size.summation; }),
-        v("deallocate_size_min", [](r x) { return x.deallocate_size.minimum; }),
-        v("deallocate_size_max", [](r x) { return x.deallocate_size.maximum; }),
-        v("deallocate_size_frequency_exp2",
-          [](r x) { return x.deallocate_size_frequency.value; }),
-        v("deallocate_nullptr_count",
-          [](r x) { return x.deallocate_nullptr_count; }),
-        v("deallocate_unexpected_count",
-          [](r x) { return x.deallocate_unexpected_count; }),
-
-        v("used_size_summation", [](r x) { return x.used_size_summation; }),
-        v("used_size_frequency_exp2",
-          [](r x) { return x.used_size_frequency.value; }));
-
-    auto clazz = py::class_<t>(m, "allocator_statistics");
-    auto def_properties = [&clazz](auto&&... p) -> py::class_<t>& {
-      return (clazz.def_property_readonly(p.first, p.second), ...);
-    };
-    auto as_dict = [](r x) {
-      auto o = py::dict();
-      auto f = [&o, &x](auto&&... p) { ((o[p.first] = p.second(x)), ...); };
-      std::apply(f, mapping);
-      return o;
-    };
-
-    std::apply(def_properties, mapping)
-        .def("asdict", as_dict, py::return_value_policy::move);
-  }
+  py::class_<metrics_value>(m, "MetricsValue")
+      .def(py::init<>())
+      .def_readwrite("name", &metrics_value::name)
+      .def_readwrite("type", &metrics_value::type)
+      .def_readwrite("labels", &metrics_value::labels)
+      .def_readwrite("value", &metrics_value::value)
+      .def("asdict", [](metrics_value const& x) -> py::dict {
+        // NOLINTNEXTLINE(google-build-using-namespace)
+        using namespace pybind11::literals;
+        return py::dict("name"_a = x.name, "type"_a = x.type,
+                        "labels"_a = x.labels, "value"_a = x.value);
+      });
 }
 
 extern void patchTorchCsrcDevice(PyObject* module);
@@ -428,7 +389,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportGenerator(m);
   exportAutocast(m);
   exportUtils(m);
-  exportMetricsCollector(m);
-  exportMetricsValue(m);
+  exportMetrics(m);
 }
 }  // namespace dipu

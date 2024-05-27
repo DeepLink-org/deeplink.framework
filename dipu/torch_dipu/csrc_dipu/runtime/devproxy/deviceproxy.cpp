@@ -1,7 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include "deviceproxy.h"
 
-#include "csrc_dipu/metrics/default.h"
+#include "csrc_dipu/metrics/export.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 
 namespace dipu {

@@ -5,9 +5,8 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
-#include "csrc_dipu/metrics/source.h"
+#include "csrc_dipu/metrics/export.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
-#include <csrc_dipu/metrics/default.h>
 
 #include "DIPUAsyncResourcePool.h"
 #include "DIPUCachingAllocatorUtils.h"
@@ -101,9 +100,8 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   mutable c10::Device device_ = c10::DeviceType::CPU;
 
  protected:
-  metrics::allocator_metrics_producer<false> mutable metrics_producer{
-      "allocator.cache." + generate_random_alphanum(4 << 1),
-      default_metrics_collector()};
+  // allocator_metrics mutable metrics_producer{default_metrics_collector(),
+  //                                            {{"type", "bfc"}}};
 
   c10::Allocator* raw_allocator() const { return raw_allocator_; }
 
@@ -119,8 +117,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   void set_raw_allocator(c10::Allocator* raw_allocator) {
     raw_allocator_ = raw_allocator;
     device_ = raw_allocator_->allocate(0).device();
-    metrics_producer.rename("allocator.cache." +
-                            std::to_string(device_.index()));
+    // metrics_producer.rename(std::to_string(device_.index()));
   }
 
   void set_async_mem_pool(AsyncMemPool* async_mem_pool) {
