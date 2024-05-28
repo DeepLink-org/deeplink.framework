@@ -22,9 +22,13 @@ class labelset {
  public:
   labelset(std::initializer_list<label_t> labels) : list(labels) {
     if (not list.empty()) {
+      // [0] remove empty
       auto iter = std::remove_if(list.begin(), list.end(), is_empty);
       list.erase(iter, list.end());
+      // [1] stable sort
       std::stable_sort(list.begin(), list.end());
+      // [2] remove duplicated and only keep the last one. This allows a later
+      // label *overwrite* previous label.
       auto riter = std::unique(list.rbegin(), list.rend(), is_same);
       list.erase(list.begin(), riter.base());
       list.shrink_to_fit();
@@ -59,6 +63,7 @@ class labelset {
 
   auto operator-=(labelset const& other) -> labelset& {
     auto exists = [&list = other.list](auto& it) {
+      // Note: this operation could be O(n)
       auto iter = std::lower_bound(list.begin(), list.end(), it);
       return iter != list.end() && *iter == it;
     };
@@ -67,12 +72,15 @@ class labelset {
   }
 
   auto operator+=(std::initializer_list<label_t> that) -> labelset& {
+    // [0] Sort "that"
     list.reserve(list.size() + that.size());
     auto first = list.insert(list.end(), that.begin(), that.end());
     auto last = std::remove_if(first, list.end(), is_empty);
     std::stable_sort(first, last);
+    // [1] Merge that into current list
     std::inplace_merge(list.begin(), first, last);
     list.erase(last, list.end());
+    // [2] Remove duplicated but keeping the last one.
     auto riter = std::unique(list.rbegin(), list.rend(), is_same);
     list.erase(list.begin(), riter.base());
     return *this;

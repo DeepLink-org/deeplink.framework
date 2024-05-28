@@ -21,42 +21,49 @@ namespace dipu::metrics {
 using exported_floating = double;
 using exported_integer = int64_t;
 using exported_number = std::variant<exported_integer, exported_floating>;
-using exported_histogram = std::pair<
-    std::variant<std::vector<exported_integer>, std::vector<exported_floating>>,
-    std::vector<exported_integer>>;
+using exported_histogram = std::pair<  // A pair of thresholds and buckets
+    std::variant<std::vector<exported_integer>,
+                 std::vector<exported_floating>>,  // Thresholds (ints or reals)
+    std::vector<exported_integer>                  // Buckets
+    >;
 
 namespace detail {
+
+// A trait to mapping type I to exported type
 template <typename I, typename = void>
 struct to_exported_type {
   // value type not supported
 };
+
 template <typename I>
 struct to_exported_type<I, std::enable_if_t<std::is_floating_point_v<I>>> {
   using type = exported_floating;
 };
+
 template <typename I>
 struct to_exported_type<I, std::enable_if_t<std::is_integral_v<I>>> {
   using type = exported_integer;
 };
-}  // namespace detail
 
 template <typename I>
-using to_exported_type = typename detail::to_exported_type<I>::type;
+using to_exported_t = typename to_exported_type<I>::type;
 
+// Convert counter to exported value
 template <typename I>
-auto to_exported(counter<I> const& v) {
-  return static_cast<to_exported_type<I>>(v.get());
+auto to_exported(counter<I> const& v) -> to_exported_t<I> {
+  return static_cast<to_exported_t<I>>(v.get());
 }
 
+// Convert gauge to exported value
 template <typename I>
-auto to_exported(gauge<I> const& v) {
-  return static_cast<to_exported_type<I>>(v.get());
+auto to_exported(gauge<I> const& v) -> to_exported_t<I> {
+  return static_cast<to_exported_t<I>>(v.get());
 }
 
+// Convert histogram to exported histogram
 template <typename I>
 auto to_exported(histogram<I> const& v) -> exported_histogram {
-  using type = to_exported_type<I>;
-
+  using type = to_exported_t<I>;
   auto& thresholds = v.get_thresholds();
   auto output = std::vector<type>();
   output.reserve(thresholds.size());
@@ -65,21 +72,26 @@ auto to_exported(histogram<I> const& v) -> exported_histogram {
   }
   return {output, v.template get_buckets<exported_integer>()};
 }
+
+}  // namespace detail
 }  // namespace dipu::metrics
 
 namespace dipu::metrics {
 
 template <typename C>
-struct exported_value {
+struct exported_group {
   using number = exported_number;
   using integer = exported_integer;
   using floating = exported_floating;
   using histogram = exported_histogram;
+  using labels = std::vector<label<C>>;
+  using value = std::variant<integer, floating, histogram>;
+  using labeled_value = std::pair<labels, value>;
 
   std::basic_string<C> name;
   std::basic_string<C> type;
-  std::vector<std::pair<std::basic_string<C>, std::basic_string<C>>> labels;
-  std::variant<integer, floating, histogram> value;
+  std::basic_string<C> info;
+  std::vector<labeled_value> values;
 };
 
 using labeled_integer_counter = labeled_value<counter<exported_integer>, char>;
@@ -93,35 +105,44 @@ using labeled_floating_histogram =
 template <typename C>
 class collector {
  public:
-  using integer = typename exported_value<C>::integer;
-  using floating = typename exported_value<C>::floating;
+  template <typename T>
+  using labeled = labeled_value<T, C>;
+  using exported = exported_group<C>;
+  using floating = typename exported::floating;
+  using integer = typename exported::integer;
+  using string = std::basic_string<C>;
 
  private:
+  // Map {T...} to {std::shared_ptr< group<T> >...}
   template <typename... T>
-  struct build_variant {
+  struct to_shared_grouped_variant {
     using type = std::variant<std::shared_ptr<group<T, C>>...>;
   };
 
-  using variant = build_variant<        //
-      counter<integer>,                 //
-      gauge<integer>, gauge<floating>,  //
-      histogram<integer>, histogram<floating>>;
-  using variant_type = typename variant::type;
+  using variant_type = typename to_shared_grouped_variant<
+      counter<integer>,                        // 0: counter
+      gauge<integer>, gauge<floating>,         // 1, 2: gauge
+      histogram<integer>, histogram<floating>  // 3, 4: histogram
+      >::type;
 
   std::shared_mutex mutable mutex;
-  std::unordered_map<std::basic_string<C>, variant_type> groups;
+  std::unordered_map<string, variant_type> groups;
 
  public:
-  [[nodiscard]] auto export_values() const -> std::vector<exported_value<C>> {
-    auto output = std::vector<exported_value<C>>{};
+  [[nodiscard]] auto export_values() const -> std::vector<exported> {
+    auto output = std::vector<exported>{};
     auto visitor = [&output](auto&& group) {
-      group->each([&output, &group](labelset<C> const& labels, auto& value) {
-        output.emplace_back(exported_value<C>{
-            group->name(), group->type(), labels.labels(), to_exported(value)});
+      auto values = std::vector<typename exported::labeled_value>();
+      group->each([&values](labelset<C> const& key, auto& value) {
+        values.emplace_back(key.labels(), detail::to_exported(value));
       });
+      output.push_back({group->name(), group->type(), group->description(),
+                        std::move(values)});
     };
 
+    // Iterate through groups and collect values in each group.
     std::shared_lock _(mutex);
+    output.reserve(groups.size());
     for (auto& [name, group] : groups) {
       std::visit(visitor, group);
     }
@@ -129,10 +150,8 @@ class collector {
   }
 
   template <typename... T>
-  [[nodiscard]] auto make_integer_counter(std::basic_string<C> name,
-                                          std::basic_string<C> help,
-                                          T&&... args)
-      -> labeled_value<counter<integer>, C>  //
+  [[nodiscard]] auto make_integer_counter(string name, string help, T&&... args)
+      -> labeled<counter<integer>>  //
   {
     return make_type<counter<integer>>("counter<integer> (index: 0)",
                                        std::move(name), std::move(help),
@@ -140,9 +159,8 @@ class collector {
   }
 
   template <typename... T>
-  [[nodiscard]] auto make_integer_gauge(std::basic_string<C> name,
-                                        std::basic_string<C> help, T&&... args)
-      -> labeled_value<gauge<integer>, C>  //
+  [[nodiscard]] auto make_integer_gauge(string name, string help, T&&... args)
+      -> labeled<gauge<integer>>  //
   {
     return make_type<gauge<integer>>("gauge<integer> (index: 1)",
                                      std::move(name), std::move(help),
@@ -150,9 +168,8 @@ class collector {
   }
 
   template <typename... T>
-  [[nodiscard]] auto make_floating_gauge(std::basic_string<C> name,
-                                         std::basic_string<C> help, T&&... args)
-      -> labeled_value<gauge<floating>, C>  //
+  [[nodiscard]] auto make_floating_gauge(string name, string help, T&&... args)
+      -> labeled<gauge<floating>>  //
   {
     return make_type<gauge<floating>>("gauge<floating> (index: 2)",
                                       std::move(name), std::move(help),
@@ -160,9 +177,9 @@ class collector {
   }
 
   [[nodiscard]] auto make_integer_histogram(
-      std::basic_string<C> name, std::basic_string<C> help,
+      string name, string help,
       std::initializer_list<exported_integer> list)
-      -> labeled_value<histogram<integer>, C>  //
+      -> labeled<histogram<integer>>  //
   {
     return make_type<histogram<integer>>("histogram<integer> (index: 3)",
                                          std::move(name), std::move(help),
@@ -170,10 +187,9 @@ class collector {
   }
 
   template <typename... T>
-  [[nodiscard]] auto make_integer_histogram(std::basic_string<C> name,
-                                            std::basic_string<C> help,
+  [[nodiscard]] auto make_integer_histogram(string name, string help,
                                             T&&... args)
-      -> labeled_value<histogram<integer>, C>  //
+      -> labeled<histogram<integer>>  //
   {
     return make_type<histogram<integer>>("histogram<integer> (index: 3)",
                                          std::move(name), std::move(help),
@@ -181,9 +197,8 @@ class collector {
   }
 
   [[nodiscard]] auto make_floating_histogram(
-      std::basic_string<C> name, std::basic_string<C> help,
-      std::initializer_list<floating> list)
-      -> labeled_value<histogram<floating>, C>  //
+      string name, string help,
+      std::initializer_list<floating> list) -> labeled<histogram<floating>>  //
   {
     return make_type<histogram<floating>>("histogram<floating> (index: 4)",
                                           std::move(name), std::move(help),
@@ -191,10 +206,9 @@ class collector {
   }
 
   template <typename... T>
-  [[nodiscard]] auto make_floating_histogram(std::basic_string<C> name,
-                                             std::basic_string<C> help,
+  [[nodiscard]] auto make_floating_histogram(string name, string help,
                                              T&&... args)
-      -> labeled_value<histogram<floating>, C>  //
+      -> labeled<histogram<floating>>  //
   {
     return make_type<histogram<floating>>("histogram<floating> (index: 4)",
                                           std::move(name), std::move(help),
@@ -203,11 +217,8 @@ class collector {
 
  private:
   template <typename T, typename... U>
-  [[nodiscard]] auto make_type(            //
-      char const* type,                    //
-      std::basic_string<C> name,           //
-      U&&... args) -> labeled_value<T, C>  //
-  {
+  [[nodiscard]] auto make_type(char const* type, string name, U&&... args)
+      -> labeled<T> {
     if (name.empty()) {
       auto m = std::string(type) + " name cannot be empty";
       throw std::invalid_argument(m);
@@ -223,14 +234,15 @@ class collector {
     }
 
     if (*pointer == nullptr) {
-      throw std::runtime_error("unexpected nullptr shared pointer");
+      throw std::runtime_error("unexpected null shared pointer");
     }
 
     return (**pointer).find_or_make({});
   }
 
   template <typename T, typename... U>
-  auto make_variant(std::basic_string<C> name, U&&... args) -> variant_type& {
+  auto make_variant(string name, U&&... args) -> variant_type& {
+    // Return the variant if found, or insert a new variant into gourps.
     {
       std::shared_lock _(mutex);
       if (auto iter = groups.find(name); iter != groups.end()) {
@@ -238,11 +250,14 @@ class collector {
       }
     }
     {
-      std::unique_lock _(mutex);
+      // Avoid invoking std::make_shared if name already existed. Here we use a
+      // null pointer as dummy.
       using type = group<T, C>;
       auto dummy = std::shared_ptr<type>();
-      auto [iter, done] = groups.try_emplace(name, dummy);
-      if (done) {
+
+      std::unique_lock _(mutex);
+      auto [iter, inserted] = groups.try_emplace(name, dummy);
+      if (inserted) {
         iter->second = std::make_shared<type>(name, std::forward<U>(args)...);
       }
       return iter->second;

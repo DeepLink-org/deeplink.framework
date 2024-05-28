@@ -117,7 +117,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   void set_raw_allocator(c10::Allocator* raw_allocator) {
     raw_allocator_ = raw_allocator;
     device_ = raw_allocator_->allocate(0).device();
-    metrics_producer.rename(std::to_string(device_.index()));
+    metrics_producer.set_device_number(std::to_string(device_.index()));
   }
 
   void set_async_mem_pool(AsyncMemPool* async_mem_pool) {

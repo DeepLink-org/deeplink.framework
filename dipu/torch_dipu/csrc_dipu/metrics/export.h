@@ -33,12 +33,16 @@ class allocator_metrics {
             collector.make_integer_counter("allocator_event_count", "TODO")
                 .with(labels)
                 .with({{"method", "allocate"}, {"event", "nullptr"}})),
-        allocate_duplicated_count(allocate_nullptr_count.with(
-            {{"method", "allocate"}, {"event", "duplicated"}})),
-        deallocate_nullptr_count(allocate_nullptr_count.with(
-            {{"method", "deallocate"}, {"event", "nullptr"}})),
-        deallocate_unexpected_count(allocate_nullptr_count.with(
-            {{"method", "deallocate"}, {"event", "unexpected"}})),
+        allocate_duplicated_count(  // Reuse allocate_nullptr_count as they are
+                                    // in a same group.
+            allocate_nullptr_count.with(
+                {{"method", "allocate"}, {"event", "duplicated"}})),
+        deallocate_nullptr_count(  //
+            allocate_nullptr_count.with(
+                {{"method", "deallocate"}, {"event", "nullptr"}})),
+        deallocate_unexpected_count(  //
+            allocate_nullptr_count.with(
+                {{"method", "deallocate"}, {"event", "unexpected"}})),
 
         allocate_size_total(
             collector.make_integer_gauge("allocator_size_total", "TODO")
@@ -94,22 +98,18 @@ class allocator_metrics {
     }
   }
 
-  void rename(std::string const& device) {
+  void set_device_number(std::string const& device) {
     std::scoped_lock _(mutex);
-
-    allocate_nullptr_count = allocate_nullptr_count.with({{"device", device}});
-    allocate_duplicated_count =
-        allocate_duplicated_count.with({{"device", device}});
-    deallocate_nullptr_count =
-        deallocate_nullptr_count.with({{"device", device}});
-    deallocate_unexpected_count =
-        deallocate_unexpected_count.with({{"device", device}});
-    allocate_size_total = allocate_size_total.with({{"device", device}});
-    deallocate_size_total = deallocate_size_total.with({{"device", device}});
-    allocate_size_frequency =
-        allocate_size_frequency.with({{"device", device}});
-    deallocate_size_frequency =
-        deallocate_size_frequency.with({{"device", device}});
+#define _OVERRIDE_DEVICE(field) field = (field).with({{"device", device}})
+    _OVERRIDE_DEVICE(allocate_nullptr_count);
+    _OVERRIDE_DEVICE(allocate_duplicated_count);
+    _OVERRIDE_DEVICE(deallocate_nullptr_count);
+    _OVERRIDE_DEVICE(deallocate_unexpected_count);
+    _OVERRIDE_DEVICE(allocate_size_total);
+    _OVERRIDE_DEVICE(deallocate_size_total);
+    _OVERRIDE_DEVICE(allocate_size_frequency);
+    _OVERRIDE_DEVICE(deallocate_size_frequency);
+#undef _OVERRIDE_DEVICE
   }
 
  private:
@@ -118,7 +118,7 @@ class allocator_metrics {
     auto output = std::vector<metrics::exported_integer>();
     output.reserve(std::numeric_limits<uint32_t>::digits);
     for (auto i = from; i < std::numeric_limits<uint32_t>::digits; ++i) {
-      output.push_back(1LL << i);
+      output.push_back(static_cast<metrics::exported_integer>(1ULL << i));
     }
     return output;
   }
