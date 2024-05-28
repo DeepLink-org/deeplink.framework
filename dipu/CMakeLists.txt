@@ -30,6 +30,7 @@ list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
 list(APPEND DEVICE_KUNLUNXIN "kunlunxin" "klx")
+list(APPEND DEVICE_MUXI "MUXI", "muxi")
 
 execute_process(COMMAND git rev-parse --short HEAD
                 OUTPUT_VARIABLE DIPU_GIT_HASH)
@@ -65,6 +66,10 @@ elseif (${DEVICE} IN_LIST DEVICE_KUNLUNXIN)
   set(USE_KUNLUNXIN ON)
   set(UsedVendor kunlunxin)
   set(DIOPI_IMPL_OPT "kunlunxin")
+elseif (${DEVICE} IN_LIST DEVICE_MUXI)
+  set(USE_KUNLUNXIN ON)
+  set(UsedVendor muxi)
+  set(DIOPI_IMPL_OPT "muxi")
 else()
   message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
 endif()
@@ -149,6 +154,13 @@ _set_cpp_flags()
 
 # if add new version, please also update dipu/__init__.py torch_ver_XX
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
+
+# dipu for now depends on torch_muxi. after changing to use torch_cpu, remove it.
+if (${DEVICE} IN_LIST DEVICE_MUXI)
+  set(USE_MACA ON)
+  #  set global compile def for now.
+  add_compile_definitions(USE_MACA=1)
+endif()
 
 find_package(Torch REQUIRED)
 
