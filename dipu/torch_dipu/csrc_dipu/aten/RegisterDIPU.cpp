@@ -2,20 +2,59 @@
 #include "RegisterDIPU.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
 #include <ios>
 #include <iostream>
 #include <regex>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include <ATen/DeviceGuard.h>
 #include <ATen/EmptyTensor.h>
+#include <ATen/core/ATen_fwd.h>
+#include <ATen/core/TensorBody.h>
+#include <ATen/core/dispatch/Dispatcher.h>
 #include <ATen/core/op_registration/adaption.h>
+#include <ATen/core/operator_name.h>
+#include <ATen/core/stack.h>
 #include <ATen/native/CPUFallback.h>
+#include <ATen/ops/_pin_memory_ops.h>
+#include <ATen/ops/_reshape_alias_native.h>
+#include <ATen/ops/as_strided_native.h>
+#include <ATen/ops/is_pinned_ops.h>
+#include <ATen/ops/is_set_to_native.h>
+#include <ATen/ops/unfold_native.h>
+#include <ATen/ops/view_as_complex_native.h>
+#include <ATen/ops/view_as_real_native.h>
+#include <ATen/ops/view_native.h>
+#include <ATen/ops/zero_native.h>
+#include <c10/core/CompileTimeFunctionPointer.h>
+#include <c10/core/Device.h>
+#include <c10/core/DeviceGuard.h>
+#include <c10/core/DispatchKey.h>
+#include <c10/core/DispatchKeySet.h>
+#include <c10/core/Layout.h>
+#include <c10/core/MemoryFormat.h>
+#include <c10/core/ScalarType.h>
 #include <c10/core/Storage.h>
+#include <c10/core/SymInt.h>
+#include <c10/core/SymIntArrayRef.h>
+#include <c10/core/TensorOptions.h>
 #include <c10/util/Exception.h>
+#include <c10/util/Optional.h>
 #include <c10/util/irange.h>
+#include <torch/library.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
 namespace dnative = dipu::native::dipu_aten;
@@ -112,22 +151,6 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   } else {
     at::native::cpu_fallback(op, stack);
   }
-}
-
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
-std::deque<std::tuple<torch::Library*, DIPUOpRegister::OpRegFunPtr>>
-    DIPUOpRegister::dipuOpRegisterList;
-std::mutex DIPUOpRegister::mutex_;
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
-
-void DIPUOpRegister::register_op() {
-  std::lock_guard<std::mutex> guard(mutex_);
-  for (auto& iter : dipuOpRegisterList) {
-    torch::Library* lib = std::get<0>(iter);
-    DIPUOpRegister::OpRegFunPtr fun_ptr = std::get<1>(iter);
-    fun_ptr(*lib);
-  }
-  dipuOpRegisterList.clear();
 }
 
 namespace {
