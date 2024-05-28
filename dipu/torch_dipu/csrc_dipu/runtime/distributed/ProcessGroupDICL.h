@@ -230,10 +230,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
       const std::string& localCommsKey, const std::vector<at::Device>& devices,
       int commsRank, OpType opType);
 
-  virtual std::vector<std::shared_ptr<DICLComm>>& getOrCreateDICLComm(
-      const std::string& localCommsKey, const std::vector<at::Device>& devices,
-      int commsRank);
-
   template <typename Fn>
   c10::intrusive_ptr<Work> collective(std::vector<at::Tensor>& input,
                                       std::vector<at::Tensor>& output, Fn fn,
