@@ -20,7 +20,7 @@ namespace dipu {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex DIPURawDeviceAllocator::mutex_;
 
-constexpr size_t kDefaultMaxAsyncResourcePoolLength = 64;
+constexpr size_t kDefaultMaxAsyncResourcePoolLength = 96;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const size_t kMaxAsyncResourcePoolLength = get_env_or_default(
     "DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH", kDefaultMaxAsyncResourcePoolLength);
