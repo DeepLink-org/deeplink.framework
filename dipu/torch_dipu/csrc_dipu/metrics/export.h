@@ -30,7 +30,7 @@ class allocator_metrics {
   explicit allocator_metrics(metrics::collector<char>& collector,
                              metrics::labelset<char> const& labels)
       : allocate_nullptr_count(
-            collector.named_integer_counter("allocator_event_count", "TODO")
+            collector.make_integer_counter("allocator_event_count", "TODO")
                 .with(labels)
                 .with({{"method", "allocate"}, {"event", "nullptr"}})),
         allocate_duplicated_count(allocate_nullptr_count.with(
@@ -41,7 +41,7 @@ class allocator_metrics {
             {{"method", "deallocate"}, {"event", "unexpected"}})),
 
         allocate_size_total(
-            collector.named_integer_gauge("allocator_size_total", "TODO")
+            collector.make_integer_gauge("allocator_size_total", "TODO")
                 .with(labels)
                 .with({{"method", "allocate"}})),
         deallocate_size_total(
@@ -49,8 +49,8 @@ class allocator_metrics {
 
         allocate_size_frequency(
             collector
-                .named_integer_histogram("allocator_size_frequency", "TODO",
-                                         exp2())
+                .make_integer_histogram("allocator_size_frequency", "TODO",
+                                        exp2())
                 .with(labels)
                 .with({{"method", "allocate"}})),
         deallocate_size_frequency(
@@ -118,7 +118,7 @@ class allocator_metrics {
     auto output = std::vector<metrics::exported_integer>();
     output.reserve(std::numeric_limits<uint32_t>::digits);
     for (auto i = from; i < std::numeric_limits<uint32_t>::digits; ++i) {
-      output.push_back(1 << i);
+      output.push_back(1LL << i);
     }
     return output;
   }

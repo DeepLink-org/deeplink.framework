@@ -18,8 +18,8 @@
 
 namespace dipu::metrics {
 
-using exported_integer = int64_t;
 using exported_floating = double;
+using exported_integer = int64_t;
 using exported_number = std::variant<exported_integer, exported_floating>;
 using exported_histogram = std::pair<
     std::variant<std::vector<exported_integer>, std::vector<exported_floating>>,
@@ -44,7 +44,7 @@ template <typename I>
 using to_exported_type = typename detail::to_exported_type<I>::type;
 
 template <typename I>
-auto to_exported(counter<I> const& v) -> exported_integer {
+auto to_exported(counter<I> const& v) {
   return static_cast<to_exported_type<I>>(v.get());
 }
 
@@ -65,12 +65,15 @@ auto to_exported(histogram<I> const& v) -> exported_histogram {
   }
   return {output, v.template get_buckets<exported_integer>()};
 }
+}  // namespace dipu::metrics
+
+namespace dipu::metrics {
 
 template <typename C>
 struct exported_value {
+  using number = exported_number;
   using integer = exported_integer;
   using floating = exported_floating;
-  using number = exported_number;
   using histogram = exported_histogram;
 
   std::basic_string<C> name;
@@ -98,6 +101,7 @@ class collector {
   struct build_variant {
     using type = std::variant<std::shared_ptr<group<T, C>>...>;
   };
+
   using variant = build_variant<        //
       counter<integer>,                 //
       gauge<integer>, gauge<floating>,  //
@@ -118,94 +122,100 @@ class collector {
     };
 
     std::shared_lock _(mutex);
-    for (auto& pair : groups) {
-      std::visit(visitor, pair.second);
+    for (auto& [name, group] : groups) {
+      std::visit(visitor, group);
     }
-
     return output;
   }
 
   template <typename... T>
-  [[nodiscard]] auto named_integer_counter(std::basic_string<C> name,
-                                           std::basic_string<C> help,
-                                           T&&... args)
-      -> labeled_value<counter<integer>, C> {
-    return named_type<counter<integer>>("counter<integer> (index: 0)",
-                                        std::move(name), std::move(help),
-                                        std::forward<T>(args)...);
-  }
-
-  template <typename... T>
-  [[nodiscard]] auto named_integer_gauge(std::basic_string<C> name,
-                                         std::basic_string<C> help, T&&... args)
-      -> labeled_value<gauge<integer>, C> {
-    return named_type<gauge<integer>>("gauge<integer> (index: 1)",
-                                      std::move(name), std::move(help),
-                                      std::forward<T>(args)...);
-  }
-
-  template <typename... T>
-  [[nodiscard]] auto named_floating_gauge(std::basic_string<C> name,
+  [[nodiscard]] auto make_integer_counter(std::basic_string<C> name,
                                           std::basic_string<C> help,
                                           T&&... args)
-      -> labeled_value<gauge<floating>, C> {
-    return named_type<gauge<floating>>("gauge<floating> (index: 2)",
+      -> labeled_value<counter<integer>, C>  //
+  {
+    return make_type<counter<integer>>("counter<integer> (index: 0)",
                                        std::move(name), std::move(help),
                                        std::forward<T>(args)...);
   }
 
   template <typename... T>
-  [[nodiscard]] auto named_integer_histogram(std::basic_string<C> name,
-                                             std::basic_string<C> help,
-                                             T&&... args)
-      -> labeled_value<histogram<integer>, C> {
-    return named_type<histogram<integer>>("histogram<integer> (index: 3)",
-                                          std::move(name), std::move(help),
-                                          std::forward<T>(args)...);
+  [[nodiscard]] auto make_integer_gauge(std::basic_string<C> name,
+                                        std::basic_string<C> help, T&&... args)
+      -> labeled_value<gauge<integer>, C>  //
+  {
+    return make_type<gauge<integer>>("gauge<integer> (index: 1)",
+                                     std::move(name), std::move(help),
+                                     std::forward<T>(args)...);
   }
 
-  [[nodiscard]] auto named_integer_histogram(
+  template <typename... T>
+  [[nodiscard]] auto make_floating_gauge(std::basic_string<C> name,
+                                         std::basic_string<C> help, T&&... args)
+      -> labeled_value<gauge<floating>, C>  //
+  {
+    return make_type<gauge<floating>>("gauge<floating> (index: 2)",
+                                      std::move(name), std::move(help),
+                                      std::forward<T>(args)...);
+  }
+
+  [[nodiscard]] auto make_integer_histogram(
       std::basic_string<C> name, std::basic_string<C> help,
       std::initializer_list<exported_integer> list)
-      -> labeled_value<histogram<integer>, C> {
-    return named_type<histogram<integer>>("histogram<integer> (index: 3)",
+      -> labeled_value<histogram<integer>, C>  //
+  {
+    return make_type<histogram<integer>>("histogram<integer> (index: 3)",
+                                         std::move(name), std::move(help),
+                                         list);
+  }
+
+  template <typename... T>
+  [[nodiscard]] auto make_integer_histogram(std::basic_string<C> name,
+                                            std::basic_string<C> help,
+                                            T&&... args)
+      -> labeled_value<histogram<integer>, C>  //
+  {
+    return make_type<histogram<integer>>("histogram<integer> (index: 3)",
+                                         std::move(name), std::move(help),
+                                         std::forward<T>(args)...);
+  }
+
+  [[nodiscard]] auto make_floating_histogram(
+      std::basic_string<C> name, std::basic_string<C> help,
+      std::initializer_list<floating> list)
+      -> labeled_value<histogram<floating>, C>  //
+  {
+    return make_type<histogram<floating>>("histogram<floating> (index: 4)",
                                           std::move(name), std::move(help),
                                           list);
   }
 
   template <typename... T>
-  [[nodiscard]] auto named_floating_histogram(std::basic_string<C> name,
-                                              std::basic_string<C> help,
-                                              T&&... args)
-      -> labeled_value<histogram<floating>, C> {
-    return named_type<histogram<floating>>("histogram<floating> (index: 4)",
-                                           std::move(name), std::move(help),
-                                           std::forward<T>(args)...);
-  }
-
-  template <typename... T>
-  [[nodiscard]] auto named_floating_histogram(
-      std::basic_string<C> name, std::basic_string<C> help,
-      std::initializer_list<floating> list)
-      -> labeled_value<histogram<floating>, C> {
-    return named_type<histogram<floating>>("histogram<floating> (index: 4)",
-                                           std::move(name), std::move(help),
-                                           list);
+  [[nodiscard]] auto make_floating_histogram(std::basic_string<C> name,
+                                             std::basic_string<C> help,
+                                             T&&... args)
+      -> labeled_value<histogram<floating>, C>  //
+  {
+    return make_type<histogram<floating>>("histogram<floating> (index: 4)",
+                                          std::move(name), std::move(help),
+                                          std::forward<T>(args)...);
   }
 
  private:
   template <typename T, typename... U>
-  [[nodiscard]] auto named_type(char const* type, std::basic_string<C> name,
-                                std::basic_string<C> help, U&&... args)
-      -> labeled_value<T, C> {
+  [[nodiscard]] auto make_type(            //
+      char const* type,                    //
+      std::basic_string<C> name,           //
+      U&&... args) -> labeled_value<T, C>  //
+  {
     if (name.empty()) {
       auto m = std::string(type) + " name cannot be empty";
       throw std::invalid_argument(m);
     }
 
-    auto& variant = find_or_make<T>(std::move(name), std::move(help),
-                                    std::forward<U>(args)...);
+    auto& variant = make_variant<T>(std::move(name), std::forward<U>(args)...);
     auto* pointer = std::get_if<std::shared_ptr<group<T, C>>>(&variant);
+
     if (pointer == nullptr) {
       auto m = std::string("expect type ") + type + " but index is " +
                std::to_string(variant.index());
@@ -216,12 +226,11 @@ class collector {
       throw std::runtime_error("unexpected nullptr shared pointer");
     }
 
-    return (*pointer)->find_or_make({});
+    return (**pointer).find_or_make({});
   }
 
   template <typename T, typename... U>
-  auto find_or_make(std::basic_string<C> name, std::basic_string<C> desc,
-                    U&&... args) -> variant_type& {
+  auto make_variant(std::basic_string<C> name, U&&... args) -> variant_type& {
     {
       std::shared_lock _(mutex);
       if (auto iter = groups.find(name); iter != groups.end()) {
@@ -230,11 +239,11 @@ class collector {
     }
     {
       std::unique_lock _(mutex);
-      auto value = static_cast<std::shared_ptr<group<T, C>>>(nullptr);
-      auto [iter, done] = groups.try_emplace(name, value);
+      using type = group<T, C>;
+      auto dummy = std::shared_ptr<type>();
+      auto [iter, done] = groups.try_emplace(name, dummy);
       if (done) {
-        iter->second =
-            std::make_shared<group<T, C>>(name, desc, std::forward<U>(args)...);
+        iter->second = std::make_shared<type>(name, std::forward<U>(args)...);
       }
       return iter->second;
     }

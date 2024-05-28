@@ -4,9 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <initializer_list>
-#include <iterator>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace dipu::metrics::detail {
@@ -123,21 +121,6 @@ class histogram {
   histogram(std::initializer_list<value_type> thresholds)
       : thresholds(monotonic(thresholds)),
         buckets(this->thresholds.size() + 1 /* +inf */) {}
-
-  histogram(value_type start, value_type delta, std::size_t number)
-      : thresholds(number), buckets(number + 1 /* +inf */) {
-    auto value = start;
-    for (auto& threshold : thresholds) {
-      threshold = value;
-      value += delta;
-    }
-  }
-
-  // ~histogram() = default;
-  // histogram(histogram &&other) noexcept = default;
-  // histogram(histogram const &other) = default;
-  // histogram &operator=(histogram &&other) noexcept = default;
-  // histogram &operator=(histogram const &other) = default;
 
  private:
   auto select_bucket(I number) -> counter<uint64_t>& {

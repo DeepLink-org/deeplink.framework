@@ -1,9 +1,9 @@
 #pragma once
 
 #include <algorithm>
-#include <functional>
 #include <initializer_list>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace dipu::metrics {
@@ -108,6 +108,9 @@ class labelset {
     return l.first == r.first;
   }
 };
+
+template <typename C>
+labelset(std::initializer_list<label<C>>) -> labelset<C>;
 
 }  // namespace dipu::metrics
 

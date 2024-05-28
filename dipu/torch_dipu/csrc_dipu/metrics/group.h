@@ -3,12 +3,9 @@
 #include <atomic>
 #include <initializer_list>
 #include <memory>
-#include <mutex>
 #include <shared_mutex>
 #include <string>
-#include <string_view>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include "label.h"
@@ -19,18 +16,15 @@ namespace dipu::metrics::detail {
 template <typename T>
 struct shared_value {
   T value;
-  std::atomic_bool mutable use{};  // use std::atomic_flag in C++20
-  std::atomic_uint mutable count{};
+  std::atomic_bool use{};  // switch to std::atomic_flag in C++20
+  std::atomic_uint count{};
 
   explicit shared_value(T const& source) noexcept : value(source) {}
-  auto incref() const noexcept -> void { count.fetch_add(1); }
-  auto decref() const noexcept -> void { count.fetch_sub(1); }
+  auto incref() noexcept -> void { count.fetch_add(1); }
+  auto decref() noexcept -> void { count.fetch_sub(1); }
+  auto touch() noexcept -> void { use.store(true, std::memory_order_release); }
   auto unused() const noexcept -> bool {
-    return not use.load(std::memory_order_acquire) and
-           count.load(std::memory_order_acquire) == 0;
-  }
-  auto touch() const noexcept -> void {
-    use.store(true, std::memory_order_release);
+    return not use.load(std::memory_order_acquire) and count.load() == 0;
   }
 };
 
@@ -77,36 +71,33 @@ class group : public std::enable_shared_from_this<group<T, C>> {
   [[nodiscard]] auto find_or_make(labelset<C> labels) -> labeled_value<T, C> {
     {
       std::shared_lock _(mutex);
-      auto iter = entries.find(labels);
-      if (iter != entries.end()) {
+      if (auto iter = entries.find(labels); iter != entries.end()) {
         return labeled_value<T, C>(this->shared_from_this(), *iter);
       }
     }
     {
       std::unique_lock _(mutex);
-      auto iter = entries.try_emplace(std::move(labels), default_value).first;
+      auto [iter, done] = entries.try_emplace(std::move(labels), default_value);
       return labeled_value<T, C>(this->shared_from_this(), *iter);
     }
   }
 
   template <typename F>
   auto each(F f) {
-    auto unused_found = false;
+    auto found_unused = false;
     {
       std::shared_lock _(mutex);
-      for (auto& [key, shared] : entries) {
-        if (not shared.unused()) {
-          f(key, shared.value);
+      for (auto& [key, value] : entries) {
+        if (value.unused()) {
+          found_unused = true;
         } else {
-          unused_found = true;
+          f(key, value.value);
         }
       }
     }
-
-    if (unused_found) {  // remove unsed entry
+    if (found_unused) {
       std::unique_lock _(mutex);
-      auto iter = entries.begin();
-      while (iter != entries.end()) {
+      for (auto iter = entries.begin(); iter != entries.end();) {
         if (iter->second.unused()) {
           iter = entries.erase(iter);
         } else {
@@ -156,7 +147,7 @@ class labeled_value : public detail::value_operation<labeled_value<T, C>> {
       decrease_reference_count();
       owner = std::move(other.owner);
       pointer = other.pointer;
-      other.set_nullptr();
+      other.unset_nullptr();
     }
     return *this;
   }
@@ -168,27 +159,27 @@ class labeled_value : public detail::value_operation<labeled_value<T, C>> {
 
   labeled_value(labeled_value&& other) noexcept
       : owner(std::move(other.owner)), pointer(other.pointer) {
-    other.set_nullptr();
+    other.unset_nullptr();
   }
 
   ~labeled_value() {
     decrease_reference_count();
-    set_nullptr();
+    unset_nullptr();
   }
 
-  auto name() const noexcept -> std::basic_string_view<C> {
+  auto name() const noexcept -> std::basic_string<C> const& {
     return owner->name();
   }
 
-  auto type() const noexcept -> std::basic_string_view<C> {
-    return detail::value_name<T, C>::name;
+  auto type() const noexcept -> std::basic_string<C> const& {
+    return owner->type();
   }
 
   auto labels() const noexcept -> std::vector<label<C>> const& {
     return pointer->first.labels();
   }
 
-  auto description() const noexcept -> std::basic_string_view<C> {
+  auto description() const noexcept -> std::basic_string<C> const& {
     return owner->description();
   }
 
@@ -207,7 +198,7 @@ class labeled_value : public detail::value_operation<labeled_value<T, C>> {
   }
 
  private:
-  auto set_nullptr() noexcept {
+  auto unset_nullptr() noexcept {
     owner = nullptr;
     pointer = nullptr;
   }
