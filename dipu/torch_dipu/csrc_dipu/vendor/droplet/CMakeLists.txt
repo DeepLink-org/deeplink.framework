@@ -23,7 +23,7 @@ if (USE_PCCL)
         message(STATUS "PCCL not found, i.e. not supporting distributed on droplet")
     endif()
 else()
-    message(STATUS "Cannot find PCCL to implement communicator, i.e. disabled by env vars(USE_PCCL)!")
+    message(STATUS "Force compiling without PCCL, i.e. not supporting distributed on droplet")
 endif()
 
 
