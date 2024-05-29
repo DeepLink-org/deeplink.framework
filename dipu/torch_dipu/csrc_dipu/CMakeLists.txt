@@ -17,6 +17,9 @@ find_package(Threads REQUIRED)
 # TODO(vendor) - make vendor targets.
 add_subdirectory(vendor/${UsedVendor})
 
+message(STATUS "VENDOR_INCLUDE_DIRS: ${VENDOR_INCLUDE_DIRS}")
+message(STATUS "VENDOR_LIB_DIRS:  ${VENDOR_LIB_DIRS}")
+
 # TODO(vendor) - Refactor those command after vendor is ready.
 set(VENDOR_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dist/include")
 set(VENDOR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")

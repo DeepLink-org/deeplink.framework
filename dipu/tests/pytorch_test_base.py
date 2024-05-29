@@ -33,8 +33,11 @@ elif dipu.vendor_type == "GCU":
 
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS
-elif dipu.vendor_type == "CUDA":
-    from tests.pytorch_config_cuda import DISABLED_TESTS, TEST_PRECISIONS
+elif dipu.vendor_type == "CUDA" or dipu.vendor_type == "MUXI" :
+    if dipu.vendor_type == "CUDA":
+      from tests.pytorch_config_cuda import DISABLED_TESTS, TEST_PRECISIONS
+    elif dipu.vendor_type == "MUXI":
+      from tests.pytorch_config_muxi import DISABLED_TESTS, TEST_PRECISIONS
 
     _DISABLED_TESTS = DISABLED_TESTS
     _TEST_PRECISIONS = TEST_PRECISIONS

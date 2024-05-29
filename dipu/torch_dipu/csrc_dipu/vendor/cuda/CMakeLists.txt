@@ -2,7 +2,7 @@
 find_package(CUDA "11.0" REQUIRED)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-find_package(XCCL NAMES "NCCL" REQUIRED)
+find_package(XCCL REQUIRED)
 
 if (CUDA_FOUND)
     message(STATUS "CUDA Libraries: " ${CUDA_LIBRARIES})
@@ -14,7 +14,8 @@ endif()
 set(VENDOR_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS} ${XCCL_INCLUDE_DIR} PARENT_SCOPE)
 
 # cuda is full lib path? libcudart_static.aThreads::Threadsdl/usr/lib64/librt.so
-set(VENDOR_LIB_DIRS ${XCCL_LIBRARIES} PARENT_SCOPE)
+set(VENDOR_LIB_DIRS ${XCCL_LIB_DIR} PARENT_SCOPE)
+set(DIPU_VENDOR_LIB nccl PARENT_SCOPE)
 
 
 if (CUDA_FOUND)

@@ -33,12 +33,13 @@ using enum_t = int32_t;
 namespace devapis {
 
 enum class VendorDeviceType : enum_t {
+  CUDA,     // cuda
   MLU,      // camb
   NPU,      // ascend
-  CUDA,     // cuda
-  GCU,      // gcu
-  SUPA,     // Biren
+  MUXI,     // muxi
+  GCU,      // gcu, topsrider
   DROPLET,  // droplet
+  SUPA,     // Biren
   KLX,      // Kunlunxin
 };
 
