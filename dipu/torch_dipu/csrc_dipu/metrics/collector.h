@@ -21,10 +21,11 @@ namespace dipu::metrics {
 using exported_floating = double;
 using exported_integer = int64_t;
 using exported_number = std::variant<exported_integer, exported_floating>;
-using exported_histogram = std::pair<  // A pair of thresholds and buckets
+using exported_histogram = std::tuple<  // A pair of thresholds and buckets
     std::variant<std::vector<exported_integer>,
                  std::vector<exported_floating>>,  // Thresholds (ints or reals)
-    std::vector<exported_integer>                  // Buckets
+    std::vector<exported_integer>,                 // Buckets
+    exported_number                                // Summation
     >;
 
 namespace detail {
@@ -70,7 +71,7 @@ auto to_exported(histogram<I> const& v) -> exported_histogram {
   for (auto threshold : thresholds) {
     output.emplace_back(static_cast<type>(threshold));
   }
-  return {output, v.template get_buckets<exported_integer>()};
+  return {output, v.template get_buckets<exported_integer>(), v.sum()};
 }
 
 }  // namespace detail

@@ -16,14 +16,43 @@ template <typename T>
 auto constexpr inline allowed_metrics_scalar_type =
     oneof<T, float, double, uint64_t, int64_t>;
 
+template <typename I>
+auto add(std::atomic<I>& atomic, I value) noexcept {
+  // Require C++20 to fetch_add or fetch_sub floating point type.
+  auto constexpr CPP17 = 201703L;
+  if constexpr (std::is_integral_v<I> or __cplusplus > CPP17) {
+    return atomic.fetch_add(value);
+
+  } else {
+    auto x = I{};
+    while (not atomic.compare_exchange_weak(x, x + value)) {
+    }
+    return x;
+  }
+}
+
+template <typename I>
+auto sub(std::atomic<I>& atomic, I value) noexcept {
+  // Require C++20 to fetch_add or fetch_sub floating point type.
+  auto constexpr CPP17 = 201703L;
+  if constexpr (std::is_integral_v<I> or __cplusplus > CPP17) {
+    return atomic.fet_sub(value);
+
+  } else {
+    auto x = I{};
+    while (not atomic.compare_exchange_weak(x, x - value)) {
+    }
+    return x;
+  }
+}
+
 }  // namespace dipu::metrics::detail
 
 namespace dipu::metrics {
 
 template <typename I>
 class counter {
-  static_assert(detail::allowed_metrics_scalar_type<I> and
-                not std::is_floating_point_v<I>);
+  static_assert(detail::allowed_metrics_scalar_type<I>);
 
   std::atomic<I> value;
 
@@ -31,9 +60,9 @@ class counter {
   using value_type = I;
 
   auto get() const noexcept -> value_type { return value.load(); }
-  auto rst() noexcept -> void { value.store(static_cast<value_type>(0)); }
-  auto inc() noexcept -> void { value.fetch_add(static_cast<value_type>(1)); }
-  auto add(value_type number) noexcept -> void { value.fetch_add(number); }
+  auto rst() noexcept -> void { value.store(value_type{0}); }
+  auto inc() noexcept -> void { detail::add(value, value_type{1}); }
+  auto add(value_type number) noexcept -> void { detail::add(value, number); }
 
   explicit counter(value_type number) noexcept : value(number) {}
   ~counter() = default;
@@ -57,15 +86,13 @@ class gauge {
  public:
   using value_type = I;
 
-  // Note: require C++20 to fetch_add or fetch_sub floating point type.
-
   auto get() const noexcept -> value_type { return value.load(); }
-  auto rst() noexcept -> void { value.store(static_cast<value_type>(0)); }
-  auto inc() noexcept -> void { value.fetch_add(static_cast<value_type>(1)); }
-  auto dec() noexcept -> void { value.fetch_sub(static_cast<value_type>(1)); }
+  auto rst() noexcept -> void { value.store(value_type{0}); }
+  auto inc() noexcept -> void { detail::add(value, value_type{1}); }
+  auto dec() noexcept -> void { detail::sub(value, value_type{1}); }
   auto set(value_type number) noexcept -> void { value.store(number); }
-  auto add(value_type number) noexcept -> void { value.fetch_add(number); }
-  auto sub(value_type number) noexcept -> void { value.fetch_sub(number); }
+  auto add(value_type number) noexcept -> void { detail::add(value, number); }
+  auto sub(value_type number) noexcept -> void { detail::sub(value, number); }
 
   explicit gauge(value_type number) noexcept : value(number) {}
   ~gauge() = default;
@@ -82,17 +109,24 @@ template <typename I>
 class histogram {
   static_assert(detail::allowed_metrics_scalar_type<I>);
 
+  counter<I> summation;
   std::vector<I> thresholds;
   std::vector<counter<uint64_t>> buckets;
 
  public:
   using value_type = I;
 
-  auto put(value_type number) noexcept -> void { select_bucket(number).inc(); }
+  auto sum() const noexcept -> value_type { return summation.get(); }
+
+  auto put(value_type number) noexcept -> void {
+    summation.add(number);
+    select_bucket(number).inc();
+  }
 
   auto rst() noexcept -> void {
+    // Race condition may happen
+    summation.rst();
     for (auto& bucket : buckets) {
-      // Race condition may happen
       bucket.rst();
     }
   }
@@ -103,13 +137,10 @@ class histogram {
 
   template <typename T>
   auto get_buckets() const -> std::vector<T> {
-    // ref:
-    // https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#histogram
-    auto size = buckets.size();
-    auto sum = T{};
-    auto out = std::vector<T>(size);
-    for (auto i = std::size_t{}; i < size; ++i) {
-      out[i] = sum += static_cast<T>(buckets[i].get());
+    auto out = std::vector<T>();
+    out.reserve(buckets.size());
+    for (auto& number : buckets) {
+      out.push_back(number.get());
     }
     return out;
   }

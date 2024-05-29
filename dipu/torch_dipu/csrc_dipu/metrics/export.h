@@ -20,11 +20,8 @@ class allocator_metrics {
   metrics::labeled_integer_counter deallocate_nullptr_count;
   metrics::labeled_integer_counter deallocate_unexpected_count;
 
-  metrics::labeled_integer_gauge allocate_size_total;
-  metrics::labeled_integer_gauge deallocate_size_total;
-
-  metrics::labeled_integer_histogram allocate_size_frequency;
-  metrics::labeled_integer_histogram deallocate_size_frequency;
+  metrics::labeled_integer_histogram allocate_size;
+  metrics::labeled_integer_histogram deallocate_size;
 
  public:
   explicit allocator_metrics(metrics::collector<char>& collector,
@@ -44,21 +41,11 @@ class allocator_metrics {
             allocate_nullptr_count.with(
                 {{"method", "deallocate"}, {"event", "unexpected"}})),
 
-        allocate_size_total(
-            collector.make_integer_gauge("allocator_size_total", "TODO")
+        allocate_size(
+            collector.make_integer_histogram("allocator_size", "TODO", exp2())
                 .with(labels)
                 .with({{"method", "allocate"}})),
-        deallocate_size_total(
-            allocate_size_total.with({{"method", "deallocate"}})),
-
-        allocate_size_frequency(
-            collector
-                .make_integer_histogram("allocator_size_frequency", "TODO",
-                                        exp2())
-                .with(labels)
-                .with({{"method", "allocate"}})),
-        deallocate_size_frequency(
-            allocate_size_frequency.with({{"method", "deallocate"}}))
+        deallocate_size(allocate_size.with({{"method", "deallocate"}}))
   //
   {}
 
@@ -74,8 +61,7 @@ class allocator_metrics {
       allocate_duplicated_count.inc();
 
     } else {
-      allocate_size_total.add(static_cast<metrics::exported_integer>(size));
-      allocate_size_frequency.put(static_cast<metrics::exported_integer>(size));
+      allocate_size.put(static_cast<metrics::exported_integer>(size));
     }
   }
 
@@ -92,9 +78,7 @@ class allocator_metrics {
       auto size = iter->second;
       memory.erase(iter);
 
-      deallocate_size_total.add(static_cast<metrics::exported_integer>(size));
-      deallocate_size_frequency.put(
-          static_cast<metrics::exported_integer>(size));
+      deallocate_size.put(static_cast<metrics::exported_integer>(size));
     }
   }
 
@@ -105,10 +89,8 @@ class allocator_metrics {
     _OVERRIDE_DEVICE(allocate_duplicated_count);
     _OVERRIDE_DEVICE(deallocate_nullptr_count);
     _OVERRIDE_DEVICE(deallocate_unexpected_count);
-    _OVERRIDE_DEVICE(allocate_size_total);
-    _OVERRIDE_DEVICE(deallocate_size_total);
-    _OVERRIDE_DEVICE(allocate_size_frequency);
-    _OVERRIDE_DEVICE(deallocate_size_frequency);
+    _OVERRIDE_DEVICE(allocate_size);
+    _OVERRIDE_DEVICE(deallocate_size);
 #undef _OVERRIDE_DEVICE
   }
 
