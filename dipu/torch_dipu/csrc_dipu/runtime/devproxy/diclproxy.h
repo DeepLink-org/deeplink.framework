@@ -4,6 +4,14 @@
 #include "csrc_dipu/runtime/device/diclapis.h"
 
 namespace dipu {
+
+#define DIPU_CALL_DICLAPIS(Expr)                                           \
+  {                                                                        \
+    devapis::diclResult_t ret = Expr;                                      \
+    TORCH_CHECK(ret == devapis::diclResult_t::DICL_SUCCESS,                \
+                "call diclapis error, expr = ", #Expr, ", ret = ", ret)    \
+  }
+
 // need enhance return status.
 namespace devproxy {
 
@@ -32,6 +40,18 @@ DIPU_API devapis::diclResult_t diclAllGather(const void* sendbuff,
                                              at::ScalarType datatype,
                                              diclComm_t comm,
                                              deviceStream_t stream);
+
+DIPU_API devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff,
+                                          size_t count, at::ScalarType datatype,
+                                          int root, int curRank, int numRanks,
+                                          size_t inputDataBytes, diclComm_t comm,
+                                          deviceStream_t stream);
+
+DIPU_API devapis::diclResult_t diclScatter(void** sendbuff, void* recvbuff,
+                                           size_t count, at::ScalarType datatype,
+                                           int root, int curRank, int numRanks,
+                                           size_t outputDataBytes, diclComm_t comm,
+                                           deviceStream_t stream);
 
 DIPU_API devapis::diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
                                           size_t count, at::ScalarType datatype,

@@ -5,6 +5,7 @@
 
 #include <ATen/record_function.h>
 #include <torch/torch.h>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUGuard.h"
@@ -386,8 +387,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
        diclComms[i]->diclStream_);
 
     dipu::recordStream(inputs[i], diclComms[i]->diclStream_);
-    if (inputs[i].storage().data_ptr().get() !=
-        outputs[i].storage().data_ptr().get()) {
+    if (outputs[i].has_storage() && (!inputs[i].has_storage() ||
+        inputs[i].storage().data_ptr().get() != outputs[i].storage().data_ptr().get())) {
       dipu::recordStream(outputs[i], diclComms[i]->diclStream_);
     }
 
@@ -556,7 +557,76 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
     std::vector<std::vector<at::Tensor>>& outputs,
     std::vector<at::Tensor>& inputs, const GatherOptions& opts) {
-  TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
+  static auto invalidArgument = [](const std::string& msg) {
+    TORCH_CHECK(false, "ProcessGroupDICL::gather: " + msg);
+  };
+  int numRanks = getSize();
+  int curRank = getRank();
+  c10d::assertRootRank(invalidArgument, static_cast<int>(opts.rootRank), numRanks);
+  checkDeviceTensors(inputs);
+  c10d::assertSingleElementOutput(invalidArgument, inputs);
+  auto input = inputs.back();
+  std::vector<at::Tensor> outputTensors;
+
+  if (curRank == opts.rootRank) {
+    if (outputs.size() != 1) {
+      std::stringstream ss;
+      ss << "requires a single-element output list containing a list with "
+         << numRanks << " tensors.";
+      invalidArgument(ss.str());
+    } else if (outputs[0].size() != static_cast<size_t>(numRanks)) {
+      std::stringstream ss;
+      ss << "Incorrect output list size " << outputs[0].size()
+         << ". Output list size should be " << numRanks
+         << ", same as size of the process group.";
+      invalidArgument(ss.str());
+    }
+
+    const auto& options = input.options();
+    const auto& sizes = input.sizes();
+    c10d::assertTypeAndSizesMatch(invalidArgument, outputs[0], options, sizes);
+    outputTensors = outputs[0];
+  } else {
+    if (!outputs.empty()) {
+      invalidArgument("requires empty output on non-root");
+    }
+    outputTensors = {};
+    outputTensors.emplace_back();
+  }
+
+  return collective(
+    inputs,
+    outputTensors,
+    [&](at::Tensor& /* unused */,
+        at::Tensor& /* unused */,
+        diclComm_t comm,
+        DIPUStream& stream) {
+      const auto root = static_cast<int>(opts.rootRank);
+      void** gather_output_ptr = nullptr;
+      std::vector<void *> root_output_ptr_vec;
+      size_t inputDataBytes = input.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+
+      if (curRank == root) {
+        root_output_ptr_vec = {};
+        for (auto& outputTensor : outputTensors) {
+          root_output_ptr_vec.push_back(outputTensor.data_ptr());
+          dipu::recordStream(outputTensor, stream);
+        }
+        gather_output_ptr = root_output_ptr_vec.data();
+      }
+
+      RECORD_FUNCTION("DiclGather", std::vector<c10::IValue>({input}));
+      profile::RecordBlockCreator _("DiclGather", stream.rawstream(),
+                                    static_cast<int>(stream.id()));
+      return devproxy::diclGather(input.data_ptr(),
+                                  gather_output_ptr,
+                                  static_cast<size_t>(input.numel()),
+                                  input.scalar_type(),
+                                  root, curRank, numRanks, inputDataBytes,
+                                  comm, stream.rawstream());
+    },
+    OpType::GATHER
+  );
 }
 
 std::string_view ProcessGroupDICL::getCommName(
@@ -666,6 +736,84 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
                                            comm, stream.rawstream());
       },
       OpType::_REDUCE_SCATTER_BASE);
+}
+
+// NOLINTNEXTLINE(google-default-arguments)
+c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
+    std::vector<at::Tensor>& outputs,
+    std::vector<std::vector<at::Tensor>>& inputs,
+    const ScatterOptions& opts) {
+  // input = output * ranks, no inplace, output = input[rank]
+  static auto invalidArgument = [](const std::string& msg) {
+    TORCH_CHECK(false, "ProcessGroupDICL::scatter: " + msg);
+  };
+  int numRanks = getSize();
+  int curRank = getRank();
+  c10d::assertRootRank(invalidArgument, static_cast<int>(opts.rootRank), numRanks);
+  checkDeviceTensors(outputs);
+  c10d::assertSingleElementOutput(invalidArgument, outputs);
+  auto output = outputs.back();
+  std::vector<at::Tensor> inputTensors;
+
+  if (curRank == opts.rootRank) {
+    if (inputs.size() != 1) {
+      std::stringstream ss;
+      ss << "requires a single-element input list containing a list with "
+         << numRanks << " tensors.";
+      invalidArgument(ss.str());
+    } else if (inputs[0].size() != static_cast<size_t>(numRanks)) {
+      std::stringstream ss;
+      ss << "Incorrect input list size " << inputs[0].size()
+         << ". Input list size should be " << numRanks
+         << ", same as size of the process group.";
+      invalidArgument(ss.str());
+    }
+
+    const auto& options = output.options();
+    const auto& sizes = output.sizes();
+    c10d::assertTypeAndSizesMatch(invalidArgument, inputs[0], options, sizes);
+    inputTensors = inputs[0];
+  } else {
+    if (!inputs.empty()) {
+      invalidArgument("requires empty input on non-root");
+    }
+    inputTensors = {};
+    inputTensors.emplace_back();
+  }
+
+  return collective(
+    outputs,
+    inputTensors,
+    [&](at::Tensor& /* unused */,
+        at::Tensor& /* unused */,
+        diclComm_t comm,
+        DIPUStream& stream) {
+      const auto root = static_cast<int>(opts.rootRank);
+      void** scatter_input_ptr = nullptr;
+      std::vector<void *> root_input_ptr_vec;
+      size_t outputDataBytes = output.unsafeGetTensorImpl()->unsafe_storage().nbytes();
+
+      if (curRank == root) {
+        root_input_ptr_vec = {};
+        for (auto& inputTensor : inputTensors) {
+          root_input_ptr_vec.push_back(inputTensor.data_ptr());
+          dipu::recordStream(inputTensor, stream);
+        }
+        scatter_input_ptr = root_input_ptr_vec.data();
+      }
+
+      RECORD_FUNCTION("DiclScatter", std::vector<c10::IValue>(inputTensors.begin(), inputTensors.end()));
+      profile::RecordBlockCreator _("DiclScatter", stream.rawstream(),
+                                    static_cast<int>(stream.id()));
+      return devproxy::diclScatter(scatter_input_ptr,
+                                   output.data_ptr(),
+                                   static_cast<size_t>(output.numel()),
+                                   output.scalar_type(),
+                                   root, curRank, numRanks, outputDataBytes,
+                                   comm, stream.rawstream());
+    },
+    OpType::SCATTER
+  );
 }
 
 // NOLINTNEXTLINE(google-default-arguments)
