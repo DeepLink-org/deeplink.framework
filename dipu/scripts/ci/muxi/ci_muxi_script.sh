@@ -1,6 +1,5 @@
 # !/bin/bash
-set -eox pipefail
-export PS4='ln:${LINENO}: '
+set -eo pipefail
 
 function build() {
     path="build"
@@ -17,7 +16,7 @@ function build() {
     rm -rf "$path"
     mkdir -p "$path"
     cmake_maca -B "$path" -S . "${args[@]}" 2>&1 | tee "${path}/cmake_nv.log"
-    cmake_maca --build "$path" --parallel 8 2>&1 | tee "${path}/build.log"
+    cmake_maca --build "$path" --parallel 20 2>&1 | tee "${path}/build.log"
 }
 
 case $1 in
