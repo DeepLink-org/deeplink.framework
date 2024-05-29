@@ -9,8 +9,8 @@ set(USE_PCCL "AUTO" CACHE STRING "Whether to compile with or without PCCL. AUTO(
 
 find_package(PCCL)
 if (USE_PCCL)
-    if (USE_PCCL AND  NOT PCCL_FOUND)
-        message(STATUS "Cannot find PCCL to implement communicator, not support distributed on droplet!")
+    if ("${USE_PCCL}" AND NOT PCCL_FOUND)
+        message(FATAL_ERROR "Set to force compiling with PCCL, but PCCL is not found.")
     endif()
     if(PCCL_FOUND)
         message(STATUS "Use PCCL to implement communicator")
