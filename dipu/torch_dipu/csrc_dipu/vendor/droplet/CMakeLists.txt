@@ -8,7 +8,7 @@ include(cmake/FindDropletCompiler.cmake)
 set(USE_PCCL "AUTO" CACHE STRING "Whether to compile with or without PCCL. AUTO(default): auto-detecting; 1|ON|YES|TRUE|Y: force compiling with PCCL; 0|OFF|NO|FALSE|N: force compiling without PCCL")
 
 find_package(PCCL)
-if (USE_PCCL OR USE_PCCL STREQUAL "AUTO")
+if (USE_PCCL)
     if (USE_PCCL AND  NOT PCCL_FOUND)
         message(STATUS "Cannot find PCCL to implement communicator, not support distributed on droplet!")
     endif()
