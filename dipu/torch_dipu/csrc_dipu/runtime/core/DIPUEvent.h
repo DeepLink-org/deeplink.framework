@@ -38,8 +38,18 @@ class DIPU_API DIPUEvent {
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other) noexcept = default;
-  DIPUEvent& operator=(DIPUEvent&& other) noexcept = default;
+  DIPUEvent(DIPUEvent&& other) noexcept { *this = std::move(other); }
+
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept {
+    if (this != &other) {
+      flags_ = other.flags_;
+      device_index_ = other.device_index_;
+      stream_id_ = other.stream_id_;
+      event_ = other.event_;
+      other.event_ = nullptr;
+    }
+    return *this;
+  }
 
   explicit operator deviceEvent_t() const { return rawevent(); }
 
