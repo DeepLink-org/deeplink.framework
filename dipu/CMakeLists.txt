@@ -107,7 +107,8 @@ COMMAND
       if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item)); \
       print(Path(torch.__path__[0]).parent.absolute()); \
       print(1 if torch.compiled_with_cxx11_abi() else 0); \
-      print(torch.utils.cmake_prefix_path); '"
+      print(torch.utils.cmake_prefix_path); \
+      print(1 if torch.cuda.is_available() else 0); '"
 OUTPUT_VARIABLE CHECK_TORCH_OUT
 OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" CHECK_TORCH_OUT_LIST "${CHECK_TORCH_OUT}")
@@ -127,6 +128,8 @@ endif()
 
 list(GET CHECK_TORCH_OUT_LIST 3 TORCH_CMAKE_PREFIX)
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
+
+list(GET CHECK_TORCH_OUT_LIST 4 DIPU_TORCH_HAS_CUDA)
 
 message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
 add_compile_options(-fabi-version=${DIPU_ABI_V})

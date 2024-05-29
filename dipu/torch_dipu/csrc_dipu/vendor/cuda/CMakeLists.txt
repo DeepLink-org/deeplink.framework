@@ -13,12 +13,12 @@ if (CUDA_FOUND)
 endif()
 set(VENDOR_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS} ${XCCL_INCLUDE_DIR} PARENT_SCOPE)
 
-# cuda is full lib path? libcudart_static.aThreads::Threadsdl/usr/lib64/librt.so
 set(VENDOR_LIB_DIRS ${XCCL_LIB_DIR} PARENT_SCOPE)
-set(DIPU_VENDOR_LIB nccl PARENT_SCOPE)
+set(DIPU_VENDOR_LIB nccl ${CUDA_LIBRARIES} PARENT_SCOPE)
 
-
-if (CUDA_FOUND)
+message(STATUS "DIPU_TORCH_HAS_CUDA = ${DIPU_TORCH_HAS_CUDA}")
+if (CUDA_FOUND AND ${DIPU_TORCH_HAS_CUDA})
+    # this file depend on c10_cuda. 
     file(GLOB PATCH_SRC_FILES  patch/*.cpp)
 endif()
 
