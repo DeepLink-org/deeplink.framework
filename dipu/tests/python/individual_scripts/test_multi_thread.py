@@ -11,7 +11,7 @@ def worker(num):
     print(f"Worker {num} finished")
 
 
-for i in range(20):
+for i in range(torch.cuda.device_count()):
     t = threading.Thread(target=worker, args=(i,))
     t.start()
 
