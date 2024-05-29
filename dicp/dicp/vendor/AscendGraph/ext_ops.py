@@ -88,21 +88,23 @@ def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim
 
 
 @torch._custom_op.impl.custom_op('lightllm::flash_attention_inference')
-def flash_attention_inference(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int) -> Tensor:
+def flash_attention_inference(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int, kvhead: int, head: int, dim: int) -> Tensor:
     ...
 
 
 @flash_attention_inference.impl_abstract()
-def lightllm_flash_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int):
+def lightllm_flash_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int, kvhead: int, head: int, dim: int):
     return torch.empty_like(q)
 
 
 @flash_attention_inference.impl(['cpu', 'cuda'])
-def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len):
+def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len, kvhead=-1, head=-1, dim=-1):
     # q: batch, head, dim
     batch = q.shape[0]
-    head = q.shape[1]
-    dim = q.shape[2]
+    if head < 0:
+        head = q.shape[1]
+    if dim < 0:
+        dim = q.shape[2]
     res = []
     compute_batch = 1
     for i in range(batch):
