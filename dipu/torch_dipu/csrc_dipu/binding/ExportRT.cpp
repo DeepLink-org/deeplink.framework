@@ -354,18 +354,19 @@ static void exportUtils(py::module& m) {
 }
 
 static void exportMetrics(py::module& m) {
-  using metrics_value = metrics::exported_group<char>;
-  m.def("fetch_collected_metrics", []() -> std::vector<metrics_value> {
+  using metrics_group = metrics::exported_group<char>;
+
+  m.def("metrics", []() -> std::vector<metrics_group> {
     return default_metrics_collector().export_values();
   });
 
-  py::class_<metrics_value>(m, "MetricsValue")
+  py::class_<metrics_group>(m, "MetricsGroup")
       .def(py::init<>())
-      .def_readwrite("name", &metrics_value::name)
-      .def_readwrite("type", &metrics_value::type)
-      .def_readwrite("info", &metrics_value::info)
-      .def_readwrite("values", &metrics_value::values)
-      .def("asdict", [](metrics_value const& x) -> py::dict {
+      .def_readwrite("name", &metrics_group::name)
+      .def_readwrite("type", &metrics_group::type)
+      .def_readwrite("info", &metrics_group::info)
+      .def_readwrite("values", &metrics_group::values)
+      .def("asdict", [](metrics_group const& x) -> py::dict {
         // NOLINTNEXTLINE(google-build-using-namespace)
         using namespace pybind11::literals;
         return py::dict("name"_a = x.name, "type"_a = x.type, "info"_a = x.info,
