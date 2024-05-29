@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(DROPLET_INSTALL "/usr/local/tangrt")
 include(cmake/FindDropletCompiler.cmake)
 
-set(USE_PCCL "AUTO" CACHE STRING "Used to force load and compile PCCL. AUTO: auto load and compile PCCL; 1(TRUE or true): Force load and compile PCCL; 0(FALSE or false): Forbidden load PCCL")
+set(USE_PCCL "AUTO" CACHE STRING "Whether to compile with or without PCCL. AUTO(default): auto-detecting; 1|ON|YES|TRUE|Y: force compiling with PCCL; 0|OFF|NO|FALSE|N: force compiling without PCCL")
 
 find_package(PCCL)
 if (USE_PCCL OR USE_PCCL STREQUAL "AUTO")
