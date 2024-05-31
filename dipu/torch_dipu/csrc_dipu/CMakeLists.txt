@@ -73,6 +73,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/StorageShapeKernel.cpp
   aten/ops/DIPUAmp.cpp
   aten/ops/DIPUOpInferrer.cpp
+  aten/ops/DIPUATenFunctions.cpp
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
