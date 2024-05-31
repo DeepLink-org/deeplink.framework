@@ -74,9 +74,12 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
   }
 };
 
+#define OneStreamOneQueueAlgo 1
+
 // This implementation provides a separate queue for each stream
 template <class T, at::DeviceType device_type>
-class AsyncResourcePoolImpl<T, device_type, 1> : public AsyncResourcePool<T> {
+class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
+    : public AsyncResourcePool<T> {
  private:
   // Resources that have events to wait for
   struct Resource final {

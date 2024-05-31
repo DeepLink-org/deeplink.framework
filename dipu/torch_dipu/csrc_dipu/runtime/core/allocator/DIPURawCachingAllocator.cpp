@@ -77,8 +77,10 @@ static void deleteRawCachingAllocatorContext(void* ptr) {
 }
 // TODO(allocator) - Refactor it!
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
-DIPU_REGISTER_ALLOCATOR(RAW, DIPU_DEVICE_TYPE_MACRO, RawCachingAllocator, 1, 0);
-DIPU_REGISTER_ALLOCATOR(RAW, CPU, RawCachingAllocator, 1, 0);
+DIPU_REGISTER_ALLOCATOR(RAW, DIPU_DEVICE_TYPE_MACRO, RawCachingAllocator,
+                        OneStreamOneQueueAlgo, 0);
+DIPU_REGISTER_ALLOCATOR(RAW, CPU, RawCachingAllocator, OneStreamOneQueueAlgo,
+                        0);
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu
