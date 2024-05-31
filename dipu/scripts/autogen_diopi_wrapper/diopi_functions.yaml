@@ -918,34 +918,34 @@
 # -------------------------------------------------------------------------------------------------------------------------
 # nll_loss.out
 - schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLoss(ctx, out, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 - schema: nll_loss.out(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, *, Tensor(a!) out) -> Tensor(a!)
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2(ctx, out, nullptr, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 # nll_loss_forward.output
 - schema: nll_loss_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 - schema: nll_loss_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 # nll_loss2d_forward.output
 - schema: nll_loss2d_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 - schema: nll_loss2d_forward.output(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, *, Tensor(a!) output, Tensor(b!) total_weight) -> (Tensor(a!), Tensor(b!))
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
 
 # nll_loss2d_forward
 - schema: nll_loss2d_forward(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index) -> (Tensor output, Tensor total_weight)
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLoss(ctx, output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
   custom_code_at_the_beginning: |
     at::Tensor output;
@@ -958,7 +958,7 @@
     }
 
 - schema: nll_loss2d_forward(Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index) -> (Tensor output, Tensor total_weight)
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2(ctx, output, total_weight, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int())
   custom_code_at_the_beginning: |
     at::Tensor output;
@@ -977,31 +977,31 @@
 # -------------------------------------------------------------------------------------------------------------------------
 # nll_loss_backward.grad_input
 - schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
 
 - schema: nll_loss_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
 
 # nll_loss2d_backward.grad_input
 - schema: nll_loss2d_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
 
 - schema: nll_loss2d_backward.grad_input(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight, *, Tensor(a!) grad_input) -> Tensor(a!)
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
 
 # nll_loss2d_backward
 - schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
-  device: [all, -ascend]
+  device: [all, -ascend, -camb]
   interface: diopiNLLLossBackward(&context, grad_input, grad_output, self, target, weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
   custom_code_at_the_beginning: |
     auto grad_input = nodispatch::empty(self.sizes(), self.options());
 
 - schema: nll_loss2d_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, SymInt ignore_index, Tensor total_weight) -> Tensor grad_input
-  device: [ascend]
+  device: [ascend, camb]
   interface: diopiNLLLossV2Backward(&context, grad_input, grad_output, self, target, weight, total_weight, static_cast<diopiReduction_t>(reduction), ignore_index.expect_int());
   custom_code_at_the_beginning: |
     auto grad_input = nodispatch::empty(self.sizes(), self.options());
