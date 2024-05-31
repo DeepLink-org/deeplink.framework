@@ -17,6 +17,19 @@
 namespace dipu {
 namespace native {
 namespace dipu_aten {
+
+class dnativeTensorImpl : public c10::TensorImpl{
+public:
+    dnativeTensorImpl(
+        c10::Storage&& storage,
+        c10::DispatchKeySet key_set,
+        const caffe2::TypeMeta data_type)    
+    : c10::TensorImpl(std::forward<c10::Storage>(storage), key_set, data_type){};
+    
+protected:
+    at::Device device_custom() const override;
+};
+
 // dipu native func
 at::Tensor empty(at::IntArrayRef size, c10::optional<at::ScalarType> dtype_opt,
                  c10::optional<at::Layout> layout_opt,
