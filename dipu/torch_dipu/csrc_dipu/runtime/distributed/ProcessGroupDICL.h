@@ -26,10 +26,10 @@ using c10d::Backend;
 using c10d::BarrierOptions;
 using c10d::BroadcastOptions;
 using c10d::GatherOptions;
-using c10d::ScatterOptions;
 using c10d::OpType;
 using c10d::ReduceOptions;
 using c10d::ReduceScatterOptions;
+using c10d::ScatterOptions;
 using c10d::Store;
 using c10d::Work;
 

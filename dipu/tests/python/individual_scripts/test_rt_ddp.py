@@ -233,7 +233,6 @@ def demo_gather(rank, world_size, port):
 
     setup(rank, world_size, port)
 
-
     root_rank = 0
     src = torch.ones((2, 4)).to(rank) * (rank + 1)
     if rank == root_rank:
@@ -258,7 +257,9 @@ def demo_scatter(rank, world_size, port):
     root_rank = 0
     dst = torch.empty((2, 4)).to(rank)
     if rank == root_rank:
-        scatter_list = [torch.ones((2, 4)).to(rank) * (i + 1) for i in range(world_size)]
+        scatter_list = [
+            torch.ones((2, 4)).to(rank) * (i + 1) for i in range(world_size)
+        ]
     else:
         scatter_list = None
     for i in range(1, 3):
