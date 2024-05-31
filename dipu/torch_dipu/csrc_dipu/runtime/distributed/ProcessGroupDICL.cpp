@@ -779,6 +779,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
     inputTensors.emplace_back();
   }
 
+  // NOLINTNEXTLINE(readability-suspicious-call-argument)
   return collective(
       outputs, inputTensors,
       [&](at::Tensor& /* unused */, at::Tensor& /* unused */, diclComm_t comm,
