@@ -89,8 +89,8 @@ jobs:
 #          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
 #          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
 #          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
-          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}/ s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_External_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_External_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}/ s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_External_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_External_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
 
 
   Deploy_on_tag:
@@ -345,10 +345,10 @@ jobs:
       - name: COPY Source
           run: |
             set -ex
-            ads-cli cp s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_internal_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-            ads-cli cp s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_internal_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-            ads-cli  --dryrun --deleteSrc cp  s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_internal_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ /dev/null 2>&1 >/dev/null
-            ads-cli  --dryrun --deleteSrc cp  s3://${{Platform_ci_aoss_ak}}:${{Platform_ci_aoss_sk}}@${{Aoss_bucket}}.${{S3_internal_url}}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ /dev/null 2>&1 >/dev/null
+            ads-cli cp s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_internal_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+            ads-cli cp s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_internal_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+            ads-cli  --dryrun --deleteSrc cp  s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_internal_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ /dev/null 2>&1 >/dev/null
+            ads-cli  --dryrun --deleteSrc cp  s3://${{ secrets.Platform_ci_aoss_ak }}:${{ secrets.Platform_ci_aoss_sk }}@${{ secrets.Aoss_bucket }}.${{ secrets.S3_internal_url }}${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ /dev/null 2>&1 >/dev/null
       - name: Build PyTorch
         run: |
           set -ex
