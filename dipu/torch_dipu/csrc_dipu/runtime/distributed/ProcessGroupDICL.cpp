@@ -19,7 +19,7 @@ namespace {
 
 // Get the list of devices from list of tensors, collective comm always use all
 // ranks, so no rank prefix required in key.
-std::string getDevieceIds(const std::vector<at::Device>& devices) {
+std::string getDeviceIds(const std::vector<at::Device>& devices) {
   std::string deviceList;
   for (auto& device : devices) {
     if (deviceList.empty()) {
@@ -73,8 +73,6 @@ void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
 }  // anonymous namespace
 
 // start WorkDICL
-
-// ProcessGroupDICL::WorkDICL::~WorkDICL() {}
 
 // currently DICL do not support error check
 bool ProcessGroupDICL::WorkDICL::isCompleted() {
@@ -428,7 +426,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
               "ncclGroupStart/End, ",
               "but we cannot support group based comm now.");
 
-  const auto localCommsKey = getDevieceIds(devices);
+  const auto localCommsKey = getDeviceIds(devices);
 
   // collective use PG.rank_ as comsBaseRank
   auto diclComms = getDICLComms(localCommsKey, devices, this->rank_, opType);
@@ -471,8 +469,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
@@ -482,6 +481,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        static_cast<size_t>(input.numel()),
                                        input.scalar_type(), opts.reduceOp, comm,
                                        stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePreFn) {
+          dicl_hook::allReducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePostFn) {
+          dicl_hook::allReducePostFn(comms, tensors_cp, tensors);
+        }
       },
       OpType::ALLREDUCE);
 }
@@ -516,8 +525,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 
   auto tensor = tensors.back();
   int dev_in_group = 0;
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
@@ -528,6 +538,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
             input.data_ptr(), output.data_ptr(),
             static_cast<size_t>(input.numel()), input.scalar_type(),
             opts.reduceOp, static_cast<int>(root), comm, stream.rawstream());
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePreFn) {
+          dicl_hook::reducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePostFn) {
+          dicl_hook::reducePostFn(comms, tensors_cp, tensors);
+        }
       },
       OpType::REDUCE);
 }

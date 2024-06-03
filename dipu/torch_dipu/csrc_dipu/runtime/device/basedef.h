@@ -23,11 +23,11 @@ using enum_t = int32_t;
 #define DIPU_CODELOC __FILE__ " (" DIPU_STRING(__LINE__) ")"
 
 #define DIPU_LOGE(fmt, ...)                                              \
-  printf("[ERROR]%s,%s:%u:" #fmt "\n", __FUNCTION__, __FILE__, __LINE__, \
+  printf("[ERROR]%s:%u:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, \
          ##__VA_ARGS__)
 
 #define DIPU_LOGW(fmt, ...)                                             \
-  printf("[WARN]%s,%s:%u:" #fmt "\n", __FUNCTION__, __FILE__, __LINE__, \
+  printf("[WARN]%s:%u:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, \
          ##__VA_ARGS__)
 
 namespace devapis {

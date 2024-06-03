@@ -1,22 +1,24 @@
 // Copyright (c) 2023, DeepLink.
 #pragma once
 
-#include <atomic>
-#include <cstdio>   // for printf
-#include <cstdlib>  // for std::getenv
-#include <deque>
-#include <fstream>
-#include <iostream>
-#include <mutex>
-
+#include <ATen/core/boxing/BoxedKernel.h>
+#include <ATen/core/stack.h>
+#include <c10/core/CompileTimeFunctionPointer.h>
+#include <c10/core/DispatchKey.h>
+#include <c10/core/DispatchKeySet.h>
+#include <c10/macros/Macros.h>
+#include <c10/util/Optional.h>
 #include <torch/library.h>
 
-#include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
-#include "csrc_dipu/aten/ops/OpUtils.hpp"
+#include "OpRegister.hpp"  // IWYU pragma: export
+#include "ops/OpRegexMatch.hpp"
 
 namespace at {
+
 void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                    torch::jit::Stack* stack);
+
+}  // namespace at
 
 // Print the warning message only once for one process.
 // NOLINTBEGIN(bugprone-macro-parentheses): x cannot be in parentheses
@@ -147,44 +149,12 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
     }                                                                          \
   } while (false);
 
-class DIPUOpRegister {
- public:
-  using OpRegFunPtr = void (*)(torch::Library&);
-
- private:
-  OpRegFunPtr fun_ptr_;
-  torch::Library lib_;
-  // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
-  static std::deque<std::tuple<torch::Library*, OpRegFunPtr>>
-      dipuOpRegisterList;
-  static std::mutex mutex_;
-  // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
-
- public:
-  DIPUOpRegister(OpRegFunPtr fun_ptr, const char* ns,
-                 c10::optional<c10::DispatchKey> key, const char* file,
-                 int line)
-      : lib_(torch::Library::IMPL, ns, key, file, line), fun_ptr_(fun_ptr) {
-    const char* env = std::getenv("DIPU_IMMEDIATE_REGISTER_OP");
-    if (env != nullptr && std::atoi(env) > 0) {
-      fun_ptr_(lib_);
-    } else {
-      std::lock_guard<std::mutex> guard(mutex_);
-      dipuOpRegisterList.emplace_back(&lib_, fun_ptr_);
-    }
-  }
-
-  static void register_op();
-};
-
-}  // namespace at
-
 #define DIPU_LIBRARY_IMPL(ns, k, m) _DIPU_LIBRARY_IMPL(ns, k, m, C10_UID)
 
 #define _DIPU_LIBRARY_IMPL(ns, k, m, uid)                                \
   static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,      \
                               uid)(torch::Library&);                     \
-  static const ::at::DIPUOpRegister C10_CONCATENATE(                     \
+  ::at::DipuOpRegisterHelper C10_CONCATENATE(                            \
       DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                 \
       (c10::impl::dispatch_key_allowlist_check(c10::DispatchKey::k)      \
            ? &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid) \
