@@ -1,14 +1,13 @@
 # !/bin/bash
-set -eo pipefail
+set -exo pipefail
 
-function build() {
+function builddipu() {
     path="build"
     echo "Building DIPU into: '$PWD/$path'"
     echo " - DIOPI_ROOT=${DIOPI_ROOT}"
 
     args=(
         "-DDEVICE=muxi"
-        "-DENABLE_COVERAGE=${USE_COVERAGE}"
         "-DCMAKE_BUILD_TYPE=Release"
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
         "$@" )
@@ -19,11 +18,21 @@ function build() {
     cmake_maca --build "$path" --parallel 20 2>&1 | tee "${path}/build.log"
 }
 
+function build_diopi_lib() {
+    cd third_party/DIOPI/impl
+    sh scripts/build_impl.sh clean
+    sh scripts/build_impl.sh muxi || exit -1
+    cd -
+}
+
+
 case $1 in
     "build_dipu")
-        build "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}" ;;
+        build_diopi_lib
+        builddipu "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}"
+    ;;
     "build_dipu_only")
-        build "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
+        builddipu "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac
