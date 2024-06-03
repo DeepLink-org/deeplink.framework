@@ -43,7 +43,7 @@
     at::native::alpha_check(out.scalar_type(), alpha);
     if (is_scalar_on_cpu(other)) {
         return dipu_add_scalar_out(self, other.item(), alpha, out);
-    } 
+    }
     if (is_scalar_on_cpu(self)) {
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
@@ -269,6 +269,32 @@
     // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
 
 - schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
+  device: [-camb, all]
+  custom_code_at_the_beginning: |
+    int64_t dim_c = input.size(1);
+    auto options = input.options().dtype(at::kFloat);
+    const auto input_shape = input.sizes();
+    const int axis = input_shape.size();
+    at::Tensor out0, out1, out2;
+    if (output_mask[0]) {
+      out0 = nodispatch::empty_like(input, input.options(), \
+          (axis==4?\
+              (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):\
+              (axis==5?\
+                  (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
+                    c10::optional<at::MemoryFormat>(c10::nullopt))\
+          ));
+    }
+    if (output_mask[1]) {
+      out1 = nodispatch::empty({dim_c}, options);
+    }
+    if (output_mask[2]) {
+      out2 = nodispatch::empty({dim_c}, options);
+    }
+  interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
+
+- schema: "native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)"
+  device: [camb]  #TODO: Some parameters of bn do not need to calculate gradients. camb should support this later.
   custom_code_at_the_beginning: |
     int64_t dim_c = input.size(1);
     auto options = input.options().dtype(at::kFloat);
@@ -276,13 +302,14 @@
     const int axis = input_shape.size();
     at::Tensor out0 = nodispatch::empty_like(input, input.options(), \
         (axis==4?\
-             (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):\
-             (axis==5?\
-                 (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
-                  c10::optional<at::MemoryFormat>(c10::nullopt))\
-        ));
+                (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-c10::nullopt})):\
+                (axis==5?\
+                    (c10::optional<at::MemoryFormat>(${PREFERRED_MEMORY_FORMAT_PLACEHOLDER_3D:-c10::nullopt})):\
+                      c10::optional<at::MemoryFormat>(c10::nullopt))\
+            ));
     at::Tensor out1 = nodispatch::empty({dim_c}, options);
     at::Tensor out2 = nodispatch::empty({dim_c}, options);
+
   interface: diopiBatchNormBackward(ctx, out0, out1, out2, grad_out, input, weight, running_mean, running_var, save_mean, save_invstd, train, eps)
 
 - schema: "native_group_norm(Tensor input, Tensor? weight, Tensor? bias, SymInt N, SymInt C, SymInt HxW, int group, float eps) -> (Tensor, Tensor, Tensor)"
@@ -1055,7 +1082,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
-    } 
+    }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
     std::vector<int64_t> tmp;
@@ -1080,7 +1107,7 @@
   custom_code_at_the_beginning: |
     if (dim < 0) {
       dim += static_cast<int64_t>(tensors[0].sizes().size());
-    } 
+    }
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
       diopiTensorHandles[i] = dipu::diopi_helper::toDiopiTensorHandle(tensors.at(i));
@@ -1258,7 +1285,7 @@
     TORCH_CHECK(!(isIntegralType(self.scalar_type(), true) &&
                 exponent.isIntegral(true) && exponent.toLong() < 0),
                 "Integers to negative integer powers are not allowed.");
-    // same logic with pytorch, aten/src/ATen/native/Pow.cpp 
+    // same logic with pytorch, aten/src/ATen/native/Pow.cpp
     auto common_dtype = at::native::result_type(self, exponent);
     auto out = UnaryOpInferrer().infer_out(self.to(common_dtype));
   interface: diopiPow(ctx, out, self, exponent);
@@ -1483,7 +1510,7 @@
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
     // todo:(wentao) temp solution, need using a type promotion strategy
-    at::Tensor out = self.dim() == 0 && self.is_cpu() ? 
+    at::Tensor out = self.dim() == 0 && self.is_cpu() ?
         nodispatch::empty_like(other) :
         nodispatch::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -2101,7 +2128,7 @@
     *   }
     *   '''
     */
-    
+
     constexpr int kSameAsInputSize = 7;
     std::vector<at::Tensor> outputs(kSameAsInputSize);
     outputs[0] = result;
@@ -2215,7 +2242,7 @@
 
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [all, -ascend]
-  custom_code_at_the_beginning: | 
+  custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     at::Tensor out;
     if (dtype) {
@@ -2815,12 +2842,14 @@
 
 # a diopi func wrapper.
 - schema: wrap_diopi_copy_inp(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  generate_device_guard: False
   register_op: False
   no_device_check_args: [self, src]
   interface: diopiCopyInp(ctx, src, self)
 
 # this copy_ aten op may use both diopiCastDtype and diopiCopyInp. it's a proxy/composite op
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  generate_device_guard: False
   dummy_call_diopi: True
   custom_fallback: True
   device: [cuda, camb, ascend, droplet, supa, kunlunxin]
@@ -2832,6 +2861,7 @@
 
 # vendor who has no fully implemented diopi and proper fallback DIPUCopy sub-class
 - schema: copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
+  generate_device_guard: False
   custom_fallback: True
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
