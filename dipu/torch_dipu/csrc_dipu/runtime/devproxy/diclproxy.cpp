@@ -75,7 +75,10 @@ devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
 }
 
 devapis::diclResult_t diclGetCommName(char* commName, diclComm_t comm) {
-  return devapis::diclGetCommName(commName, comm);
+  if (devapis::diclGetCommName) {
+    return devapis::diclGetCommName(commName, comm);
+  }
+  return {};
 }
 
 }  // namespace devproxy

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
 
 #include <c10/core/Device.h>
 
@@ -44,9 +45,12 @@ class DICLComm {
   }
 
   std::string getName() {
-    std::vector<char> commName(MAX_COMM_NAME_LENGTH);
-    devproxy::diclGetCommName(commName.data(), rawComm_);
-    return {commName.data()};
+    if (!rawCommName) {
+      std::array<char, MAX_COMM_NAME_LENGTH> commName{};
+      devproxy::diclGetCommName(commName.data(), rawComm_);
+      rawCommName = std::string(commName.data());
+    }
+    return *rawCommName;
   }
 
   // Must not be copyable
@@ -82,6 +86,7 @@ class DICLComm {
   bool aborted_ = false;
   diclComm_t rawComm_ = nullptr;
   mutable std::mutex mutex_;
+  std::optional<std::string> rawCommName;
 };
 
 }  // namespace dipu

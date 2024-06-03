@@ -227,7 +227,7 @@ static void exportCommunicator(py::module& m) {
            py::call_guard<py::gil_scoped_release>())
       .def("store", &ProcessGroupDICL::getStore)
       .def("get_comm_name",
-           [](ProcessGroupDICL& self, at::DeviceIndex device_index) {
+           [](ProcessGroupDICL& self, const at::DeviceIndex device_index) {
              return self.getCommName(device_index);
            })
       .def("timeout", [](ProcessGroupDICL& self) {

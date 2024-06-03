@@ -167,7 +167,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
-  // NOLINTNEXTLINE(readability-const-return-type) just follow parent class.
   std::string getCommName(at::DeviceIndex device_index);
 
   c10::intrusive_ptr<Work> broadcast(
