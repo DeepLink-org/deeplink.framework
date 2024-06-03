@@ -56,7 +56,7 @@ def get_acl_format(x) -> int:
         return AclFormat.ACL_FORMAT_ND.value
 
 
-def get_acl_dtype(dtype: torch.dtype) ->int:
+def get_acl_dtype(dtype: torch.dtype) -> int:
     if dtype == torch.bool:
         return AclDataType.ACL_BOOL.value
     elif dtype == torch.int64:
@@ -162,6 +162,7 @@ def get_cpp_dtype(dtype: torch.dtype) -> str:
         return "INT32"
     elif dtype == torch.float16:
         return "FLOAT16"
+    elif dtype == torch.bool:
+        return "BOOL"
     else:
         raise RuntimeError(f"unknow torch data type ({dtype}) in get_cpp_dtype!")
-

@@ -1,5 +1,4 @@
 #[[ Dependencies ]]
-option(USE_AUTOCOMPARE "whether to use USE_AUTOCOMPARE" OFF)
 
 # Import Python3::Python, Python3_EXECUTABLE
 # Also see https://cmake.org/cmake/help/latest/module/FindPython3.html
@@ -51,6 +50,13 @@ set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 set(GENERATED_KERNELS_SCRIPT "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_diopi_wrapper.py")
 set(GENERATED_KERNELS_CONFIG "${AUTOGEN_DIOPI_WRAPPER_DIR}/diopi_functions.yaml")
+set(DEVICE_GUARD_FREE_VENDOR cuda) # vensors that do not need to device guard need to be added to this list.
+if (${UsedVendor} IN_LIST DEVICE_GUARD_FREE_VENDOR)
+  set(GENERATE_DEVICE_GUARD False)
+else()
+  set(GENERATE_DEVICE_GUARD True)
+endif()
+message("GENERATE_DEVICE_GUARD: " ${GENERATE_DEVICE_GUARD})
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
@@ -58,7 +64,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND bash -c "${AUTOGEN_CODE_SH} ${USE_AUTOCOMPARE} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS} ${GENERATE_DEVICE_GUARD}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
@@ -73,9 +79,11 @@ set(TORCH_DIPU_SOURCE
   aten/ops/DIPUCopy.cpp
   aten/ops/StorageShapeKernel.cpp
   aten/ops/DIPUAmp.cpp
+  aten/ops/DIPUOpInferrer.cpp
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
+  aten/ops/OpRegexMatch.cpp
   aten/RegisterDIPU.cpp
   aten/CPUFallback.cpp
 

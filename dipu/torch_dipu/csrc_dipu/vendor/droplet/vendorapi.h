@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdio>
+
 #include <c10/util/Exception.h>
 #ifdef USE_PCCL
 #include <pccl.h>
@@ -9,14 +11,15 @@
 
 namespace dipu {
 
-#define DIPU_CALLDROPLET(Expr)                                            \
-  {                                                                       \
-    tangError_t ret = Expr;                                               \
-    if (ret != tangSuccess) {                                             \
-      printf("call a tangrt function (%s) failed. return code=%d", #Expr, \
-             ret);                                                        \
-      throw std::runtime_error("dipu device error");                      \
-    }                                                                     \
+#define DIPU_CALLDROPLET(Expr)                                              \
+  {                                                                         \
+    tangError_t ret = Expr;                                                 \
+    if (ret != tangSuccess) {                                               \
+      printf("call a tangrt function (%s) failed. return code=%d\n", #Expr, \
+             ret);                                                          \
+      fflush(stdout);                                                       \
+      throw std::runtime_error("dipu device error");                        \
+    }                                                                       \
   }
 
 using deviceStream_t = tangStream_t;

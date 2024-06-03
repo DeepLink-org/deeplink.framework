@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - dev_v0.25
+    tags:
+      - 'v*'
   pull_request:
     paths-ignore:
       -  "dicp/**"
@@ -88,6 +90,16 @@ jobs:
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
 
+  Deploy_on_tag:
+    runs-on: tps-sco-ci
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Run script on tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/} # Extract the tag name
+          echo $TAG
+          bash /mnt/cache/share/platform/dep/Deploy_DIPU_trigger.sh "$TAG"
+          
   Build-Camb:
     name: Build-dipu-camb
     needs: [Runs-On-Nv-Step1]
@@ -353,21 +365,6 @@ jobs:
           source scripts/ci/ascend/ci_ascend_env.sh
           bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
           || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
-  
-  Build-Ascend-910b-with-autocompare:
-    name: Build-dipu-ascend-910b-with-autocompare
-    needs: [Build-PyTorch-For-Ascend-910b]
-    runs-on: tps-ascend-ci-910b
-    steps:
-      - name: Build dipu
-        run: |
-          set -ex
-          export USE_COVERAGE=ON
-          export USE_AUTOCOMPARE=ON
-          cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}  && cd ${GITHUB_JOB}/dipu
-          source scripts/ci/ascend/ci_ascend_env.sh
-          bash scripts/ci/ascend/ci_ascend_script.sh build_dipu \
-          || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
 
   Test-Ascend-910b:
     name: Test-dipu-ascend-910b
@@ -419,8 +416,9 @@ jobs:
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend
           source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
           export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu:${PYTHONPATH}
-          export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dicp:${PYTHONPATH}
-          cd dicp && export TEST_DIR=$(pwd)/test
+          pip uninstall dicp -y
+          cd dicp && python setup.py clean && python setup.py install --user
+          export TEST_DIR=$(pwd)/test
           source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models
           bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
           pytest test/model/test_llama.py --backend ascendgraph --dynamic false \

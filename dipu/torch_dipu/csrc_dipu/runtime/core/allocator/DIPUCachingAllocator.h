@@ -5,6 +5,8 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+
 #include "DIPUAsyncResourcePool.h"
 #include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
@@ -135,12 +137,23 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
     DataPtrContextBase(const CacheAllocator* allocator, void* ptr, size_t size)
         : allocator_(allocator), ptr_(ptr), size_(size) {
       if (allocator_->device().type() == dipu::DIPU_DEVICE_TYPE) {
-        auto current_stream = getCurrentDIPUStream();
+        auto currentStream = getCurrentDIPUStream();
+        auto defaultStream = getDefaultDIPUStream();
         // If current stream is the default stream, we don't need to synchronize
         // But before releasing the memory we must synchronize the default
         // stream
-        if (getDefaultDIPUStream() != current_stream) {
-          streams_.insert(current_stream);
+        if (defaultStream != currentStream) {
+          streams_.insert(currentStream);
+          // When allocating memory to a non-default stream, since record_stream
+          // is not performed on the default stream, the non-default stream
+          // needs to wait for the operation on the default stream to be
+          // completed. After adding non-default stream and other default stream
+          // operations here, the upper layer does not need to manually add a
+          // wait for the default stream when allocating memory on the
+          // non-default stream.
+          DIPUEvent event;
+          event.record(defaultStream);
+          event.wait(currentStream);
         }
       }
       MemChecker::instance().insert(ptr, size);
@@ -231,19 +244,20 @@ c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
 }
 #undef DIPU_ALLOCATOR_DISPATCH_DEVICE_ID
 
-#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator, priority) \
-  namespace name##device_type {                                                \
-    static allocator_details::RawAllocator<at::DeviceType::device_type>::type  \
-        raw_allocator;                                                         \
-    using AsyncMemPool =                                                       \
-        AsyncResourcePoolImpl<std::tuple<void*, size_t>,                       \
-                              at::DeviceType::device_type, priority>;          \
-    static const std::function<c10::Allocator*(int)> allocator_get_fn =        \
-        std::bind(                                                             \
-            allocator_details::get_allocator<CachingAllocator, AsyncMemPool>,  \
-            std::placeholders::_1, &raw_allocator);                            \
-    static const allocator_details::AllocatorRegisterer g_allocator(           \
-        #name, at::DeviceType::device_type, allocator_get_fn, priority);       \
+#define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator,          \
+                                algorithm, priority)                          \
+  namespace name##device_type {                                               \
+    static allocator_details::RawAllocator<at::DeviceType::device_type>::type \
+        raw_allocator;                                                        \
+    using AsyncMemPool =                                                      \
+        AsyncResourcePoolImpl<std::tuple<void*, size_t>,                      \
+                              at::DeviceType::device_type, algorithm>;        \
+    static const std::function<c10::Allocator*(int)> allocator_get_fn =       \
+        std::bind(                                                            \
+            allocator_details::get_allocator<CachingAllocator, AsyncMemPool>, \
+            std::placeholders::_1, &raw_allocator);                           \
+    static const allocator_details::AllocatorRegisterer g_allocator(          \
+        #name, at::DeviceType::device_type, allocator_get_fn, priority);      \
   }
 }  // namespace allocator_details
 

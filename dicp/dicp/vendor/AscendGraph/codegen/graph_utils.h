@@ -32,7 +32,7 @@ using json = nlohmann::json;
 using namespace ge;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
-    "ConcatD", "IdentityN", "Pack", "SplitD"};
+    "ConcatD", "IdentityN", "Pack", "SplitD", "IncreFlashAttention"};
 
 void check_op(std::unordered_map<std::string, ge::Operator>& op_map,
               const std::string& op_name) {
@@ -188,6 +188,41 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
   }
 }
 
+void parseIncreFlashAttentionDynamicInput(
+    std::unordered_map<std::string, ge::Operator>& op_map,
+    op::IncreFlashAttention& op, const json& node) {
+  if (node.contains("dynamic_inputs")) {
+    int kv_inputs_num = 0;
+    for (const auto& i : node["dynamic_inputs"]) {
+      auto num = i["num"].get<unsigned int>();
+      auto name = i["name"].get<std::string>();
+      if (name == "key") {
+        kv_inputs_num = static_cast<int>(num);
+        op.create_dynamic_input_byindex_key(num, 1);
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          op.set_dynamic_input_key(index, value);
+        }
+      } else if (name == "value") {
+        if (kv_inputs_num == 0 && num == kv_inputs_num) {
+          throw std::runtime_error(
+              "need first set dynamic key input for IncreFlashAttention Op"
+              "and kv_inputs_num == num !!");
+        }
+        op.create_dynamic_input_byindex_value(num, 1 + num);
+        for (const auto& item : i["value"]) {
+          auto index = item["index"].get<uint32_t>();
+          auto value = op_map[item["value"].get<std::string>()];
+          op.set_dynamic_input_value(index, value);
+        }
+      } else {
+        throw std::runtime_error("invalid dynamic input name");
+      }
+    }
+  }
+}
+
 template <typename T>
 void parseDynamicOutput(T& op, const json& node) {
   if (node.contains("dynamic_outputs")) {
@@ -219,6 +254,10 @@ ge::Operator genDynamicOperator(
   } else if (op_type == "Pack") {
     auto op = genDynamicOp<op::Pack>(op_name);
     parseDynamicInput<op::Pack>(op_map, op, node);
+    return op;
+  } else if (op_type == "IncreFlashAttention") {
+    auto op = genDynamicOp<op::IncreFlashAttention>(op_name);
+    parseIncreFlashAttentionDynamicInput(op_map, op, node);
     return op;
   } else if (op_type == "SplitD") {
     auto op = genDynamicOp<op::SplitD>(op_name);
