@@ -780,7 +780,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
-  torch_ver: ["20101",]
+  torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
@@ -789,7 +789,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
-  torch_ver: ["20101",]
+  torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     bool unbiased = correction.value_or(1).toLong() == 1;
