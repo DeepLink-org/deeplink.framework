@@ -133,9 +133,9 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx,
   at::Tensor t;
   if (stride) {
     at::IntArrayRef at_stride(stride->data, stride->len);
-    t = at::empty_strided(at_dims, at_stride, options);
+    t = nodispatch::empty_strided(at_dims, at_stride, options);
   } else {
-    t = at::empty(at_dims, options);
+    t = nodispatch::empty(at_dims, options);
   }
 
   ctx->arrays.emplace_back(std::move(t));
