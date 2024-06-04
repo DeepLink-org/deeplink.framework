@@ -345,12 +345,12 @@ jobs:
     steps:
       - name: COPY Source
         run: |
-           set -ex
-           source ~/Aoss_env.sh
-           ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
-           ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
-           ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ /dev/null 2>&1 >/dev/null
-           ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ /dev/null 2>&1 >/dev/null
+          set -ex
+          source ~/Aoss_env.sh
+          ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ /dev/null 2>&1 >/dev/null
+          ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ /dev/null 2>&1 >/dev/null
       - name: Build PyTorch
         run: |
           set -ex
