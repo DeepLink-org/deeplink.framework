@@ -85,7 +85,7 @@ set(TORCH_DIPU_SOURCE
   diopirt/diopirt_impl.cpp
   diopirt/diopi_helper.cpp
 
-  metrics/export.cpp
+  metrics/export.cc
 
   profiler/collection.cpp
   profiler/CorrelationIDManager.cpp

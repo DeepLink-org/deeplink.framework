@@ -5,12 +5,12 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
-#include "csrc_dipu/metrics/export.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
 #include "DIPUAsyncResourcePool.h"
 #include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
+#include "allocator_metrics.h"
 
 namespace dipu {
 
@@ -100,8 +100,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   mutable c10::Device device_ = c10::DeviceType::CPU;
 
  protected:
-  allocator_metrics mutable metrics_producer{default_metrics_collector(),
-                                             {{"type", "bfc"}}};
+  AllocatorMetrics mutable metrics_producer{{{"type", "caching"}}};
 
   c10::Allocator* raw_allocator() const { return raw_allocator_; }
 

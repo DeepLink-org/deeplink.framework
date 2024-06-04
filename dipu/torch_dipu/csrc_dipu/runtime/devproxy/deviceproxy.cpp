@@ -1,8 +1,8 @@
 // Copyright (c) 2023, DeepLink.
 #include "deviceproxy.h"
 
-#include "csrc_dipu/metrics/export.h"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 
 namespace dipu {
 namespace devproxy {
@@ -111,23 +111,26 @@ EventStatus getEventStatus(deviceEvent_t event) {
 // =====================
 void mallocHost(void** p, size_t nbytes) {
   devapis::mallocHost(p, nbytes);
-  default_host_allocator_metrics_producer().allocate(p ? *p : nullptr, nbytes);
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
 }
 
 void freeHost(void* p) {
-  default_host_allocator_metrics_producer().deallocate(p);
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .deallocate(p);
   return devapis::freeHost(p);
 }
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   auto code = devapis::mallocDevice(p, nbytes, throwExcepion);
-  default_device_allocator_metrics_producer().allocate(p ? *p : nullptr,
-                                                       nbytes);
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
   return code;
 }
 
 void freeDevice(void* p) {
-  default_device_allocator_metrics_producer().deallocate(p);
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .deallocate(p);
   return devapis::freeDevice(p);
 }
 
