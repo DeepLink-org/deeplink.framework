@@ -13,7 +13,7 @@ namespace dipu {
 inline const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
   switch (t) {
     case devapis::VendorDeviceType::CUDA:
-      return "CUDA";  
+      return "CUDA";
     case devapis::VendorDeviceType::MLU:
       return "MLU";
     case devapis::VendorDeviceType::NPU:
