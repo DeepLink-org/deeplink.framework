@@ -144,9 +144,11 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx,
   } else {
     if (stride) {
       at::IntArrayRef at_stride(stride->data, stride->len);
-      t = at::empty_strided(at_dims, at_stride, options);
+      t = dipu::native::nodispatch::empty_strided_cpu(at_dims, at_stride,
+                                                      options);
     } else {
-      t = at::empty(at_dims, options);
+      t = dipu::native::nodispatch::empty_cpu(at_dims, at_type.toScalarType(),
+                                              at_device);
     }
   }
 
