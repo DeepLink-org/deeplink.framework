@@ -228,7 +228,7 @@ static void exportCommunicator(py::module& m) {
       .def("store", &ProcessGroupDICL::getStore)
       .def("get_comm_name",
            [](ProcessGroupDICL& self, const at::DeviceIndex device_index) {
-             return self.getCommName(device_index);
+             return std::string(self.getCommName(device_index));
            })
       .def("timeout", [](ProcessGroupDICL& self) {
         // need enhance to support tiemout

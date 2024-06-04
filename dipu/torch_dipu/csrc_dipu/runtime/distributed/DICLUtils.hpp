@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <string_view>
 
 #include <c10/core/Device.h>
 
@@ -12,8 +13,6 @@
 #include "csrc_dipu/runtime/devproxy/diclproxy.h"
 
 namespace dipu {
-
-constexpr const int MAX_COMM_NAME_LENGTH = 128;
 
 // wrapper of vendor raw communicator
 class DICLComm {
@@ -44,13 +43,12 @@ class DICLComm {
     return comm;
   }
 
-  std::string getName() {
+  std::string_view getName() {
     if (!rawCommName) {
-      std::array<char, MAX_COMM_NAME_LENGTH> commName{};
-      devproxy::diclGetCommName(commName.data(), rawComm_);
-      rawCommName = std::string(commName.data());
+      rawCommName.emplace();
+      devproxy::diclGetCommName(*rawCommName, rawComm_);
     }
-    return *rawCommName;
+    return {*rawCommName};
   }
 
   // Must not be copyable

@@ -560,7 +560,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
 }
 
 // NOLINTNEXTLINE(google-default-arguments)
-std::string ProcessGroupDICL::getCommName(const at::DeviceIndex device_index) {
+std::string_view ProcessGroupDICL::getCommName(
+    const at::DeviceIndex device_index) {
   auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);
   std::vector<at::Device> devices{device};
   const auto localCommsKey = getDeviceIds(devices);

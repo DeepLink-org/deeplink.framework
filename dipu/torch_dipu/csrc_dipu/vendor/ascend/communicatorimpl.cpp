@@ -14,6 +14,8 @@
 namespace dipu {
 namespace devapis {
 
+constexpr const int MAX_COMM_NAME_LENGTH = 128;
+
 // HCCL ReduceOp mapping
 static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
     {ReduceOp::MIN, HCCL_REDUCE_MIN},
@@ -170,8 +172,10 @@ DIPU_API diclResult_t diclBroadcast(const void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclGetCommName(char* commName, diclComm_t comm) {
-  HCCL_THROW(HcclGetCommName(comm, commName));
+DIPU_API diclResult_t diclGetCommName(std::string& commName, diclComm_t comm) {
+  std::array<char, MAX_COMM_NAME_LENGTH> commName_{};
+  HCCL_THROW(HcclGetCommName(comm, commName_.data()));
+  commName = std::string{commName_.data()};
   return DICL_SUCCESS;
 }
 

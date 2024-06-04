@@ -74,7 +74,7 @@ devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
   return devapis::diclRecv(recvbuff, count, datatype, peer, comm, stream);
 }
 
-devapis::diclResult_t diclGetCommName(char* commName, diclComm_t comm) {
+devapis::diclResult_t diclGetCommName(std::string& commName, diclComm_t comm) {
   if (devapis::diclGetCommName) {
     return devapis::diclGetCommName(commName, comm);
   }
