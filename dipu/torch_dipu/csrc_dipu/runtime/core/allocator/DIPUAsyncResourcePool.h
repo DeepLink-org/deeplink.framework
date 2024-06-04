@@ -3,7 +3,12 @@
 
 #include <deque>
 #include <mutex>
+#include <queue>
 #include <tuple>
+#include <utility>
+
+#include <c10/util/Exception.h>
+#include <c10/util/flat_hash_map.h>
 
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
@@ -14,7 +19,7 @@ class AsyncResourcePool {
  public:
   virtual void add(const T& t, std::deque<DIPUEvent>& events) = 0;
   virtual T get() = 0;
-  virtual bool ready() const = 0;
+  virtual bool ready() = 0;
   virtual bool empty() const = 0;
   virtual size_t size() const = 0;
 };
@@ -48,7 +53,7 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
     return list_.empty();
   }
 
-  bool ready() const override {
+  bool ready() override {
     std::lock_guard<mutex_t> lk(mutex_);
     if (list_.empty()) {
       return false;
@@ -66,6 +71,125 @@ class AsyncResourcePoolImpl : public AsyncResourcePool<T> {
   size_t size() const override {
     std::lock_guard<mutex_t> lk(mutex_);
     return list_.size();
+  }
+};
+
+#define OneStreamOneQueueAlgo 1
+
+// This implementation provides a separate queue for each stream
+template <class T, at::DeviceType device_type>
+class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
+    : public AsyncResourcePool<T> {
+ private:
+  // Resources that have events to wait for
+  struct Resource final {
+    const T t;
+    int event_count;
+
+    Resource(const T& t, int event_count) : t(t), event_count(event_count) {}
+
+    ~Resource() = default;
+    Resource(const Resource&) = delete;
+    Resource& operator=(const Resource&) = delete;
+    Resource(Resource&&) = delete;
+    Resource& operator=(Resource&&) = delete;
+  };
+  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, DIPUEvent>>>
+      queues_with_events;
+  Resource* ready_resource = nullptr;
+
+  // Resources that have no events to wait for.
+  // In other words, they are already ready.
+  // Place them in a special queue for higher performance.
+  std::queue<T> queue_without_events;
+
+  size_t total_size = 0;
+
+  using mutex_t = std::mutex;
+  mutable mutex_t mutex;
+
+ public:
+  void add(const T& t, std::deque<DIPUEvent>& events) override {
+    std::lock_guard<mutex_t> lk(mutex);
+    if (events.empty()) {
+      queue_without_events.push(t);
+    } else {
+      auto resource = new Resource(t, events.size());
+      for (DIPUEvent& event : events) {
+        queues_with_events[event.stream_id()].emplace(resource,
+                                                      std::move(event));
+      }
+      events.clear();
+    }
+    ++total_size;
+  }
+
+  T get() override {
+    std::lock_guard<mutex_t> lk(mutex);
+
+    if (!queue_without_events.empty()) {
+      T t = queue_without_events.front();
+      queue_without_events.pop();
+      --total_size;
+      return t;
+    }
+
+    TORCH_CHECK(ready_resource, "No ready resource to get!")
+    T t = ready_resource->t;
+    delete ready_resource;
+    ready_resource = nullptr;
+    --total_size;
+    return t;
+  }
+
+  bool empty() const override {
+    std::lock_guard<mutex_t> lk(mutex);
+    return 0 == total_size;
+  }
+
+  // If there is no ready resource, remove completed events in queues
+  // and decrease event_count until a resource with event_count of 0 is found,
+  // then save it as a ready resource
+  bool ready() override {
+    std::lock_guard<mutex_t> lk(mutex);
+
+    if (!queue_without_events.empty()) {
+      return true;
+    }
+
+    if (ready_resource) {
+      return true;
+    }
+
+    for (auto it = queues_with_events.begin();
+         it != queues_with_events.end();) {
+      auto& [stream_id, queue] = *it;
+      auto& [resource, event] = queue.front();
+      if (event.query()) {
+        --resource->event_count;
+        if (0 == resource->event_count) {
+          ready_resource = resource;
+        }
+        queue.pop();
+      }
+
+      if (queue.empty()) {
+        it = queues_with_events.erase(it);
+      } else {
+        ++it;
+      }
+
+      if (ready_resource) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  size_t size() const override {
+    std::lock_guard<mutex_t> lk(mutex);
+    return total_size;
   }
 };
 

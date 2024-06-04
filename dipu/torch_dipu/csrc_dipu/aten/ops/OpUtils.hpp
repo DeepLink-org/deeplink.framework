@@ -1,3 +1,4 @@
+// Copyright (c) 2023, DeepLink.
 #pragma once
 
 #include <array>
@@ -248,6 +249,10 @@ at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
   auto static const empty = at::Tensor{};
   auto mixed = is_mixed_type(input, unwrap_or(parameters, empty)...);
   return at::native::param_scalar_type(input, mixed);
+}
+
+inline bool is_scalar_on_cpu(const at::Tensor& t) {
+  return t.unsafeGetTensorImpl()->is_wrapped_number();
 }
 
 }  // namespace native

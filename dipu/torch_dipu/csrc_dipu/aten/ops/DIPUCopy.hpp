@@ -4,11 +4,14 @@
 #include <ATen/ATen.h>
 #include <ATen/MemoryOverlap.h>
 #include <ATen/Tensor.h>
+#include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -141,18 +144,35 @@ inline void doMemCopyH2H(const at::Tensor& dst, const at::Tensor& src,
 inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                          dipu::DIPUStream& stream, int64_t nbytes,
                          bool isSynchronousCopy) {
-  void* src_ptr = src.data_ptr();
-  void* dst_ptr = dst.data_ptr();
+  const auto src_device = src.device();
+  const auto dst_device = dst.device();
+  const bool is_same_device = dst_device.index() == src_device.index();
+  c10::DeviceGuard src_guard(src_device);
+  // non_blocking (bool) – if True and this copy is between CPU and GPU, the
+  // copy may occur asynchronously with respect to the host. For other cases,
+  // this argument has no effect.
+  // We always perform the copy on the source device, using the current stream
+  // on the source device, and we fully synchronize on both src and dst's
+  // current streams for completion of the copy. We have to explicitly do this
+  // for non-contig copies. This mimics the behavior of cross-device
+  // cudaMemcpyAsync on the default stream.
 
-  MemChecker::instance().check(src);
-  MemChecker::instance().check(dst);
-  if (isSynchronousCopy) {
-    dipu::devproxy::memCopyD2D(nbytes, dst.device().index(), dst_ptr,
-                               src.device().index(), src_ptr);
-  } else {
-    dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
-                                    dst.device().index(), dst_ptr,
-                                    src.device().index(), src_ptr);
+  if (!is_same_device) {
+    src_guard.set_index(dst_device.index());
+    DIPUEvent dstEvent;
+    dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
+    src_guard.set_index(src_device.index());
+    dstEvent.wait(stream);
+  }
+  dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
+                                  dst.device().index(), dst.data_ptr(),
+                                  src.device().index(), src.data_ptr());
+  if (!is_same_device) {
+    src_guard.set_index(dst_device.index());
+    DIPUEvent srcEvent;
+    srcEvent.record(stream);
+    srcEvent.wait(dipu::getCurrentDIPUStream(dst_device.index()));
+    // srcEvent.synchronize(); // No need to block the CPU here?
   }
 }
 
@@ -244,10 +264,15 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (dst.numel() == 0 || dst.is_same(src)) {
       return;
     }
-    const c10::DeviceGuard guard(dst.is_cpu() ? src.device() : dst.device());
+    // We always perform the copy on the source device when do copy_d2d
+    const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
     auto curStream = dipu::getCurrentDIPUStream();
 
     auto info = CopyParamsInfo(dst, src, curStream);
+    if (info.copyType_ == DIPUCopyType::D2Self) {
+      non_blocking = true;
+    }
+
     // Exit early if dst and src are views of the same data
     if ((dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
          info.sameStride_ && info.sameDtype_)) {
@@ -284,7 +309,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
                                DIPUStream& curStream) {
     // syncAfterCopy
     if (!non_blocking) {
-      dipu::devapis::syncStream(curStream.rawstream());
+      curStream.synchronize();
     }
   }
 
@@ -315,9 +340,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
   void doDirectMemCopy(at::Tensor& dst, const at::Tensor& src,
                        DIPUStream& curStream, DIPUCopyType copyType,
                        bool needMemCpSync = true) {
-    if (native::dumpOpArgLevel() > 0) {
-      printf("--%-50s %-30s \n", "[copy_]:", "doDirectMemCopy");
-    }
     memCopy(dst, src, curStream, copyType, /*nonOverlappingAndDense=*/true,
             /*isSynchronousCopy=*/false);
 
@@ -466,10 +488,6 @@ class DIPUCopyInplace : public DIPUCopyBase {
  */
   void doCpuRelayCopy(at::Tensor& dst, const at::Tensor& src,
                       DIPUStream& curStream, bool non_blocking) {
-    if (native::dumpOpArgLevel() > 0) {
-      printf("--%-50s %-30s \n", "[copy_]:", "doCpuRelayCopy");
-    }
-
     at::Tensor src_cpu = src;
     if (dipu::isDeviceTensor(src)) {
       src_cpu = makeSameStrideTensor(src, curStream,

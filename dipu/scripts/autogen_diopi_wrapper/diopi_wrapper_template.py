@@ -22,6 +22,7 @@ diopi_wrapper_file_template_content = """// autogened file
 #include <ATen/core/List.h>
 #include <ATen/core/TensorBody.h>
 #include <ATen/native/ReduceOpsUtils.h>
+#include <ATen/native/BinaryOps.h>
 #include <ATen/ops/empty.h>
 #include <ATen/ops/empty_like.h>
 #include <ATen/ops/scalar_tensor.h>
@@ -50,6 +51,7 @@ diopi_wrapper_file_template_content = """// autogened file
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
+#include "csrc_dipu/aten/ops/DIPUOpInferrer.h"
 #include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
@@ -99,6 +101,7 @@ DIPU_LIBRARY_IMPL(aten, DIPU_AUTOGRAD_DEVICE_TYPE_MACRO, m) {
 diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
+  $device_guard_code
   dipu::profile::RecordBlockCreator _(__FUNCTION__);
   $custom_code_at_the_beginning
 

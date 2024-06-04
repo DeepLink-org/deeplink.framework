@@ -1,7 +1,13 @@
 // Copyright (c) 2023, DeepLink.
 #include "deviceproxy.h"
 
+#include <atomic>
+
+#include <c10/util/Exception.h>
+
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/device/basedef.h"
+#include "csrc_dipu/runtime/device/deviceapis.h"
 
 namespace dipu {
 namespace devproxy {
@@ -18,8 +24,6 @@ void finalizeVendor() {
   }
 }
 
-deviceId_t current_device() { return devapis::current_device(); }
-
 DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return devapis::getDeviceProperties(device_index);
 }
@@ -31,10 +35,61 @@ DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   return {};
 }
 
-// set current device given device according to id
-void setDevice(deviceId_t devId) { return devapis::setDevice(devId); }
+namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+thread_local deviceId_t currentDevice = -1;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+deviceId_t lastDevice = -1;
+}  // namespace
 
-void resetDevice(deviceId_t devId) { return devapis::resetDevice(devId); }
+deviceId_t current_device() {
+  if (currentDevice < 0) {
+    // Because on some software stacks, getDevice is not allowed to be called
+    // before setDevice is called. So we do this
+    if (lastDevice > 0) {
+      setDevice(lastDevice);
+      TORCH_WARN_ONCE(
+          "Since device ", lastDevice,
+          " has been used before, and there is no indication of which device "
+          "to use in the current thread, we will continue to use device ",
+          lastDevice, " instead of device 0.");
+    } else {
+      setDevice(0);
+    }
+  }
+  return currentDevice;
+}
+
+// set current device given device according to id
+void setDevice(deviceId_t devId) {
+  static const int kDeviceCount = getDeviceCount();
+  TORCH_CHECK(devId < kDeviceCount && devId >= 0,
+              "invalid device id: ", static_cast<int>(devId),
+              " , device count:", kDeviceCount)
+  if (currentDevice != devId) {
+    devapis::setDevice(devId);
+    if (currentDevice < 0) {
+      if (lastDevice < 0) {
+        // The main purpose is that if a device has been used before, but which
+        // device is not specified in the subsequent new thread, then the
+        // previous device will continue to be used. The lastDevice variable is
+        // an artificial assumption.In fact, it is almost impossible for
+        // two threads to setDevice to different devices at the same time, and
+        // even if it does, which one should be choosed?
+        lastDevice = devId;
+      }
+    }
+    currentDevice = devId;
+  }
+}
+
+void resetDevice(deviceId_t devId) {
+  currentDevice = devId;
+  if (lastDevice < 0) {
+    lastDevice = devId;
+  }
+  return devapis::resetDevice(devId);
+}
 
 void syncDevice() { return devapis::syncDevice(); }
 

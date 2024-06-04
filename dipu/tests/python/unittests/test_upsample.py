@@ -96,6 +96,14 @@ class TestUpsample(TestCase):
         self.assertEqual(y1, y2.cpu(), prec=1e-3)
         self.assertEqual(x1.grad, x2.grad.cpu(), prec=1e-3)
 
+    def test_upsample_nhwc(self):
+        a = torch.arange(16, dtype=torch.float32, device="cuda").reshape(2, 2, 2, 2)
+        a = a.to(memory_format=torch.channels_last)
+        upsample_func = nn.Upsample(scale_factor=2, mode="nearest")
+        out = upsample_func(a)
+        gold = upsample_func(a.cpu())
+        self.assertEqual(out, gold, prec=1e-5)
+
 
 if __name__ == "__main__":
     run_tests()
