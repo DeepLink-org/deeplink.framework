@@ -8,8 +8,25 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # the default CMAKE_BUILD_TYPE is Release
-if(CMAKE_BUILD_TYPE STREQUAL "")
-    set(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
+
+option(ENABLE_LTO "Enable Link Time Optimization in Release build" ON)
+if(ENABLE_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT supported OUTPUT error)
+  if(supported)
+    message(STATUS "IPO / LTO enabled")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set(CMAKE_POLICY_DEFAULT_CMP0069
+        "NEW"
+        CACHE STRING "enforce IPO in subprojects" FORCE)
+  else()
+    message(STATUS "IPO / LTO not supported: <${error}>")
+  endif()
+else()
+  message(STATUS "IPO / LTO disabled")
 endif()
 
 option(TESTS "Whether to build unit tests" OFF)
@@ -31,42 +48,44 @@ list(APPEND DEVICE_SUPA "SUPA" "supa")
 list(APPEND DEVICE_DROPLET "DROPLET" "droplet")
 list(APPEND DEVICE_KUNLUNXIN "kunlunxin" "klx")
 
-execute_process(COMMAND git rev-parse --short HEAD
-                OUTPUT_VARIABLE DIPU_GIT_HASH)
+execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE DIPU_GIT_HASH)
 
 set(UsedVendor "")
 set(DIOPI_IMPL_OPT "")
-if (${DEVICE} IN_LIST DEVICE_CUDA)
+if(${DEVICE} IN_LIST DEVICE_CUDA)
   set(USE_CUDA ON)
   set(UsedVendor cuda)
   set(DIOPI_IMPL_OPT "torch")
-elseif (${DEVICE} IN_LIST DEVICE_CAMB)
+elseif(${DEVICE} IN_LIST DEVICE_CAMB)
   set(USE_CAMB ON)
   set(UsedVendor camb)
   set(DIOPI_IMPL_OPT "camb")
-elseif (${DEVICE} IN_LIST DEVICE_ASCEND)
+elseif(${DEVICE} IN_LIST DEVICE_ASCEND)
   set(USE_ASCEND ON)
   set(UsedVendor ascend)
   set(DIOPI_IMPL_OPT "ascend")
-elseif (${DEVICE} IN_LIST DEVICE_TOPSRIDER)
+elseif(${DEVICE} IN_LIST DEVICE_TOPSRIDER)
   set(USE_TOPSRIDER ON)
   set(UsedVendor topsrider)
   set(DIOPI_IMPL_OPT "tops")
-elseif (${DEVICE} IN_LIST DEVICE_SUPA)
+elseif(${DEVICE} IN_LIST DEVICE_SUPA)
   set(USE_SUPA ON)
   set(UsedVendor supa)
   set(DIOPI_IMPL_OPT "supa")
-  #SUPA DEVICE DOES NOT NEED TO BUILD DIOPI, so set the target to "" to control the workflow.
-elseif (${DEVICE} IN_LIST DEVICE_DROPLET)
+  # SUPA DEVICE DOES NOT NEED TO BUILD DIOPI, so set the target to "" to control the workflow.
+elseif(${DEVICE} IN_LIST DEVICE_DROPLET)
   set(USE_DROPLET ON)
   set(UsedVendor droplet)
   set(DIOPI_IMPL_OPT "droplet")
-elseif (${DEVICE} IN_LIST DEVICE_KUNLUNXIN)
+elseif(${DEVICE} IN_LIST DEVICE_KUNLUNXIN)
   set(USE_KUNLUNXIN ON)
   set(UsedVendor kunlunxin)
   set(DIOPI_IMPL_OPT "kunlunxin")
 else()
-  message(FATAL_ERROR "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA")
+  message(
+    FATAL_ERROR
+      "No implementation module is compiled, cmake requires option -DDEVICE=CAMB or CUDA or ASCEND or SUPA"
+  )
 endif()
 
 add_compile_definitions(DIPU_VENDOR_NAME=${UsedVendor})
@@ -97,14 +116,9 @@ execute_process(
 execute_process(
 COMMAND
   sh -c
-  "python -c 'import torch, builtins; from pathlib import Path;  \
-      print(next(item[-4:-2] for item in dir(builtins) \
-      if \"__pybind11_internals_v4_gcc_libstdcpp_cxxabi10\" in item)); \
-      print(Path(torch.__path__[0]).parent.absolute()); \
-      print(1 if torch.compiled_with_cxx11_abi() else 0); \
-      print(torch.utils.cmake_prefix_path); '"
-OUTPUT_VARIABLE CHECK_TORCH_OUT
-OUTPUT_STRIP_TRAILING_WHITESPACE)
+    "python ${CMAKE_CURRENT_SOURCE_DIR}/detect_env.py"
+  OUTPUT_VARIABLE CHECK_TORCH_OUT
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" CHECK_TORCH_OUT_LIST "${CHECK_TORCH_OUT}")
 message(STATUS "CHECK_TORCH_OUT_LIST: " "${CHECK_TORCH_OUT_LIST}")
 
@@ -133,14 +147,11 @@ else()
   set(DIPU_COMPILED_WITH_CXX11_ABI 0)
 endif()
 
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}"
-)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
 
-execute_process(
-  COMMAND sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)"
-  OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
+execute_process(COMMAND sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)"
+                OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
 message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
 
 # config
@@ -153,7 +164,7 @@ list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
 find_package(Torch REQUIRED)
 
 message(STATUS "Found Torch Version: ${Torch_VERSION}")
-if (NOT ${Torch_VERSION} IN_LIST DIPU_SUPPORT_TORCHS)
+if(NOT ${Torch_VERSION} IN_LIST DIPU_SUPPORT_TORCHS)
   message(FATAL_ERROR "this torch version is not supported by DIPU ${DIPU_SUPPORT_TORCHS}")
 endif()
 
@@ -176,7 +187,6 @@ link_directories(${PYTORCH_DIR}/torch/lib)
 set(DIPU_TORCH_VERSION ${Torch_VERSION})
 
 # end torch find
-
 
 if(ENABLE_COVERAGE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
