@@ -90,7 +90,6 @@ jobs:
           # && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           # && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
           source ~/Aoss_env.sh
-          unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
           ads-cli cp ${GITHUB_WORKSPACE}/${REPO}/ s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
           ads-cli cp ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
 
