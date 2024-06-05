@@ -559,7 +559,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
   TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 std::string_view ProcessGroupDICL::getCommName(
     const at::DeviceIndex device_index) {
   auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);

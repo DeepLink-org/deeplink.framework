@@ -78,7 +78,7 @@ devapis::diclResult_t diclGetCommName(std::string& commName, diclComm_t comm) {
   if (devapis::diclGetCommName) {
     return devapis::diclGetCommName(commName, comm);
   }
-  return {};
+  TORCH_CHECK(false, "device not implement diclGetCommName");
 }
 
 }  // namespace devproxy
