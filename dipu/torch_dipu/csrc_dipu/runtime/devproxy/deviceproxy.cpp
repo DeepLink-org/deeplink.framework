@@ -4,6 +4,7 @@
 #include <atomic>
 
 #include <c10/util/Exception.h>
+#include <ATen/record_function.h>
 
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/device/basedef.h"
@@ -67,6 +68,7 @@ void setDevice(deviceId_t devId) {
               "invalid device id: ", static_cast<int>(devId),
               " , device count:", kDeviceCount)
   if (currentDevice != devId) {
+    RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
     devapis::setDevice(devId);
     if (currentDevice < 0) {
       if (lastDevice < 0) {
@@ -88,10 +90,14 @@ void resetDevice(deviceId_t devId) {
   if (lastDevice < 0) {
     lastDevice = devId;
   }
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::resetDevice(devId);
 }
 
-void syncDevice() { return devapis::syncDevice(); }
+void syncDevice() {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::syncDevice();
+}
 
 // check last launch succ or not, throw if fail
 void checkLastError() { return devapis::checkLastError(); }
@@ -110,31 +116,42 @@ void getRuntimeVersion(int* version) {
 }
 
 void createStream(deviceStream_t* stream, bool prior) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::createStream(stream, prior);
 }
 
 void destroyStream(deviceStream_t stream) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::destroyStream(stream);
 }
 
 void destroyStream(deviceStream_t stream, deviceId_t devId) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::destroyStream(stream, devId);
 }
 
-void releaseStream() { return devapis::releaseStream(); }
+void releaseStream() {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::releaseStream();
+}
 
-void syncStream(deviceStream_t stream) { return devapis::syncStream(stream); }
+void syncStream(deviceStream_t stream) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::syncStream(stream);
+}
 
 bool streamNotNull(deviceStream_t stream) {
   return devapis::streamNotNull(stream);
 }
 
 void streamWaitEvent(deviceStream_t stream, deviceEvent_t event) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::streamWaitEvent(stream, event);
 }
 
 // same as query last event status in stream.(every op has a event)
 bool isStreamEmpty(deviceStream_t stream) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::isStreamEmpty(stream);
 }
 
@@ -142,21 +159,31 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event) { return getEventFromPool(*event); }
+void createEvent(deviceEvent_t* event) {
+  return getEventFromPool(*event);
+}
 
-void destroyEvent(deviceEvent_t event) { return restoreEventToPool(event); }
+void destroyEvent(deviceEvent_t event) {
+  return restoreEventToPool(event);
+}
 
-void waitEvent(deviceEvent_t event) { return devapis::waitEvent(event); }
+void waitEvent(deviceEvent_t event) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::waitEvent(event);
+}
 
 void recordEvent(deviceEvent_t event, deviceStream_t stream) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::recordEvent(event, stream);
 }
 
 void eventElapsedTime(float* time, deviceEvent_t start, deviceEvent_t end) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::eventElapsedTime(time, start, end);
 }
 
 EventStatus getEventStatus(deviceEvent_t event) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::getEventStatus(event);
 }
 
@@ -164,39 +191,51 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 void mallocHost(void** p, size_t nbytes) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::mallocHost(p, nbytes);
 }
 
-void freeHost(void* p) { return devapis::freeHost(p); }
+void freeHost(void* p) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::freeHost(p);
+}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::mallocDevice(p, nbytes, throwExcepion);
 }
 
-void freeDevice(void* p) { return devapis::freeDevice(p); }
+void freeDevice(void* p) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  return devapis::freeDevice(p);
+}
 
 bool isPinnedPtr(const void* p) { return devapis::isPinnedPtr(p); }
 
 // (asynchronous) set val
 void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memSetAsync(stream, ptr, val, size);
 }
 
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2D(nbytes, dstDevId, dst, srcDevId, src);
 }
 
 // (synchronous) copy from host to a device
 void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst,
                 /*Host srcDev,*/ const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyH2D(nbytes, dst, src);
 }
 
 // (synchronous) copy from a device to host
 void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
                 /*deviceId_t srcDevId,*/ const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2H(nbytes, dst, src);
 }
 
@@ -204,6 +243,7 @@ void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2DAsync(stream, nbytes, dstDevId, dst, srcDevId, src);
 }
 
@@ -211,6 +251,7 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
 void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
                      /*deviceId_t dstDevId,*/ void* dst,
                      /*Host srcDev,*/ const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyH2DAsync(stream, nbytes, dst, src);
 }
 
@@ -218,6 +259,7 @@ void memCopyH2DAsync(const deviceStream_t stream, size_t nbytes,
 void memCopyD2HAsync(const deviceStream_t stream, size_t nbytes,
                      /*Host dstDev,*/ void* dst,
                      /*deviceId_t srcDevId,*/ const void* src) {
+  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2HAsync(stream, nbytes, dst, src);
 }
 

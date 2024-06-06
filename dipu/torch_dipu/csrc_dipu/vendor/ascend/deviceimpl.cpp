@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <iostream>
 
 #include <c10/util/Exception.h>
 #include <torch/csrc/distributed/c10d/Work.hpp>
+#include <c10/util/Backtrace.h>
 
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/utils/env.hpp"
@@ -299,6 +301,7 @@ void destroyStream(deviceStream_t stream, deviceId_t devId) {
 }
 
 void syncStream(deviceStream_t stream) {
+  //std::cout << __FUNCTION__  << "bt:\n" << c10::get_backtrace();
   DIPU_CALLACLRT(::aclrtSynchronizeStream(stream));
 }
 

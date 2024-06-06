@@ -33,7 +33,7 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
+  static constexpr size_t kMaxInternalFragmentation = 8U << 10U;  // 8KB
   static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
 
   size_t cachedBytes = 0;
@@ -243,7 +243,7 @@ class BFCachingAllocatorImpl {
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
       while (k) {
-        if (chunks_[k].isMonoBlock()) {
+        if (chunks_[k].isMonoBlock() && chunks_[k].size < kMaxExtendSize) {
           releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
           removeChunkFromBin(k);
           recycleIds_.push(k);
