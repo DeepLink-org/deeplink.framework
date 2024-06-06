@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -166,6 +167,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
   const std::string getBackendName() const override {
     return DICL_BACKEND_NAME;
   }
+
+  std::string_view getCommName(at::DeviceIndex device_index);
 
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
