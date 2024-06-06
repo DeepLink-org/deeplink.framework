@@ -666,8 +666,8 @@ def create_device_guard_code(fun_config):
     if fun_config.get("generate_device_guard", True) in ["False", False]:
         return code
 
-    tensors = re.findall("Tensor +[\w\d_]+", fun_config["schema"]) + re.findall(
-        "Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]
+    tensors = re.findall("Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]) + re.findall(
+        "Tensor +[\w\d_]+", fun_config["schema"]
     )
     arg = fun_config.get("device_guard_arg", None)
     if len(tensors) > 0 or arg is not None:
