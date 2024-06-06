@@ -126,12 +126,14 @@ class GlobalAllocatorGroupMetrics {
  public:
   auto inline static device_allocator_metrics()
       -> GlobalAllocatorGroupMetrics& {
+    // Using * to avoid being destructed.
     auto static instance =
         new GlobalAllocatorGroupMetrics({{"type", "device"}});
     return *instance;
   }
 
   auto inline static host_allocator_metrics() -> GlobalAllocatorGroupMetrics& {
+    // Using * to avoid being destructed.
     auto static instance = new GlobalAllocatorGroupMetrics({{"type", "host"}});
     return *instance;
   }
