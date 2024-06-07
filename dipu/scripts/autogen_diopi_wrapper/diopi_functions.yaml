@@ -48,8 +48,10 @@
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
-        dipu_fill__scalar(out, self.item());
-        return dipu_add__tensor(out, other, alpha);
+        c10::SmallVector<int64_t, 8> shape(out.sizes().size(), 1);
+        at::Tensor selfD = nodispatch::empty(shape, other.options());
+        dipu_fill__scalar(selfD, self.item());
+        return dipu_add_out(selfD, other, alpha, out);
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -106,7 +108,8 @@
         return dipu_div_scalar_out(self, other.item(), out);
     }
     if (is_scalar_on_cpu(self)) {
-        at::Tensor selfD = nodispatch::empty_like(other);
+        c10::SmallVector<int64_t, 8> shape(other.sizes().size(), 1);
+        at::Tensor selfD = nodispatch::empty(shape, other.options());
         dipu_fill__scalar(selfD, self.item());
         return dipu_div_out(selfD, other, out);
     }
@@ -131,7 +134,8 @@
     }
     at::Tensor selfTmp;
     if (is_scalar_on_cpu(self)) {
-        selfTmp = nodispatch::empty_like(other);
+        c10::SmallVector<int64_t, 8> shape(other.sizes().size(), 1);
+        at::Tensor selfTmp = nodispatch::empty(shape, other.options());
         dipu_fill__scalar(selfTmp, self.item());
     } else {
       selfTmp = self;
