@@ -101,9 +101,9 @@ void checkGatherScatterRootRank(
   c10d::assertTypeAndSizesMatch(invalid_arg_func, tensors[0], options, sizes);
 }
 
-void combineTenorsPtrRecordStream(std::vector<at::Tensor>& tensors,
-                                  std::vector<void*>& ptr_vec,
-                                  DIPUStream& stream) {
+void combineTensorsPtrRecordStream(std::vector<at::Tensor>& tensors,
+                                   std::vector<void*>& ptr_vec,
+                                   DIPUStream& stream) {
   for (auto& tensor : tensors) {
     ptr_vec.push_back(tensor.data_ptr());
     dipu::recordStream(tensor, stream);
@@ -627,7 +627,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
           DIPUStream& stream) {
         std::vector<void*> output_ptr_vec = {};
         if (curRank == root) {
-          combineTenorsPtrRecordStream(outputTensors, output_ptr_vec, stream);
+          combineTensorsPtrRecordStream(outputTensors, output_ptr_vec, stream);
         }
 
         RECORD_FUNCTION("DiclGather", std::vector<c10::IValue>({input}));
@@ -785,7 +785,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
           DIPUStream& stream) {
         std::vector<void*> input_ptr_vec = {};
         if (curRank == root) {
-          combineTenorsPtrRecordStream(inputTensors, input_ptr_vec, stream);
+          combineTensorsPtrRecordStream(inputTensors, input_ptr_vec, stream);
         }
 
         RECORD_FUNCTION(
