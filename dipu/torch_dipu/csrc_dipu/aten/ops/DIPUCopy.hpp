@@ -6,6 +6,7 @@
 #include <ATen/Tensor.h>
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
@@ -163,6 +164,12 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
     dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
     src_guard.set_index(src_device.index());
     dstEvent.wait(stream);
+    TORCH_WARN_ONCE(
+        "Some devices may not support streams waiting for events on other "
+        "devices. This adds a CPU-blocking operation. If this becomes a "
+        "performance bottleneck when using copy_D2OhterD, please optimize the "
+        "specific backend here.");
+    dstEvent.synchronize();  // No need to block the CPU here?
   }
   dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                   dst.device().index(), dst.data_ptr(),
@@ -172,7 +179,12 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
     DIPUEvent srcEvent;
     srcEvent.record(stream);
     srcEvent.wait(dipu::getCurrentDIPUStream(dst_device.index()));
-    // srcEvent.synchronize(); // No need to block the CPU here?
+    TORCH_WARN_ONCE(
+        "Some devices may not support streams waiting for events on other "
+        "devices. This adds a CPU-blocking operation. If this becomes a "
+        "performance bottleneck when using copy_D2OhterD, please optimize the "
+        "specific backend here.");
+    srcEvent.synchronize();  // No need to block the CPU here?
   }
 }
 
