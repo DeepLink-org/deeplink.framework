@@ -762,14 +762,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
   int numRanks = getSize();
   int curRank = getRank();
   int root = static_cast<int>(opts.rootRank);
-  c10d::assertRootRank(invalid_arg_func, static_cast<int>(opts.rootRank),
-                       numRanks);
+  c10d::assertRootRank(invalid_arg_func, root, numRanks);
   checkDeviceTensors(outputs);
   c10d::assertSingleElementOutput(invalid_arg_func, outputs);
   auto output = outputs.back();
   std::vector<at::Tensor> inputTensors;
 
-  if (curRank == opts.rootRank) {
+  if (curRank == root) {
     checkGatherScatterRootRank(inputs, output, numRanks, invalid_arg_func);
     inputTensors = inputs[0];
   } else {
