@@ -43,50 +43,27 @@ else()
     "It should be empty or '/directory/of/DIOPI/headers' if WITH_DIOPI_LIBRARY is not INTERNAL.")
 endif()
 
-# compile DIOPI if use internal one
+add_library(diopi INTERFACE)
+target_include_directories(diopi SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
+target_compile_definitions(diopi INTERFACE DIOPI_ATTR_WEAK)
+target_link_options(diopi INTERFACE "LINKER:-no-as-needed")
+
 if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
-  if(NOT DEFINED DIOPI_CMAKE_PREFIX_PATH)
-    set(DIOPI_CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
-    message(STATUS "DIOPI_CMAKE_PREFIX_PATH: ${DIOPI_CMAKE_PREFIX_PATH}")
-  endif()
-
+  # compile DIOPI if use internal one
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
-  ExternalProject_Add(diopi_internal
-                      SOURCE_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI"
-                      SOURCE_SUBDIR "impl"
-                      BINARY_DIR    "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/build"
-                      DOWNLOAD_COMMAND ""
-                      CMAKE_ARGS
-                        # note: as CMAKE_ARGS is a list, do not add quotes to arg values (such as "${DIOPI_IMPL_OPT}").
-                        "-DIMPL_OPT=${DIOPI_IMPL_OPT}"
-                        "-DENABLE_COVERAGE=${USE_COVERAGE}"
-                        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-                        "-DCMAKE_PREFIX_PATH=${DIOPI_CMAKE_PREFIX_PATH}"
-                        "-DCMAKE_EXPORT_COMPILE_COMMANDS=${CMAKE_EXPORT_COMPILE_COMMANDS}"
-                      BUILD_BYPRODUCTS "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so"
-                      BUILD_ALWAYS
-                      INSTALL_COMMAND cmake -E echo "Skipping install step for diopi_internal.")
+  set(IMPL_OPT "${DIOPI_IMPL_OPT}" CACHE INTERNAL "IMPL_OPT for diopi")
+  set(DIOPI_IMPL_TARGET "diopi_impl" CACHE INTERNAL "DIOPI_IMPL_TARGET for diopi")
+  set(DIOPI_IMPL_LIB_DIR "${DIOPI_LIBRARY_PATH}" CACHE INTERNAL "DIOPI_IMPL_LIB_DIR for diopi")
+  add_subdirectory(DIOPI/impl)
+  target_link_libraries(diopi INTERFACE ${DIOPI_IMPL_TARGET})
 
-  ## The following code is a work around to avoid make file to run multiple externalProject-build when using make -j N
-  ExternalProject_Add_StepTargets(diopi_internal configure build install)
-  ExternalProject_Add_StepDependencies(diopi_internal install diopi_internal-build)
-  ExternalProject_Add_StepDependencies(diopi_internal build diopi_internal-configure)
+elseif(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
+  add_library(diopi_impl_imported SHARED IMPORTED)
+  set_target_properties(diopi_impl_imported PROPERTIES IMPORTED_LOCATION "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so")
+  target_link_libraries(diopi INTERFACE diopi_impl_imported)
 endif()
 
 message(STATUS "Using DIOPI_LIBRARY_PATH='${DIOPI_LIBRARY_PATH}', DIOPI_INCLUDE_PATH='${DIOPI_INCLUDE_PATH}'")
-
-add_library(diopi_impl INTERFACE)
-target_include_directories(diopi_impl SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
-target_compile_definitions(diopi_impl INTERFACE DIOPI_ATTR_WEAK)
-
-if(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
-  add_library(diopi_impl_lib SHARED IMPORTED)
-  target_link_options(diopi_impl_lib INTERFACE "LINKER:-no-as-needed")
-  set_target_properties(diopi_impl_lib PROPERTIES IMPORTED_LOCATION "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so")
-
-  add_dependencies(diopi_impl_lib diopi_internal-install)
-  target_link_libraries(diopi_impl INTERFACE diopi_impl_lib)
-endif()
 
 #[[ libkineto ]]
 
