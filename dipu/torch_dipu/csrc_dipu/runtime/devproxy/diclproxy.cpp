@@ -49,8 +49,8 @@ devapis::diclResult_t diclAllGather(const void* sendbuff, void* recvbuff,
 
 devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff, size_t count,
                                  at::ScalarType datatype, int root, int curRank,
-                                 int numRanks, size_t inputDataBytes,
-                                 diclComm_t comm, deviceStream_t stream) {
+                                 int numRanks, diclComm_t comm,
+                                 deviceStream_t stream) {
   if (curRank == root) {
     for (const auto r : c10::irange(numRanks)) {
       auto recvbuffForRank = *(recvbuff + r);
@@ -59,8 +59,8 @@ devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff, size_t count,
             diclRecv(recvbuffForRank, count, datatype, r, comm, stream));
       } else {
         auto deviceId = static_cast<devapis::deviceId_t>(curRank);
-        devapis::memCopyD2DAsync(stream, inputDataBytes, deviceId,
-                                 recvbuffForRank, deviceId, sendbuff);
+        devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype),
+                                 deviceId, recvbuffForRank, deviceId, sendbuff);
       }
     }
   } else {
@@ -71,8 +71,7 @@ devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff, size_t count,
 
 devapis::diclResult_t diclScatter(void** sendbuff, void* recvbuff, size_t count,
                                   at::ScalarType datatype, int root,
-                                  int curRank, int numRanks,
-                                  size_t outputDataBytes, diclComm_t comm,
+                                  int curRank, int numRanks, diclComm_t comm,
                                   deviceStream_t stream) {
   if (curRank == root) {
     for (const auto r : c10::irange(numRanks)) {
@@ -82,8 +81,8 @@ devapis::diclResult_t diclScatter(void** sendbuff, void* recvbuff, size_t count,
             diclSend(sendbuffForRank, count, datatype, r, comm, stream));
       } else {
         auto deviceId = static_cast<devapis::deviceId_t>(curRank);
-        devapis::memCopyD2DAsync(stream, outputDataBytes, deviceId, recvbuff,
-                                 deviceId, sendbuffForRank);
+        devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype),
+                                 deviceId, recvbuff, deviceId, sendbuffForRank);
       }
     }
   } else {
