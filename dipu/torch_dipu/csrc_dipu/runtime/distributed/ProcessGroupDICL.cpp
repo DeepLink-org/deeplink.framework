@@ -3,7 +3,6 @@
 
 #include <utility>
 
-#include <ATen/core/TensorBody.h>
 #include <ATen/record_function.h>
 #include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <torch/torch.h>
