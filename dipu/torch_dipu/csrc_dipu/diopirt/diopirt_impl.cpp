@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
 
 namespace diopihelper = dipu::diopi_helper;
@@ -131,11 +132,24 @@ DIOPI_RT_API diopiError_t diopiRequireTensor(diopiContextHandle_t ctx,
   c10::DeviceType at_device = diopihelper::toATenDevice(device);
   auto options = at::TensorOptions(at_device).dtype(at_type);
   at::Tensor t;
-  if (stride) {
-    at::IntArrayRef at_stride(stride->data, stride->len);
-    t = at::empty_strided(at_dims, at_stride, options);
+  // Use nodispatch::empty to minimize dispatch operations when constructing on
+  // a device.
+  if (dipu::DIPU_DEVICE_TYPE == at_device) {
+    if (stride) {
+      at::IntArrayRef at_stride(stride->data, stride->len);
+      t = dipu::native::nodispatch::empty_strided(at_dims, at_stride, options);
+    } else {
+      t = dipu::native::nodispatch::empty(at_dims, options);
+    }
   } else {
-    t = at::empty(at_dims, options);
+    if (stride) {
+      at::IntArrayRef at_stride(stride->data, stride->len);
+      t = dipu::native::nodispatch::empty_strided_cpu(at_dims, at_stride,
+                                                      options);
+    } else {
+      t = dipu::native::nodispatch::empty_cpu(at_dims, at_type.toScalarType(),
+                                              at_device);
+    }
   }
 
   ctx->arrays.emplace_back(std::move(t));
