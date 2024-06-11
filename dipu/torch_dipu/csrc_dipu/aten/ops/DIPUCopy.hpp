@@ -59,13 +59,17 @@ extern bool isTorchAllocator();
 inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
   if (!isTorchAllocator()) {
-    if ((tensor.is_cpu() && isPinnedPtr(tensor.storage().data())) ||
+    if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
         !is_default_stream) {
-      recordStream(tensor, curStream);
-    } else if (tensor.is_cpu()) {
-      dipu::devapis::syncStream(curStream.rawstream());
+      tensor.record_stream(curStream.unwrap());
     }
-    return;
+    // if ((tensor.is_cpu() && isPinnedPtr(tensor.storage().data())) ||
+    //     !is_default_stream) {
+    //   recordStream(tensor, curStream);
+    // } else if (tensor.is_cpu()) {
+    //   dipu::devapis::syncStream(curStream.rawstream());
+    // }
+    // return;
   }
 
   if (!tensor.is_cpu()) {
