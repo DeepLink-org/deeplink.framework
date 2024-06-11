@@ -9,9 +9,12 @@
 
 #include <c10/core/Device.h>
 #include <c10/core/DeviceType.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingDeviceAllocator.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/utils/env.hpp"
 
@@ -68,16 +71,26 @@ std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
 
-constexpr const char* dipu_default_memcaching_algorithm = "BF";
+const std::string kTorchAllocatorName = "TORCH";
+#if DIPU_TORCH_VERSION >= 20100
+const std::string kDipuDefaultMemcachingAlgorithm = kTorchAllocatorName;
+#else
+const std::string kDipuDefaultMemcachingAlgorithm = "BF";
+#endif
 
 const std::string dipu_device_memcaching_algorithm = []() {
   const char* env = std::getenv("DIPU_DEVICE_MEMCACHING_ALGORITHM");
-  return env ? env : dipu_default_memcaching_algorithm;
+  return env ? env : kDipuDefaultMemcachingAlgorithm;
 }();
 
 const std::string dipu_host_memcaching_algorithm = []() {
   const char* env = std::getenv("DIPU_HOST_MEMCACHING_ALGORITHM");
-  return env ? env : dipu_default_memcaching_algorithm;
+  std::string algorithm = (env ? env : kDipuDefaultMemcachingAlgorithm);
+  if (dipu_device_memcaching_algorithm == kTorchAllocatorName) {
+    TORCH_CHECK(algorithm == kTorchAllocatorName,
+                "host allocator must be TORCH when device allocator is TORCH");
+  }
+  return algorithm;
 }();
 
 void setAllocator(const std::string& name, c10::DeviceType device_type,
@@ -142,9 +155,20 @@ c10::Allocator* createAllocator(const c10::Device& device) {
 
 }  // namespace
 
+bool isTorchAllocator() {
+  return dipu_device_memcaching_algorithm == kTorchAllocatorName;
+}
+
 c10::Allocator* getAllocator(const c10::Device& device) {
   // allocator_lookup_table[device_index] == device allocator
   // allocator_lookup_table[device_count] == host allocator
+  if (!device.is_cpu() && isTorchAllocator()) {
+    return allocator::getTorchAllocator();
+  }
+  if (device.is_cpu() && isTorchAllocator()) {
+    return allocator::getCachingHostAllocator();
+  }
+
   static const int device_count = devproxy::getDeviceCount();
   static const int host_index = device_count;
   static std::vector<c10::Allocator*> allocator_lookup_table(device_count + 1);
@@ -161,6 +185,12 @@ c10::Allocator* getAllocator(c10::DeviceType device_type) {
 }
 
 void emptyCachedMem() {
+  if (isTorchAllocator()) {
+    allocator::emptyCache();
+    allocator::CachingHostAllocator_emptyCache();
+    return;
+  }
+
   auto function_name = __FUNCTION__;
   auto empty_allocator_cache = [&function_name](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
@@ -177,6 +207,12 @@ void emptyCachedMem() {
 }
 
 void releaseAllDeviceMem() {
+  if (isTorchAllocator()) {
+    allocator::emptyCache();
+    allocator::CachingHostAllocator_emptyCache();
+    return;
+  }
+
   auto release_allocator_memory = [](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
     DIPU_DEBUG_ALLOCATOR(8, "release_allocator_memory: allocator:"
@@ -192,6 +228,17 @@ void releaseAllDeviceMem() {
 }
 
 size_t memoryReserved(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .reserved_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .current;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -201,6 +248,17 @@ size_t memoryReserved(const c10::Device& device) {
 }
 
 size_t memoryAllocated(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .allocated_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .current;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -210,6 +268,17 @@ size_t memoryAllocated(const c10::Device& device) {
 }
 
 size_t maxMemoryReserved(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .reserved_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .peak;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -219,6 +288,17 @@ size_t maxMemoryReserved(const c10::Device& device) {
 }
 
 size_t maxMemoryAllocated(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .allocated_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .peak;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -228,6 +308,11 @@ size_t maxMemoryAllocated(const c10::Device& device) {
 }
 
 void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
+  if (isTorchAllocator()) {
+    allocator::recordStream(ptr, stream);
+    return;
+  }
+
   using pointer = CacheAllocator::DataPtrContextBase*;
   if (auto ctx = static_cast<pointer>(ptr.get_context())) {
     ctx->streams().insert(stream);

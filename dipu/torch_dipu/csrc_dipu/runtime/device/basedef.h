@@ -67,6 +67,7 @@ enum diclResult_t {
 
 struct DIPUDeviceStatus {
   size_t freeGlobalMem = 0;
+  size_t totalGlobalMem = 0;
 };
 
 struct DIPUDeviceProperties {

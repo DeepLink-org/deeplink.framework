@@ -5,6 +5,7 @@ from utils.test_in_subprocess import run_individual_test_cases
 
 def test_mem_stats(algorithm: str, log_mask: int):
     os.environ["DIPU_DEVICE_MEMCACHING_ALGORITHM"] = algorithm
+    os.environ["DIPU_HOST_MEMCACHING_ALGORITHM"] = algorithm
     os.environ["DIPU_DEBUG_ALLOCATOR"] = str(log_mask)
     print("allocator algorithm:", algorithm)
     import torch

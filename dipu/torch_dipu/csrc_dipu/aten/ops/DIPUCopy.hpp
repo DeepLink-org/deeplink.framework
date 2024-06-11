@@ -12,6 +12,8 @@
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -53,12 +55,29 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
   assert_no_partial_overlap(dst, src);
 }
 
+extern bool isTorchAllocator();
 inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
-  if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
-      !is_default_stream) {
-    tensor.record_stream(curStream.unwrap());
+  if (!isTorchAllocator()) {
+    if ((tensor.is_cpu() && isPinnedPtr(tensor.storage().data())) ||
+        !is_default_stream) {
+      recordStream(tensor, curStream);
+    } else if (tensor.is_cpu()) {
+      dipu::devapis::syncStream(curStream.rawstream());
+    }
+    return;
   }
+
+  if (!tensor.is_cpu()) {
+    return;
+  }
+  if (isPinnedPtr(tensor.storage().data()) &&
+      allocator::CachingHostAllocator_recordEvent(
+          tensor.data_ptr(), tensor.storage().data_ptr().get_context(),
+          curStream)) {
+    return;
+  }
+  dipu::devapis::syncStream(curStream.rawstream());
 }
 
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {

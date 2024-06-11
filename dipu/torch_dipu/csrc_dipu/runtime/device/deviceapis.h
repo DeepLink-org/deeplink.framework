@@ -92,6 +92,23 @@ DIPU_API void freeDevice(void* p);
 
 DIPU_API bool isPinnedPtr(const void* p);
 
+// Allocate an address range reservation.
+// Reserves a virtual address range based on the given parameters, giving the
+// starting address of the range in ptr. The size and address parameters must be
+// a multiple of the host page size and the alignment must be a power of two or
+// zero for default alignment. Parameters ptr
+// - Resulting pointer to start of virtual address range allocated
+// size
+// - Size of the reserved virtual address range requested
+// alignment
+// - Alignment of the reserved virtual address range requested
+// addr
+// - Fixed starting address range requested
+// flags
+// - flags
+// DIPU_WEAK void deviceMemAddressReserve(CUdeviceptr* ptr, size_t size, size_t
+// alignment, CUdeviceptr addr, unsigned long long flags);
+
 // (asynchronous) set val
 DIPU_API void memSetAsync(deviceStream_t stream, void* ptr, int val,
                           size_t size);

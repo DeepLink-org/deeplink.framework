@@ -42,7 +42,7 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
 
 DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   DIPUDeviceStatus status;
-  cudaMemGetInfo(&status.freeGlobalMem, nullptr);
+  DIPU_CALLCUDA(cudaMemGetInfo(&status.freeGlobalMem, &status.totalGlobalMem));
   return status;
 }
 
@@ -169,18 +169,14 @@ void freeHost(void* p){DIPU_CALLCUDA(::cudaFreeHost(p))}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   ::cudaError_t r = ::cudaMalloc(p, nbytes);
-  if (r != ::cudaSuccess) {
-    if (throwExcepion) {
-      ::cudaGetLastError(); /* reset internal error state*/
-      TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r,
-                  " size= ", nbytes);
-    } else if (r == ::cudaErrorMemoryAllocation) {
-      return OpStatus::ERR_NOMEM;
-    } else {
-      return OpStatus::ERR_UNKNOWN;
-    }
+  if (r == ::cudaSuccess) {
+    return OpStatus::SUCCESS;
   }
-  return OpStatus::SUCCESS;
+  if (r == ::cudaErrorMemoryAllocation && !throwExcepion) {
+    ::cudaGetLastError(); /* reset internal error state*/
+    return OpStatus::ERR_NOMEM;
+  }
+  TORCH_CHECK(false, "cudaMalloc failed, ret = ", r, " size = ", nbytes);
 }
 
 void freeDevice(void* p) { DIPU_CALLCUDA(::cudaFree(p)) }
