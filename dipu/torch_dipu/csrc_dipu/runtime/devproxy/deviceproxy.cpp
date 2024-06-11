@@ -3,8 +3,8 @@
 
 #include <atomic>
 
-#include <c10/util/Exception.h>
 #include <ATen/record_function.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/device/basedef.h"
@@ -159,13 +159,9 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event) {
-  return getEventFromPool(*event);
-}
+void createEvent(deviceEvent_t* event) { return getEventFromPool(*event); }
 
-void destroyEvent(deviceEvent_t event) {
-  return restoreEventToPool(event);
-}
+void destroyEvent(deviceEvent_t event) { return restoreEventToPool(event); }
 
 void waitEvent(deviceEvent_t event) {
   RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
@@ -221,6 +217,9 @@ void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
+  if ((dstDevId == srcDevId && dst == src) || nbytes == 0) {
+    return;
+  }
   RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2D(nbytes, dstDevId, dst, srcDevId, src);
 }
@@ -243,6 +242,9 @@ void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
+  if ((dstDevId == srcDevId && dst == src) || nbytes == 0) {
+    return;
+  }
   RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
   return devapis::memCopyD2DAsync(stream, nbytes, dstDevId, dst, srcDevId, src);
 }
