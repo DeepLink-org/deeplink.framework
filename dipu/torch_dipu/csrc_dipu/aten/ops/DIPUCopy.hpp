@@ -63,6 +63,7 @@ inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
         !is_default_stream) {
       tensor.record_stream(curStream.unwrap());
     }
+    return;
     // if ((tensor.is_cpu() && isPinnedPtr(tensor.storage().data())) ||
     //     !is_default_stream) {
     //   recordStream(tensor, curStream);
