@@ -1,3 +1,4 @@
+import re
 import os
 import functools
 import operator
@@ -255,26 +256,29 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.Unsqueeze, (x_names[0], [0]))
 
     def get_shape_proxy(self, shape, dtype=torch.int32):
+        # '[]' will not mixed with expression calculation priority
+        def replace_chars(s):
+            return re.sub(r'[ ()]', lambda m: {' ': '', '(': '[', ')': ']'}[m.group()], s)
+
         def symint_to_str(shape):
             result_shape = []
+            # cover sym_to_inputs for higher priority to sym_in_args
+            sym_keys = {**self.sym_to_inputs, **self.sym_in_args}
             for dim in shape:
                 if isinstance(dim, torch.SymInt):
                     # split expression elements to compare SymInt string
-                    dim_str = dim.node.str()
-                    elems = preprocess_expression(dim_str)
+                    elems = preprocess_expression(dim.node.str())
 
                     # replace SymInt in expression using sympy function
-                    for elem in elems:
-                        if 's' in elem:
-                            # cover sym_to_inputs for higher priority to sym_in_args
-                            sym_keys = {**self.sym_to_inputs, **self.sym_in_args}
-                            replace_str = str(sym_keys[elem]).replace(' ', '')
-
-                            # '[]' will not mixed with expression calculation priority
-                            replace_str = replace_str.replace('(', '[')
-                            replace_str = replace_str.replace(')', ']')
-                            dim_str = dim_str.replace(elem, replace_str)
-                    result_shape.append(dim_str)
+                    need_replace = {}
+                    for i, elem in enumerate(elems):
+                        if elem in need_replace:
+                            elems[i] = need_replace[elem]
+                        elif 's' in elem:
+                            need_replace[elem] = replace_chars(
+                                str(sym_keys[elem]))
+                            elems[i] = need_replace[elem]
+                    result_shape.append(''.join(elems))
                 else:
                     result_shape.append(dim)
             return result_shape
