@@ -55,10 +55,16 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
 
 inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
                             bool is_default_stream) {
-  if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
+  if ((tensor.is_cpu() && isPinnedPtr(tensor.storage().data())) || !is_default_stream) {
+    recordStream(tensor, curStream);
+  } else if (tensor.is_cpu()) {
+    dipu::devapis::syncStream(curStream.rawstream());
+  }
+
+  /*if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
       !is_default_stream) {
     tensor.record_stream(curStream.unwrap());
-  }
+  }*/
 }
 
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
