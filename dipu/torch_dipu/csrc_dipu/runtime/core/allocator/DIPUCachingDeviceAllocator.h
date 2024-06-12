@@ -116,7 +116,7 @@ struct SegmentInfo {
   int64_t requested_size = 0;  // unrounded, actually requested size
   int64_t allocated_size = 0;
   int64_t active_size = 0;
-  deviceStream_t stream = 0;
+  deviceStream_t stream = nullptr;
   bool is_large = false;
   bool is_expandable = false;
   std::vector<BlockInfo> blocks;

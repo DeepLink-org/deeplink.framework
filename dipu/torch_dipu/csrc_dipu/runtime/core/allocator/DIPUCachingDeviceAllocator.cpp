@@ -30,6 +30,7 @@
 #include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
+// NOLINTBEGIN
 namespace dipu::allocator {
 
 C10_DEFINE_REGISTRY(FreeDeviceMemoryCallbacksRegistry, FreeMemoryCallback);
@@ -2068,3 +2069,4 @@ BackendStaticInitializer backend_static_initializer;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 }  // namespace dipu::allocator
+// NOLINTEND

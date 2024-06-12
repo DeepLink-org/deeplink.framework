@@ -62,7 +62,6 @@ inline void tryRecordOrSyncStream(const at::Tensor& dst, const at::Tensor& src,
   bool is_all_device_tensor = (!dst.is_cpu() && !src.is_cpu());
   // When copy from device to device, torch allocator ensure that malloc and
   // free are in the same stream, so it is not necessary to recordStream.
-  // However, BF strategy
   if (is_all_device_tensor) {
     if (!isTorchAllocator() && !is_default_stream) {
       recordStream(dst, cur_stream);
