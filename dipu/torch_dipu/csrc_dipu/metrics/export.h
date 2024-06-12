@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -13,8 +14,22 @@
 
 namespace dipu::metrics {
 
-// To simplify use cases, only int64_t and double are used as numbers.
+// Global settings.
 
+// Enable or disable or query state of metrics.
+//
+// - If value is std::nullopt, return current state.
+// - Otherwise, state will be changed.
+//
+// Warning: metrics values may become no longer accurate once "enable(false)" is
+// called.
+auto extern enable(std::optional<bool> update = std::nullopt) -> bool;
+
+// The default global collector (singleton)
+class Collector;
+auto extern default_collector() -> Collector&;
+
+// To simplify use cases, only int64_t and double are used as numbers.
 using ExportedInteger = int64_t;
 using ExportedFloating = double;
 using ExportedHistogram = std::tuple<  // A pair of thresholds and buckets
@@ -64,6 +79,17 @@ class Collector : public detail::exportable_collector {
   using integer = ExportedInteger;
   using floating = ExportedFloating;
   using labelset = detail::labelset<string>;
+
+  // Reset all metrics values.
+  //
+  // Warning, this action may cause metric values no longer accurate. So use at
+  // your own risk.
+  auto reset() -> void {
+    auto constexpr resetor = [](auto& group) { group->reset(); };
+    for (auto& reference : list()) {
+      std::visit(resetor, reference.get());
+    }
+  }
 
   [[nodiscard]] auto make_integer_counter(string name, string help,
                                           integer initial = 0)
@@ -132,9 +158,7 @@ class Collector : public detail::exportable_collector {
   }
 };
 
-// The default global collector (singleton)
-auto extern default_collector() -> Collector&;
-
+// Some helper functions or classes for ExportedGroup.
 namespace detail {
 
 // A trait to mapping number type I to exported number type.

@@ -363,6 +363,8 @@ static void exportMetrics(py::module& m) {
   m.def("metrics", []() -> std::vector<group> {
     return group::from_collector(metrics::default_collector());
   });
+  m.def("is_metrics_enabled", []() -> bool { return metrics::enable(); });
+  m.def("enable_metrics", [](bool value) -> void { metrics::enable(value); });
 
   py::class_<group>(m, "MetricsGroup")
       .def(py::init<>())

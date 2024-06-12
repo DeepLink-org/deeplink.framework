@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include <c10/core/Device.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/metrics/export.h"
 
@@ -50,7 +51,7 @@ class AllocatorMetrics {
   {}
 
   void allocate(void* data, std::size_t size) {
-    if (size == 0) {
+    if (size == 0 or not metrics::enable()) {
       // do nothing
 
     } else if (data == nullptr) {
@@ -65,7 +66,10 @@ class AllocatorMetrics {
   }
 
   void deallocate(void* data) {
-    if (data == nullptr) {
+    if (not metrics::enable()) {
+      // do nothing
+
+    } else if (data == nullptr) {
       deallocate_nullptr_count.inc();
 
     } else if (auto size = std::size_t(); remove(data, size)) {
@@ -78,14 +82,14 @@ class AllocatorMetrics {
 
   void set_device_number(std::string const& device) {
     std::scoped_lock _(mutex);
-#define _OVERRIDE_DEVICE(field) field = (field).with({{"device", device}})
-    _OVERRIDE_DEVICE(allocate_nullptr_count);
-    _OVERRIDE_DEVICE(allocate_duplicated_count);
-    _OVERRIDE_DEVICE(deallocate_nullptr_count);
-    _OVERRIDE_DEVICE(deallocate_unexpected_count);
-    _OVERRIDE_DEVICE(allocate_size);
-    _OVERRIDE_DEVICE(deallocate_size);
-#undef _OVERRIDE_DEVICE
+#define _OVERWRITE_DEVICE(field) field = (field).with({{"device", device}})
+    _OVERWRITE_DEVICE(allocate_nullptr_count);
+    _OVERWRITE_DEVICE(allocate_duplicated_count);
+    _OVERWRITE_DEVICE(deallocate_nullptr_count);
+    _OVERWRITE_DEVICE(deallocate_unexpected_count);
+    _OVERWRITE_DEVICE(allocate_size);
+    _OVERWRITE_DEVICE(deallocate_size);
+#undef _OVERWRITE_DEVICE
   }
 
  private:
@@ -114,6 +118,7 @@ class AllocatorMetrics {
   }
 };
 
+// TODO(refactor): replace hash table with a lazy array.
 class GlobalAllocatorGroupMetrics {
   metrics::Collector::labelset labels;
   std::shared_mutex mutable mutex;

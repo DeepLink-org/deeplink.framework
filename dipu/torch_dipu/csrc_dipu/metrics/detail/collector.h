@@ -75,7 +75,8 @@ class group : public std::enable_shared_from_this<group<S, T>> {
 
   template <typename F>
   auto for_each(F f) -> void {
-    static_assert(std::is_invocable_v<F, labelset<S> const&, T const&>);
+    static_assert(std::is_invocable_v<F, labelset<S> const&, T&> ||
+                  std::is_invocable_v<F, labelset<S> const&, T const&>);
 
     auto found_unused = false;
     {
@@ -98,6 +99,14 @@ class group : public std::enable_shared_from_this<group<S, T>> {
           ++iter;
         }
       }
+    }
+  }
+
+  // Warning: race condition may happen
+  auto reset() -> void {
+    std::shared_lock _(mutex);
+    for (auto& [key, value] : values) {
+      value.value.reset();
     }
   }
 
