@@ -89,7 +89,8 @@ void checkGatherScatterRootRank(
     ss << "requires a single-element list containing a list with " << numRanks
        << " tensors.";
     raise_invalid_arg_func(ss.str());
-  } else if (tensors[0].size() != static_cast<size_t>(numRanks)) {
+  }
+  if (tensors[0].size() != static_cast<size_t>(numRanks)) {
     std::stringstream ss;
     ss << "incorrect list size " << tensors[0].size()
        << ". The list size should be " << numRanks
