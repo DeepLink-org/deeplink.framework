@@ -9,6 +9,7 @@
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace dipu {
@@ -138,7 +139,12 @@ c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
           at::DeviceType::CPU};
 }
 
+extern bool isTorchAllocator();
 bool isPinnedPtr(const void* ptr) {
+  if (isTorchAllocator()) {
+    return allocator::CachingHostAllocator_isPinnedPtr(ptr);
+  }
+
   return dipu_host_allocator.isPinnedPtr(ptr);
 }
 

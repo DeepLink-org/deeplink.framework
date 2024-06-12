@@ -8,7 +8,6 @@
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
 #include "DIPUAsyncResourcePool.h"
-#include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
 
 namespace dipu {
@@ -37,6 +36,8 @@ class MemoryAlignmentStrategy {
     nbytes = ((nbytes - 1) | (kBytesAlign - 1)) + 1;
     return nbytes;
   }
+
+  size_t getBeta() const { return beta; }
 
   virtual ~MemoryAlignmentStrategy() = default;
 };

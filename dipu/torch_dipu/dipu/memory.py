@@ -136,8 +136,9 @@ def mem_get_info(device: Union[Device, int] = None) -> Tuple[int, int]:
     """
     if device is None:
         device = current_device()
-    total = get_device_properties(device).total_memory
-    free = get_device_status(device).free_memory
+    status = get_device_status(device)
+    total = status.total_memory
+    free = status.free_memory
     if free == 0:
         estimated_buffer = 1800 * 1024 * 1024
         print(

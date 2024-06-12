@@ -31,14 +31,11 @@ class DIPU_API DIPUEvent {
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other) noexcept { *this = std::move(other); }
+  DIPUEvent(DIPUEvent&& other) noexcept { moveHelper(std::move(other)); }
 
   DIPUEvent& operator=(DIPUEvent&& other) noexcept {
     if (this != &other) {
-      device_index_ = other.device_index_;
-      stream_id_ = other.stream_id_;
-      event_ = other.event_;
-      other.event_ = nullptr;
+      moveHelper(std::move(other));
     }
     return *this;
   }
@@ -121,6 +118,13 @@ class DIPU_API DIPUEvent {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
     devproxy::createEvent(&event_);
+  }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+  void moveHelper(DIPUEvent&& other) {
+    std::swap(device_index_, other.device_index_);
+    std::swap(stream_id_, other.stream_id_);
+    std::swap(event_, other.event_);
   }
 };
 
