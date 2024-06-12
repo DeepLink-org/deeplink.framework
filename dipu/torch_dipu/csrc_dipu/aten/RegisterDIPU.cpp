@@ -160,8 +160,6 @@ at::Tensor wrapper_DIPU_empty_memory_format(
     c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     c10::optional<at::MemoryFormat> memory_format_opt) {
-  dipu::OptionalDIPUGuard guard(device_opt);
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt,
                         memory_format_opt);
 }
@@ -181,8 +179,6 @@ at::Tensor wrapper_DIPU_empty_strided(at::IntArrayRef size,
                                       c10::optional<at::Layout> layout_opt,
                                       c10::optional<at::Device> device_opt,
                                       c10::optional<bool> pin_memory_opt) {
-  const DeviceGuard device_guard(device_or_default(device_opt));
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt,
                                 pin_memory_opt);
 }

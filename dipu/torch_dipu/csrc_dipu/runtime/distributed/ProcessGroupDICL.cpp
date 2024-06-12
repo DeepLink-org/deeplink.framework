@@ -559,6 +559,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
   TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
 }
 
+std::string_view ProcessGroupDICL::getCommName(
+    const at::DeviceIndex device_index) {
+  auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);
+  std::vector<at::Device> devices{device};
+  const auto localCommsKey = getDeviceIds(devices);
+  auto diclComms =
+      getDICLComms(localCommsKey, devices, this->rank_, OpType::UNKNOWN);
+  return diclComms[0]->getName();
+}
+
 // NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<std::vector<at::Tensor>>& outputs,

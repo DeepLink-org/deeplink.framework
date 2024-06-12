@@ -2,6 +2,8 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
+#include <string_view>
 
 #include <c10/core/Device.h>
 
@@ -41,6 +43,14 @@ class DICLComm {
     return comm;
   }
 
+  std::string_view getName() {
+    if (!rawCommName) {
+      rawCommName.emplace();
+      devproxy::diclGetCommName(*rawCommName, rawComm_);
+    }
+    return {*rawCommName};
+  }
+
   // Must not be copyable
   DICLComm(const DICLComm&) = delete;
   DICLComm& operator=(const DICLComm&) = delete;
@@ -74,6 +84,7 @@ class DICLComm {
   bool aborted_ = false;
   diclComm_t rawComm_ = nullptr;
   mutable std::mutex mutex_;
+  std::optional<std::string> rawCommName;
 };
 
 }  // namespace dipu
