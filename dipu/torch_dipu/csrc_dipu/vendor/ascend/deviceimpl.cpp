@@ -124,6 +124,7 @@ DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   int patch = 0;
   DIPU_CALLACLRT(::aclrtGetVersion(&prop.major, &prop.minor, &patch));
   DIPU_CALLACLRT(::aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
+  // NOTE : unit of PhysicalMemoryTotal is Byte
   prop.totalGlobalMem = device_total;
   prop.multiProcessorCount = 1;
   return prop;
