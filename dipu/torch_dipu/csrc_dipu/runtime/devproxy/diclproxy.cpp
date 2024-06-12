@@ -60,9 +60,8 @@ devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
     if (srcRank == root) {
       continue;
     }
-    auto recvbufForSrcRank = recvbuf[srcRank];
     DIPU_CALL_DICLAPIS(
-        diclRecv(recvbufForSrcRank, count, datatype, srcRank, comm, stream));
+        diclRecv(recvbuf[srcRank], count, datatype, srcRank, comm, stream));
   }
 
   auto deviceId = static_cast<devapis::deviceId_t>(curRank);
@@ -84,9 +83,8 @@ devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
     if (dstRank == root) {
       continue;
     }
-    auto sendbufForDstRank = sendbuf[dstRank];
     DIPU_CALL_DICLAPIS(
-        diclSend(sendbufForDstRank, count, datatype, dstRank, comm, stream));
+        diclSend(sendbuf[dstRank], count, datatype, dstRank, comm, stream));
   }
 
   auto deviceId = static_cast<devapis::deviceId_t>(curRank);
