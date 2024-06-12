@@ -124,10 +124,18 @@ DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   int patch;
   DIPU_CALLACLRT(::aclrtGetVersion(&prop.major, &prop.minor, &patch));
   DIPU_CALLACLRT(::aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
-  // NOTE : unit of PhysicalMemoryTotal is MB
-  prop.totalGlobalMem = device_total << 20;
+  // NOTE : unit of PhysicalMemoryTotal is Byte
+  prop.totalGlobalMem = device_total;
   prop.multiProcessorCount = 1;
   return prop;
+}
+
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+  DIPUDeviceStatus status;
+  size_t device_total;
+  DIPU_CALLACLRT(
+      ::aclrtGetMemInfo(ACL_HBM_MEM, &status.freeGlobalMem, &device_total));
+  return status;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
