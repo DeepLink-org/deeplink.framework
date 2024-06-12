@@ -47,7 +47,7 @@ devapis::diclResult_t diclAllGather(const void* sendbuff, void* recvbuff,
                                 stream);
 }
 
-// for non-root rank, we suggested to pass nullptr to recvbuf
+// for non-root rank, we suggest to pass nullptr to recvbuf
 devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
                                  size_t count, at::ScalarType datatype,
                                  int root, int curRank, int numRanks,
@@ -71,7 +71,7 @@ devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
   return devapis::diclResult_t::DICL_SUCCESS;
 }
 
-// for non-root rank, we suggested to pass nullptr to sendbuf
+// for non-root rank, we suggest to pass nullptr to sendbuf
 devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
                                   size_t count, at::ScalarType datatype,
                                   int root, int curRank, int numRanks,
