@@ -13,27 +13,22 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
  protected:
   void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
                       bool non_blocking, CopyParamsInfo& info) override {
-    // recordBeforeCopy
-    if (non_blocking) {
+    if (!non_blocking && (DIPUCopyType::D2H == info.copyType_)) {
+      // According to our benchmark for H2D/D2H synchronous direct memory copy,
+      // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
+      // So do an advance sync here
+      dipu::devapis::syncStream(info.curStream_.rawstream());
+    } else {
       const bool is_default_stream =
           dipu::getDefaultDIPUStream() == info.curStream_;
       tryRecordStream(dst, info.curStream_, is_default_stream);
       tryRecordStream(src, info.curStream_, is_default_stream);
     }
-
-    if (!non_blocking && (DIPUCopyType::H2D == info.copyType_ ||
-                          DIPUCopyType::D2H == info.copyType_)) {
-      // According to our benchmark for H2D/D2H synchronous direct memory copy,
-      // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
-      // So do an advance sync here
-      dipu::devapis::syncStream(info.curStream_.rawstream());
-    }
   }
 
   void directMemCopy(at::Tensor& dst, const at::Tensor& src,
                      CopyParamsInfo& info, bool non_blocking) override {
-    if (!non_blocking && (DIPUCopyType::H2D == info.copyType_ ||
-                          DIPUCopyType::D2H == info.copyType_)) {
+    if (!non_blocking && (DIPUCopyType::D2H == info.copyType_)) {
       // According to our benchmark for H2D/D2H synchronous direct memory copy,
       // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
       // so do a memCopySync instead of memCopyAsync here
