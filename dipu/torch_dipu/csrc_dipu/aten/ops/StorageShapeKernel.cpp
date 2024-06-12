@@ -52,6 +52,7 @@ static inline c10::TensorImpl* _resize_impl_dipu_(
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
   }
+  const DIPUGuard device_guard(self->device());
   // need add guard to support device change.
   const auto itemsize = self->dtype().itemsize();
   const auto storage_offset = self->storage_offset();

@@ -160,8 +160,8 @@ at::Tensor wrapper_DIPU_empty_memory_format(
     c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     c10::optional<at::MemoryFormat> memory_format_opt) {
-  dipu::OptionalDIPUGuard guard(device_opt);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const DeviceGuard device_guard(device_or_default(device_opt));
   return dnative::empty(size, dtype_opt, layout_opt, device_opt, pin_memory_opt,
                         memory_format_opt);
 }
@@ -181,8 +181,8 @@ at::Tensor wrapper_DIPU_empty_strided(at::IntArrayRef size,
                                       c10::optional<at::Layout> layout_opt,
                                       c10::optional<at::Device> device_opt,
                                       c10::optional<bool> pin_memory_opt) {
-  const DeviceGuard device_guard(device_or_default(device_opt));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const DeviceGuard device_guard(device_or_default(device_opt));
   return dnative::empty_strided(size, stride, dtype_opt, layout_opt, device_opt,
                                 pin_memory_opt);
 }
@@ -208,7 +208,6 @@ at::Tensor wrapper_DIPU___reshape_alias(const at::Tensor& self,
 // only used by cpu_fallback.
 at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor& self,
                                                const at::Tensor& dst) {
-  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   dst.resize_as_(self).copy_(self);
   return dst;
@@ -217,7 +216,7 @@ at::Tensor wrapper_DIPU___copy_from_and_resize(const at::Tensor& self,
 const at::Tensor& wrapper_resize_(
     const at::Tensor& self, at::IntArrayRef size,
     c10::optional<at::MemoryFormat> memory_format) {
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted because resize_ has guard within itself.
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return dnative::resize_(self, size, memory_format);
 }
@@ -227,7 +226,7 @@ at::Tensor wrapper_DIPU__as_strided(const at::Tensor& self,
                                     c10::SymIntArrayRef stride,
                                     c10::optional<c10::SymInt> storage_offset) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::as_strided_tensorimpl(
       self, C10_AS_INTARRAYREF_SLOW(size), C10_AS_INTARRAYREF_SLOW(stride),
@@ -239,26 +238,26 @@ at::Tensor wrapper_DIPU__as_strided(const at::Tensor& self,
 at::Tensor wrapper_DIPU__view(const at::Tensor& self,
                               c10::SymIntArrayRef size) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::view(self, C10_AS_INTARRAYREF_SLOW(size));
 }
 
 at::Tensor wrapper_DIPU__view_as_real(const at::Tensor& self) {
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::view_as_real(self);
 }
 
 at::Tensor wrapper_DIPU__view_as_complex(const at::Tensor& self) {
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::view_as_complex(self);
 }
 
 at::Tensor& wrapper_DIPU__zero_(at::Tensor& self) {
-  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const OptionalDeviceGuard device_guard(device_of(self));
   return at::native::zero_(self);
 }
 
@@ -267,14 +266,14 @@ at::Tensor& wrapper_DIPU__zero_(at::Tensor& self) {
 at::Tensor wrapper_DIPU__unfold(const at::Tensor& self, int64_t dimension,
                                 int64_t size, int64_t step) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   return at::native::unfold(self, dimension, size, step);
 }
 
 at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor& self) {
-  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::_local_scalar_dense_dipu(self);
 }
 
@@ -282,7 +281,7 @@ at::Scalar wrapper_DIPU___local_scalar_dense(const at::Tensor& self) {
 at::Tensor& wrapper_DIPU_source_Storage_set_(at::Tensor& self,
                                              at::Storage source) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   int64_t new_size =
       static_cast<int64_t>(source.nbytes() / self.dtype().itemsize());
   return dnative::set_storage_dipu_(self, std::move(source), 0, new_size, {});
@@ -302,7 +301,7 @@ at::Tensor& wrapper_DIPU_source_Storage_offset_set_(
 at::Tensor& wrapper_DIPU_source_Tensor_set_(at::Tensor& self,
                                             const at::Tensor& source) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   if (self.unsafeGetTensorImpl() != source.unsafeGetTensorImpl()) {
     return dnative::set_storage_dipu_(self, source.storage(),
                                       source.storage_offset(), source.sizes(),
@@ -322,7 +321,7 @@ at::Tensor& wrapper_DIPU__set_(at::Tensor& self) {
 
 bool wrapper_DIPU__is_set_to(const at::Tensor& self, const at::Tensor& tensor) {
   // No device check
-  const OptionalDeviceGuard device_guard(device_of(self));
+  // DeviceGuard omitted
   return at::native::is_set_to(self, tensor);
 }
 
@@ -349,21 +348,19 @@ at::Tensor wrapper_BackendSelect__pin_memory(const at::Tensor& self,
 
 bool wrapper_DIPU_is_pinned(const at::Tensor& self,
                             c10::optional<at::Device> device) {
-  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::is_pinned(self, device);
 }
 
 at::Tensor wrapper_DIPU__pin_memory(const at::Tensor& self,
                                     c10::optional<at::Device> device) {
-  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
-  dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const OptionalDeviceGuard device_guard(device_of(self));
   return dnative::_pin_memory(self, device);
 }
 
 void wrapper_DIPU__record_stream(at::Tensor& self, at::Stream s) {
-  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
+  const OptionalDeviceGuard device_guard(device_of(self));
   dipu::recordStream(self.storage().data_ptr(), dipu::DIPUStream(s));
 }
 

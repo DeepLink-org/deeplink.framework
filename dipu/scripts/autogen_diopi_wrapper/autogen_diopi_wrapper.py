@@ -661,38 +661,6 @@ def create_device_check_code(fun_config):
     return code
 
 
-def create_device_guard_code(fun_config):
-    code = ""
-    if fun_config.get("generate_device_guard", True) in ["False", False]:
-        return code
-
-    tensors = re.findall("Tensor +[\w\d_]+", fun_config["schema"]) + re.findall(
-        "Tensor\(\w!\) +[\w\d_]+", fun_config["schema"]
-    )
-    arg = fun_config.get("device_guard_arg", None)
-    if len(tensors) > 0 or arg is not None:
-        if arg is not None:
-            tensor = arg
-        else:
-            tensor = tensors[0].split(" ")[1]
-        code += f"c10::OptionalDeviceGuard guard(at::device_of({tensor}));"
-    else:
-        try:
-            device_args = re.findall("Device. [\w\d_]+", fun_config["schema"])[0].split(
-                " "
-            )
-            if device_args[0].endswith("?"):
-                code += f"c10::OptionalDeviceGuard guard({device_args[1]});"
-            else:
-                code += (
-                    f"c10::OptionalDeviceGuard guard(at::device_of({device_args[1]}));"
-                )
-        except:
-            pass
-
-    return code
-
-
 def create_optional_generator_process_code(arg_name):
     process_template = CodeTemplate(
         """
@@ -871,7 +839,6 @@ def functions_code_gen(fun_config):
         comment=[fun_config["schema"]],
         cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
         custom_code_at_the_beginning=[custom_code_at_the_beginning],
-        device_guard_code=[create_device_guard_code(fun_config)],
         input_process_code=[input_process_code],
         attrs_process_code=[attrs_process_code],
         output_process_code=[output_process_code],
@@ -1117,12 +1084,6 @@ def parse_args():
         default=True,
         type=boolean_string,
         help="whether use diopi adapter",
-    )
-    parser.add_argument(
-        "--generate_device_guard",
-        default=True,
-        type=boolean_string,
-        help="whether generate device guard code",
     )
     parser.add_argument(
         "--diopi_adapter_header",

@@ -149,7 +149,7 @@ void MemChecker::check(const at::Tensor& input) {
 }
 
 void MemChecker::check(const void* ptr) {
-  if (!enable() || ptr == nullptr) {
+  if (!enable()) {
     return;
   }
 
