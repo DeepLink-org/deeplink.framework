@@ -41,13 +41,13 @@ DIPU_API devapis::diclResult_t diclAllGather(const void* sendbuff,
                                              diclComm_t comm,
                                              deviceStream_t stream);
 
-DIPU_API devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff,
+DIPU_API devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
                                           size_t count, at::ScalarType datatype,
                                           int root, int curRank, int numRanks,
                                           diclComm_t comm,
                                           deviceStream_t stream);
 
-DIPU_API devapis::diclResult_t diclScatter(void** sendbuff, void* recvbuff,
+DIPU_API devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
                                            size_t count,
                                            at::ScalarType datatype, int root,
                                            int curRank, int numRanks,

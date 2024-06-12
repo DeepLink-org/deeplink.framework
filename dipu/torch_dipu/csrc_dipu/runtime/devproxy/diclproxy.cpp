@@ -47,46 +47,50 @@ devapis::diclResult_t diclAllGather(const void* sendbuff, void* recvbuff,
                                 stream);
 }
 
-devapis::diclResult_t diclGather(void* sendbuff, void** recvbuff, size_t count,
-                                 at::ScalarType datatype, int root, int curRank,
-                                 int numRanks, diclComm_t comm,
-                                 deviceStream_t stream) {
-  if (curRank == root) {
-    for (const auto r : c10::irange(numRanks)) {
-      auto recvbuffForRank = *(recvbuff + r);
-      if (r != root) {
-        DIPU_CALL_DICLAPIS(
-            diclRecv(recvbuffForRank, count, datatype, r, comm, stream));
+// for non-root rank, we suggested to pass nullptr to recvbuf
+devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
+                                 size_t count, at::ScalarType datatype,
+                                 int root, int curRank, int numRanks,
+                                 diclComm_t comm, deviceStream_t stream) {
+  if (curRank != root) {
+    DIPU_CALL_DICLAPIS(diclSend(sendbuf, count, datatype, root, comm, stream));
+  } else {
+    for (const auto srcRank : c10::irange(numRanks)) {
+      auto recvbufForSrcRank = recvbuf[srcRank];
+      if (srcRank != root) {
+        DIPU_CALL_DICLAPIS(diclRecv(recvbufForSrcRank, count, datatype, srcRank,
+                                    comm, stream));
       } else {
         auto deviceId = static_cast<devapis::deviceId_t>(curRank);
         devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype),
-                                 deviceId, recvbuffForRank, deviceId, sendbuff);
+                                 deviceId, recvbufForSrcRank, deviceId,
+                                 sendbuf);
       }
     }
-  } else {
-    DIPU_CALL_DICLAPIS(diclSend(sendbuff, count, datatype, root, comm, stream));
   }
   return devapis::diclResult_t::DICL_SUCCESS;
 }
 
-devapis::diclResult_t diclScatter(void** sendbuff, void* recvbuff, size_t count,
-                                  at::ScalarType datatype, int root,
-                                  int curRank, int numRanks, diclComm_t comm,
-                                  deviceStream_t stream) {
-  if (curRank == root) {
-    for (const auto r : c10::irange(numRanks)) {
-      auto sendbuffForRank = *(sendbuff + r);
-      if (r != root) {
-        DIPU_CALL_DICLAPIS(
-            diclSend(sendbuffForRank, count, datatype, r, comm, stream));
+// for non-root rank, we suggested to pass nullptr to sendbuf
+devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
+                                  size_t count, at::ScalarType datatype,
+                                  int root, int curRank, int numRanks,
+                                  diclComm_t comm, deviceStream_t stream) {
+  if (curRank != root) {
+    DIPU_CALL_DICLAPIS(diclRecv(recvbuf, count, datatype, root, comm, stream));
+  } else {
+    for (const auto dstRank : c10::irange(numRanks)) {
+      auto sendbufForDstRank = sendbuf[dstRank];
+      if (dstRank != root) {
+        DIPU_CALL_DICLAPIS(diclSend(sendbufForDstRank, count, datatype, dstRank,
+                                    comm, stream));
       } else {
         auto deviceId = static_cast<devapis::deviceId_t>(curRank);
         devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype),
-                                 deviceId, recvbuff, deviceId, sendbuffForRank);
+                                 deviceId, recvbuf, deviceId,
+                                 sendbufForDstRank);
       }
     }
-  } else {
-    DIPU_CALL_DICLAPIS(diclRecv(recvbuff, count, datatype, root, comm, stream));
   }
   return devapis::diclResult_t::DICL_SUCCESS;
 }
