@@ -29,7 +29,6 @@ camb:
 
     # # mmdetection3d
     - model_cfg: "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars"
-      precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
 
     # # mmsegmentation
     - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet"
