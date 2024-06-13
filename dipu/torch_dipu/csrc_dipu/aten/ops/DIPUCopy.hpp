@@ -164,12 +164,6 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
     dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
     src_guard.set_index(src_device.index());
     dstEvent.wait(stream);
-    TORCH_WARN_ONCE(
-        "Some devices may not support streams waiting for events on other "
-        "devices. This adds a CPU-blocking operation. If this becomes a "
-        "performance bottleneck when using copy_D2OhterD, please optimize the "
-        "specific backend here.");
-    dstEvent.synchronize();  // No need to block the CPU here?
   }
   dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                   dst.device().index(), dst.data_ptr(),
@@ -179,12 +173,6 @@ inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
     DIPUEvent srcEvent;
     srcEvent.record(stream);
     srcEvent.wait(dipu::getCurrentDIPUStream(dst_device.index()));
-    TORCH_WARN_ONCE(
-        "Some devices may not support streams waiting for events on other "
-        "devices. This adds a CPU-blocking operation. If this becomes a "
-        "performance bottleneck when using copy_D2OhterD, please optimize the "
-        "specific backend here.");
-    srcEvent.synchronize();  // No need to block the CPU here?
   }
 }
 
