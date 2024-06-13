@@ -1,6 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 
 #include <csrc_dipu/aten/ops/DIPUCopy.hpp>
+#include <csrc_dipu/runtime/core/DIPUGuard.h>
 #include <csrc_dipu/runtime/core/DIPUStream.h>
 
 namespace dipu {
@@ -26,12 +27,15 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
       // According to our benchmark for H2D/D2H synchronous direct memory copy,
       // (Sync + memCopySync) is faster than (memCopyAsync + Sync) on Ascend,
       // So do an advance sync here
-      dipu::devapis::syncStream(info.curStream_.rawstream());
+      info.curStream_.synchronize();
     }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      // "ascend may not support streams waiting for events on other "
-      // "devices. This adds a CPU-blocking operation."
-      dipu::devapis::syncStream(info.curStream_.rawstream());
+      c10::DeviceGuard dstGuard(dst.device());
+      DIPUEvent dstEvent;
+      dstEvent.record(dipu::getCurrentDIPUStream(dst.device().index()));
+      dstGuard.set_index(src.device().index());
+      dstEvent.wait(info.curStream_);
+      dstEvent.synchronize();
     }
   }
 
@@ -59,9 +63,11 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
     // synchronization is never needed here.
 
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      // "ascend may not support streams waiting for events on other "
-      // "devices. This adds a CPU-blocking operation."
-      dipu::devapis::syncStream(info.curStream_.rawstream());
+      DIPUEvent srcEvent;
+      srcEvent.record(curStream);
+      DIPUGuard dstGuard(info.dstDevice_);
+      srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
+      srcEvent.synchronize();
     }
   }
 };
