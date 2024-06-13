@@ -142,8 +142,6 @@ void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
     if (dst != src) {
       DIPU_CALLCNRT(::cnrtMemcpyAsync(dst, const_cast<void*>(src), nbytes,
                                       stream, CNRT_MEM_TRANS_DIR_DEV2DEV))
-      syncStream(stream);  // TODO(zhaoguochun):Just to make camb ci run, and
-                           // then fix the synchronization problem on Cambrian
     }
   } else {
     DIPU_CALLCNRT(cnrtMemcpyPeerAsync(dst, dstDevId, const_cast<void*>(src),
