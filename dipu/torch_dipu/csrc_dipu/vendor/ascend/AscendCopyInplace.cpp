@@ -28,6 +28,11 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
       // So do an advance sync here
       dipu::devapis::syncStream(info.curStream_.rawstream());
     }
+    if (DIPUCopyType::D2OtherD == info.copyType_) {
+      // "ascend may not support streams waiting for events on other "
+      // "devices. This adds a CPU-blocking operation."
+      dipu::devapis::syncStream(info.curStream_.rawstream());
+    }
   }
 
   void directMemCopy(at::Tensor& dst, const at::Tensor& src,
@@ -52,6 +57,12 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
     // d2h/h2d cases, the (Sync + memCopySync) strategy is adopted (see the
     // comments in the above functions copyPreProcess and directMemCopy), so
     // synchronization is never needed here.
+
+    if (DIPUCopyType::D2OtherD == info.copyType_) {
+      // "ascend may not support streams waiting for events on other "
+      // "devices. This adds a CPU-blocking operation."
+      dipu::devapis::syncStream(info.curStream_.rawstream());
+    }
   }
 };
 
