@@ -2,6 +2,7 @@
 #include "deviceproxy.h"
 
 #include <atomic>
+#include <sys/sysinfo.h>
 
 #include <ATen/record_function.h>
 #include <c10/util/Exception.h>
@@ -9,6 +10,7 @@
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
+#include "csrc_dipu/utils/env.hpp"
 
 namespace dipu {
 namespace devproxy {
@@ -61,6 +63,28 @@ deviceId_t current_device() {
   return currentDevice;
 }
 
+void setCpuAffinity(const int device) {
+  static int affinity = []() {
+    return get_env_or_default("DIPU_CPU_AFFINITY", -1);
+  }();
+  if (affinity < 0) {
+    return;
+  }
+  const int cpu_core_avaliable = get_nprocs();
+  const int device_count = getDeviceCount();
+  const int block_size = (affinity == 0) ? ((cpu_core_avaliable + device_count - 1) / device_count) : affinity;
+  const int start_cpu_core = device * block_size;
+  const int end_cpu_core =
+      std::min((device + 1) * block_size, cpu_core_avaliable);
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  TORCH_WARN("DIPU_CPU_AFFINITY: Bind device " , device ," with cpu core: ", start_cpu_core, "~", end_cpu_core, ", cpu core avaliable:", cpu_core_avaliable);
+  for (int i = start_cpu_core; i < end_cpu_core; i++) {
+    CPU_SET(i, &mask);
+  }
+  pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
+}
+
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
   static const int kDeviceCount = getDeviceCount();
@@ -70,6 +94,7 @@ void setDevice(deviceId_t devId) {
   if (currentDevice != devId) {
     RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
     devapis::setDevice(devId);
+    setCpuAffinity(devId);
     if (currentDevice < 0) {
       if (lastDevice < 0) {
         // The main purpose is that if a device has been used before, but which
