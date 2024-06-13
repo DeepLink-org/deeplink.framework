@@ -226,6 +226,48 @@ def demo_bcast(rank, world_size, port):
     cleanup()
 
 
+def demo_gather(rank, world_size, port):
+    import torch_dipu
+
+    torch.cuda.set_device(rank)
+
+    setup(rank, world_size, port)
+
+    root_rank = 0
+    src = torch.ones((2, 4)).to(rank) * (rank + 1)
+    if rank == root_rank:
+        gather_list = [torch.empty((2, 4)).to(rank) for _ in range(world_size)]
+    else:
+        gather_list = None
+    for i in range(1, 3):
+        dist.gather(src, gather_list, dst=root_rank)
+    if rank == root_rank:
+        for i in range(world_size):
+            assert torch.allclose(torch.ones((2, 4)) * (i + 1), gather_list[i].cpu())
+    cleanup()
+
+
+def demo_scatter(rank, world_size, port):
+    import torch_dipu
+
+    torch.cuda.set_device(rank)
+
+    setup(rank, world_size, port)
+
+    root_rank = 0
+    dst = torch.empty((2, 4)).to(rank)
+    if rank == root_rank:
+        scatter_list = [
+            torch.ones((2, 4)).to(rank) * (i + 1) for i in range(world_size)
+        ]
+    else:
+        scatter_list = None
+    for i in range(1, 3):
+        dist.scatter(dst, scatter_list, src=root_rank)
+    assert torch.allclose(torch.ones((2, 4)) * (rank + 1), dst.cpu())
+    cleanup()
+
+
 def demo_reduce(rank, world_size, port):
     import torch_dipu
 
@@ -387,12 +429,12 @@ def test_get_comm_name(rank, world_size, port):
     if torch_dipu.dipu.vendor_type == "NPU":
         print(f"test get comm name on rank {rank} ")
 
-        setup(rank, world_size)
+        setup(rank, world_size, port)
 
         _ = torch.ones((2, 4)).to(rank)
-        group = dist.distributed_c10d._get_default_group()
-        device = dist.distributed_c10d._get_pg_default_device(group)
-        process_group_dicl = group._get_backend(device)
+        ranks_dup = [rank]
+        group = torch.distributed.new_group(ranks_dup)
+        process_group_dicl = group._get_backend(torch.device(rank))
         comm_name = process_group_dicl.get_comm_name(rank)
         print(comm_name)
 
@@ -411,6 +453,8 @@ if __name__ == "__main__":
     run_demo(demo_reduce, world_size, port)
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
+    run_demo(demo_gather, world_size, port)
+    run_demo(demo_scatter, world_size, port)
 
     run_demo(demo_allgather_gloo, world_size, port)
 
