@@ -1,9 +1,3 @@
-# Need 3.25 for add_subdirectory(SYSTEM)
-# cmake_minimum_required(VERSION 3.25)
-
-#require the external project to build as target
-include(ExternalProject)
-
 #[[ DIOPI ]]
 
 # define some shared and cached options
@@ -52,10 +46,8 @@ if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   # compile DIOPI if use internal one
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
   set(IMPL_OPT "${DIOPI_IMPL_OPT}" CACHE INTERNAL "IMPL_OPT for diopi")
-  set(DIOPI_IMPL_TARGET "diopi_impl" CACHE INTERNAL "DIOPI_IMPL_TARGET for diopi")
-  set(DIOPI_IMPL_LIB_DIR "${DIOPI_LIBRARY_PATH}" CACHE INTERNAL "DIOPI_IMPL_LIB_DIR for diopi")
-  add_subdirectory(DIOPI/impl)
-  target_link_libraries(diopi INTERFACE ${DIOPI_IMPL_TARGET})
+  add_subdirectory(DIOPI/impl) # import diopi_impl target
+  target_link_libraries(diopi INTERFACE diopi_impl)
 
 elseif(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
   add_library(diopi_impl_imported SHARED IMPORTED)
