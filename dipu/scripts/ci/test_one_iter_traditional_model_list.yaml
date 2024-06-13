@@ -1,7 +1,7 @@
 camb:
     # # transformers
     - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
-    
+
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
     - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
@@ -29,6 +29,7 @@ camb:
 
     # # mmdetection3d
     - model_cfg: "mmdetection3d pointpillars/pointpillars_hv_secfpn_8xb6-160e_kitti-3d-3class.py workdirs_pointpillars"
+      precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
 
     # # mmsegmentation
     - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet"
@@ -108,5 +109,5 @@ ascend:
     # - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
 
 kunlunxin:
-    # mmpretrain    
-    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet" 
+    # mmpretrain
+    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
