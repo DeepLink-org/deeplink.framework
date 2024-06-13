@@ -80,7 +80,6 @@ class TestCopy(TestCase):
         self.assertEqual(dst.device.index, 1)
         self.assertEqual(src.device.index, 0)
 
-
     def test_d2d_peer_copy_no_contiguous(self):
         if torch.cuda.device_count() < 2:
             return
