@@ -24,23 +24,31 @@ def lookup(groups: Iterable[MetricsGroup], name: str, labels: list[(str, str)]):
     return value
 
 
+def allocate_tensor(count: int) -> int:
+    total = 0
+    for _ in range(0, count):
+        nbytes = random.randrange(0, 100000)
+        total += nbytes
+        tensor = torch.empty(size=(nbytes,), dtype=torch.uint8, device="dipu")
+    return total
+
+
 class TestMetrics(TestCase):
     def test_allocator_metrics(self):
-
         name = "allocator_size"
         labels = [("type", "caching"), ("device", "0"), ("method", "allocate")]
-        begin = lookup(torch_dipu._C.metrics(), name, labels)  # (_, count, total)
 
-        total = 0
-        count = 100
-        for i in range(0, count):
-            nbytes = random.randrange(0, 100000)
-            total += nbytes
-            tensor = torch.empty(size=(nbytes,), dtype=torch.uint8, device="dipu")
-        end = lookup(torch_dipu._C.metrics(), name, labels)  # (_, count, total)
+        _, last_bucket, last_size = lookup(torch_dipu._C.metrics(), name, labels)
 
-        self.assertEqual(count, sum(end[1]) - sum(begin[1]))
-        self.assertLessEqual(total, end[2] - begin[2])
+        expected_count = 100
+        expected_total = allocate_tensor(expected_count)
+
+        _, next_bucket, next_size = lookup(torch_dipu._C.metrics(), name, labels)
+        count = sum(next_bucket) - sum(last_bucket)
+        total = next_size - last_size
+
+        self.assertEqual(expected_count, count, msg=f"{expected_count} == {count}")
+        self.assertLessEqual(expected_total, total, msg=f"{expected_total} <= {total}")
 
 
 if __name__ == "__main__":
