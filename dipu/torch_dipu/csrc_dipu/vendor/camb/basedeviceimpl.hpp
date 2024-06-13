@@ -138,12 +138,12 @@ void memCopyD2H(size_t nbytes, void* dst, const void* src) {
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
-  syncDevice();  // TODO(zhaoguochun):Just to make camb ci run, and then fix the
-                 // synchronization problem on Cambrian
   if (dstDevId == srcDevId) {
     if (dst != src) {
       DIPU_CALLCNRT(::cnrtMemcpyAsync(dst, const_cast<void*>(src), nbytes,
                                       stream, CNRT_MEM_TRANS_DIR_DEV2DEV))
+      syncStream(stream);  // TODO(zhaoguochun):Just to make camb ci run, and
+                           // then fix the synchronization problem on Cambrian
     }
   } else {
     DIPU_CALLCNRT(cnrtMemcpyPeerAsync(dst, dstDevId, const_cast<void*>(src),
