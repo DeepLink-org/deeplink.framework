@@ -29,7 +29,7 @@ class TestMetrics(TestCase):
 
         name = "allocator_size"
         labels = [("type", "caching"), ("device", "0"), ("method", "allocate")]
-        begin = lookup(torch_dipu._C.metrics(), name, labels) # (_, count, total)
+        begin = lookup(torch_dipu._C.metrics(), name, labels)  # (_, count, total)
 
         total = 0
         count = 100
@@ -37,8 +37,7 @@ class TestMetrics(TestCase):
             nbytes = random.randrange(0, 100000)
             total += nbytes
             tensor = torch.empty(size=(nbytes,), dtype=torch.uint8, device="dipu")
-
-        end = lookup(torch_dipu._C.metrics(), name, labels) # (_, count, total)
+        end = lookup(torch_dipu._C.metrics(), name, labels)  # (_, count, total)
 
         self.assertEqual(count, sum(end[1]) - sum(begin[1]))
         self.assertLessEqual(total, end[2] - begin[2])
