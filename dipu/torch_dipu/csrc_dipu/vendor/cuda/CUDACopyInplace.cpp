@@ -21,18 +21,6 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
                                   CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
-
- protected:
-  void copyPostProcess(bool non_blocking, const CopyParamsInfo& info,
-                       DIPUStream& curStream) override {
-    // syncAfterCopy
-    if (!non_blocking) {
-      // for d2d cases, ignoring `non_blocking` for better performance
-      if (info.copyType_ != DIPUCopyType::D2Self) {
-        dipu::devapis::syncStream(curStream.rawstream());
-      }
-    }
-  }
 };
 
 // not const, see comments in DIPUCopy.cpp dipu_copy_op()
