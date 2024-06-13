@@ -175,10 +175,10 @@ namespace dipu::metrics::detail {
 // This wrapper struct has two tasks:
 //
 // 1. Provide access to private members.
-// 2. Merge duplicated code from value_operation to here.
+// 2. Move duplicated code from value_operation to here.
 //
-// Without this struct, we need to provide some same access methods and perform
-// static_cast for every struct value_operation.
+// Without this struct, we need to provide same "access" methods and perform
+// static_cast for every value_operation.
 template <typename T>
 struct value_access {
   decltype(auto) value() noexcept { return static_cast<T*>(this)->access(); }
@@ -189,7 +189,7 @@ struct value_access {
 
 // CRTP value operations for labeled_value
 //
-// Those struct are used to provide interface for labeled value.
+// Those struct are used to provide interface for each labeled value type.
 template <typename T>
 struct value_operation {};
 

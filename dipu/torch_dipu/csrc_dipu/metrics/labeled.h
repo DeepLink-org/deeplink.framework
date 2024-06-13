@@ -12,33 +12,34 @@
 namespace dipu::metrics {
 
 // LabeledValue is something like a tuple of {name, type, desc, labels, value}
-// but just shared reference. This object will directly be used by users.
+// but just a shared reference. This object will directly be used by users.
 //
-// Its safe to copy or move LabeledValue as they always refer to the same
-// underlying value created by Collector. Every time it copys, reference count
-// will increase.
+// It's safe to copy or move LabeledValue as they always refer to the same
+// underlying detail::shared_value created by Collector. Every time it copys,
+// reference count will increase.
 //
-// ValueOperation is used to provide some special operation for LabeledValue.
-// e.g. when T is counter<int>, ValueOperation will provide {get, add, inc,
-// reset} methods for current LabeledValue.
+// detail::value_operation is used to export some special methods for
+// LabeledValue. e.g. when T is counter<int>, detail::value_operation will
+// provide {get, add, inc, reset} methods for current LabeledValue.
 template <typename S /* string type */, typename T /* underlying value type */>
 class LabeledValue : public detail::value_operation<LabeledValue<S, T>> {
   using owner_t = detail::group<S, T>;
   using value_t = typename owner_t::value_type;
 
-  // LabeledValue is owned by Group, but it also prevents its owner being
-  // destructed (via shared_ptr). Because LabeledValue(s) usually are kept by
-  // external function or classes, their lifetime are hard to control.
+  // LabeledValue refers to detail::group, so it also prevents its owner being
+  // destructed (via shared_ptr). As LabeledValue(s) are usually kept by
+  // external function or classes, their lifetime are hard to control, so we
+  // choose shared_ptr here.
   std::shared_ptr<owner_t> owner{};
 
-  // value_t is actually a pair of labelset<S> and SharedValue<T>, thus:
+  // value_t is actually a pair of labelset<S> and shared_value<T>, thus:
   //
   // - pointer->first  is of type labelset<S>
-  // - pointer->second is of type detail::SharedValue<T>
+  // - pointer->second is of type detail::shared_value<T>
   value_t* pointer{};
 
  private:
-  // Provide private access for ValueAccess (actually ValueOperation)
+  // Provide private access for value_access (actually for value_operation)
   friend struct detail::value_access<LabeledValue>;
   auto access() const noexcept -> T const& { return pointer->second.value; }
   auto access() noexcept -> T& {
@@ -46,8 +47,8 @@ class LabeledValue : public detail::value_operation<LabeledValue<S, T>> {
     return pointer->second.value;
   }
 
-  // LabeledValue<S, T> should only be created by Group<S, T>
-  friend class detail::group<S, T>;  // owner_type
+  // LabeledValue<S, T> should be created by group<S, T> only
+  friend class detail::group<S, T>;  // owner_t
   explicit LabeledValue(std::shared_ptr<owner_t> owner,
                         value_t& reference) noexcept
       : owner(std::move(owner)), pointer(&reference) {
@@ -67,7 +68,7 @@ class LabeledValue : public detail::value_operation<LabeledValue<S, T>> {
 
   auto description() const noexcept -> S const& { return owner->description(); }
 
-  // Create a new LabeledValue which has some external labels.
+  // Create a new LabeledValue with some external labels.
   //
   // Note: the created LabeledValue is in the same group of current
   // LabeledValue. Thus their name, type and description are same.
@@ -76,7 +77,7 @@ class LabeledValue : public detail::value_operation<LabeledValue<S, T>> {
     return owner->template make<LabeledValue>(pointer->first.clone() += labels);
   }
 
-  // Create a new LabeledValue which has some external labels.
+  // Create a new LabeledValue with some external labels.
   //
   // Note: the created LabeledValue is in the same group of current
   // LabeledValue. Thus their name, type and description are same.

@@ -85,7 +85,10 @@ class Collector : public detail::exportable_collector {
   // Warning, this action may cause metric values no longer accurate. So use at
   // your own risk.
   auto reset() -> void {
-    auto constexpr resetor = [](auto& group) { group->reset(); };
+    auto constexpr resetor = [](auto const& group) -> void {
+      group->for_each([](auto& key, auto& value) -> void { value.reset(); });
+    };
+
     for (auto& reference : list()) {
       std::visit(resetor, reference.get());
     }
@@ -177,19 +180,19 @@ using exported_number_t = typename exported_number_type<I>::type;
 
 // Convert counter to exported value
 template <typename I>
-auto to_exported_number(counter<I> const& v) -> exported_number_t<I> {
+auto to_exported_value(counter<I> const& v) -> exported_number_t<I> {
   return static_cast<exported_number_t<I>>(v.get());
 }
 
 // Convert gauge to exported value
 template <typename I>
-auto to_exported_number(gauge<I> const& v) -> exported_number_t<I> {
+auto to_exported_value(gauge<I> const& v) -> exported_number_t<I> {
   return static_cast<exported_number_t<I>>(v.get());
 }
 
 // Convert histogram to exported histogram
 template <typename I>
-auto to_exported_number(histogram<I> const& v) -> ExportedHistogram {
+auto to_exported_value(histogram<I> const& v) -> ExportedHistogram {
   using type = exported_number_t<I>;
   auto& thresholds = v.get_thresholds();
   auto output = std::vector<type>();
@@ -236,7 +239,7 @@ struct ExportedGroup {
       auto values = std::vector<labeled_value>();
       values.reserve(group->size());
       auto filler = [&values](auto const& key, auto const& value) {
-        values.emplace_back(key.labels(), detail::to_exported_number(value));
+        values.emplace_back(key.labels(), detail::to_exported_value(value));
       };
       group->for_each(filler);
       output.push_back({group->name(),         //

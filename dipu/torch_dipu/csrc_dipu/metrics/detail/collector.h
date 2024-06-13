@@ -12,10 +12,10 @@
 
 namespace dipu::metrics::detail {
 
-// SharedValue is internal wrapper for other value type (Counter, Gauge...)
+// shared_value is internal wrapper for other value type (Counter, Gauge...)
 // inside Group.
 //
-// Warning: SharedValue is managed by Group, should not use directly by user.
+// Warning: shared_value is managed by Group, should not use directly by user.
 template <typename T>
 struct shared_value {
   T value;
@@ -34,7 +34,7 @@ struct shared_value {
   }
 };
 
-// Group is managed by Collector, and should not use directly by user.
+// group is managed by collector, and should not use directly by user.
 template <typename S /* string type */, typename T /* value type */>
 class group : public std::enable_shared_from_this<group<S, T>> {
   S group_name;
@@ -102,21 +102,13 @@ class group : public std::enable_shared_from_this<group<S, T>> {
     }
   }
 
-  // Warning: race condition may happen
-  auto reset() -> void {
-    std::shared_lock _(mutex);
-    for (auto& [key, value] : values) {
-      value.value.reset();
-    }
-  }
-
   [[nodiscard]] auto size() const -> std::size_t {
     std::shared_lock _(mutex);
     return values.size();
   }
 };
 
-// detail::collector should not be used directly. Please see Collector (outside
+// collector should not be used directly. Please see Collector (outside
 // detail namespace).
 template <typename S, typename... V>
 class collector {
