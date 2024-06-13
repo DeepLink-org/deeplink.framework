@@ -66,24 +66,34 @@ class TestCopy(TestCase):
     def test_d2d_peer_copy_(self):
         if torch.cuda.device_count() < 2:
             return
-        dst = torch.rand((6, 4), device="cuda:0")
-        src = torch.rand((6, 4), device="cuda:1")
+        dst = torch.rand((6400, 4000), device="cuda:0")
+        src = torch.rand((6400, 4000), device="cuda:1")
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
         self.assertEqual(dst.device.index, 0)
         self.assertEqual(src.device.index, 1)
 
-        dst = torch.rand((6, 4), device="cuda:1")
-        src = torch.rand((6, 4), device="cuda:0")
+        dst = torch.rand((6400, 4000), device="cuda:1")
+        src = torch.rand((6400, 4000), device="cuda:0")
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
         self.assertEqual(dst.device.index, 1)
         self.assertEqual(src.device.index, 0)
 
+
+    def test_d2d_peer_copy_no_contiguous(self):
+        if torch.cuda.device_count() < 2:
+            return
+        src = torch.rand((6400, 9900), device="cuda:1")[::2, ::3]
+        dst = src.to("cuda:0")
+        self.assertEqual(dst.cpu(), src.cpu())
+        self.assertEqual(dst.device.index, 0)
+        self.assertEqual(src.device.index, 1)
+
     def test_d2d_copy_(self):
         index = torch.cuda.device_count() - 1
-        dst = torch.rand((6, 4), device="cuda:" + str(index))
-        src = torch.rand((6, 4), device="cuda:" + str(index))
+        dst = torch.rand((6000, 4000), device="cuda:" + str(index))
+        src = torch.rand((6000, 4000), device="cuda:" + str(index))
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
 
