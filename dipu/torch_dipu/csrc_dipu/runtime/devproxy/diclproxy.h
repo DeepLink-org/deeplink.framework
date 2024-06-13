@@ -51,5 +51,8 @@ DIPU_API devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
                                         at::ScalarType datatype, int peer,
                                         diclComm_t comm, deviceStream_t stream);
 
+DIPU_WEAK devapis::diclResult_t diclGetCommName(std::string& commName,
+                                                diclComm_t comm);
+
 }  // namespace devproxy
 }  // namespace dipu

@@ -381,6 +381,24 @@ def test_special_group_stuck(rank, world_size):
     cleanup()
 
 
+def test_get_comm_name(rank, world_size, port):
+    import torch_dipu
+
+    if torch_dipu.dipu.vendor_type == "NPU":
+        print(f"test get comm name on rank {rank} ")
+
+        setup(rank, world_size, port)
+
+        _ = torch.ones((2, 4)).to(rank)
+        ranks_dup = [rank]
+        group = torch.distributed.new_group(ranks_dup)
+        process_group_dicl = group._get_backend(torch.device(rank))
+        comm_name = process_group_dicl.get_comm_name(rank)
+        print(comm_name)
+
+        cleanup()
+
+
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
 
@@ -395,6 +413,8 @@ if __name__ == "__main__":
     run_demo(demo_reducescatter_base, world_size, port)
 
     run_demo(demo_allgather_gloo, world_size, port)
+
+    run_demo(test_get_comm_name, world_size, port)
 
     # need 2 card to run
     # run_demo(demo_p2p, world_size, port)
