@@ -308,7 +308,6 @@ class BFCachingAllocatorImpl {
         extSize *= 2;
       }
     } else {
-      extSize /= 2;
       if (currBytes > nbytes) {
         currBytes = nbytes;
         ptr = allocateOnDevice(currBytes);
