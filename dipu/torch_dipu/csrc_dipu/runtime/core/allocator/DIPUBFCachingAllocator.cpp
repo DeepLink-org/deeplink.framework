@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <stack>
@@ -307,6 +308,7 @@ class BFCachingAllocatorImpl {
         extSize *= 2;
       }
     } else {
+      extSize /= 2;
       if (currBytes > nbytes) {
         currBytes = nbytes;
         ptr = allocateOnDevice(currBytes);
