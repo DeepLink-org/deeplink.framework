@@ -145,8 +145,8 @@ target_include_directories(torch_dipu SYSTEM
   PUBLIC "${kineto_SOURCE_DIR}/include"
   PRIVATE "${kineto_SOURCE_DIR}/src")
 
-target_link_libraries(torch_dipu PRIVATE Python3::Python c10 torch torch_cpu)
 target_link_libraries(torch_dipu PRIVATE diopi_impl)
+target_link_libraries(torch_dipu PRIVATE Python3::Python c10 torch torch_cpu)
 target_link_libraries(torch_dipu PRIVATE Threads::Threads)
 
 #[[ Target: torch_dipu_python ]]
