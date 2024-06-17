@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -28,6 +29,7 @@ using c10d::GatherOptions;
 using c10d::OpType;
 using c10d::ReduceOptions;
 using c10d::ReduceScatterOptions;
+using c10d::ScatterOptions;
 using c10d::Store;
 using c10d::Work;
 
@@ -58,7 +60,7 @@ constexpr int64_t diclSyncBusyWaitMillis = 30;
  * Therefore, WorkDICL::exception() is not supported, and WorkDICL::isSuccess()
  * will always return true if the operation has completed.
  *
- * @warning Not supporting gather and all _coalesced functions now. We will add
+ * @warning Not supporting all _coalesced functions now. We will add
  * them in the future if needed.
  *
  * Example on using DICL process group:
@@ -167,6 +169,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
+  std::string_view getCommName(at::DeviceIndex device_index);
+
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;
@@ -192,6 +196,11 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Work> _allgather_base(
       at::Tensor& outputs, at::Tensor& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
+
+  c10::intrusive_ptr<Work> scatter(
+      std::vector<at::Tensor>& outputs,
+      std::vector<std::vector<at::Tensor>>& inputs,
+      const ScatterOptions& opts /* = ScatterOptions() */) override;
 
   c10::intrusive_ptr<Work> reduce_scatter(
       std::vector<at::Tensor>& outputs,

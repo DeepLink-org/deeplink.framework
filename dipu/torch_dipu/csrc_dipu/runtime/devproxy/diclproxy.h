@@ -4,6 +4,14 @@
 #include "csrc_dipu/runtime/device/diclapis.h"
 
 namespace dipu {
+
+#define DIPU_CALL_DICLAPIS(Expr)                                        \
+  {                                                                     \
+    devapis::diclResult_t ret = Expr;                                   \
+    TORCH_CHECK(ret == devapis::diclResult_t::DICL_SUCCESS,             \
+                "call diclapis error, expr = ", #Expr, ", ret = ", ret) \
+  }
+
 // need enhance return status.
 namespace devproxy {
 
@@ -33,6 +41,21 @@ DIPU_API devapis::diclResult_t diclAllGather(const void* sendbuff,
                                              diclComm_t comm,
                                              deviceStream_t stream);
 
+// for non-root rank, we suggest passing nullptr as recvbuf
+DIPU_API devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
+                                          size_t count, at::ScalarType datatype,
+                                          int root, int curRank, int numRanks,
+                                          diclComm_t comm,
+                                          deviceStream_t stream);
+
+// for non-root rank, we suggest passing nullptr as sendbuf
+DIPU_API devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
+                                           size_t count,
+                                           at::ScalarType datatype, int root,
+                                           int curRank, int numRanks,
+                                           diclComm_t comm,
+                                           deviceStream_t stream);
+
 DIPU_API devapis::diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
                                           size_t count, at::ScalarType datatype,
                                           const devapis::ReduceOp& reduceOp,
@@ -50,6 +73,9 @@ DIPU_API devapis::diclResult_t diclSend(void* sendbuff, size_t count,
 DIPU_API devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
                                         at::ScalarType datatype, int peer,
                                         diclComm_t comm, deviceStream_t stream);
+
+DIPU_WEAK devapis::diclResult_t diclGetCommName(std::string& commName,
+                                                diclComm_t comm);
 
 }  // namespace devproxy
 }  // namespace dipu

@@ -3,9 +3,18 @@
 #include <acl/acl_op.h>
 #include <acl/acl_op_compiler.h>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 
+#include <c10/util/Exception.h>
+#include <torch/csrc/distributed/c10d/Work.hpp>
+
+#include "csrc_dipu/runtime/device/basedef.h"
+#include "csrc_dipu/utils/env.hpp"
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/deviceapis.h>
+#include <csrc_dipu/utils/env.hpp>
 
 #include "basecommimpl.hpp"
 
@@ -21,36 +30,64 @@ using AscendDeviceId = int32_t;
 
 namespace {
 
-constexpr AscendDeviceId kDeviceIdUninit = -1;
-constexpr AscendDeviceId kDeviceIdDefault = 0;
-// Thread-level cache for process-level device id
-thread_local auto g_process_device_id_thread_cache = kDeviceIdUninit;
+const bool forceFallbackP2PCopy =
+    get_env_or_default("DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", false);
 
-// Try to initialize process-level device id if it hasnt' been initialized,
-// which is designed to be written only once,
-// and anyway return the process-level device id
-AscendDeviceId tryInitAndAnywayGetProcessDevice(
-    AscendDeviceId ascend_device_id) {
-  static std::atomic process_device_id = kDeviceIdUninit;
-  auto expectedUninit = kDeviceIdUninit;
-  std::atomic_compare_exchange_strong(&process_device_id, &expectedUninit,
-                                      ascend_device_id);
-  return process_device_id.load();
-}
+class NpuP2PInfo {
+  enum class P2pStatus : int8_t {
+    UNKNOWN = -1,
+    COPY_NOT_ALLOWED = 0,
+    COPY_ALLOWED = 1
+  };
 
-// If thread-level cache of process-level device id hasn't been initialized,
-// try to initialize thread-level cache, which is designed to be written once.
-// If process-level device id hasn't been initialized,
-// try to initialize process-level device id first using input ascend_device_id.
-void tryInitThreadDeviceCache(AscendDeviceId ascend_device_id) {
-  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
-    // Ensure that aclrtSetDevice is called
-    // when and only when the thread-level cache is initialized.
-    g_process_device_id_thread_cache =
-        tryInitAndAnywayGetProcessDevice(ascend_device_id);
-    DIPU_CALLACLRT(::aclrtSetDevice(g_process_device_id_thread_cache))
+ public:
+  static NpuP2PInfo& getInstance() {
+    static NpuP2PInfo instance;
+    return instance;
   }
-}
+
+  bool enableP2P(int32_t srcDevId, int32_t dstDevId) {
+    const int32_t index = srcDevId * num_devices_ + dstDevId;
+    auto& status = p2p_access_enabled_cache_.at(index);
+    if (status != P2pStatus::UNKNOWN) {
+      return static_cast<bool>(status);
+    }
+
+    int32_t canAccessPeer = 0;
+    DIPU_CALLACLRT(
+        ::aclrtDeviceCanAccessPeer(&canAccessPeer, srcDevId, dstDevId));
+    if (canAccessPeer != 1) {
+      TORCH_WARN("can not copy memory form device ", srcDevId, " to device ",
+                 dstDevId);
+      status = P2pStatus::COPY_NOT_ALLOWED;
+      return false;
+    }
+    int32_t currentDevice = -1;
+    DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
+
+    DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
+    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(srcDevId, 0 /*reserved*/));
+    DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
+    DIPU_CALLACLRT(aclrtDeviceEnablePeerAccess(dstDevId, 0 /*reserved*/));
+
+    DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
+    if (canAccessPeer == 1) {
+      status = P2pStatus::COPY_ALLOWED;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  // Use a 1-dimensional vector to store 2-dimensional data
+  std::vector<P2pStatus> p2p_access_enabled_cache_;
+
+  const int64_t num_devices_;
+  NpuP2PInfo() : num_devices_(getDeviceCount()) {
+    p2p_access_enabled_cache_ =
+        std::vector<P2pStatus>(num_devices_ * num_devices_, P2pStatus::UNKNOWN);
+  }
+};
 
 }  // namespace
 
@@ -62,22 +99,14 @@ void initializeVendor() {
 void finalizeVendor() { DIPU_CALLACLRT(aclFinalize()); }
 
 deviceId_t current_device() {
-  if (g_process_device_id_thread_cache == kDeviceIdUninit) {
-    DIPU_LOGW("current_device() is called before setDevice()");
-    tryInitThreadDeviceCache(kDeviceIdDefault);
-  }
-  return static_cast<deviceId_t>(g_process_device_id_thread_cache);
+  int32_t deviceId = 0;
+  DIPU_CALLACLRT(aclrtGetDevice(&deviceId));
+  return static_cast<deviceId_t>(deviceId);
 }
 
 // set current device given device according to id
 void setDevice(deviceId_t device_id) {
-  auto ascend_device_id = static_cast<AscendDeviceId>(device_id);
-  tryInitThreadDeviceCache(ascend_device_id);
-  if (ascend_device_id != g_process_device_id_thread_cache) {
-    DIPU_LOGW(
-        "Trying to use multiple cards in the same process may cause unexpected "
-        "results in hccl communication, such as sdma memory copy failure");
-  }
+  DIPU_CALLACLRT(aclrtSetDevice(device_id));
 }
 
 DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
@@ -95,10 +124,18 @@ DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   int patch;
   DIPU_CALLACLRT(::aclrtGetVersion(&prop.major, &prop.minor, &patch));
   DIPU_CALLACLRT(::aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
-  // NOTE : unit of PhysicalMemoryTotal is MB
-  prop.totalGlobalMem = device_total << 20;
+  // NOTE : unit of PhysicalMemoryTotal is Byte
+  prop.totalGlobalMem = device_total;
   prop.multiProcessorCount = 1;
   return prop;
+}
+
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+  DIPUDeviceStatus status;
+  size_t device_total;
+  DIPU_CALLACLRT(
+      ::aclrtGetMemInfo(ACL_HBM_MEM, &status.freeGlobalMem, &device_total));
+  return status;
 }
 
 void resetDevice(deviceId_t devId) { DIPU_CALLACLRT(::aclrtResetDevice(devId)) }
@@ -157,9 +194,32 @@ void freeDevice(void* p) {
   DIPU_CALLACLRT(::aclrtFree(p))
 }
 
+void memCopyD2DFallback(size_t nbytes, deviceId_t dstDevId, void* dst,
+                        deviceId_t srcDevId, const void* src) {
+  int32_t currentDevice = -1;
+  DIPU_CALLACLRT(aclrtGetDevice(&currentDevice));
+  void* hostBuffer = nullptr;
+  mallocHost(&hostBuffer, nbytes);
+  std::unique_ptr<void, void (*)(void*)> hostBufferUnique(
+      hostBuffer,
+      freeHost);  // for exception safety
+  DIPU_CALLACLRT(aclrtSetDevice(srcDevId));
+  memCopyD2H(nbytes, hostBuffer, src);
+  DIPU_CALLACLRT(aclrtSetDevice(dstDevId));
+  memCopyH2D(nbytes, dst, hostBuffer);
+  DIPU_CALLACLRT(aclrtSetDevice(currentDevice));
+}
+
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
+  if (dstDevId != srcDevId) {
+    if (forceFallbackP2PCopy ||
+        NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId) == false) {
+      memCopyD2DFallback(nbytes, dstDevId, dst, srcDevId, src);
+      return;
+    }
+  }
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_DEVICE_TO_DEVICE));
 }
@@ -180,6 +240,13 @@ void memCopyD2H(size_t nbytes, void* dst, const void* src) {
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
+  if (dstDevId != srcDevId) {
+    if (forceFallbackP2PCopy ||
+        NpuP2PInfo::getInstance().enableP2P(srcDevId, dstDevId) == false) {
+      memCopyD2DFallback(nbytes, dstDevId, dst, srcDevId, src);
+      return;
+    }
+  }
   DIPU_CALLACLRT(::aclrtMemcpyAsync(dst, nbytes, src, nbytes,
                                     ACL_MEMCPY_DEVICE_TO_DEVICE, stream));
 }

@@ -55,6 +55,14 @@ inline at::Tensor empty_strided(at::IntArrayRef size, at::IntArrayRef stride,
       options.layout_opt(), options.device_opt(), options.pinned_memory_opt());
 }
 
+inline at::Tensor empty_strided_cpu(at::IntArrayRef size,
+                                    at::IntArrayRef stride,
+                                    at::TensorOptions options = {}) {
+  return dipu_aten::empty_strided_cpu(
+      size, stride, c10::optTypeMetaToScalarType(options.dtype_opt()),
+      options.layout_opt(), options.device_opt(), options.pinned_memory_opt());
+}
+
 inline at::Tensor empty_like(
     const at::Tensor& self, c10::optional<at::ScalarType> dtype,
     c10::optional<at::Layout> layout, c10::optional<at::Device> device,

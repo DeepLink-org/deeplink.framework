@@ -47,6 +47,52 @@ devapis::diclResult_t diclAllGather(const void* sendbuff, void* recvbuff,
                                 stream);
 }
 
+devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
+                                 size_t count, at::ScalarType datatype,
+                                 int root, int curRank, int numRanks,
+                                 diclComm_t comm, deviceStream_t stream) {
+  if (curRank != root) {
+    DIPU_CALL_DICLAPIS(diclSend(sendbuf, count, datatype, root, comm, stream));
+    return devapis::diclResult_t::DICL_SUCCESS;
+  }
+
+  for (const auto srcRank : c10::irange(numRanks)) {
+    if (srcRank == root) {
+      continue;
+    }
+    DIPU_CALL_DICLAPIS(
+        diclRecv(recvbuf[srcRank], count, datatype, srcRank, comm, stream));
+  }
+
+  auto deviceId = static_cast<devapis::deviceId_t>(curRank);
+  devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype), deviceId,
+                           recvbuf[root], deviceId, sendbuf);
+  return devapis::diclResult_t::DICL_SUCCESS;
+}
+
+devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
+                                  size_t count, at::ScalarType datatype,
+                                  int root, int curRank, int numRanks,
+                                  diclComm_t comm, deviceStream_t stream) {
+  if (curRank != root) {
+    DIPU_CALL_DICLAPIS(diclRecv(recvbuf, count, datatype, root, comm, stream));
+    return devapis::diclResult_t::DICL_SUCCESS;
+  }
+
+  for (const auto dstRank : c10::irange(numRanks)) {
+    if (dstRank == root) {
+      continue;
+    }
+    DIPU_CALL_DICLAPIS(
+        diclSend(sendbuf[dstRank], count, datatype, dstRank, comm, stream));
+  }
+
+  auto deviceId = static_cast<devapis::deviceId_t>(curRank);
+  devapis::memCopyD2DAsync(stream, count * c10::elementSize(datatype), deviceId,
+                           recvbuf, deviceId, sendbuf[root]);
+  return devapis::diclResult_t::DICL_SUCCESS;
+}
+
 devapis::diclResult_t diclReduce(const void* sendbuff, void* recvbuff,
                                  size_t count, at::ScalarType datatype,
                                  const devapis::ReduceOp& reduceOp, int root,
@@ -72,6 +118,13 @@ devapis::diclResult_t diclRecv(void* recvbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   return devapis::diclRecv(recvbuff, count, datatype, peer, comm, stream);
+}
+
+devapis::diclResult_t diclGetCommName(std::string& commName, diclComm_t comm) {
+  if (devapis::diclGetCommName) {
+    return devapis::diclGetCommName(commName, comm);
+  }
+  TORCH_CHECK(false, "device not implement diclGetCommName");
 }
 
 }  // namespace devproxy

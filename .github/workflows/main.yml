@@ -86,9 +86,12 @@ jobs:
           ssh ${CUDA_CLUSTER} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
           && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CUDA_CLUSTER}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to cuda"
-          ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
-          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
-          && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
+          # ssh ${CLUSTER_ASCEND_910B} "mkdir -p ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main" \
+          # && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ \
+          # && rsync -a --delete ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ ${CLUSTER_ASCEND_910B}:${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ || echo "failure to connect to ascend"
+          source ~/Aoss_env.sh
+          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}/ s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          ads-cli cp ${GITHUB_WORKSPACE}/${REPO}_DIOPI/ s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
 
   Deploy_on_tag:
     runs-on: tps-sco-ci
@@ -339,6 +342,16 @@ jobs:
     needs: [Runs-On-Nv-Step1]
     runs-on: tps-ascend-ci-910b
     steps:
+      - name: COPY Source
+        run: |
+          set -ex
+          source ~/Aoss_env.sh
+          ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/
+          ads-cli cp s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/
+          ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source/ /dev/null 2>&1 >/dev/null
+          ads-cli  --dryrun --deleteSrc cp  s3://${Platform_ci_aoss_name}:${Platform_ci_aoss_url}@platform.aoss-internal.cn-sh-01c.sensecoreapi-oss.cn${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main/ /dev/null 2>&1 >/dev/null
+          find ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source -type f -name "*.sh" -exec chmod +x {} \;
+          find ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/source-main -type f -name "*.sh" -exec chmod +x {} \;
       - name: Build PyTorch
         run: |
           set -ex
@@ -416,8 +429,9 @@ jobs:
           cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend
           source dicp/scripts/ci/ascend/ci_runs_on_dipu_env.sh
           export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dipu:${PYTHONPATH}
-          export PYTHONPATH=${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Dicp-On-Dipu-Ascend/dicp:${PYTHONPATH}
-          cd dicp && export TEST_DIR=$(pwd)/test
+          pip uninstall dicp -y
+          cd dicp && python setup.py clean && python setup.py install --user
+          export TEST_DIR=$(pwd)/test
           source scripts/ci/ascend/test_env.sh /mnt/cache/share/deeplinkci/dicp_env/llama_models
           bash ${TEST_DIR}/ascend_scripts/ops/run_test_ops.sh false && \
           pytest test/model/test_llama.py --backend ascendgraph --dynamic false \

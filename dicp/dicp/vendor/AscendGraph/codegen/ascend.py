@@ -6,7 +6,7 @@ from typing import Any, List
 from torch.fx.node import Node
 from torch.utils._pytree import tree_map_only
 from torch._inductor.utils import IndentedBuffer
-from dicp.dynamo_bridge.utils import symint_in_shape
+from dicp.dynamo_bridge.utils import symint_in_shape, process_sym_name
 from dicp.vendor.AscendGraph.codegen.utils import (
     get_ascend_dtype,
     get_cpp_dtype,
@@ -219,58 +219,11 @@ class AscendCodegen(torch.fx.Interpreter):
         )
         return self.import_code.getvalue()
 
-    def process_sym_name(self, st):
-        # dynamic shape feature
-        if st.isdigit():
-            return st
-        elif '+' in st:
-            sp = st.split('+')
-            if len(sp) > 2:
-                sp = [sp[0], '+'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0].isdigit():
-                (sp[1], sp[0]) = (sp[0], sp[1])
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '+' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '+' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '+' + sp[1]
-        elif '-' in st:
-            sp = st.split('-')
-            if len(sp) > 2:
-                sp = [sp[0], '-'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '-' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '-' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '-' + sp[1]
-        elif '*' in st:
-            sp = st.split('*')
-            if len(sp) > 2:
-                sp = [sp[0], '*'.join(sp[1:])]
-            assert (len(sp) == 2)
-            sp = [elem.strip() for elem in sp]
-            if sp[0].isdigit():
-                (sp[1], sp[0]) = (sp[0], sp[1])
-            if sp[0] in self.sym_in_args:
-                arg, idx = self.sym_in_args[sp[0]]
-                return "{}.shape[{}]".format(arg, idx) + '*' + sp[1]
-            if sp[0] in self.sym_to_inputs.keys():
-                return self.sym_to_inputs[sp[0]] + '*' + sp[1]
-            else:
-                return self.process_sym_name(sp[0]) + '*' + sp[1]
-        else:
-            if st in self.sym_in_args:
-                arg, idx = self.sym_in_args[st]
-                return "{}.shape[{}]".format(arg, idx)
-            return self.sym_to_inputs[st]
+    def operator_in_str(self, st):
+        for op in ['+', '-', '*', '/']:
+            if op in st:
+                return True
+        return False
 
     def gen_call_func(self):
         # TODO check scalar input
@@ -283,16 +236,23 @@ class AscendCodegen(torch.fx.Interpreter):
             args = ['_' if arg not in shape_symint and arg not in self.sym_to_inputs.values() else arg for arg in self.args]
             call_body.writeline(f"({','.join(args)}) = args")
 
+            # assign SymInt to InputArgs relationship
+            if len(self.sym_in_args) > 0:
+                for key in self.sym_in_args.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_in_args[key][0]}.shape[{self.sym_in_args[key][1]}]")
+            if len(self.sym_to_inputs) > 0:
+                for key in self.sym_to_inputs.keys():
+                    if not key.isdigit() and not self.operator_in_str(key):
+                        call_body.writeline(f"{key} = {self.sym_to_inputs[key]}")
+
         # generate input dims
         if len(self.dynamic_inputs) > 0:
-            dim_len = 0
-            for shape in self.actual_shape:
-                dim_len += len(shape)
             dims = 'dims = {'
             for idx, elem in enumerate(self.actual_shape):
                 if len(elem) == 0:
                     continue
-                elem = [self.process_sym_name(dim) for dim in elem]
+                elem = [process_sym_name(dim) for dim in elem]
                 dims += str(self.dynamic_index[idx]) + \
                     ":[" + ','.join(map(str, elem)) + '],'
             dims = dims[:-1] + '}'
@@ -315,7 +275,7 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(elem.shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape = [process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
 
             # process output_shape with modified args
@@ -323,12 +283,12 @@ class AscendCodegen(torch.fx.Interpreter):
                 shape = list(self.input_args[elem[1]].meta['val'].shape)
                 if len(shape) == 0:
                     raise RuntimeError("Error handling empty output_shape")
-                shape = [self.process_sym_name(str(dim)) for dim in shape]
+                shape = [process_sym_name(dim) for dim in shape]
                 shape_str += "[" + ','.join(map(str, shape)) + "],"
                 stride = list(self.input_args[elem[1]].meta['val'].stride())
                 if len(stride) == 0:
                     raise RuntimeError("Error handling empty output_stride")
-                stride = [self.process_sym_name(str(dim)) for dim in stride]
+                stride = [process_sym_name(dim) for dim in stride]
                 extra_stride_str += '[' + ','.join(map(str, stride)) + '],'
                 extra_storage_offset_str += str(self.input_args[elem[1]].meta['val'].storage_offset()) + ','
             shape_str = shape_str[:-1] + ''']'''
@@ -342,20 +302,22 @@ class AscendCodegen(torch.fx.Interpreter):
         for elem in self.output_args:
             if hasattr(elem, 'meta'):
                 elem = elem.meta['val']
-            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool):
-                out_strides.append('[1]')
-                out_storage_offsets.append('0')
-                continue
-            if elem.dim() == 0:  # temporary solution for sum.default(a) whose result is a scalar(no dim no stride)
+
+            # temporary solution for sum.default(a) whose result is scalar or with no dim no stride
+            if isinstance(elem, torch.SymInt) or isinstance(elem, torch.SymBool) or elem.dim() == 0:
                 out_strides.append('[1]')
                 out_storage_offsets.append('0')
                 continue
             stride = list(elem.stride())
-            stride = [self.process_sym_name(str(dim)) for dim in stride]
-            out_strides.append(str(stride))
+            stride = [process_sym_name(dim) for dim in stride]
+            out_strides.append('[' + ','.join(map(str, stride)) + ']')
             out_storage_offsets.append(elem.storage_offset())
-        call_body.writeline(f'out_stride = {out_strides}')
+        call_body.writeline(f'''out_stride = [{','.join(out_strides)}]''')
         call_body.writeline(f'out_storage_offset = {out_storage_offsets}')
+
+        # In precision debug mode, modified array recording InputArgs integer needed
+        if precision_check and self.aten_graph is not None:
+            call_body.writeline(f"modified = [idx for idx in range(len(args))] if isinstance(args[idx], int)")
 
         call_body.splice("""
                              import torch_dipu
@@ -828,6 +790,13 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
+    def Triu(name, x, diag):
+        op = OP(name, "Triu")
+        op.set_input("x", x)
+        op.set_attr_int("diagonal", diag)
+        return op.to_node()
+
+    @staticmethod
     def Conv2D(name, input, weight, stride, padding,
                dilation, groups, format, bias):
         op = OP(name, "Conv2D")
@@ -913,6 +882,14 @@ class AscendOverrides:
             op.set_input_with_index("x", input, index)
         else:
             op.set_input("x", input)
+        return op.to_node()
+
+    @staticmethod
+    def SequenceAt(name, input, index=None):
+        op = OP(name, "SequenceAt")
+        assert index is not None
+        op.set_input("handle", input)
+        op.set_input("index", index)
         return op.to_node()
 
     @staticmethod
@@ -1375,6 +1352,14 @@ class AscendOverrides:
         split_op.set_attr_int("split_dim", dim)
         split_op.set_attr_int("num_split", num_split)
         split_op.set_dynamic_output("y", y)
+        return split_op.to_node()
+
+    @staticmethod
+    def SplitToSequence(name, x, dim, split_size):
+        split_op = OP(name, "SplitToSequence")
+        split_op.set_input("x", x)
+        split_op.set_input("split", split_size)
+        split_op.set_attr_int("axis", dim)
         return split_op.to_node()
 
     @staticmethod
