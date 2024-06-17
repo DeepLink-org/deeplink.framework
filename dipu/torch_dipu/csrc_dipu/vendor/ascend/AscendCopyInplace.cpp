@@ -30,12 +30,7 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
       info.curStream_.synchronize();
     }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      c10::DeviceGuard dstGuard(dst.device());
-      DIPUEvent dstEvent;
-      dstEvent.record(dipu::getCurrentDIPUStream(dst.device().index()));
-      dstGuard.set_index(src.device().index());
-      dstEvent.wait(info.curStream_);
-      dstEvent.synchronize();
+      doSrcStreamWaitDstStream(info, true);
     }
   }
 
@@ -63,11 +58,7 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
     // synchronization is never needed here.
 
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      DIPUEvent srcEvent;
-      srcEvent.record(curStream);
-      DIPUGuard dstGuard(info.dstDevice_);
-      srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
-      srcEvent.synchronize();
+      doDstStreamWaitSrcStream(info, true);
     }
   }
 };
