@@ -47,7 +47,9 @@ class TestMetrics(TestCase):
         count = sum(next_bucket) - sum(last_bucket)
         total = next_size - last_size
 
-        self.assertEqual(expected_count, count, msg=f"{expected_count} == {count}")
+        l = sum(next_bucket)
+        r = sum(last_bucket)
+        self.assertEqual(expected_count, count, msg=f"{expected_count} == {l} - {r}")
         self.assertLessEqual(expected_total, total, msg=f"{expected_total} <= {total}")
 
 
