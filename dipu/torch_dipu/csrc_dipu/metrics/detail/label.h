@@ -126,7 +126,7 @@ labelset(std::initializer_list<label<char const*>>)
 
 template <typename S>
 struct std::hash<dipu::metrics::detail::labelset<S>> {
-  auto static combaine(std::size_t seed, std::size_t value) -> std::size_t {
+  auto static combine(std::size_t seed, std::size_t value) -> std::size_t {
     // https://stackoverflow.com/questions/2590677
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
     return seed ^ (value + 0x9e3779b9 + (seed << 6U) + (seed >> 2U));
@@ -137,8 +137,8 @@ struct std::hash<dipu::metrics::detail::labelset<S>> {
     auto& vec = l.labels();
     auto seed = vec.size();
     for (auto& [key, value] : vec) {
-      seed = combaine(seed, hash(key));
-      seed = combaine(seed, hash(value));
+      seed = combine(seed, hash(key));
+      seed = combine(seed, hash(value));
     }
     return seed;
   }

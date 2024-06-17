@@ -15,7 +15,7 @@
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/DIPUGlobals.h"
-#include "csrc_dipu/metrics/export.h"
+#include "csrc_dipu/metrics/metrics.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include "csrc_dipu/utils/vender_helper.hpp"

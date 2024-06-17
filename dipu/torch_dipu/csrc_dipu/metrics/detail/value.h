@@ -11,7 +11,7 @@ namespace dipu::metrics::detail {
 
 // Is T one of U...
 template <typename T, typename... U>
-auto constexpr inline oneof = (std::is_same_v<T, U> || ...);
+auto constexpr inline oneof = (std::is_same_v<T, U> or ...);
 
 template <typename I>
 struct scalar {

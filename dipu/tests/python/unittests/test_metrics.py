@@ -20,8 +20,8 @@ class MetricsGroup(Protocol):
 def lookup(groups: Iterable[MetricsGroup], name: str, labels: list[(str, str)]):
     item = next(x for x in groups if x.name == name)
     keys = set(labels)
-    value = next(v for k, v in item.values if keys.issubset(k))
-    return value
+    key, value = next((k, v) for k, v in item.values if keys.issubset(k))
+    return key, *value
 
 
 def allocate_tensor(count: int) -> int:
@@ -35,21 +35,28 @@ def allocate_tensor(count: int) -> int:
 
 class TestMetrics(TestCase):
     def test_allocator_metrics(self):
+        allocate_tensor(1)  # preheat
+
         name = "allocator_size"
         labels = [("type", "caching"), ("device", "0"), ("method", "allocate")]
 
-        _, last_bucket, last_size = lookup(torch_dipu._C.metrics(), name, labels)
+        last_label, _, last_bucket, last_size = lookup(
+            torch_dipu._C.metrics(), name, labels
+        )
 
         expected_count = 100
-        expected_total = allocate_tensor(expected_count)
+        expected_total = allocate_tensor(expected_count)  # allocate
 
-        _, next_bucket, next_size = lookup(torch_dipu._C.metrics(), name, labels)
+        next_label, _, next_bucket, next_size = lookup(
+            torch_dipu._C.metrics(), name, labels
+        )
         count = sum(next_bucket) - sum(last_bucket)
         total = next_size - last_size
 
         l = sum(next_bucket)
         r = sum(last_bucket)
-        self.assertEqual(expected_count, count, msg=f"{expected_count} == {l} - {r}")
+        self.assertEqual(last_label, next_label)
+        self.assertEqual(expected_count, count, msg=f"{next_label}: {l} - {r}")
         self.assertLessEqual(expected_total, total, msg=f"{expected_total} <= {total}")
 
 

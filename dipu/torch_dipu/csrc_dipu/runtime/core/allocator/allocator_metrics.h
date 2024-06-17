@@ -11,7 +11,7 @@
 #include <c10/core/Device.h>
 #include <c10/util/Exception.h>
 
-#include "csrc_dipu/metrics/export.h"
+#include "csrc_dipu/metrics/metrics.h"
 
 namespace dipu {
 

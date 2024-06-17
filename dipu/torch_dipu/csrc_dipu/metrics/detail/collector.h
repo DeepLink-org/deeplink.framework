@@ -124,7 +124,7 @@ class collector {
   // In general, U should be LabeledValue.
   template <typename U, typename T, typename... A>
   [[nodiscard]] auto make(char const* hint, S name, A&&... args) -> U {
-    static_assert((std::is_same_v<T, V> || ...), "V must be one of {T, ...}");
+    static_assert((std::is_same_v<T, V> or ...), "V must be one of {T, ...}");
 
     if (name.empty()) {
       auto m = std::string(hint) + " name cannot be empty";
