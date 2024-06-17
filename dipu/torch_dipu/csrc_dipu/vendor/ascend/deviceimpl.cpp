@@ -19,7 +19,6 @@
 #include <csrc_dipu/utils/env.hpp>
 
 #include "basecommimpl.hpp"
-
 namespace dipu {
 
 namespace devapis {
@@ -220,6 +219,7 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
 
 // (synchronous) copy from host to a device
 void memCopyH2D(size_t nbytes, void* dst, const void* src) {
+  // std::cout << __FUNCTION__  << " bt:\n" << c10::get_backtrace();
   DIPU_CALLACLRT(
       ::aclrtMemcpy(dst, nbytes, src, nbytes, ACL_MEMCPY_HOST_TO_DEVICE));
 }
@@ -301,7 +301,7 @@ void destroyStream(deviceStream_t stream, deviceId_t devId) {
 }
 
 void syncStream(deviceStream_t stream) {
-  //std::cout << __FUNCTION__  << "bt:\n" << c10::get_backtrace();
+  // std::cout << __FUNCTION__  << " bt:\n" << c10::get_backtrace();
   DIPU_CALLACLRT(::aclrtSynchronizeStream(stream));
 }
 
