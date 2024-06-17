@@ -61,13 +61,9 @@ namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
 
-#if DIPU_TORCH_VERSION < 20100
-
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }  // end of namespace native
-
-#endif
 
 void dump_fallback_op_args(const c10::OperatorHandle& op,
                            const torch::jit::Stack* stack) {
