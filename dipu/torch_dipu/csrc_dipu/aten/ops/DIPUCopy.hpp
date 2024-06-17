@@ -13,6 +13,7 @@
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUGuard.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
@@ -215,6 +216,29 @@ class CopyParamsInfo {
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
 };
 
+inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,
+                                     bool block_cpu) {
+  DIPUGuard dstGuard(info.dstDevice_);
+  DIPUEvent dstEvent;
+  dstEvent.record(dipu::getCurrentDIPUStream(info.dstDevice_));
+  dstGuard.set_index(info.srcDevice_);
+  dstEvent.wait(info.curStream_);
+  if (block_cpu) {
+    dstEvent.synchronize();
+  }
+}
+
+inline void doDstStreamWaitSrcStream(const CopyParamsInfo& info,
+                                     bool block_cpu) {
+  DIPUEvent srcEvent;
+  srcEvent.record(info.curStream_);
+  DIPUGuard dstGuard(info.dstDevice_);
+  srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
+  if (block_cpu) {
+    srcEvent.synchronize();
+  }
+}
+
 class DIPUCopyBase {
  public:
   DIPUCopyBase() = default;
@@ -283,11 +307,7 @@ class DIPUCopyInplace : public DIPUCopyBase {
       tryRecordStream(src, info.curStream_, is_default_stream);
     }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      c10::DeviceGuard dstGuard(dst.device());
-      DIPUEvent dstEvent;
-      dstEvent.record(dipu::getCurrentDIPUStream(dst.device().index()));
-      dstGuard.set_index(src.device().index());
-      dstEvent.wait(info.curStream_);
+      doSrcStreamWaitDstStream(info, false);
     }
   }
 
@@ -298,10 +318,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
       curStream.synchronize();
     }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
-      DIPUEvent srcEvent;
-      srcEvent.record(curStream);
-      DIPUGuard dstGuard(info.dstDevice_);
-      srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
+      // dst wait src ready
+      doDstStreamWaitSrcStream(info, false);
     }
   }
 
