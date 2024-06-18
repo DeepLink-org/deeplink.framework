@@ -1,5 +1,5 @@
 # !/bin/bash
-set -ex
+set -exo pipefail
 
 source tests/common.sh
 

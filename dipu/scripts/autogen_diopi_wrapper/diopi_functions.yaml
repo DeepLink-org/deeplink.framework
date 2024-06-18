@@ -765,7 +765,7 @@
   interface: diopiNegInp(ctx, self)
 
 - schema: "neg(Tensor self) -> Tensor"
-  device: [cuda, ascend]
+  device: [cuda, muxi, ascend]
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty_like(self);
   interface: diopiNeg(ctx, out, self)
@@ -838,7 +838,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
-  torch_ver: ["20101",]
+  torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
@@ -847,14 +847,14 @@
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
-  torch_ver: ["20101",]
+  torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
     bool unbiased = correction.value_or(1).toLong() == 1;
   interface: diopiStd(ctx, out, self, diopi_size, unbiased);
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  device: [all, -cuda, -ascend]
+  device: [all, -cuda, -muxi, -ascend]
   custom_fallback: True
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
@@ -873,7 +873,7 @@
 
 - schema: "linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor"
   custom_fallback: True
-  device: [all, -cuda, -ascend]
+  device: [all, -cuda, -muxi, -ascend]
   custom_code_at_the_beginning: |
     std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
@@ -1485,7 +1485,7 @@
   interface: diopiMaskedSelect(ctx, &out, self, mask);
 
 - schema: "baddbmm(Tensor self, Tensor batch1, Tensor batch2, *, Scalar beta=1, Scalar alpha=1) -> Tensor"
-  device: [cuda, ascend]
+  device: [cuda, muxi, ascend]
   custom_code_at_the_beginning: |
     double betaDouble = beta.toDouble();
     double alphaDouble = alpha.toDouble();
@@ -2852,7 +2852,7 @@
   generate_device_guard: False
   dummy_call_diopi: True
   custom_fallback: True
-  device: [cuda, camb, ascend, droplet, supa, kunlunxin]
+  device: [cuda, muxi, camb, ascend, droplet, supa, kunlunxin]
   custom_code_at_the_beginning: |
     dipu::getDipuCopyInstance()->run(self, src, non_blocking);
     return self;
