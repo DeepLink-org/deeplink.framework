@@ -1,6 +1,6 @@
 [submodule "dipu/third_party/DIOPI"]
 	path = dipu/third_party/DIOPI
-	url = https://github.com/DeepLink-org/DIOPI.git
+	url = https://github.com/DeepLink-org/DIOPI/commit/64cfbfc43f3c3be8624ac66bfb09118144f94c53
 [submodule "dipu/third_party/kineto"]
 	path = dipu/third_party/kineto
 	url = https://github.com/DeepLink-org/kineto.git
