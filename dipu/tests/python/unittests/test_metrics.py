@@ -1,4 +1,5 @@
 # Copyright (c) 2023, DeepLink.
+import os
 import random
 import torch
 import torch_dipu
@@ -34,7 +35,10 @@ def allocate_tensor(count: int) -> int:
 
 
 class TestMetrics(TestCase):
-    def test_allocator_metrics(self):
+    def test_bfc_allocator_metrics(self):
+        if os.environ.get("DIPU_DEVICE_MEMCACHING_ALGORITHM", "") != "BF":
+            return
+
         allocate_tensor(1)  # preheat
 
         name = "allocator_size"
@@ -53,10 +57,8 @@ class TestMetrics(TestCase):
         count = sum(next_bucket) - sum(last_bucket)
         total = next_size - last_size
 
-        l = sum(next_bucket)
-        r = sum(last_bucket)
         self.assertEqual(last_label, next_label)
-        self.assertEqual(expected_count, count, msg=f"{next_label}: {l} - {r}")
+        self.assertEqual(expected_count, count, msg=f"{expected_count} == {count}")
         self.assertLessEqual(expected_total, total, msg=f"{expected_total} <= {total}")
 
 
