@@ -168,10 +168,10 @@ _set_cpp_flags()
 # if add new version, please also update dipu/__init__.py torch_ver_XX
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
 
-# dipu for now depends on torch_muxi. after changing to use torch_cpu, remove it.
-if (${DEVICE} IN_LIST DEVICE_MUXI)
+# use muxi torch. if device is muxi and torch has 'cuda'(muxi).
+if (${DEVICE} IN_LIST DEVICE_MUXI AND DIPU_TORCH_HAS_CUDA)
   set(USE_MACA ON)
-  #  set global compile def for now.
+  # it's used in muxi torch and all targets using torch header file need it.
   add_compile_definitions(USE_MACA=1)
 endif()
 
