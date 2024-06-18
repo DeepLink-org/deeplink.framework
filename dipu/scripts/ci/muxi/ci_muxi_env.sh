@@ -20,4 +20,6 @@ export DIPU_CHECK_TENSOR_DEVICE=1
 export MKL_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 
+# TODO: add muxi ci specific variable.
+
 # source activate $ENV_NAME
