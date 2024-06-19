@@ -17,6 +17,10 @@ find_package(Threads REQUIRED)
 # TODO(vendor) - make vendor targets.
 add_subdirectory(vendor/${UsedVendor})
 
+message(STATUS "VENDOR_INCLUDE_DIRS: ${VENDOR_INCLUDE_DIRS}")
+message(STATUS "VENDOR_LIB_DIRS:  ${VENDOR_LIB_DIRS}")
+message(STATUS "DIPU_VENDOR_LIB:  ${DIPU_VENDOR_LIB}")
+
 # TODO(vendor) - Refactor those command after vendor is ready.
 set(VENDOR_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dist/include")
 set(VENDOR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
@@ -91,6 +95,8 @@ set(TORCH_DIPU_SOURCE
 
   diopirt/diopirt_impl.cpp
   diopirt/diopi_helper.cpp
+
+  metrics/metrics.cpp
 
   profiler/collection.cpp
   profiler/CorrelationIDManager.cpp

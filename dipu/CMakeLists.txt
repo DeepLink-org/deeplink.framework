@@ -42,6 +42,7 @@ set(DEVICE
     CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
 list(APPEND DEVICE_CUDA "CUDA" "cuda")
+list(APPEND DEVICE_MUXI "MUXI", "muxi")
 list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
@@ -56,6 +57,10 @@ if(${DEVICE} IN_LIST DEVICE_CUDA)
   set(USE_CUDA ON)
   set(UsedVendor cuda)
   set(DIOPI_IMPL_OPT "torch")
+elseif(${DEVICE} IN_LIST DEVICE_MUXI)
+  set(USE_KUNLUNXIN ON)
+  set(UsedVendor muxi)
+  set(DIOPI_IMPL_OPT "muxi")
 elseif(${DEVICE} IN_LIST DEVICE_CAMB)
   set(USE_CAMB ON)
   set(UsedVendor camb)
@@ -137,6 +142,8 @@ endif()
 list(GET CHECK_TORCH_OUT_LIST 3 TORCH_CMAKE_PREFIX)
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX})
 
+list(GET CHECK_TORCH_OUT_LIST 4 DIPU_TORCH_HAS_CUDA)
+
 message(STATUS "DIPU_ABI_V: ${DIPU_ABI_V}")
 add_compile_options(-fabi-version=${DIPU_ABI_V})
 message(STATUS "CMAKE_PREFIX_PATH: " ${CMAKE_PREFIX_PATH})
@@ -160,6 +167,13 @@ _set_cpp_flags()
 
 # if add new version, please also update dipu/__init__.py torch_ver_XX
 list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
+
+# use muxi torch. if device is muxi and torch has 'cuda'(muxi).
+if (${DEVICE} IN_LIST DEVICE_MUXI AND DIPU_TORCH_HAS_CUDA)
+  set(USE_MACA ON)
+  # it's used in muxi torch and all targets using torch header file need it.
+  add_compile_definitions(USE_MACA=1)
+endif()
 
 find_package(Torch REQUIRED)
 

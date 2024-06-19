@@ -8,6 +8,7 @@
 #include <c10/util/Exception.h>
 
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
 #include "csrc_dipu/utils/env.hpp"
@@ -212,22 +213,27 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 void mallocHost(void** p, size_t nbytes) {
-  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
-  return devapis::mallocHost(p, nbytes);
+  devapis::mallocHost(p, nbytes);
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
 }
 
 void freeHost(void* p) {
-  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .deallocate(p);
   return devapis::freeHost(p);
 }
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
-  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
-  return devapis::mallocDevice(p, nbytes, throwExcepion);
+  auto code = devapis::mallocDevice(p, nbytes, throwExcepion);
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
+  return code;
 }
 
 void freeDevice(void* p) {
-  RECORD_FUNCTION(__FUNCTION__, std::vector<c10::IValue>());
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .deallocate(p);
   return devapis::freeDevice(p);
 }
 

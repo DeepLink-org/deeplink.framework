@@ -10,6 +10,7 @@
 #include "DIPUAsyncResourcePool.h"
 #include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
+#include "allocator_metrics.h"
 
 namespace dipu {
 
@@ -99,6 +100,8 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   mutable c10::Device device_ = c10::DeviceType::CPU;
 
  protected:
+  AllocatorMetrics mutable metrics_producer{{{"type", "caching"}}};
+
   c10::Allocator* raw_allocator() const { return raw_allocator_; }
 
   AsyncMemPool* async_mem_pool() const { return async_mem_pool_; }
@@ -113,6 +116,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   void set_raw_allocator(c10::Allocator* raw_allocator) {
     raw_allocator_ = raw_allocator;
     device_ = raw_allocator_->allocate(0).device();
+    metrics_producer.set_device_number(std::to_string(device_.index()));
   }
 
   void set_async_mem_pool(AsyncMemPool* async_mem_pool) {

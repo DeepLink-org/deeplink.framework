@@ -514,6 +514,7 @@ class BFCachingAllocator : public CacheAllocator {
                                   << ", device:" << allocator_->device());
       if (allocator_->impl) {
         if (ptr()) {
+          allocator_->metrics_producer.deallocate(ptr());
           std::deque<DIPUEvent> events;
           for (auto const& stream : streams()) {
             events.emplace_back();
@@ -561,6 +562,7 @@ class BFCachingAllocator : public CacheAllocator {
 
     set_memory_allocated(memory_allocated() + nbytes);
     set_memory_reserved(impl->memory_reserved());
+    metrics_producer.allocate(ptr, size);
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes, id),
                           deleteBFContext, device());
