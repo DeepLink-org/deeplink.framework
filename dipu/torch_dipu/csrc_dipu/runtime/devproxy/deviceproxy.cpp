@@ -6,6 +6,7 @@
 #include <c10/util/Exception.h>
 
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
+#include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
 
@@ -164,16 +165,29 @@ EventStatus getEventStatus(deviceEvent_t event) {
 //  mem related
 // =====================
 void mallocHost(void** p, size_t nbytes) {
-  return devapis::mallocHost(p, nbytes);
+  devapis::mallocHost(p, nbytes);
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
 }
 
-void freeHost(void* p) { return devapis::freeHost(p); }
+void freeHost(void* p) {
+  GlobalAllocatorGroupMetrics::host_allocator_metrics()[current_device()]
+      .deallocate(p);
+  return devapis::freeHost(p);
+}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
-  return devapis::mallocDevice(p, nbytes, throwExcepion);
+  auto code = devapis::mallocDevice(p, nbytes, throwExcepion);
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .allocate(p ? *p : nullptr, nbytes);
+  return code;
 }
 
-void freeDevice(void* p) { return devapis::freeDevice(p); }
+void freeDevice(void* p) {
+  GlobalAllocatorGroupMetrics::device_allocator_metrics()[current_device()]
+      .deallocate(p);
+  return devapis::freeDevice(p);
+}
 
 bool isPinnedPtr(const void* p) { return devapis::isPinnedPtr(p); }
 

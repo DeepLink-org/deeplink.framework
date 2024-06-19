@@ -1,5 +1,7 @@
 // Copyright (c) 2023, DeepLink.
 #include <sstream>
+#include <tuple>
+#include <utility>
 
 #include <ATen/autocast_mode.h>
 #include <c10/core/Device.h>
@@ -7,9 +9,13 @@
 #include <torch/csrc/utils/pybind.h>
 
 #include <pybind11/chrono.h>
+#include <pybind11/detail/common.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/DIPUGlobals.h"
+#include "csrc_dipu/metrics/metrics.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include "csrc_dipu/utils/vender_helper.hpp"
@@ -356,6 +362,29 @@ static void exportUtils(py::module& m) {
   m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
+static void exportMetrics(py::module& m) {
+  using group = metrics::ExportedGroup;
+
+  m.def("metrics", []() -> std::vector<group> {
+    return group::from_collector(metrics::default_collector());
+  });
+  m.def("is_metrics_enabled", []() -> bool { return metrics::enable(); });
+  m.def("enable_metrics", [](bool value) -> void { metrics::enable(value); });
+
+  py::class_<group>(m, "MetricsGroup")
+      .def(py::init<>())
+      .def_readwrite("name", &group::name)
+      .def_readwrite("type", &group::type)
+      .def_readwrite("info", &group::info)
+      .def_readwrite("values", &group::values)
+      .def("asdict", [](group const& x) -> py::dict {
+        // NOLINTNEXTLINE(google-build-using-namespace)
+        using namespace pybind11::literals;
+        return py::dict("name"_a = x.name, "type"_a = x.type, "info"_a = x.info,
+                        "values"_a = x.values);
+      });
+}
+
 extern void patchTorchCsrcDevice(PyObject* module);
 
 DIPU_API void exportDIPURuntime(PyObject* module) {
@@ -372,5 +401,6 @@ DIPU_API void exportDIPURuntime(PyObject* module) {
   exportGenerator(m);
   exportAutocast(m);
   exportUtils(m);
+  exportMetrics(m);
 }
 }  // namespace dipu

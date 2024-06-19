@@ -16,3 +16,4 @@ print(
 print(Path(torch.__path__[0]).parent.absolute())
 print(1 if torch.compiled_with_cxx11_abi() else 0)
 print(torch.utils.cmake_prefix_path)
+print(1 if torch.cuda.is_available() else 0)
