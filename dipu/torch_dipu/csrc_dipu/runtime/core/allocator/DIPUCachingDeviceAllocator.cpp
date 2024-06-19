@@ -1,5 +1,5 @@
 // Copyright (c) 2024, DeepLink.
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingDeviceAllocator.h"
+#include "DIPUCachingDeviceAllocator.h"
 
 #include <algorithm>
 #include <bitset>
@@ -26,12 +26,21 @@
 #include <c10/util/llvmMathExtras.h>
 
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
-#include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
-#include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
+#include "DIPUCachingAllocator.h"
+#include "ExpandableSegment.h"
+#include "allocator_metrics.h"
+
 // NOLINTBEGIN
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.0 c10/cuda/CUDACachingAllocator.cpp
+// Our changes:
+//    1. use dipu runtime api to replace CUDA API.
+//    2. make ExpandableSegment to an interface class, vendor should implement
+//    it if want to support expandable segments.
+//    3. remove EventPool class, DIPU already supports it.
+// ----------------------------------------------------------------------------
 namespace dipu::allocator {
 
 C10_DEFINE_REGISTRY(FreeDeviceMemoryCallbacksRegistry, FreeMemoryCallback);

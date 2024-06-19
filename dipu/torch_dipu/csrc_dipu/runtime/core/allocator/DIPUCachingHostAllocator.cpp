@@ -1,5 +1,5 @@
 // Copyright (c) 2024, DeepLink.
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
+#include "DIPUCachingHostAllocator.h"
 
 #include <cstdint>
 #include <deque>
@@ -13,6 +13,12 @@
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.0 aten/src/ATen/cuda/CachingHostAllocator.cpp
+// Our changes:
+//    1. use dipu runtime api to replace CUDA API.
+//    2. remove EventPool class, DIPU already supports it.
+// ----------------------------------------------------------------------------
 namespace dipu::allocator {
 namespace {
 

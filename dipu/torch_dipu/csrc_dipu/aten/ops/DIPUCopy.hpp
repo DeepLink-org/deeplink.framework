@@ -4,14 +4,18 @@
 #include <ATen/ATen.h>
 #include <ATen/MemoryOverlap.h>
 #include <ATen/Tensor.h>
+#include <c10/core/Device.h>
 #include <c10/core/DeviceGuard.h>
 #include <c10/core/Stream.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUGuard.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/rthelper.h"
@@ -55,10 +59,8 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
   assert_no_partial_overlap(dst, src);
 }
 
-// defined in DIPUCachingAllocator.cpp
-extern bool isTorchAllocator();
 inline void tryRecordOrSyncStream(const at::Tensor& dst, const at::Tensor& src,
-                                  DIPUStream& cur_stream) {
+                                  DIPUStream& cur_stream, bool block_cpu) {
   const bool is_default_stream = (dipu::getDefaultDIPUStream() == cur_stream);
   bool is_all_device_tensor = (!dst.is_cpu() && !src.is_cpu());
   // When copy from device to device, torch allocator ensure that malloc and
@@ -75,9 +77,11 @@ inline void tryRecordOrSyncStream(const at::Tensor& dst, const at::Tensor& src,
   const at::Tensor& device_tensor = (dst.is_cpu() ? src : dst);
   bool is_pinned = isPinnedPtr(cpu_tensor.storage().data());
   // When copy between cpu tensor(not pinned) and device tensor, do sync stream
-  // to ensure free safety.
+  // to ensure free safety while block_cpu is True.
   if (!is_pinned) {
-    dipu::devapis::syncStream(cur_stream.rawstream());
+    if (block_cpu) {
+      dipu::devapis::syncStream(cur_stream.rawstream());
+    }
     return;
   }
 
@@ -179,36 +183,9 @@ inline void doMemCopyH2H(const at::Tensor& dst, const at::Tensor& src,
 inline void doMemCopyD2D(const at::Tensor& dst, const at::Tensor& src,
                          dipu::DIPUStream& stream, int64_t nbytes,
                          bool isSynchronousCopy) {
-  const auto src_device = src.device();
-  const auto dst_device = dst.device();
-  const bool is_same_device = dst_device.index() == src_device.index();
-  c10::DeviceGuard src_guard(src_device);
-  // non_blocking (bool) – if True and this copy is between CPU and GPU, the
-  // copy may occur asynchronously with respect to the host. For other cases,
-  // this argument has no effect.
-  // We always perform the copy on the source device, using the current stream
-  // on the source device, and we fully synchronize on both src and dst's
-  // current streams for completion of the copy. We have to explicitly do this
-  // for non-contig copies. This mimics the behavior of cross-device
-  // cudaMemcpyAsync on the default stream.
-
-  if (!is_same_device) {
-    src_guard.set_index(dst_device.index());
-    DIPUEvent dstEvent;
-    dstEvent.record(dipu::getCurrentDIPUStream(dst_device.index()));
-    src_guard.set_index(src_device.index());
-    dstEvent.wait(stream);
-  }
   dipu::devproxy::memCopyD2DAsync(stream.rawstream(), nbytes,
                                   dst.device().index(), dst.data_ptr(),
                                   src.device().index(), src.data_ptr());
-  if (!is_same_device) {
-    src_guard.set_index(dst_device.index());
-    DIPUEvent srcEvent;
-    srcEvent.record(stream);
-    srcEvent.wait(dipu::getCurrentDIPUStream(dst_device.index()));
-    // srcEvent.synchronize(); // No need to block the CPU here?
-  }
 }
 
 inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
@@ -243,6 +220,8 @@ class CopyParamsInfo {
   bool sameSize_ = false;
   bool sameStride_ = false;
   bool denseAndNoOverlap_ = false;
+  c10::DeviceIndex srcDevice_ = -1;
+  c10::DeviceIndex dstDevice_ = -1;
 
   // composite info, can direct mem copy
   bool directMemCopy_ = false;
@@ -255,6 +234,8 @@ class CopyParamsInfo {
                          src.is_non_overlapping_and_dense();
     directMemCopy_ =
         sameDtype_ && sameSize_ && sameStride_ && denseAndNoOverlap_;
+    srcDevice_ = src.device().index();
+    dstDevice_ = dst.device().index();
   }
 
   explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
@@ -270,6 +251,29 @@ class CopyParamsInfo {
 
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
 };
+
+inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,
+                                     bool block_cpu) {
+  DIPUGuard dstGuard(info.dstDevice_);
+  DIPUEvent dstEvent;
+  dstEvent.record(dipu::getCurrentDIPUStream(info.dstDevice_));
+  dstGuard.set_index(info.srcDevice_);
+  dstEvent.wait(info.curStream_);
+  if (block_cpu) {
+    dstEvent.synchronize();
+  }
+}
+
+inline void doDstStreamWaitSrcStream(const CopyParamsInfo& info,
+                                     bool block_cpu) {
+  DIPUEvent srcEvent;
+  srcEvent.record(info.curStream_);
+  DIPUGuard dstGuard(info.dstDevice_);
+  srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
+  if (block_cpu) {
+    srcEvent.synchronize();
+  }
+}
 
 class DIPUCopyBase {
  public:
@@ -330,7 +334,11 @@ class DIPUCopyInplace : public DIPUCopyBase {
 
  protected:
   virtual void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
-                              bool non_blocking, CopyParamsInfo& info) {}
+                              bool non_blocking, CopyParamsInfo& info) {
+    if (DIPUCopyType::D2OtherD == info.copyType_) {
+      doSrcStreamWaitDstStream(info, false);
+    }
+  }
 
   virtual void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
                                bool non_blocking, const CopyParamsInfo& info,
@@ -340,7 +348,11 @@ class DIPUCopyInplace : public DIPUCopyBase {
     if (!non_blocking) {
       curStream.synchronize();
     } else {
-      tryRecordOrSyncStream(dst, src, curStream);
+      tryRecordOrSyncStream(dst, src, curStream, true);
+    }
+    if (DIPUCopyType::D2OtherD == info.copyType_) {
+      // dst wait src ready
+      doDstStreamWaitSrcStream(info, false);
     }
   }
 

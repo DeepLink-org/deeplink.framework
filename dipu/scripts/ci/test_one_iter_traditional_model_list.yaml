@@ -1,7 +1,7 @@
 camb:
     # # transformers
     - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
-    
+
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
     - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
@@ -108,5 +108,5 @@ ascend:
     # - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
 
 kunlunxin:
-    # mmpretrain    
-    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet" 
+    # mmpretrain
+    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"

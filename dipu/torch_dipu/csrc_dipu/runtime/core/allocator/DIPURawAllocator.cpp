@@ -9,8 +9,10 @@
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
-#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
+
+#include "DIPUCachingAllocator.h"
+#include "DIPUCachingHostAllocator.h"
 
 namespace dipu {
 

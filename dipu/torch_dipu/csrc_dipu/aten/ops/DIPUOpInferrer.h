@@ -2,6 +2,7 @@
 #pragma once
 
 #include <ATen/ATen.h>
+#include <c10/core/Device.h>
 
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/base/basedef.h"
@@ -22,8 +23,10 @@ class OpInferrerMeta {
  public:
   virtual ~OpInferrerMeta() = default;
   at::ScalarType common_dtype() const { return dtype_; }
+  at::Device common_device() const { return device_; }
   c10::DimVector target_shape() const { return shape_; }
   at::MemoryFormat memory_format() const { return memory_format_; }
+  void compute_device();
 
  protected:
   // Protected constructor to prevent direct instantiation
@@ -44,6 +47,7 @@ class OpInferrerMeta {
   at::ScalarType dtype_ = at::ScalarType::Undefined;
   at::MemoryFormat memory_format_ = at::MemoryFormat::Contiguous;
   c10::DimVector strides_;
+  c10::Device device_ = dipu::DIPU_DEVICE_TYPE;
 };
 
 // This class is intended as a base class only and should not be instantiated

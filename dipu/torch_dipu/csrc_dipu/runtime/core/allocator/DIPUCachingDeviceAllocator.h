@@ -17,6 +17,10 @@
 
 namespace dipu::allocator {
 
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.0 c10/cuda/CUDACachingAllocator.h
+// ----------------------------------------------------------------------------
+
 #if DIPU_TORCH_VERSION >= 20100
 using GatheredContext = c10::GatheredContext;
 #else

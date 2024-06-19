@@ -37,6 +37,7 @@ at::Tensor dipu_aten::empty(at::IntArrayRef size,
                             c10::optional<at::Device> device_opt,
                             c10::optional<bool> pin_memory_opt,
                             c10::optional<at::MemoryFormat> memory_format_opt) {
+  c10::OptionalDeviceGuard guard(device_opt);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() ==
                                    dipu::DIPU_DEVICE_TYPE);
@@ -75,6 +76,7 @@ at::Tensor dipu_aten::empty_strided(at::IntArrayRef size,
                                     c10::optional<at::Layout> layout_opt,
                                     c10::optional<at::Device> device_opt,
                                     c10::optional<bool> pin_memory_opt) {
+  c10::OptionalDeviceGuard guard(device_opt);
   dipu::profile::RecordBlockCreator dipu_recorder(__FUNCTION__);
   auto device = c10::device_or_default(device_opt);
   AT_ASSERT(device.type() == dipu::DIPU_DEVICE_TYPE);
@@ -93,6 +95,9 @@ at::Tensor dipu_aten::empty_strided_cpu(at::IntArrayRef size,
                                         c10::optional<at::Layout> layout_opt,
                                         c10::optional<at::Device> device_opt,
                                         c10::optional<bool> pin_memory_opt) {
+#if !defined(DIPU_VENDOR_NAME_CAMB)
+  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
+#endif
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() ==
                                    c10::DeviceType::CPU);
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) ==

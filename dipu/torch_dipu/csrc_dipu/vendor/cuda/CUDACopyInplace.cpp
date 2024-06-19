@@ -28,13 +28,8 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
                        DIPUStream& curStream) override {
     // If non_blocking is False, sync stream after copy.
     // If non_blocking is True, record stream to ensure tensor free safety.
-    if (!non_blocking) {
-      // for d2d cases, ignoring `non_blocking` for better performance
-      if (info.copyType_ != DIPUCopyType::D2Self) {
-        dipu::devapis::syncStream(curStream.rawstream());
-      }
-    } else {
-      tryRecordOrSyncStream(dst, src, curStream);
+    if (non_blocking) {
+      tryRecordOrSyncStream(dst, src, curStream, false);
     }
   }
 };

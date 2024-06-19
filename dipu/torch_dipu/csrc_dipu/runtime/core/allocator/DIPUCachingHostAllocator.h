@@ -7,6 +7,10 @@
 
 namespace dipu::allocator {
 
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.0 aten/src/ATen/cuda/CachingHostAllocator.h
+// ----------------------------------------------------------------------------
+
 //
 // A caching allocator for host allocations (pinned memory).
 //
