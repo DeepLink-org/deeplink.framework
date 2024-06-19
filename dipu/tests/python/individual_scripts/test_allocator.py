@@ -11,6 +11,7 @@ def test_allocator(
     test_pin_memory: bool = True,
 ):
     os.environ["DIPU_DEVICE_MEMCACHING_ALGORITHM"] = algorithm
+    os.environ["DIPU_HOST_MEMCACHING_ALGORITHM"] = algorithm
     os.environ["DIPU_DEBUG_ALLOCATOR"] = str(log_mask)
     os.environ["DIPU_MEM_CHECK"] = "1"
     os.environ["DIPU_MEM_CHECK_LOG_INTERVAL"] = "100000"
@@ -79,6 +80,7 @@ if __name__ == "__main__":
         itertools.product(
             (test_allocator,),
             (
+                {"args": (MAX_ALLOCATE, 1, "TORCH", 0)},
                 {"args": (MAX_ALLOCATE, 1, "BF", 0)},
                 {"args": (MAX_ALLOCATE, 1, "BS", 0)},
                 {"args": (MAX_ALLOCATE, 1, "RAW", 0)},
