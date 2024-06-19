@@ -16,6 +16,8 @@ size_t maxMemoryReserved(const c10::Device& device);
 
 size_t maxMemoryAllocated(const c10::Device& device);
 
+void resetPeakStats(const c10::Device& device);
+
 void emptyCachedMem();
 
 void initCachedAllocator();

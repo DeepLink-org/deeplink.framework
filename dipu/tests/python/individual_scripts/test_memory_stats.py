@@ -30,10 +30,18 @@ def test_mem_stats(algorithm: str, log_mask: int):
         print(
             f"numel:{numel}, allocated:{allocated}, reserved:{reserved}, real_allocated:{real_allocated}"
         )
-        assert allocated == real_allocated
+        if algorithm == "TORCH":
+            # Large pool will not split block when remain size smaller than 1MB.
+            # So allocated will large than real_allocated.
+            assert allocated >= real_allocated
+        else:
+            assert allocated == real_allocated
         assert allocated == allocated_default
         assert allocated == allocated_by_index
-        assert pin_allocated == real_allocated
+        if algorithm == "TORCH":
+            assert pin_allocated == 0
+        else:
+            assert pin_allocated == real_allocated
         assert reserved >= allocated
         del x, y
 
@@ -43,7 +51,10 @@ def test_mem_stats(algorithm: str, log_mask: int):
         numel = ins[0].numel()
         real_allocated -= ((numel * 4 - 1) | 511) + 1
         ins.pop(0)
-        assert torch.cuda.memory_allocated() == real_allocated
+        if algorithm == "TORCH":
+            assert torch.cuda.memory_allocated() >= real_allocated
+        else:
+            assert torch.cuda.memory_allocated() == real_allocated
 
     del pin_ins
 
@@ -58,8 +69,16 @@ def test_mem_stats(algorithm: str, log_mask: int):
 
     assert torch.cuda.memory_reserved() == 0
     assert torch.cuda.memory_allocated() == 0
-    assert torch.cuda.max_memory_allocated() == real_max_allocate
+    if algorithm == "TORCH":
+        assert torch.cuda.max_memory_allocated() > real_max_allocate
+    else:
+        assert torch.cuda.max_memory_allocated() == real_max_allocate
     assert torch.cuda.max_memory_reserved() > 0
+
+    if algorithm == "TORCH":
+        assert torch.cuda.max_memory_allocated() > torch.cuda.memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+        assert torch.cuda.max_memory_allocated() == torch.cuda.memory_allocated()
 
 
 if __name__ == "__main__":
@@ -67,6 +86,7 @@ if __name__ == "__main__":
         itertools.product(
             (test_mem_stats,),
             (
+                {"args": ("TORCH", 0)},
                 {"args": ("BF", 0)},
                 {"args": ("BS", 0)},
                 {"args": ("RAW", 0)},

@@ -285,4 +285,8 @@ def memory_summary(device=None, abbreviated=False):
 
 
 def reset_peak_memory_stats(device: Union[Device, int] = None) -> None:
-    pass
+    if device is None:
+        device = current_device()
+    if isinstance(device, int):
+        device = torch.device(__dipu__ + ":" + str(device))
+    _C.reset_peak_memory_stats(device)

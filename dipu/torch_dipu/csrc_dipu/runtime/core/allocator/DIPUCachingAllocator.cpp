@@ -303,6 +303,12 @@ size_t maxMemoryAllocated(const c10::Device& device) {
   return 0;
 }
 
+void resetPeakStats(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    return allocator::resetPeakStats(device.index());
+  }
+}
+
 void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
   if (isTorchAllocator()) {
     allocator::recordStream(ptr, stream);

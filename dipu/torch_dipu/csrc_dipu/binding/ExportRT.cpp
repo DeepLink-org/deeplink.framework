@@ -268,6 +268,9 @@ static void exportMemCaching(py::module& m) {
   m.def("max_memory_allocated", [](const c10::Device& device) -> size_t {
     return maxMemoryAllocated(device);
   });
+
+  m.def("reset_peak_memory_stats",
+        [](const c10::Device& device) -> void { resetPeakStats(device); });
 }
 
 static void patchStorage(py::module& m) {
