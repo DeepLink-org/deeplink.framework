@@ -141,7 +141,6 @@ c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
           at::DeviceType::CPU};
 }
 
-extern bool isTorchAllocator();
 bool isPinnedPtr(const void* ptr) {
   if (isTorchAllocator()) {
     return allocator::CachingHostAllocator_isPinnedPtr(ptr);
