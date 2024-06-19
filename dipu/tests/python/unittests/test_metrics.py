@@ -45,7 +45,10 @@ class TestMetrics(TestCase):
         self.assertTrue(torch_dipu._C.is_metrics_enabled())
 
     def test_allocator_metrics(self):
-        if os.environ.get("DIPU_DEVICE_MEMCACHING_ALGORITHM", "TORCH") not in ["BF", "TORCH"]:
+        if os.environ.get("DIPU_DEVICE_MEMCACHING_ALGORITHM", "TORCH") not in [
+            "BF",
+            "TORCH",
+        ]:
             return
 
         allocate_tensor(1)  # preheat

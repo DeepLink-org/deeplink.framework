@@ -103,6 +103,24 @@ class TestCopy(TestCase):
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
 
+    @staticmethod
+    def copy_tensor(device_tensor, val):
+        cpu_tensor = torch.empty(
+            device_tensor.shape, dtype=torch.float32, pin_memory=False
+        ).fill_(val)
+        device_tensor.copy_(cpu_tensor, non_blocking=True)
+        del cpu_tensor
+
+    def test_h2d_copy_(self):
+        tensor_list = []
+        for i in range(500):
+            device_tensor = torch.empty(100, 100, dtype=torch.float32, device="cuda")
+            self.copy_tensor(device_tensor, float(i))
+            tensor_list.append(device_tensor)
+
+        for i in range(500):
+            assert torch.all(tensor_list[i] == float(i))
+
 
 if __name__ == "__main__":
     run_tests()

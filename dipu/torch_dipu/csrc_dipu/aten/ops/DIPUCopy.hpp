@@ -55,6 +55,7 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
   assert_no_partial_overlap(dst, src);
 }
 
+// defined in DIPUCachingAllocator.cpp
 extern bool isTorchAllocator();
 inline void tryRecordOrSyncStream(const at::Tensor& dst, const at::Tensor& src,
                                   DIPUStream& cur_stream) {
