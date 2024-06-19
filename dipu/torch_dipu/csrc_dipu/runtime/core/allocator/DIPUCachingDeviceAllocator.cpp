@@ -25,6 +25,7 @@
 #include <c10/util/irange.h>
 #include <c10/util/llvmMathExtras.h>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
@@ -264,7 +265,7 @@ class CachingAllocatorConfig {
   // This is used to round-up allocation size to nearest power of 2 divisions.
   // More description below in function roundup_power2_next_division
   // As ane example, if we want 4 divisions between 2's power, this can be done
-  // using env variable: PYTORCH_CUDA_ALLOC_CONF=roundup_power2_divisions:4
+  // using env variable: TORCH_ALLOCATOR_CONF=roundup_power2_divisions:4
   static size_t roundup_power2_divisions(size_t size) {
     size_t log_size = (63 - c10::llvm::countLeadingZeros(size));
 
@@ -286,8 +287,7 @@ class CachingAllocatorConfig {
   static CachingAllocatorConfig& instance() {
     static CachingAllocatorConfig* s_instance = ([]() {
       auto inst = new CachingAllocatorConfig();
-      const char* env = getenv("PYTORCH_CUDA_ALLOC_CONF");
-      inst->parseArgs(env);
+      inst->parseArgs(environ::torchAllocatorConf().c_str());
       return inst;
     })();
     return *s_instance;
@@ -693,7 +693,7 @@ class DeviceCachingAllocator {
           " If reserved but unallocated memory is large try setting "
           "max_split_size_mb to avoid"
           " fragmentation.  See documentation for Memory Management and "
-          "PYTORCH_CUDA_ALLOC_CONF",
+          "TORCH_ALLOCATOR_CONF",
           "");
     }
 
@@ -1793,17 +1793,6 @@ class DeviceCachingAllocator {
   }
 };  // namespace
 
-// Returns whether to force all allocations to bypass the caching allocator and
-// go straight to cudaMalloc.  This setting is useful when debugging GPU memory
-// errors, since the caching allocator foils cuda-memcheck.
-bool forceUncachedAllocator() {
-  static bool force_uncached =
-      getenv("PYTORCH_NO_CUDA_MEMORY_CACHING") != nullptr;
-  return force_uncached;
-}
-
-static void uncached_delete(void* ptr) { devproxy::freeDevice(ptr); }
-
 void local_raw_delete(void* ptr);
 
 class NativeCachingAllocator : public DeviceAllocator {
@@ -1962,13 +1951,6 @@ class NativeCachingAllocator : public DeviceAllocator {
         "CUDA out of memory. Tried to allocate more than 1EB memory.");
     devapis::deviceId_t device = devproxy::current_device();
     void* r = nullptr;
-    if (forceUncachedAllocator()) {
-      // Deliberately don't use cudaMallocMaybeCapturing here, to force an error
-      // if someone tries to use forceUncachedAllocator while capturing.
-      devproxy::mallocDevice(&r, size);
-      return {r, r, &uncached_delete,
-              c10::Device(dipu::DIPU_DEVICE_TYPE, device)};
-    }
     if (size != 0) {
       // Allocator declars allocate const!?
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
@@ -1982,12 +1964,7 @@ class NativeCachingAllocator : public DeviceAllocator {
                         static_cast<c10::DeviceIndex>(device))};
   }
 
-  c10::DeleterFnPtr raw_deleter() const override {
-    if (forceUncachedAllocator()) {
-      return &uncached_delete;
-    }
-    return &local_raw_delete;
-  }
+  c10::DeleterFnPtr raw_deleter() const override { return &local_raw_delete; }
 
   void cacheInfo(int dev_id, size_t* largestBlock) override {
     device_allocator[dev_id]->cacheInfo(largestBlock);

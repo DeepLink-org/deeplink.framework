@@ -90,6 +90,7 @@ DIPU_ENV_VAR(dipuHostMemCachingAlgorithm, "DIPU_HOST_MEMCACHING_ALGORITHM",
              std::string, kTorchAllocatorName);
 DIPU_ENV_VAR(dipuDeviceMemCachingAlgorithm, "DIPU_DEVICE_MEMCACHING_ALGORITHM",
              std::string, kTorchAllocatorName);
+DIPU_ENV_VAR(torchAllocatorConf, "TORCH_ALLOCATOR_CONF", std::string, "");
 
 #undef DIPU_ENV_VAR
 
