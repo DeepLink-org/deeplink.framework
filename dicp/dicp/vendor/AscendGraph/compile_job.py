@@ -35,7 +35,6 @@ class AscendGECompileGERunJob(DeviceCompileJob):
             extra=cpp_compile_command("i", "o", vec_isa=picked_vec_isa) +
             str(self.device_id) + code_hash(compile_file_code)
         )
-        # print('## graph json: ', self._input_path)
         self._lib_path = "/tmp/dicp_ascend/ge_graph.so"
         json_util_path = third_party_path + '/nlohmann'
         half_util_path = third_party_path + '/half/include'
@@ -43,7 +42,7 @@ class AscendGECompileGERunJob(DeviceCompileJob):
         self._cmd = ['/usr/bin/c++',
                      '-D_GLIBCXX_USE_CXX11_ABI=0',
                      '-fPIC',
-                     '-std=c++14',
+                     '-std=c++17',
                      '-O3',
                      '-shared',
                      '-Wall',
@@ -134,7 +133,7 @@ class AscendGECompileAclRunJob(DeviceCompileJob):
         self._cmd = ['/usr/bin/c++',
                      '-D_GLIBCXX_USE_CXX11_ABI=0',
                      '-fPIC',
-                     '-std=c++14',
+                     '-std=c++17',
                      '-O3',
                      '-shared',
                      '-Wall',

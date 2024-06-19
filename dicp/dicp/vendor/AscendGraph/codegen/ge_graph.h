@@ -83,7 +83,7 @@ class GEGraph {
     inputs.clear();
     CHECK(shapes.size() == dtypes.size() && shapes.size() == formats.size());
     auto size = shapes.size();
-    for (auto i = 0; i < size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
       inputs.emplace_back(ge::TensorDesc(shapes[i], formats[i], dtypes[i]));
       inputs[i].SetPlacement(ge::Placement::kPlacementDevice);
     }
@@ -95,7 +95,7 @@ class GEGraph {
     outputs.clear();
     CHECK(shapes.size() == dtypes.size() && shapes.size() == formats.size());
     auto size = shapes.size();
-    for (auto i = 0; i < size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
       outputs.emplace_back(ge::TensorDesc(shapes[i], formats[i], dtypes[i]));
       outputs[i].SetPlacement(ge::Placement::kPlacementDevice);
     }
@@ -104,7 +104,7 @@ class GEGraph {
   void update_inputs(const std::vector<ge::Shape>& shapes) {
     CHECK(inputs.size() == shapes.size());
     auto size = shapes.size();
-    for (auto i = 0; i < size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
       auto desc = inputs[i].GetTensorDesc();
       desc.SetShape(shapes[i]);
       CALL_FUNC(inputs[i].SetTensorDesc(desc));
@@ -114,7 +114,7 @@ class GEGraph {
   void update_outputs(const std::vector<ge::Shape>& shapes) {
     CHECK(outputs.size() == shapes.size());
     auto size = shapes.size();
-    for (auto i = 0; i < size; ++i) {
+    for (unsigned int i = 0; i < size; ++i) {
       auto desc = outputs[i].GetTensorDesc();
       desc.SetShape(shapes[i]);
       CALL_FUNC(outputs[i].SetTensorDesc(desc));
