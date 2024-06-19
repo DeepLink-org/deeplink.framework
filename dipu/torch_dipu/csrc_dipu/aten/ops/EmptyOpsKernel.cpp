@@ -56,9 +56,6 @@ at::Tensor dipu_aten::empty_cpu(
     c10::optional<at::Layout> layout_opt, c10::optional<at::Device> device_opt,
     c10::optional<bool> pin_memory_opt,
     c10::optional<at::MemoryFormat> memory_format_opt) {
-#if !defined(DIPU_VENDOR_NAME_CAMB)
-  dipu::DIPUGuard grard(dipu::DIPU_DEVICE_TYPE);
-#endif
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::device_or_default(device_opt).type() ==
                                    c10::DeviceType::CPU);
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(c10::layout_or_default(layout_opt) ==
