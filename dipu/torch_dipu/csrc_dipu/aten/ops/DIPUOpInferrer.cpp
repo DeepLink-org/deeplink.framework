@@ -48,6 +48,17 @@ inline bool cat_should_skip_tensor(const at::Tensor& t) {
 
 }  // namespace native
 
+void OpInferrerMeta::compute_device() {
+  TORCH_CHECK(!inputs_.empty(),
+              "No input tensors provided for shape computation");
+  for (const auto& tensor : inputs_) {
+    if (!tensor->is_cpu()) {
+      device_ = tensor->device();
+      return;
+    }
+  }
+}
+
 void OpInferrer::compute_shape() {
   TORCH_CHECK(!inputs_.empty(),
               "No input tensors provided for shape computation");
@@ -69,8 +80,7 @@ void OpInferrerMeta::add_input(const at::Tensor& tensor) {
 }
 
 at::Tensor OpInferrerMeta::malloc_output() {
-  at::TensorOptions options =
-      at::TensorOptions().dtype(dtype_).device(dipu::DIPU_DEVICE_TYPE);
+  at::TensorOptions options = at::TensorOptions().dtype(dtype_).device(device_);
   auto out = native::nodispatch::empty(shape_, options, memory_format_);
 
   if (!strides_.empty()) {
@@ -232,6 +242,7 @@ at::Tensor BinaryOpInferrer::infer_out(const at::Tensor& self,
   compute_shape();
   compute_dtype();
   compute_memory_format();
+  compute_device();
   return malloc_output();
 }
 
@@ -246,6 +257,7 @@ at::Tensor BinaryFloatOpInferrer::infer_out(const at::Tensor& self,
     dtype_ = c10::typeMetaToScalarType(c10::get_default_dtype());
   }
   compute_memory_format();
+  compute_device();
   return malloc_output();
 }
 
@@ -254,6 +266,7 @@ at::Tensor UnaryOpInferrer::infer_out(const at::Tensor& self) {
   compute_shape();
   compute_dtype();
   compute_memory_format();
+  compute_device();
   return malloc_output();
 }
 
@@ -264,6 +277,7 @@ at::Tensor LogicOpInferrer::infer_out(const at::Tensor& self,
   compute_shape();
   dtype_ = at::ScalarType::Bool;
   compute_memory_format();
+  compute_device();
   return malloc_output();
 }
 
@@ -317,6 +331,7 @@ at::Tensor ReduceOpInferrer::infer_out(const at::Tensor& self,
     compute_dtype();
   }
   memory_format_ = at::MemoryFormat::Contiguous;
+  compute_device();
   return malloc_output();
 }
 
@@ -412,6 +427,7 @@ at::Tensor CatOpInferrer::infer_out(const at::ITensorListRef& tensors,
   compute_shape(dim);
   dtype_ = at::native::result_type(tensors);
   compute_memory_format();
+  compute_device();
   return malloc_output();
 }
 
