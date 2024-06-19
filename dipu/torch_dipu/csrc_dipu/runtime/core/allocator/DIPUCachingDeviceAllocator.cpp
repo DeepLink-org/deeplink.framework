@@ -28,6 +28,7 @@
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
+#include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 // NOLINTBEGIN
@@ -1810,6 +1811,7 @@ class NativeCachingAllocator : public DeviceAllocator {
 
  public:
   std::vector<std::unique_ptr<DeviceCachingAllocator>> device_allocator;
+  std::vector<std::unique_ptr<AllocatorMetrics>> metrics_producer;
 
   Block* get_allocated_block(void* ptr, bool remove = false) {
     std::lock_guard<std::mutex> lock(mutex);
@@ -1828,8 +1830,13 @@ class NativeCachingAllocator : public DeviceAllocator {
     const auto size = static_cast<int64_t>(device_allocator.size());
     if (size < device_count) {
       device_allocator.resize(device_count);
+      metrics_producer.resize(device_count);
       for (const auto i : c10::irange(size, device_count)) {
         device_allocator[i] = std::make_unique<DeviceCachingAllocator>();
+        static const metrics::Collector::labelset lable_set{
+            {"type", "caching"}};
+        metrics_producer[i] = std::make_unique<AllocatorMetrics>(lable_set);
+        metrics_producer[i]->set_device_number(std::to_string(i));
       }
     }
   }
@@ -1845,6 +1852,7 @@ class NativeCachingAllocator : public DeviceAllocator {
     Block* block = device_allocator[device]->malloc(device, size, stream);
     add_allocated_block(block);
     *devPtr = block->ptr;
+    metrics_producer[device]->allocate(block->ptr, block->size);
   }
 
   void free(void* ptr) {
@@ -1856,6 +1864,7 @@ class NativeCachingAllocator : public DeviceAllocator {
       TORCH_CHECK(false, "invalid device pointer: ", ptr);
     }
     device_allocator[block->device]->free(block);
+    metrics_producer[block->device]->deallocate(block->ptr);
   }
 
   void setMemoryFraction(double fraction, int device) override {

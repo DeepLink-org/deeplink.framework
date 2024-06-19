@@ -27,16 +27,25 @@ def lookup(groups: Iterable[MetricsGroup], name: str, labels: list[(str, str)]):
 
 def allocate_tensor(count: int) -> int:
     total = 0
+    tensor_list = []
     for _ in range(0, count):
         nbytes = random.randrange(0, 100000)
         total += nbytes
         tensor = torch.empty(size=(nbytes,), dtype=torch.uint8, device="dipu")
+        tensor_list.append(tensor)
     return total
 
 
 class TestMetrics(TestCase):
-    def test_bfc_allocator_metrics(self):
-        if os.environ.get("DIPU_DEVICE_MEMCACHING_ALGORITHM", "") != "BF":
+    def test_metrics_api(self):
+        self.assertTrue(torch_dipu._C.is_metrics_enabled())
+        torch_dipu._C.enable_metrics(False)
+        self.assertFalse(torch_dipu._C.is_metrics_enabled())
+        torch_dipu._C.enable_metrics(True)
+        self.assertTrue(torch_dipu._C.is_metrics_enabled())
+
+    def test_allocator_metrics(self):
+        if os.environ.get("DIPU_DEVICE_MEMCACHING_ALGORITHM", "TORCH") not in ["BF", "TORCH"]:
             return
 
         allocate_tensor(1)  # preheat
@@ -47,7 +56,6 @@ class TestMetrics(TestCase):
         last_label, _, last_bucket, last_size = lookup(
             torch_dipu._C.metrics(), name, labels
         )
-
         expected_count = 100
         expected_total = allocate_tensor(expected_count)  # allocate
 
