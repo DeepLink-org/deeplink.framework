@@ -29,8 +29,9 @@
 #define FAILED -1
 #define SUCCESS 0
 
-using json = nlohmann::json;
 using namespace ge;
+using json = nlohmann::json;
+using OperatorMap = std::unordered_map<std::string, ge::Operator>;
 
 static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
     "ConcatD", "IdentityN", "Pack", "SplitD", "SplitVD", "IncreFlashAttention"};
@@ -38,7 +39,7 @@ static std::unordered_set<std::string> op_with_dynamic_inputs_outputs = {
 void check_op(std::unordered_map<std::string, ge::Operator>& op_map,
               const std::string& op_name) {
   if (op_map.count(op_name) > 0) {
-    throw std::runtime_error("op_name duplicated!");
+    throw std::runtime_error("op_name duplicated: " + op_name);
   }
 }
 
@@ -144,7 +145,8 @@ ge::Format get_ascend_format(const std::string& format) {
   if (format_map.count(format) > 0) {
     return format_map[format];
   }
-  throw std::runtime_error("invalid ascend foramt!");
+  std::string error_msg = "invalid ascend foramt! format: " + format;
+  throw std::runtime_error(error_msg);
 }
 
 ge::DataType get_ascend_datatype(const std::string& data_type) {
@@ -157,7 +159,8 @@ ge::DataType get_ascend_datatype(const std::string& data_type) {
   if (datatype_map.count(data_type) > 0) {
     return datatype_map[data_type];
   }
-  throw std::runtime_error("invalid ascend data type!");
+  std::string error_msg = "invalid ascend data type! data type: " + data_type;
+  throw std::runtime_error(error_msg);
 }
 
 template <typename T>
@@ -185,15 +188,15 @@ void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
           }
         }
       } else {
-        throw std::runtime_error("invalid dynamic input name");
+        throw std::runtime_error("invalid dynamic input name: " + name);
       }
     }
   }
 }
 
-void parseIncreFlashAttentionDynamicInput(
-    std::unordered_map<std::string, ge::Operator>& op_map,
-    op::IncreFlashAttention& op, const json& node) {
+template <>
+void parseDynamicInput(std::unordered_map<std::string, ge::Operator>& op_map,
+                       op::IncreFlashAttention& op, const json& node) {
   if (node.contains("dynamic_inputs")) {
     int kv_inputs_num = 0;
     for (const auto& i : node["dynamic_inputs"]) {
@@ -208,7 +211,7 @@ void parseIncreFlashAttentionDynamicInput(
           op.set_dynamic_input_key(index, value);
         }
       } else if (name == "value") {
-        if (kv_inputs_num == 0 && num == kv_inputs_num) {
+        if (kv_inputs_num == 0 && static_cast<int>(num) == kv_inputs_num) {
           throw std::runtime_error(
               "need first set dynamic key input for IncreFlashAttention Op"
               "and kv_inputs_num == num !!");
@@ -220,7 +223,7 @@ void parseIncreFlashAttentionDynamicInput(
           op.set_dynamic_input_value(index, value);
         }
       } else {
-        throw std::runtime_error("invalid dynamic input name");
+        throw std::runtime_error("invalid dynamic input name: " + name);
       }
     }
   }
@@ -235,155 +238,217 @@ void parseDynamicOutput(T& op, const json& node) {
       if (name == "y") {
         op.create_dynamic_output_y(num);
       } else {
-        throw std::runtime_error("invalid dynamic output name");
+        throw std::runtime_error("invalid dynamic output name: " + name);
       }
     }
   }
 }
 
-ge::Operator genDynamicOperator(
-    std::unordered_map<std::string, ge::Operator>& op_map, const json& node) {
+ge::Operator genDynamicOperator(OperatorMap& op_map, const json& node) {
   auto op_type = node["op_type"].get<std::string>();
   auto op_name = node["op_name"].get<std::string>();
-  if (op_type == "ConcatD") {
-    auto op = genDynamicOp<op::ConcatD>(op_name);
-    parseDynamicInput<op::ConcatD>(op_map, op, node);
-    return op;
-  } else if (op_type == "IdentityN") {
-    auto op = genDynamicOp<op::IdentityN>(op_name);
-    parseDynamicInput<op::IdentityN>(op_map, op, node);
-    parseDynamicOutput(op, node);
-    return op;
-  } else if (op_type == "Pack") {
-    auto op = genDynamicOp<op::Pack>(op_name);
-    parseDynamicInput<op::Pack>(op_map, op, node);
-    return op;
-  } else if (op_type == "IncreFlashAttention") {
-    auto op = genDynamicOp<op::IncreFlashAttention>(op_name);
-    parseIncreFlashAttentionDynamicInput(op_map, op, node);
-    return op;
-  } else if (op_type == "SplitD") {
-    auto op = genDynamicOp<op::SplitD>(op_name);
-    parseDynamicOutput(op, node);
-    return op;
-  } else if (op_type == "SplitVD") {
-    auto op = genDynamicOp<op::SplitVD>(op_name);
-    parseDynamicOutput(op, node);
-    return op;
+
+  using OpHandler = std::function<ge::Operator(const std::string&, OperatorMap&,
+                                               const json&)>;
+  static const std::unordered_map<std::string, OpHandler> handlers = {
+      {"ConcatD",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::ConcatD>(op_name);
+         parseDynamicInput<op::ConcatD>(op_map, op, node);
+         return op;
+       }},
+      {"IdentityN",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::IdentityN>(op_name);
+         parseDynamicInput<op::IdentityN>(op_map, op, node);
+         parseDynamicOutput(op, node);
+         return op;
+       }},
+      {"Pack",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::Pack>(op_name);
+         parseDynamicInput<op::Pack>(op_map, op, node);
+         return op;
+       }},
+      {"IncreFlashAttention",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::IncreFlashAttention>(op_name);
+         parseDynamicInput<op::IncreFlashAttention>(op_map, op, node);
+         return op;
+       }},
+      {"SplitD",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::SplitD>(op_name);
+         parseDynamicOutput(op, node);
+         return op;
+       }},
+      {"SplitVD",
+       [](const std::string& op_name, OperatorMap& op_map, const json& node) {
+         auto op = genDynamicOp<op::SplitVD>(op_name);
+         parseDynamicOutput(op, node);
+         return op;
+       }}};
+
+  auto it = handlers.find(op_type);
+  if (it != handlers.end()) {
+    return it->second(op_name, op_map, node);
+  } else {
+    throw std::runtime_error("invalid dynamic operator: " + op_type);
   }
-  throw std::runtime_error("invalid dynamic opeartor!");
+}
+
+template <typename T>
+T getValue(const json& node, const std::string& key) {
+  try {
+    return node.at(key).get<T>();
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    std::cerr << "JSON Node: " << node.dump(4) << std::endl;
+    throw std::runtime_error("getValue failed!");
+  }
+}
+
+TensorDesc getTensorDescFromJson(const json& desc) {
+  auto format = getValue<std::string>(desc, "format");
+  auto data_type = getValue<std::string>(desc, "data_type");
+  auto shape = getValue<std::vector<int64_t>>(desc, "shape");
+  TensorDesc tensor_desc(ge::Shape(shape), get_ascend_format(format),
+                         get_ascend_datatype(data_type));
+  return tensor_desc;
+}
+
+void parseInputs(std::unordered_map<std::string, ge::Operator>& op_map,
+                 ge::Operator& op, const json& inputs) {
+  for (const auto& i : inputs) {
+    auto name = getValue<std::string>(i, "name").c_str();
+    auto value = op_map[getValue<std::string>(i, "value")];
+
+    if (i.contains("index")) {
+      op.SetInput(name, value, getValue<int>(i, "index"));
+    } else if (i.contains("update_desc")) {
+      auto desc = i["update_desc"];
+      auto tensor_desc = getTensorDescFromJson(desc);
+      auto output_name = getValue<std::string>(desc, "output_name");
+      if (output_name != "none") {
+        op_map[getValue<std::string>(i, "value")].UpdateOutputDesc(
+            output_name.c_str(), tensor_desc);
+      } else {
+        op.UpdateInputDesc(name, tensor_desc);
+      }
+      op.SetInput(name, value);
+    } else {
+      op.SetInput(name, value);
+    }
+  }
+}
+
+void parseOutputs(ge::Operator& op, const json& outputs) {
+  for (const auto& i : outputs) {
+    auto name = getValue<std::string>(i, "output_name").c_str();
+    auto tensor_desc = getTensorDescFromJson(i["update_desc"]);
+    op.UpdateOutputDesc(name, tensor_desc);
+  }
+}
+
+template <typename T>
+void setTensorAttrHelper(ge::Operator& op, const std::string& attr_name,
+                         const json& attr, const std::vector<int64_t>& dims,
+                         const ge::Format& format,
+                         const ge::DataType& data_type) {
+  auto value = getValue<std::vector<T>>(attr, "tensor_value");
+  auto tensor = genTensorWithData<T>(dims, format, data_type, value);
+  op.SetAttr(attr_name.c_str(), tensor);
+}
+
+void setTensorAttr(ge::Operator& op, const std::string& attr_name,
+                   const json& attr) {
+  auto cpp_data_type = getValue<std::string>(attr, "tensor_cpp_data_type");
+  auto data_type =
+      get_ascend_datatype(getValue<std::string>(attr, "tensor_data_type"));
+  auto format = get_ascend_format(getValue<std::string>(attr, "tensor_format"));
+  auto dims = getValue<std::vector<int64_t>>(attr, "tensor_dims");
+
+  if (cpp_data_type == "FLOAT") {
+    setTensorAttrHelper<float>(op, attr_name, attr, dims, format, data_type);
+  } else if (cpp_data_type == "FLOAT16") {
+    auto values = getValue<std::vector<float>>(attr, "tensor_value");
+    std::vector<half_float::half> half_values(values.begin(), values.end());
+    auto tensor = genTensorWithData<half_float::half>(dims, format, data_type,
+                                                      half_values);
+    op.SetAttr(attr_name.c_str(), tensor);
+  } else if (cpp_data_type == "INT32") {
+    setTensorAttrHelper<int>(op, attr_name, attr, dims, format, data_type);
+  } else if (cpp_data_type == "INT64") {
+    setTensorAttrHelper<int64_t>(op, attr_name, attr, dims, format, data_type);
+  } else {
+    throw std::runtime_error("invalid cpp data type: " + cpp_data_type);
+  }
+}
+
+void parseAttrs(ge::Operator& op, const json& attrs) {
+  using AttrHandler =
+      std::function<void(ge::Operator&, const std::string&, const json&)>;
+  static const std::unordered_map<std::string, AttrHandler> handlers = {
+      {"str",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<std::string>(attr, "value"));
+       }},
+      {"dtype_str",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         auto value = getValue<std::string>(attr, "value");
+         op.SetAttr(name.c_str(), get_ascend_datatype(value));
+       }},
+      {"list_int",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(),
+                    getValue<std::vector<int64_t>>(attr, "value"));
+       }},
+      {"list_float",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<std::vector<float>>(attr, "value"));
+       }},
+      {"float",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<float>(attr, "value"));
+       }},
+      {"int",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<int>(attr, "value"));
+       }},
+      {"bool",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<bool>(attr, "value"));
+       }},
+      {"int64_t",
+       [](ge::Operator& op, const std::string& name, const json& attr) {
+         op.SetAttr(name.c_str(), getValue<int64_t>(attr, "value"));
+       }},
+      {"tensor", [](ge::Operator& op, const std::string& name,
+                    const json& attr) { setTensorAttr(op, name, attr); }}};
+
+  for (const auto& attr : attrs) {
+    auto attr_name = getValue<std::string>(attr, "name");
+    auto value_type = getValue<std::string>(attr, "value_type");
+
+    auto it = handlers.find(value_type);
+    if (it != handlers.end()) {
+      it->second(op, attr_name, attr);
+    } else {
+      throw std::runtime_error("Invalid attr value type: " + value_type);
+    }
+  }
 }
 
 void parseCommonNode(std::unordered_map<std::string, ge::Operator>& op_map,
                      ge::Operator& op, const json& node) {
   if (node.contains("inputs")) {
-    for (const auto& i : node["inputs"]) {
-      auto name = i["name"].get<std::string>().c_str();
-      auto value = op_map[i["value"].get<std::string>()];
-      if (i.contains("index")) {
-        op.SetInput(name, value, i["index"].get<int>());
-      } else if (i.contains("update_desc")) {
-        auto desc = i["update_desc"];
-        auto format = desc["format"].get<std::string>();
-        auto data_type = desc["data_type"].get<std::string>();
-        auto shape = desc["shape"].get<std::vector<int64_t>>();
-        TensorDesc tensor_desc =
-            TensorDesc(ge::Shape(shape), get_ascend_format(format),
-                       get_ascend_datatype(data_type));
-        auto output_name = desc["output_name"].get<std::string>();
-        if (output_name != "none") {
-          op_map[i["value"].get<std::string>()].UpdateOutputDesc(
-              output_name.c_str(), tensor_desc);
-          op.SetInput(name, value);
-        } else {
-          op.SetInput(name, value);
-          op.UpdateInputDesc(name, tensor_desc);
-        }
-      } else {
-        op.SetInput(name, value);
-      }
-    }
+    parseInputs(op_map, op, node["inputs"]);
   }
   if (node.contains("outputs")) {
-    for (const auto& i : node["outputs"]) {
-      auto name = i["output_name"].get<std::string>().c_str();
-      auto desc = i["update_desc"];
-      auto format = desc["format"].get<std::string>();
-      auto data_type = desc["data_type"].get<std::string>();
-      auto shape = desc["shape"].get<std::vector<int64_t>>();
-      TensorDesc tensor_desc =
-          TensorDesc(ge::Shape(shape), get_ascend_format(format),
-                     get_ascend_datatype(data_type));
-      op.UpdateOutputDesc(name, tensor_desc);
-    }
+    parseOutputs(op, node["outputs"]);
   }
   if (node.contains("attrs")) {
-    for (const auto& attr : node["attrs"]) {
-      auto attr_name = attr["name"].get<std::string>();
-      auto value_type = attr["value_type"];
-      if (value_type == "str") {
-        op.SetAttr(attr_name, attr["value"].get<std::string>());
-      } else if (value_type == "dtype_str") {
-        auto value = attr["value"].get<std::string>();
-        op.SetAttr(attr_name, get_ascend_datatype(value));
-      } else if (value_type == "list_int") {
-        auto value = attr["value"].get<std::vector<int64_t>>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "list_float") {
-        auto value = attr["value"].get<std::vector<float>>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "float") {
-        auto value = attr["value"].get<float>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "int") {
-        auto value = attr["value"].get<int>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "bool") {
-        auto value = attr["value"].get<bool>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "int64") {
-        auto value = attr["value"].get<int64_t>();
-        op.SetAttr(attr_name.c_str(), value);
-      } else if (value_type == "tensor") {
-        auto cpp_data_type = attr["tensor_cpp_data_type"].get<std::string>();
-        auto data_type =
-            get_ascend_datatype(attr["tensor_data_type"].get<std::string>());
-        auto format =
-            get_ascend_format(attr["tensor_format"].get<std::string>());
-        auto tensor_dims = attr["tensor_dims"];
-        auto dims = tensor_dims.get<std::vector<int64_t>>();
-        if (cpp_data_type == "FLOAT") {
-          auto value = attr["tensor_value"].get<std::vector<float>>();
-          auto tensor =
-              genTensorWithData<float>(dims, format, data_type, value);
-          op.SetAttr(attr_name.c_str(), tensor);
-        } else if (cpp_data_type == "FLOAT16") {
-          std::vector<float> values =
-              attr["tensor_value"].get<std::vector<float>>();
-          std::vector<half_float::half> half_values;
-          for (auto& v : values) {
-            half_values.push_back(half_float::half(v));
-          }
-          auto tensor = genTensorWithData<half_float::half>(
-              dims, format, data_type, half_values);
-          op.SetAttr(attr_name.c_str(), tensor);
-        } else if (cpp_data_type == "INT32") {
-          auto value = attr["tensor_value"].get<std::vector<int>>();
-          auto tensor = genTensorWithData<int>(dims, format, data_type, value);
-          op.SetAttr(attr_name.c_str(), tensor);
-        } else if (cpp_data_type == "INT64") {
-          auto value = attr["tensor_value"].get<std::vector<int64_t>>();
-          auto tensor =
-              genTensorWithData<int64_t>(dims, format, data_type, value);
-          op.SetAttr(attr_name.c_str(), tensor);
-        } else {
-          std::cout << "cpp data type: " << cpp_data_type << std::endl;
-          throw std::runtime_error("invalid cpp data type!");
-        }
-      } else {
-        throw std::runtime_error("invalid attr value type!");
-      }
-    }
+    parseAttrs(op, node["attrs"]);
   }
 }
 
@@ -392,11 +457,12 @@ void buildGraph(Graph& graph, const json& graph_json,
   std::unordered_map<std::string, ge::Operator> op_map;
   json data_nodes = graph_json["data_nodes"];
   for (const auto& node : graph_json["data_nodes"]) {
-    auto node_name = node["op_name"].get<std::string>();
-    auto format = get_ascend_format(node["format"].get<std::string>());
-    auto data_type = get_ascend_datatype(node["data_type"].get<std::string>());
-    auto index = node["index"].get<int>();
-    auto dims = node["dims"].get<std::vector<int64_t>>();
+    auto node_name = getValue<std::string>(node, "op_name");
+    auto format = get_ascend_format(getValue<std::string>(node, "format"));
+    auto data_type =
+        get_ascend_datatype(getValue<std::string>(node, "data_type"));
+    auto index = getValue<int>(node, "index");
+    auto dims = getValue<std::vector<int64_t>>(node, "dims");
     check_op(op_map, node_name);
     op_map[node_name] = genInput(node_name, dims, format, data_type, index);
     graph.AddOp(op_map[node_name]);
@@ -407,8 +473,8 @@ void buildGraph(Graph& graph, const json& graph_json,
     input_tensors.emplace_back(cur_tensor);
   }
   for (const auto& node : graph_json["common_nodes"]) {
-    auto node_name = node["op_name"].get<std::string>();
-    auto op_type = node["op_type"].get<std::string>();
+    auto node_name = getValue<std::string>(node, "op_name");
+    auto op_type = getValue<std::string>(node, "op_type");
 
     check_op(op_map, node_name);
     if (op_with_dynamic_inputs_outputs.count(op_type) > 0) {
