@@ -891,7 +891,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
                                         stream.rawstream(),
                                         static_cast<int>(stream.id()));
           return devproxy::diclAllToAllEqualSplit(
-              input.const_data_ptr(), output.data_ptr(),
+              input.data_ptr(), output.data_ptr(),
               outputTensor.numel() / size_, output.scalar_type(), comm,
               stream.rawstream(), rank_, size_);
         },
@@ -914,7 +914,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::send(
         profile::RecordBlockCreator _("diclSend", stream.rawstream(),
                                       static_cast<int>(stream.id()));
         return devproxy::diclSend(
-            input.const_data_ptr(), static_cast<size_t>(input.numel()),
+            input.data_ptr(), static_cast<size_t>(input.numel()),
             input.scalar_type(), p2pPair.second, comm, stream.rawstream());
       },
       [](std::vector<std::shared_ptr<DICLComm>>&) {},
