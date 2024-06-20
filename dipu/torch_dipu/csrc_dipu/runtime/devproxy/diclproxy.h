@@ -80,7 +80,7 @@ DIPU_API devapis::diclResult_t diclAllToAllUnequalSplit(
     const size_t* recvDisplacements, at::ScalarType dataType, diclComm_t comm,
     deviceStream_t stream,
     /* The following arguments are only used for a fallback implementation when
-       devapis::diclAllToAllEqualSplit is not implemented */
+       devapis::diclAllToAllUnequalSplit is not implemented */
     int currRank, int commSize);
 
 DIPU_API devapis::diclResult_t diclSend(const void* sendbuff, size_t count,
