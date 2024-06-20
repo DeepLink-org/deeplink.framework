@@ -53,7 +53,7 @@ deviceId_t current_device() {
     if (lastDevice > 0) {
       setDevice(lastDevice);
       TORCH_WARN_ONCE(
-          "Since device ", lastDevice,
+          "Since device ", static_cast<int>(lastDevice),
           " has been used before, and there is no indication of which device "
           "to use in the current thread, we will continue to use device ",
           lastDevice, " instead of device 0.");
@@ -73,13 +73,17 @@ void setCpuAffinity(const int device) {
   }
   const int cpu_core_avaliable = get_nprocs();
   const int device_count = getDeviceCount();
-  const int block_size = (affinity == 0) ? ((cpu_core_avaliable + device_count - 1) / device_count) : affinity;
+  const int block_size =
+      (affinity == 0) ? ((cpu_core_avaliable + device_count - 1) / device_count)
+                      : affinity;
   const int start_cpu_core = device * block_size;
   const int end_cpu_core =
       std::min((device + 1) * block_size, cpu_core_avaliable);
   cpu_set_t mask;
   CPU_ZERO(&mask);
-  TORCH_WARN("DIPU_CPU_AFFINITY: Bind device " , device ," with cpu core: ", start_cpu_core, "~", end_cpu_core, ", cpu core avaliable:", cpu_core_avaliable);
+  TORCH_WARN("DIPU_CPU_AFFINITY: Bind device ", device,
+             " with cpu core: ", start_cpu_core, "~", end_cpu_core,
+             ", cpu core avaliable:", cpu_core_avaliable);
   for (int i = start_cpu_core; i < end_cpu_core; i++) {
     CPU_SET(i, &mask);
   }

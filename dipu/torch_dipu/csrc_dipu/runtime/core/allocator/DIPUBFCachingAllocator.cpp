@@ -19,6 +19,9 @@ namespace dipu {
 const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
                               << 20U;
 
+const size_t kMinExtendSize = get_env_or_default("DIPU_MIN_EXTEND_SIZE", 8)
+                              << 20U;
+
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -34,8 +37,7 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = kMinAllocationSize;
-  static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
+  static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -244,7 +246,7 @@ class BFCachingAllocatorImpl {
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
       while (k) {
-        if (chunks_[k].isMonoBlock() && chunks_[k].size < set->currExtendSize_) {
+        if (chunks_[k].isMonoBlock()) {
           releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
           removeChunkFromBin(k);
           recycleIds_.push(k);
