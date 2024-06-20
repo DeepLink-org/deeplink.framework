@@ -9,10 +9,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include <ATen/record_function.h>
 #include <c10/core/Stream.h>
 #include <c10/util/Optional.h>
 #include <c10/util/string_view.h>
-#include <ATen/record_function.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/rthelper.h"
@@ -139,7 +139,9 @@ class RecordBlockCreator {
       c10::optional<deviceStream_t> stream = c10::nullopt,
       c10::optional<c10::StreamId> streamId = c10::nullopt,
       c10::optional<bool> enProfile = c10::nullopt) {
+#if DIPU_VENDOR_NAME_ASCEND
     RECORD_FUNCTION(name.begin(), std::vector<c10::IValue>());
+#endif
     if (enProfile.value_or(isEnable())) {
       if (!stream) {
         auto dipu_stream = getCurrentDIPUStream();

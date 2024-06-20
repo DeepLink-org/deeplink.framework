@@ -4,6 +4,7 @@
 #include <memory>
 #include <utility>
 
+#include <ATen/record_function.h>
 #include <c10/util/Exception.h>
 #include <c10/util/string_view.h>
 #include <torch/csrc/profiler/util.h>
@@ -281,6 +282,7 @@ void abandonAllRecords() {
 
 RecordCreator::RecordCreator(string_t name, size_t opId,
                              uint64_t linkCorrelationId) {
+  RECORD_FUNCTION(name, std::vector<c10::IValue>());
   if (isEnable()) {
     name_ = std::move(name);
     opId_ = opId;
