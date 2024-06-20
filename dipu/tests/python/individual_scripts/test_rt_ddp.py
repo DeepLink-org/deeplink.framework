@@ -358,12 +358,41 @@ def demo_alltoall_base_equal_split(rank, world_size, port):
 
     expected = torch.cat(
         [
-            (torch.arange(split_size) + i * tensor_size + rank * split_size)
+            torch.arange(split_size) + i * tensor_size + rank * split_size
             for i in range(world_size)
         ]
     )
 
     dist.all_to_all_single(dst, src)
+    dist.barrier()
+    assert torch.allclose(expected, dst.cpu())
+    cleanup()
+
+
+def demo_alltoall_base_unequal_split(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    input_split_sizes = torch.arange(world_size) + 1 + rank * world_size
+    output_split_sizes = torch.arange(0, world_size * world_size, world_size) + 1 + rank
+    src = (
+        torch.arange(input_split_sizes.sum().item())
+        + torch.arange(input_split_sizes[0]).sum().item()
+    ).to(rank)
+    dst = torch.empty(output_split_sizes.sum().item(), dtype=torch.int64).to(rank)
+
+    expected = torch.cat(
+        [
+            torch.arange(output_split_sizes[i])
+            + torch.arange(output_split_sizes[i]).sum().item()
+            for i in range(world_size)
+        ]
+    )
+
+    dist.all_to_all_single(
+        dst, src, output_split_sizes.tolist(), input_split_sizes.tolist()
+    )
     dist.barrier()
     assert torch.allclose(expected, dst.cpu())
     cleanup()
@@ -477,6 +506,7 @@ if __name__ == "__main__":
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
     run_demo(demo_alltoall_base_equal_split, world_size, port)
+    run_demo(demo_alltoall_base_unequal_split, world_size, port)
     run_demo(demo_gather, world_size, port)
     run_demo(demo_scatter, world_size, port)
 

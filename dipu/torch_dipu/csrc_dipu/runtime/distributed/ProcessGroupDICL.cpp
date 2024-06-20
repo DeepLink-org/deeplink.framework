@@ -6,6 +6,7 @@
 
 #include <ATen/core/TensorBody.h>
 #include <ATen/record_function.h>
+#include <c10/util/accumulate.h>
 #include <c10/util/typeid.h>
 #include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
@@ -317,6 +318,22 @@ void check_device_single_tensor(
   }
 }
 
+// Ref:
+// https://github.com/pytorch/pytorch/blob/799acd31b4ca1c709f1e66dc58f22638e1f7696c/torch/csrc/distributed/c10d/Utils.hpp#L498C1-L514C2
+inline void check_split_sizes(const std::vector<int64_t>& split_sizes,
+                              const at::Tensor& tensor, int group_size) {
+  if (split_sizes.empty()) {
+    TORCH_CHECK(tensor.size(0) % group_size == 0,
+                "Tensor's dim 0 does not divide equally across group size");
+  } else {
+    TORCH_CHECK(split_sizes.size() == static_cast<size_t>(group_size),
+                "Number of tensor splits not equal to group size");
+    const auto sum = c10::sum_integers(split_sizes);
+    TORCH_CHECK(sum == tensor.size(0),
+                "Split sizes doesn't match total dim 0 size");
+  }
+}
+
 // Check that all `tensors'
 void checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
   if (tensors.empty()) {
@@ -392,6 +409,32 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
     flattened[i] = c10d::newLikeFlat(tensor_lists, i);
   }
   return flattened;
+}
+
+// Ref:
+// https://github.com/pytorch/pytorch/blob/54b0006cb232f798281397b2261101625444c79b/torch/csrc/distributed/c10d/Utils.hpp#L517C1-L542C2
+template <typename T>
+size_t compute_lengths_and_offsets_for_all_to_all(
+    const std::vector<int64_t>& split_sizes, const at::Tensor& tensor,
+    std::vector<T>* lengths, std::vector<T>* offsets) {
+  size_t group_size = lengths->size();
+  bool equal_splits = false;
+  size_t dim0_size = tensor.size(0);
+  size_t row_size = (dim0_size ? tensor.numel() / dim0_size : 1);
+  size_t split_size = 0;
+  size_t offset = 0;
+
+  if (split_sizes.empty()) {
+    equal_splits = true;
+    split_size = tensor.size(0) / group_size;
+  }
+  for (const auto i : c10::irange(group_size)) {
+    size_t length = row_size * (equal_splits ? split_size : split_sizes[i]);
+    (*lengths)[i] = length;
+    (*offsets)[i] = offset;
+    offset += length;
+  }
+  return offset;
 }
 
 template <bool RecordDest, typename Dest, typename Src>
@@ -895,9 +938,36 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
               output.scalar_type(), comm, stream.rawstream(), rank_, size_);
         },
         OpType::ALLTOALL_BASE);
+  } else {
+    check_split_sizes(inputSplitSizes, inputTensor, size_);
+    check_split_sizes(outputSplitSizes, outputTensor, size_);
+    auto outputs = std::vector<at::Tensor>{outputTensor};
+    auto inputs = std::vector<at::Tensor>{inputTensor};
+    return collective(
+        inputs, outputs,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          std::vector<size_t> outputCounts(size_);
+          std::vector<size_t> inputCounts(size_);
+          std::vector<size_t> outputDisplacements(size_);
+          std::vector<size_t> inputDisplacements(size_);
+          compute_lengths_and_offsets_for_all_to_all(
+              outputSplitSizes, output, &outputCounts, &outputDisplacements);
+          compute_lengths_and_offsets_for_all_to_all(
+              inputSplitSizes, input, &inputCounts, &inputDisplacements);
+          RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
+                          std::vector<c10::IValue>({input}));
+          profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
+                                        stream.rawstream(),
+                                        static_cast<int>(stream.id()));
+          return devproxy::diclAllToAllUnequalSplit(
+              input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
+              output.data_ptr(), outputCounts.data(),
+              outputDisplacements.data(), output.scalar_type(), comm,
+              stream.rawstream(), rank_, size_);
+        },
+        OpType::ALLTOALL_BASE);
   }
-  // TODO(jfxu-st): support unequal splits
-  TORCH_CHECK(false, "DICL doesn't support unequal splits")
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
