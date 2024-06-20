@@ -938,36 +938,35 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
               output.scalar_type(), comm, stream.rawstream(), rank_, size_);
         },
         OpType::ALLTOALL_BASE);
-  } else {
-    check_split_sizes(inputSplitSizes, inputTensor, size_);
-    check_split_sizes(outputSplitSizes, outputTensor, size_);
-    auto outputs = std::vector<at::Tensor>{outputTensor};
-    auto inputs = std::vector<at::Tensor>{inputTensor};
-    return collective(
-        inputs, outputs,
-        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
-            DIPUStream& stream) {
-          std::vector<size_t> outputCounts(size_);
-          std::vector<size_t> inputCounts(size_);
-          std::vector<size_t> outputDisplacements(size_);
-          std::vector<size_t> inputDisplacements(size_);
-          compute_lengths_and_offsets_for_all_to_all(
-              outputSplitSizes, output, &outputCounts, &outputDisplacements);
-          compute_lengths_and_offsets_for_all_to_all(
-              inputSplitSizes, input, &inputCounts, &inputDisplacements);
-          RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
-                          std::vector<c10::IValue>({input}));
-          profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
-                                        stream.rawstream(),
-                                        static_cast<int>(stream.id()));
-          return devproxy::diclAllToAllUnequalSplit(
-              input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
-              output.data_ptr(), outputCounts.data(),
-              outputDisplacements.data(), output.scalar_type(), comm,
-              stream.rawstream(), rank_, size_);
-        },
-        OpType::ALLTOALL_BASE);
   }
+
+  check_split_sizes(inputSplitSizes, inputTensor, size_);
+  check_split_sizes(outputSplitSizes, outputTensor, size_);
+  auto outputs = std::vector<at::Tensor>{outputTensor};
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  return collective(
+      inputs, outputs,
+      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<size_t> outputCounts(size_);
+        std::vector<size_t> inputCounts(size_);
+        std::vector<size_t> outputDisplacements(size_);
+        std::vector<size_t> inputDisplacements(size_);
+        compute_lengths_and_offsets_for_all_to_all(
+            outputSplitSizes, output, &outputCounts, &outputDisplacements);
+        compute_lengths_and_offsets_for_all_to_all(
+            inputSplitSizes, input, &inputCounts, &inputDisplacements);
+        RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
+                        std::vector<c10::IValue>({input}));
+        profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
+                                      stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        return devproxy::diclAllToAllUnequalSplit(
+            input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
+            output.data_ptr(), outputCounts.data(), outputDisplacements.data(),
+            output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+      },
+      OpType::ALLTOALL_BASE);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
