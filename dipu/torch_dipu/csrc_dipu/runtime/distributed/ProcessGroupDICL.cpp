@@ -891,9 +891,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
                                         stream.rawstream(),
                                         static_cast<int>(stream.id()));
           return devproxy::diclAllToAllEqualSplit(
-              input.data_ptr(), output.data_ptr(),
-              outputTensor.numel() / size_, output.scalar_type(), comm,
-              stream.rawstream(), rank_, size_);
+              input.data_ptr(), output.data_ptr(), outputTensor.numel() / size_,
+              output.scalar_type(), comm, stream.rawstream(), rank_, size_);
         },
         OpType::ALLTOALL_BASE);
   } else {
