@@ -114,8 +114,8 @@ c10::Allocator* createAllocator(const c10::Device& device) {
   c10::Allocator* result = nullptr;
   auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
   const std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE
-                                     ? environ::dipuDeviceMemCachingAlgorithm()
-                                     : environ::dipuHostMemCachingAlgorithm());
+                                     ? environ::deviceMemCachingAlgorithm()
+                                     : environ::hostMemCachingAlgorithm());
   if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
         std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
@@ -129,15 +129,16 @@ c10::Allocator* createAllocator(const c10::Device& device) {
   }
   TORCH_CHECK(false,
               "No allocator found for the device using the given algorithm:",
-              device_type, environ::dipuDeviceMemCachingAlgorithm());
+              device_type, environ::deviceMemCachingAlgorithm());
   return nullptr;
 }
 
 }  // namespace
 
 bool isTorchAllocator() {
-  return environ::dipuDeviceMemCachingAlgorithm() ==
-         environ::kTorchAllocatorName;
+  static bool is_torch_allocator =
+      (environ::deviceMemCachingAlgorithm() == environ::kTorchAllocatorName);
+  return is_torch_allocator;
 }
 
 c10::Allocator* getAllocator(const c10::Device& device) {

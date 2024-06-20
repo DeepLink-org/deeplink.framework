@@ -5,7 +5,6 @@ import random
 import torch
 import torch_dipu
 from collections.abc import Iterable
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 from typing import Protocol
 from utils.test_in_subprocess import run_individual_test_cases
 

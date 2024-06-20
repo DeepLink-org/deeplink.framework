@@ -265,7 +265,7 @@ class CachingAllocatorConfig {
   // This is used to round-up allocation size to nearest power of 2 divisions.
   // More description below in function roundup_power2_next_division
   // As ane example, if we want 4 divisions between 2's power, this can be done
-  // using env variable: TORCH_ALLOCATOR_CONF=roundup_power2_divisions:4
+  // using env variable: DIPU_TORCH_ALLOCATOR_CONF=roundup_power2_divisions:4
   static size_t roundup_power2_divisions(size_t size) {
     size_t log_size = (63 - c10::llvm::countLeadingZeros(size));
 
@@ -693,7 +693,7 @@ class DeviceCachingAllocator {
           " If reserved but unallocated memory is large try setting "
           "max_split_size_mb to avoid"
           " fragmentation.  See documentation for Memory Management and "
-          "TORCH_ALLOCATOR_CONF",
+          "DIPU_TORCH_ALLOCATOR_CONF",
           "");
     }
 
@@ -1861,8 +1861,8 @@ class NativeCachingAllocator : public DeviceAllocator {
     if (!block) {
       TORCH_CHECK(false, "invalid device pointer: ", ptr);
     }
-    device_allocator[block->device]->free(block);
     metrics_producer[block->device]->deallocate(block->ptr);
+    device_allocator[block->device]->free(block);
   }
 
   void setMemoryFraction(double fraction, int device) override {
