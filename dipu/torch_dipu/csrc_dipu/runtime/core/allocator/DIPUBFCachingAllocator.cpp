@@ -15,13 +15,6 @@
 
 namespace dipu {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
-                              << 20U;
-
-const size_t kMinExtendSize = get_env_or_default("DIPU_MIN_EXTEND_SIZE", 8)
-                              << 20U;
-
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -70,8 +63,6 @@ class BFCachingAllocatorImpl {
     __uint128_t bits = 0;
     // Virtual chunks which are the heads of the bins
     std::array<int, static_cast<size_t>(kNumBigBins* kNumSubBins)> binHeads_{};
-    // The extending size next time
-    size_t currExtendSize_ = kMinExtendSize;
 
     explicit StreamSet(size_t id) : id(id) {}
 
@@ -296,20 +287,25 @@ class BFCachingAllocatorImpl {
 
   int extend(size_t nbytes, StreamSetHandle& set) {
     emptyCacheWithoutLock();
-    auto& extSize = set->currExtendSize_;
     bool increased = false;
-    while (extSize < nbytes && extSize < kMaxExtendSize) {
-      extSize *= 2;
-      increased = true;
+    constexpr int kSmallBlockSize = 2 << 20;
+    constexpr int kMiddleBlockSize = 20 << 20;
+    constexpr int kLargeBlockSize = 200 << 20;
+    size_t allocateSize = nbytes;
+    if (nbytes < kSmallBlockSize) {
+      allocateSize = kSmallBlockSize;
+    } else if (nbytes < kMiddleBlockSize) {
+      allocateSize = kMiddleBlockSize;
+    } else if (nbytes < kLargeBlockSize) {
+      allocateSize = kLargeBlockSize;
+    } else {
+      allocateSize =
+          (nbytes + kLargeBlockSize - 1) / kLargeBlockSize * kLargeBlockSize;
     }
 
-    size_t currBytes = std::max(nbytes, extSize);
+    size_t currBytes = std::max(nbytes, allocateSize);
     void* ptr = allocateOnDevice(currBytes);
-    if (ptr) {
-      if (!increased && extSize < kMaxExtendSize) {
-        extSize *= 2;
-      }
-    } else {
+    if (!ptr) {
       if (currBytes > nbytes) {
         currBytes = nbytes;
         ptr = allocateOnDevice(currBytes);
