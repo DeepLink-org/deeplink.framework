@@ -5,13 +5,19 @@
 #include <vector>
 
 #include <ATen/core/TensorBody.h>
+#include <ATen/ops/cat.h>
 #include <ATen/record_function.h>
+#include <c10/core/Device.h>
+#include <c10/core/ScalarType.h>
+#include <c10/util/Exception.h>
 #include <c10/util/accumulate.h>
+#include <c10/util/irange.h>
 #include <c10/util/typeid.h>
 #include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 #include <torch/torch.h>
 
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUGuard.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
@@ -908,7 +914,8 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
 c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
     at::Tensor& outputTensor, at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
-    std::vector<int64_t>& inputSplitSizes, const AllToAllOptions& opts) {
+    std::vector<int64_t>& inputSplitSizes,
+    const AllToAllOptions& opts /* unused */) {
   check_device_single_tensor(outputTensor, true);
   check_device_single_tensor(inputTensor, true);
   TORCH_CHECK(outputTensor.scalar_type() == inputTensor.scalar_type(),
@@ -967,6 +974,84 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
             output.scalar_type(), comm, stream.rawstream(), rank_, size_);
       },
       OpType::ALLTOALL_BASE);
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const AllToAllOptions& /* unused */) {
+  size_t numTensors = outputTensors.size();
+  TORCH_CHECK(numTensors == inputTensors.size(),
+              "Tensor lists must have identical length")
+  c10::Device device = outputTensors[0].device();
+  at::ScalarType dataType = outputTensors[0].scalar_type();
+  for (const auto i : c10::irange(numTensors)) {
+    check_device_single_tensor(outputTensors[i], true);
+    check_device_single_tensor(inputTensors[i], true);
+    TORCH_CHECK(device == outputTensors[i].device() &&
+                    device == inputTensors[i].device(),
+                "Tensors must be on the same device")
+    TORCH_CHECK(dataType == outputTensors[i].scalar_type() &&
+                    dataType == inputTensors[i].scalar_type(),
+                "Tensors must have identical data type")
+  }
+
+  // TODO(jfxu-st): For CUDA, use NCCL Group Calls for higher performance
+  // Ref:
+  // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L916-L941
+
+  // TODO(jfxu-st): For the vendors that don't implement
+  // devapis::diclAllToAllUnequalSplit, including CUDA, we need a more
+  // performant fallback without using a flattened tensor for relay
+
+  std::vector<int64_t> outputSplitSizes(numTensors);
+  std::vector<int64_t> inputSplitSizes(numTensors);
+  int64_t outputFlattenedTensorSize = 0;
+  for (const auto i : c10::irange(numTensors)) {
+    outputSplitSizes[i] = outputTensors[i].numel();
+    inputSplitSizes[i] = inputTensors[i].numel();
+    outputFlattenedTensorSize += outputTensors[i].numel();
+  }
+  at::Tensor outputFlattenedTensor = native::nodispatch::empty(
+      {outputFlattenedTensorSize},
+      at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(dataType));
+  at::Tensor inputFlattenedTensor = at::cat(inputTensors);
+
+  auto outputs = std::vector<at::Tensor>{outputFlattenedTensor};
+  auto inputs = std::vector<at::Tensor>{inputFlattenedTensor};
+  return collective(
+      inputs, outputs,
+      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<size_t> outputCounts(size_);
+        std::vector<size_t> inputCounts(size_);
+        std::vector<size_t> outputDisplacements(size_);
+        std::vector<size_t> inputDisplacements(size_);
+        compute_lengths_and_offsets_for_all_to_all(
+            outputSplitSizes, output, &outputCounts, &outputDisplacements);
+        compute_lengths_and_offsets_for_all_to_all(
+            inputSplitSizes, input, &inputCounts, &inputDisplacements);
+        RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
+                        std::vector<c10::IValue>({input}));
+        profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
+                                      stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        return devproxy::diclAllToAllUnequalSplit(
+            input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
+            output.data_ptr(), outputCounts.data(), outputDisplacements.data(),
+            output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>&) {},
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        DIPUStreamGuard _(comms[0]->diclStream_.unwrap());
+        size_t offset = 0;
+        for (const auto i : c10::irange(numTensors)) {
+          outputTensors[i].copy_(
+              outputs[0].slice(0, offset, offset + outputSplitSizes[i]));
+          offset += outputSplitSizes[i];
+        }
+      },
+      OpType::ALLTOALL);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(

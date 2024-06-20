@@ -127,7 +127,7 @@ devapis::diclResult_t diclAllToAllEqualSplit(
                                            comm, stream);
   }
 
-  // TODO(jfxu-st): For CUDA, use NCCL Group Calls for higher performance
+  // TODO(jfxu-st): For CUDA, use NCCL group calls for higher performance
   // Ref:
   // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L828-L838
   // Ref:
@@ -160,7 +160,7 @@ DIPU_API devapis::diclResult_t diclAllToAllUnequalSplit(
         recvDisplacements, dataType, comm, stream);
   }
 
-  // TODO(jfxu-st): For CUDA, use NCCL Group Calls for higher performance
+  // TODO(jfxu-st): For CUDA, use NCCL group calls for higher performance
   // Ref:
   // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L871-L893
 

@@ -213,11 +213,16 @@ class DIPU_API ProcessGroupDICL : public Backend {
       at::Tensor& output, at::Tensor& input,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
-  c10::intrusive_ptr<Work> alltoall_base(at::Tensor& outputTensor,
-                                         at::Tensor& inputTensor,
-                                         std::vector<int64_t>& outputSplitSizes,
-                                         std::vector<int64_t>& inputSplitSizes,
-                                         const AllToAllOptions& opts) override;
+  c10::intrusive_ptr<Work> alltoall_base(
+      at::Tensor& outputTensor, at::Tensor& inputTensor,
+      std::vector<int64_t>& outputSplitSizes,
+      std::vector<int64_t>& inputSplitSizes,
+      const AllToAllOptions& opts = AllToAllOptions()) override;
+
+  c10::intrusive_ptr<Work> alltoall(
+      std::vector<at::Tensor>& outputTensors,
+      std::vector<at::Tensor>& inputTensors,
+      const AllToAllOptions& opts = AllToAllOptions()) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
                                 int tag) override;
