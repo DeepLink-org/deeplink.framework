@@ -42,15 +42,16 @@ DIPU_API devapis::diclResult_t diclAllGather(const void* sendbuff,
                                              deviceStream_t stream);
 
 // for non-root rank, we suggest passing nullptr as recvbuf
-DIPU_API devapis::diclResult_t diclGather(void* sendbuf, void* const* recvbuf,
-                                          size_t count, at::ScalarType datatype,
-                                          int root, int curRank, int numRanks,
+DIPU_API devapis::diclResult_t diclGather(const void* sendbuf,
+                                          void* const* recvbuf, size_t count,
+                                          at::ScalarType datatype, int root,
+                                          int curRank, int numRanks,
                                           diclComm_t comm,
                                           deviceStream_t stream);
 
 // for non-root rank, we suggest passing nullptr as sendbuf
-DIPU_API devapis::diclResult_t diclScatter(void* const* sendbuf, void* recvbuf,
-                                           size_t count,
+DIPU_API devapis::diclResult_t diclScatter(const void* const* sendbuf,
+                                           void* recvbuf, size_t count,
                                            at::ScalarType datatype, int root,
                                            int curRank, int numRanks,
                                            diclComm_t comm,
@@ -66,7 +67,14 @@ DIPU_API devapis::diclResult_t diclReduceScatter(
     void* sendbuff, void* recvbuff, size_t recvCount, at::ScalarType datatype,
     const devapis::ReduceOp& op, diclComm_t comm, deviceStream_t stream);
 
-DIPU_API devapis::diclResult_t diclSend(void* sendbuff, size_t count,
+DIPU_API devapis::diclResult_t diclAllToAllEqualSplit(
+    const void* sendBuf, void* recvBuf, size_t count, at::ScalarType dataType,
+    diclComm_t comm, deviceStream_t stream,
+    /* The following arguments are only used for a fallback implementation when
+       devapis::diclAllToAllEqualSplit is not implemented */
+    const int currRank, const int commSize);
+
+DIPU_API devapis::diclResult_t diclSend(const void* sendbuff, size_t count,
                                         at::ScalarType datatype, int peer,
                                         diclComm_t comm, deviceStream_t stream);
 
