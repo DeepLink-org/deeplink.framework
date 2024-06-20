@@ -57,10 +57,12 @@ static void registerDIPUDeviceStatus(py::module& m) {
   py::class_<DIPUDeviceStatus, std::shared_ptr<DIPUDeviceStatus>>(
       m, "_DIPUDeviceStatus")
       .def_readonly("free_memory", &DIPUDeviceStatus::freeGlobalMem)
+      .def_readonly("total_memory", &DIPUDeviceStatus::totalGlobalMem)
       .def("__repr__", [](const DIPUDeviceStatus& status) {
         std::ostringstream stream;
-        stream << "DIPUDeviceStatus(used_memory=" << status.freeGlobalMem
-               << ")";
+        stream << "DIPUDeviceStatus(free_memory="
+               << status.freeGlobalMem / kMega
+               << "MB, total_memory=" << status.totalGlobalMem / kMega << "MB)";
         return stream.str();
       });
 }
@@ -272,6 +274,9 @@ static void exportMemCaching(py::module& m) {
   m.def("max_memory_allocated", [](const c10::Device& device) -> size_t {
     return maxMemoryAllocated(device);
   });
+
+  m.def("reset_peak_memory_stats",
+        [](const c10::Device& device) -> void { resetPeakStats(device); });
 }
 
 static void patchStorage(py::module& m) {

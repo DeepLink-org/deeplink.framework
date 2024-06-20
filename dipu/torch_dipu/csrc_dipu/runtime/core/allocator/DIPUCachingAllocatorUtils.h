@@ -7,6 +7,7 @@
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 
 namespace dipu {
+
 size_t memoryReserved(const c10::Device& device);
 
 size_t memoryAllocated(const c10::Device& device);
@@ -14,6 +15,8 @@ size_t memoryAllocated(const c10::Device& device);
 size_t maxMemoryReserved(const c10::Device& device);
 
 size_t maxMemoryAllocated(const c10::Device& device);
+
+void resetPeakStats(const c10::Device& device);
 
 void emptyCachedMem();
 

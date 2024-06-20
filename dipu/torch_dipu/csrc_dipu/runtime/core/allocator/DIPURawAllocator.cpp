@@ -11,6 +11,9 @@
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
+#include "DIPUCachingAllocator.h"
+#include "DIPUCachingHostAllocator.h"
+
 namespace dipu {
 
 static void DIPURawDeviceAllocatorDeleter(void* ptr) {
@@ -139,6 +142,10 @@ c10::DataPtr DIPURawHostAllocator::allocate(size_t size) const {
 }
 
 bool isPinnedPtr(const void* ptr) {
+  if (isTorchAllocator()) {
+    return allocator::CachingHostAllocator_isPinnedPtr(ptr);
+  }
+
   return dipu_host_allocator.isPinnedPtr(ptr);
 }
 
