@@ -21,21 +21,17 @@ class DIPU_API DIPUEvent {
 
   // dipu do not support IpcEventHandle until now
 
-  ~DIPUEvent() {
-    if (isCreated()) {
-      DIPUGuard guard(device_index_);
-      devproxy::destroyEvent(event_);
-    }
-  }
+  ~DIPUEvent() { release(); }
 
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other) noexcept { moveHelper(std::move(other)); }
+  DIPUEvent(DIPUEvent&& other) noexcept { moveHelper(other); }
 
   DIPUEvent& operator=(DIPUEvent&& other) noexcept {
     if (this != &other) {
-      moveHelper(std::move(other));
+      release();
+      moveHelper(other);
     }
     return *this;
   }
@@ -120,11 +116,19 @@ class DIPU_API DIPUEvent {
     devproxy::createEvent(&event_);
   }
 
-  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
-  void moveHelper(DIPUEvent&& other) {
-    std::swap(device_index_, other.device_index_);
-    std::swap(stream_id_, other.stream_id_);
-    std::swap(event_, other.event_);
+  void release() {
+    if (isCreated()) {
+      DIPUGuard guard(device_index_);
+      devproxy::destroyEvent(event_);
+      event_ = nullptr;
+    }
+  }
+
+  void moveHelper(DIPUEvent& other) {
+    device_index_ = other.device_index_;
+    stream_id_ = other.stream_id_;
+    event_ = other.event_;
+    other.event_ = nullptr;
   }
 };
 
