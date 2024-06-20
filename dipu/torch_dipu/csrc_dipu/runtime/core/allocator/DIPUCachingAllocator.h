@@ -38,6 +38,11 @@ class MemoryAlignmentStrategy {
     return nbytes;
   }
 
+  // The round size logic of dipu and torch allocator is quite different. An
+  // interface is provided for torch allocator to obtain the vendor's
+  // customized memory alignment strategy.We are currently only concerned with
+  // the beta field which is the number of additional bytes required.
+  // Now used in DeviceCachingAllocator::round_size
   size_t getBeta() const { return beta; }
 
   virtual ~MemoryAlignmentStrategy() = default;
