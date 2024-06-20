@@ -121,8 +121,7 @@ devapis::diclResult_t diclReduceScatter(
 
 devapis::diclResult_t diclAllToAllEqualSplit(
     const void* sendBuf, void* recvBuf, size_t count, at::ScalarType dataType,
-    diclComm_t comm, deviceStream_t stream, const int currRank,
-    const int commSize) {
+    diclComm_t comm, deviceStream_t stream, int currRank, int commSize) {
   if (devapis::diclAllToAllEqualSplit) {
     return devapis::diclAllToAllEqualSplit(sendBuf, recvBuf, count, dataType,
                                            comm, stream);

@@ -895,10 +895,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
               output.scalar_type(), comm, stream.rawstream(), rank_, size_);
         },
         OpType::ALLTOALL_BASE);
-  } else {
-    // TODO(jfxu-st): support unequal splits
-    TORCH_CHECK(false, "DICL doesn't support unequal splits")
   }
+  // TODO(jfxu-st): support unequal splits
+  TORCH_CHECK(false, "DICL doesn't support unequal splits")
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
