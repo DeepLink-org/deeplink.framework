@@ -176,6 +176,17 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
   return {std::move(output_tensors_vec), std::move(work)};
 }
 
+c10::intrusive_ptr<Work> alltoall_base_dipu_(
+    at::Tensor& output_tensor, at::Tensor& input_tensor,
+    const c10::intrusive_ptr<ProcessGroup>& process_group,
+    std::vector<int64_t> output_split_sizes,
+    std::vector<int64_t> input_split_sizes, int64_t timeout) {
+  return process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+      ->alltoall_base(output_tensor, input_tensor, output_split_sizes,
+                      input_split_sizes,
+                      AllToAllOptions{std::chrono::milliseconds(timeout)});
+}
+
 c10::intrusive_ptr<Work> barrier_dipu(
     at::Tensor /* unused */,  // NOLINT(performance-unnecessary-value-param)
     const c10::intrusive_ptr<ProcessGroup>& process_group,
@@ -204,6 +215,7 @@ TORCH_LIBRARY_IMPL(c10d, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("scatter_", scatter_dipu_);
   m.impl("reduce_scatter_", reduce_scatter_dipu_);
   m.impl("_reduce_scatter_base_", _reduce_scatter_base_dipu_);
+  m.impl("alltoall_base_", alltoall_base_dipu_);
   m.impl("barrier", barrier_dipu);
 
   // not implement

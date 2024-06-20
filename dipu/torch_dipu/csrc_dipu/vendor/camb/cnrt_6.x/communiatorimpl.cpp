@@ -102,12 +102,13 @@ DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
+DIPU_API diclResult_t diclSend(const void* sendbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   convertTypeSize(count, datatype);
-  CNCL_THROW(
-      cnclSend(sendbuff, count, cncl_data_type[datatype], peer, comm, stream));
+  // No idea why cnclSend requires a buffer of void* instead of const void*
+  CNCL_THROW(cnclSend(const_cast<void*>(sendbuff), count,
+                      cncl_data_type[datatype], peer, comm, stream));
   return DICL_SUCCESS;
 }
 

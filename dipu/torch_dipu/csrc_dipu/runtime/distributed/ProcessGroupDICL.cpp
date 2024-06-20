@@ -2,15 +2,22 @@
 #include "ProcessGroupDICL.h"
 
 #include <utility>
+#include <vector>
 
+#include <ATen/core/TensorBody.h>
 #include <ATen/record_function.h>
+#include <c10/util/typeid.h>
 #include <torch/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/Work.hpp>
 #include <torch/torch.h>
 
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUGuard.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
+#include "csrc_dipu/runtime/devproxy/diclproxy.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
+#include <csrc_dipu/vendor/vendorapi.h>
 
 namespace dipu {
 
@@ -288,6 +295,65 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(
 
 namespace {
 
+// Ref:
+// https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp#L2242-L2261
+void check_device_single_tensor(
+    const at::Tensor& tensor,
+    const bool p2p = false  // whether operation is a P2P operation
+) {
+  if (!dipu::isDeviceTensor(tensor) || tensor.is_sparse()) {
+    C10_THROW_ERROR(ValueError, "Tensors must be DIPU and dense");
+  }
+  // Skip the following requirements for P2P operations
+  if (!tensor.is_contiguous(tensor.suggest_memory_format())) {
+    if (p2p) {
+      TORCH_WARN_ONCE(
+          "Detected non-contiguous tensor in P2P operations. It is user "
+          "responsibility to guarantee that source and destination tensors "
+          "have the same contiguity format.");
+    } else {
+      C10_THROW_ERROR(ValueError, "Tensors must be contiguous");
+    }
+  }
+}
+
+// Check that all `tensors'
+void checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
+  if (tensors.empty()) {
+    TORCH_CHECK(false, "Tensor list must be nonempty");
+  }
+  if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
+    TORCH_CHECK(
+        false,
+        "Tensor list mustn't be larger than the number of available DIPUs");
+  }
+  const auto& first = tensors.front();
+
+  // Set for ensuring that tensors are on separate devices.
+  std::unordered_set<decltype(first.get_device())> usedDevices;
+  usedDevices.reserve(tensors.size());
+
+  for (const auto& tensor : tensors) {
+    if (!dipu::isDeviceTensor(tensor) ||
+        !tensor.is_non_overlapping_and_dense()) {
+      TORCH_CHECK(false, "Tensors must be DIPU and non-overlapping and dense");
+    }
+    if (tensor.scalar_type() != first.scalar_type()) {
+      TORCH_CHECK(false, "Tensors must have identical type");
+    }
+    if (tensor.sizes() != first.sizes()) {
+      TORCH_CHECK(false, "Tensors must have identical size");
+    }
+    if (tensor.strides() != first.strides()) {
+      TORCH_CHECK(false, "Tensors must have identical strides");
+    }
+    const auto inserted = usedDevices.insert(tensor.get_device()).second;
+    if (!inserted) {
+      TORCH_CHECK(false, "Tensors must be on distinct DIPU devices");
+    }
+  }
+}
+
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
 // ensure compatibility with the corresponding tensor in `other'.
 std::vector<at::Tensor> flatten_for_scatter_gather(
@@ -357,45 +423,6 @@ void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm,
   }
 }
 }  // namespace
-
-// Check that all `tensors', different device may need extend this func to do
-// device specific check
-void ProcessGroupDICL::checkDeviceTensors(
-    const std::vector<at::Tensor>& tensors) {
-  if (tensors.empty()) {
-    TORCH_CHECK(false, "Tensor list must be nonempty");
-  }
-  if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
-    TORCH_CHECK(
-        false,
-        "Tensor list mustn't be larger than the number of available DIPUs");
-  }
-  const auto& first = tensors.front();
-
-  // Set for ensuring that tensors are on separate devices.
-  std::unordered_set<decltype(first.get_device())> usedDevices;
-  usedDevices.reserve(tensors.size());
-
-  for (const auto& tensor : tensors) {
-    if (!dipu::isDeviceTensor(tensor) ||
-        !tensor.is_non_overlapping_and_dense()) {
-      TORCH_CHECK(false, "Tensors must be DIPU and non-overlapping and dense");
-    }
-    if (tensor.scalar_type() != first.scalar_type()) {
-      TORCH_CHECK(false, "Tensors must have identical type");
-    }
-    if (tensor.sizes() != first.sizes()) {
-      TORCH_CHECK(false, "Tensors must have identical size");
-    }
-    if (tensor.strides() != first.strides()) {
-      TORCH_CHECK(false, "Tensors must have identical strides");
-    }
-    const auto inserted = usedDevices.insert(tensor.get_device()).second;
-    if (!inserted) {
-      TORCH_CHECK(false, "Tensors must be on distinct DIPU devices");
-    }
-  }
-}
 
 template <typename Fn, typename PreProcess, typename PostProcess>
 c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
@@ -833,6 +860,44 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
       OpType::REDUCE_SCATTER);
   return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
+    at::Tensor& outputTensor, at::Tensor& inputTensor,
+    std::vector<int64_t>& outputSplitSizes,
+    std::vector<int64_t>& inputSplitSizes, const AllToAllOptions& opts) {
+  check_device_single_tensor(outputTensor, true);
+  check_device_single_tensor(inputTensor, true);
+  TORCH_CHECK(outputTensor.scalar_type() == inputTensor.scalar_type(),
+              "Tensors must have identical data type")
+
+  if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
+    TORCH_CHECK(outputTensor.numel() == inputTensor.numel(),
+                "Tensors must have identical number of elements");
+    TORCH_CHECK(outputTensor.size(0) == inputTensor.size(0),
+                "Tensors must have identical size in dim 0");
+    TORCH_CHECK(outputTensor.size(0) % size_ == 0,
+                "Tensor's dim 0 does not divide equally across group size");
+
+    auto outputs = std::vector<at::Tensor>{outputTensor};
+    auto inputs = std::vector<at::Tensor>{inputTensor};
+    return collective(
+        inputs, outputs,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          RECORD_FUNCTION("DiclAlltoAllEqualSplit",
+                          std::vector<c10::IValue>({input}));
+          profile::RecordBlockCreator _("DiclAlltoAllEqualSplit",
+                                        stream.rawstream(),
+                                        static_cast<int>(stream.id()));
+          return devproxy::diclAllToAllEqualSplit(
+              input.data_ptr(), output.data_ptr(), outputTensor.numel() / size_,
+              output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+        },
+        OpType::ALLTOALL_BASE);
+  }
+  // TODO(jfxu-st): support unequal splits
+  TORCH_CHECK(false, "DICL doesn't support unequal splits")
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(

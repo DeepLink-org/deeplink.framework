@@ -346,6 +346,29 @@ def demo_reducescatter_base(rank, world_size, port):
     cleanup()
 
 
+def demo_alltoall_base_equal_split(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    split_size = 2
+    tensor_size = split_size * world_size
+    src = (torch.arange(tensor_size) + rank * tensor_size).to(rank)
+    dst = torch.empty([tensor_size], dtype=torch.int64).to(rank)
+
+    expected = torch.cat(
+        [
+            (torch.arange(split_size) + i * tensor_size + rank * split_size)
+            for i in range(world_size)
+        ]
+    )
+
+    dist.all_to_all_single(dst, src)
+    dist.barrier()
+    assert torch.allclose(expected, dst.cpu())
+    cleanup()
+
+
 def demo_model_parallel(rank, world_size, port):
     print(f"Running DDP with model parallel example on rank {rank}.")
     backend = "nccl"
@@ -453,6 +476,7 @@ if __name__ == "__main__":
     run_demo(demo_reduce, world_size, port)
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
+    run_demo(demo_alltoall_base_equal_split, world_size, port)
     run_demo(demo_gather, world_size, port)
     run_demo(demo_scatter, world_size, port)
 
