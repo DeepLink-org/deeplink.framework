@@ -282,7 +282,9 @@ void abandonAllRecords() {
 
 RecordCreator::RecordCreator(string_t name, size_t opId,
                              uint64_t linkCorrelationId) {
+#if DIPU_VENDOR_NAME_ASCEND
   RECORD_FUNCTION(name, std::vector<c10::IValue>());
+#endif
   if (isEnable()) {
     name_ = std::move(name);
     opId_ = opId;
