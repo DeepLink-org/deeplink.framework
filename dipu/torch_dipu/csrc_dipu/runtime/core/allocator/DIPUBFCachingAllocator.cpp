@@ -30,7 +30,10 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
+  static constexpr size_t kMaxInternalFragmentation = kMinAllocationSize;
+  static constexpr int kSmallBlockSize = 2 << 20;
+  static constexpr int kLargeBlockSize = 20 << 20;
+  static constexpr int kLargeAlignSize = 1 << 20;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -288,8 +291,6 @@ class BFCachingAllocatorImpl {
   int extend(size_t nbytes, StreamSetHandle& set) {
     emptyCacheWithoutLock();
     bool increased = false;
-    constexpr int kSmallBlockSize = 2 << 20;
-    constexpr int kLargeBlockSize = 20 << 20;
     size_t allocateSize = nbytes;
     if (nbytes < kSmallBlockSize) {
       allocateSize = kSmallBlockSize;
@@ -297,7 +298,7 @@ class BFCachingAllocatorImpl {
       allocateSize = kLargeBlockSize;
     } else {
       allocateSize =
-          (nbytes + kLargeBlockSize - 1) / kLargeBlockSize * kLargeBlockSize;
+          (nbytes + kLargeAlignSize - 1) / kLargeAlignSize * kLargeAlignSize;
     }
 
     size_t currBytes = std::max(nbytes, allocateSize);
@@ -367,9 +368,11 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      if (chunks_[id].size >= nbytes * 2 ||
-          chunks_[id].size >= nbytes + kMaxInternalFragmentation) {
-        id = split(id, nbytes);
+      if (chunks_[id].size < kLargeBlockSize) {
+        if (chunks_[id].size >= nbytes * 2 ||
+            chunks_[id].size >= nbytes + kMaxInternalFragmentation) {
+          id = split(id, nbytes);
+        }
       }
       chunks_[id].allocated = true;
       return std::make_tuple(chunks_[id].ptr, id, nbytes);
