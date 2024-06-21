@@ -33,7 +33,7 @@ class BFCachingAllocatorImpl {
   static constexpr int kSmallBlockSize = 2 << 20;
   static constexpr int kMiddleBlockSize = 20 << 20;
   static constexpr int kLargeBlockSize = 200 << 20;
-  static constexpr int kLargeAlignSize = 1 << 30;
+  static constexpr int kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -245,6 +245,22 @@ class BFCachingAllocatorImpl {
       int k = chunks_[binHead].nextChunkInList;
       while (k) {
         if (chunks_[k].isMonoBlock()) {
+          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
+          removeChunkFromBin(k);
+          recycleIds_.push(k);
+        }
+        k = chunks_[k].nextChunkInList;
+      }
+    }
+  }
+
+  void shrink(StreamSetHandle& set, size_t nbytes) {
+    size_t releasedSize = 0;
+    for (int binHead : set->binHeads_) {
+      int k = chunks_[binHead].nextChunkInList;
+      while (k) {
+        if (chunks_[k].isMonoBlock()) {
+          releasedSize += chunks_[k].size;
           releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
           removeChunkFromBin(k);
           recycleIds_.push(k);
