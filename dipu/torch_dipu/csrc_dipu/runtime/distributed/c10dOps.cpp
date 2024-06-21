@@ -196,8 +196,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> alltoall_dipu_(
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->alltoall(output_tensors_vec, input_tensors_vec,
                      AllToAllOptions{std::chrono::milliseconds(timeout)});
-  return std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>(
-      std::move(output_tensors_vec), work);
+  return {std::move(output_tensors_vec), work};
 }
 
 c10::intrusive_ptr<Work> barrier_dipu(
