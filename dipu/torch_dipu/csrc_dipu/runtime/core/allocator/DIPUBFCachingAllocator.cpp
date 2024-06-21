@@ -30,10 +30,10 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = kMinAllocationSize;
   static constexpr int kSmallBlockSize = 2 << 20;
-  static constexpr int kLargeBlockSize = 20 << 20;
-  static constexpr int kLargeAlignSize = 1 << 20;
+  static constexpr int kMiddleBlockSize = 20 << 20;
+  static constexpr int kLargeBlockSize = 200 << 20;
+  static constexpr int kLargeAlignSize = 1 << 30;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -137,7 +137,11 @@ class BFCachingAllocatorImpl {
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
-    return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
+    if (nbytes < kLargeBlockSize) {
+      return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
+    } else {
+      return ((nbytes - 1) | (kSmallBlockSize - 1)) + 1;
+    }
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
@@ -294,11 +298,12 @@ class BFCachingAllocatorImpl {
     size_t allocateSize = nbytes;
     if (nbytes < kSmallBlockSize) {
       allocateSize = kSmallBlockSize;
+    } else if (nbytes < kMiddleBlockSize) {
+      allocateSize = kMiddleBlockSize;
     } else if (nbytes < kLargeBlockSize) {
-      allocateSize = kLargeBlockSize;
+      allocateSize = ((nbytes - 1) | (kMiddleBlockSize - 1)) + 1;
     } else {
-      allocateSize =
-          (nbytes + kLargeAlignSize - 1) / kLargeAlignSize * kLargeAlignSize;
+      allocateSize = ((nbytes - 1) | (kLargeAlignSize - 1)) + 1;
     }
 
     size_t currBytes = std::max(nbytes, allocateSize);
@@ -368,11 +373,18 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      if (chunks_[id].size < kLargeBlockSize) {
-        if (chunks_[id].size >= nbytes * 2 ||
-            chunks_[id].size >= nbytes + kMaxInternalFragmentation) {
-          id = split(id, nbytes);
-        }
+      int internlalMaxFragnmentSize = 0;
+      const int chunk_size = chunks_[id].size;
+      if (chunk_size < kSmallBlockSize) {
+        internlalMaxFragnmentSize = 512;
+      } else if (chunk_size < kLargeAlignSize) {
+        internlalMaxFragnmentSize = kSmallBlockSize;
+      } else {
+        internlalMaxFragnmentSize = kLargeAlignSize;
+      }
+      if (chunk_size >= nbytes * 2 ||
+          chunk_size > nbytes + internlalMaxFragnmentSize) {
+        id = split(id, nbytes);
       }
       chunks_[id].allocated = true;
       return std::make_tuple(chunks_[id].ptr, id, nbytes);
