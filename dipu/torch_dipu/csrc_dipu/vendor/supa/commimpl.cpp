@@ -129,8 +129,9 @@ diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf, size_t recvCount,
                                 comm, stream));
 }
 
-diclResult_t diclSend(void* sendbuff, size_t count, at::ScalarType datatype,
-                      int peer, diclComm_t comm, deviceStream_t stream) {
+diclResult_t diclSend(const void* sendbuff, size_t count,
+                      at::ScalarType datatype, int peer, diclComm_t comm,
+                      deviceStream_t stream) {
   ConvertScalarType(datatype);
   SUCCL_CALL(succlSend(sendbuff, count, suDataType, peer, comm, stream));
 }

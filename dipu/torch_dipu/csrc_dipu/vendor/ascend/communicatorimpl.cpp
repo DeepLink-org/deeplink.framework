@@ -1,4 +1,6 @@
 
+#include "csrc_dipu/runtime/device/basedef.h"
+
 #include "basecommimpl.hpp"
 
 #define HCCL_THROW(cmd)                                           \
@@ -147,11 +149,22 @@ DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclSend(void* sendBuf, size_t count,
+DIPU_API diclResult_t diclAllToAllEqualSplit(const void* sendBuf, void* recvBuf,
+                                             size_t count,
+                                             at::ScalarType dataType,
+                                             diclComm_t comm,
+                                             deviceStream_t stream) {
+  HCCL_THROW(HcclAlltoAll(sendBuf, count, getHcclDataType(dataType), recvBuf,
+                          count, getHcclDataType(dataType), comm, stream));
+  return DICL_SUCCESS;
+}
+
+DIPU_API diclResult_t diclSend(const void* sendBuf, size_t count,
                                at::ScalarType dataType, int peer,
                                diclComm_t comm, deviceStream_t stream) {
-  HCCL_THROW(
-      HcclSend(sendBuf, count, getHcclDataType(dataType), peer, comm, stream));
+  // No idea why HcclSend requires a buffer of void* instead of const void*
+  HCCL_THROW(HcclSend(const_cast<void*>(sendBuf), count,
+                      getHcclDataType(dataType), peer, comm, stream));
   return DICL_SUCCESS;
 }
 

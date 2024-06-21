@@ -21,6 +21,17 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
                                   CopyParamsInfo& info) override {
     dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
   }
+
+ protected:
+  void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
+                       bool non_blocking, const CopyParamsInfo& info,
+                       DIPUStream& curStream) override {
+    // If non_blocking is False, sync stream after copy.
+    // If non_blocking is True, record stream to ensure tensor free safety.
+    if (non_blocking) {
+      tryRecordOrSyncStream(dst, src, curStream, false);
+    }
+  }
 };
 
 // not const, see comments in DIPUCopy.cpp dipu_copy_op()

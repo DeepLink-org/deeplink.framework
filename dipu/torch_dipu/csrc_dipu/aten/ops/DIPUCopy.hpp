@@ -15,6 +15,9 @@
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/core/DIPUGuard.h"
 #include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -56,12 +59,45 @@ inline void checkOverlap(const at::Tensor& dst, const at::Tensor& src) {
   assert_no_partial_overlap(dst, src);
 }
 
-inline void tryRecordStream(const at::Tensor& tensor, DIPUStream& curStream,
-                            bool is_default_stream) {
-  if ((tensor.is_cpu() && tensor.options().pinned_memory()) ||
-      !is_default_stream) {
-    tensor.record_stream(curStream.unwrap());
+inline void tryRecordOrSyncStream(const at::Tensor& dst, const at::Tensor& src,
+                                  DIPUStream& cur_stream, bool block_cpu) {
+  const bool is_default_stream = (dipu::getDefaultDIPUStream() == cur_stream);
+  bool is_all_device_tensor = (!dst.is_cpu() && !src.is_cpu());
+  // When copy from device to device, torch allocator ensure that malloc and
+  // free are in the same stream, so it is not necessary to recordStream.
+  if (is_all_device_tensor) {
+    if (!isTorchAllocator() && !is_default_stream) {
+      recordStream(dst, cur_stream);
+      recordStream(src, cur_stream);
+    }
+    return;
   }
+
+  const at::Tensor& cpu_tensor = (dst.is_cpu() ? dst : src);
+  const at::Tensor& device_tensor = (dst.is_cpu() ? src : dst);
+  bool is_pinned = isPinnedPtr(cpu_tensor.storage().data());
+  // When copy between cpu tensor(not pinned) and device tensor, do sync stream
+  // to ensure free safety while block_cpu is True.
+  if (!is_pinned) {
+    if (block_cpu) {
+      dipu::devapis::syncStream(cur_stream.rawstream());
+    }
+    return;
+  }
+
+  // copy between pin memory cpu tensor and device tensor
+  if (!isTorchAllocator()) {
+    recordStream(cpu_tensor, cur_stream);
+    if (!is_default_stream) {
+      recordStream(device_tensor, cur_stream);
+    }
+    return;
+  }
+
+  TORCH_CHECK(allocator::CachingHostAllocator_recordEvent(
+                  cpu_tensor.data_ptr(),
+                  cpu_tensor.storage().data_ptr().get_context(), cur_stream),
+              "CachingHostAllocator_recordEvent fail");
 }
 
 inline DIPUCopyType getCopyType(const at::Tensor& dst, const at::Tensor& src) {
@@ -298,29 +334,26 @@ class DIPUCopyInplace : public DIPUCopyBase {
 
     copyAll(dst, src, non_blocking, info);
 
-    copyPostProcess(non_blocking, info, curStream);
+    copyPostProcess(dst, src, non_blocking, info, curStream);
   }
 
  protected:
   virtual void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
                               bool non_blocking, CopyParamsInfo& info) {
-    // recordBeforeCopy
-    if (non_blocking) {
-      const bool is_default_stream =
-          dipu::getDefaultDIPUStream() == info.curStream_;
-      tryRecordStream(dst, info.curStream_, is_default_stream);
-      tryRecordStream(src, info.curStream_, is_default_stream);
-    }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
       doSrcStreamWaitDstStream(info, false);
     }
   }
 
-  virtual void copyPostProcess(bool non_blocking, const CopyParamsInfo& info,
+  virtual void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
+                               bool non_blocking, const CopyParamsInfo& info,
                                DIPUStream& curStream) {
-    // syncAfterCopy
+    // If non_blocking is False, sync stream after copy.
+    // If non_blocking is True, record stream to ensure tensor free safety.
     if (!non_blocking) {
       curStream.synchronize();
+    } else {
+      tryRecordOrSyncStream(dst, src, curStream, true);
     }
     if (DIPUCopyType::D2OtherD == info.copyType_) {
       // dst wait src ready
