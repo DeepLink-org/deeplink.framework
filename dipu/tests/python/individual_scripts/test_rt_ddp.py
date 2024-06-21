@@ -374,6 +374,16 @@ def demo_alltoall_base_unequal_split(rank, world_size, port):
 
     setup(rank, world_size, port)
 
+    # Example: For world_size = 2,
+    # input_split_sizes: [1,2] (rank 0)
+    #                    [3,4] (rank 1)
+    # output_split_sizes: [1,3] (rank 0)
+    #                     [2,4] (rank 1)
+    # src: [0, 1, 2] (rank 0)
+    #      [3, 4, 5, 6, 7, 8, 9] (rank 1)
+    # expected / dst: [0, 3, 4, 5] (rank 0)
+    #                 [1, 2, 6, 7, 8, 9] (rank 1)
+
     input_split_sizes = torch.arange(world_size) + 1 + rank * world_size
     output_split_sizes = torch.arange(0, world_size * world_size, world_size) + 1 + rank
     src = (
@@ -402,6 +412,12 @@ def demo_alltoall(rank, world_size, port):
     import torch_dipu
 
     setup(rank, world_size, port)
+
+    # Example: For world_size = 2,
+    # src: [[0], [1, 2]] (rank 0)
+    #      [[3, 4, 5], [6, 7, 8, 9]] (rank 1)
+    # expected / dst: [[0], [3, 4, 5]] (rank 0)
+    #                 [[1, 2], [6, 7, 8, 9]] (rank 1)
 
     input_split_sizes = torch.arange(world_size) + 1 + rank * world_size
     output_split_sizes = torch.arange(0, world_size * world_size, world_size) + 1 + rank
