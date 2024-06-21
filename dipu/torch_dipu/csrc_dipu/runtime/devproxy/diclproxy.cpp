@@ -127,7 +127,7 @@ devapis::diclResult_t diclAllToAllEqualSplit(
                                            comm, stream);
   }
 
-  // TODO(jfxu-st): For CUDA, use NCCL Group Calls for higher performance
+  // TODO(jfxu-st): For CUDA, use NCCL group calls for higher performance
   // Ref:
   // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L828-L838
   // Ref:
@@ -137,14 +137,67 @@ devapis::diclResult_t diclAllToAllEqualSplit(
       "implementation based on devproxy::diclScatter will be used")
   const size_t numBytesPerRank = count * c10::elementSize(dataType);
   std::vector<const void*> sendBuf2d(commSize);
-  for (const auto peer : c10::irange(commSize)) {
-    sendBuf2d[peer] =
-        reinterpret_cast<const char*>(sendBuf) + peer * numBytesPerRank;
+  for (const auto scatterRootRank : c10::irange(commSize)) {
+    sendBuf2d[scatterRootRank] = reinterpret_cast<const char*>(sendBuf) +
+                                 scatterRootRank * numBytesPerRank;
   }
   for (const auto peer : c10::irange(commSize)) {
     diclScatter(sendBuf2d.data(),
                 reinterpret_cast<char*>(recvBuf) + peer * numBytesPerRank,
                 count, dataType, peer, currRank, commSize, comm, stream);
+  }
+  return devapis::DICL_SUCCESS;
+}
+
+DIPU_API devapis::diclResult_t diclAllToAllUnequalSplit(
+    const void* sendBuf, const size_t* sendCounts,
+    const size_t* sendDisplacements, void* recvBuf, const size_t* recvCounts,
+    const size_t* recvDisplacements, at::ScalarType dataType, diclComm_t comm,
+    deviceStream_t stream, int currRank, int commSize) {
+  if (devapis::diclAllToAllUnequalSplit) {
+    return devapis::diclAllToAllUnequalSplit(
+        sendBuf, sendCounts, sendDisplacements, recvBuf, recvCounts,
+        recvDisplacements, dataType, comm, stream);
+  }
+
+  // TODO(jfxu-st): For CUDA, use NCCL group calls for higher performance
+  // Ref:
+  // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L871-L893
+
+  TORCH_WARN_ONCE(
+      "devapis::diclAllToAllUnequalSplit is not implemented, so a fallback "
+      "implementation based on devproxy::diclSend and devproxy::diclRecv will "
+      "be used")
+
+  size_t elementSize = c10::elementSize(dataType);
+  for (const auto scatterRootRank : c10::irange(commSize)) {
+    if (currRank != scatterRootRank) {
+      DIPU_CALL_DICLAPIS(
+          diclRecv(reinterpret_cast<char*>(recvBuf) +
+                       recvDisplacements[scatterRootRank] * elementSize,
+                   recvCounts[scatterRootRank], dataType, scatterRootRank, comm,
+                   stream));
+      continue;
+    }
+
+    for (const auto dstRank : c10::irange(commSize)) {
+      if (dstRank == scatterRootRank) {
+        continue;
+      }
+      DIPU_CALL_DICLAPIS(diclSend(reinterpret_cast<const char*>(sendBuf) +
+                                      sendDisplacements[dstRank] * elementSize,
+                                  sendCounts[dstRank], dataType, dstRank, comm,
+                                  stream));
+    }
+
+    auto deviceId = static_cast<devapis::deviceId_t>(currRank);
+    devproxy::memCopyD2DAsync(stream, sendCounts[currRank] * elementSize,
+                              deviceId,
+                              reinterpret_cast<char*>(recvBuf) +
+                                  recvDisplacements[currRank] * elementSize,
+                              deviceId,
+                              reinterpret_cast<const char*>(sendBuf) +
+                                  sendDisplacements[currRank] * elementSize);
   }
   return devapis::DICL_SUCCESS;
 }
