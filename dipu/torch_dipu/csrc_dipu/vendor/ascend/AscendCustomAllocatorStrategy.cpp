@@ -1,6 +1,7 @@
+#include <cstdint>
+
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/utils/env.hpp"
-#include <cstdint>
 
 const static int ascend_init = []() {
   // – 内存大小向上对齐成32整数倍+32字节(m=ALIGN_UP[len,32]+32字节);
