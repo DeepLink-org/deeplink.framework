@@ -289,13 +289,10 @@ class BFCachingAllocatorImpl {
     emptyCacheWithoutLock();
     bool increased = false;
     constexpr int kSmallBlockSize = 2 << 20;
-    constexpr int kMiddleBlockSize = 20 << 20;
-    constexpr int kLargeBlockSize = 200 << 20;
+    constexpr int kLargeBlockSize = 20 << 20;
     size_t allocateSize = nbytes;
     if (nbytes < kSmallBlockSize) {
       allocateSize = kSmallBlockSize;
-    } else if (nbytes < kMiddleBlockSize) {
-      allocateSize = kMiddleBlockSize;
     } else if (nbytes < kLargeBlockSize) {
       allocateSize = kLargeBlockSize;
     } else {
