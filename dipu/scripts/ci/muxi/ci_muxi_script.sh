@@ -1,7 +1,7 @@
 # !/bin/bash
 set -exo pipefail
 
-function builddipu() {
+function build_dipu() {
     path="build"
     echo "Building DIPU into: '$PWD/$path'"
     echo " - DIOPI_ROOT=${DIOPI_ROOT}"
@@ -18,11 +18,17 @@ function builddipu() {
     cmake_maca --build "$path" --parallel 20 2>&1 | tee "${path}/build.log"
 }
 
+function build_diopi_lib() {
+    cd third_party/DIOPI/impl
+    sh scripts/build_impl.sh clean
+    sh scripts/build_impl.sh muxi || exit -1
+    cd -
+}
+
 
 case $1 in
     "build_dipu")
-        # build_diopi_lib
-        builddipu  # "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}"
+        build_dipu  # "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}"
     ;;
     "build_dipu_only")
         builddipu "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
