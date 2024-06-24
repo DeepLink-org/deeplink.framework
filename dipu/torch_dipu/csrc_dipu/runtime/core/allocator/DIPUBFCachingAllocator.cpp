@@ -137,11 +137,7 @@ class BFCachingAllocatorImpl {
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
-    if (nbytes < kLargeBlockSize) {
-      return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
-    } else {
-      return ((nbytes - 1) | (kSmallBlockSize - 1)) + 1;
-    }
+    return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
