@@ -30,9 +30,9 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr int kSmallBlockSize = 2 << 20;
-  static constexpr int kMiddleBlockSize = 20 << 20;
-  static constexpr int kLargeBlockSize = 200 << 20;
+  static constexpr int kSmallBlockSize = 8 << 20;
+  static constexpr int kMiddleBlockSize = 64 << 20;
+  static constexpr int kLargeBlockSize = 256 << 20;
   static constexpr int kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
@@ -240,21 +240,7 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  void shrink(StreamSetHandle& set) {
-    for (int binHead : set->binHeads_) {
-      int k = chunks_[binHead].nextChunkInList;
-      while (k) {
-        if (chunks_[k].isMonoBlock()) {
-          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
-          removeChunkFromBin(k);
-          recycleIds_.push(k);
-        }
-        k = chunks_[k].nextChunkInList;
-      }
-    }
-  }
-
-  void shrink(StreamSetHandle& set, size_t nbytes) {
+  void shrink(StreamSetHandle& set, size_t nbytes = 0) {
     size_t releasedSize = 0;
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
@@ -266,6 +252,9 @@ class BFCachingAllocatorImpl {
           recycleIds_.push(k);
         }
         k = chunks_[k].nextChunkInList;
+        if (nbytes > 0 && releasedSize >= nbytes) {
+          return;
+        }
       }
     }
   }
@@ -318,8 +307,10 @@ class BFCachingAllocatorImpl {
       allocateSize = kMiddleBlockSize;
     } else if (nbytes < kLargeBlockSize) {
       allocateSize = ((nbytes - 1) | (kMiddleBlockSize - 1)) + 1;
-    } else {
+    } else if (nbytes < (kLargeAlignSize << 1)) {
       allocateSize = ((nbytes - 1) | (kLargeAlignSize - 1)) + 1;
+    } else {
+      allocateSize = ((nbytes - 1) | (kSmallBlockSize - 1)) + 1;
     }
 
     size_t currBytes = std::max(nbytes, allocateSize);
@@ -477,7 +468,7 @@ class BFCachingAllocator : public CacheAllocator {
     using namespace std::chrono_literals;
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
     auto start = std::chrono::steady_clock::now();
-    constexpr auto maxWaitTime = 32us;
+    constexpr auto maxWaitTime = 8us;
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
         auto now = std::chrono::steady_clock::now();
