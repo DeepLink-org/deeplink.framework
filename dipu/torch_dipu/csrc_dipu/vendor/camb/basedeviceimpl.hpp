@@ -83,17 +83,14 @@ void freeHost(void* p){DIPU_CALLCNRT(cnrtFreeHost(p))}
 
 OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   ::cnrtRet_t r = ::cnrtMalloc(p, nbytes);
-  if (r != ::cnrtSuccess) {
-    if (throwExcepion) {
-      checkLastError(); /* reset internal error state*/
-      TORCH_CHECK(false, "alloc failed in mallocDevice, ret = ", r);
-    } else if ((r == ::cnrtErrorNoMem)) {
-      return OpStatus::ERR_NOMEM;
-    } else {
-      return OpStatus::ERR_UNKNOWN;
-    }
+  if (r == ::cnrtSuccess) {
+    return OpStatus::SUCCESS;
   }
-  return OpStatus::SUCCESS;
+  if (r == ::cnrtErrorNoMem && !throwExcepion) {
+    checkLastError();
+    return OpStatus::ERR_NOMEM;
+  }
+  TORCH_CHECK(false, "cnrtMalloc failed, ret = ", r, " size = ", nbytes);
 }
 
 void freeDevice(void* p) { DIPU_CALLCNRT(::cnrtFree(p)) }

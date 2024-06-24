@@ -8,8 +8,8 @@
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
 #include "DIPUAsyncResourcePool.h"
-#include "DIPUCachingAllocatorUtils.h"
 #include "DIPURawAllocator.h"
+#include "allocator_metrics.h"
 
 namespace dipu {
 
@@ -37,6 +37,13 @@ class MemoryAlignmentStrategy {
     nbytes = ((nbytes - 1) | (kBytesAlign - 1)) + 1;
     return nbytes;
   }
+
+  // The round size logic of dipu and torch allocator is quite different. An
+  // interface is provided for torch allocator to obtain the vendor's
+  // customized memory alignment strategy.We are currently only concerned with
+  // the beta field which is the number of additional bytes required.
+  // Now used in DeviceCachingAllocator::round_size
+  size_t getBeta() const { return beta; }
 
   virtual ~MemoryAlignmentStrategy() = default;
 };
@@ -99,6 +106,8 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   mutable c10::Device device_ = c10::DeviceType::CPU;
 
  protected:
+  AllocatorMetrics mutable metrics_producer{{{"type", "caching"}}};
+
   c10::Allocator* raw_allocator() const { return raw_allocator_; }
 
   AsyncMemPool* async_mem_pool() const { return async_mem_pool_; }
@@ -113,6 +122,7 @@ class DIPU_API CacheAllocator : public c10::Allocator, public MemStats {
   void set_raw_allocator(c10::Allocator* raw_allocator) {
     raw_allocator_ = raw_allocator;
     device_ = raw_allocator_->allocate(0).device();
+    metrics_producer.set_device_number(std::to_string(device_.index()));
   }
 
   void set_async_mem_pool(AsyncMemPool* async_mem_pool) {
@@ -176,6 +186,8 @@ void setAllocator(const std::string& name, c10::DeviceType device_type,
                   uint8_t priority = 0);
 
 c10::Allocator* getAllocator(c10::DeviceType device_type);
+
+bool isTorchAllocator();
 
 namespace allocator_details {  // For internal implementation only
 

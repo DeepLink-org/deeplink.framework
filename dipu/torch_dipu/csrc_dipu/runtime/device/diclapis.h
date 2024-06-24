@@ -59,7 +59,19 @@ DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
                                         const ReduceOp& op, diclComm_t comm,
                                         deviceStream_t stream);
 
-DIPU_API diclResult_t diclSend(void* recvBuf, size_t count,
+DIPU_WEAK diclResult_t diclAllToAllEqualSplit(const void* sendBuf,
+                                              void* recvBuf, size_t count,
+                                              at::ScalarType dataType,
+                                              diclComm_t comm,
+                                              deviceStream_t stream);
+
+DIPU_WEAK diclResult_t diclAllToAllUnequalSplit(
+    const void* sendBuf, const size_t* sendCounts,
+    const size_t* sendDisplacements, void* recvBuf, const size_t* recvCounts,
+    const size_t* recvDisplacements, at::ScalarType dataType, diclComm_t comm,
+    deviceStream_t stream);
+
+DIPU_API diclResult_t diclSend(const void* sendBuf, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream);
 

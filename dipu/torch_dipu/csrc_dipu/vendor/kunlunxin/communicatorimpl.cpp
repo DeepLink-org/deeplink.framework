@@ -128,7 +128,7 @@ DIPU_API diclResult_t diclReduceScatter(
   return DICL_ERR_UNDEF;
 }
 
-DIPU_API diclResult_t diclSend(void* sendbuff, size_t count,
+DIPU_API diclResult_t diclSend(const void* sendbuff, size_t count,
                                at::ScalarType datatype, int peer,
                                diclComm_t comm, deviceStream_t stream) {
   return DICL_ERR_UNDEF;

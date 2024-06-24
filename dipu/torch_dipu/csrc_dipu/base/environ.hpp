@@ -85,6 +85,12 @@ T getEnvOrDefault(const char* env_var, U&& default_value,
 // registerOpMaybeDelayed(), or delay the registration of ops until
 // applyDelayedRegister() is called.
 DIPU_ENV_VAR(immediateRegisterOp, "DIPU_IMMEDIATE_REGISTER_OP", bool, false);
+inline const std::string kTorchAllocatorName = "TORCH";
+DIPU_ENV_VAR(hostMemCachingAlgorithm, "DIPU_HOST_MEMCACHING_ALGORITHM",
+             std::string, kTorchAllocatorName);
+DIPU_ENV_VAR(deviceMemCachingAlgorithm, "DIPU_DEVICE_MEMCACHING_ALGORITHM",
+             std::string, kTorchAllocatorName);
+DIPU_ENV_VAR(torchAllocatorConf, "DIPU_TORCH_ALLOCATOR_CONF", std::string, "");
 
 #undef DIPU_ENV_VAR
 

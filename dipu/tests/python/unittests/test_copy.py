@@ -16,10 +16,16 @@ class TestCopy(TestCase):
         src_dtype = cfg[5]
         dst_dtype = cfg[6]
 
-        src_cpu = torch.randn(src_shape, dtype=src_dtype)
-        dst_cpu = torch.randn(dst_shape, dtype=dst_dtype)
-        src_dipu = src_cpu.to(src_device)
-        dst_dipu = dst_cpu.to(dst_device)
+        src_cpu = torch.randn(src_shape, dtype=src_dtype, pin_memory=cfg[7])
+        dst_cpu = torch.randn(dst_shape, dtype=dst_dtype, pin_memory=cfg[7])
+        if src_device.type == "cpu":
+            src_dipu = src_cpu
+        else:
+            src_dipu = src_cpu.to(src_device)
+        if dst_device.type == "cpu":
+            dst_dipu = dst_cpu
+        else:
+            dst_dipu = dst_cpu.to(dst_device)
         if src_need_expand:
             src_cpu = src_cpu.expand_as(dst_cpu)
             src_dipu = src_dipu.expand_as(dst_dipu)
@@ -32,10 +38,20 @@ class TestCopy(TestCase):
         src_need_expands = [True, False]
         devices = [torch.device("cpu"), torch.device("cuda:0")]
         dtypes = [torch.float32, torch.float16]
+        pin_memory_settings = [False, True]
+        non_blocking_settings = [False, True]
 
         configs = []
         for cfg in itertools.product(
-            src_shapes, dst_shapes, src_need_expands, devices, devices, dtypes, dtypes
+            src_shapes,
+            dst_shapes,
+            src_need_expands,
+            devices,
+            devices,
+            dtypes,
+            dtypes,
+            pin_memory_settings,
+            non_blocking_settings,
         ):
             if cfg[3].type != "cpu" or cfg[4].type != "cpu":
                 configs.append(cfg)
@@ -43,8 +59,8 @@ class TestCopy(TestCase):
         for cfg in configs:
             # print(f"cfg = {cfg}")
             src_cpu, dst_cpu, src_dipu, dst_dipu = self._create_tensor(cfg)
-            dst_cpu.copy_(src_cpu)
-            dst_dipu.copy_(src_dipu)
+            dst_cpu.copy_(src_cpu, cfg[8])
+            dst_dipu.copy_(src_dipu, cfg[8])
             # if torch.allclose(dst_cpu, dst_dipu.cpu()):
             #     print(f"cfg = {cfg} passed")
             # else:
@@ -66,26 +82,53 @@ class TestCopy(TestCase):
     def test_d2d_peer_copy_(self):
         if torch.cuda.device_count() < 2:
             return
-        dst = torch.rand((6, 4), device="cuda:0")
-        src = torch.rand((6, 4), device="cuda:1")
+        dst = torch.rand((6400, 4000), device="cuda:0")
+        src = torch.rand((6400, 4000), device="cuda:1")
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
         self.assertEqual(dst.device.index, 0)
         self.assertEqual(src.device.index, 1)
 
-        dst = torch.rand((6, 4), device="cuda:1")
-        src = torch.rand((6, 4), device="cuda:0")
+        dst = torch.rand((6400, 4000), device="cuda:1")
+        src = torch.rand((6400, 4000), device="cuda:0")
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
         self.assertEqual(dst.device.index, 1)
         self.assertEqual(src.device.index, 0)
 
+    def test_d2d_peer_copy_no_contiguous(self):
+        if torch.cuda.device_count() < 2:
+            return
+        src = torch.rand((6400, 9900), device="cuda:1")[::2, ::3]
+        dst = src.to("cuda:0")
+        self.assertEqual(dst.cpu(), src.cpu())
+        self.assertEqual(dst.device.index, 0)
+        self.assertEqual(src.device.index, 1)
+
     def test_d2d_copy_(self):
         index = torch.cuda.device_count() - 1
-        dst = torch.rand((6, 4), device="cuda:" + str(index))
-        src = torch.rand((6, 4), device="cuda:" + str(index))
+        dst = torch.rand((6000, 4000), device="cuda:" + str(index))
+        src = torch.rand((6000, 4000), device="cuda:" + str(index))
         dst.copy_(src)
         self.assertEqual(dst.cpu(), src.cpu())
+
+    @staticmethod
+    def copy_tensor(device_tensor, val):
+        cpu_tensor = torch.empty(
+            device_tensor.shape, dtype=torch.float32, pin_memory=False
+        ).fill_(val)
+        device_tensor.copy_(cpu_tensor, non_blocking=True)
+        del cpu_tensor
+
+    def test_h2d_copy_(self):
+        tensor_list = []
+        for i in range(500):
+            device_tensor = torch.empty(100, 100, dtype=torch.float32, device="cuda")
+            self.copy_tensor(device_tensor, float(i))
+            tensor_list.append(device_tensor)
+
+        for i in range(500):
+            assert torch.all(tensor_list[i] == float(i))
 
 
 if __name__ == "__main__":

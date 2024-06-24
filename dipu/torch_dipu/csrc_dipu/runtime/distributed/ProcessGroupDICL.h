@@ -9,6 +9,7 @@
 #include <c10/core/Device.h>
 #include <torch/csrc/distributed/c10d/Backend.hpp>
 #include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
 #include "csrc_dipu/base/basedef.h"
@@ -22,6 +23,7 @@ namespace dipu {
 
 using c10d::AllgatherOptions;
 using c10d::AllreduceOptions;
+using c10d::AllToAllOptions;
 using c10d::Backend;
 using c10d::BarrierOptions;
 using c10d::BroadcastOptions;
@@ -211,6 +213,16 @@ class DIPU_API ProcessGroupDICL : public Backend {
       at::Tensor& output, at::Tensor& input,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
 
+  c10::intrusive_ptr<Work> alltoall_base(at::Tensor& outputTensor,
+                                         at::Tensor& inputTensor,
+                                         std::vector<int64_t>& outputSplitSizes,
+                                         std::vector<int64_t>& inputSplitSizes,
+                                         const AllToAllOptions& opts) override;
+
+  c10::intrusive_ptr<Work> alltoall(std::vector<at::Tensor>& outputTensors,
+                                    std::vector<at::Tensor>& inputTensors,
+                                    const AllToAllOptions& opts) override;
+
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
                                 int tag) override;
 
@@ -223,9 +235,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
  protected:
-  // different device may need extend this func to do device specific check
-  virtual void checkDeviceTensors(const std::vector<at::Tensor>& tensors);
-
   // Helper that broadcasts DICL clique ID to all ranks through the store
   virtual void broadcastUniqueID(commUniqueId* uniqueId,
                                  const std::string& storeKey, int commRank);

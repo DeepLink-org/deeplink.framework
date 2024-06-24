@@ -121,7 +121,7 @@ DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
   } else {
     prop.name = std::string(device_name);
   }
-  int patch;
+  int patch = 0;
   DIPU_CALLACLRT(::aclrtGetVersion(&prop.major, &prop.minor, &patch));
   DIPU_CALLACLRT(::aclrtGetMemInfo(ACL_HBM_MEM, &device_free, &device_total));
   // NOTE : unit of PhysicalMemoryTotal is Byte
@@ -132,9 +132,8 @@ DIPUDeviceProperties getDeviceProperties(AscendDeviceId device_index) {
 
 DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
   DIPUDeviceStatus status;
-  size_t device_total;
-  DIPU_CALLACLRT(
-      ::aclrtGetMemInfo(ACL_HBM_MEM, &status.freeGlobalMem, &device_total));
+  DIPU_CALLACLRT(aclrtGetMemInfo(ACL_HBM_MEM, &status.freeGlobalMem,
+                                 &status.totalGlobalMem));
   return status;
 }
 
@@ -183,8 +182,15 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
   // 若用户需申请大块内存并自行划分、管理内存时，建议使用aclrtMallocAlign32接
   // 口，该接口相比aclrtMalloc接口，只会对用户申请的size向上对齐成32字节整数
   // 倍，不会再多加32字节。 大块内存用作缓存时，无需多加32字节
-  DIPU_CALLACLRT(::aclrtMallocAlign32(p, nbytes, ACL_MEM_MALLOC_HUGE_FIRST));
-  return OpStatus::SUCCESS;
+  aclError err = ::aclrtMallocAlign32(p, nbytes, ACL_MEM_MALLOC_HUGE_FIRST);
+  if (err == ACL_ERROR_NONE) {
+    return OpStatus::SUCCESS;
+  }
+  if (err == ACL_ERROR_RT_MEMORY_ALLOCATION && !throwExcepion) {
+    return OpStatus::ERR_NOMEM;
+  }
+  TORCH_CHECK(false, "aclrtMallocAlign32 error, err = ", err,
+              ", size = ", nbytes, ", error msg = ", aclGetRecentErrMsg());
 }
 
 void freeDevice(void* p) {
