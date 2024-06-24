@@ -54,6 +54,7 @@ static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
 
   for (int i = 1; i < rawSize; i++) {
     auto arg = PyTuple_GET_ITEM(args, i);
+    // Py_INCREF(arg);
     PyTuple_SetItem(newArgs, i - 1, arg);
   }
   return result;

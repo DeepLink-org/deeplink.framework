@@ -41,6 +41,7 @@ def setup(rank, world_size, port, backend="nccl"):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(port)
     print("comm using port:", str(port))
+    torch.cuda.set_device(rank)
     # initialize the process group
     dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
 
@@ -229,8 +230,6 @@ def demo_bcast(rank, world_size, port):
 def demo_gather(rank, world_size, port):
     import torch_dipu
 
-    torch.cuda.set_device(rank)
-
     setup(rank, world_size, port)
 
     root_rank = 0
@@ -250,8 +249,6 @@ def demo_gather(rank, world_size, port):
 def demo_scatter(rank, world_size, port):
     import torch_dipu
 
-    torch.cuda.set_device(rank)
-
     setup(rank, world_size, port)
 
     root_rank = 0
@@ -270,8 +267,6 @@ def demo_scatter(rank, world_size, port):
 
 def demo_reduce(rank, world_size, port):
     import torch_dipu
-
-    torch.cuda.set_device(rank)
 
     setup(rank, world_size, port)
 
@@ -422,6 +417,32 @@ def test_special_group_stuck(rank, world_size):
 
     cleanup()
 
+def test_new_group(rank, world_size):
+    print(f"test group on rank {rank} ws: {world_size}")
+    setup(rank, world_size)
+    for op in [dist.reduce_op.SUM,]:
+      te_result = torch.zeros((3, 4)).cuda() + rank
+      dist.all_reduce(te_result, op=op)
+      print(te_result)
+
+    # any combine
+    ranks_dps = [[0,], [1,], [2, 3]]
+    # ranks_dps = [[0, 1], [2, 3]]
+    new_group = None
+    for ranks_dp in ranks_dps:
+      tmp_group = torch.distributed.new_group(ranks_dp)
+      if rank in ranks_dp:
+        new_group = tmp_group
+  
+    if new_group != None:
+      for op in [dist.reduce_op.SUM,]:
+        te_result = torch.zeros((3, 4)).cuda() + rank
+        dist.all_reduce(te_result, op=op, group=new_group)
+        print(te_result)
+      dist.destroy_process_group(new_group)
+
+    cleanup()
+
 
 def test_get_comm_name(rank, world_size, port):
     import torch_dipu
@@ -439,6 +460,7 @@ def test_get_comm_name(rank, world_size, port):
         print(comm_name)
 
         cleanup()
+
 
 
 if __name__ == "__main__":
@@ -467,3 +489,7 @@ if __name__ == "__main__":
     # run_demo(demo_model_parallel, world_size)
 
     # run_demo(test_special_group_stuck, world_size)
+
+    # need 4 card to run
+    # run_demo(test_new_group, world_size)
+    
