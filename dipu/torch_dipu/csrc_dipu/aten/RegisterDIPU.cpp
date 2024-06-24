@@ -60,6 +60,7 @@
 namespace dnative = dipu::native::dipu_aten;
 
 namespace dipu {
+
 namespace native {
 void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 }  // end of namespace native
@@ -131,12 +132,12 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
                    torch::jit::Stack* stack) {
   dipu::dump_fallback_op_args(op, stack);
   const auto name = c10::toString(op.operator_name());
+  DIPU_OP_LOG_WARNING_ONCE("fallback to cpu, name=" << name << std::endl);
 
+#if DIPU_TORCH_VERSION < 20100
   // TORCH_CHECK(name.find("foreach") == std::string::npos,
   //   "Currently the foreach operator does not support fallback: ", name);
   const bool forech_op = name.find("foreach") != std::string::npos;
-
-  DIPU_OP_LOG_WARNING_ONCE("fallback to cpu, name=" << name << std::endl);
 
   const static std::vector<std::string> custom_fallback_operators_list{
       "aten::native_batch_norm",
@@ -151,6 +152,9 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   } else {
     at::native::cpu_fallback(op, stack);
   }
+#else
+  at::native::cpu_fallback(op, stack);
+#endif
 }
 
 namespace {
