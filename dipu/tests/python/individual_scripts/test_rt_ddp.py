@@ -518,29 +518,42 @@ def test_special_group_stuck(rank, world_size):
 
     cleanup()
 
+
 def test_new_group(rank, world_size):
     print(f"test group on rank {rank} ws: {world_size}")
     setup(rank, world_size)
-    for op in [dist.reduce_op.SUM,]:
-      te_result = torch.zeros((3, 4)).cuda() + rank
-      dist.all_reduce(te_result, op=op)
-      print(te_result)
+    for op in [
+        dist.reduce_op.SUM,
+    ]:
+        te_result = torch.zeros((3, 4)).cuda() + rank
+        dist.all_reduce(te_result, op=op)
+        print(te_result)
 
     # any combine
-    ranks_dps = [[0,], [1,], [2, 3]]
+    ranks_dps = [
+        [
+            0,
+        ],
+        [
+            1,
+        ],
+        [2, 3],
+    ]
     # ranks_dps = [[0, 1], [2, 3]]
     new_group = None
     for ranks_dp in ranks_dps:
-      tmp_group = torch.distributed.new_group(ranks_dp)
-      if rank in ranks_dp:
-        new_group = tmp_group
-  
+        tmp_group = torch.distributed.new_group(ranks_dp)
+        if rank in ranks_dp:
+            new_group = tmp_group
+
     if new_group != None:
-      for op in [dist.reduce_op.SUM,]:
-        te_result = torch.zeros((3, 4)).cuda() + rank
-        dist.all_reduce(te_result, op=op, group=new_group)
-        print(te_result)
-      dist.destroy_process_group(new_group)
+        for op in [
+            dist.reduce_op.SUM,
+        ]:
+            te_result = torch.zeros((3, 4)).cuda() + rank
+            dist.all_reduce(te_result, op=op, group=new_group)
+            print(te_result)
+        dist.destroy_process_group(new_group)
 
     cleanup()
 
@@ -561,7 +574,6 @@ def test_get_comm_name(rank, world_size, port):
         print(comm_name)
 
         cleanup()
-
 
 
 if __name__ == "__main__":
@@ -596,4 +608,3 @@ if __name__ == "__main__":
 
     # need 4 card to run
     # run_demo(test_new_group, world_size)
-    
