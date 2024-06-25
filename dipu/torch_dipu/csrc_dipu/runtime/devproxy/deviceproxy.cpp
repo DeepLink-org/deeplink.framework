@@ -66,7 +66,7 @@ deviceId_t current_device() {
 
 void setCpuAffinity(const int device) {
   static int affinity = []() {
-    return get_env_or_default("DIPU_CPU_AFFINITY", -1);
+    return get_env_or_default("DIPU_CPU_AFFINITY", 0);
   }();
   if (affinity < 0) {
     return;
