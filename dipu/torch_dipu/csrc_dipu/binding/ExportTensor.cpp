@@ -13,10 +13,13 @@
 #include <torch/csrc/utils/tensor_types.h>
 
 #include <Python.h>
+#include <object.h>
 
 #include <csrc_dipu/base/basedef.h>
 
 #include "exportapi.h"
+
+using std::unique_ptr;
 
 namespace dipu {
 static at::Tensor dispatch_to(
@@ -35,29 +38,38 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
-// TODO(fandaoyi): check memory leak
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-static std::shared_ptr<PyObject* [2]> splitArgs(PyObject* args) {
-  ssize_t rawSize = PyTuple_Size(args);
-  PyObject* newArgs = PyTuple_New(rawSize - 1);
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-  std::shared_ptr<PyObject* [2]> result(new PyObject*[2], [](PyObject** p) {
-    // if (p[1]) {    // cause segfault, why?
-    //   Py_DECREF(p[1]);
-    // }
-    delete[] p;
-    p = nullptr;
-  });
-  // 0 is self
-  result[0] = PyTuple_GET_ITEM(args, 0);
-  result[1] = newArgs;
+static PyObject* currentNewArgs = nullptr;
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+static auto splitArgs(PyObject* args) {
+  ssize_t rawSize = PyTuple_Size(args);
+  PyObject* newArgsTuple = PyTuple_New(rawSize - 1);
+  currentNewArgs = newArgsTuple;
   for (int i = 1; i < rawSize; i++) {
     auto arg = PyTuple_GET_ITEM(args, i);
-    // Py_INCREF(arg);
-    PyTuple_SetItem(newArgs, i - 1, arg);
+    Py_INCREF(arg);
+    PyTuple_SetItem(newArgsTuple, i - 1, arg);
   }
-  return result;
+
+  auto makeDeleter =[](bool isContainer) {
+      return [isContainer](PyObject* p) {
+          if (isContainer) {
+            Py_DecRef(p);
+          }
+      };
+  };
+
+  auto selfDeleter = makeDeleter(false);
+  auto newArgsDeleter = makeDeleter(true);
+  auto self = unique_ptr<PyObject, decltype(selfDeleter)>(PyTuple_GET_ITEM(args, 0), selfDeleter);
+  auto newArgs = unique_ptr<PyObject, decltype(newArgsDeleter)>(newArgsTuple, newArgsDeleter);
+  return std::make_tuple(std::move(self), std::move(newArgs));
+}
+
+static PyObject* returnNewTuple(PyObject* module, PyObject* args,
+                                  PyObject* kwargs) {
+                                  
+   return currentNewArgs;
 }
 
 // first parameter is export module torchdipu_module, not self tensor
@@ -71,8 +83,8 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
        "memory_format=None)|deprecated"});
 
   auto res = splitArgs(args);
-  PyObject* self = res[0];
-  PyObject* newArgs = res[1];
+  PyObject* self = std::get<0>(res).get();
+  PyObject* newArgs = std::get<1>(res).get();
 
   auto& self_ = THPVariable_Unpack(self);
   torch::ParsedArgs<3> parsed_args;
@@ -92,8 +104,24 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
   END_HANDLE_TH_ERRORS
 }
 
+
+// we prefer to use pybind11 to export patch func, cpython is used only patching
+// tensor-func which has complex dynamic parameters not easy to parsed by
+// pybind.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static std::array<PyMethodDef, 3> TorchTensorMethods = {
+    {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
+      METH_VARARGS | METH_KEYWORDS, nullptr},
+      {"returnNewTuple", reinterpret_cast<PyCFunction>(returnNewTuple),
+      METH_NOARGS, nullptr},
+     {nullptr, nullptr, 0, nullptr}}};
+
+DIPU_API PyMethodDef* exportTensorFunctions() {
+  return TorchTensorMethods.data();
+}
+
 // PyTensorType was defined in torch/csrc/tensor/python_tensor.cpp only, we can
-// only copy it to here to use.
+// only copy it to here to use and follow the original definition.
 struct PyTensorType {
   PyTypeObject py_type;
   THPDtype* dtype;
@@ -141,8 +169,8 @@ static inline at::Backend dipu_mock_backend(at::Backend backend) {
   }
 }
 
-static PyObject* dipuMockCudaTensors(PyObject* _unused, PyObject* noargs) {
-  HANDLE_TH_ERRORS
+// see test: unittests/test_mock_cudatensor.py test_cuda_tensor_type for detail
+static void mockCudaTensorType() {
   auto torch_module = THPObjectPtr(PyImport_ImportModule("torch"));
   if (!torch_module) {
     throw python_error();
@@ -154,14 +182,16 @@ static PyObject* dipuMockCudaTensors(PyObject* _unused, PyObject* noargs) {
     throw python_error();
   }
 
-  auto seq = THPObjectPtr(PySequence_Fast(
+  auto tensor_cls_seq = THPObjectPtr(PySequence_Fast(
       tensor_classes, "torch._tensor_classes has been modified\n"));
-  if (!seq) {
+  if (!tensor_cls_seq) {
     throw python_error();
   }
+  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+  Py_ssize_t len = PySequence_Fast_GET_SIZE(tensor_cls_seq.get());
 
-  Py_ssize_t len = PySequence_Fast_GET_SIZE(seq.get());
-  PyObject** tensor_type_array = PySequence_Fast_ITEMS(seq.get());
+  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+  PyObject** tensor_type_array = PySequence_Fast_ITEMS(tensor_cls_seq.get());
 
   for (Py_ssize_t i = 0; i < len; ++i) {
     // assume no one change the items in torch._tensor_classes, i.e. assume
@@ -173,23 +203,10 @@ static PyObject* dipuMockCudaTensors(PyObject* _unused, PyObject* noargs) {
     tensor_type->backend =
         static_cast<int>(dipu_mock_backend(tensor_type->get_backend()));
   }
-
-  Py_RETURN_NONE;
-  END_HANDLE_TH_ERRORS
 }
 
-// we prefer to use pybind11 to export patch func, cpython is used only patching
-// tensor-func which has complex dynamic parameters not easy to parsed by
-// pybind.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::array<PyMethodDef, 3> TorchTensorMethods = {
-    {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
-      METH_VARARGS | METH_KEYWORDS, nullptr},
-     {"_mockCudaTensor", reinterpret_cast<PyCFunction>(dipuMockCudaTensors),
-      METH_NOARGS, nullptr},
-     {nullptr, nullptr, 0, nullptr}}};
-
-DIPU_API PyMethodDef* exportTensorFunctions() {
-  return TorchTensorMethods.data();
+void patchTorchTensor(py::module& m) {
+  m.def("_mockCudaTensorType", mockCudaTensorType);
 }
+
 }  // namespace dipu

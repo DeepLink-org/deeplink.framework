@@ -91,7 +91,7 @@ parameter(see csrc/utils/python_arg_parer.cpp FunctionParameter::check() ->
 THPDevice_Check()) so we replace some attributes of THPDeviceType class in
 c-python layer
 */
-void patchTorchCsrcDevice(PyObject* module) {
+void patchTorchCsrcDevice(py::module& m) {
   // https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_dict
   THPDeviceType.tp_dict = nullptr;
   // change Type properties
@@ -109,8 +109,6 @@ void patchTorchCsrcDevice(PyObject* module) {
     throw python_error();
   }
   Py_INCREF(&THPDeviceType);
-
-  auto m = py::handle(module).cast<py::module>();
 
   m.def("_get_python_device_as_cuda",
         []() -> bool { return python_device_as_cuda(); });
