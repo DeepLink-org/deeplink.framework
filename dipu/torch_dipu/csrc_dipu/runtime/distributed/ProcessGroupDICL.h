@@ -219,6 +219,10 @@ class DIPU_API ProcessGroupDICL : public Backend {
                                          std::vector<int64_t>& inputSplitSizes,
                                          const AllToAllOptions& opts) override;
 
+  c10::intrusive_ptr<Work> alltoall(std::vector<at::Tensor>& outputTensors,
+                                    std::vector<at::Tensor>& inputTensors,
+                                    const AllToAllOptions& opts) override;
+
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
                                 int tag) override;
 

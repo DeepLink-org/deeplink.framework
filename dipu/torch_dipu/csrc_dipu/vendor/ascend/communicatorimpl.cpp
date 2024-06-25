@@ -159,6 +159,18 @@ DIPU_API diclResult_t diclAllToAllEqualSplit(const void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
+DIPU_API diclResult_t diclAllToAllUnequalSplit(
+    const void* sendBuf, const size_t* sendCounts,
+    const size_t* sendDisplacements, void* recvBuf, const size_t* recvCounts,
+    const size_t* recvDisplacements, at::ScalarType dataType, diclComm_t comm,
+    deviceStream_t stream) {
+  HcclDataType hcclDataType = getHcclDataType(dataType);
+  HCCL_THROW(HcclAlltoAllV(sendBuf, sendCounts, sendDisplacements, hcclDataType,
+                           recvBuf, recvCounts, recvDisplacements, hcclDataType,
+                           comm, stream));
+  return DICL_SUCCESS;
+}
+
 DIPU_API diclResult_t diclSend(const void* sendBuf, size_t count,
                                at::ScalarType dataType, int peer,
                                diclComm_t comm, deviceStream_t stream) {

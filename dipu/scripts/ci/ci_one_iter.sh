@@ -44,7 +44,7 @@ function clone_needed_repo() {
     DIENGINE=dipu_v0.4.8_one_iter_tool
     TRANSFORMERS=dipu_v4.35.2_one_iter_tool
     LIGHTLLM=dipu_one_iter_tool
-    DEEPLINKEXT=ee45ff3015e616c0dd49b374dc8e3b9bfa6e2601
+    DEEPLINKEXT=2a47138de420a0147e8de70685e628d3732135d7
     ALPACALORA=sco_oneiter_finetune
 
     check_and_clone_repository "DI-engine" ${DIENGINE}
