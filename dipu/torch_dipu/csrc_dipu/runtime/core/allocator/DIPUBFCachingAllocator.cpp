@@ -392,9 +392,9 @@ class BFCachingAllocatorImpl {
 
     if (id) {
       int internlalMaxFragnmentSize = 0;
-      const int chunk_size = chunks_[id].size;
+      const size_t chunk_size = chunks_[id].size;
       if (chunk_size < kSmallBlockSize) {
-        internlalMaxFragnmentSize = 512;
+        internlalMaxFragnmentSize = kMinAllocationSize;
       } else if (chunk_size < kLargeAlignSize) {
         internlalMaxFragnmentSize = kSmallBlockSize;
       } else {
