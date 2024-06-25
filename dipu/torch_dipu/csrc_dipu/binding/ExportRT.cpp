@@ -388,7 +388,6 @@ static void exportMetrics(py::module& m) {
 extern void patchTorchCsrcDevice(py::module& m);
 extern void patchTorchTensor(py::module& m);
 
-
 DIPU_API void exportDIPURuntime(PyObject* module) {
   auto m = py::handle(module).cast<py::module>();
   patchTorchCsrcDevice(m);

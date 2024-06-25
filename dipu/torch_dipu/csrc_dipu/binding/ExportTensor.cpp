@@ -38,38 +38,31 @@ static at::Tensor dispatch_to(
       non_blocking, copy);
 }
 
-static PyObject* currentNewArgs = nullptr;
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
 static auto splitArgs(PyObject* args) {
   ssize_t rawSize = PyTuple_Size(args);
   PyObject* newArgsTuple = PyTuple_New(rawSize - 1);
-  currentNewArgs = newArgsTuple;
   for (int i = 1; i < rawSize; i++) {
     auto arg = PyTuple_GET_ITEM(args, i);
     Py_INCREF(arg);
     PyTuple_SetItem(newArgsTuple, i - 1, arg);
   }
 
-  auto makeDeleter =[](bool isContainer) {
-      return [isContainer](PyObject* p) {
-          if (isContainer) {
-            Py_DecRef(p);
-          }
-      };
+  auto makeDeleter = [](bool isContainer) {
+    return [isContainer](PyObject* p) {
+      if (isContainer) {
+        Py_DecRef(p);
+      }
+    };
   };
 
   auto selfDeleter = makeDeleter(false);
   auto newArgsDeleter = makeDeleter(true);
-  auto self = unique_ptr<PyObject, decltype(selfDeleter)>(PyTuple_GET_ITEM(args, 0), selfDeleter);
-  auto newArgs = unique_ptr<PyObject, decltype(newArgsDeleter)>(newArgsTuple, newArgsDeleter);
+  auto self = unique_ptr<PyObject, decltype(selfDeleter)>(
+      PyTuple_GET_ITEM(args, 0), selfDeleter);
+  auto newArgs = unique_ptr<PyObject, decltype(newArgsDeleter)>(newArgsTuple,
+                                                                newArgsDeleter);
   return std::make_tuple(std::move(self), std::move(newArgs));
-}
-
-static PyObject* returnNewTuple(PyObject* module, PyObject* args,
-                                  PyObject* kwargs) {
-                                  
-   return currentNewArgs;
 }
 
 // first parameter is export module torchdipu_module, not self tensor
@@ -104,16 +97,13 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
   END_HANDLE_TH_ERRORS
 }
 
-
 // we prefer to use pybind11 to export patch func, cpython is used only patching
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::array<PyMethodDef, 3> TorchTensorMethods = {
+static std::array<PyMethodDef, 2> TorchTensorMethods = {
     {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
       METH_VARARGS | METH_KEYWORDS, nullptr},
-      {"returnNewTuple", reinterpret_cast<PyCFunction>(returnNewTuple),
-      METH_NOARGS, nullptr},
      {nullptr, nullptr, 0, nullptr}}};
 
 DIPU_API PyMethodDef* exportTensorFunctions() {
@@ -187,10 +177,8 @@ static void mockCudaTensorType() {
   if (!tensor_cls_seq) {
     throw python_error();
   }
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
-  Py_ssize_t len = PySequence_Fast_GET_SIZE(tensor_cls_seq.get());
 
-  // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
+  Py_ssize_t len = PySequence_Fast_GET_SIZE(tensor_cls_seq.get());
   PyObject** tensor_type_array = PySequence_Fast_ITEMS(tensor_cls_seq.get());
 
   for (Py_ssize_t i = 0; i < len; ++i) {
