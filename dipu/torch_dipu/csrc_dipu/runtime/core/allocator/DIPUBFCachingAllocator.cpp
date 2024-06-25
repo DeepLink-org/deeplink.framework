@@ -15,6 +15,9 @@
 
 namespace dipu {
 
+inline size_t round_up_to_alignment(size_t nbytes, size_t alignment_size) {
+  return ((nbytes - 1) | (alignment_size - 1)) + 1;
+}
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -30,9 +33,9 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr int kSmallBlockSize = 8 << 20;
-  static constexpr int kMiddleBlockSize = 64 << 20;
-  static constexpr int kLargeBlockSize = 256 << 20;
+  static constexpr int kSmallBlockSize = 2 << 20;
+  static constexpr int kMiddleBlockSize = 20 << 20;
+  static constexpr int kLargeBlockSize = 200 << 20;
   static constexpr int kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
@@ -137,7 +140,10 @@ class BFCachingAllocatorImpl {
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
-    return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
+    if (nbytes < kLargeBlockSize) {
+      return round_up_to_alignment(nbytes, kMinAllocationSize);
+    }
+    return round_up_to_alignment(nbytes, kSmallBlockSize);
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
@@ -236,7 +242,21 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  void shrink(StreamSetHandle& set, size_t nbytes = 0) {
+  void shrink(StreamSetHandle& set) {
+    for (int binHead : set->binHeads_) {
+      int k = chunks_[binHead].nextChunkInList;
+      while (k) {
+        if (chunks_[k].isMonoBlock()) {
+          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
+          removeChunkFromBin(k);
+          recycleIds_.push(k);
+        }
+        k = chunks_[k].nextChunkInList;
+      }
+    }
+  }
+
+  void shrink(StreamSetHandle& set, size_t nbytes) {
     size_t releasedSize = 0;
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
@@ -248,9 +268,6 @@ class BFCachingAllocatorImpl {
           recycleIds_.push(k);
         }
         k = chunks_[k].nextChunkInList;
-        if (nbytes > 0 && releasedSize >= nbytes) {
-          return;
-        }
       }
     }
   }
@@ -302,11 +319,9 @@ class BFCachingAllocatorImpl {
     } else if (nbytes < kMiddleBlockSize) {
       allocateSize = kMiddleBlockSize;
     } else if (nbytes < kLargeBlockSize) {
-      allocateSize = ((nbytes - 1) | (kMiddleBlockSize - 1)) + 1;
-    } else if (nbytes < (kLargeAlignSize << 1)) {
-      allocateSize = ((nbytes - 1) | (kLargeAlignSize - 1)) + 1;
+      allocateSize = round_up_to_alignment(nbytes, kMiddleBlockSize);
     } else {
-      allocateSize = ((nbytes - 1) | (kSmallBlockSize - 1)) + 1;
+      allocateSize = round_up_to_alignment(nbytes, kLargeAlignSize);
     }
 
     size_t currBytes = std::max(nbytes, allocateSize);
@@ -464,7 +479,7 @@ class BFCachingAllocator : public CacheAllocator {
     using namespace std::chrono_literals;
     std::lock_guard<mutex_t> lk(resource_pool_mutex_);
     auto start = std::chrono::steady_clock::now();
-    constexpr auto maxWaitTime = 8us;
+    constexpr auto maxWaitTime = 32us;
     while (!async_mem_pool()->empty()) {
       if (!async_mem_pool()->ready()) {
         auto now = std::chrono::steady_clock::now();
