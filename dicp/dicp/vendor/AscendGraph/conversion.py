@@ -975,7 +975,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     tensor_unsqueeze_len = none_count_in_indices - i if contiguous_flag \
                         else none_count_in_indices
                 indice_i_shape = index.node.meta['val'].shape
-                assert not not_all_num_shape(indice_i_shape)
+                # assert not not_all_num_shape(indice_i_shape)
                 tensor_reshape_shape.append(list(indice_i_shape) + [1] * tensor_unsqueeze_len)
         assert first_tensor_pos != -1, "all elements of indices is None, unsupported"
         tensor_broadcast_shape = list(torch.broadcast_shapes(*tensor_reshape_shape))
@@ -1004,7 +1004,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         # stack(pack) all index
         target_indices_broadcast_shape = list(torch.broadcast_shapes(*(none_reshape_shape + tensor_reshape_shape)))
-        target_broadcast_shape_proxy = self.get_const_proxy(target_indices_broadcast_shape, torch.int32)
+        target_broadcast_shape_proxy = self.get_shape_proxy(target_indices_broadcast_shape, torch.int32)
         stack_input_list = []
         const_int32_0 = self.get_const_proxy(0, torch.int32, target_shape=[])
         const_int32_1 = self.get_const_proxy(1, torch.int32, target_shape=[])
@@ -1021,7 +1021,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
                 to_be_reshape_proxy = index
                 index_reshape_shape = tensor_reshape_shape[tensor_idx]
                 tensor_idx += 1
-            reshape_shape_proxy = self.get_const_proxy(index_reshape_shape, torch.int32)
+            reshape_shape_proxy = self.get_shape_proxy(index_reshape_shape, torch.int32)
             reshape_proxy = self.get_proxy(ascend_op.Reshape, (to_be_reshape_proxy, reshape_shape_proxy))
             stack_input_list.append(self.get_proxy(ascend_op.BroadcastTo, (reshape_proxy, target_broadcast_shape_proxy)))
         return self.get_proxy(ascend_op.Pack, (stack_input_list, len(target_indices_broadcast_shape))), \
@@ -1074,7 +1074,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
         stacked_indices, indices_broadcast_shape, stacked_indices_last_dim = \
             self.compute_stacked_indices(indices, x.node.meta['val'].shape)
         values_broadcast_shape = indices_broadcast_shape + x_shape[stacked_indices_last_dim:]  # batch_shape + inner_shape
-        values_broadcast_shape_op = self.get_const_proxy(values_broadcast_shape, torch.int32)
+        values_broadcast_shape_op = self.get_shape_proxy(values_broadcast_shape, torch.int32)
         broadcasted_values = self.get_proxy(ascend_op.BroadcastTo, (values, values_broadcast_shape_op))
         return self.get_proxy(ascend_op.TensorScatterUpdate, (x, stacked_indices, broadcasted_values))
 
@@ -1740,7 +1740,13 @@ class AtenToAscendTransformer(SingleOpTransformer):
         return self.get_proxy(ascend_op.Identity, (out, 0))
 
     @register_conversion(torch.ops.lightllm.prompt_attention_inference.default)
-    def prompt_attention_inference(self, q, k, v, seqlen, num_head, head_dim):
+    def prompt_attention_inference(self, q, k, v, seqlen, num_head, head_dim, num_key_value_heads):
+        if isinstance(num_head, torch.fx.proxy.Proxy):
+            num_head = int(sympy.N(num_head.node.meta['val']))
+        if isinstance(head_dim, torch.fx.proxy.Proxy):
+            head_dim = int(sympy.N(head_dim.node.meta['val']))
+        if isinstance(num_key_value_heads, torch.fx.proxy.Proxy):
+            num_key_value_heads = int(sympy.N(num_key_value_heads.node.meta['val']))
         q_shape = list(q.node.meta['val'].shape)
         q_dtype = q.node.meta['val'].dtype
         seq_len = q_shape[1]
@@ -1752,14 +1758,14 @@ class AtenToAscendTransformer(SingleOpTransformer):
         mask = self.get_proxy(ascend_op.LogicalNot, (mask,))
         if q_dtype != torch.float16:
             q = self.get_proxy(ascend_op.Cast, (q, get_ascend_dtype(torch.float16)))
-        fa = self.get_proxy(ascend_op.PromptFlashAttention, (q, k, v, num_head, seqlen, mask, head_dim))
+        fa = self.get_proxy(ascend_op.PromptFlashAttention, (q, k, v, num_head, seqlen, mask, head_dim, num_key_value_heads))
 
         # cast back fa to float32
         if q_dtype != torch.float16:
             return self.get_proxy(ascend_op.Cast, (fa, get_ascend_dtype(q_dtype)))
         return fa
 
-    def incre_flash_attention(self, q, k, v, head_num, kv_head_num, dim):
+    def incre_flash_attention(self, q, k, v, kv_head_num, head_num, dim):
         k_list = []
         v_list = []
         if not isinstance(k, list):
