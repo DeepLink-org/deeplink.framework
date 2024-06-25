@@ -975,7 +975,6 @@ class AtenToAscendTransformer(SingleOpTransformer):
                     tensor_unsqueeze_len = none_count_in_indices - i if contiguous_flag \
                         else none_count_in_indices
                 indice_i_shape = index.node.meta['val'].shape
-                # assert not not_all_num_shape(indice_i_shape)
                 tensor_reshape_shape.append(list(indice_i_shape) + [1] * tensor_unsqueeze_len)
         assert first_tensor_pos != -1, "all elements of indices is None, unsupported"
         tensor_broadcast_shape = list(torch.broadcast_shapes(*tensor_reshape_shape))
