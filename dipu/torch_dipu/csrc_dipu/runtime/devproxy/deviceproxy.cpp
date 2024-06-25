@@ -65,25 +65,23 @@ deviceId_t current_device() {
 }
 
 void setCpuAffinity(const int device) {
-  static int affinity = []() {
-    return get_env_or_default("DIPU_CPU_AFFINITY", 0);
-  }();
+  static int affinity = get_env_or_default("DIPU_CPU_AFFINITY", 0);
   if (affinity < 0) {
     return;
   }
-  const int cpu_core_avaliable = get_nprocs();
+  const int num_of_processors = get_nprocs();
   const int device_count = getDeviceCount();
   const int block_size =
-      (affinity == 0) ? ((cpu_core_avaliable + device_count - 1) / device_count)
+      (affinity == 0) ? ((num_of_processors + device_count - 1) / device_count)
                       : affinity;
   const int start_cpu_core = device * block_size;
   const int end_cpu_core =
-      std::min((device + 1) * block_size, cpu_core_avaliable);
+      std::min((device + 1) * block_size, num_of_processors);
   cpu_set_t mask;
   CPU_ZERO(&mask);
   TORCH_WARN("DIPU_CPU_AFFINITY: Bind device ", device,
              " with cpu core: ", start_cpu_core, "~", end_cpu_core,
-             ", cpu core avaliable:", cpu_core_avaliable);
+             ", the number of processors:", num_of_processors);
   for (int i = start_cpu_core; i < end_cpu_core; i++) {
     CPU_SET(i, &mask);
   }
