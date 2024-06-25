@@ -18,6 +18,7 @@
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
+#include "csrc_dipu/runtime/core/allocator/DIPURawAllocator.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -312,8 +313,10 @@ class DIPUCopyInplace : public DIPUCopyBase {
       non_blocking = true;
     }
 
-    if (info.copyType_ == DIPUCopyType::H2D && src.is_pinned() &&
-        non_blocking == false) {
+    static bool warned_flag = false;
+    if (info.copyType_ == DIPUCopyType::H2D && non_blocking == false &&
+        warned_flag == false && isPinnedPtr(src.data_ptr())) {
+      warned_flag = true;
       // non_blocking = true;
       TORCH_WARN_ONCE(
           "If the source tensor is not modified before the copy is complete, "
