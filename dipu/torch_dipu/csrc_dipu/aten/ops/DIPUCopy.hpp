@@ -312,8 +312,12 @@ class DIPUCopyInplace : public DIPUCopyBase {
       non_blocking = true;
     }
 
-    if (info.copyType_ == DIPUCopyType::H2D && src.is_pinned()) {
-      non_blocking = true;
+    if (info.copyType_ == DIPUCopyType::H2D && src.is_pinned() &&
+        non_blocking == false) {
+      // non_blocking = true;
+      TORCH_WARN_ONCE(
+          "If the source tensor is not modified before the copy is complete, "
+          "and the source is pin_memory, copy_h2d can be done asynchronously.");
     }
 
     // Exit early if dst and src are views of the same data
