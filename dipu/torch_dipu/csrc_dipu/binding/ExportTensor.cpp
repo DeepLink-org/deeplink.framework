@@ -48,9 +48,11 @@ static auto splitArgs(PyObject* args) {
     PyTuple_SetItem(newArgsTuple, i - 1, arg);
   }
 
-  using PyObjectUniquePointer = std::unique_ptr<PyObject, void(*)(PyObject*)>
-  auto self = PyObjectUniquePointer(PyTuple_GET_ITEM(args, 0), void(*)(PyObject*){});
-  auto newArgs = PyObjectUniquePointer(newArgsTuple ,[](PyObject* p) { Py_DecRef(p); });
+  using PyObjectUniquePointer = std::unique_ptr<PyObject, void (*)(PyObject*)>;
+  auto self =
+      PyObjectUniquePointer(PyTuple_GET_ITEM(args, 0), [](PyObject* p) {});
+  auto newArgs =
+      PyObjectUniquePointer(newArgsTuple, [](PyObject* p) { Py_DecRef(p); });
   return std::make_tuple(std::move(self), std::move(newArgs));
 }
 
@@ -86,7 +88,6 @@ static PyObject* THPVariable_dipu(PyObject* module, PyObject* args,
   END_HANDLE_TH_ERRORS
 }
 
-
 // we prefer to use pybind11 to export patch func, cpython is used only patching
 // tensor-func which has complex dynamic parameters not easy to parsed by
 // pybind.
@@ -94,7 +95,7 @@ DIPU_API PyMethodDef* exportTensorFunctions() {
   static std::array<PyMethodDef, 2> TorchTensorMethods = {
       {{"dipu", castPyCFunctionWithKeywords(THPVariable_dipu),
         METH_VARARGS | METH_KEYWORDS, nullptr},
-      {nullptr, nullptr, 0, nullptr}}};
+       {nullptr, nullptr, 0, nullptr}}};
   return TorchTensorMethods.data();
 }
 
