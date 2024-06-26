@@ -1,39 +1,65 @@
 // Copyright (c) 2023, DeepLink.
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <sstream>
-#include <tuple>
-#include <utility>
+#include <string>
+#include <vector>
 
 #include <ATen/autocast_mode.h>
+#include <ATen/core/ATen_fwd.h>
+#include <ATen/core/Generator.h>
+#include <ATen/core/TensorBody.h>
 #include <c10/core/Device.h>
+#include <c10/core/DeviceType.h>
+#include <c10/core/Stream.h>
+#include <c10/util/Exception.h>
+#include <c10/util/intrusive_ptr.h>
 #include <torch/csrc/Device.h>
+#include <torch/csrc/distributed/c10d/Backend.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/utils/pybind.h>
 
+#include <object.h>
+#include <pybind11/attr.h>
+#include <pybind11/cast.h>
 #include <pybind11/chrono.h>
 #include <pybind11/detail/common.h>
+#include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
 #include "csrc_dipu/aten/DIPUATenFunctions.h"
 #include "csrc_dipu/base/DIPUGlobals.h"
+#include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/metrics/metrics.h"
+#include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/core/DIPUGeneratorImpl.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
+#include "csrc_dipu/runtime/core/allocator/DIPUCachingDeviceAllocator.h"
+#include "csrc_dipu/runtime/device/basedef.h"
+#include "csrc_dipu/runtime/device/deviceapis.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
+#include "csrc_dipu/runtime/distributed/ProcessGroupDICL.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include "csrc_dipu/utils/vender_helper.hpp"
+#include "csrc_dipu/vendor/vendorapi.h"
 
 #include "DIPUpybind.h"  // IWYU pragma: keep
 #include "exportapi.h"
 
-using dipu::DIPUEvent;
-using dipu::DIPUStream;
 namespace py = pybind11;
 
 namespace dipu {
 
-static constexpr auto kMega = static_cast<const size_t>(1024 * 1024);
-using dipu::devapis::DIPUDeviceProperties;
-using dipu::devapis::DIPUDeviceStatus;
+namespace {
 
-static void registerDIPUDeviceProperties(py::module& m) {
+constexpr auto kMega = static_cast<size_t>(1024 * 1024);
+
+void registerDIPUDeviceProperties(py::module& m) {
   py::class_<DIPUDeviceProperties, std::shared_ptr<DIPUDeviceProperties>>(
       m, "_DIPUDeviceProperties")
       .def_readonly("name", &DIPUDeviceProperties::name)
@@ -53,7 +79,7 @@ static void registerDIPUDeviceProperties(py::module& m) {
       });
 }
 
-static void registerDIPUDeviceStatus(py::module& m) {
+void registerDIPUDeviceStatus(py::module& m) {
   py::class_<DIPUDeviceStatus, std::shared_ptr<DIPUDeviceStatus>>(
       m, "_DIPUDeviceStatus")
       .def_readonly("free_memory", &DIPUDeviceStatus::freeGlobalMem)
@@ -67,7 +93,7 @@ static void registerDIPUDeviceStatus(py::module& m) {
       });
 }
 
-static void exportDevices(py::module& m) {
+void exportDevices(py::module& m) {
   registerDIPUDeviceProperties(m);
   registerDIPUDeviceStatus(m);
   // Device Management.
@@ -84,17 +110,10 @@ static void exportDevices(py::module& m) {
     return devproxy::getDeviceCount();
   });
   m.def("_dipu_current_device",
-        []() -> int { return static_cast<int>(devproxy::current_device()); });
-  m.def("_dipu_synchronize", []() -> void {
-    devproxy::syncDevice();
-    return;
-  });
-  m.def(
-      "_dipu_getDeviceProperties",
-      [](int device) -> std::shared_ptr<DIPUDeviceProperties> {
-        return dipu::getDevicePropertiesFromCache(device);
-      },
-      py::arg("device"));
+        []() { return static_cast<int>(devproxy::current_device()); });
+  m.def("_dipu_synchronize", devproxy::syncDevice);
+  m.def("_dipu_getDeviceProperties", getDevicePropertiesFromCache,
+        py::arg("device"));
 
   /*
     different with device properties, fill_status may cause creation of the
@@ -102,17 +121,12 @@ static void exportDevices(py::module& m) {
     should always fill status after set device() and only fill status of current
     device, otherwise you will create stub an other device.
   */
-  m.def(
-      "_dipu_getDeviceStatus",
-      [](int device) -> std::shared_ptr<DIPUDeviceStatus> {
-        return dipu::getDeviceStatus(device);
-      },
-      py::arg("device"));
+  m.def("_dipu_getDeviceStatus", getDeviceStatus, py::arg("device"));
 }
 
-static void exportStream(py::module& m) {
+void exportStream(py::module& m) {
   // Stream Management. follow the api in torch/csrc/cuda/Stream.cpp
-  pybind11::class_<DIPUStream>(m, "_DIPUStreamBase")
+  py::class_<DIPUStream>(m, "_DIPUStreamBase")
       .def(py::init([](int priority, c10::StreamId stream_id,
                        c10::DeviceIndex device_index, int64_t device_type,
                        uint64_t stream_ptr) {
@@ -140,14 +154,14 @@ static void exportStream(py::module& m) {
       .def("query", &DIPUStream::isStreamEmpty)
       .def("synchronize",
            [](DIPUStream& stream) -> void {
-             pybind11::gil_scoped_release no_gil;
+             py::gil_scoped_release no_gil;
              stream.synchronize();
            })
       .def("__eq__", &DIPUStream::operator==)
       .def("priority_range",
            // not support priority now, return a mock value.
            [](DIPUStream& stream) -> py::tuple {
-             py::tuple range = pybind11::make_tuple(0, 0);
+             py::tuple range = py::make_tuple(0, 0);
              return range;
            })
       // cpp properties
@@ -177,38 +191,32 @@ static void exportStream(py::module& m) {
       },
       py::arg("stream_id") = 0, py::arg("device_index") = 0);
 
-  m.def("_dipu_getCurrentStream", [](c10::DeviceIndex devIdx) -> DIPUStream {
-    return dipu::getCurrentDIPUStream(devIdx);
-  });
-  m.def("_dipu_getDefaultStream", [](c10::DeviceIndex devIdx) -> DIPUStream {
-    return dipu::getDefaultDIPUStream(devIdx);
-  });
+  m.def("_dipu_getCurrentStream", getCurrentDIPUStream);
+  m.def("_dipu_getDefaultStream", getDefaultDIPUStream);
 }
 
-static void exportEvent(py::module& m) {
+void exportEvent(py::module& m) {
   // Event
-  pybind11::class_<DIPUEvent>(m, "_DIPUEventBase")
+  py::class_<DIPUEvent>(m, "_DIPUEventBase")
       // add flag in future
       .def(py::init([](bool enable_timing, bool blocking, bool interproces) {
              return DIPUEvent();
            }),
            py::arg("enable_timing") = false, py::arg("blocking") = false,
            py::arg("interprocess") = false)
-      .def("record", static_cast<void (DIPUEvent::*)()>(&DIPUEvent::record),
-           "record event")
-      .def("record",
-           pybind11::overload_cast<const DIPUStream&>(&DIPUEvent::record),
+      .def("record", py::overload_cast<>(&DIPUEvent::record), "record event")
+      .def("record", py::overload_cast<const DIPUStream&>(&DIPUEvent::record),
            "record event on stream")
       .def("elapsed_time", &dipu::DIPUEvent::elapsed_time)
       .def("synchronize",
            [](DIPUEvent& self) {
-             pybind11::gil_scoped_release no_gil;
+             py::gil_scoped_release no_gil;
              self.synchronize();
            })
       .def("query", &DIPUEvent::query)
       .def("wait",
            [](DIPUEvent& self, const DIPUStream& stream) {
-             pybind11::gil_scoped_release no_gil;
+             py::gil_scoped_release no_gil;
              self.wait(stream);
            })
 
@@ -217,15 +225,13 @@ static void exportEvent(py::module& m) {
           [](DIPUEvent& self) {
             return reinterpret_cast<uint64_t>(self.rawevent());
           })
-      .def_property_readonly("device", [](DIPUEvent& self) {
-        auto device = self.device().value();
-        return device;
-      });
+      .def_property_readonly(
+          "device", [](DIPUEvent& self) { return self.device().value(); });
 }
 
-static void exportCommunicator(py::module& m) {
-  pybind11::class_<ProcessGroupDICL, c10d::Backend,
-                   c10::intrusive_ptr<ProcessGroupDICL>>(m, "ProcessGroupDICL")
+void exportCommunicator(py::module& m) {
+  py::class_<ProcessGroupDICL, c10d::Backend,
+             c10::intrusive_ptr<ProcessGroupDICL>>(m, "ProcessGroupDICL")
       .def(py::init([](const c10::intrusive_ptr<c10d::Store>& store, int rank,
                        int size, const std::chrono::milliseconds& timeout) {
              return createProcessGroupDICL(store, rank, size, timeout);
@@ -239,7 +245,7 @@ static void exportCommunicator(py::module& m) {
              return std::string(self.getCommName(device_index));
            })
       .def("timeout", [](ProcessGroupDICL& self) {
-        // need enhance to support tiemout
+        // need enhance to support timeout
         return kBackendDefaultTimeout;
       });
 
@@ -252,34 +258,20 @@ static void exportCommunicator(py::module& m) {
   // py::cpp_function(createProcessGroupDICL));
 }
 
-static void exportMemCaching(py::module& m) {
-  m.def("_dipu_emptyCache", []() { emptyCachedMem(); });
-
-  m.def("init_resource", []() { initResource(); });
-
-  m.def("release_all_resources", []() { releaseAllResources(); });
-
-  m.def("memory_reserved", [](const c10::Device& device) -> size_t {
-    return memoryReserved(device);
-  });
-
-  m.def("memory_allocated", [](const c10::Device& device) -> size_t {
-    return memoryAllocated(device);
-  });
-
-  m.def("max_memory_reserved", [](const c10::Device& device) -> size_t {
-    return maxMemoryReserved(device);
-  });
-
-  m.def("max_memory_allocated", [](const c10::Device& device) -> size_t {
-    return maxMemoryAllocated(device);
-  });
-
-  m.def("reset_peak_memory_stats",
-        [](const c10::Device& device) -> void { resetPeakStats(device); });
+void exportMemCaching(py::module& m) {
+  m.def("_dipu_emptyCache", emptyCachedMem);
+  m.def("init_resource", initResource);
+  m.def("release_all_resources", releaseAllResources);
+  m.def("memory_reserved", memoryReserved);
+  m.def("memory_allocated", memoryAllocated);
+  m.def("max_memory_reserved", maxMemoryReserved);
+  m.def("max_memory_allocated", maxMemoryAllocated);
+  m.def("reset_peak_memory_stats", resetPeakStats);
+  m.def("_dipu_dipuCachingAllocator_set_allocator_settings",
+        dipu::allocator::setAllocatorSettings);
 }
 
-static void patchStorage(py::module& m) {
+void patchStorage(py::module& m) {
   // incremental patch StorageMethods.cpp THPStorage_resize_()
   m.def("storage_resize_",
         [](at::Storage stor, int64_t newsize) -> at::Storage {
@@ -288,21 +280,16 @@ static void patchStorage(py::module& m) {
                         "UntypedStorage.resize_: dipu storage resize not "
                         "support other device type ",
                         stor.device_type());
-          } else {
-            dipu::native::dipu_aten::resize_bytes_dipu(
-                stor.unsafeGetStorageImpl(), newsize);
-            return stor;
           }
+          dipu::native::dipu_aten::resize_bytes_dipu(
+              stor.unsafeGetStorageImpl(), newsize);
+          return stor;
         });
 }
 
-static void patchTensor(py::module& m) {
-  m.def("is_dipu", [](const at::Tensor& self) -> bool {
-    return dipu::isDeviceTensor(self);
-  });
-}
+void patchTensor(py::module& m) { m.def("is_dipu", isDeviceTensor); }
 
-static void exportNativeMemoryFormat(py::module& m) {
+void exportNativeMemoryFormat(py::module& m) {
   py::enum_<NativeMemoryFormat_t> formats =
       py::enum_<NativeMemoryFormat_t>(m, "NativeMemoryFormat");
 #if DIPU_VENDOR_NAME_ASCEND
@@ -321,48 +308,35 @@ static void exportNativeMemoryFormat(py::module& m) {
       .value("FRACTAL_Z_3D", NativeMemoryFormat_t::FRACTAL_Z_3D);
 #endif
   formats.export_values();
-
   m.def("get_native_memory_format", dipu::get_native_memory_format);
-
   m.def("native_memory_format_cast", dipu::native_memory_format_cast);
 }
 
-static void exportGenerator(py::module& m) {
-  m.def("_manual_seed",
-        [](at::DeviceIndex idx, uint64_t seed) { manual_seed(idx, seed); });
-
-  m.def("_seed", [](at::DeviceIndex idx) { seed(idx); });
-
-  m.def("_initial_seed",
-        [](at::DeviceIndex idx) -> uint64_t { return initial_seed(idx); });
-
-  m.def("_get_rng_state",
-        [](at::DeviceIndex idx) -> at::Tensor { return get_rng_state(idx); });
-
-  m.def("_set_rng_state", [](at::DeviceIndex idx, at::Tensor state) {
-    set_rng_state(idx, std::move(state));
-  });
-
-  m.def("_is_in_bad_fork", []() -> bool { return is_in_bad_fork(); });
-
+void exportGenerator(py::module& m) {
+  m.def("_manual_seed", manual_seed);
+  m.def("_seed", seed);
+  m.def("_initial_seed", initial_seed);
+  m.def("_get_rng_state", get_rng_state);
+  m.def("_set_rng_state", set_rng_state);
+  m.def("_is_in_bad_fork", is_in_bad_fork);
   m.def("_create_dipu_generator", [](int idx) -> at::Generator {
     auto index = static_cast<at::DeviceIndex>(idx);
     return createDIPUGenerator(index);
   });
 }
 
-static void exportAutocast(py::module& m) {
+void exportAutocast(py::module& m) {
   m.def("get_autocast_dipu_dtype", at::autocast::get_autocast_xpu_dtype);
   m.def("is_autocast_dipu_enabled", at::autocast::is_xpu_enabled);
   m.def("set_autocast_dipu_enabled", at::autocast::set_xpu_enabled);
   m.def("set_autocast_dipu_dtype", at::autocast::set_autocast_xpu_dtype);
 }
 
-static void exportUtils(py::module& m) {
+void exportUtils(py::module& m) {
   m.def("get_dipu_torch_version", []() -> int { return DIPU_TORCH_VERSION; });
 }
 
-static void exportMetrics(py::module& m) {
+void exportMetrics(py::module& m) {
   using group = metrics::ExportedGroup;
 
   m.def("metrics", []() -> std::vector<group> {
@@ -379,11 +353,13 @@ static void exportMetrics(py::module& m) {
       .def_readwrite("values", &group::values)
       .def("asdict", [](group const& x) -> py::dict {
         // NOLINTNEXTLINE(google-build-using-namespace)
-        using namespace pybind11::literals;
+        using namespace py::literals;
         return py::dict("name"_a = x.name, "type"_a = x.type, "info"_a = x.info,
                         "values"_a = x.values);
       });
 }
+
+}  // namespace
 
 extern void patchTorchCsrcDevice(py::module& m);
 extern void patchTorchTensor(py::module& m);
