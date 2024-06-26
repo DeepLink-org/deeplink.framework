@@ -132,6 +132,20 @@ def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_l
     res = torch.cat(res)
     return res
 
+@torch._custom_op.impl.custom_op('lightllm::paged_attention_inference')
+def paged_attention_inference(q: Tensor, all_k: Tensor, all_v: Tensor, q_head_num: int, dim: int, kv_head_num: int, block_table: Tensor, seq_lengths: Tensor, block_size: int) -> Tensor:
+    ...
+
+
+@paged_attention_inference.impl_abstract()
+def lightllm_paged_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v: Tensor, q_head_num: int, dim: int, kv_head_num: int, block_table: Tensor, seq_lengths: Tensor, block_size: int):
+    return torch.empty_like(q)
+
+@paged_attention_inference.impl(['cpu', 'cuda'])
+def lightllm_paged_attention_inference_impl(q, all_k, all_v, q_head_num, dim, kv_head_num, block_table, seq_lengths, block_size):
+    # fake impl
+    return q
+
 
 @torch._custom_op.impl.custom_op('lightllm::copy_with_offset')
 def copy_with_offset(x: Tensor, src: Tensor, start_dim: int, end_dim: int) -> Tensor:
@@ -146,4 +160,19 @@ def lightllm_copy_with_offset_abstract(x: Tensor, src: Tensor, start_dim: int, e
 @copy_with_offset.impl(['cpu', 'cuda'])
 def lightllm_copy_with_offset_impl(x, src, start_dim, end_dim) -> Tensor:
     x[start_dim:end_dim] = src
+    return x
+
+@torch._custom_op.impl.custom_op('lightllm::copy_with_index')
+def copy_with_index(x: Tensor, src: Tensor, index: Tensor) -> Tensor:
+    ...
+
+
+@copy_with_index.impl_abstract()
+def lightllm_copy_with_index_abstract(x: Tensor, src: Tensor, index: Tensor) -> Tensor:
+    return x
+
+
+@copy_with_index.impl(['cpu', 'cuda'])
+def lightllm_copy_with_index_impl(x, src, index) -> Tensor:
+    x[index] = src
     return x

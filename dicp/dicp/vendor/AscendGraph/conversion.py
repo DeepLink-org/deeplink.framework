@@ -1721,6 +1721,8 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         seq_len = x_shape[0]
         dim = x_shape[2]
+        if isinstance(dim, torch.fx.proxy.Proxy):
+            dim = int(sympy.N(dim.node.meta['val']))
 
         cos_sin_shape = self.get_shape_proxy([seq_len, 1, dim // 2])
         cos = self.get_proxy(ascend_op.Reshape, (cos, cos_sin_shape))
@@ -1813,6 +1815,11 @@ class AtenToAscendTransformer(SingleOpTransformer):
             src = self.get_proxy(ascend_op.Cast, (src, get_ascend_dtype(src_dtype)))
         return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
 
+    @register_conversion(torch.ops.lightllm.copy_with_index.default)
+    def copy_with_index(self, x, src, dims):
+        dims = self.get_proxy(ascend_op.Unsqueeze, (dims, [-1]))
+        return self.get_proxy(ascend_op.ScatterNdUpdate, (x, dims, src))
+
     @register_conversion(torch.ops.lightllm.flash_attention_inference.default)
     def flash_attention_inference(self, q, all_k, all_v, current_lens, max_len, kvhead=-1, head=-1, dim=-1):
         q_shape = list(q.node.meta['val'].shape)
@@ -1876,3 +1883,19 @@ class AtenToAscendTransformer(SingleOpTransformer):
 
         res = self.get_proxy(ascend_op.ConcatD, (res, 0))
         return res
+
+    @register_conversion(torch.ops.lightllm.paged_attention_inference.default)
+    def paged_attention_inference(self, q, all_k, all_v, q_head_num, dim, kv_head_num, block_table=None, seq_lengths=None, block_size=128):
+        if isinstance(q_head_num, torch.fx.proxy.Proxy):
+            q_head_num = int(sympy.N(q_head_num.node.meta['val']))
+        if isinstance(dim, torch.fx.proxy.Proxy):
+            dim = int(sympy.N(dim.node.meta['val']))
+        if isinstance(kv_head_num, torch.fx.proxy.Proxy):
+            kv_head_num = int(sympy.N(kv_head_num.node.meta['val']))
+        q = self.get_proxy(ascend_op.Unsqueeze, (q, [1]))
+        all_k = self.get_proxy(ascend_op.Unsqueeze, (all_k, [1]))
+        all_v = self.get_proxy(ascend_op.Unsqueeze, (all_v, [1]))
+        out = self.get_proxy(ascend_op.IncreFlashAttention, (q, [all_k], [all_v], 1,
+                             q_head_num, kv_head_num, dim, "BSH", block_table, seq_lengths, block_size))
+        out = self.get_proxy(ascend_op.Squeeze, (out, [1]))
+        return out
