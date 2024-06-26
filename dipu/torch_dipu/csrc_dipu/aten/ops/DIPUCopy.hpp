@@ -314,8 +314,8 @@ class DIPUCopyInplace : public DIPUCopyBase {
     }
 
     static bool warned_flag = false;
-    if (info.copyType_ == DIPUCopyType::H2D && non_blocking == false &&
-        warned_flag == false && isPinnedPtr(src.data_ptr())) {
+    if (info.copyType_ == DIPUCopyType::H2D && (!non_blocking) &&
+        (!warned_flag) && isPinnedPtr(src.data_ptr())) {
       warned_flag = true;
       // non_blocking = true;
       TORCH_WARN_ONCE(
