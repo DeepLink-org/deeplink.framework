@@ -27,6 +27,7 @@
 
 #include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
+#include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "DIPUCachingAllocator.h"
@@ -2026,6 +2027,10 @@ void local_raw_delete(void* ptr) { native_caching_allocator.free(ptr); }
 
 // General caching allocator utilities
 void setAllocatorSettings(const std::string& env) {
+  if (!isTorchAllocator()) {
+    DIPU_LOGW("Not using torch allocator, skipping setAllocatorSettings");
+    return;
+  }
   CachingAllocatorConfig::instance().parseArgs(env.c_str());
 }
 

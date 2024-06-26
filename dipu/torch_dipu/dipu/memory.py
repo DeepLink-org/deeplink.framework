@@ -290,3 +290,7 @@ def reset_peak_memory_stats(device: Union[Device, int] = None) -> None:
     if isinstance(device, int):
         device = torch.device(__dipu__ + ":" + str(device))
     _C.reset_peak_memory_stats(device)
+
+
+def _set_allocator_settings(env: str):
+    return _C._dipu_dipuCachingAllocator_set_allocator_settings(env)
