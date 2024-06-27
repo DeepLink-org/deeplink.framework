@@ -130,6 +130,13 @@ class TestCopy(TestCase):
         for i in range(500):
             assert torch.all(tensor_list[i] == float(i))
 
+    def test_h2d_copy_blocking(self):
+        a = torch.ones(1000000, pin_memory=True)
+        b = torch.zeros(1000000, device="cuda")
+        b.copy_(a, non_blocking=False)
+        a[-1].fill_(-1)
+        assert torch.all(b == 1)
+
 
 if __name__ == "__main__":
     run_tests()

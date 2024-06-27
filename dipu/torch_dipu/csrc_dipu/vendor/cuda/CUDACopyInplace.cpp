@@ -26,11 +26,14 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
   void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
                        bool non_blocking, const CopyParamsInfo& info,
                        DIPUStream& curStream) override {
-    // If non_blocking is False, sync stream after copy.
-    // If non_blocking is True, record stream to ensure tensor free safety.
-    if (non_blocking) {
-      tryRecordOrSyncStream(dst, src, curStream, false);
-    }
+    // 1. block_cpu_d2d=False on cuda, because we do not need sync stream when
+    // copy on two devices, just wait between stream
+    // 2. block_cpu_h2d=False on cuda, We do not need sync stream if cpu tensor
+    // is not pin memory which stay consistent with
+    // aten/src/ATen/native/cuda/Copy.cu.
+    tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
+                          /* block_cpu_d2d = */ false,
+                          /* block_cpu_h2d = */ false);
   }
 };
 

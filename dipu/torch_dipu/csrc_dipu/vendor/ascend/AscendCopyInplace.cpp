@@ -49,14 +49,13 @@ class AscendCopyInplace : public DIPUCopyInpOnDIOPI {
     // d2h/h2d cases, the (Sync + memCopySync) strategy is adopted (see the
     // comments in the above functions copyPreProcess and directMemCopy), so
     // synchronization is never needed here.
-    // record after copy
-    if (non_blocking) {
-      tryRecordOrSyncStream(dst, src, curStream, true);
-    }
-
-    if (DIPUCopyType::D2OtherD == info.copyType_) {
-      doDstStreamWaitSrcStream(info, true);
-    }
+    // 1. block_cpu_d2d=True on ascend, dst wait src stream not working on
+    // ascend, will cause accuracy problem.
+    // 2. block_cpu_h2d=True on ascend, We need sync stream if cpu tensor is not
+    // pin memory to ensure tensor free safety.
+    tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
+                          /* block_cpu_d2d = */ true,
+                          /* block_cpu_h2d = */ true);
   }
 };
 
