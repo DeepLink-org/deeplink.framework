@@ -12,9 +12,6 @@ mockcuda = (
 )
 
 import torch
-from typing import Tuple, List, Union, Sequence
-from torch.types import _int, _size, Device, Number
-from torch import Tensor
 
 # use env to control?
 from torch_dipu import _C
@@ -90,7 +87,7 @@ def apply_torch_function_patch():
     torch.randn_like = GetDeviceStaticProxy(torch.randn_like)
     torch.randperm = GetDeviceStaticProxy(torch.randperm)
 
-    # todo: try to automaitc check & mock funcs
+    # todo: try to automatically check & mock funcs
     torch.linspace = GetDeviceStaticProxy(torch.linspace)
 
     if mockcuda:
@@ -101,8 +98,10 @@ def apply_torch_function_patch():
                 setattr(torch.cuda.random, attr, getattr(dipu.random_dipu, attr))
             if attr in torch.cuda.memory.__all__ and hasattr(dipu.memory, attr):
                 setattr(torch.cuda.memory, attr, getattr(dipu.memory, attr))
-        # special case dipu ans cuda use different name
+        # special cases where dipu and cuda are using different names
         torch.cuda.device = dipu.devicectx
+        # originally unexported but some users might use it
+        torch.cuda.memory._set_allocator_settings = dipu.memory._set_allocator_settings
 
 
 # temp solution, need redesign storage
