@@ -12,18 +12,20 @@ namespace dipu {
 // known bug already fixed later (at least in gcc-10.x).
 inline const char* VendorDeviceTypeToStr(devapis::VendorDeviceType t) {
   switch (t) {
-    case devapis::VendorDeviceType::MLU:
-      return "MLU";
     case devapis::VendorDeviceType::CUDA:
       return "CUDA";
+    case devapis::VendorDeviceType::MLU:
+      return "MLU";
     case devapis::VendorDeviceType::NPU:
       return "NPU";
+    case devapis::VendorDeviceType::MUXI:
+      return "MUXI";
     case devapis::VendorDeviceType::GCU:
       return "GCU";
-    case devapis::VendorDeviceType::SUPA:
-      return "SUPA";
     case devapis::VendorDeviceType::DROPLET:
       return "DROPLET";
+    case devapis::VendorDeviceType::SUPA:
+      return "SUPA";
     case devapis::VendorDeviceType::KLX:
       return "KLX";
     default:
@@ -47,9 +49,10 @@ inline devapis::VendorDeviceType VendorNameToDeviceType(const char* str) {
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(camb, MLU);
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(cuda, CUDA);
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(ascend, NPU);
+  DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(muxi, MUXI);
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(topsrider, GCU);
-  DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(supa, SUPA);
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(droplet, DROPLET);
+  DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(supa, SUPA);
   DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE(kunlunxin, KLX);
 #undef DIPU_MAY_CAST_VENDOR_NAME_TO_DEVICE_TYPE
   throw std::invalid_argument("Unknown device name");

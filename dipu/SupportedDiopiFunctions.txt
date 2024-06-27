@@ -231,7 +231,6 @@ diopiSqrtInp
 diopiStack
 diopiStd
 diopiSub
-diopiSubInp
 diopiSubInpScalar
 diopiSubScalar
 diopiSum

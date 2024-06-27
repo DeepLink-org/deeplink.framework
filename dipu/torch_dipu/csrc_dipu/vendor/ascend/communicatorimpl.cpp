@@ -1,4 +1,6 @@
 
+#include "csrc_dipu/runtime/device/basedef.h"
+
 #include "basecommimpl.hpp"
 
 #define HCCL_THROW(cmd)                                           \
@@ -13,6 +15,8 @@
 
 namespace dipu {
 namespace devapis {
+
+constexpr const int MAX_COMM_NAME_LENGTH = 128;
 
 // HCCL ReduceOp mapping
 static std::map<c10d::ReduceOp, HcclReduceOp> hcclOp = {
@@ -67,10 +71,48 @@ DIPU_API diclResult_t diclCommDestroy(diclComm_t comm) {
   return DICL_SUCCESS;
 }
 
+std::string getHcclDataTypeSerialString(HcclDataType type) {
+  switch (type) {
+    case HCCL_DATA_TYPE_UINT8:
+      return "at::kByte/at::kBool";
+    case HCCL_DATA_TYPE_INT8:
+      return "at::kChar";
+    case HCCL_DATA_TYPE_INT16:
+      return "at::kShort";
+    case HCCL_DATA_TYPE_INT32:
+      return "at::kInt";
+    case HCCL_DATA_TYPE_INT64:
+      return "at::kLong";
+    case HCCL_DATA_TYPE_FP16:
+      return "at::kHalf";
+    case HCCL_DATA_TYPE_FP32:
+      return "at::kFloat";
+    case HCCL_DATA_TYPE_FP64:
+      return "at::kDouble";
+    case HCCL_DATA_TYPE_BFP16:
+      return "at::kBFloat16";
+    default:
+      TORCH_WARN_ONCE("Can not serialize undefined hccl data type.");
+  }
+  return "";
+}
+
+void checkSupportedDataTypeOfAllReduce(HcclDataType type) {
+  static const std::unordered_set<HcclDataType> allReduceSupportedDataTypes = {
+      HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
+      HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32,  HCCL_DATA_TYPE_BFP16,
+      HCCL_DATA_TYPE_INT64};
+  TORCH_CHECK(allReduceSupportedDataTypes.count(type) != 0,
+              "HCCL AllReduce & Reduce: Unsupported data type ",
+              getHcclDataTypeSerialString(type));
+}
+
 DIPU_API diclResult_t diclAllReduce(const void* sendBuff, void* recvBuff,
                                     size_t count, at::ScalarType dataType,
                                     const ReduceOp& reduceOp, diclComm_t comm,
                                     deviceStream_t stream) {
+  // https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC1alpha003/apiref/hcclapiref/hcclcpp_07_0014.html
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclAllReduce(const_cast<void*>(sendBuff), recvBuff, count,
                            getHcclDataType(dataType), hcclOp[reduceOp], comm,
                            stream));
@@ -89,6 +131,7 @@ DIPU_API diclResult_t diclReduce(const void* sendBuf, void* recvBuf,
                                  size_t count, at::ScalarType dataType,
                                  const ReduceOp& reduceOp, int root,
                                  diclComm_t comm, deviceStream_t stream) {
+  checkSupportedDataTypeOfAllReduce(getHcclDataType(dataType));
   HCCL_THROW(HcclReduce(const_cast<void*>(sendBuf), recvBuf, count,
                         getHcclDataType(dataType), hcclOp[reduceOp], root, comm,
                         stream));
@@ -106,11 +149,34 @@ DIPU_API diclResult_t diclReduceScatter(void* sendBuf, void* recvBuf,
   return DICL_SUCCESS;
 }
 
-DIPU_API diclResult_t diclSend(void* sendBuf, size_t count,
+DIPU_API diclResult_t diclAllToAllEqualSplit(const void* sendBuf, void* recvBuf,
+                                             size_t count,
+                                             at::ScalarType dataType,
+                                             diclComm_t comm,
+                                             deviceStream_t stream) {
+  HCCL_THROW(HcclAlltoAll(sendBuf, count, getHcclDataType(dataType), recvBuf,
+                          count, getHcclDataType(dataType), comm, stream));
+  return DICL_SUCCESS;
+}
+
+DIPU_API diclResult_t diclAllToAllUnequalSplit(
+    const void* sendBuf, const size_t* sendCounts,
+    const size_t* sendDisplacements, void* recvBuf, const size_t* recvCounts,
+    const size_t* recvDisplacements, at::ScalarType dataType, diclComm_t comm,
+    deviceStream_t stream) {
+  HcclDataType hcclDataType = getHcclDataType(dataType);
+  HCCL_THROW(HcclAlltoAllV(sendBuf, sendCounts, sendDisplacements, hcclDataType,
+                           recvBuf, recvCounts, recvDisplacements, hcclDataType,
+                           comm, stream));
+  return DICL_SUCCESS;
+}
+
+DIPU_API diclResult_t diclSend(const void* sendBuf, size_t count,
                                at::ScalarType dataType, int peer,
                                diclComm_t comm, deviceStream_t stream) {
-  HCCL_THROW(
-      HcclSend(sendBuf, count, getHcclDataType(dataType), peer, comm, stream));
+  // No idea why HcclSend requires a buffer of void* instead of const void*
+  HCCL_THROW(HcclSend(const_cast<void*>(sendBuf), count,
+                      getHcclDataType(dataType), peer, comm, stream));
   return DICL_SUCCESS;
 }
 
@@ -128,6 +194,13 @@ DIPU_API diclResult_t diclBroadcast(const void* sendBuf, void* recvBuf,
                                     deviceStream_t stream) {
   HCCL_THROW(HcclBroadcast(const_cast<void*>(sendBuf), count,
                            getHcclDataType(dataType), root, comm, stream));
+  return DICL_SUCCESS;
+}
+
+DIPU_API diclResult_t diclGetCommName(std::string& commName, diclComm_t comm) {
+  std::array<char, MAX_COMM_NAME_LENGTH> commName_{};
+  HCCL_THROW(HcclGetCommName(comm, commName_.data()));
+  commName = std::string{commName_.data()};
   return DICL_SUCCESS;
 }
 

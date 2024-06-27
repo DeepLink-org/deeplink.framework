@@ -50,24 +50,24 @@ def lightllm_rms_norm_impl(x, weight, eps):
 
 
 @torch._custom_op.impl.custom_op('lightllm::prompt_attention_inference')
-def prompt_attention_inference(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int) -> Tensor:
+def prompt_attention_inference(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int, num_key_value_heads: int) -> Tensor:
     ...
 
 
 @prompt_attention_inference.impl_abstract()
-def lightllm_prompt_attention_inference_abstract(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int):
+def lightllm_prompt_attention_inference_abstract(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int, num_key_value_heads: int):
     return torch.empty_like(q)
 
 
 @prompt_attention_inference.impl(['cpu', 'cuda'])
-def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim):
+def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim, num_key_value_heads):
     assert q.shape[0] == 1, "prompt attention just support bs=1 for now."
     bs = q.shape[0]
     seqlen = seqlen.item()
 
     xq = q.view(bs, seqlen, num_head, head_dim)
-    xk = k.view(bs, seqlen, num_head, head_dim)
-    xv = v.view(bs, seqlen, num_head, head_dim)
+    xk = k.view(bs, seqlen, num_key_value_heads, head_dim)
+    xv = v.view(bs, seqlen, num_key_value_heads, head_dim)
 
     mask = torch.tril(torch.ones(seqlen, seqlen), diagonal=0).unsqueeze(0).unsqueeze(0)
     mask = mask.masked_fill(mask == 0., -999999999999.0)
@@ -88,21 +88,23 @@ def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim
 
 
 @torch._custom_op.impl.custom_op('lightllm::flash_attention_inference')
-def flash_attention_inference(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int) -> Tensor:
+def flash_attention_inference(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int, kvhead: int, head: int, dim: int) -> Tensor:
     ...
 
 
 @flash_attention_inference.impl_abstract()
-def lightllm_flash_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int):
+def lightllm_flash_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v: Tensor, currnet_lens: Sequence[int], max_len: int, kvhead: int, head: int, dim: int):
     return torch.empty_like(q)
 
 
 @flash_attention_inference.impl(['cpu', 'cuda'])
-def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len):
+def lightllm_flash_attention_inference_impl(q, all_k, all_v, current_lens, max_len, kvhead=-1, head=-1, dim=-1):
     # q: batch, head, dim
     batch = q.shape[0]
-    head = q.shape[1]
-    dim = q.shape[2]
+    if head < 0:
+        head = q.shape[1]
+    if dim < 0:
+        dim = q.shape[2]
     res = []
     compute_batch = 1
     for i in range(batch):

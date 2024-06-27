@@ -2,24 +2,40 @@
 #include "ProcessGroupDICL.h"
 
 #include <utility>
+#include <vector>
 
+#include <ATen/core/TensorBody.h>
+#include <ATen/ops/cat.h>
 #include <ATen/record_function.h>
+#include <c10/core/Device.h>
+#include <c10/core/ScalarType.h>
+#include <c10/util/Exception.h>
+#include <c10/util/accumulate.h>
+#include <c10/util/irange.h>
+#include <c10/util/typeid.h>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/Work.hpp>
 #include <torch/torch.h>
 
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
 #include "csrc_dipu/runtime/core/DIPUGuard.h"
+#include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
+#include "csrc_dipu/runtime/devproxy/diclproxy.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
+#include <csrc_dipu/vendor/vendorapi.h>
 
 namespace dipu {
 
 using std::pair;
+using RaiseInvalidArgFunc = std::function<void(const std::string&)>;
 
 namespace {
 
 // Get the list of devices from list of tensors, collective comm always use all
 // ranks, so no rank prefix required in key.
-std::string getDevieceIds(const std::vector<at::Device>& devices) {
+std::string getDeviceIds(const std::vector<at::Device>& devices) {
   std::string deviceList;
   for (auto& device : devices) {
     if (deviceList.empty()) {
@@ -70,11 +86,41 @@ void syncStreams(std::vector<std::shared_ptr<DICLComm>>& comms) {
   }
 }
 
+RaiseInvalidArgFunc getInvalidArgumentFunc(const std::string& prefix) {
+  return [&](const std::string& msg) { TORCH_CHECK(false, prefix + msg) };
+}
+
+// Check function for root rank in scatter and gather op:
+// We assume that tensors has only one element and tensors[0] has numRanks
+// elements. Dtype and shape of elements in tensors[0] should be the same as
+// other.
+void checkGatherScatterRootRank(
+    const std::vector<std::vector<at::Tensor>>& tensors,
+    const at::Tensor& other, int numRanks,
+    const RaiseInvalidArgFunc& raise_invalid_arg_func) {
+  if (tensors.size() != 1) {
+    std::stringstream ss;
+    ss << "requires a single-element list containing a list with " << numRanks
+       << " tensors.";
+    raise_invalid_arg_func(ss.str());
+  }
+  if (tensors[0].size() != static_cast<size_t>(numRanks)) {
+    std::stringstream ss;
+    ss << "incorrect list size " << tensors[0].size()
+       << ". The list size should be " << numRanks
+       << ", same as size of the process group.";
+    raise_invalid_arg_func(ss.str());
+  }
+
+  const auto& options = other.options();
+  const auto& sizes = other.sizes();
+  c10d::assertTypeAndSizesMatch(raise_invalid_arg_func, tensors[0], options,
+                                sizes);
+}
+
 }  // anonymous namespace
 
 // start WorkDICL
-
-// ProcessGroupDICL::WorkDICL::~WorkDICL() {}
 
 // currently DICL do not support error check
 bool ProcessGroupDICL::WorkDICL::isCompleted() {
@@ -132,7 +178,6 @@ void ProcessGroupDICL::WorkDICL::synchronize() {
 }
 
 // Same as calling synchronize().
-// NOLINTNEXTLINE(google-default-arguments)
 bool ProcessGroupDICL::WorkDICL::wait(std::chrono::milliseconds timeout) {
   synchronize();
   return true;
@@ -257,6 +302,65 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(
 
 namespace {
 
+// Ref:
+// https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp#L2242-L2261
+void check_device_single_tensor(
+    const at::Tensor& tensor,
+    const bool p2p = false  // whether operation is a P2P operation
+) {
+  if (!dipu::isDeviceTensor(tensor) || tensor.is_sparse()) {
+    C10_THROW_ERROR(ValueError, "Tensors must be DIPU and dense");
+  }
+  // Skip the following requirements for P2P operations
+  if (!tensor.is_contiguous(tensor.suggest_memory_format())) {
+    if (p2p) {
+      TORCH_WARN_ONCE(
+          "Detected non-contiguous tensor in P2P operations. It is user "
+          "responsibility to guarantee that source and destination tensors "
+          "have the same contiguity format.");
+    } else {
+      C10_THROW_ERROR(ValueError, "Tensors must be contiguous");
+    }
+  }
+}
+
+// Check that all `tensors'
+void checkDeviceTensors(const std::vector<at::Tensor>& tensors) {
+  if (tensors.empty()) {
+    TORCH_CHECK(false, "Tensor list must be nonempty");
+  }
+  if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
+    TORCH_CHECK(
+        false,
+        "Tensor list mustn't be larger than the number of available DIPUs");
+  }
+  const auto& first = tensors.front();
+
+  // Set for ensuring that tensors are on separate devices.
+  std::unordered_set<decltype(first.get_device())> usedDevices;
+  usedDevices.reserve(tensors.size());
+
+  for (const auto& tensor : tensors) {
+    if (!dipu::isDeviceTensor(tensor) ||
+        !tensor.is_non_overlapping_and_dense()) {
+      TORCH_CHECK(false, "Tensors must be DIPU and non-overlapping and dense");
+    }
+    if (tensor.scalar_type() != first.scalar_type()) {
+      TORCH_CHECK(false, "Tensors must have identical type");
+    }
+    if (tensor.sizes() != first.sizes()) {
+      TORCH_CHECK(false, "Tensors must have identical size");
+    }
+    if (tensor.strides() != first.strides()) {
+      TORCH_CHECK(false, "Tensors must have identical strides");
+    }
+    const auto inserted = usedDevices.insert(tensor.get_device()).second;
+    if (!inserted) {
+      TORCH_CHECK(false, "Tensors must be on distinct DIPU devices");
+    }
+  }
+}
+
 // Flatten each list in `tensor_lists' for a gather or scatter operation, and
 // ensure compatibility with the corresponding tensor in `other'.
 std::vector<at::Tensor> flatten_for_scatter_gather(
@@ -327,45 +431,6 @@ void copyInCurrentStream(std::shared_ptr<DICLComm>& diclComm,
 }
 }  // namespace
 
-// Check that all `tensors', different device may need extend this func to do
-// device specific check
-void ProcessGroupDICL::checkDeviceTensors(
-    const std::vector<at::Tensor>& tensors) {
-  if (tensors.empty()) {
-    TORCH_CHECK(false, "Tensor list must be nonempty");
-  }
-  if (tensors.size() > static_cast<size_t>(devproxy::getDeviceCount())) {
-    TORCH_CHECK(
-        false,
-        "Tensor list mustn't be larger than the number of available DIPUs");
-  }
-  const auto& first = tensors.front();
-
-  // Set for ensuring that tensors are on separate devices.
-  std::unordered_set<decltype(first.get_device())> usedDevices;
-  usedDevices.reserve(tensors.size());
-
-  for (const auto& tensor : tensors) {
-    if (!dipu::isDeviceTensor(tensor) ||
-        !tensor.is_non_overlapping_and_dense()) {
-      TORCH_CHECK(false, "Tensors must be DIPU and non-overlapping and dense");
-    }
-    if (tensor.scalar_type() != first.scalar_type()) {
-      TORCH_CHECK(false, "Tensors must have identical type");
-    }
-    if (tensor.sizes() != first.sizes()) {
-      TORCH_CHECK(false, "Tensors must have identical size");
-    }
-    if (tensor.strides() != first.strides()) {
-      TORCH_CHECK(false, "Tensors must have identical strides");
-    }
-    const auto inserted = usedDevices.insert(tensor.get_device()).second;
-    if (!inserted) {
-      TORCH_CHECK(false, "Tensors must be on distinct DIPU devices");
-    }
-  }
-}
-
 template <typename Fn, typename PreProcess, typename PostProcess>
 c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
     std::vector<at::Tensor>& inputs, std::vector<at::Tensor>& outputs,
@@ -388,8 +453,10 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
        diclComms[i]->diclStream_);
 
     dipu::recordStream(inputs[i], diclComms[i]->diclStream_);
-    if (inputs[i].storage().data_ptr().get() !=
-        outputs[i].storage().data_ptr().get()) {
+    if (outputs[i].has_storage() &&
+        (!inputs[i].has_storage() ||
+         inputs[i].storage().data_ptr().get() !=
+             outputs[i].storage().data_ptr().get())) {
       dipu::recordStream(outputs[i], diclComms[i]->diclStream_);
     }
 
@@ -428,7 +495,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::collective(
               "ncclGroupStart/End, ",
               "but we cannot support group based comm now.");
 
-  const auto localCommsKey = getDevieceIds(devices);
+  const auto localCommsKey = getDeviceIds(devices);
 
   // collective use PG.rank_ as comsBaseRank
   auto diclComms = getDICLComms(localCommsKey, devices, this->rank_, opType);
@@ -466,13 +533,13 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::pointToPoint(
   return doComm(inputs, outputs, diclComms, devices, fn, pre, post, opType);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
     std::vector<at::Tensor>& tensors, const AllreduceOptions& opts) {
   // inplace in = out, every rank use both in&out.
   checkDeviceTensors(tensors);
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclAllreduce", std::vector<c10::IValue>({input}));
@@ -483,10 +550,19 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allreduce(
                                        input.scalar_type(), opts.reduceOp, comm,
                                        stream.rawstream());
       },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePreFn) {
+          dicl_hook::allReducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::allReducePostFn) {
+          dicl_hook::allReducePostFn(comms, tensors_cp, tensors);
+        }
+      },
       OpType::ALLREDUCE);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
     std::vector<at::Tensor>& tensors, const BroadcastOptions& opts) {
   checkDeviceTensors(tensors);
@@ -508,7 +584,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::broadcast(
       OpType::BROADCAST);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
     std::vector<at::Tensor>& tensors, const ReduceOptions& opts) {
   // inplace in = out, only rootRank use out.
@@ -516,8 +591,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
 
   auto tensor = tensors.back();
   int dev_in_group = 0;
+  std::vector<at::Tensor> tensors_cp{tensors};
   return collective(
-      tensors, tensors,
+      tensors_cp, tensors_cp,
       [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
           DIPUStream& stream) {
         RECORD_FUNCTION("DiclReduce", std::vector<c10::IValue>({input}));
@@ -529,17 +605,82 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce(
             static_cast<size_t>(input.numel()), input.scalar_type(),
             opts.reduceOp, static_cast<int>(root), comm, stream.rawstream());
       },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePreFn) {
+          dicl_hook::reducePreFn(comms, tensors, tensors_cp);
+        }
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        if (dicl_hook::reducePostFn) {
+          dicl_hook::reducePostFn(comms, tensors_cp, tensors);
+        }
+      },
       OpType::REDUCE);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::gather(
     std::vector<std::vector<at::Tensor>>& outputs,
     std::vector<at::Tensor>& inputs, const GatherOptions& opts) {
-  TORCH_CHECK(false, "ProcessGroupDICL does not support gather now");
+  // output = input * ranks, no inplace, input = output[rank]
+  static const auto raise_invalid_arg_func =
+      getInvalidArgumentFunc("ProcessGroupDICL::gather: ");
+  int numRanks = getSize();
+  int curRank = getRank();
+  int rootRank = static_cast<int>(opts.rootRank);
+  c10d::assertRootRank(raise_invalid_arg_func, rootRank, numRanks);
+  checkDeviceTensors(inputs);
+  c10d::assertSingleElementInput(raise_invalid_arg_func, inputs);
+  auto input = inputs.back();
+  std::vector<at::Tensor> outputTensors;
+
+  if (curRank == rootRank) {
+    checkGatherScatterRootRank(outputs, input, numRanks,
+                               raise_invalid_arg_func);
+    outputTensors = outputs[0];
+  } else {
+    if (!outputs.empty()) {
+      raise_invalid_arg_func("requires empty output on non-root");
+    }
+    outputTensors = {};
+    outputTensors.emplace_back();
+  }
+
+  return collective(
+      inputs, outputTensors,
+      [&](at::Tensor& /* unused */, at::Tensor& /* unused */, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<void*> output_ptr_vec = {};
+        if (curRank == rootRank) {
+          output_ptr_vec.reserve(outputTensors.size());
+          for (auto& outputTensor : outputTensors) {
+            output_ptr_vec.push_back(outputTensor.data_ptr());
+            dipu::recordStream(outputTensor, stream);
+          }
+        }
+
+        RECORD_FUNCTION("DiclGather", std::vector<c10::IValue>({input}));
+        profile::RecordBlockCreator _("DiclGather", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        // since param `recvbuf` is only used in root rank process in
+        // diclGather, we can pass output_ptr_vec.data() to it
+        return devproxy::diclGather(input.data_ptr(), output_ptr_vec.data(),
+                                    static_cast<size_t>(input.numel()),
+                                    input.scalar_type(), rootRank, curRank,
+                                    numRanks, comm, stream.rawstream());
+      },
+      OpType::GATHER);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
+std::string_view ProcessGroupDICL::getCommName(
+    const at::DeviceIndex device_index) {
+  auto device = at::Device(dipu::DIPU_DEVICE_TYPE, device_index);
+  std::vector<at::Device> devices{device};
+  const auto localCommsKey = getDeviceIds(devices);
+  auto diclComms =
+      getDICLComms(localCommsKey, devices, this->rank_, OpType::UNKNOWN);
+  return diclComms[0]->getName();
+}
+
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<std::vector<at::Tensor>>& outputs,
     std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
@@ -577,7 +718,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
   return work;
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
     at::Tensor& output, at::Tensor& input, const AllgatherOptions& opts) {
   // output = input * ranks.
@@ -607,7 +747,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
       OpType::_ALLGATHER_BASE);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
     at::Tensor& output, at::Tensor& input, const ReduceScatterOptions& opts) {
   // input = output * ranks, no inplace, output = reduced(input)[rank]
@@ -638,7 +777,62 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::_reduce_scatter_base(
       OpType::_REDUCE_SCATTER_BASE);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
+c10::intrusive_ptr<Work> ProcessGroupDICL::scatter(
+    std::vector<at::Tensor>& outputs,
+    std::vector<std::vector<at::Tensor>>& inputs, const ScatterOptions& opts) {
+  // input = output * ranks, no inplace, output = input[rank] +
+  static const auto raise_invalid_arg_func =
+      getInvalidArgumentFunc("ProcessGroupDICL::scatter: ");
+  int numRanks = getSize();
+  int curRank = getRank();
+  int rootRank = static_cast<int>(opts.rootRank);
+  c10d::assertRootRank(raise_invalid_arg_func, rootRank, numRanks);
+  checkDeviceTensors(outputs);
+  c10d::assertSingleElementOutput(raise_invalid_arg_func, outputs);
+  auto output = outputs.back();
+  std::vector<at::Tensor> inputTensors;
+
+  if (curRank == rootRank) {
+    checkGatherScatterRootRank(inputs, output, numRanks,
+                               raise_invalid_arg_func);
+    inputTensors = inputs[0];
+  } else {
+    if (!inputs.empty()) {
+      raise_invalid_arg_func("requires empty input on non-root");
+    }
+    inputTensors = {};
+    inputTensors.emplace_back();
+  }
+
+  // NOLINTNEXTLINE(readability-suspicious-call-argument)
+  return collective(
+      outputs, inputTensors,
+      [&](at::Tensor& /* unused */, at::Tensor& /* unused */, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<void*> input_ptr_vec = {};
+        if (curRank == rootRank) {
+          input_ptr_vec.reserve(inputTensors.size());
+          for (auto& inputTensor : inputTensors) {
+            input_ptr_vec.push_back(inputTensor.data_ptr());
+            dipu::recordStream(inputTensor, stream);
+          }
+        }
+
+        RECORD_FUNCTION(
+            "DiclScatter",
+            std::vector<c10::IValue>(inputTensors.begin(), inputTensors.end()));
+        profile::RecordBlockCreator _("DiclScatter", stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        // since param `sendbuf` is only used in root rank process in
+        // diclScatter, we can pass input_ptr_vec.data() to it
+        return devproxy::diclScatter(input_ptr_vec.data(), output.data_ptr(),
+                                     static_cast<size_t>(output.numel()),
+                                     output.scalar_type(), rootRank, curRank,
+                                     numRanks, comm, stream.rawstream());
+      },
+      OpType::SCATTER);
+}
+
 c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
     std::vector<at::Tensor>& outputs,
     std::vector<std::vector<at::Tensor>>& inputs,
@@ -673,6 +867,149 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::reduce_scatter(
       [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
       OpType::REDUCE_SCATTER);
   return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall_base(
+    at::Tensor& outputTensor, at::Tensor& inputTensor,
+    std::vector<int64_t>& outputSplitSizes,
+    std::vector<int64_t>& inputSplitSizes,
+    const AllToAllOptions& opts /* unused */) {
+  check_device_single_tensor(outputTensor, true);
+  check_device_single_tensor(inputTensor, true);
+  TORCH_CHECK(outputTensor.scalar_type() == inputTensor.scalar_type(),
+              "Tensors must have identical data type")
+
+  if (outputSplitSizes.empty() && inputSplitSizes.empty()) {
+    TORCH_CHECK(outputTensor.numel() == inputTensor.numel(),
+                "Tensors must have identical number of elements");
+    TORCH_CHECK(outputTensor.size(0) == inputTensor.size(0),
+                "Tensors must have identical size in dim 0");
+    TORCH_CHECK(outputTensor.size(0) % size_ == 0,
+                "Tensor's dim 0 does not divide equally across group size");
+
+    auto outputs = std::vector<at::Tensor>{outputTensor};
+    auto inputs = std::vector<at::Tensor>{inputTensor};
+    return collective(
+        inputs, outputs,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          RECORD_FUNCTION("DiclAlltoAllEqualSplit",
+                          std::vector<c10::IValue>({input}));
+          profile::RecordBlockCreator _("DiclAlltoAllEqualSplit",
+                                        stream.rawstream(),
+                                        static_cast<int>(stream.id()));
+          return devproxy::diclAllToAllEqualSplit(
+              input.data_ptr(), output.data_ptr(), outputTensor.numel() / size_,
+              output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+        },
+        OpType::ALLTOALL_BASE);
+  }
+
+  c10d::checkSplitSizes(inputSplitSizes, inputTensor, size_);
+  c10d::checkSplitSizes(outputSplitSizes, outputTensor, size_);
+  auto outputs = std::vector<at::Tensor>{outputTensor};
+  auto inputs = std::vector<at::Tensor>{inputTensor};
+  return collective(
+      inputs, outputs,
+      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<size_t> outputCounts(size_);
+        std::vector<size_t> inputCounts(size_);
+        std::vector<size_t> outputDisplacements(size_);
+        std::vector<size_t> inputDisplacements(size_);
+        c10d::computeLengthsAndOffsets(outputSplitSizes, output, &outputCounts,
+                                       &outputDisplacements);
+        c10d::computeLengthsAndOffsets(inputSplitSizes, input, &inputCounts,
+                                       &inputDisplacements);
+        RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
+                        std::vector<c10::IValue>({input}));
+        profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
+                                      stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        return devproxy::diclAllToAllUnequalSplit(
+            input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
+            output.data_ptr(), outputCounts.data(), outputDisplacements.data(),
+            output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+      },
+      OpType::ALLTOALL_BASE);
+}
+
+c10::intrusive_ptr<Work> ProcessGroupDICL::alltoall(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const AllToAllOptions& /* unused */) {
+  size_t numTensors = outputTensors.size();
+  TORCH_CHECK(numTensors == inputTensors.size(),
+              "Tensor lists must have identical length")
+  c10::Device device = outputTensors[0].device();
+  at::ScalarType dataType = outputTensors[0].scalar_type();
+  for (const auto i : c10::irange(numTensors)) {
+    check_device_single_tensor(outputTensors[i], true);
+    check_device_single_tensor(inputTensors[i], true);
+    TORCH_CHECK(device == outputTensors[i].device() &&
+                    device == inputTensors[i].device(),
+                "Tensors must be on the same device")
+    TORCH_CHECK(dataType == outputTensors[i].scalar_type() &&
+                    dataType == inputTensors[i].scalar_type(),
+                "Tensors must have identical data type")
+  }
+
+  // TODO(jfxu-st): For CUDA, use NCCL Group Calls for higher performance
+  // Ref:
+  // https://github.com/pytorch/pytorch/blob/f2d7f235a684c593f5a1ff2ca0b47b47274bfe85/torch/csrc/cuda/nccl.cpp#L916-L941
+
+  // TODO(jfxu-st): For the vendors that don't implement
+  // devapis::diclAllToAllUnequalSplit, including CUDA, we need a more
+  // performant fallback without using a flattened tensor for relay
+
+  std::vector<int64_t> outputSplitSizes(numTensors);
+  std::vector<int64_t> inputSplitSizes(numTensors);
+  int64_t outputFlattenedTensorSize = 0;
+  for (const auto i : c10::irange(numTensors)) {
+    outputSplitSizes[i] = outputTensors[i].numel();
+    inputSplitSizes[i] = inputTensors[i].numel();
+    outputFlattenedTensorSize += outputTensors[i].numel();
+  }
+  at::Tensor outputFlattenedTensor = native::nodispatch::empty(
+      {outputFlattenedTensorSize},
+      at::TensorOptions().device(dipu::DIPU_DEVICE_TYPE).dtype(dataType));
+  at::Tensor inputFlattenedTensor = at::cat(inputTensors);
+
+  auto outputs = std::vector<at::Tensor>{outputFlattenedTensor};
+  auto inputs = std::vector<at::Tensor>{inputFlattenedTensor};
+  return collective(
+      inputs, outputs,
+      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+          DIPUStream& stream) {
+        std::vector<size_t> outputCounts(size_);
+        std::vector<size_t> inputCounts(size_);
+        std::vector<size_t> outputDisplacements(size_);
+        std::vector<size_t> inputDisplacements(size_);
+        c10d::computeLengthsAndOffsets(outputSplitSizes, output, &outputCounts,
+                                       &outputDisplacements);
+        c10d::computeLengthsAndOffsets(inputSplitSizes, input, &inputCounts,
+                                       &inputDisplacements);
+        RECORD_FUNCTION("DiclAlltoAllUnequalSplit",
+                        std::vector<c10::IValue>({input}));
+        profile::RecordBlockCreator _("DiclAlltoAllUnequalSplit",
+                                      stream.rawstream(),
+                                      static_cast<int>(stream.id()));
+        return devproxy::diclAllToAllUnequalSplit(
+            input.data_ptr(), inputCounts.data(), inputDisplacements.data(),
+            output.data_ptr(), outputCounts.data(), outputDisplacements.data(),
+            output.scalar_type(), comm, stream.rawstream(), rank_, size_);
+      },
+      [&](std::vector<std::shared_ptr<DICLComm>>&) {},
+      [&](std::vector<std::shared_ptr<DICLComm>>& comms) {
+        DIPUStreamGuard _(comms[0]->diclStream_.unwrap());
+        size_t offset = 0;
+        for (const auto i : c10::irange(numTensors)) {
+          outputTensors[i].copy_(
+              outputs[0].slice(0, offset, offset + outputSplitSizes[i]));
+          offset += outputSplitSizes[i];
+        }
+      },
+      OpType::ALLTOALL);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::send(
@@ -713,7 +1050,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::recv(
       [](std::vector<std::shared_ptr<DICLComm>>&) {}, OpType::RECV);
 }
 
-// NOLINTNEXTLINE(google-default-arguments)
 c10::intrusive_ptr<Work> ProcessGroupDICL::barrier(const BarrierOptions& opts) {
   std::vector<at::Device> devices;
   if (usedDeviceIdxs_.empty()) {

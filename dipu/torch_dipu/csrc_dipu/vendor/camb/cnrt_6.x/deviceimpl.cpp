@@ -42,6 +42,18 @@ DIPUDeviceProperties getDeviceProperties(int32_t device_index) {
   return prop;
 }
 
+DIPUDeviceStatus getDeviceStatus(int32_t device_index) {
+  ::cndevMemoryInfo_t mem_info;
+  DIPU_INIT_CNDEV_VERSION(mem_info);
+  DIPU_CALLCNDEV(::cndevGetMemoryUsage(&mem_info, device_index));
+
+  DIPUDeviceStatus status;
+  status.totalGlobalMem = mem_info.physicalMemoryTotal << 20;
+  status.freeGlobalMem =
+      (mem_info.physicalMemoryTotal - mem_info.physicalMemoryUsed) << 20;
+  return status;
+}
+
 /*
   both cndevMemoryInfo_t.physicalMemoryUsed from cndevGetMemoryUsage and
 cndevProcessInfo_t from cndevGetProcessInfo seems not correct, value always

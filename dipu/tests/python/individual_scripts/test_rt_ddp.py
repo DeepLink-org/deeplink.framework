@@ -41,6 +41,7 @@ def setup(rank, world_size, port, backend="nccl"):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = str(port)
     print("comm using port:", str(port))
+    torch.cuda.set_device(rank)
     # initialize the process group
     dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
 
@@ -100,7 +101,7 @@ def demo_basic_ddp(rank, world_size, port):
 def demo_allreduce(rank, world_size, port):
     import torch_dipu
 
-    print(f"Running basic DDP example on rank {rank} {torch.cuda.current_device()}")
+    print(f"Running basic DDP example on rank {rank}")
     torch.cuda.set_device(rank)
     dev1 = rank
 
@@ -111,6 +112,49 @@ def demo_allreduce(rank, world_size, port):
     for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
         te_result = torch.zeros((3, 4)).to(dev1) + rank + 2
         dist.all_reduce(te_result, op=op)
+        if op == dist.reduce_op.SUM:
+            expected_tensor = (
+                torch.zeros((3, 4)).to(dev1)
+                + (world_size - 1 + 0) * world_size / 2
+                + 2 * world_size
+            )
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.zeros((3, 4)).to(dev1) + world_size + 1
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.zeros((3, 4)).to(dev1) + 2
+        assert torch.allclose(te_result, expected_tensor)
+
+    # bool
+    for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
+        te_result = torch.tensor([True, False, True], dtype=torch.bool).to(dev1)
+        dist.all_reduce(te_result, op=op)
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([True, False, True], dtype=torch.bool).to(
+                dev1
+            )
+        assert torch.allclose(te_result, expected_tensor)
+
+    # byte
+    for op in [dist.reduce_op.SUM, dist.reduce_op.MAX, dist.reduce_op.MIN]:
+        te_result = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
+        dist.all_reduce(te_result, op=op)
+        if op == dist.reduce_op.SUM:
+            expected_tensor = torch.tensor(
+                [world_size, 2 * world_size, 3 * world_size], dtype=torch.uint8
+            ).to(dev1)
+        elif op == dist.reduce_op.MAX:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
+        elif op == dist.reduce_op.MIN:
+            expected_tensor = torch.tensor([1, 2, 3], dtype=torch.uint8).to(dev1)
+        assert torch.allclose(te_result, expected_tensor)
     cleanup()
 
 
@@ -183,6 +227,44 @@ def demo_bcast(rank, world_size, port):
     cleanup()
 
 
+def demo_gather(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    root_rank = 0
+    src = torch.ones((2, 4)).to(rank) * (rank + 1)
+    if rank == root_rank:
+        gather_list = [torch.empty((2, 4)).to(rank) for _ in range(world_size)]
+    else:
+        gather_list = None
+    for i in range(1, 3):
+        dist.gather(src, gather_list, dst=root_rank)
+    if rank == root_rank:
+        for i in range(world_size):
+            assert torch.allclose(torch.ones((2, 4)) * (i + 1), gather_list[i].cpu())
+    cleanup()
+
+
+def demo_scatter(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    root_rank = 0
+    dst = torch.empty((2, 4)).to(rank)
+    if rank == root_rank:
+        scatter_list = [
+            torch.ones((2, 4)).to(rank) * (i + 1) for i in range(world_size)
+        ]
+    else:
+        scatter_list = None
+    for i in range(1, 3):
+        dist.scatter(dst, scatter_list, src=root_rank)
+    assert torch.allclose(torch.ones((2, 4)) * (rank + 1), dst.cpu())
+    cleanup()
+
+
 def demo_reduce(rank, world_size, port):
     import torch_dipu
 
@@ -190,10 +272,38 @@ def demo_reduce(rank, world_size, port):
 
     src_dst0 = torch.ones((2, 4)).to(rank)
     for i in range(1, 2):
-        dist.reduce(src_dst0, 0, op=dist.reduce_op.SUM)
+        dist.reduce(src_dst0, 0, op=dist.ReduceOp.SUM)
     if rank == 0:
         assert torch.allclose(torch.ones((2, 4)) * world_size, src_dst0.cpu())
     print(src_dst0)
+
+    # bool
+    src_dst1 = (
+        torch.tensor([True, False, True, False] * 2, dtype=torch.bool)
+        .reshape((2, 4))
+        .to(rank)
+    )
+    dist.reduce(src_dst1, 0, op=dist.ReduceOp.MAX)
+    if rank == 0:
+        assert torch.allclose(
+            torch.tensor([True, False, True, False] * 2, dtype=torch.bool)
+            .reshape((2, 4))
+            .cuda(),
+            src_dst1,
+        )
+
+    # byte
+    src_dst2 = (
+        torch.tensor([1, 2, 3, 4] * 2, dtype=torch.uint8).reshape((2, 4)).to(rank)
+    )
+    dist.reduce(src_dst2, 0, op=dist.ReduceOp.SUM)
+    if rank == 0:
+        assert torch.allclose(
+            torch.tensor([1, 2, 3, 4] * 2, dtype=torch.uint8).reshape((2, 4)).cuda()
+            * world_size,
+            src_dst2,
+        )
+
     cleanup()
 
 
@@ -228,6 +338,107 @@ def demo_reducescatter_base(rank, world_size, port):
         dist.reduce_scatter_tensor(dst, src1, op=dist.reduce_op.SUM)
     assert torch.allclose(torch.ones((2, 4)), dst.cpu())
     print(dst)
+    cleanup()
+
+
+def demo_alltoall_base_equal_split(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    split_size = 2
+    tensor_size = split_size * world_size
+    src = (torch.arange(tensor_size) + rank * tensor_size).to(rank)
+    dst = torch.empty([tensor_size], dtype=torch.int64).to(rank)
+
+    expected = torch.cat(
+        [
+            torch.arange(split_size) + i * tensor_size + rank * split_size
+            for i in range(world_size)
+        ]
+    )
+
+    dist.all_to_all_single(dst, src)
+    dist.barrier()
+    assert torch.allclose(expected, dst.cpu())
+    cleanup()
+
+
+def demo_alltoall_base_unequal_split(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    # Example: For world_size = 2,
+    # input_split_sizes: [1,2] (rank 0)
+    #                    [3,4] (rank 1)
+    # output_split_sizes: [1,3] (rank 0)
+    #                     [2,4] (rank 1)
+    # src: [0, 1, 2] (rank 0)
+    #      [3, 4, 5, 6, 7, 8, 9] (rank 1)
+    # expected / dst: [0, 3, 4, 5] (rank 0)
+    #                 [1, 2, 6, 7, 8, 9] (rank 1)
+
+    input_split_sizes = torch.arange(world_size) + 1 + rank * world_size
+    output_split_sizes = torch.arange(0, world_size * world_size, world_size) + 1 + rank
+    src = (
+        torch.arange(input_split_sizes.sum().item())
+        + torch.arange(input_split_sizes[0]).sum().item()
+    ).to(rank)
+    dst = torch.empty(output_split_sizes.sum().item(), dtype=torch.int64).to(rank)
+
+    expected = torch.cat(
+        [
+            torch.arange(output_split_sizes[i])
+            + torch.arange(output_split_sizes[i]).sum().item()
+            for i in range(world_size)
+        ]
+    )
+
+    dist.all_to_all_single(
+        dst, src, output_split_sizes.tolist(), input_split_sizes.tolist()
+    )
+    dist.barrier()
+    assert torch.allclose(expected, dst.cpu())
+    cleanup()
+
+
+def demo_alltoall(rank, world_size, port):
+    import torch_dipu
+
+    setup(rank, world_size, port)
+
+    # Example: For world_size = 2,
+    # src: [[0], [1, 2]] (rank 0)
+    #      [[3, 4, 5], [6, 7, 8, 9]] (rank 1)
+    # expected / dst: [[0], [3, 4, 5]] (rank 0)
+    #                 [[1, 2], [6, 7, 8, 9]] (rank 1)
+
+    input_split_sizes = torch.arange(world_size) + 1 + rank * world_size
+    output_split_sizes = torch.arange(0, world_size * world_size, world_size) + 1 + rank
+    src = list(
+        (
+            torch.arange(input_split_sizes.sum().item())
+            + torch.arange(input_split_sizes[0]).sum().item()
+        ).split(input_split_sizes.tolist())
+    )
+    src = [tensor.to(rank) for tensor in src]
+    dst = list(
+        torch.empty(output_split_sizes.sum().item(), dtype=torch.int64).split(
+            output_split_sizes.tolist()
+        )
+    )
+    dst = [tensor.to(rank) for tensor in dst]
+
+    expected = [
+        torch.arange(output_split_sizes[i])
+        + torch.arange(output_split_sizes[i]).sum().item()
+        for i in range(world_size)
+    ]
+    dist.all_to_all(dst, src)
+    dist.barrier()
+    for i in range(world_size):
+        assert torch.allclose(expected[i], dst[i].cpu())
     cleanup()
 
 
@@ -308,6 +519,63 @@ def test_special_group_stuck(rank, world_size):
     cleanup()
 
 
+def test_new_group(rank, world_size):
+    print(f"test group on rank {rank} ws: {world_size}")
+    setup(rank, world_size)
+    for op in [
+        dist.reduce_op.SUM,
+    ]:
+        te_result = torch.zeros((3, 4)).cuda() + rank
+        dist.all_reduce(te_result, op=op)
+        print(te_result)
+
+    # any combine
+    ranks_dps = [
+        [
+            0,
+        ],
+        [
+            1,
+        ],
+        [2, 3],
+    ]
+    # ranks_dps = [[0, 1], [2, 3]]
+    new_group = None
+    for ranks_dp in ranks_dps:
+        tmp_group = torch.distributed.new_group(ranks_dp)
+        if rank in ranks_dp:
+            new_group = tmp_group
+
+    if new_group != None:
+        for op in [
+            dist.reduce_op.SUM,
+        ]:
+            te_result = torch.zeros((3, 4)).cuda() + rank
+            dist.all_reduce(te_result, op=op, group=new_group)
+            print(te_result)
+        dist.destroy_process_group(new_group)
+
+    cleanup()
+
+
+def test_get_comm_name(rank, world_size, port):
+    import torch_dipu
+
+    if torch_dipu.dipu.vendor_type == "NPU":
+        print(f"test get comm name on rank {rank} ")
+
+        setup(rank, world_size, port)
+
+        _ = torch.ones((2, 4)).to(rank)
+        ranks_dup = [rank]
+        group = torch.distributed.new_group(ranks_dup)
+        process_group_dicl = group._get_backend(torch.device(rank))
+        comm_name = process_group_dicl.get_comm_name(rank)
+        print(comm_name)
+
+        cleanup()
+
+
 if __name__ == "__main__":
     n_gpus = torch.cuda.device_count()
 
@@ -320,8 +588,15 @@ if __name__ == "__main__":
     run_demo(demo_reduce, world_size, port)
     run_demo(demo_reducescatter, world_size, port)
     run_demo(demo_reducescatter_base, world_size, port)
+    run_demo(demo_alltoall_base_equal_split, world_size, port)
+    run_demo(demo_alltoall_base_unequal_split, world_size, port)
+    run_demo(demo_alltoall, world_size, port)
+    run_demo(demo_gather, world_size, port)
+    run_demo(demo_scatter, world_size, port)
 
     run_demo(demo_allgather_gloo, world_size, port)
+
+    run_demo(test_get_comm_name, world_size, port)
 
     # need 2 card to run
     # run_demo(demo_p2p, world_size, port)
@@ -330,3 +605,6 @@ if __name__ == "__main__":
     # run_demo(demo_model_parallel, world_size)
 
     # run_demo(test_special_group_stuck, world_size)
+
+    # need 4 card to run
+    # run_demo(test_new_group, world_size)

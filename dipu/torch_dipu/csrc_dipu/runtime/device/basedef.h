@@ -23,22 +23,23 @@ using enum_t = int32_t;
 #define DIPU_CODELOC __FILE__ " (" DIPU_STRING(__LINE__) ")"
 
 #define DIPU_LOGE(fmt, ...)                                              \
-  printf("[ERROR]%s,%s:%u:" #fmt "\n", __FUNCTION__, __FILE__, __LINE__, \
+  printf("[ERROR]%s:%u:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, \
          ##__VA_ARGS__)
 
 #define DIPU_LOGW(fmt, ...)                                             \
-  printf("[WARN]%s,%s:%u:" #fmt "\n", __FUNCTION__, __FILE__, __LINE__, \
+  printf("[WARN]%s:%u:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, \
          ##__VA_ARGS__)
 
 namespace devapis {
 
 enum class VendorDeviceType : enum_t {
+  CUDA,     // cuda
   MLU,      // camb
   NPU,      // ascend
-  CUDA,     // cuda
-  GCU,      // gcu
-  SUPA,     // Biren
+  MUXI,     // muxi
+  GCU,      // gcu, topsrider
   DROPLET,  // droplet
+  SUPA,     // Biren
   KLX,      // Kunlunxin
 };
 
@@ -67,6 +68,7 @@ enum diclResult_t {
 
 struct DIPUDeviceStatus {
   size_t freeGlobalMem = 0;
+  size_t totalGlobalMem = 0;
 };
 
 struct DIPUDeviceProperties {

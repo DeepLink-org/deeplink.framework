@@ -47,11 +47,14 @@ def _test_dipu_fallback():
         _ = x - x
 
     test_fallback(
-        ["add.out", "sub.out"], ["diopiAdd", "diopiSub"], fn, ["dipu_fallback"]
+        ["add.Tensor", "add.out", "sub.Tensor", "sub.out"],
+        ["diopiAdd", "diopiSub"],
+        fn,
+        ["dipu_fallback"],
     )
 
 
-def _test_cpu_fallback():
+def _test_dipu_batch_norm_fallback():
     def fn():
         device = "cuda"
         m = torch.nn.BatchNorm2d(100, affine=False).to(device)
@@ -62,7 +65,7 @@ def _test_cpu_fallback():
         ["native_batch_norm"],
         ["diopiBatchNorm"],
         fn,
-        ["cpu_fallback:\taten::native_batch_norm", "dipu_fallback"],
+        ["dipu_fallback"],
     )
 
 
@@ -188,10 +191,10 @@ def _test_dipu_silu_fallback():
         assert torch.allclose(out_dipu.cpu(), out_cpu)
 
     test_fallback(
-        ["silu.out"],
+        ["silu"],
         ["diopiSilu"],
         fn,
-        ["custom fallback to cpu, name=silu_out"],
+        ["custom fallback to cpu, name=silu"],
     )
 
 
@@ -241,7 +244,7 @@ if __name__ == "__main__":
     run_individual_test_cases(
         [
             _test_dipu_fallback,
-            _test_cpu_fallback,
+            _test_dipu_batch_norm_fallback,
             _test_dipu_index_put_impl_fallback,
             _test_dipu_copy_fallback_,
             _test_dipu_convolution_backward_overrideable_fallback,

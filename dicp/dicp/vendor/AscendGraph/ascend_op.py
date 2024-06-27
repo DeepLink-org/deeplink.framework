@@ -217,6 +217,14 @@ class Rsqrt(Operator):
         return common_unary_op_infer(x)
 
 
+class Triu(Operator):
+    def __init__(self):
+        super().__init__("Triu")
+
+    def infer_result(self, x, diag):
+        return common_unary_op_infer(x)
+
+
 class Sqrt(Operator):
     def __init__(self):
         super().__init__("Sqrt")
@@ -567,6 +575,27 @@ class CastToCpu(Operator):
         super().__init__("CastToCpu")
 
 
+class SequenceAt(Operator):
+    def __init__(self):
+        super().__init__("SequenceAt")
+
+    def infer_result(self, x, idx=None):
+        x, x_shape, _, x_dtype = get_fake_tensor_meta_val(x)
+        if isinstance(x, (List, Tuple)):
+            return x[idx]
+        out_dtype = x_dtype
+        if x_dtype == torch.complex64:  # for complex64
+            out_shape = list(x_shape)
+            if idx == 0 or idx == 1:
+                out_dtype = torch.float32
+                out_shape.append(1)
+        else:
+            out_shape = [x_shape[idx]] if idx is not None else list(x_shape)
+        return torch.empty(
+            out_shape, dtype=out_dtype, memory_format=get_memory_format(x)
+        )
+
+
 class Identity(Operator):
     def __init__(self):
         super().__init__("Identity")
@@ -750,7 +779,6 @@ class ZerosLike(Operator):
     def infer_result(self, x):
         return common_unary_op_infer(x)
 
-
 class SplitD(Operator):
     def __init__(self):
         super().__init__("SplitD")
@@ -770,6 +798,12 @@ class SplitD(Operator):
             memory_format=get_memory_format(x),
         )
 
+class SplitToSequence(Operator):
+    def __init__(self):
+        super().__init__("SplitToSequence")
+
+    def infer_result(self, x, split_dim, split_size):
+        torch.split(x, split_size, split_dim)
 
 class Slice(Operator):
     def __init__(self):
@@ -1069,7 +1103,7 @@ class PromptFlashAttention(Operator):
     def __init__(self):
         super().__init__("PromptFlashAttention")
 
-    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim):
+    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim, num_key_value_heads):
         return torch.empty_like(q)
 
 

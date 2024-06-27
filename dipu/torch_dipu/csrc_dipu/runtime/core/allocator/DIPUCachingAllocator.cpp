@@ -9,18 +9,23 @@
 
 #include <c10/core/Device.h>
 #include <c10/core/DeviceType.h>
+#include <c10/util/Exception.h>
 
 #include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/utils/env.hpp"
+
+#include "DIPUCachingDeviceAllocator.h"
+#include "DIPUCachingHostAllocator.h"
 
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex DIPURawDeviceAllocator::mutex_;
 
-constexpr size_t kDefaultMaxAsyncResourcePoolLength = 64;
+constexpr size_t kDefaultMaxAsyncResourcePoolLength = 96;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const size_t kMaxAsyncResourcePoolLength = get_env_or_default(
     "DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH", kDefaultMaxAsyncResourcePoolLength);
@@ -68,18 +73,6 @@ std::set<c10::Allocator*> used_allocator;
 
 }  // namespace
 
-constexpr const char* dipu_default_memcaching_algorithm = "BF";
-
-const std::string dipu_device_memcaching_algorithm = []() {
-  const char* env = std::getenv("DIPU_DEVICE_MEMCACHING_ALGORITHM");
-  return env ? env : dipu_default_memcaching_algorithm;
-}();
-
-const std::string dipu_host_memcaching_algorithm = []() {
-  const char* env = std::getenv("DIPU_HOST_MEMCACHING_ALGORITHM");
-  return env ? env : dipu_default_memcaching_algorithm;
-}();
-
 void setAllocator(const std::string& name, c10::DeviceType device_type,
                   const std::function<c10::Allocator*(int)>& allocator_getter,
                   uint8_t priority) {
@@ -120,9 +113,9 @@ c10::Allocator* createAllocator(const c10::Device& device) {
   c10::DeviceType device_type = device.type();
   c10::Allocator* result = nullptr;
   auto& gDIPURegisteredAllocator = *gDIPURegisteredAllocatorPtr;
-  const std::string algorithm =
-      (device_type == dipu::DIPU_DEVICE_TYPE ? dipu_device_memcaching_algorithm
-                                             : dipu_host_memcaching_algorithm);
+  const std::string algorithm = (device_type == dipu::DIPU_DEVICE_TYPE
+                                     ? environ::deviceMemCachingAlgorithm()
+                                     : environ::hostMemCachingAlgorithm());
   if (gDIPURegisteredAllocator[device_type].count(algorithm) > 0) {
     auto allocator_geter =
         std::get<0>(gDIPURegisteredAllocator[device_type][algorithm]);
@@ -136,15 +129,28 @@ c10::Allocator* createAllocator(const c10::Device& device) {
   }
   TORCH_CHECK(false,
               "No allocator found for the device using the given algorithm:",
-              device_type, dipu_device_memcaching_algorithm);
+              device_type, environ::deviceMemCachingAlgorithm());
   return nullptr;
 }
 
 }  // namespace
 
+bool isTorchAllocator() {
+  static bool is_torch_allocator =
+      (environ::deviceMemCachingAlgorithm() == environ::kTorchAllocatorName);
+  return is_torch_allocator;
+}
+
 c10::Allocator* getAllocator(const c10::Device& device) {
   // allocator_lookup_table[device_index] == device allocator
   // allocator_lookup_table[device_count] == host allocator
+  if (!device.is_cpu() && isTorchAllocator()) {
+    return allocator::getTorchAllocator();
+  }
+  if (device.is_cpu() && isTorchAllocator()) {
+    return allocator::getCachingHostAllocator();
+  }
+
   static const int device_count = devproxy::getDeviceCount();
   static const int host_index = device_count;
   static std::vector<c10::Allocator*> allocator_lookup_table(device_count + 1);
@@ -161,6 +167,12 @@ c10::Allocator* getAllocator(c10::DeviceType device_type) {
 }
 
 void emptyCachedMem() {
+  if (isTorchAllocator()) {
+    allocator::emptyCache();
+    allocator::CachingHostAllocator_emptyCache();
+    return;
+  }
+
   auto function_name = __FUNCTION__;
   auto empty_allocator_cache = [&function_name](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
@@ -177,6 +189,12 @@ void emptyCachedMem() {
 }
 
 void releaseAllDeviceMem() {
+  if (isTorchAllocator()) {
+    allocator::emptyCache();
+    allocator::CachingHostAllocator_emptyCache();
+    return;
+  }
+
   auto release_allocator_memory = [](auto allocator) {
     auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
     DIPU_DEBUG_ALLOCATOR(8, "release_allocator_memory: allocator:"
@@ -192,6 +210,17 @@ void releaseAllDeviceMem() {
 }
 
 size_t memoryReserved(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .reserved_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .current;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -201,6 +230,17 @@ size_t memoryReserved(const c10::Device& device) {
 }
 
 size_t memoryAllocated(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .allocated_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .current;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -210,6 +250,17 @@ size_t memoryAllocated(const c10::Device& device) {
 }
 
 size_t maxMemoryReserved(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .reserved_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .peak;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -219,6 +270,17 @@ size_t maxMemoryReserved(const c10::Device& device) {
 }
 
 size_t maxMemoryAllocated(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    allocator::DeviceStats stats = allocator::getDeviceStats(device.index());
+    return stats
+        .allocated_bytes[static_cast<int64_t>(allocator::StatType::AGGREGATE)]
+        .peak;
+  }
+
+  if (device.is_cpu() && isTorchAllocator()) {
+    return 0;
+  }
+
   c10::Allocator* allocator = getAllocator(device);
   auto cached_allocator = dynamic_cast<CacheAllocator*>(allocator);
   if (cached_allocator != nullptr) {
@@ -227,7 +289,18 @@ size_t maxMemoryAllocated(const c10::Device& device) {
   return 0;
 }
 
+void resetPeakStats(const c10::Device& device) {
+  if (!device.is_cpu() && isTorchAllocator()) {
+    return allocator::resetPeakStats(device.index());
+  }
+}
+
 void recordStream(const c10::DataPtr& ptr, const DIPUStream& stream) {
+  if (isTorchAllocator()) {
+    allocator::recordStream(ptr, stream);
+    return;
+  }
+
   using pointer = CacheAllocator::DataPtrContextBase*;
   if (auto ctx = static_cast<pointer>(ptr.get_context())) {
     ctx->streams().insert(stream);
@@ -249,19 +322,6 @@ class DIPUDeviceCachingProxy : public c10::Allocator {
   ~DIPUDeviceCachingProxy() override = default;
 
   c10::DataPtr allocate(size_t size) const override {
-    auto currentStream = getCurrentDIPUStream();
-    auto defaultStream = getDefaultDIPUStream();
-    DIPUEvent event;
-    if (currentStream != defaultStream) {
-      // When allocating memory to a non-default stream, since record_stream is
-      // not performed on the default stream, the non-default stream needs to
-      // wait for the operation on the default stream to be completed. After
-      // adding non-default stream and other default stream operations here, the
-      // upper layer does not need to manually add a wait for the default stream
-      // when allocating memory on the non-default stream.
-      event.record(defaultStream);
-      event.wait(currentStream);
-    }
     return getAllocator(device_type_)->allocate(size);
   }
 

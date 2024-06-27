@@ -17,6 +17,10 @@ find_package(Threads REQUIRED)
 # TODO(vendor) - make vendor targets.
 add_subdirectory(vendor/${UsedVendor})
 
+message(STATUS "VENDOR_INCLUDE_DIRS: ${VENDOR_INCLUDE_DIRS}")
+message(STATUS "VENDOR_LIB_DIRS:  ${VENDOR_LIB_DIRS}")
+message(STATUS "DIPU_VENDOR_LIB:  ${DIPU_VENDOR_LIB}")
+
 # TODO(vendor) - Refactor those command after vendor is ready.
 set(VENDOR_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dist/include")
 set(VENDOR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/${UsedVendor}")
@@ -50,6 +54,13 @@ set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 set(GENERATED_KERNELS_SCRIPT "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_diopi_wrapper.py")
 set(GENERATED_KERNELS_CONFIG "${AUTOGEN_DIOPI_WRAPPER_DIR}/diopi_functions.yaml")
+set(DEVICE_GUARD_FREE_VENDOR cuda) # vensors that do not need to device guard need to be added to this list.
+if (${UsedVendor} IN_LIST DEVICE_GUARD_FREE_VENDOR)
+  set(GENERATE_DEVICE_GUARD False)
+else()
+  set(GENERATE_DEVICE_GUARD True)
+endif()
+message("GENERATE_DEVICE_GUARD: " ${GENERATE_DEVICE_GUARD})
 
 if(NOT EXISTS "${GENERATED_KERNELS_VENDOR}")
   unset(GENERATED_KERNELS_VENDOR)
@@ -57,7 +68,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS} ${GENERATE_DEVICE_GUARD}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"
@@ -72,6 +83,7 @@ set(TORCH_DIPU_SOURCE
   aten/ops/DIPUCopy.cpp
   aten/ops/StorageShapeKernel.cpp
   aten/ops/DIPUAmp.cpp
+  aten/ops/DIPUOpInferrer.cpp
   aten/ops/PinMemoryKernel.cpp
   aten/ops/EmptyOpsKernel.cpp
   aten/ops/CustomFallbackFunctionsForCopy.cpp
@@ -83,6 +95,8 @@ set(TORCH_DIPU_SOURCE
 
   diopirt/diopirt_impl.cpp
   diopirt/diopi_helper.cpp
+
+  metrics/metrics.cpp
 
   profiler/collection.cpp
   profiler/CorrelationIDManager.cpp
@@ -103,6 +117,8 @@ set(TORCH_DIPU_SOURCE
   runtime/core/allocator/DIPUCachingAllocator.cpp
   runtime/core/allocator/DIPUBFCachingAllocator.cpp
   runtime/core/allocator/DIPUBSCachingAllocator.cpp
+  runtime/core/allocator/DIPUCachingHostAllocator.cpp
+  runtime/core/allocator/DIPUCachingDeviceAllocator.cpp
   runtime/core/MemChecker.cpp
   runtime/core/guardimpl/DIPUGuardImpl.cpp
   runtime/core/DIPUGeneratorImpl.cpp
@@ -133,9 +149,9 @@ target_include_directories(torch_dipu SYSTEM
   PUBLIC "${kineto_SOURCE_DIR}/include"
   PRIVATE "${kineto_SOURCE_DIR}/src")
 
-target_link_libraries(torch_dipu PRIVATE diopi_impl)
-target_link_libraries(torch_dipu PRIVATE Python3::Python c10 torch torch_cpu)
+target_link_libraries(torch_dipu PRIVATE Python3::Python torch)
 target_link_libraries(torch_dipu PRIVATE Threads::Threads)
+target_link_libraries(torch_dipu PRIVATE diopi)
 
 #[[ Target: torch_dipu_python ]]
 set(TORCH_DIPU_PYBIND_SOURCE

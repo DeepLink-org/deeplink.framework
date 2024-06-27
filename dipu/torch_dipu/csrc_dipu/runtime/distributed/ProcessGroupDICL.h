@@ -2,12 +2,14 @@
 #pragma once
 
 #include <chrono>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include <c10/core/Device.h>
 #include <torch/csrc/distributed/c10d/Backend.hpp>
 #include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
 #include "csrc_dipu/base/basedef.h"
@@ -21,6 +23,7 @@ namespace dipu {
 
 using c10d::AllgatherOptions;
 using c10d::AllreduceOptions;
+using c10d::AllToAllOptions;
 using c10d::Backend;
 using c10d::BarrierOptions;
 using c10d::BroadcastOptions;
@@ -28,6 +31,7 @@ using c10d::GatherOptions;
 using c10d::OpType;
 using c10d::ReduceOptions;
 using c10d::ReduceScatterOptions;
+using c10d::ScatterOptions;
 using c10d::Store;
 using c10d::Work;
 
@@ -36,52 +40,40 @@ using c10d::Work;
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
 
-// ProcessGroupDICL implements DICLbindings for c10d.
-//
-// All functions of the class are expected to be called in the same order
-// across all processes in the process group.  This is the only way that we
-// can guarantee to match up the same calls among all processes.
-//
-// All DICLfunctions provided by this class are asynchronous functions. More
-// specifically, each DICLcall is scheduled on a separate DIPU stream that is
-// different from the current DIPU stream. This is for the purpose of
-// achieving potentially concurrency and better performance. As a result,
-// it is the callers' responsibilty to make sure that the DIPU stream their
-// code works on needs to wait for the DICLoperation from
-// this class.
-//
-// This can be done by calling:
-//
-// either WorkDICL::wait() or WorkDICL::synchronize(), both achieves the same
-// functionality and are synonyms.
-//
-// Note that WorkDICL::isSuccess() and WorkDICL::isCompleted() will always
-// return true since ProcessGroupDICL is single threaded. Every single DICL
-// or DIPU failure will simply raise std::runtime_error.
-//
-// Therefore, WorkDICL::exception() is not supported since isSuccess() always
-// returns true.
-//
-// Also note that WorkDICL::finishedDIPUExecution() is a helper function only
-// provided by ProcessGroupDICL to check if the DICL operation of WorkDICL has
-// finished execution on the DIPU (not just scheduled).
-//
-// Example on using the DICL process group
-//
-//   ProcessGroupDICL pg(store, rank, size);
-//   std::shared_ptr<WorkDICL> work = pg.allreduce(tensors);
-//
-//   // At this point, DICL kernel has already by queued successfully
-//   // Now, let current stream wait for the DICL to finish, originally this
-//   function is
-//   // async operation as well, but currently DIPU is sync.
-//
-//   work->wait()
-//
-//   // Now continue on other work in the current stream.
-
-// not support gather/ all _coalesced func func now,
-// If needed in the future, we will add
+/**
+ * ProcessGroupDICL implements DICLbindings for c10d.
+ *
+ * @author fandaoyi
+ *
+ * All functions of this class are expected to be called in the same order
+ * across all processes in the process group. This is the only way that we can
+ * guarantee to match up the same calls among all processes.
+ *
+ * All DICLfunctions provided by this class are asynchronous functions. More
+ * specifically, each DICLcall is scheduled on a separate DIPU stream that is
+ * different from the current DIPU stream. This is for the purpose of achieving
+ * potentially concurrency and better performance. As a result, it is the
+ * callers' responsibility to make sure that the DIPU stream their code works on
+ * needs to wait for the DICLoperation from this class. This can be done by
+ * calling either WorkDICL::wait() or WorkDICL::synchronize(), both achieves the
+ * same functionality and are synonyms.
+ *
+ * @note Every single DICL or DIPU failure will simply raise std::runtime_error.
+ * Therefore, WorkDICL::exception() is not supported, and WorkDICL::isSuccess()
+ * will always return true if the operation has completed.
+ *
+ * @warning Not supporting all _coalesced functions now. We will add
+ * them in the future if needed.
+ *
+ * Example on using DICL process group:
+ *
+ *     ProcessGroupDICL pg(store, rank, size);
+ *     std::shared_ptr<WorkDICL> work = pg.allreduce(tensors);
+ *     // At this point, DICL kernel has already been queued successfully.
+ *     // Now, let current stream wait for DICL to finish (async).
+ *     work->wait()
+ *     // Now continue on other work in current stream.
+ */
 class DIPU_API ProcessGroupDICL : public Backend {
  public:
   class WorkDICL : public Work {
@@ -94,7 +86,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
           opTimeout_(opTimeout),
           workStartTime_(std::chrono::steady_clock::now()) {
       workEvents_.resize(diclComms_.size());
-    }  // NOLINT
+    }
 
     ~WorkDICL() override = default;
 
@@ -179,6 +171,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
     return DICL_BACKEND_NAME;
   }
 
+  std::string_view getCommName(at::DeviceIndex device_index);
+
   c10::intrusive_ptr<Work> broadcast(
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts /* = BroadcastOptions() */) override;
@@ -205,6 +199,11 @@ class DIPU_API ProcessGroupDICL : public Backend {
       at::Tensor& outputs, at::Tensor& inputs,
       const AllgatherOptions& opts /* = AllgatherOptions() */) override;
 
+  c10::intrusive_ptr<Work> scatter(
+      std::vector<at::Tensor>& outputs,
+      std::vector<std::vector<at::Tensor>>& inputs,
+      const ScatterOptions& opts /* = ScatterOptions() */) override;
+
   c10::intrusive_ptr<Work> reduce_scatter(
       std::vector<at::Tensor>& outputs,
       std::vector<std::vector<at::Tensor>>& inputs,
@@ -213,6 +212,16 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Work> _reduce_scatter_base(
       at::Tensor& output, at::Tensor& input,
       const ReduceScatterOptions& opts /* = ReduceScatterOptions() */) override;
+
+  c10::intrusive_ptr<Work> alltoall_base(at::Tensor& outputTensor,
+                                         at::Tensor& inputTensor,
+                                         std::vector<int64_t>& outputSplitSizes,
+                                         std::vector<int64_t>& inputSplitSizes,
+                                         const AllToAllOptions& opts) override;
+
+  c10::intrusive_ptr<Work> alltoall(std::vector<at::Tensor>& outputTensors,
+                                    std::vector<at::Tensor>& inputTensors,
+                                    const AllToAllOptions& opts) override;
 
   c10::intrusive_ptr<Work> send(std::vector<at::Tensor>& tensors, int dstRank,
                                 int tag) override;
@@ -226,9 +235,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
   c10::intrusive_ptr<Store> getStore() { return this->store_; }
 
  protected:
-  // different device may need extend this func to do device specific check
-  virtual void checkDeviceTensors(const std::vector<at::Tensor>& tensors);
-
   // Helper that broadcasts DICL clique ID to all ranks through the store
   virtual void broadcastUniqueID(commUniqueId* uniqueId,
                                  const std::string& storeKey, int commRank);
@@ -305,6 +311,70 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 };
+
+namespace dicl_hook {
+
+/**
+ * @brief Preprocessing function to be executed before the allReduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no preprocessing will be performed before
+ * the allReduce operation.
+ */
+DIPU_WEAK void allReducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                              std::vector<at::Tensor>& inputs,
+                              std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Postprocessing function to be executed after the allReduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no postprocessing will be performed after
+ * the allReduce operation.
+ */
+DIPU_WEAK void allReducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                               std::vector<at::Tensor>& inputs,
+                               std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Preprocessing function to be executed before the reduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no preprocessing will be performed before
+ * the reduce operation.
+ */
+DIPU_WEAK void reducePreFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                           std::vector<at::Tensor>& inputs,
+                           std::vector<at::Tensor>& outputs);
+
+/**
+ * @brief Postprocessing function to be executed after the reduce operation.
+ *
+ * @param comms A vector containing all DICLComm objects, each representing a
+ * communication channel.
+ * @param inputs A vector containing all input tensors.
+ * @param outputs A vector containing all output tensors.
+ *
+ * If this function is not defined, no postprocessing will be performed after
+ * the reduce operation.
+ */
+DIPU_WEAK void reducePostFn(std::vector<std::shared_ptr<DICLComm>>& comms,
+                            std::vector<at::Tensor>& inputs,
+                            std::vector<at::Tensor>& outputs);
+
+}  // namespace dicl_hook
 
 c10::intrusive_ptr<ProcessGroupDICL> createProcessGroupDICL(
     const c10::intrusive_ptr<::c10d::Store>& store, int rank, int size,

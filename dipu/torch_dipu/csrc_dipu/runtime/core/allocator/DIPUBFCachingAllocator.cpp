@@ -513,6 +513,7 @@ class BFCachingAllocator : public CacheAllocator {
                                   << ", device:" << allocator_->device());
       if (allocator_->impl) {
         if (ptr()) {
+          allocator_->metrics_producer.deallocate(ptr());
           std::deque<DIPUEvent> events;
           for (auto const& stream : streams()) {
             events.emplace_back();
@@ -525,7 +526,6 @@ class BFCachingAllocator : public CacheAllocator {
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
         }
-        allocator_->restore();
       } else {
         DIPU_DEBUG_ALLOCATOR(8,
                              "BFCachingAllocator:~Context: destory tensor "
@@ -561,6 +561,7 @@ class BFCachingAllocator : public CacheAllocator {
 
     set_memory_allocated(memory_allocated() + nbytes);
     set_memory_reserved(impl->memory_reserved());
+    metrics_producer.allocate(ptr, size);
 
     c10::DataPtr data_ptr(ptr, makeContext(ptr, size, nbytes, id),
                           deleteBFContext, device());
@@ -612,8 +613,9 @@ static void deleteBFContext(void* ptr) {
 
 // TODO(allocator) - Refactor it!
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
-DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator, 0);
-DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, 0);
+DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator,
+                        OneStreamOneQueueAlgo, 0);
+DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, OneStreamOneQueueAlgo, 0);
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu

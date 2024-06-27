@@ -7,11 +7,67 @@ from torch._inductor.codecache import code_hash
 from torch.fx.node import Argument, Target
 
 
+def not_all_num_shape(shape):
+    for elem in shape:
+        if not isinstance(elem, int):
+            return True
+    return False
+
+
 def symint_in_shape(shape):
     for elem in shape:
         if isinstance(elem, torch.SymInt):
             return True
     return False
+
+
+def neg_in_shape(shape):
+    for elem in shape:
+        if isinstance(elem, int):
+            if elem < 0:
+                return True
+    return False
+
+
+def process_sym_name(st):
+    # dynamic shape feature
+    # return string wrapper in new version
+    # node.str() will not fallback SymInt value form
+    if isinstance(st, torch.SymInt):
+        return st.node.str()
+    return str(st)
+
+
+def preprocess_expression(expr):
+    elem_str = process_sym_name(expr)
+    elem_str = elem_str.replace('+', ' + ')
+    elem_str = elem_str.replace('-', ' - ')
+    elem_str = elem_str.replace('*', ' * ')
+    elem_str = elem_str.replace('//', ' // ')
+    elem_str = elem_str.replace('(', ' ( ')
+    elem_str = elem_str.replace(')', ' ) ')
+    elems = elem_str.split(' ')
+    elems = [e for e in elems if e != '']
+    return elems
+
+
+def find_root_num(set_num, num):
+    while set_num[num] != num:
+        num = set_num[num]
+    return num
+
+
+def merge_disjoint_set(set_num, idx_a, idx_b):
+    root_a = find_root_num(set_num, idx_a)
+    root_b = find_root_num(set_num, idx_b)
+    # an example for (s5 / 8) - (s5 / 16)
+    # num: 0 1 2 3
+    # step1 - > set_num: 0 1 2 3
+    # step2 - > set_num: 0 0 2 2
+    # step3 - > set_num: 0 0 0 0
+
+    # return merged set from root_b to root_a
+    return [root_a if find_root_num(set_num, s) == root_b else s for s in set_num]
 
 
 def save_cpu_gm(gm: torch.fx.GraphModule, folder: str):
