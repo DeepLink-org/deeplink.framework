@@ -5,7 +5,7 @@ from torch_dipu.testing._internal.common_utils import TestCase, run_tests
 
 
 class TestMockCudaTensor(TestCase):
-    def test_mock_cudatensor(self):
+    def test_mock_cudatensor_type(self):
         tensor_types = {
             torch.float: torch.cuda.FloatTensor,
             torch.double: torch.cuda.DoubleTensor,

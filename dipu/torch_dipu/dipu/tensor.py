@@ -27,9 +27,8 @@ def _wrap_tensor_type(self, *args, **kwargs):
         return ret
 
 
-# need enhance, seems change tensor define is need
 def apply_tensor_type_patch():
     torch.set_default_tensor_type = __set_default_tensor_type
     if mockcuda:
-        _C._mockCudaTensor()
+        _C._mockCudaTensorType()
     torch.Tensor.type = _wrap_tensor_type

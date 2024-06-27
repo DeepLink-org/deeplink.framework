@@ -40,19 +40,18 @@ endif()
 add_library(diopi INTERFACE)
 target_include_directories(diopi SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
 target_compile_definitions(diopi INTERFACE DIOPI_ATTR_WEAK)
-target_link_options(diopi INTERFACE "LINKER:-no-as-needed")
 
 if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   # compile DIOPI if use internal one
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
   set(IMPL_OPT "${DIOPI_IMPL_OPT}" CACHE INTERNAL "IMPL_OPT for diopi")
   add_subdirectory(DIOPI/impl) # import diopi_impl target
-  target_link_libraries(diopi INTERFACE diopi_impl)
+  target_link_libraries(diopi INTERFACE "-Wl,-no-as-needed" diopi_impl "-Wl,-as-needed")
 
 elseif(NOT WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
   add_library(diopi_impl_imported SHARED IMPORTED)
   set_target_properties(diopi_impl_imported PROPERTIES IMPORTED_LOCATION "${DIOPI_LIBRARY_PATH}/libdiopi_impl.so")
-  target_link_libraries(diopi INTERFACE diopi_impl_imported)
+  target_link_libraries(diopi INTERFACE "-Wl,-no-as-needed" diopi_impl_imported "-Wl,-as-needed")
 endif()
 
 message(STATUS "Using DIOPI_LIBRARY_PATH='${DIOPI_LIBRARY_PATH}', DIOPI_INCLUDE_PATH='${DIOPI_INCLUDE_PATH}'")
