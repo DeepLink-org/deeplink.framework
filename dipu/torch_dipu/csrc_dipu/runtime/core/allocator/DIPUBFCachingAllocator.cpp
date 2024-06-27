@@ -16,6 +16,9 @@
 namespace dipu {
 
 inline size_t round_up_to_alignment(size_t nbytes, size_t alignment_size) {
+  if (nbytes <= 0) {
+    return alignment_size;
+  }
   return ((nbytes - 1) | (alignment_size - 1)) + 1;
 }
 class BFCachingAllocatorImpl {
@@ -33,10 +36,10 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr int kSmallBlockSize = 2 << 20;
-  static constexpr int kMiddleBlockSize = 20 << 20;
-  static constexpr int kLargeBlockSize = 200 << 20;
-  static constexpr int kLargeAlignSize = 1024 << 20;
+  static constexpr size_t kSmallBlockSize = 2 << 20;
+  static constexpr size_t kMiddleBlockSize = 20 << 20;
+  static constexpr size_t kLargeBlockSize = 200 << 20;
+  static constexpr size_t kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -391,7 +394,7 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      int internlalMaxFragnmentSize = 0;
+      size_t internlalMaxFragnmentSize = 0;
       const size_t chunk_size = chunks_[id].size;
       if (chunk_size < kSmallBlockSize) {
         internlalMaxFragnmentSize = kMinAllocationSize;
