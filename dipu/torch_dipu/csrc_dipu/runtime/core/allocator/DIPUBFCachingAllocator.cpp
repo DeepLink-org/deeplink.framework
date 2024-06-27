@@ -35,11 +35,11 @@ class BFCachingAllocatorImpl {
   static constexpr int kNumSubBins = 4;
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
-  static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kSmallBlockSize = 2 << 20;
-  static constexpr size_t kMiddleBlockSize = 20 << 20;
-  static constexpr size_t kLargeBlockSize = 200 << 20;
-  static constexpr size_t kLargeAlignSize = 1024 << 20;
+  static constexpr int kMinAllocationSize = 512;
+  static constexpr int kSmallBlockSize = 2 << 20;
+  static constexpr int kMiddleBlockSize = 20 << 20;
+  static constexpr int kLargeBlockSize = 200 << 20;
+  static constexpr int kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -259,22 +259,6 @@ class BFCachingAllocatorImpl {
     }
   }
 
-  void shrink(StreamSetHandle& set, size_t nbytes) {
-    size_t releasedSize = 0;
-    for (int binHead : set->binHeads_) {
-      int k = chunks_[binHead].nextChunkInList;
-      while (k) {
-        if (chunks_[k].isMonoBlock()) {
-          releasedSize += chunks_[k].size;
-          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
-          removeChunkFromBin(k);
-          recycleIds_.push(k);
-        }
-        k = chunks_[k].nextChunkInList;
-      }
-    }
-  }
-
   int split(int id, size_t nbytes) {
     void* ptr = static_cast<char*>(chunks_[id].ptr) + nbytes;
     size_t const size = chunks_[id].size - nbytes;
@@ -394,8 +378,8 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      size_t internlalMaxFragnmentSize = 0;
-      const size_t chunk_size = chunks_[id].size;
+      int internlalMaxFragnmentSize = 0;
+      const int chunk_size = static_cast<int>(chunks_[id].size);
       if (chunk_size < kSmallBlockSize) {
         internlalMaxFragnmentSize = kMinAllocationSize;
       } else if (chunk_size < kLargeAlignSize) {
@@ -403,8 +387,8 @@ class BFCachingAllocatorImpl {
       } else {
         internlalMaxFragnmentSize = kLargeAlignSize;
       }
-      if (chunk_size >= nbytes * 2 ||
-          chunk_size > nbytes + internlalMaxFragnmentSize) {
+      if ((chunk_size >= (nbytes << 1)) ||
+          (chunk_size > (nbytes + internlalMaxFragnmentSize))) {
         id = split(id, nbytes);
       }
       chunks_[id].allocated = true;
