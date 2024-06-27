@@ -5,8 +5,6 @@
 #include <iostream>
 #include <mutex>
 
-#include <ATen/record_function.h>
-
 namespace dipu {
 
 template <typename T>
@@ -66,18 +64,12 @@ class EventPool final {
 EventPool<deviceEvent_t>* getEventPool() {
   const int index = devproxy::current_device();
 // GlobalEventPool for different cards , construct when really needed
-#define dispatch_event_pool(device_id)                                 \
-  if (index == (device_id)) {                                          \
-    static EventPool<deviceEvent_t> gDIPUEventPool(                    \
-        [](deviceEvent_t& event) {                                     \
-          RECORD_FUNCTION("createEvent", std::vector<c10::IValue>());  \
-          devapis::createEvent(&event);                                \
-        },                                                             \
-        [](deviceEvent_t& event) {                                     \
-          RECORD_FUNCTION("destroyEvent", std::vector<c10::IValue>()); \
-          devapis::destroyEvent(event);                                \
-        });                                                            \
-    return &gDIPUEventPool;                                            \
+#define dispatch_event_pool(device_id)                               \
+  if (index == (device_id)) {                                        \
+    static EventPool<deviceEvent_t> gDIPUEventPool(                  \
+        [](deviceEvent_t& event) { devapis::createEvent(&event); },  \
+        [](deviceEvent_t& event) { devapis::destroyEvent(event); }); \
+    return &gDIPUEventPool;                                          \
   }
 
   dispatch_event_pool(0);
