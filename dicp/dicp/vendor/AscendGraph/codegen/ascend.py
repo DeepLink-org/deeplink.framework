@@ -488,7 +488,7 @@ class AscendCodegen(torch.fx.Interpreter):
     def gen_compile_graph_code(self):
         compile_graph_code = IndentedBuffer()
         graph_json = self.gen_graph_json()
-        compile_job_type = os.environ.get("DICP_ASCEND_COMPILE_JOB_TYPE", "AscendGECompileGERunJob")
+        compile_job_type = os.environ.get("DICP_ASCEND_COMPILE_JOB_TYPE", "AscendGECompileAclRunJob")
         assert compile_job_type in ["AscendGECompileGERunJob", "AscendGECompileAclRunJob"]
         compile_graph_code.splice(
             f"""
