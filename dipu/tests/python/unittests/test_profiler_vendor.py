@@ -90,7 +90,7 @@ class TestProfiler(TestCase):
         self.assertNotIn("dipu_convolution_", profile_output)
         self.assertNotIn("LaunchKernel_dipu", profile_output)
         self.assertNotIn("LaunchKernel_diopi", profile_output)
-        self.assertIn("aten::cudnn_convolution", profile_output)
+        self.assertIn("aten::convolution_backward", profile_output)
         self.assertIn("aten::add", profile_output)
         self.assertIn("vectorized_elementwise_kernel", profile_output)
         self.assertIn("Self CPU time total", profile_output)
