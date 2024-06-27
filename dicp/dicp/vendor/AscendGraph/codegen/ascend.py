@@ -1618,7 +1618,7 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def PromptFlashAttention(name, q, k, v, head_num, seqlen, mask, head_dim):
+    def PromptFlashAttention(name, q, k, v, head_num, seqlen, mask, head_dim, num_key_value_heads):
         op = OP(name, "PromptFlashAttention")
         op.set_input("query", q)
         op.set_input("key", k)
@@ -1627,10 +1627,11 @@ class AscendOverrides:
         op.set_attr_int("num_heads", head_num)
         op.set_attr_float("scale_value", float(1 / math.sqrt(head_dim)))
         op.set_attr_str("input_layout", "BSH")
+        op.set_attr_int("num_key_value_heads", num_key_value_heads)
         return op.to_node()
 
     @staticmethod
-    def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, head_num, kv_head_num, dim, input_layout="BSH"):
+    def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, kv_head_num, head_num, dim, input_layout="BSH"):
         op = OP(name, "IncreFlashAttention")
         op.set_input("query", q)
         op.set_dynamic_input("key", kv_input_num, k_list)

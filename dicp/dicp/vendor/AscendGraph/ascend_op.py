@@ -1103,7 +1103,7 @@ class PromptFlashAttention(Operator):
     def __init__(self):
         super().__init__("PromptFlashAttention")
 
-    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim):
+    def infer_result(self, q, k, v, num_head, seqlen, mask, head_dim, num_key_value_heads):
         return torch.empty_like(q)
 
 
