@@ -79,14 +79,13 @@ void OpInferrerMeta::add_input(const at::Tensor& tensor) {
   inputs_.push_back(c10::MaybeOwned<at::Tensor>::borrowed(tensor));
 }
 
-at::Tensor OpInferrerMeta::malloc_output() {
+inline at::Tensor OpInferrerMeta::malloc_output() {
   at::TensorOptions options = at::TensorOptions().dtype(dtype_).device(device_);
-  auto out = native::nodispatch::empty(shape_, options, memory_format_);
-
   if (!strides_.empty()) {
-    out.as_strided_(shape_, strides_);
+    return native::nodispatch::empty_strided(shape_, strides_, options);
+  } else {
+    return native::nodispatch::empty(shape_, options, memory_format_);
   }
-  return out;
 }
 
 void OpInferrer::compute_dtype() {
