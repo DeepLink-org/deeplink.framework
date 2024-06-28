@@ -2,6 +2,11 @@ from setuptools import setup, find_packages
 import shutil
 import os
 
+try:
+    import torch_dipu
+except ModuleNotFoundError as e:
+    raise RuntimeError("torch_dipu is not installed!") from None
+
 
 def build_deps():
     paths = []
@@ -55,8 +60,7 @@ def main():
         python_requires=">=3.8",
         install_requires=[
             "torch >= 2.0.0a0",
-            "torch_dipu == 0.1"
-        ]
+        ],
     )
 
 
