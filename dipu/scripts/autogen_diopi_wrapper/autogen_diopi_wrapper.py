@@ -8,10 +8,12 @@ from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
+    diopi_wrapper_function_template_content_no_record,
     op_no_customfallback_with_autocompare_register_template_content,
     op_no_customfallback_no_autocompare_register_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
+    autocompare_template_content_no_check,
     op_with_customfallback_with_autocompare_register_template_content,
     op_with_customfallback_no_autocompare_register_template_content,
 )
@@ -709,6 +711,8 @@ file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
+fun_template_no_record = CodeTemplate(diopi_wrapper_function_template_content_no_record)
+
 op_no_customfallback_with_autocompare_register_template = CodeTemplate(
     op_no_customfallback_with_autocompare_register_template_content
 )
@@ -729,8 +733,10 @@ custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 autocompare_template = CodeTemplate(autocompare_template_content)
 
+autocompare_template_no_check = CodeTemplate(autocompare_template_content_no_check)
 
 def functions_code_gen(fun_config):
+    remove_check_code = fun_config.get("remove_check_code", False) == True
     if "interface" in fun_config:
         diopi_fun_call_code = fun_config["interface"] + ";"
     else:
@@ -826,15 +832,17 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        fun_config["custom_code_at_the_beginning"] = (
-            create_code_to_print_fun_call_info_from_schema(fun_config)
-            + fun_config.get("custom_code_at_the_beginning", "")
-        )
+        if not remove_check_code:
+            fun_config["custom_code_at_the_beginning"] = (
+                create_code_to_print_fun_call_info_from_schema(fun_config)
+                + fun_config.get("custom_code_at_the_beginning", "")
+            )
 
     if fun_config.get("print_op_args", False) == True:
-        fun_config["custom_code_before_call_diopi"] = fun_config.get(
-            "custom_code_before_call_diopi", ""
-        ) + create_print_op_args_code(fun_config)
+        if not remove_check_code:
+            fun_config["custom_code_before_call_diopi"] = fun_config.get(
+                "custom_code_before_call_diopi", ""
+            ) + create_print_op_args_code(fun_config)
 
     if fun_config.get("use_diopi_adapter", False) == True:
         diopi_fun_call_code = "diopiadaptor::" + diopi_fun_call_code
@@ -867,25 +875,45 @@ def functions_code_gen(fun_config):
     custom_code_at_the_beginning = re.sub(";\s*$", ";\n", custom_code_at_the_beginning)
 
     interface_name = re.sub(R".*::(.*?)\(.*", R"\1", diopi_fun_call_code)
-    fbody = fun_template.substitute(
-        comment=[fun_config["schema"]],
-        cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
-        custom_code_at_the_beginning=[custom_code_at_the_beginning],
-        device_guard_code=[create_device_guard_code(fun_config)],
-        input_process_code=[input_process_code],
-        attrs_process_code=[attrs_process_code],
-        output_process_code=[output_process_code],
-        custom_code_before_call_diopi=[
-            fun_config.get("custom_code_before_call_diopi", "").replace("; ", ";\n")
-        ],
-        device_check_code=[create_device_check_code(fun_config)],
-        diopi_fun_call_code=[diopi_fun_call_code],
-        custom_code_before_return=[
-            fun_config.get("custom_code_before_return", "").replace("; ", ";\n")
-        ],
-        return_code=[return_code],
-        interface_name=[interface_name],
-    )
+    if remove_check_code:
+        fbody = fun_template_no_record.substitute(
+            comment=[fun_config["schema"]],
+            cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
+            custom_code_at_the_beginning=[custom_code_at_the_beginning],
+            device_guard_code=[create_device_guard_code(fun_config)],
+            input_process_code=[input_process_code],
+            attrs_process_code=[attrs_process_code],
+            output_process_code=[output_process_code],
+            custom_code_before_call_diopi=[
+                fun_config.get("custom_code_before_call_diopi", "").replace("; ", ";\n")
+            ],
+            diopi_fun_call_code=[diopi_fun_call_code],
+            custom_code_before_return=[
+                fun_config.get("custom_code_before_return", "").replace("; ", ";\n")
+            ],
+            return_code=[return_code],
+            interface_name=[interface_name],
+        )
+    else:
+        fbody = fun_template.substitute(
+            comment=[fun_config["schema"]],
+            cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
+            custom_code_at_the_beginning=[custom_code_at_the_beginning],
+            device_guard_code=[create_device_guard_code(fun_config)],
+            input_process_code=[input_process_code],
+            attrs_process_code=[attrs_process_code],
+            output_process_code=[output_process_code],
+            custom_code_before_call_diopi=[
+                fun_config.get("custom_code_before_call_diopi", "").replace("; ", ";\n")
+            ],
+            device_check_code=[create_device_check_code(fun_config)],
+            diopi_fun_call_code=[diopi_fun_call_code],
+            custom_code_before_return=[
+                fun_config.get("custom_code_before_return", "").replace("; ", ";\n")
+            ],
+            return_code=[return_code],
+            interface_name=[interface_name],
+        )
     diopi_interface = fun_config.get(
         "interface", create_call_diop_interface_code_from_schema(fun_config["schema"])
     )
@@ -959,35 +987,65 @@ def functions_code_gen(fun_config):
         "register_op", True
     ) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
-        autocompare_code = autocompare_template.substitute(
-            cppsignautre=[
-                create_cpp_signature_from_schema(fun_config["schema"]).replace(
-                    raw_fun_name, auto_compare_fun_name
-                )
-            ],
-            transform_input_to_cpu_code=[
-                create_transform_input_to_cpu_code(fun_config)
-            ],
-            execute_op_on_cpu_code=[
-                create_call_aten_cpu_cpp_function_code_from_config(fun_config)
-            ],
-            comment=[fun_config["schema"]],
-            execute_op_on_device_code=[
-                create_call_dipu_cpp_function_code_from_schema(
-                    fun_config["schema"]
-                ).replace(raw_fun_name, fun_name)
-            ],
-            transform_result_to_cpu_code=[],
-            result_compare_code=[
-                create_result_compare_code(fun_config)
-                + (
-                    "\nreturn result_device;\n"
-                    if len(get_function_return_param_from_schema(fun_config["schema"]))
-                    > 0
-                    else ""
-                )
-            ],
-        )
+        if remove_check_code:
+            autocompare_code = autocompare_template_no_check.substitute(
+                cppsignautre=[
+                    create_cpp_signature_from_schema(fun_config["schema"]).replace(
+                        raw_fun_name, auto_compare_fun_name
+                    )
+                ],
+                transform_input_to_cpu_code=[
+                    create_transform_input_to_cpu_code(fun_config)
+                ],
+                execute_op_on_cpu_code=[
+                    create_call_aten_cpu_cpp_function_code_from_config(fun_config)
+                ],
+                comment=[fun_config["schema"]],
+                execute_op_on_device_code=[
+                    create_call_dipu_cpp_function_code_from_schema(
+                        fun_config["schema"]
+                    ).replace(raw_fun_name, fun_name)
+                ],
+                transform_result_to_cpu_code=[],
+                result_compare_code=[
+                    (
+                        "\nreturn result_device;\n"
+                        if len(get_function_return_param_from_schema(fun_config["schema"]))
+                        > 0
+                        else ""
+                    )
+                ],
+            )
+        else:
+            autocompare_code = autocompare_template.substitute(
+                cppsignautre=[
+                    create_cpp_signature_from_schema(fun_config["schema"]).replace(
+                        raw_fun_name, auto_compare_fun_name
+                    )
+                ],
+                transform_input_to_cpu_code=[
+                    create_transform_input_to_cpu_code(fun_config)
+                ],
+                execute_op_on_cpu_code=[
+                    create_call_aten_cpu_cpp_function_code_from_config(fun_config)
+                ],
+                comment=[fun_config["schema"]],
+                execute_op_on_device_code=[
+                    create_call_dipu_cpp_function_code_from_schema(
+                        fun_config["schema"]
+                    ).replace(raw_fun_name, fun_name)
+                ],
+                transform_result_to_cpu_code=[],
+                result_compare_code=[
+                    create_result_compare_code(fun_config)
+                    + (
+                        "\nreturn result_device;\n"
+                        if len(get_function_return_param_from_schema(fun_config["schema"]))
+                        > 0
+                        else ""
+                    )
+                ],
+            )
         fbody += autocompare_code
 
     # generate the OP_register code
@@ -1148,6 +1206,12 @@ def parse_args():
         default=dict(),
         help="fun config for all ops",
     )  # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
+    parser.add_argument(
+        "--remove_check_code",
+        default=False,
+        type=boolean_string,
+        help="whether generate code that prints function call information and check the result",
+    )
 
     args = parser.parse_args()
     return args

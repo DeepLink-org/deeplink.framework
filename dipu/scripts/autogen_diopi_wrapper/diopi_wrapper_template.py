@@ -131,6 +131,33 @@ $cppsignautre {
 }
 """
 
+diopi_wrapper_function_template_content_no_record = """
+//  $comment
+$cppsignautre {
+  $device_guard_code
+  $custom_code_at_the_beginning
+
+  ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
+  auto ctx = &context;
+
+  $input_process_code
+
+  $output_process_code
+
+  $attrs_process_code
+
+  $custom_code_before_call_diopi
+
+  ::diopiError_t ret = $diopi_fun_call_code
+
+  $custom_code_before_return
+
+  synchronizeIfEnable();
+
+  $return_code
+}
+"""
+
 op_no_customfallback_with_autocompare_register_template_content = """
 NO_CUSTOMFALLBACK_WITH_AUTOCOMPARE_REGISTER("$register_name", $diopi_fun_name, $aten_fun_name);
 """
@@ -178,6 +205,22 @@ $cppsignautre {
 
 
 autocompare_template_content = """
+//  $comment
+$cppsignautre {
+  std::cout << std::endl << __FUNCTION__ << std::endl;
+  $transform_input_to_cpu_code
+
+  $execute_op_on_cpu_code
+
+  $execute_op_on_device_code
+
+  $transform_result_to_cpu_code
+
+  $result_compare_code
+}
+"""
+
+autocompare_template_content_no_check = """
 //  $comment
 $cppsignautre {
   std::cout << std::endl << __FUNCTION__ << std::endl;
