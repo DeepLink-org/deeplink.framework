@@ -1,5 +1,5 @@
 import os
-import pytest
+import pytest # noqa F401
 from typing import List
 
 import torch
