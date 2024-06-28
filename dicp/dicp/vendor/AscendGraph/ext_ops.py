@@ -50,24 +50,24 @@ def lightllm_rms_norm_impl(x, weight, eps):
 
 
 @torch._custom_op.impl.custom_op('lightllm::prompt_attention_inference')
-def prompt_attention_inference(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int) -> Tensor:
+def prompt_attention_inference(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int, num_key_value_heads: int) -> Tensor:
     ...
 
 
 @prompt_attention_inference.impl_abstract()
-def lightllm_prompt_attention_inference_abstract(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int):
+def lightllm_prompt_attention_inference_abstract(q: Tensor, k: Tensor, v: Tensor, seqlen: Tensor, num_head: int, head_dim: int, num_key_value_heads: int):
     return torch.empty_like(q)
 
 
 @prompt_attention_inference.impl(['cpu', 'cuda'])
-def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim):
+def lightllm_prompt_attention_inference_impl(q, k, v, seqlen, num_head, head_dim, num_key_value_heads):
     assert q.shape[0] == 1, "prompt attention just support bs=1 for now."
     bs = q.shape[0]
     seqlen = seqlen.item()
 
     xq = q.view(bs, seqlen, num_head, head_dim)
-    xk = k.view(bs, seqlen, num_head, head_dim)
-    xv = v.view(bs, seqlen, num_head, head_dim)
+    xk = k.view(bs, seqlen, num_key_value_heads, head_dim)
+    xv = v.view(bs, seqlen, num_key_value_heads, head_dim)
 
     mask = torch.tril(torch.ones(seqlen, seqlen), diagonal=0).unsqueeze(0).unsqueeze(0)
     mask = mask.masked_fill(mask == 0., -999999999999.0)

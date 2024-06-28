@@ -42,7 +42,7 @@ set(DEVICE
     CACHE STRING "device string, default camb")
 list(APPEND DEVICE_CAMB "CAMB" "camb")
 list(APPEND DEVICE_CUDA "CUDA" "cuda")
-list(APPEND DEVICE_MUXI "MUXI", "muxi")
+list(APPEND DEVICE_MUXI "MUXI" "muxi")
 list(APPEND DEVICE_ASCEND "ASCEND" "ascend")
 list(APPEND DEVICE_TOPSRIDER "TOPS" "tops" "TOPSRIDER" "topsrider")
 list(APPEND DEVICE_SUPA "SUPA" "supa")
