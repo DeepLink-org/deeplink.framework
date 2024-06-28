@@ -13,7 +13,7 @@ function run_coverage {
 
 
 function base_cuda_tests {
-  unset DIPU_DUMP_OP_ARGS
+  export DIPU_DUMP_OP_ARGS=2
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
 
   ${CDIR}/python/run_tests.sh
@@ -22,7 +22,7 @@ function base_cuda_tests {
   echo "fill_.Scalar" >> .dipu_force_fallback_op_list.config
   run_test "${PYTORCH_DIR}/test/test_tensor_creation_ops.py" "$@" -v -f TestTensorCreationDIPU # --locals -f
   echo "" >  .dipu_force_fallback_op_list.config
-  
+
   run_test "${PYTORCH_DIR}/test/nn/test_convolution.py" -v TestConvolutionNNDeviceTypeDIPU
   # run_test "${PYTORCH_DIR}/test/test_linalg.py" "$@" -v TestLinalgDIPU
   run_test "${PYTORCH_DIR}/test/test_reductions.py" "$@" -v -f TestReductionsDIPU
@@ -33,12 +33,12 @@ function base_cuda_tests {
   # run_test "${PYTORCH_DIR}/test/test_utils.py" "$@" -v
   run_test "${PYTORCH_DIR}/test/test_unary_ufuncs.py" "$@" -v TestUnaryUfuncsDIPU
   run_test "${PYTORCH_DIR}/test/test_binary_ufuncs.py" "$@" -v TestBinaryUfuncsDIPU
-  
+
   # see camb comments
   export DIPU_PYTHON_DEVICE_AS_CUDA=false
   run_test "${PYTORCH_DIR}/test/test_torch.py" "$@" -v TestTorchDeviceTypeDIPU #--subprocess
   export DIPU_PYTHON_DEVICE_AS_CUDA=true
-  
+
   run_test "${PYTORCH_DIR}/test/test_indexing.py" "$@" -v TestIndexingDIPU
   run_test "${PYTORCH_DIR}/test/test_indexing.py" "$@" -v NumpyTestsDIPU
   run_test "${PYTORCH_DIR}/test/test_view_ops.py" "$@" -v TestViewOpsDIPU
