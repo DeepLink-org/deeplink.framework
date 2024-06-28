@@ -240,7 +240,7 @@ inline void doDstStreamWaitSrcStream(const CopyParamsInfo& info,
 // 2. when on difference device
 //    2.1 non_blocking=False, sync stream.
 //    2.2 non_blocking=True, recordStream to ensure tensor free
-//    safety and doDstStreamWaitSrcStream to copy complete before used.
+//    safety and doDstStreamWaitSrcStream to ensure copy complete before used.
 inline void tryRecordOrSyncStreamD2D(const CopyParamsInfo& info,
                                      const at::Tensor& dst,
                                      const at::Tensor& src,
@@ -251,6 +251,8 @@ inline void tryRecordOrSyncStreamD2D(const CopyParamsInfo& info,
     return;
   }
 
+  // When copy from device to device, torch allocator ensure that malloc and
+  // free are in the same stream, so it is not necessary to recordStream.
   if (!isTorchAllocator()) {
     const bool is_default_stream = (dipu::getDefaultDIPUStream() == cur_stream);
     if (!is_default_stream) {
@@ -263,9 +265,10 @@ inline void tryRecordOrSyncStreamD2D(const CopyParamsInfo& info,
   }
 }
 
-// process sync logic when copy between host and device
-// 1. non_blocking=False, sync stream
-// 2. when cpu tensor is not pinned
+// process sync logic when copy between host and device.
+// 1. non_blocking=False, sync stream.
+// 2. when cpu tensor is not pinned memory, sync stream when block_cpu=True.
+// 3. when cpu tensor is pinned memory, record stream to ensure free safety.
 inline void tryRecordOrSyncStreamHD(const CopyParamsInfo& info,
                                     const at::Tensor& dst,
                                     const at::Tensor& src,
@@ -317,8 +320,6 @@ inline void tryRecordOrSyncStream(const CopyParamsInfo& info,
                                   bool block_cpu_d2d, bool block_cpu_h2d) {
   bool is_all_device_tensor = (info.copyType_ == DIPUCopyType::D2Self ||
                                info.copyType_ == DIPUCopyType::D2OtherD);
-  // When copy from device to device, torch allocator ensure that malloc and
-  // free are in the same stream, so it is not necessary to recordStream.
   if (is_all_device_tensor) {
     tryRecordOrSyncStreamD2D(info, dst, src, cur_stream, non_blocking,
                              block_cpu_d2d);
