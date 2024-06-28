@@ -109,15 +109,6 @@ def symint_in_shape(shape):
     return False
 
 
-def get_ascend_format_num(format: str):
-    if format == 'NCHW':
-        return AclFormat.ACL_FORMAT_HWCN.value
-    elif format == 'ND':
-        return AclFormat.ACL_FORMAT_ND.value
-    else:
-        raise RuntimeError(f"unknow format ({format}) in get_ascend_format_num!")
-
-
 def get_ascend_dtype_num(dtype: str):
     if dtype == "FLOAT":
         return AclDataType.ACL_FLOAT.value
