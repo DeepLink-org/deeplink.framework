@@ -2,7 +2,7 @@
 import itertools
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, skipOn
 
 
 class TestCopy(TestCase):
@@ -129,6 +129,14 @@ class TestCopy(TestCase):
 
         for i in range(500):
             assert torch.all(tensor_list[i] == float(i))
+
+    @skipOn("DROPLET", "not support pin memory on droplet")
+    def test_h2d_copy_blocking(self):
+        a = torch.ones(1000000, pin_memory=True)
+        b = torch.zeros(1000000, device="cuda")
+        b.copy_(a, non_blocking=False)
+        a[-1].fill_(-1)
+        assert torch.all(b == 1)
 
 
 if __name__ == "__main__":
