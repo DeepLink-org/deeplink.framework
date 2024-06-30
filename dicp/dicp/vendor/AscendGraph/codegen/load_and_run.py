@@ -209,6 +209,9 @@ class GEStaticGraphExecutor(object):
         self.output_dtypes = []
         self.output_datasize = []
         for item in shapes:
+            if item == '':
+                self.output_shapes.append([])
+                continue
             elems = item.split(',')
             elems = [int(x) for x in elems]
             self.output_shapes.append(elems)
@@ -216,7 +219,8 @@ class GEStaticGraphExecutor(object):
             elem = int(item)
             self.output_dtypes.append(elem)
         for i in range(len(shapes)):
-            elem_size = math.prod(self.output_shapes[i])
+            elem_size = math.prod(self.output_shapes[i]) if len(
+                self.output_shapes[i]) > 0 else 1
             self.output_datasize.append(
                 elem_size * acl.data_type_size(self.output_dtypes[i]))
         self.output_datasize_c = (
@@ -242,6 +246,9 @@ class GEStaticGraphExecutor(object):
         self.input_datasize = []
 
         for item in shapes:
+            if item == '':
+                self.input_shapes.append([])
+                continue
             elems = item.split(',')
             elems = [int(x) for x in elems]
             self.input_shapes.append(elems)
@@ -249,7 +256,8 @@ class GEStaticGraphExecutor(object):
             elem = int(item)
             self.input_dtypes.append(elem)
         for i in range(len(shapes)):
-            elem_size = math.prod(self.input_shapes[i])
+            elem_size = math.prod(self.input_shapes[i]) if len(
+                self.input_shapes[i]) > 0 else 1
             self.input_datasize.append(
                 elem_size * acl.data_type_size(self.input_dtypes[i]))
         self.input_datasize_c = (

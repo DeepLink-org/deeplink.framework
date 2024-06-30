@@ -122,7 +122,6 @@ class AscendGECompileAclRunJob(DeviceCompileJob):
             str(self.device_id) + code_hash(compile_file_code)
         )
         self._output_graph_path = self._input_path[:-5] + '/graph'
-        # print('output_path: ', self._output_graph_path)
         self._model_path = [f'{self._output_graph_path}.om',
                             f'{self._output_graph_path}_linux_x86_64.om']
         self._lib_path = "/tmp/dicp_ascend/ge_graph.so"
