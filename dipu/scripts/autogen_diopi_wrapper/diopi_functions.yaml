@@ -49,7 +49,7 @@
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
         c10::DimVector shape(1, 1);
-        at::Tensor selfD = nodispatch::empty(shape, other.options());
+        at::Tensor selfD = nodispatch::empty(shape, out.options());
         dipu_fill__scalar(selfD, self.item());
         return dipu_add_out(selfD, other, alpha, out);
     }
@@ -135,7 +135,7 @@
     at::Tensor selfTmp;
     if (is_scalar_on_cpu(self)) {
         c10::DimVector shape(1, 1);
-        at::Tensor selfTmp = nodispatch::empty(shape, other.options());
+        selfTmp = nodispatch::empty(shape, out.options());
         dipu_fill__scalar(selfTmp, self.item());
     } else {
       selfTmp = self;
