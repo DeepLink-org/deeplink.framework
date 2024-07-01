@@ -1,0 +1,5 @@
+{
+    "ge.graphRunMode": "0",
+    "ge.exec.precision_mode": "allow_fp32_to_fp16",
+    "ge.graph_compiler_cache_dir": "/tmp/dicp_ascend"
+}
