@@ -1392,7 +1392,7 @@
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = nodispatch::empty_like(self);
+    auto out = BinaryOpInferrer().infer_out(self, mask);
   interface: diopiMaskedFill(ctx, out, self, mask, value)
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
@@ -1400,7 +1400,7 @@
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = nodispatch::empty_like(self);
+    auto out = BinaryOpInferrer().infer_out(self, mask);
   interface: diopiMaskedFillScalar(ctx, out, self, mask, value)
 
 - schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
