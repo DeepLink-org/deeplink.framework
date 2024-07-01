@@ -48,10 +48,8 @@
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
-        c10::DimVector shape(1, 1);
-        at::Tensor selfD = nodispatch::empty(shape, out.options());
-        dipu_fill__scalar(selfD, self.item());
-        return dipu_add_out(selfD, other, alpha, out);
+        dipu_fill__scalar(out, self.item());
+        return dipu_add_out(out, other, alpha, out);
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -1392,7 +1390,7 @@
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = nodispatch::empty_like(self);
+    auto out = BinaryOpInferrer().infer_out(self, mask);
   interface: diopiMaskedFill(ctx, out, self, mask, value)
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
@@ -1400,7 +1398,7 @@
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
   custom_code_at_the_beginning: |
-    auto out = nodispatch::empty_like(self);
+    auto out = BinaryOpInferrer().infer_out(self, mask);
   interface: diopiMaskedFillScalar(ctx, out, self, mask, value)
 
 - schema: "masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)"
