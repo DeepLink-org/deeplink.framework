@@ -16,7 +16,7 @@ GENERATED_KERNELS_VENDOR=${DIPU_DIR}/third_party/DIOPI/impl/${UsedVendor}/conver
 
 PYTHON_CMD="python3 ${GENERATED_KERNELS_SCRIPT} --out=${GENERATED_KERNELS} --config=${GENERATED_KERNELS_CONFIG} \
     --print_op_arg=True --use_diopi_adapter=False --print_func_call_info=True --generate_device_guard=${GENERATE_DEVICE_GUARD} \
-    --fun_config_dict='{\"current_device\":\"${UsedVendor}\",\"current_torch_ver\":\"${Torch_VERSION}\"}'"
+    --remove_check_code=True --fun_config_dict='{\"current_device\":\"${UsedVendor}\",\"current_torch_ver\":\"${Torch_VERSION}\"}'"
 
 if [ -f "$GENERATED_KERNELS_VENDOR" ]; then
     PYTHON_CMD="$PYTHON_CMD --convert_config=${GENERATED_KERNELS_VENDOR}"
