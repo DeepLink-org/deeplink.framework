@@ -1391,12 +1391,17 @@
     return dipu_cat_out(tensors, dim, out);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
+  ins: [valueTmp]
   custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
     auto out = BinaryOpInferrer().infer_out(self, mask);
-  interface: diopiMaskedFill(ctx, out, self, mask, value)
+  interface: diopiMaskedFill(ctx, out, self, mask, valueTmp)
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
-  interface: diopiMaskedFillInp(ctx, self, mask, value)
+  ins: [valueTmp]
+  custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
+  interface: diopiMaskedFillInp(ctx, self, mask, valueTmp)
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
   custom_code_at_the_beginning: |
