@@ -14,7 +14,7 @@ class TestMaskedSelect(TestCase):
         cpu = torch.masked_fill(input.to(cpu), mask.to(cpu), 0)
         dipu = torch.masked_fill(input.to(dipu), mask.to(dipu), 0)
         self.assertEqual(cpu, dipu.to(cpu))
-    
+
     def test_masked_fill_scalar_inp(self):
         dipu = torch.device("dipu")
         cpu = torch.device("cpu")
@@ -26,7 +26,7 @@ class TestMaskedSelect(TestCase):
         input_cpu.masked_fill_(mask.to(cpu), 0)
         input_dipu.masked_fill_(mask.to(dipu), 0)
         self.assertEqual(input_cpu, input_dipu)
-        
+
     def tes_masked_fill(self):
         ipu = torch.device("dipu")
         cpu = torch.device("cpu")
@@ -37,6 +37,7 @@ class TestMaskedSelect(TestCase):
         cpu = torch.masked_fill(input.to(cpu), mask.to(cpu), value.to(cpu))
         dipu = torch.masked_fill(input.to(dipu), mask.to(dipu), value.to(dipu))
         self.assertEqual(cpu, dipu.to(cpu))
+
 
 if __name__ == "__main__":
     run_tests()
