@@ -48,10 +48,8 @@
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
-        c10::DimVector shape(1, 1);
-        at::Tensor selfD = nodispatch::empty(shape, out.options());
-        dipu_fill__scalar(selfD, self.item());
-        return dipu_add_out(selfD, other, alpha, out);
+        dipu_fill__scalar(out, self.item());
+        return dipu_add_out(out, other, alpha, out);
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -108,10 +106,8 @@
         return dipu_div_scalar_out(self, other.item(), out);
     }
     if (is_scalar_on_cpu(self)) {
-        c10::DimVector shape(1, 1);
-        at::Tensor selfD = nodispatch::empty(shape, out.options());
-        dipu_fill__scalar(selfD, self.item());
-        return dipu_div_out(selfD, other, out);
+        dipu_fill__scalar(out, self.item());
+        return dipu_div_out(out, other, out);
     }
     const auto mode = toDiopiRoundMode("none");
   interface: diopiDiv(ctx, out, self, other, mode)
