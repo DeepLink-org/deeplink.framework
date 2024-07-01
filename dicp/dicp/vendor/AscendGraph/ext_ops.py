@@ -143,8 +143,37 @@ def lightllm_paged_attention_inference_abstract(q: Tensor, all_k: Tensor, all_v:
 
 @paged_attention_inference.impl(['cpu', 'cuda'])
 def lightllm_paged_attention_inference_impl(q, all_k, all_v, q_head_num, dim, kv_head_num, block_table, seq_lengths, block_size):
-    # fake impl
-    return q
+    # q: batch, head, dim
+    batch = q.shape[0]
+    head = q_head_num
+    current_lens = seq_lengths
+
+    res = []
+    compute_batch = 1
+    for i in range(batch):
+        current_len = current_lens[i]
+        kv_seq_len = current_len
+
+        k = all_k[:current_len].reshape(compute_batch, kv_seq_len, head, dim)
+        v = all_v[:current_len].reshape(compute_batch, kv_seq_len, head, dim)
+
+        xq = q[i].view(compute_batch, 1, head, dim).transpose(1, 2).transpose(0, 1)  # shape: head, batch, 1, dim
+        bmm_xq = xq.reshape(head * compute_batch, 1, dim).float()
+        bmm_xk = k.transpose(1, 2).transpose(0, 1).transpose(2, 3).reshape(head * compute_batch, dim, kv_seq_len).float()
+
+        # q @ k
+        out = torch.bmm(bmm_xq, bmm_xk) / math.sqrt(dim)
+        out = out.reshape(head, compute_batch, 1, -1).reshape(head, compute_batch, -1)
+
+        # softmax
+        out = out.softmax(-1).reshape(head, compute_batch, 1, kv_seq_len).transpose(0, 1)  # shape: batch head 1 seq_len
+        xv = v.transpose(1, 2).float()  # shape: batch head, seq_len, dim
+        out = torch.bmm(out.reshape(compute_batch * head, 1, kv_seq_len), xv.reshape(compute_batch * head, kv_seq_len, dim))
+
+        out = out.reshape(compute_batch, head, 1, dim).view(compute_batch, head, dim)
+        res.append(out)
+    res = torch.cat(res)
+    return res
 
 
 @torch._custom_op.impl.custom_op('lightllm::copy_with_offset')

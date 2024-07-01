@@ -1766,7 +1766,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             return self.get_proxy(ascend_op.Cast, (fa, get_ascend_dtype(q_dtype)))
         return fa
 
-    def incre_flash_attention(self, q, k, v, kv_head_num, head_num, dim):
+    def incre_flash_attention(self, q, k, v, head_num, kv_head_num, dim):
         k_list = []
         v_list = []
         if not isinstance(k, list):
@@ -1779,7 +1779,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             v_list = v
         assert len(k_list) == len(v_list)
         kv_input_num = len(k_list)
-        out = self.get_proxy(ascend_op.IncreFlashAttention, (q, k_list, v_list, kv_input_num, kv_head_num, head_num, dim, "BSH"))
+        out = self.get_proxy(ascend_op.IncreFlashAttention, (q, k_list, v_list, kv_input_num, head_num, kv_head_num, dim, "BSH"))
         return out
 
     @register_conversion(aten.select_scatter.default)
@@ -1874,7 +1874,7 @@ class AtenToAscendTransformer(SingleOpTransformer):
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_shape))
             xq = self.get_proxy(ascend_op.Reshape, (xq, q_compute_shape))
 
-            out = self.incre_flash_attention(xq, k, v, kvhead, head, dim)  # q shape is BSH
+            out = self.incre_flash_attention(xq, k, v, head, kvhead, dim)  # q shape is BSH
             out_shape = self.get_shape_proxy([compute_batch, 1, head, dim])
             out_shape2 = self.get_shape_proxy([compute_batch, head, dim])
             out = self.get_proxy(ascend_op.Reshape, (out, out_shape))
