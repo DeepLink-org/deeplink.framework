@@ -1392,6 +1392,7 @@
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
   ins: [valueTmp]
+  no_device_check_args: [value]
   custom_code_at_the_beginning: |
     auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
     auto out = BinaryOpInferrer().infer_out(self, mask);
@@ -1399,6 +1400,7 @@
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
   ins: [valueTmp]
+  no_device_check_args: [value]
   custom_code_at_the_beginning: |
     auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
   interface: diopiMaskedFillInp(ctx, self, mask, valueTmp)
