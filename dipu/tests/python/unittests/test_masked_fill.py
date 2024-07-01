@@ -27,15 +27,17 @@ class TestMaskedSelect(TestCase):
         input_dipu.masked_fill_(mask.to(dipu), 0)
         self.assertEqual(input_cpu, input_dipu)
 
-    def tes_masked_fill(self):
-        ipu = torch.device("dipu")
+    def test_masked_fill(self):
+        dipu = torch.device("dipu")
         cpu = torch.device("cpu")
         input = torch.randn(1, 1, 4096, 4096)
         mask = torch.randn(4, 1, 4096, 4096)
-        value = torch.randn(1, 1, 4096, 4096)
+        value = torch.tensor(1)
         mask = mask.ge(0)
-        cpu = torch.masked_fill(input.to(cpu), mask.to(cpu), value.to(cpu))
-        dipu = torch.masked_fill(input.to(dipu), mask.to(dipu), value.to(dipu))
+        input_cpu = input.to(cpu)
+        input_dipu = input.to(dipu)
+        cpu = input_cpu.masked_fill(mask.to(cpu), value.to(cpu))
+        dipu = input_dipu.masked_fill(mask.to(dipu), value.to(dipu))
         self.assertEqual(cpu, dipu.to(cpu))
 
 
