@@ -251,7 +251,7 @@ at::ScalarType mixed_output_scalar_type(const at::Tensor& input,
 }
 
 inline bool is_scalar_on_cpu(const at::Tensor& t) {
-  return t.unsafeGetTensorImpl()->is_wrapped_number();
+  return t.defined() && t.is_cpu() && t.numel() == 1;
 }
 
 }  // namespace native
