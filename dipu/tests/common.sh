@@ -13,7 +13,8 @@ function run_coverage {
 
 
 function base_cuda_tests {
-  unset DIPU_DUMP_OP_ARGS
+  #unset DIPU_DUMP_OP_ARGS
+  export DIPU_DUMP_OP_ARGS=2
   export PYTHONPATH=${DIPU_ROOT}/../:${PYTHONPATH}
 
   ${CDIR}/python/run_tests.sh
