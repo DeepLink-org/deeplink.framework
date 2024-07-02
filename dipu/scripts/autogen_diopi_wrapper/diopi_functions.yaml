@@ -824,7 +824,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20000",]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(at::IntArrayRef{}), keepdim);
+    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1) == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -840,7 +840,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(at::IntArrayRef{}), keepdim);
+    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1).toLong() == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
