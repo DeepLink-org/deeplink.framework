@@ -175,7 +175,7 @@ custom_fallback_dipu_convolution_backward_overrideable(
   }
 
   if (output_mask[2]) {
-    std::vector<int64_t> bias_sizes{grad_output.size(1)};
+    c10::DimVector bias_sizes{grad_output.size(1)};
     at::Tensor grad_bias_cpu = at::empty(
         bias_sizes, grad_output.options().device(c10::DeviceType::CPU));
     grad_bias = at::empty(bias_sizes, grad_output.options());
@@ -254,7 +254,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
         at::matmul(input_cpu.transpose(dims - 2, dims - 1), grad_output_cpu);
     grad_weight_cpu = grad_weight_cpu.transpose(dims - 2, dims - 1);
     if (dims > 2) {
-      std::vector<int64_t> sum_dim;
+      c10::DimVector sum_dim;
       sum_dim.reserve(dims - 2);
       for (int i = 0; i < dims - 2; ++i) {
         sum_dim.push_back(i);
@@ -266,7 +266,7 @@ custom_fallback_dipu_linear_backward(const at::Tensor& input,
   }
 
   if (output_mask[2]) {
-    std::vector<int64_t> sum_dim;
+    c10::DimVector sum_dim;
     sum_dim.reserve(dims - 1);
     for (int i = 0; i < dims - 1; ++i) {
       sum_dim.push_back(i);
