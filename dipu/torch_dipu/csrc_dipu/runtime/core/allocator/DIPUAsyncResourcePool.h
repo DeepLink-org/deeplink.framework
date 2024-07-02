@@ -2,6 +2,7 @@
 #pragma once
 
 #include <deque>
+#include <iostream>
 #include <mutex>
 #include <queue>
 #include <tuple>
@@ -94,9 +95,9 @@ class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
     Resource(Resource&&) = delete;
     Resource& operator=(Resource&&) = delete;
   };
-  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<Resource*, DIPUEvent>>>
+  ska::flat_hash_map<c10::StreamId, std::queue<std::pair<std::shared_ptr<Resource>, DIPUEvent>>>
       queues_with_events;
-  Resource* ready_resource = nullptr;
+  std::shared_ptr<Resource> ready_resource ;
 
   // Resources that have no events to wait for.
   // In other words, they are already ready.
@@ -114,7 +115,8 @@ class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
     if (events.empty()) {
       queue_without_events.push(t);
     } else {
-      auto resource = new Resource(t, events.size());
+      auto resource = std::make_shared<Resource>(t, events.size());
+      std::cout << "Add resource: " << std::get<1>(resource->t) << std::endl;
       for (DIPUEvent& event : events) {
         queues_with_events[event.stream_id()].emplace(resource,
                                                       std::move(event));
@@ -136,8 +138,10 @@ class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
 
     TORCH_CHECK(ready_resource, "No ready resource to get!")
     T t = ready_resource->t;
-    delete ready_resource;
-    ready_resource = nullptr;
+    std::cout << "get resource: " << std::get<1>(t) << std::endl;
+    // delete ready_resource;
+    // ready_resource = nullptr;
+    ready_resource.reset();
     --total_size;
     return t;
   }
@@ -168,6 +172,7 @@ class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
       if (event.query()) {
         --resource->event_count;
         if (0 == resource->event_count) {
+  	  std::cout << "Ready resource: " << std::get<1>(resource->t) << std::endl;
           ready_resource = resource;
         }
         queue.pop();
