@@ -186,17 +186,16 @@ inline std::string dumpArg(const c10::List<c10::optional<at::Tensor>>& t) {
 
 template <typename T1, typename T2, template <typename elem1> class container1,
           template <typename elem2> class container2>
-std::vector<int64_t> infer_reduce_op_shape(const container1<T1>& input_shape,
-                                           const container2<T2>& dims,
-                                           bool keepdim) {
+c10::DimVector infer_reduce_op_shape(const container1<T1>& input_shape,
+                                     const container2<T2>& dims, bool keepdim) {
   if (dims.size() <= 0) {
     if (keepdim) {
-      return std::vector<int64_t>(input_shape.size(), 1);
+      return c10::DimVector(input_shape.size(), 1);
     }
     return {};
   }
   if (keepdim) {
-    std::vector<int64_t> output_shape(input_shape.begin(), input_shape.end());
+    c10::DimVector output_shape(input_shape.begin(), input_shape.end());
     for (auto iter = dims.begin(); iter != dims.end(); ++iter) {
       auto dim = *iter;
       dim += dim < 0 ? input_shape.size() : 0;
@@ -204,7 +203,7 @@ std::vector<int64_t> infer_reduce_op_shape(const container1<T1>& input_shape,
     }
     return output_shape;
   }
-  std::vector<int64_t> output_shape;
+  c10::DimVector output_shape;
   output_shape.reserve(input_shape.size() - dims.size());
   for (int i = 0; i < input_shape.size(); ++i) {
     bool reduce_dim = false;
