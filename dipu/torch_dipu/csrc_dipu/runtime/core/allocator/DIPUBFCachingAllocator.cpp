@@ -526,6 +526,7 @@ class BFCachingAllocator : public CacheAllocator {
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
         }
+	allocator_->restore();
       } else {
         DIPU_DEBUG_ALLOCATOR(8,
                              "BFCachingAllocator:~Context: destory tensor "
