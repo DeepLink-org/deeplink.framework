@@ -557,7 +557,7 @@
     const auto self_dtype = at::native::to(self, dtype);
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     if (out.numel() == 0) {
-      auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(at::IntArrayRef{}), keepdim);
+      c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
       out = nodispatch::empty(output_shape, self.options());
     }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -824,7 +824,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20000",]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1) == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -840,7 +840,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1).toLong() == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -1084,7 +1084,7 @@
       dim += static_cast<int64_t>(tensors[0].sizes().size()) + 1;
     }
     auto num_tensors = static_cast<int64_t>(tensors.size());
-    const auto& shape = tensors[0].sizes();
+    auto shape = tensors[0].sizes();
     c10::DimVector out_shape;
     for (int i = 0; i < dim; i++) {
         out_shape.push_back(shape[i]);
@@ -1389,12 +1389,19 @@
     return dipu_cat_out(tensors, dim, out);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
+  ins: [valueTmp]
+  no_device_check_args: [value]
   custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
     auto out = BinaryOpInferrer().infer_out(self, mask);
-  interface: diopiMaskedFill(ctx, out, self, mask, value)
+  interface: diopiMaskedFill(ctx, out, self, mask, valueTmp)
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
-  interface: diopiMaskedFillInp(ctx, self, mask, value)
+  ins: [valueTmp]
+  no_device_check_args: [value]
+  custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
+  interface: diopiMaskedFillInp(ctx, self, mask, valueTmp)
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
   custom_code_at_the_beginning: |
@@ -2241,7 +2248,7 @@
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [all, -ascend]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(at::IntArrayRef{}), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     at::Tensor out;
     if (dtype) {
       out = nodispatch::empty(output_shape, self.options().dtype(dtype));
@@ -2255,7 +2262,7 @@
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [ascend]
   custom_code_at_the_beginning: |
-    auto output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(at::IntArrayRef{}), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     at::Tensor out;
     if (dtype) {
       out = nodispatch::empty(output_shape, self.options().dtype(dtype));
