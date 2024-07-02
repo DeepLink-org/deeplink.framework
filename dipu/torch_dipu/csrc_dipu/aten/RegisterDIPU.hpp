@@ -155,7 +155,8 @@ void dipu_fallback(const c10::OperatorHandle& op, DispatchKeySet dispatch_keys,
   static void C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_,      \
                               uid)(torch::Library&);                     \
   ::at::DipuOpRegisterHelper C10_CONCATENATE(                            \
-      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_, uid)(                 \
+      DIPU_LIBRARY_IMPL_static_init_##ns##_##k##_,                       \
+      C10_CONCATENATE(__LINE__, uid))(                                   \
       (c10::impl::dispatch_key_allowlist_check(c10::DispatchKey::k)      \
            ? &C10_CONCATENATE(DIPU_LIBRARY_IMPL_init_##ns##_##k##_, uid) \
            : [](torch::Library&) -> void {}),                            \

@@ -18,7 +18,7 @@ function config_dipu_ascend_cmake() {
 
 function config_all_ascend_cmake() {
     mkdir -p build && cd ./build
-    cmake_args="-DCMAKE_BUILD_TYPE=Release -DDEVICE=ascend -DENABLE_COVERAGE=${USE_COVERAGE} -DWITH_DIOPI=INTERNAL"
+    cmake_args="-DCMAKE_BUILD_TYPE=Release -DDEVICE=ascend -DENABLE_COVERAGE=${USE_COVERAGE} -DWITH_DIOPI=INTERNAL -DTEST=ON"
     cmake ../ $cmake_args
     cd ../
 }

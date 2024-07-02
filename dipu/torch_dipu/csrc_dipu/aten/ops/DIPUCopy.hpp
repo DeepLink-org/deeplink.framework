@@ -18,6 +18,7 @@
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocatorUtils.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingHostAllocator.h"
+#include "csrc_dipu/runtime/core/allocator/DIPURawAllocator.h"
 #include "csrc_dipu/runtime/rthelper.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 
@@ -365,6 +366,16 @@ class DIPUCopyInplace : public DIPUCopyBase {
     auto info = CopyParamsInfo(dst, src, curStream);
     if (info.copyType_ == DIPUCopyType::D2Self) {
       non_blocking = true;
+    }
+
+    static bool warned_flag = false;
+    if (info.copyType_ == DIPUCopyType::H2D && (!non_blocking) &&
+        (!warned_flag) && isPinnedPtr(src.data_ptr())) {
+      warned_flag = true;
+      // non_blocking = true;
+      TORCH_WARN_ONCE(
+          "If the source tensor is not modified before the copy is complete, "
+          "and the source is pin_memory, copy_h2d can be done asynchronously.");
     }
 
     // Exit early if dst and src are views of the same data
