@@ -167,7 +167,7 @@
   custom_code_at_the_beginning: |
     // if (is_scalar_on_cpu(other)) {
     // Pytorch 2.0 has a bug, causing for_each mul passing a cpu scalar tensor. Fixed in PyTorch 2.1
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_mul_scalar_out(self, other.item(), out);
     }
     if (is_scalar_on_cpu(self)) {
@@ -332,7 +332,7 @@
     const auto input_shape = input.sizes();
     const int axis = static_cast<int>(input_shape.size()) - static_cast<int>(normalized_shape.size());
     const int64_t M = c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-    std::vector<int64_t> stats_shape(input_shape.size(), 1);
+    c10::DimVector stats_shape(input_shape.size(), 1);
     std::copy(input_shape.begin(), input_shape.begin() + axis, stats_shape.begin());
     auto options = input.options();
     auto save_mean = nodispatch::empty(stats_shape, options);
@@ -410,7 +410,7 @@
 
 - schema: "eq_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_eq__scalar(self, other.item());
     }
   interface: diopiEqInp(ctx, self, other)
@@ -425,10 +425,10 @@
 
 - schema: "lt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_lt_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_lt_scalar_out(other, self.item(), out);
     }
   interface: diopiLt(ctx, out, self, other)
@@ -438,7 +438,7 @@
 
 - schema: "lt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_lt__scalar(self, other.item());
     }
   interface: diopiLtInp(ctx, self, other)
@@ -448,10 +448,10 @@
 
 - schema: "ne.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_ne_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_ne_scalar_out(other, self.item(), out);
     }
   interface: diopiNe(ctx, out, self, other)
@@ -461,7 +461,7 @@
 
 - schema: "ne_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_ne__scalar(self, other.item());
     }
   interface: diopiNeInp(ctx, self, other)
@@ -471,10 +471,10 @@
 
 - schema: "ge.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_ge_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_ge_scalar_out(other, self.item(), out);
     }
   interface: diopiGe(ctx, out, self, other)
@@ -484,7 +484,7 @@
 
 - schema: "ge_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_ge__scalar(self, other.item());
     }
   interface: diopiGeInp(ctx, self, other)
@@ -494,10 +494,10 @@
 
 - schema: "gt.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_gt_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_gt_scalar_out(other, self.item(), out);
     }
   interface: diopiGt(ctx, out, self, other)
@@ -507,7 +507,7 @@
 
 - schema: "gt_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_gt__scalar(self, other.item());
     }
   interface: diopiGtInp(ctx, self, other)
@@ -517,10 +517,10 @@
 
 - schema: "le.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_le_scalar_out(self, other.item(), out);
     }
-    if (self.dim() == 0 && self.is_cpu()) {
+    if (is_scalar_on_cpu(self)) {
         return dipu_le_scalar_out(other, self.item(), out);
     }
   interface: diopiLe(ctx, out, self, other)
@@ -530,7 +530,7 @@
 
 - schema: "le_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_le__scalar(self, other.item());
     }
   interface: diopiLeInp(ctx, self, other)
@@ -557,7 +557,7 @@
     const auto self_dtype = at::native::to(self, dtype);
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
     if (out.numel() == 0) {
-      std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+      c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
       out = nodispatch::empty(output_shape, self.options());
     }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -633,7 +633,7 @@
     at::Tensor grad_input;
     at::Tensor grad_weight;
     at::Tensor grad_bias;
-    std::vector<int64_t> bias_sizes;
+    c10::DimVector bias_sizes;
     if (output_mask[0]) {
       grad_input = nodispatch::empty(input.sizes(), input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
     }
@@ -676,7 +676,7 @@
     const int64_t h_out = (h_in - 1) * stride[0] - 2 * padding[0] + (dilation[0] * (kernel_height - 1) + 1) + output_padding[0];
     const int64_t w_out = (w_in - 1) * stride[1] - 2 * padding[1] + (dilation[1] * (kernel_width - 1) + 1) + output_padding[1];
     const int64_t c_out = weight.size(1) * groups;
-    auto output_shape =  input.sizes().size() == 3 ? std::vector<int64_t>{c_out, h_out, w_out} : std::vector<int64_t>{n, c_out, h_out, w_out};
+    auto output_shape =  input.sizes().size() == 3 ? c10::DimVector{c_out, h_out, w_out} : c10::DimVector{n, c_out, h_out, w_out};
     auto out = nodispatch::empty(output_shape, input.options(), ${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-input.suggest_memory_format()});
   interface: diopiConvTranspose2d(ctx, out, input, weight, bias, stride, padding, output_padding, groups, dilation)
   forward_process_code: |
@@ -702,7 +702,7 @@
     auto output_padding = output_padding_.toIntVector();
     bool bias_has_value = bias_has_value_.toBool();
     auto groups = groups_.toInt();
-    std::vector<int64_t> bias_sizes;
+    c10::DimVector bias_sizes;
     if (bias_has_value) {
       bias_sizes.push_back(grad_output.size(1));
     }
@@ -798,7 +798,7 @@
 
 - schema: "topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_size(self.sizes().begin(), self.sizes().end());
+    c10::DimVector output_size(self.sizes().begin(), self.sizes().end());
     if (dim < 0) {
       dim = dim + static_cast<int64_t>(output_size.size());
     }
@@ -824,7 +824,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20000",]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1) == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -840,7 +840,7 @@
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
   torch_ver: ["20100", "20101"]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
     bool unbiased = correction.value_or(1).toLong() == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
@@ -875,7 +875,7 @@
   custom_fallback: True
   device: [all, -cuda, -muxi, -ascend]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_size(input.sizes().begin(), input.sizes().end());
+    c10::DimVector output_size(input.sizes().begin(), input.sizes().end());
     output_size.back() = weight.sizes()[0];
     auto out = nodispatch::empty(output_size, input.options());
   interface: diopiLinear(ctx, out, input, weight, bias)
@@ -1039,8 +1039,8 @@
 - schema: "transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)"
   register_op: False
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_size(self.sizes().cbegin(), self.sizes().cend());
-    std::vector<int64_t> output_stride(self.strides().cbegin(), self.strides().cend());
+    c10::DimVector output_size(self.sizes().cbegin(), self.sizes().cend());
+    c10::DimVector output_stride(self.strides().cbegin(), self.strides().cend());
     std::swap(output_size[dim0], output_size[dim1]);
     std::swap(output_stride[dim0], output_stride[dim1]);
     self.sizes() = output_size;
@@ -1085,17 +1085,15 @@
     }
     auto num_tensors = static_cast<int64_t>(tensors.size());
     auto shape = tensors[0].sizes();
-    std::vector<int64_t> tmp;
+    c10::DimVector out_shape;
     for (int i = 0; i < dim; i++) {
-        tmp.push_back(shape[i]);
+        out_shape.push_back(shape[i]);
     }
-    tmp.push_back(num_tensors);
+    out_shape.push_back(num_tensors);
     for (int i = static_cast<int>(dim); i < shape.size(); i++) {
-        tmp.push_back(shape[i]);
+        out_shape.push_back(shape[i]);
     }
-    const std::vector<int64_t>& const_tmp = tmp;
-    shape = at::ArrayRef<int64_t>(const_tmp);
-    auto out = nodispatch::empty({shape}, tensors[0].options());
+    auto out = nodispatch::empty(out_shape, tensors[0].options());
 
     std::vector<diopiConstTensorHandle_t> diopiTensorHandles(tensors.size());
     for (size_t i = 0; i < tensors.size(); ++i) {
@@ -1316,7 +1314,7 @@
 - schema: repeat(Tensor self, SymInt[] repeats) -> Tensor
   autocompare: disable
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_size(repeats.size());
+    c10::DimVector output_size(repeats.size());
     for (int i = 0;i< repeats.size();++i) {
       output_size[i] = repeats.at(i).expect_int();
     }
@@ -1391,12 +1389,19 @@
     return dipu_cat_out(tensors, dim, out);
 
 - schema: "masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor"
+  ins: [valueTmp]
+  no_device_check_args: [value]
   custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
     auto out = BinaryOpInferrer().infer_out(self, mask);
-  interface: diopiMaskedFill(ctx, out, self, mask, value)
+  interface: diopiMaskedFill(ctx, out, self, mask, valueTmp)
 
 - schema: "masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)"
-  interface: diopiMaskedFillInp(ctx, self, mask, value)
+  ins: [valueTmp]
+  no_device_check_args: [value]
+  custom_code_at_the_beginning: |
+    auto valueTmp = (value.is_cpu()) ? value.to(self.device()) : value;
+  interface: diopiMaskedFillInp(ctx, self, mask, valueTmp)
 
 - schema: "masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor"
   custom_code_at_the_beginning: |
@@ -1425,8 +1430,8 @@
   no_device_check_args: [self, other]
   ins: [selfTemp, otherTemp]
   custom_code_at_the_beginning: |
-    auto selfTemp = (self.dim() == 0 && self.is_cpu()) ? self.to(other.device()) : self;
-    auto otherTemp = (other.dim() == 0 && other.is_cpu()) ? other.to(self.device()) : other;
+    auto selfTemp = (is_scalar_on_cpu(self)) ? self.to(other.device()) : self;
+    auto otherTemp = (is_scalar_on_cpu(other)) ? other.to(self.device()) : other;
   interface: diopiMaximum(ctx, out, selfTemp, otherTemp)
 
 - schema: "max.dim_max(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) max, Tensor(b!) max_indices) -> (Tensor(a!) max, Tensor(b!) max_indices)"
@@ -1510,7 +1515,7 @@
   no_device_check_args: [other]
   custom_code_at_the_beginning: |
     // todo:(wentao) temp solution, need using a type promotion strategy
-    at::Tensor out = self.dim() == 0 && self.is_cpu() ?
+    at::Tensor out = is_scalar_on_cpu(self) ?
         nodispatch::empty_like(other) :
         nodispatch::empty_like(self);
     out = dipu_div_out(self,other,out);
@@ -1564,7 +1569,7 @@
 - schema: "upsample_nearest2d.out(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1577,9 +1582,9 @@
 - schema: "upsample_nearest2d(Tensor self, SymInt[2] output_size, float? scales_h=None, float? scales_w=None) -> Tensor"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
     if (output_size.size() > 0) {
-      std::vector<int64_t> tmpVector(output_size.size());
+      c10::DimVector tmpVector(output_size.size());
       auto symIntToInt = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
       std::transform(output_size.cbegin(), output_size.cend(), tmpVector.begin(), symIntToInt);
       std::copy(tmpVector.begin(), tmpVector.end(), size.begin());
@@ -1593,7 +1598,7 @@
 - schema: "upsample_bilinear2d.out(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) out) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1607,9 +1612,9 @@
 - schema: "upsample_bilinear2d(Tensor self, SymInt[2] output_size, bool align_corners, float? scales_h=None, float? scales_w=None) -> Tensor"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
     if (output_size.size() > 0) {
-      std::vector<int64_t> tmpVector(output_size.size());
+      c10::DimVector tmpVector(output_size.size());
       auto symIntToInt = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
       std::transform(output_size.cbegin(), output_size.cend(), tmpVector.begin(), symIntToInt);
       std::copy(tmpVector.begin(), tmpVector.end(), size.begin());
@@ -1624,7 +1629,7 @@
 - schema: "upsample_nearest2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1637,9 +1642,9 @@
 - schema: "upsample_nearest2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, float? scales_h=None, float? scales_w=None) -> Tensor grad_input"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
-    std::vector<int64_t> grad_input_shape(input_size.size());
+    c10::DimVector grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
     auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-grad_output.suggest_memory_format()});
   custom_code_before_call_diopi: |
@@ -1654,7 +1659,7 @@
 - schema: "upsample_bilinear2d_backward.grad_input(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, bool align_corners, float? scales_h=None, float? scales_w=None, *, Tensor(a!) grad_input) -> Tensor(a!)"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
   custom_code_before_call_diopi: |
     if (!output_size.empty()) {
       std::copy(output_sizeVector.begin(), output_sizeVector.end(), size.begin());
@@ -1668,9 +1673,9 @@
 - schema: "upsample_bilinear2d_backward(Tensor grad_output, SymInt[2] output_size, SymInt[4] input_size, bool align_corners, float? scales_h=None, float? scales_w=None) -> Tensor grad_input"
   size_attr: [size]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> size(2);
+    c10::DimVector size(2);
     auto symInt2Int = [](const c10::SymInt& t)-> int64_t {return t.expect_int();};
-    std::vector<int64_t> grad_input_shape(input_size.size());
+    c10::DimVector grad_input_shape(input_size.size());
     std::transform(input_size.cbegin(), input_size.cend(), grad_input_shape.begin(), symInt2Int);
     auto grad_input = nodispatch::empty(grad_input_shape,grad_output.options(),${PREFERRED_MEMORY_FORMAT_PLACEHOLDER:-grad_output.suggest_memory_format()});
   custom_code_before_call_diopi: |
@@ -1809,7 +1814,7 @@
     const auto shapeB = other.sizes();
     const int64_t nA= shapeA.size();
     const int64_t nB = shapeB.size();
-    std::vector<int64_t> output_shape;
+    c10::DimVector output_shape;
     if (nA == nB && nB == 2) {
         output_shape = {shapeA[0], shapeB[1]};
     } else if (nA == 1 && nB == 2) {
@@ -1817,13 +1822,13 @@
     } else if (nA == 2 && nB == 1) {
       output_shape = {shapeA[0]};
     } else if (nA > 2 && nB == 1) {
-      output_shape = std::vector<int64_t>(shapeA.begin(), shapeA.end() - 1);
+      output_shape = c10::DimVector(shapeA.begin(), shapeA.end() - 1);
     } else if (nA == 1 && nB > 2) {
-      output_shape = std::vector<int64_t>(shapeB.begin(), shapeB.end());
+      output_shape = c10::DimVector(shapeB.begin(), shapeB.end());
       output_shape.erase(output_shape.end() - 2);
     } else if (nA >= 2 && nB >= 2) {
       const int64_t nC = std::max(nA, nB);
-      output_shape = std::vector<int64_t>(nC, 1);
+      output_shape = c10::DimVector(nC, 1);
       output_shape[output_shape.size() - 1] = shapeB[nB - 1];
       output_shape[output_shape.size() - 2] = shapeA[nA - 2];
       for (int i = 3; i <= nC; ++i) {
@@ -1879,7 +1884,7 @@
 - schema: "index_select(Tensor self, int dim, Tensor index) -> Tensor"
   custom_code_at_the_beginning: |
     auto shape = self.sizes();
-    std::vector<int64_t> output_shape(shape.begin(), shape.end());
+    c10::DimVector output_shape(shape.begin(), shape.end());
     dim += dim >= 0 ? 0 : static_cast<int64_t>(shape.size());
     output_shape[dim] = index.numel();
     auto out = nodispatch::empty({output_shape}, self.options());
@@ -2206,8 +2211,8 @@
   no_device_check_args: [self, other]
   ins: [selfTemp, otherTemp]
   custom_code_at_the_beginning: |
-    auto selfTemp = (self.dim() == 0 && self.is_cpu()) ? self.to(other.device()) : self;
-    auto otherTemp = (other.dim() == 0 && other.is_cpu()) ? other.to(self.device()) : other;
+    auto selfTemp = (is_scalar_on_cpu(self)) ? self.to(other.device()) : self;
+    auto otherTemp = (is_scalar_on_cpu(other)) ? other.to(self.device()) : other;
   interface: diopiMinimum(ctx, out, selfTemp, otherTemp)
 
 - schema: "scatter.value_out(Tensor self, int dim, Tensor index, Scalar value, *, Tensor(a!) out) -> Tensor(a!)"
@@ -2230,7 +2235,7 @@
 
 - schema: "remainder.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
   custom_code_at_the_beginning: |
-    if (other.dim() == 0 && other.is_cpu()) {
+    if (is_scalar_on_cpu(other)) {
         return dipu_remainder_scalar_out(self, other.item(), out);
     }
   interface: diopiRemainderTensor(ctx, out, self, other)
@@ -2243,7 +2248,7 @@
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [all, -ascend]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     at::Tensor out;
     if (dtype) {
       out = nodispatch::empty(output_shape, self.options().dtype(dtype));
@@ -2257,7 +2262,7 @@
 - schema: "linalg_vector_norm(Tensor self, Scalar ord=2, int[1]? dim=None, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor"
   device: [ascend]
   custom_code_at_the_beginning: |
-    std::vector<int64_t> output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(std::vector<int64_t>()), keepdim);
+    c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     at::Tensor out;
     if (dtype) {
       out = nodispatch::empty(output_shape, self.options().dtype(dtype));
@@ -2424,7 +2429,7 @@
       channels *= static_cast<int>(kernel_size[i]);
     }
 
-    std::vector<int64_t> out_shape({channels, num_blocks});
+    c10::DimVector out_shape({channels, num_blocks});
     if(batched_input){
       out_shape.insert(out_shape.begin(), input_shape[0]);
     }
@@ -2446,7 +2451,7 @@
       channels = channels / static_cast<int>(kernel_size[i]);
     }
 
-    std::vector<int64_t> out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
+    c10::DimVector out_shape({channels, output_size.at(0).expect_int(), output_size.at(1).expect_int()});
     if(batched_input){
       out_shape.insert(out_shape.begin(), input_shape[0]);
     }
