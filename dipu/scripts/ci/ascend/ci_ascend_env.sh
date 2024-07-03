@@ -20,6 +20,8 @@ export OMP_NUM_THREADS=1
 
 export DIPU_DEVICE_MEMCACHING_ALGORITHM=BF
 export DIPU_HOST_MEMCACHING_ALGORITHM=BF
+export DIPU_LOG_FALLBACK_INFO=1
+export DIPU_DUMP_OP_ARGS=1
 
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
