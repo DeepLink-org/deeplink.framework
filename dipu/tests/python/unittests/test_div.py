@@ -33,6 +33,14 @@ class TestDiv(TestCase):
 
         self.assertEqual(r, expected_r)
 
+    def test_div_self_is_scalar(self):
+        x = torch.randn(3, 4).cuda()
+        y = x.cpu()
+        for rounding_mode in ["trunc", "floor", None]:
+            z_device = torch.div(2, x, rounding_mode=rounding_mode)
+            z_cpu = torch.div(2, y, rounding_mode=rounding_mode)
+            self.assertEqual(z_device.cpu(), z_cpu)
+
 
 if __name__ == "__main__":
     run_tests()
