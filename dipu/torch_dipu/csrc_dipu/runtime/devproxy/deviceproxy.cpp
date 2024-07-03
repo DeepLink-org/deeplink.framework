@@ -235,12 +235,18 @@ void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
 // (synchronous) copy from host to a device
 void memCopyH2D(size_t nbytes, /*deviceId_t dstDevId,*/ void* dst,
                 /*Host srcDev,*/ const void* src) {
+  if (nbytes <= 0) {
+    return;
+  }
   return devapis::memCopyH2D(nbytes, dst, src);
 }
 
 // (synchronous) copy from a device to host
 void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
                 /*deviceId_t srcDevId,*/ const void* src) {
+  if (nbytes <= 0) {
+    return;
+  }
   return devapis::memCopyD2H(nbytes, dst, src);
 }
 
