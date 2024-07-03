@@ -2,6 +2,7 @@
 #include "deviceproxy.h"
 
 #include <atomic>
+#include <sys/sysinfo.h>
 
 #include <c10/util/Exception.h>
 
@@ -9,6 +10,7 @@
 #include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
+#include "csrc_dipu/utils/env.hpp"
 
 namespace dipu {
 namespace devproxy {
@@ -50,7 +52,7 @@ deviceId_t current_device() {
     if (lastDevice > 0) {
       setDevice(lastDevice);
       TORCH_WARN_ONCE(
-          "Since device ", lastDevice,
+          "Since device ", static_cast<int>(lastDevice),
           " has been used before, and there is no indication of which device "
           "to use in the current thread, we will continue to use device ",
           lastDevice, " instead of device 0.");
@@ -61,6 +63,30 @@ deviceId_t current_device() {
   return currentDevice;
 }
 
+void setCpuAffinity(const int device) {
+  static int affinity = get_env_or_default("DIPU_CPU_AFFINITY", 0);
+  if (affinity < 0) {
+    return;
+  }
+  const int num_of_processors = get_nprocs();
+  const int device_count = getDeviceCount();
+  const int block_size =
+      (affinity == 0) ? ((num_of_processors + device_count - 1) / device_count)
+                      : affinity;
+  const int start_cpu_core = device * block_size;
+  const int end_cpu_core =
+      std::min((device + 1) * block_size, num_of_processors);
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  TORCH_WARN("DIPU_CPU_AFFINITY: Bind device ", device,
+             " with cpu core: ", start_cpu_core, "~", end_cpu_core,
+             ", the number of processors:", num_of_processors);
+  for (int i = start_cpu_core; i < end_cpu_core; i++) {
+    CPU_SET(i, &mask);
+  }
+  pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
+}
+
 // set current device given device according to id
 void setDevice(deviceId_t devId) {
   static const int kDeviceCount = getDeviceCount();
@@ -69,6 +95,7 @@ void setDevice(deviceId_t devId) {
               " , device count:", kDeviceCount)
   if (currentDevice != devId) {
     devapis::setDevice(devId);
+    setCpuAffinity(devId);
     if (currentDevice < 0) {
       if (lastDevice < 0) {
         // The main purpose is that if a device has been used before, but which
@@ -199,6 +226,9 @@ void memSetAsync(const deviceStream_t stream, void* ptr, int val, size_t size) {
 // (synchronous) copy from device to a device
 void memCopyD2D(size_t nbytes, deviceId_t dstDevId, void* dst,
                 deviceId_t srcDevId, const void* src) {
+  if ((dstDevId == srcDevId && dst == src) || nbytes == 0) {
+    return;
+  }
   return devapis::memCopyD2D(nbytes, dstDevId, dst, srcDevId, src);
 }
 
@@ -218,6 +248,9 @@ void memCopyD2H(size_t nbytes, /*Host dstDev,*/ void* dst,
 void memCopyD2DAsync(const deviceStream_t stream, size_t nbytes,
                      deviceId_t dstDevId, void* dst, deviceId_t srcDevId,
                      const void* src) {
+  if ((dstDevId == srcDevId && dst == src) || nbytes == 0) {
+    return;
+  }
   return devapis::memCopyD2DAsync(stream, nbytes, dstDevId, dst, srcDevId, src);
 }
 
