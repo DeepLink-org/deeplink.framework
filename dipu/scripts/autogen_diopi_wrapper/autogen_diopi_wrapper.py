@@ -586,7 +586,7 @@ def create_int_array_process_code(int_array_list):
         + "\n"
     )
     for int_array in int_array_list:
-        code += f"std::vector<int64_t> {int_array}Vector({int_array}.size());\n"
+        code += f"c10::DimVector {int_array}Vector({int_array}.size());\n"
         code += f"std::transform({int_array}.cbegin(), {int_array}.cend(), {int_array}Vector.begin(), symIntToInt);\n"
         code += f"::diopiSize_t {int_array}DiopiSize{{{int_array}Vector.data(), static_cast<int64_t>({int_array}Vector.size())}};\n"
     return code
