@@ -6,7 +6,9 @@
 /*** NCCL CAPABILITY CHECK ***/
 
 // from torch/csrc/cuda/nccl.h
-#if defined(__CUDA_BF16_TYPES_EXIST__)
+#if defined(USE_MACA)
+#define HAS_NCCL_BF16_DATATYPE 1
+#elif defined(__CUDA_BF16_TYPES_EXIST__)
 #define HAS_NCCL_BF16_DATATYPE \
   ((NCCL_MAJOR > 2) || (NCCL_MAJOR == 2) && (NCCL_MINOR >= 10))
 #elif defined(USE_ROCM) && (TORCH_HIP_VERSION >= 301)
@@ -16,7 +18,9 @@
 #endif
 
 // from torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp
-#if defined(NCCL_MAJOR) && \
+#if defined(USE_MACA)
+#define NCCL_HAS_AVG 1
+#elif defined(NCCL_MAJOR) && \
     ((NCCL_MAJOR > 2) || (NCCL_MAJOR == 2) && (NCCL_MINOR >= 10))
 #define NCCL_HAS_AVG 1
 #endif

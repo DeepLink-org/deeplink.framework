@@ -9,3 +9,5 @@ export DIPU_ROOT=$(pwd)/torch_dipu
 export DIOPI_PATH=$(pwd)/third_party/DIOPI/proto
 export DIPU_PATH=${DIPU_ROOT}
 export VENDOR_INCLUDE_DIRS=/mnt/cache/share/deeplinkci/deps/xccl/include:/mnt/cache/share/deeplinkci/deps/xdnn/include:/mnt/cache/share/deeplinkci/deps/xpurt/include:/mnt/cache/share/deeplinkci/deps/xdnn_pytorch/include
+
+export DIPU_CHECK_TENSOR_DEVICE=1
