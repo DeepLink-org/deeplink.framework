@@ -37,7 +37,7 @@ static constexpr std::array<std::pair<at::ScalarType, HcclDataType>, 10>
         {at::kHalf, HCCL_DATA_TYPE_FP16},
         {at::kFloat, HCCL_DATA_TYPE_FP32},
         {at::kDouble, HCCL_DATA_TYPE_FP64},
-        {at::kBool, HCCL_DATA_TYPE_UINT8},
+        {at::kBool, HCCL_DATA_TYPE_INT8},
         {at::kBFloat16, HCCL_DATA_TYPE_BFP16},
     }};
 
