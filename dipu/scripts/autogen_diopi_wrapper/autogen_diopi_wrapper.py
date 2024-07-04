@@ -735,6 +735,7 @@ autocompare_template = CodeTemplate(autocompare_template_content)
 
 autocompare_template_no_check = CodeTemplate(autocompare_template_content_no_check)
 
+
 def functions_code_gen(fun_config):
     remove_check_code = fun_config.get("remove_check_code", False) == True
     if "interface" in fun_config:
@@ -1010,7 +1011,9 @@ def functions_code_gen(fun_config):
                 result_compare_code=[
                     (
                         "\nreturn result_device;\n"
-                        if len(get_function_return_param_from_schema(fun_config["schema"]))
+                        if len(
+                            get_function_return_param_from_schema(fun_config["schema"])
+                        )
                         > 0
                         else ""
                     )
@@ -1040,7 +1043,9 @@ def functions_code_gen(fun_config):
                     create_result_compare_code(fun_config)
                     + (
                         "\nreturn result_device;\n"
-                        if len(get_function_return_param_from_schema(fun_config["schema"]))
+                        if len(
+                            get_function_return_param_from_schema(fun_config["schema"])
+                        )
                         > 0
                         else ""
                     )
