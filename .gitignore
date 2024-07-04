@@ -125,3 +125,7 @@ core.*
 
 # CI temp directory
 mmlab_pack
+
+# CMake
+CMakeCache.txt
+CMakeFiles
