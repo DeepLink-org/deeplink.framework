@@ -10,6 +10,7 @@
 #include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
+#include "csrc_dipu/utils/Log.h"
 #include "csrc_dipu/utils/env.hpp"
 
 namespace dipu {
@@ -78,9 +79,9 @@ void setCpuAffinity(const int device) {
       std::min((device + 1) * block_size, num_of_processors);
   cpu_set_t mask;
   CPU_ZERO(&mask);
-  TORCH_WARN("DIPU_CPU_AFFINITY: Bind device ", device,
-             " with cpu core: ", start_cpu_core, "~", end_cpu_core,
-             ", the number of processors:", num_of_processors);
+  DIPU_LOG_INFO << "DIPU_CPU_AFFINITY: Bind device " << device
+                << " with cpu cores: [" << start_cpu_core << "," << end_cpu_core
+                << "), the number of processors:" << num_of_processors;
   for (int i = start_cpu_core; i < end_cpu_core; i++) {
     CPU_SET(i, &mask);
   }
