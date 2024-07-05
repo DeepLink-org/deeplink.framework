@@ -13,8 +13,8 @@ set(WITH_DIOPI_INCLUDE "" CACHE PATH # use "PATH" type to provide a GUI file sel
 
 # locate DIOPI_LIBRARY_PATH
 if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
-  set(DIOPI_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/impl/lib")
   # the default path is hard-coded and not safe, better to use other methods
+  set(DIOPI_LIBRARY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/impl/lib")
 elseif(WITH_DIOPI_LIBRARY STREQUAL "DISABLE")
   set(DIOPI_LIBRARY_PATH "")
 elseif(EXISTS "${WITH_DIOPI_LIBRARY}" AND IS_DIRECTORY "${WITH_DIOPI_LIBRARY}")
@@ -26,9 +26,9 @@ else()
 endif()
 
 # locate DIOPI_INCLUDE_PATH
-if (WITH_DIOPI_INCLUDE STREQUAL "")
-  set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
+if(WITH_DIOPI_INCLUDE STREQUAL "")
   # the default path is hard-coded and not safe, better to use other methods
+  set(DIOPI_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/DIOPI/proto/include")
 elseif(EXISTS "${WITH_DIOPI_INCLUDE}" AND IS_DIRECTORY "${WITH_DIOPI_INCLUDE}" AND NOT WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   set(DIOPI_INCLUDE_PATH "${WITH_DIOPI_INCLUDE}")
 else()
@@ -41,10 +41,11 @@ add_library(diopi INTERFACE)
 target_include_directories(diopi SYSTEM INTERFACE ${DIOPI_INCLUDE_PATH})
 target_compile_definitions(diopi INTERFACE DIOPI_ATTR_WEAK)
 
-if (WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
+if(WITH_DIOPI_LIBRARY STREQUAL "INTERNAL")
   # compile DIOPI if use internal one
   message(STATUS "Building internal DIOPI with DIOPI_IMPL_OPT: ${DIOPI_IMPL_OPT}")
   set(IMPL_OPT "${DIOPI_IMPL_OPT}" CACHE INTERNAL "IMPL_OPT for diopi")
+  set(DIOPI_TORCH_VERSION "${Torch_VERSION}" CACHE INTERNAL "pass through Torch_VERSION")
   add_subdirectory(DIOPI/impl) # import diopi_impl target
   target_link_libraries(diopi INTERFACE "-Wl,-no-as-needed" diopi_impl "-Wl,-as-needed")
 
@@ -57,10 +58,10 @@ endif()
 message(STATUS "Using DIOPI_LIBRARY_PATH='${DIOPI_LIBRARY_PATH}', DIOPI_INCLUDE_PATH='${DIOPI_INCLUDE_PATH}'")
 
 #[[ libkineto ]]
-
 set(KINETO_BUILD_TESTS OFF CACHE INTERNAL "turn off tests")
 set(KINETO_USE_DEVICE_ACTIVITY ON CACHE INTERNAL "enable device activity")
 set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "pass through ABI settings")
+
 # KINETO_COMPILED_WITH_CXX11_ABI might be removed from libkineto as we are
 # using add_subdirectory instead of ExternalProject.
 add_subdirectory(kineto/libkineto SYSTEM)
