@@ -8,19 +8,15 @@
 #include <utility>
 #include <vector>
 
-#include "csrc_dipu/utils/env.hpp"
-
 #include "DIPUCachingAllocator.h"
 #include "DIPUSpinMutex.h"
 
 namespace dipu {
 
 inline size_t round_up_to_alignment(size_t nbytes, size_t alignment_size) {
-  if (nbytes <= 0) {
-    return alignment_size;
-  }
   return ((nbytes - 1) | (alignment_size - 1)) + 1;
 }
+
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -34,12 +30,23 @@ class BFCachingAllocatorImpl {
   // Number of second level bins (linearly)
   static constexpr int kNumSubBins = 4;
   static constexpr int kLogNumSubBins = 2;
+
   // Allocation parameters
-  static constexpr int kMinAllocationSize = 512;
-  static constexpr int kSmallBlockSize = 2 << 20;
-  static constexpr int kMiddleBlockSize = 20 << 20;
-  static constexpr int kLargeBlockSize = 200 << 20;
-  static constexpr int kLargeAlignSize = 1024 << 20;
+  static constexpr size_t kMinBlockSize =
+      512;  // all sizes are rounded to at least 512 bytes
+  static constexpr size_t kSmallSize =
+      1048576;  // largest "small" allocation is 1 MiB
+  static constexpr size_t kSmallBuffer =
+      2097152;  // "small" allocations are packed in 2 MiB blocks
+  static constexpr size_t kLargeBuffer =
+      20971520;  // "large" allocations may be packed in 20 MiB blocks
+  static constexpr size_t kMinLargeAlloc =
+      10485760;  // allocations between 1 and 10 MiB may use kLargeBuffer
+  static constexpr size_t kRoundLarge =
+      2097152;  // round up large allocations to 2 MiB
+  static constexpr size_t kMaxSplitableBlockSize =
+      200 << 20;  // To further reduce fragmentation, blocks >= 200MB are not
+                  // allowed to be split
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -143,10 +150,11 @@ class BFCachingAllocatorImpl {
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
-    if (nbytes < kLargeBlockSize) {
-      return round_up_to_alignment(nbytes, kMinAllocationSize);
+    if (nbytes <= kMinBlockSize) {
+      return kMinBlockSize;
     }
-    return round_up_to_alignment(nbytes, kSmallBlockSize);
+    int clz = __builtin_clzll(nbytes - 1);
+    return (1 << (sizeof(int64_t) - clz));
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
@@ -169,7 +177,7 @@ class BFCachingAllocatorImpl {
     // Big bin range:
     //      [2^`bigBinIdx`, 2^(`bigBinIdx`+1)), length: 2^`bigBinIdx`
     // Split big bin into `kNumSubBins` sub bins
-    size_t nBlocks = nbytes / kMinAllocationSize;
+    size_t nBlocks = nbytes / kMinBlockSize;
     constexpr int kMaxBinIdx = 63;
     int bigBinIdx = kMaxBinIdx - __builtin_clzll(nBlocks);
     // If `nbytes` is so large, we just put it into the last
@@ -245,16 +253,22 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  void shrink(StreamSetHandle& set) {
+  void shrink(StreamSetHandle& set, size_t try_release_size = 0) {
+    size_t released_size = 0;
     for (int binHead : set->binHeads_) {
       int k = chunks_[binHead].nextChunkInList;
       while (k) {
-        if (chunks_[k].isMonoBlock()) {
-          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
+        auto& chunk_k = chunks_[k];
+        if (chunk_k.isMonoBlock()) {
+          released_size += chunk_k.size;
+          releaseOnDevice(chunk_k.ptr, chunk_k.size);
           removeChunkFromBin(k);
           recycleIds_.push(k);
+          if (try_release_size > 0 && released_size >= try_release_size) {
+            break;
+          }
         }
-        k = chunks_[k].nextChunkInList;
+        k = chunk_k.nextChunkInList;
       }
     }
   }
@@ -297,33 +311,39 @@ class BFCachingAllocatorImpl {
     return id;
   }
 
-  int extend(size_t nbytes, StreamSetHandle& set) {
-    emptyCacheWithoutLock();
-    bool increased = false;
-    size_t allocateSize = nbytes;
-    if (nbytes < kSmallBlockSize) {
-      allocateSize = kSmallBlockSize;
-    } else if (nbytes < kMiddleBlockSize) {
-      allocateSize = kMiddleBlockSize;
-    } else if (nbytes < kLargeBlockSize) {
-      allocateSize = round_up_to_alignment(nbytes, kMiddleBlockSize);
-    } else {
-      allocateSize = round_up_to_alignment(nbytes, kLargeAlignSize);
+  size_t getAllocateSize(size_t nbytes) {
+    if (nbytes <= kSmallSize) {
+      return kSmallBuffer;
     }
+    if (nbytes < kMinLargeAlloc) {
+      return kLargeBuffer;
+    }
+    return round_up_to_alignment(nbytes, kRoundLarge);
+  }
 
-    size_t currBytes = std::max(nbytes, allocateSize);
-    void* ptr = allocateOnDevice(currBytes);
+  int extend(size_t nbytes, StreamSetHandle& set) {
+    size_t allocateSize = getAllocateSize(nbytes);
+
+    void* ptr = allocateOnDevice(allocateSize);
     if (!ptr) {
-      if (currBytes > nbytes) {
-        currBytes = nbytes;
-        ptr = allocateOnDevice(currBytes);
+      shrink(set, allocateSize);
+      ptr = allocateOnDevice(allocateSize);
+    }
+    if (!ptr) {
+      shrink(set);
+      ptr = allocateOnDevice(allocateSize);
+    }
+    if (!ptr) {
+      if (allocateSize > nbytes) {
+        allocateSize = nbytes;
+        ptr = allocateOnDevice(allocateSize);
       }
     }
     if (!ptr) {
       return 0;
     }
 
-    int id = newChunk(ptr, currBytes, set->id);
+    int id = newChunk(ptr, allocateSize, set->id);
     return id;
   }
 
@@ -378,17 +398,7 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      int internlalMaxFragnmentSize = 0;
-      const int chunk_size = static_cast<int>(chunks_[id].size);
-      if (chunk_size < kSmallBlockSize) {
-        internlalMaxFragnmentSize = kMinAllocationSize;
-      } else if (chunk_size < kLargeAlignSize) {
-        internlalMaxFragnmentSize = kSmallBlockSize;
-      } else {
-        internlalMaxFragnmentSize = kLargeAlignSize;
-      }
-      if ((chunk_size >= (nbytes << 1)) ||
-          (chunk_size > (nbytes + internlalMaxFragnmentSize))) {
+      if (chunks_[id].size >= (nbytes << 1)) {
         id = split(id, nbytes);
       }
       chunks_[id].allocated = true;
@@ -522,6 +532,9 @@ class BFCachingAllocator : public CacheAllocator {
         : DataPtrContextBase(allocator, ptr, size), id_(id), nbytes_(nbytes) {}
 
     ~Context() {
+      if (size() <= 0) {
+        return;
+      }
       auto allocator_ = static_cast<const BFCachingAllocator*>(allocator());
       DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: add to async_mem_pool:"
                                   << ptr() << ", " << size() << " nbytes, id:"
@@ -531,16 +544,21 @@ class BFCachingAllocator : public CacheAllocator {
         if (ptr()) {
           allocator_->metrics_producer.deallocate(ptr());
           std::deque<DIPUEvent> events;
+          bool record_block = false;
           for (auto const& stream : streams()) {
             events.emplace_back();
             DIPU_DEBUG_ALLOCATOR(8, "BFCachingAllocator: record to stream:"
                                         << stream.rawstream());
             events.back().record(stream);
+            record_block = true;
           }
           allocator_->async_mem_pool()->add(std::make_tuple(ptr(), id_),
                                             events);
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
+          if (!record_block) {
+            allocator_->restore();
+          }
         }
       } else {
         DIPU_DEBUG_ALLOCATOR(8,
@@ -552,12 +570,12 @@ class BFCachingAllocator : public CacheAllocator {
 
   friend class Context;
 
-  c10::DataPtr allocate(size_t size) const override {
+  c10::DataPtr allocate(size_t origin_size) const override {
     restore();
     if (async_mem_pool()->size() > kMaxAsyncResourcePoolLength) {
       try_empty_resource_pool();
     }
-    size = getMemoryAlignmentStrategy()->roundBytes(size);
+    size_t size = getMemoryAlignmentStrategy()->roundBytes(origin_size);
     std::tuple<void*, int, size_t> block = impl->allocateRaw(size);
     void* ptr = std::get<0>(block);
     if (ptr == nullptr && size > 0) {
@@ -583,7 +601,7 @@ class BFCachingAllocator : public CacheAllocator {
                           deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(
         4, "BFCachingAllocator: malloc "
-               << nbytes << ",requires " << size << " nbytes, ptr:" << ptr
+               << nbytes << ",requires " << origin_size << " nbytes, ptr:" << ptr
                << ",device:" << device()
                << ",async_mempool.size:" << async_mem_pool()->size());
     c10::reportMemoryUsageToProfiler(
