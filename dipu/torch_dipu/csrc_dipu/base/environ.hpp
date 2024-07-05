@@ -91,6 +91,10 @@ DIPU_ENV_VAR(hostMemCachingAlgorithm, "DIPU_HOST_MEMCACHING_ALGORITHM",
 DIPU_ENV_VAR(deviceMemCachingAlgorithm, "DIPU_DEVICE_MEMCACHING_ALGORITHM",
              std::string, kTorchAllocatorName);
 DIPU_ENV_VAR(torchAllocatorConf, "DIPU_TORCH_ALLOCATOR_CONF", std::string, "");
+DIPU_ENV_VAR(maxExtendSize, "DIPU_MAX_EXTEND_SIZE", std::size_t, 1024);
+inline const std::size_t kDefaultMaxAsyncResourcePoolLength = 96;
+DIPU_ENV_VAR(maxAsyncResourcePoolLength, "DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH", std::size_t, kDefaultMaxAsyncResourcePoolLength);
+DIPU_ENV_VAR(forceFallbackAscendP2pCopy, "DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", bool, false);
 
 #undef DIPU_ENV_VAR
 

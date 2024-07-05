@@ -18,6 +18,8 @@
 
 #include "basecommimpl.hpp"
 
+#include "csrc_dipu/base/environ.hpp"
+
 namespace dipu {
 
 namespace devapis {
@@ -30,8 +32,7 @@ using AscendDeviceId = int32_t;
 
 namespace {
 
-const bool forceFallbackP2PCopy =
-    get_env_or_default("DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", false);
+const bool forceFallbackP2PCopy = environ::forceFallbackAscendP2pCopy();
 
 class NpuP2PInfo {
   enum class P2pStatus : int8_t {
