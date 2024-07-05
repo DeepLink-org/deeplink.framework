@@ -7,6 +7,7 @@
 #include <c10/core/Device.h>
 #include <c10/util/CallOnce.h>
 
+#include "csrc_dipu/runtime/core/DIPUGuard.h"
 #include <csrc_dipu/runtime/devproxy/deviceproxy.h>
 
 namespace dipu {
@@ -34,6 +35,7 @@ void initDIPUContextVectors() {
 }
 
 void initDeviceProperty(DeviceIndex device_index) {
+  DIPUGuard guard(device_index);
   DIPUDeviceProperties device_prop =
       dipu::devproxy::getDeviceProperties(device_index);
   device_properties[device_index] =

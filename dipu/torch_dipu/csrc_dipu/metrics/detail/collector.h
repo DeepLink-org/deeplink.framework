@@ -3,6 +3,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <type_traits>
 #include <unordered_map>
