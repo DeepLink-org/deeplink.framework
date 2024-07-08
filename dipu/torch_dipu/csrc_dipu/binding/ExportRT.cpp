@@ -223,7 +223,7 @@ void exportEvent(py::module& m) {
       .def_property_readonly(
           "dipu_event",
           [](DIPUEvent& self) -> uint64_t {
-            return reinterpret_cast<uint64_t>(static_cast<deviceEvent_t>(self));
+            return reinterpret_cast<uint64_t>(self.device_event());
           })
       .def_property_readonly(
           "device", [](DIPUEvent& self) { return self.device().value(); });

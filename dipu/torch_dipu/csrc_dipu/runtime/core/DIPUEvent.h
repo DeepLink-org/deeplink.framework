@@ -33,7 +33,7 @@ class DIPU_API DIPUEvent {
     other.unsafe_reset();
   }
 
-  DIPUEvent& operator=(DIPUEvent&& other) noexcept(false) {
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept(false /* release_event */) {
     if (this != std::addressof(other)) {
       release_event();
       event_ = other.event_;
@@ -46,7 +46,7 @@ class DIPU_API DIPUEvent {
 
   ~DIPUEvent() { release_event(); }
 
-  explicit operator deviceEvent_t() const noexcept { return event_; }
+  deviceEvent_t device_event() const noexcept { return event_; }
 
   c10::DeviceIndex device_index() const noexcept { return device_index_; }
 
@@ -66,7 +66,7 @@ class DIPU_API DIPUEvent {
   }
 
   bool query() const {
-    if (not initialized()) {  // unlikely
+    if (!initialized()) {  // unlikely
       return true;
     }
 
@@ -77,7 +77,7 @@ class DIPU_API DIPUEvent {
   void record() { record(getCurrentDIPUStream()); }
 
   void record(const DIPUStream& stream) {
-    if (not initialized()) {
+    if (!initialized()) {
       create_event(stream.device_index());
     }
 
