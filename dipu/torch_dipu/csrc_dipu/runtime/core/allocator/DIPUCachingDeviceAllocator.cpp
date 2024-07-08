@@ -476,6 +476,13 @@ void CachingAllocatorConfig::parseArgs(const char* env) {
           i < config.size() && (config[i] == "True" || config[i] == "False"),
           "Expected a single True/False argument for expandable_segments");
       m_expandable_segments = (config[i] == "True");
+      if (!vendorCreateExpandableSegment) {
+        DIPU_LOGW(
+            "expandable_segments is set to True, but no implementation of "
+            "vendorCreateExpandableSegment is found. Hence ignoring the "
+            "setting.");
+        m_expandable_segments = false;
+      }
     } else {
       TORCH_CHECK(false, "Unrecognized CachingAllocator option: ", config[i]);
     }
