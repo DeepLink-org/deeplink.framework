@@ -17,7 +17,7 @@ def torch_dipu_cmake_args():
         sys.path.append(os.environ["PYTORCH_DIR"])
         print("PYTHONPATH: " + str(sys.path))
         import torch
-    
+
     dipu_abi_version = torch._C._PYBIND11_BUILD_ABI[-2:]
     dipu_compiled_with_cxx11_abi = int(torch.compiled_with_cxx11_abi())
     diopi_cmake_prefix_path = torch.utils.cmake_prefix_path
