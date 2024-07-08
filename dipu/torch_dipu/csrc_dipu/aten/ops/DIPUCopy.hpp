@@ -217,9 +217,10 @@ inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,
   DIPUEvent dstEvent;
   dstEvent.record(dipu::getCurrentDIPUStream(info.dstDevice_));
   dstGuard.set_index(info.srcDevice_);
-  dstEvent.wait(info.curStream_);
   if (block_cpu) {
     dstEvent.synchronize();
+  } else {
+    dstEvent.wait(info.curStream_);
   }
 }
 
@@ -228,9 +229,10 @@ inline void doDstStreamWaitSrcStream(const CopyParamsInfo& info,
   DIPUEvent srcEvent;
   srcEvent.record(info.curStream_);
   DIPUGuard dstGuard(info.dstDevice_);
-  srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
   if (block_cpu) {
     srcEvent.synchronize();
+  } else {
+    srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
   }
 }
 

@@ -97,6 +97,25 @@ class CambCopyInplace : public DIPUCopyInpOnDIOPI {
   CambCopyInplace() = default;
   ~CambCopyInplace() override = default;
 
+  // Cambrian runtime does not support stream waiting for events on another
+  // card, cnrtQueueWaitNotifier returns 100050 (This indicates that the feature
+  // is not supported now), so we use syncStream with a higher synchronization
+  // level instead of stramWaitEvent.
+  void copyPreProcess(const at::Tensor& dst, const at::Tensor& src,
+                      bool non_blocking, CopyParamsInfo& info) override {
+    if (DIPUCopyType::D2OtherD == info.copyType_) {
+      doSrcStreamWaitDstStream(info, true);
+    }
+  }
+
+  void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
+                       bool non_blocking, const CopyParamsInfo& info,
+                       DIPUStream& curStream) override {
+    tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
+                          /* block_cpu_d2d = */ true,
+                          /* block_cpu_h2d = */ true);
+  }
+
   void copyNodirectOnDevice(at::Tensor& dst, const at::Tensor& src,
                             bool non_blocking, CopyParamsInfo& info) override {
     diopiDtype_t dstDtype = dipu::diopi_helper::toDiopiDtype(dst.scalar_type());
