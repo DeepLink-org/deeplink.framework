@@ -3,33 +3,25 @@ import sys
 import setuptools
 from skbuild import setup
 
-try:
-    import torch
-except:
-    sys.path.append(os.environ["PYTORCH_DIR"])
-    print("PYTHONPATH: " + str(sys.path))
-import torch
-import builtins
+
+def torch_dipu_version():
+    return "0.4.1"
 
 
-def customized_cmake_args():
+def torch_dipu_cmake_args():
     # TODO(refactor): better error checking
 
-    def dipu_abi_v():
-        return next(
-            item[-4:-2]
-            for item in dir(builtins)
-            if "__pybind11_internals_v4_gcc_libstdcpp_cxxabi10" in item
-        )
-
-    def dipu_compiled_with_cxx11_abi():
-        return 1 if torch.compiled_with_cxx11_abi() else 0
-
-    def diopi_cmake_prefix_path():
-        return torch.utils.cmake_prefix_path
-
-    def pytorch_dir():
-        return os.path.dirname(torch.__path__[0])
+    try:
+        import torch
+    except:
+        sys.path.append(os.environ["PYTORCH_DIR"])
+        print("PYTHONPATH: " + str(sys.path))
+        import torch
+    
+    dipu_abi_version = torch._C._PYBIND11_BUILD_ABI[-2:]
+    dipu_compiled_with_cxx11_abi = int(torch.compiled_with_cxx11_abi())
+    diopi_cmake_prefix_path = torch.utils.cmake_prefix_path
+    pytorch_dir = os.path.dirname(torch.__path__[0])
 
     cmake_with_diopi_library = os.getenv("DIPU_WITH_DIOPI_LIBRARY", "INTERNAL")
     cmake_device = os.getenv("DIPU_DEVICE", "cuda")
@@ -38,16 +30,16 @@ def customized_cmake_args():
     return [
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DDEVICE={cmake_device}",
-        f"-DDIPU_ABI_V={dipu_abi_v()}",
-        f"-DDIPU_COMPILED_WITH_CXX11_ABI={dipu_compiled_with_cxx11_abi()}",
-        f"-DDIOPI_CMAKE_PREFIX_PATH={diopi_cmake_prefix_path()}",
-        f"-DPYTORCH_DIR={pytorch_dir()}",
+        f"-DDIPU_ABI_V={dipu_abi_version}",
+        f"-DDIPU_COMPILED_WITH_CXX11_ABI={dipu_compiled_with_cxx11_abi}",
+        f"-DDIOPI_CMAKE_PREFIX_PATH={diopi_cmake_prefix_path}",
+        f"-DPYTORCH_DIR={pytorch_dir}",
         f"-DWITH_DIOPI_LIBRARY={cmake_with_diopi_library}",
         f"-DENABLE_COVERAGE={cmake_use_coverage}",
     ]
 
 
-def torch_dipu_headers():
+def torch_dipu_public_headers():
     return [
         "csrc_dipu/*.h",
         "csrc_dipu/aten/*.h",
@@ -69,19 +61,19 @@ def torch_dipu_headers():
 
 setup(
     name="torch_dipu",
-    version="0.4.1",
+    version=torch_dipu_version(),
     description="DIPU extension for PyTorch",
     url="https://github.com/DeepLink-org/dipu",
     packages=setuptools.find_packages(),
-    cmake_args=customized_cmake_args(),
+    cmake_args=torch_dipu_cmake_args(),
     cmake_install_target="all",
     package_data={
-        # TODO(lhy,wy): copy DIOPI so file and proto dir to install target dir.
-        # Note: only files located in python packages could be copied.
+        # TODO(diopi): copy DIOPI so file and proto dir to install target dir.
+        # Note: only files located in python packages can be copied.
         "torch_dipu": [
             "*.so",
         ]
-        + torch_dipu_headers(),
+        + torch_dipu_public_headers(),
     },
     ext_modules=[],
     cmdclass={},
