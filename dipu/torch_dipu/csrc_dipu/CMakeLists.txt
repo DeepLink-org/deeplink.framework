@@ -149,6 +149,7 @@ target_include_directories(torch_dipu SYSTEM
   PUBLIC "${kineto_SOURCE_DIR}/include"
   PRIVATE "${kineto_SOURCE_DIR}/src")
 
+# target_link_directories(torch_dipu PRIVATE "${PYTORCH_DIR}/torch/lib")
 target_link_libraries(torch_dipu PRIVATE Python3::Python torch)
 target_link_libraries(torch_dipu PRIVATE Threads::Threads)
 target_link_libraries(torch_dipu PRIVATE diopi)
@@ -166,13 +167,13 @@ Python3_add_library(torch_dipu_python SHARED ${TORCH_DIPU_PYBIND_SOURCE})
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
 set_target_properties(torch_dipu_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
-target_link_libraries(torch_dipu_python PUBLIC torch_dipu PRIVATE kineto)
+target_link_libraries(torch_dipu_python PUBLIC torch_dipu PRIVATE torch kineto)
 target_include_directories(torch_dipu_python SYSTEM PRIVATE ..)
 
 #[[ Target: torch_dipu_cpython_extension ]]
 Python3_add_library(torch_dipu_cpython_extension SHARED stub.cpp)
 target_include_directories(torch_dipu_cpython_extension SYSTEM PRIVATE ..)
-target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE torch_python)
+target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE torch)
 target_compile_options(torch_dipu_cpython_extension PRIVATE -fstack-protector-all)
 set_target_properties(torch_dipu_cpython_extension PROPERTIES
   OUTPUT_NAME "_C.cpython-${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}-${CMAKE_SYSTEM_PROCESSOR}-linux-gnu"
