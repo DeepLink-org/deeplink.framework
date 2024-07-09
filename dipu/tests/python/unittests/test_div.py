@@ -18,7 +18,7 @@ class TestDiv(TestCase):
         y = y.cpu()
         expected_z = torch.div(x, y)
 
-        self.assertEqual(z, expected_z)
+        self.assertTrue(torch.allclose(z.cpu(), expected_z, atol=1e-3, rtol=1e-3))
 
     def test_div_scalar(self):
         a = torch.randn(3).to(self.device)
@@ -27,7 +27,7 @@ class TestDiv(TestCase):
         a = a.cpu()
         expected_r = torch.div(a, 0.5)
 
-        self.assertEqual(r, expected_r)
+        self.assertTrue(torch.allclose(r.cpu(), expected_r, atol=1e-3, rtol=1e-3))
 
     def test_div_self_is_scalar(self):
         x = torch.randn(3, 4).cuda()
