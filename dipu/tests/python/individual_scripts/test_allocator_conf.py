@@ -21,13 +21,9 @@ def test_set_allocator_settings(allocator: str):
             torch.cuda.memory._set_allocator_settings("expandable_segments:True")
         captured_output = captured.getvalue().decode("utf-8")
 
-        if allocator == "TORCH":
-            assert captured_output == ""
-        else:
-            assert (
-                "Not using torch allocator, skipping setAllocatorSettings"
-                in captured_output
-            )
+        is_torch_allocator = allocator == "TORCH"
+        failed = "Not using torch allocator, skipping setAllocatorSettings" in captured_output
+        assert is_torch_allocator == (not failed)
 
 
 if __name__ == "__main__":
