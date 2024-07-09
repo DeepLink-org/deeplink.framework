@@ -22,7 +22,10 @@ def test_set_allocator_settings(allocator: str):
         captured_output = captured.getvalue().decode("utf-8")
 
         is_torch_allocator = allocator == "TORCH"
-        failed = "Not using torch allocator, skipping setAllocatorSettings" in captured_output
+        failed = (
+            "Not using torch allocator, skipping setAllocatorSettings"
+            in captured_output
+        )
         assert is_torch_allocator == (not failed)
 
 
