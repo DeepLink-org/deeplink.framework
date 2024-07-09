@@ -81,7 +81,8 @@ void setCpuAffinity(const int device) {
   CPU_ZERO(&mask);
   DIPU_LOG_INFO << "DIPU_CPU_AFFINITY: Bind device " << device
                 << " with cpu cores: [" << start_cpu_core << "," << end_cpu_core
-                << "), the number of processors:" << num_of_processors;
+                << "), the number of processors:" << num_of_processors
+                << std::endl;
   for (int i = start_cpu_core; i < end_cpu_core; i++) {
     CPU_SET(i, &mask);
   }
