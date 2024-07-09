@@ -48,8 +48,9 @@
         if (alpha.toDouble() == 1.0) {
           return dipu_add_scalar_out(other, self.item(), alpha, out);
         }
-        dipu_fill__scalar(out, self.item());
-        return dipu_add__tensor(out, other, alpha);
+        at::Tensor selfD = nodispatch::empty({1}, out.options());
+        dipu_fill__scalar(selfD, self.item());
+        return dipu_add_out(selfD, other, alpha, out);
     }
   interface: diopiAdd(ctx, out, self, other, alpha)
 
@@ -106,7 +107,7 @@
         return dipu_div_scalar_out(self, other.item(), out);
     }
     if (is_scalar_on_cpu(self)) {
-        at::Tensor selfD = nodispatch::empty_like(other);
+        at::Tensor selfD = nodispatch::empty({1}, out.options());
         dipu_fill__scalar(selfD, self.item());
         return dipu_div_out(selfD, other, out);
     }
@@ -125,20 +126,21 @@
   interface: diopiDivScalar(ctx, out, self, other, mode)
 
 - schema: "aten::div.out_mode(Tensor self, Tensor other, *, str? rounding_mode, Tensor(a!) out) -> Tensor(a!)"
+  no_device_check_args: [self]
+  ins: [selfTmp]
   custom_code_at_the_beginning: |
     if (is_scalar_on_cpu(other)) {
         return dipu_div_scalar_mode_out(self, other.item(), rounding_mode, out);
     }
     at::Tensor selfTmp;
     if (is_scalar_on_cpu(self)) {
-        selfTmp = nodispatch::empty_like(other);
+        selfTmp = nodispatch::empty({1}, out.options());
         dipu_fill__scalar(selfTmp, self.item());
     } else {
       selfTmp = self;
     }
-    auto self_tmp_handle = dipu::diopi_helper::toDiopiTensorHandle(selfTmp);
     const auto mode = toDiopiRoundMode(rounding_mode.has_value() ? rounding_mode.value().data():"none");
-  interface: diopiDiv(ctx, out, self_tmp_handle, other, mode)
+  interface: diopiDiv(ctx, out, selfTmp, other, mode)
 
 - schema: "div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor"
   dummy_call_diopi: True
