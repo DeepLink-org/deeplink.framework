@@ -581,7 +581,7 @@ if __name__ == "__main__":
 
     port = random.randint(10000, 60000)
 
-    world_size = 1
+    world_size = n_gpus
     run_demo(demo_basic_ddp, world_size, port)
     run_demo(demo_allreduce, world_size, port)
     run_demo(demo_allgather, world_size, port)
