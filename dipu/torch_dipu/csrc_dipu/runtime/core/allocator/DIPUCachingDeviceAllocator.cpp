@@ -2020,10 +2020,10 @@ class NativeCachingAllocator : public DeviceAllocator {
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-NativeCachingAllocator native_caching_allocator;
-REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, &native_caching_allocator);
+NativeCachingAllocator* native_caching_allocator = new NativeCachingAllocator();
+REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, native_caching_allocator);
 
-void local_raw_delete(void* ptr) { native_caching_allocator.free(ptr); }
+void local_raw_delete(void* ptr) { native_caching_allocator->free(ptr); }
 
 // General caching allocator utilities
 void setAllocatorSettings(const std::string& env) {
@@ -2058,7 +2058,7 @@ std::string format_size(uint64_t size) {
 
 struct BackendStaticInitializer {
   BackendStaticInitializer() {
-    allocator.store(&native_caching_allocator);
+    allocator.store(native_caching_allocator);
     init(devproxy::getDeviceCount());
   }
 };
