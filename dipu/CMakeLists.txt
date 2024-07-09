@@ -106,13 +106,13 @@ add_compile_definitions(DIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
 # Automatically generate a list of supported diopi functions
 execute_process(
-  COMMAND
-    "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
-)
+  COMMAND "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ./scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ./SupportedDiopiFunctions.txt"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # abi_v, torch dir, abi flag, cmake path
 execute_process(
   COMMAND python detect_env.py
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
   OUTPUT_VARIABLE CHECK_TORCH_OUT
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" CHECK_TORCH_OUT_LIST "${CHECK_TORCH_OUT}")
