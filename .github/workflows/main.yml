@@ -125,7 +125,7 @@ jobs:
     needs: [Build-Camb]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 1
+      MLU_REQUESTS: 4 
     steps:
       - name: Run-test
         run: |
@@ -210,7 +210,7 @@ jobs:
     needs: [Build-Camb-Pt211]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 1
+      MLU_REQUESTS: 4
     steps:
       - name: Run-test
         run: |
