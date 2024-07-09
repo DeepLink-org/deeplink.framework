@@ -18,20 +18,26 @@ function build_dipu() {
     cmake_maca --build "$path" --parallel 20 2>&1 | tee "${path}/build.log"
 }
 
-function build_diopi_lib() {
+function build_diopi_lib_dyn() {
+    #  export PYTHONPATH="${TORCH_FOR_DIOPI}:${PYTHONPATH}"
     cd third_party/DIOPI/impl
     sh scripts/build_impl.sh clean
-    sh scripts/build_impl.sh muxi || exit -1
+    sh scripts/build_impl.sh muxi_dyload || exit -1
     cd -
 }
 
 
 case $1 in
     "build_dipu")
-        build_dipu  # "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}"
+        build_dipu
+    ;;
+    "build_diopi_dyn")
+        build_diopi_lib_dyn
     ;;
     "build_dipu_only")
-        builddipu "-DWITH_DIOPI_LIBRARY=DISABLE" ;;
+        # "-DWITH_DIOPI_LIBRARY=DISABLE"
+        builddipu "-DWITH_DIOPI_LIBRARY=${DIOPI_ROOT}"
+    ;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;
 esac
