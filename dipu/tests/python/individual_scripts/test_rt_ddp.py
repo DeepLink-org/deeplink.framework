@@ -445,17 +445,6 @@ def demo_alltoall(rank, world_size, port):
     cleanup()
 
 
-class ToyMpModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5)
-        self.conv2 = nn.Conv2d(20, 20, 5)
-
-    def forward(self, x):
-        x = torch.nn.functional.relu(self.conv1(x))
-        return torch.nn.functional.relu(self.conv2(x))
-
-
 def demo_model_parallel(rank, world_size, port):
     import torch_dipu
 
@@ -467,9 +456,8 @@ def demo_model_parallel(rank, world_size, port):
     setup(rank, world_size, port)
 
     # setup mp_model and devices for this process
-    dev0 = (rank * 2) % world_size
-    dev1 = (rank * 2 + 1) % world_size
-    mp_model = ToyMpModel().to(rank)
+    dev0 = rank
+    mp_model = ToyModel().to(dev0)
     ddp_mp_model = DDP(mp_model)
 
     loss_fn = nn.MSELoss()
@@ -477,8 +465,8 @@ def demo_model_parallel(rank, world_size, port):
 
     optimizer.zero_grad()
     # outputs will be on dev1
-    outputs = ddp_mp_model(torch.randn(20, 10))
-    labels = torch.randn(20, 5).to(dev1)
+    outputs = ddp_mp_model(torch.randn(20, 10).to(dev0))
+    labels = torch.randn(20, 5).to(dev0)
     loss_fn(outputs, labels).backward()
     optimizer.step()
 
@@ -516,12 +504,12 @@ def demo_allgather_gloo(rank, world_size, port):
     cleanup()
 
 
-def test_special_group_stuck(rank, world_size):
+def test_special_group_stuck(rank, world_size, port):
     import torch_dipu
 
     print(f"test special group stuck on rank {rank} ")
 
-    setup(rank, world_size)
+    setup(rank, world_size, port)
 
     # ranks check require len(ranks) <= world_size
     if world_size >= 2:
@@ -535,9 +523,11 @@ def test_special_group_stuck(rank, world_size):
     cleanup()
 
 
-def test_new_group(rank, world_size):
+def test_new_group(rank, world_size, port):
+    import torch_dipu
+
     print(f"test group on rank {rank} ws: {world_size}")
-    setup(rank, world_size)
+    setup(rank, world_size, port)
     for op in [
         dist.reduce_op.SUM,
     ]:
@@ -592,9 +582,6 @@ def test_get_comm_name(rank, world_size, port):
         cleanup()
 
 
-print(__name__)
-print(__file__)
-
 if __name__ == "__main__":
     port = random.randint(10000, 60000)
     # get device_count without "import torch_dipu"
@@ -628,9 +615,9 @@ if __name__ == "__main__":
         run_demo(demo_p2p, world_size, port)
         run_demo(demo_bcast, world_size, port)
 
-        # run_demo(demo_model_parallel, world_size, port)
+        run_demo(demo_model_parallel, world_size, port)
 
-        run_demo(test_special_group_stuck, world_size)
+        run_demo(test_special_group_stuck, world_size, port)
 
     # need 4 card to run
     if world_size >= 4:
