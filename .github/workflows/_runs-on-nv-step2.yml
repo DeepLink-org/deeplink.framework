@@ -44,7 +44,7 @@ jobs:
         run: |
           if [[ "${GETRUNNER}" == *sco* ]];then
             set -e
-            srun --job-name=${GITHUB_JOB} bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
+            srun --job-name=need_two_gpus bash -c "export USE_COVERAGE=ON && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda/dipu \
             && source ${ENV_PATH}/dipu_env  \
             && bash tests/run_nv_tests.sh"
             if [ "${ALL_COVERAGE}" = "ON" ]; then
@@ -216,7 +216,7 @@ jobs:
         run: |
           if [[ "${GETRUNNER}" == *sco* ]];then
             set -e
-            srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
+            srun --job-name=need_two_gpus bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Latest-Target/dipu \
             && source ${ENV_PATH}/dipu_env  \
             && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target
           else
@@ -271,7 +271,7 @@ jobs:
         run: |
           if [[ "${GETRUNNER}" == *sco* ]];then
             set -e
-            srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt211/dipu \
+            srun --job-name=need_two_gpus bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt211/dipu \
             && source ${ENV_PATH}/dipu_env 2.1.1 \
             && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt211
           else
