@@ -83,9 +83,8 @@ inline at::Tensor OpInferrerMeta::malloc_output() {
   at::TensorOptions options = at::TensorOptions().dtype(dtype_).device(device_);
   if (!strides_.empty()) {
     return native::nodispatch::empty_strided(shape_, strides_, options);
-  } else {
-    return native::nodispatch::empty(shape_, options, memory_format_);
   }
+  return native::nodispatch::empty(shape_, options, memory_format_);
 }
 
 void OpInferrer::compute_dtype() {
