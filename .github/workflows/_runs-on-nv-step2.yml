@@ -56,7 +56,7 @@ jobs:
             export USE_COVERAGE=ON
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda/dipu
             source ${ENV_PATH}/dipu_env
-            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:1 --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
+            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:2 --cpus-per-task=5 --mem=16G --time=70 sh tests/run_nv_tests.sh
             if [ "${ALL_COVERAGE}" = "ON" ]; then
             bash /mnt/cache/share/platform/dep/sonar/coverage_DIPU_nv.sh ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda ${GITHUB_RUN_NUMBER} || echo "get coverage fail"
             fi
@@ -224,7 +224,7 @@ jobs:
             set -ex
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && cd Build-Cuda-Latest-Target/dipu
             source ${ENV_PATH}/dipu_env
-            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:1 --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
+            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:2 --cpus-per-task=5 --mem=16G --time=60 sh tests/run_nv_tests.sh && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target \
             || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Latest-Target && exit 1 )
             """
           fi
@@ -279,7 +279,7 @@ jobs:
             set -ex
             cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt211/dipu
             source ${ENV_PATH}/dipu_env 2.1.1
-            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:1 --cpus-per-task=5 bash tests/run_nv_tests.sh \
+            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:2 --cpus-per-task=5 bash tests/run_nv_tests.sh \
             || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt211 && exit 1 )
             """
           fi

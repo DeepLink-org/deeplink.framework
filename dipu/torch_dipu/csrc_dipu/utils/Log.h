@@ -19,3 +19,5 @@
 #define DIPU_LOG_ERROR_ONCE                  \
   static const auto& __attribute__((unused)) \
   MAKE_UNIQUE_VARIABLE_NAME(__func__) = DIPU_LOG_ERROR
+
+#define DIPU_LOG_INFO std::cout
