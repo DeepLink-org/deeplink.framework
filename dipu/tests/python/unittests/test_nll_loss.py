@@ -44,6 +44,11 @@ class TestNllLoss(TestCase):
         for reduction in ["none", "mean", "sum"]:
             self._test_nll_loss(input, target, reduction=reduction)
 
+    def test_nll_loss_ignore_index(self):
+        input = torch.randn(3, 5)
+        target = torch.tensor([1, 0, -100])
+        self._test_nll_loss(input, target, ignore_index=-100)
+
 
 if __name__ == "__main__":
     run_tests()
