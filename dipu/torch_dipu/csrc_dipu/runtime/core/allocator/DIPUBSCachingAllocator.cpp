@@ -78,8 +78,8 @@ class BSCachingAllocator : public CacheAllocator {
                                 << size << ",allocator:" << this
                                 << ", memory-usage" << memory_allocated() << "/"
                                 << memory_reserved());
-    std::lock_guard<mutex_t> lk(mutex_);
     flush_mem_pool();
+    std::lock_guard<mutex_t> lk(mutex_);
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
@@ -138,6 +138,7 @@ class BSCachingAllocator : public CacheAllocator {
   }
 
   void empty_resource_pool() const {
+    std::lock_guard<mutex_t> lk(mutex_);
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::empty_resource_pool ,allocator:" << this);
     while (!async_mem_pool()->empty()) {
@@ -180,6 +181,7 @@ class BSCachingAllocator : public CacheAllocator {
   void release_all_memory() const override { release_all_memory_impl(); }
 
   void flush_mem_pool() const {
+    std::lock_guard<mutex_t> lk(mutex_);
     DIPU_DEBUG_ALLOCATOR(
         8, "BSCachingAllocator::flush_mem_pool allocator:" << this);
     while (async_mem_pool()->ready()) {
