@@ -54,7 +54,7 @@ set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
 set(GENERATED_KERNELS_SCRIPT "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_diopi_wrapper.py")
 set(GENERATED_KERNELS_CONFIG "${AUTOGEN_DIOPI_WRAPPER_DIR}/diopi_functions.yaml")
-set(DEVICE_GUARD_FREE_VENDOR "") # vensors that do not need to device guard need to be added to this list.
+set(DEVICE_GUARD_FREE_VENDOR "") # Vendors that do not require Device Guard should be included in this list.
 if (${UsedVendor} IN_LIST DEVICE_GUARD_FREE_VENDOR)
   set(GENERATE_DEVICE_GUARD False)
 else()
