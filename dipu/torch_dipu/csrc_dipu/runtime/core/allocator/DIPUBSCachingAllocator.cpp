@@ -78,8 +78,8 @@ class BSCachingAllocator : public CacheAllocator {
                                 << size << ",allocator:" << this
                                 << ", memory-usage" << memory_allocated() << "/"
                                 << memory_reserved());
-    flush_mem_pool();
     std::lock_guard<mutex_t> lk(mutex_);
+    flush_mem_pool();
     size_t nbytes = getAllocateSize(size);
     void* ptr = nullptr;
     auto& idel_blocks = impl->idel_blocks_[nbytes];
