@@ -1,14 +1,13 @@
-// Copyright (c) 2023, DeepLink.
+// Copyright (c) 2024, DeepLink.
 #pragma once
-
-#include <acl/acl.h>
-#include <acl/acl_op.h>
-#include <acl/acl_op_compiler.h>
-#include <acl/acl_prof.h>
 
 #include <DeviceActivityInterface.h>
 #include <GenericTraceActivity.h>
 #include <IActivityProfiler.h>
+#include <acl/acl.h>
+#include <acl/acl_op.h>
+#include <acl/acl_op_compiler.h>
+#include <acl/acl_prof.h>
 #include <array>
 #include <cstdint>
 #include <map>
@@ -60,6 +59,8 @@ class AscendDeviceActivity : public libkineto::DeviceActivityInterface {
 
  private:
   AscendDeviceActivity();
+  bool remove_temp_dump_path_(const std::string& path);
+  char* generate_temp_dump_path_();
   aclprofConfig* config_ = nullptr;
   bool enable_ = false;
   std::string current_dump_path_;
