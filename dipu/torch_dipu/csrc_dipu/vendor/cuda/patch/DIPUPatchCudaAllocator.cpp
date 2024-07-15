@@ -103,28 +103,38 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
 
 #else  // # DIPU_TORCH20100 or higher
   void beginAllocateStreamToPool(int device, cudaStream_t stream,
-                                 MempoolId_t mempool_id) override {}
-  void endAllocateStreamToPool(int device, cudaStream_t stream) override {}
+                                 MempoolId_t mempool_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  void endAllocateStreamToPool(int device, cudaStream_t stream) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
 
   void recordHistory(bool enabled, CreateContextFn context_recorder,
                      size_t alloc_trace_max_entries,
-                     RecordContext when) override {}
-  void releasePool(int device, MempoolId_t mempool_id) override {}
+                     RecordContext when) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+  void releasePool(int device, MempoolId_t mempool_id) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
 
-  void enablePeerAccess(int dev, int dev_to_access) override {}
+  void enablePeerAccess(int dev, int dev_to_access) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
 
   cudaError_t memcpyAsync(void* dst, int dstDevice, const void* src,
                           int srcDevice, size_t count, cudaStream_t stream,
                           bool p2p_enabled) override {
-    return cudaSuccess;
+    DIPU_PATCH_CUDA_ALLOCATOR();
   }
   std::shared_ptr<AllocatorState> getCheckpointState(int device,
                                                      MempoolId_t id) override {
-    return {};
+    DIPU_PATCH_CUDA_ALLOCATOR();
   }
   CheckpointDelta setCheckpointPoolState(
       int device, std::shared_ptr<AllocatorState> pps) override {
-    return {};
+    DIPU_PATCH_CUDA_ALLOCATOR();
   }
 #endif
 
