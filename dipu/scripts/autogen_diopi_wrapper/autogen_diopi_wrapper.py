@@ -8,12 +8,10 @@ from typing import Mapping, Match, Optional, Sequence
 from diopi_wrapper_template import (
     diopi_wrapper_file_template_content,
     diopi_wrapper_function_template_content,
-    diopi_wrapper_function_template_content_no_record,
     op_no_customfallback_with_autocompare_register_template_content,
     op_no_customfallback_no_autocompare_register_template_content,
     custom_autograd_template_content,
     autocompare_template_content,
-    autocompare_template_content_no_check,
     op_with_customfallback_with_autocompare_register_template_content,
     op_with_customfallback_no_autocompare_register_template_content,
 )
@@ -635,6 +633,9 @@ if ($arg_name.has_value()) {
 
 
 def create_device_check_code(fun_config):
+    remove_check_code = fun_config.get("remove_check_code", False) == True
+    if remove_check_code:
+        return ""
     code = ""
     tensors = get_function_inputs_from_schema(fun_config["schema"]) + fun_config.get(
         "ins", []
@@ -711,8 +712,6 @@ file_template = CodeTemplate(diopi_wrapper_file_template_content)
 
 fun_template = CodeTemplate(diopi_wrapper_function_template_content)
 
-fun_template_no_record = CodeTemplate(diopi_wrapper_function_template_content_no_record)
-
 op_no_customfallback_with_autocompare_register_template = CodeTemplate(
     op_no_customfallback_with_autocompare_register_template_content
 )
@@ -732,8 +731,6 @@ op_with_customfallback_no_autocompare_register_template = CodeTemplate(
 custom_autograd_template = CodeTemplate(custom_autograd_template_content)
 
 autocompare_template = CodeTemplate(autocompare_template_content)
-
-autocompare_template_no_check = CodeTemplate(autocompare_template_content_no_check)
 
 
 def functions_code_gen(fun_config):
@@ -876,33 +873,46 @@ def functions_code_gen(fun_config):
     custom_code_at_the_beginning = re.sub(";\s*$", ";\n", custom_code_at_the_beginning)
 
     interface_name = re.sub(R".*::(.*?)\(.*", R"\1", diopi_fun_call_code)
-    fun_template_var = {
-        "comment": [fun_config["schema"]],
-        "cppsignautre": [create_cpp_signature_from_schema(fun_config["schema"])],
-        "custom_code_at_the_beginning": [custom_code_at_the_beginning],
-        "device_guard_code": [create_device_guard_code(fun_config)],
-        "input_process_code": [input_process_code],
-        "attrs_process_code": [attrs_process_code],
-        "output_process_code": [output_process_code],
-        "custom_code_before_call_diopi": [
+
+    record_code_before_call_diopi = ""
+    record_code_after_call_diopi = ""
+    synchronizeIfEnable_code = ""
+
+    if not remove_check_code:
+        record_code_before_call_diopi += (
+            'dipu::profile::RecordBlockCreator dipuRecorder(R"({0})");\n'.format(
+                interface_name
+            )
+        )
+        record_code_after_call_diopi += "dipuRecorder.end();\n"
+        record_code_after_call_diopi += 'TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"({0})", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());\n'.format(
+            diopi_fun_call_code
+        )
+        synchronizeIfEnable_code += "synchronizeIfEnable();\n"
+
+    fbody = fun_template.substitute(
+        comment=[fun_config["schema"]],
+        cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
+        custom_code_at_the_beginning=[custom_code_at_the_beginning],
+        device_guard_code=[create_device_guard_code(fun_config)],
+        input_process_code=[input_process_code],
+        attrs_process_code=[attrs_process_code],
+        output_process_code=[output_process_code],
+        device_check_code=[create_device_check_code(fun_config)],
+        custom_code_before_call_diopi=[
             fun_config.get("custom_code_before_call_diopi", "").replace("; ", ";\n")
         ],
-        "diopi_fun_call_code": [diopi_fun_call_code],
-        "custom_code_before_return": [
+        record_code_before_call_diopi=[record_code_before_call_diopi],
+        diopi_fun_call_code=[diopi_fun_call_code],
+        record_code_after_call_diopi=[record_code_after_call_diopi],
+        custom_code_before_return=[
             fun_config.get("custom_code_before_return", "").replace("; ", ";\n")
         ],
-        "return_code": [return_code],
-        "interface_name": [interface_name],
-    }
-    if remove_check_code:
-        fbody = fun_template_no_record.substitute(
-            **fun_template_var,
-        )
-    else:
-        fbody = fun_template.substitute(
-            device_check_code=[create_device_check_code(fun_config)],
-            **fun_template_var,
-        )
+        synchronizeIfEnable_code=[synchronizeIfEnable_code],
+        return_code=[return_code],
+        interface_name=[interface_name],
+    )
+
     diopi_interface = fun_config.get(
         "interface", create_call_diop_interface_code_from_schema(fun_config["schema"])
     )
@@ -976,55 +986,35 @@ def functions_code_gen(fun_config):
         "register_op", True
     ) in [True, "True"]:
         auto_compare_fun_name = fun_name + "_autocompare"
-        autocompare_template_var = {
-            "cppsignautre": [
+        autocompare_code = autocompare_template.substitute(
+            cppsignautre=[
                 create_cpp_signature_from_schema(fun_config["schema"]).replace(
                     raw_fun_name, auto_compare_fun_name
                 )
             ],
-            "transform_input_to_cpu_code": [
+            transform_input_to_cpu_code=[
                 create_transform_input_to_cpu_code(fun_config)
             ],
-            "execute_op_on_cpu_code": [
+            execute_op_on_cpu_code=[
                 create_call_aten_cpu_cpp_function_code_from_config(fun_config)
             ],
-            "comment": [fun_config["schema"]],
-            "execute_op_on_device_code": [
+            comment=[fun_config["schema"]],
+            execute_op_on_device_code=[
                 create_call_dipu_cpp_function_code_from_schema(
                     fun_config["schema"]
                 ).replace(raw_fun_name, fun_name)
             ],
-            "transform_result_to_cpu_code": [],
-        }
-        if remove_check_code:
-            autocompare_code = autocompare_template_no_check.substitute(
-                **autocompare_template_var,
-                result_compare_code=[
-                    (
-                        "\nreturn result_device;\n"
-                        if len(
-                            get_function_return_param_from_schema(fun_config["schema"])
-                        )
-                        > 0
-                        else ""
-                    )
-                ],
-            )
-        else:
-            autocompare_code = autocompare_template.substitute(
-                **autocompare_template_var,
-                result_compare_code=[
-                    create_result_compare_code(fun_config)
-                    + (
-                        "\nreturn result_device;\n"
-                        if len(
-                            get_function_return_param_from_schema(fun_config["schema"])
-                        )
-                        > 0
-                        else ""
-                    )
-                ],
-            )
+            transform_result_to_cpu_code=[],
+            result_compare_code=[
+                create_result_compare_code(fun_config)
+                + (
+                    "\nreturn result_device;\n"
+                    if len(get_function_return_param_from_schema(fun_config["schema"]))
+                    > 0
+                    else ""
+                )
+            ],
+        )
         fbody += autocompare_code
 
     # generate the OP_register code

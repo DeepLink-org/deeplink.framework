@@ -118,41 +118,15 @@ $cppsignautre {
 
   $custom_code_before_call_diopi
 
-  dipu::profile::RecordBlockCreator dipuRecorder(R"($interface_name)");
-  ::diopiError_t ret = $diopi_fun_call_code
-  dipuRecorder.end();
-  TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
-
-  $custom_code_before_return
-
-  synchronizeIfEnable();
-
-  $return_code
-}
-"""
-
-diopi_wrapper_function_template_content_no_record = """
-//  $comment
-$cppsignautre {
-  $device_guard_code
-  $custom_code_at_the_beginning
-
-  ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
-  auto ctx = &context;
-
-  $input_process_code
-
-  $output_process_code
-
-  $attrs_process_code
-
-  $custom_code_before_call_diopi
+  $record_code_before_call_diopi
 
   ::diopiError_t ret = $diopi_fun_call_code
 
+  $record_code_after_call_diopi
+
   $custom_code_before_return
 
-  synchronizeIfEnable();
+  $synchronizeIfEnable_code
 
   $return_code
 }
@@ -205,22 +179,6 @@ $cppsignautre {
 
 
 autocompare_template_content = """
-//  $comment
-$cppsignautre {
-  std::cout << std::endl << __FUNCTION__ << std::endl;
-  $transform_input_to_cpu_code
-
-  $execute_op_on_cpu_code
-
-  $execute_op_on_device_code
-
-  $transform_result_to_cpu_code
-
-  $result_compare_code
-}
-"""
-
-autocompare_template_content_no_check = """
 //  $comment
 $cppsignautre {
   std::cout << std::endl << __FUNCTION__ << std::endl;
