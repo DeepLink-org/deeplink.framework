@@ -90,19 +90,6 @@ bool AscendDeviceActivity::remove_temp_dump_path_(const std::string& path) {
   return rmdir(path.c_str()) == 0;
 }
 
-char* AscendDeviceActivity::generate_temp_dump_path_() {
-  struct stat st;
-  if (stat("./tmp", &st) == -1) {
-    mkdir("./tmp", 0777);
-  }
-  if (stat("./tmp/aclprof", &st) == -1) {
-    mkdir("./tmp/aclprof", 0777);
-  }
-
-  char dump_path_template[] = "./tmp/aclprof/aclprofXXXXXX";
-  return mkdtemp(dump_path_template);
-}
-
 int32_t AscendDeviceActivity::processActivities(
     libkineto::ActivityLogger& logger,
     std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
@@ -152,9 +139,18 @@ void AscendDeviceActivity::startTrace(
 
   last_dump_path_ = current_dump_path_;
 
-  char* dump_path_cstring = generate_temp_dump_path_();
+  struct stat st;
+  if (stat("./tmp", &st) == -1) {
+    mkdir("./tmp", 0777);
+  }
+  if (stat("./tmp/aclprof", &st) == -1) {
+    mkdir("./tmp/aclprof", 0777);
+  }
 
-  if (dump_path_cstring != nullptr && strlen(dump_path_cstring) != 0) {
+  char dump_path_template[] = "./tmp/aclprof/aclprofXXXXXX";
+  char* dump_path_cstring = mkdtemp(dump_path_template);
+
+  if (dump_path_cstring != nullptr) {
     current_dump_path_ = dump_path_cstring;
   } else {
     DIPU_LOGE(
