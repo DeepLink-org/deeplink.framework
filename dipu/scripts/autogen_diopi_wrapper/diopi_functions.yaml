@@ -159,11 +159,11 @@
   interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  device: [cuda]
+  device: [cuda, muxi]
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)"
-  device: [-cuda, all]
+  device: [-cuda, -muxi, all]
   custom_code_at_the_beginning: |
     if (is_scalar_on_cpu(other)) {
         return dipu_mul__scalar(self, other.item());
@@ -171,11 +171,11 @@
   interface: diopiMulInp(ctx, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  device: [cuda]
+  device: [cuda, muxi]
   interface: diopiMul(ctx, out, self, other)
 
 - schema: "mul.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)"
-  device: [-cuda, all]
+  device: [-cuda, -muxi, all]
   custom_code_at_the_beginning: |
     // if (is_scalar_on_cpu(other)) {
     // Pytorch 2.0 has a bug, causing for_each mul passing a cpu scalar tensor. Fixed in PyTorch 2.1
