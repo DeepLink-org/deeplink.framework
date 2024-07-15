@@ -64,6 +64,9 @@ class _AscendProfilerMerger:
         self._acl_time_diff = 0
         self._torch_time_diff = 0
 
+        # to store beforehand sorted cann_x_event for the binary search to align start flow event to cann event
+        self._msprof_cann_x_event = []
+
         # the minimum timestamp_offset that ensure every flow event could be displayed normally
         self._ts_min_offset = 0.0
 
@@ -169,15 +172,44 @@ class _AscendProfilerMerger:
             elif filter_event_condition(event) == True:
                 continue
             self._msprof_profile_data.append(event)
+            if event["ph"] == "X" and event["pid"] == self._process_id["CANN"]:
+                self._msprof_cann_x_event.append(
+                    (float(event["ts"]), float(event["ts"]) + float(event["dur"]))
+                )
 
     # make sure that every flow event's begin time is smaller than end time
     def _calculate_ts_min_offset(self) -> None:
         flow_start_dict = {}
         flow_end_dict = {}
+
+        # align HostToDevice's timestamp to its cann_x_event's begin timestamp
+        # msprof_cann_x_event is sorted by timestamp beforehand,
+        # and what we need to do is binary search for the event whose time interval contain this timestamp
+        # and move start flow event HostToDevice's timestamp to the cann event's begin timestamp
+        def find_wrap_x_event(ts: float) -> float:
+            if len(self._msprof_cann_x_event) == 0:
+                return ts
+            l = 0
+            r = len(self._msprof_cann_x_event) - 1
+            while l < r:
+                mid = int((l + r + 1) / 2)
+                if self._msprof_cann_x_event[mid][0] < ts:
+                    l = mid
+                else:
+                    r = mid - 1
+            if (
+                self._msprof_cann_x_event[l][0] < ts
+                and self._msprof_cann_x_event[l][1] > ts
+            ):
+                return self._msprof_cann_x_event[l][0]
+            else:
+                return ts
+
         for event in self._msprof_profile_data:
             if not event["name"].startswith("HostToDevice"):
                 continue
             if event["pid"] == self._process_id["CANN"]:
+                event["ts"] = find_wrap_x_event(float(event["ts"]))
                 flow_start_dict[event["id"]] = event["ts"]
             elif event["pid"] == self._process_id["Ascend Hardware"]:
                 flow_end_dict[event["id"]] = event["ts"]
@@ -187,7 +219,8 @@ class _AscendProfilerMerger:
 
                 # hardware offset needed for current event
                 # for example if end time is 2 and start time is 4
-                # we need to offset event in hardware (start time - end time) + 1
+                # we need to offset event in hardware (start time - end time) + 1 = 4 - 2 + 1 = 3
+                # after offset, the end time is going to be 2 + 3 = 5 which is greater than 4
                 # and for all results, we need to get the maximal value among them
                 current_ts_offset_need = float(flow_start_dict[key]) - float(
                     flow_end_dict[key]

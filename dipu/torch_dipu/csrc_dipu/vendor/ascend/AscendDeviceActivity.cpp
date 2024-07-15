@@ -54,13 +54,14 @@ void AscendDeviceActivity::disableActivities(
 void AscendDeviceActivity::clearActivities() {}
 
 bool AscendDeviceActivity::remove_temp_dump_path_(const std::string& path) {
-  DIR* dir = opendir(path.c_str());
+  std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(path.c_str()),
+                                                &closedir);
   if (!dir) {
     return false;
   }
 
   dirent* entry;
-  while ((entry = readdir(dir)) != nullptr) {
+  while ((entry = readdir(dir.get())) != nullptr) {
     std::string entry_name = entry->d_name;
     if (entry_name == "." || entry_name == "..") {
       continue;
@@ -69,24 +70,19 @@ bool AscendDeviceActivity::remove_temp_dump_path_(const std::string& path) {
     std::string entry_path = path + "/" + entry_name;
     struct stat entry_stat;
     if (stat(entry_path.c_str(), &entry_stat) == -1) {
-      closedir(dir);
       return false;
     }
 
     if (S_ISDIR(entry_stat.st_mode)) {
       if (!remove_temp_dump_path_(entry_path)) {
-        closedir(dir);
         return false;
       }
     } else {
       if (remove(entry_path.c_str()) != 0) {
-        closedir(dir);
         return false;
       }
     }
   }
-
-  closedir(dir);
   return rmdir(path.c_str()) == 0;
 }
 
@@ -94,18 +90,35 @@ int32_t AscendDeviceActivity::processActivities(
     libkineto::ActivityLogger& logger,
     std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
     int64_t start_time, int64_t end_time) {
+  struct timespec tx;
+  struct timespec ts;
+  struct timespec ty;
+
   DIPU_CALLACLRT(aclrtSynchronizeDevice());
   DIPU_CALLACLRT(aclprofStop(config_));
   DIPU_CALLACLRT(aclprofFinalize());
 
-  auto real_time = torch::profiler::impl::getTime();
-  struct timespec ts;
+  // the difference between torch realtime and monotonic_raw,
+  // as well as the difference between aclprof realtime and monotonic_raw,
+  // are statistically calculated to align the timestamps of aclprof and torch
+  // for example: torch's time difference is 10, and aclprof's time difference
+  // is 3, we assume that monotonic_raw time is the correct baseline, then the
+  // time diff between torch and aclprof is 10 - 3 = 7 aclprof's time difference
+  // is in generated file by msprof tool: PROF_XXXX/host/end_info
+
+  clock_gettime(CLOCK_REALTIME, &tx);
   clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-  auto monotonic_raw = ts.tv_sec * 1000000000 + ts.tv_nsec;
+  clock_gettime(CLOCK_REALTIME, &ty);
+
+  const int s_to_ns_factor = 1000000000;
+  auto time_x = tx.tv_sec * s_to_ns_factor + tx.tv_nsec;
+  auto monotonic_raw = ts.tv_sec * s_to_ns_factor + ts.tv_nsec;
+  auto time_y = ty.tv_sec * s_to_ns_factor + ty.tv_nsec;
+
+  int64_t diff = (time_x >> 1) + (time_y >> 1) - monotonic_raw;
 
   GenericTraceActivity time_diff;
-  time_diff.activityName =
-      "torch_time_diff:" + std::to_string(real_time - monotonic_raw);
+  time_diff.activityName = "torch_time_diff:" + std::to_string(diff);
   time_diff.activityType = libkineto::ActivityType::USER_ANNOTATION;
   time_diff.startTime = start_time;
   time_diff.endTime = end_time;
@@ -141,10 +154,10 @@ void AscendDeviceActivity::startTrace(
 
   struct stat st;
   if (stat("./tmp", &st) == -1) {
-    mkdir("./tmp", 0777);
+    mkdir("./tmp", 0644);
   }
   if (stat("./tmp/aclprof", &st) == -1) {
-    mkdir("./tmp/aclprof", 0777);
+    mkdir("./tmp/aclprof", 0644);
   }
 
   char dump_path_template[] = "./tmp/aclprof/aclprofXXXXXX";
