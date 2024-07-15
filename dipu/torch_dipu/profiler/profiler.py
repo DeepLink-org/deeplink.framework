@@ -508,15 +508,26 @@ def apply_profiler_patch():
     if _C.dipu_vendor == "NPU":
         _apply_ascend_profiler_patch()
 
+
 def _apply_ascend_profiler_patch():
-    from torch_dipu.profiler.ascend.ascend_profiler_merger import merge_kineto_and_msprof_profile_data
-    torch.autograd.profiler.profile.export_chrome_trace_backup = torch.autograd.profiler.profile.export_chrome_trace
+    from torch_dipu.profiler.ascend.ascend_profiler_merger import (
+        merge_kineto_and_msprof_profile_data,
+    )
+
+    torch.autograd.profiler.profile.export_chrome_trace_backup = (
+        torch.autograd.profiler.profile.export_chrome_trace
+    )
 
     def export_chrome_trace_with_merger(self, path: str):
         self.export_chrome_trace_backup(path)
         merge_kineto_and_msprof_profile_data(path)
 
-    setattr(torch.autograd.profiler.profile, "export_chrome_trace", export_chrome_trace_with_merger)
+    setattr(
+        torch.autograd.profiler.profile,
+        "export_chrome_trace",
+        export_chrome_trace_with_merger,
+    )
+
 
 class NativeProfile(object):
     def __init__(

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <dirent.h>
 #include <output_base.h>
 #include <sys/stat.h>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include <c10/util/Exception.h>
+#include <torch/csrc/profiler/util.h>
 
 #include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/utils/Log.h"
@@ -105,13 +107,29 @@ int32_t AscendDeviceActivity::processActivities(
     libkineto::ActivityLogger& logger,
     std::function<const libkineto::ITraceActivity*(int32_t)> linked_activity,
     int64_t start_time, int64_t end_time) {
-  // use USER_ANNOTAION activity to pass dump path to python
+  DIPU_CALLACLRT(aclrtSynchronizeDevice());
+  DIPU_CALLACLRT(aclprofStop(config_));
+  DIPU_CALLACLRT(aclprofFinalize());
+
+  auto real_time = torch::profiler::impl::getTime();
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+  auto monotonic_raw = ts.tv_sec * 1000000000 + ts.tv_nsec;
+
+  GenericTraceActivity time_diff;
+  time_diff.activityName =
+      "torch_time_diff:" + std::to_string(real_time - monotonic_raw);
+  time_diff.activityType = libkineto::ActivityType::USER_ANNOTATION;
+  time_diff.startTime = start_time;
+  time_diff.endTime = end_time;
+
   GenericTraceActivity tmp_path;
   tmp_path.activityName = "random_temp_dir:" + current_dump_path_;
   tmp_path.activityType = libkineto::ActivityType::USER_ANNOTATION;
   tmp_path.startTime = start_time;
   tmp_path.endTime = end_time;
   logger.handleGenericActivity(tmp_path);
+  logger.handleGenericActivity(time_diff);
 
   std::string temp_path_prefix = "./tmp/aclprof";
   if (last_dump_path_.compare(0, temp_path_prefix.size(), temp_path_prefix) ==
@@ -136,7 +154,7 @@ void AscendDeviceActivity::startTrace(
 
   char* dump_path_cstring = generate_temp_dump_path_();
 
-  if (dump_path_cstring != nullptr) {
+  if (dump_path_cstring != nullptr && strlen(dump_path_cstring) != 0) {
     current_dump_path_ = dump_path_cstring;
   } else {
     DIPU_LOGE(
@@ -170,10 +188,6 @@ void AscendDeviceActivity::stopTrace(
     DIPU_LOGW("ascend profiler has already disabled");
     return;
   }
-
-  DIPU_CALLACLRT(aclrtSynchronizeDevice());
-  DIPU_CALLACLRT(aclprofStop(config_));
-  DIPU_CALLACLRT(aclprofFinalize());
 
   enable_ = false;
 }
