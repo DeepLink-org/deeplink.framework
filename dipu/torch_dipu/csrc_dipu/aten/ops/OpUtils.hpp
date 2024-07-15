@@ -254,7 +254,8 @@ inline bool is_scalar_on_cpu(const at::Tensor& t) {
   return t.defined() && t.is_cpu() && t.numel() == 1;
 }
 
-inline bool check_scalar_on_cpu(const c10::optional<at::Tensor>& t) {
+//This function is used to check if tensor is a scalar tensor by any means.
+inline bool is_scalar_tensor(const c10::optional<at::Tensor>& t) {
   return t.has_value() && ((*t).unsafeGetTensorImpl()->is_wrapped_number() || ((*t).is_cpu() && (*t).numel() == 1 ));
 }
 
