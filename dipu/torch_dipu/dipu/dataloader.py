@@ -47,7 +47,7 @@ class DIPUDataLoader(DataLoader):
         *,
         prefetch_factor: Optional[int] = None,
         persistent_workers: bool = False,
-        pin_memory_device: str = ""
+        pin_memory_device: str = "",
     ):
         if dipu.vendor_type in self.UNSUPPORTED_PINMEMORY_VENDORS:
             print(
