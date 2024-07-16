@@ -94,6 +94,52 @@ class TestProfiler(TestCase):
         self.assertTrue(check_string_in_directory(export_path, "aten::mul"))
         self.assertTrue(check_string_in_directory(export_path, "[memory]"))
         self.assertTrue(check_string_in_directory(export_path, "[Input Dims]"))
+        self.assertTrue(check_string_in_directory(export_path, "CANN"))
+        self.assertTrue(check_string_in_directory(export_path, "Ascend Hardware"))
+
+        self.assertFalse(check_string_in_directory(export_path, "Node@launch"))
+
+    @onlyOn("NPU")
+    def test_profiler_ascend_schedule(self):
+        def fn(x):
+            y = torch.nn.functional.softmax(x, -1)
+            y = y * 5
+            y = torch.relu(y)
+            return y
+
+        def export_step_chrome_trace(prof):
+            export_path = f"./tmp/test_profiler_ascend_schedule_{prof.step_num}.json"
+            prof.export_chrome_trace(export_path)
+
+            self.assertTrue(
+                check_string_in_directory(export_path, "test_profiler_vendor.py")
+            )
+            self.assertTrue(
+                check_string_in_directory(export_path, "AscendCL@aclnnSoftmax")
+            )
+            self.assertTrue(check_string_in_directory(export_path, "aten::mul"))
+            self.assertTrue(check_string_in_directory(export_path, "[memory]"))
+            self.assertTrue(check_string_in_directory(export_path, "[Input Dims]"))
+            self.assertTrue(check_string_in_directory(export_path, "ProfilerStep"))
+            self.assertTrue(check_string_in_directory(export_path, "CANN"))
+            self.assertTrue(check_string_in_directory(export_path, "Ascend Hardware"))
+
+            self.assertFalse(check_string_in_directory(export_path, "Node@launch"))
+
+        input = torch.randn(2, 3).cuda()
+        with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            profile_memory=True,
+            record_shapes=True,
+            with_modules=True,
+            with_stack=True,
+            schedule=torch.profiler.schedule(wait=2, warmup=2, active=2, repeat=2),
+            on_trace_ready=export_step_chrome_trace,
+        ) as prof:
+            for _ in range(12):
+                y = fn(input)
+                y = y + y
+                prof.step()
 
     @onlyOn("CUDA")
     def test_profiler_cuda(self):

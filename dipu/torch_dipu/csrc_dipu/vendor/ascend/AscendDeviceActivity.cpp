@@ -107,10 +107,10 @@ int32_t AscendDeviceActivity::processActivities(
   // after test, this is more precise and less stable than calculate at startTrace() and compare with start_info
   // clang-format on
 
-  const int s_to_ns_factor = 1000000000;
-  auto time_x = tx.tv_sec * s_to_ns_factor + tx.tv_nsec;
-  auto monotonic_raw = ts.tv_sec * s_to_ns_factor + ts.tv_nsec;
-  auto time_y = ty.tv_sec * s_to_ns_factor + ty.tv_nsec;
+  const int S_TO_NS_FACTOR = 1000000000;
+  auto time_x = tx.tv_sec * S_TO_NS_FACTOR + tx.tv_nsec;
+  auto monotonic_raw = ts.tv_sec * S_TO_NS_FACTOR + ts.tv_nsec;
+  auto time_y = ty.tv_sec * S_TO_NS_FACTOR + ty.tv_nsec;
 
   int64_t diff = (time_x >> 1) + (time_y >> 1) - monotonic_raw;
 
@@ -132,7 +132,9 @@ int32_t AscendDeviceActivity::processActivities(
   if (last_dump_path_.compare(0, temp_path_prefix.size(), temp_path_prefix) ==
       0) {
     if (remove_temp_dump_path_(last_dump_path_) == false) {
-      DIPU_LOGW("remove temp file failed, may need to remove manually");
+      DIPU_LOGW(
+          "remove ascend profiler temp file failed, may need to remove "
+          "manually");
     }
   }
 

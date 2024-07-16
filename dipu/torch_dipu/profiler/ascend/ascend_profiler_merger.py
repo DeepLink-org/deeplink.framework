@@ -26,14 +26,17 @@ class _PathManager:
         return ""
 
     @staticmethod
-    def get_msprof_profile_json_path(npu_profile_path: str) -> Union[str, None]:
+    def get_msprof_profile_json_path(npu_profile_path: str) -> list:
         msprof_profile_path = os.path.join(
             npu_profile_path, "mindstudio_profiler_output"
         )
+        msprof_profile_json_path_list = []
         for data_file in os.listdir(msprof_profile_path):
             if data_file.startswith("msprof_"):
-                return os.path.join(msprof_profile_path, data_file)
-        return None
+                msprof_profile_json_path_list.append(
+                    os.path.join(msprof_profile_path, data_file)
+                )
+        return msprof_profile_json_path_list
 
     @classmethod
     def remove_temp_msprof_directory(cls, path: str) -> None:
@@ -42,6 +45,17 @@ class _PathManager:
         cls._remove_directory(path)
 
 
+# the main process of this class is as follows:
+# 1.load and preprocess kineto events:
+# get each process's name and id
+# get python3 process sort index,
+# get temp file path and torch time diff
+# 2.load and merge(if msprof json is splited) msprof profile data:
+# filter unnecessary cann events
+# get acl time diff
+# 3.adjust flow event HostToDevice's timestamp
+# 4.merge msprof data to kineto data
+# 5.export json file
 class _AscendProfilerMerger:
     def __init__(self, kineto_profile_json_path: str):
         self._kineto_profile_data = self._load_chrome_trace_json(
@@ -66,9 +80,6 @@ class _AscendProfilerMerger:
 
         # to store beforehand sorted cann_x_event for the binary search to align start flow event to cann event
         self._msprof_cann_x_event = []
-
-        # the minimum timestamp_offset that ensure every flow event could be displayed normally
-        self._ts_min_offset = 0.0
 
         self._hardware_process_list = [
             "Ascend Hardware",
@@ -128,12 +139,18 @@ class _AscendProfilerMerger:
 
         # the existence of the msprof command is ensured before class initialization
         subprocess.run(command, capture_output=True, text=True)
-        msprof_profile_json_path = _PathManager.get_msprof_profile_json_path(
+        msprof_profile_json_path_list = _PathManager.get_msprof_profile_json_path(
             npu_profile_path
         )
-        self._filter_msprof_profile_event(
-            self._load_chrome_trace_json(msprof_profile_json_path)
-        )
+        for msprof_profile_json_path in msprof_profile_json_path_list:
+            if self._msprof_profile_data == []:
+                self._filter_msprof_profile_event(
+                    self._load_chrome_trace_json(msprof_profile_json_path)
+                )
+            else:
+                self._merge_msprof_profile_data(
+                    self._load_chrome_trace_json(msprof_profile_json_path)
+                )
 
         # get acl_time_diff
         msprof_end_info_path = os.path.join(npu_profile_path, "host/end_info")
@@ -143,12 +160,14 @@ class _AscendProfilerMerger:
             end_info["clockMonotonicRaw"]
         )
 
-        _PathManager.remove_temp_msprof_directory(npu_temp_path)
+        # _PathManager.remove_temp_msprof_directory(npu_temp_path)
 
     # imitate torch_npu to filter out certain CANN layers' events that are not needed to be displayed
     # to improve efficiency, also count the relationship between process_id and process_name while filtering
     def _filter_msprof_profile_event(self, input_msprof_data: list) -> None:
         def filter_event_condition(event: dict) -> bool:
+            if event["ph"] == "M":
+                return False
             if event["pid"] != self._process_id["CANN"]:
                 return False
             if event["name"].startswith("HostToDevice"):
@@ -165,28 +184,36 @@ class _AscendProfilerMerger:
         # the following code will no longer be applicable,
         # and needs to be split into two iteration
         for event in input_msprof_data:
-            if event["name"] == "process_name":
-                for process_name in self._process_id.keys():
-                    if event["args"]["name"] == process_name:
-                        self._process_id[process_name] = event["pid"]
-            elif filter_event_condition(event) == True:
+            if filter_event_condition(event):
                 continue
+            if event["name"] == "process_name":
+                self._process_id[event["args"]["name"]] = event["pid"]
             self._msprof_profile_data.append(event)
             if event["ph"] == "X" and event["pid"] == self._process_id["CANN"]:
                 self._msprof_cann_x_event.append(
                     (float(event["ts"]), float(event["ts"]) + float(event["dur"]))
                 )
 
-    # make sure that every flow event's begin time is smaller than end time
-    def _calculate_ts_min_offset(self) -> None:
-        flow_start_dict = {}
-        flow_end_dict = {}
+    def _merge_msprof_profile_data(self, input_msprof_data: list) -> None:
+        for event in input_msprof_data:
+            if (
+                event["ph"] != "X"
+                and event["ph"] != "f"
+                and event["ph"] != "s"
+                and event["ph"] != "C"
+            ):
+                continue
+            self._msprof_profile_data.append(event)
 
+    # this function has two main things to do:
+    # 1.binary search each HostToDevice flow start event to align it
+    # 2.calculate and apply hardware event offset to make sure arrow will be displayed normally
+    def _adjust_HostToDevice_event_offset(self) -> None:
         # align HostToDevice's timestamp to its cann_x_event's begin timestamp
         # msprof_cann_x_event is sorted by timestamp beforehand,
         # and what we need to do is binary search for the event whose time interval contain this timestamp
         # and move start flow event HostToDevice's timestamp to the cann event's begin timestamp
-        def find_wrap_x_event(ts: float) -> float:
+        def find_wrap_acl_event(ts: float) -> float:
             if len(self._msprof_cann_x_event) == 0:
                 return ts
             l = 0
@@ -205,15 +232,20 @@ class _AscendProfilerMerger:
             else:
                 return ts
 
+        flow_start_dict = {}
+        flow_end_dict = {}
+
         for event in self._msprof_profile_data:
             if not event["name"].startswith("HostToDevice"):
                 continue
             if event["pid"] == self._process_id["CANN"]:
-                event["ts"] = find_wrap_x_event(float(event["ts"]))
+                event["ts"] = find_wrap_acl_event(float(event["ts"]))
                 flow_start_dict[event["id"]] = event["ts"]
             elif event["pid"] == self._process_id["Ascend Hardware"]:
                 flow_end_dict[event["id"]] = event["ts"]
 
+        # the minimum hardware offset to make sure HostToDevice start event's timestamp is smaller than HostToDevice end event's
+        ts_min_offset_need = 0
         for key in flow_start_dict.keys():
             if key in flow_end_dict.keys():
 
@@ -225,25 +257,18 @@ class _AscendProfilerMerger:
                 current_ts_offset_need = float(flow_start_dict[key]) - float(
                     flow_end_dict[key]
                 )
-                self._ts_min_offset = max(
-                    self._ts_min_offset, current_ts_offset_need + 1
-                )
-
-    def _add_ts_offset_to_hardware(self) -> None:
+                ts_min_offset_need = max(ts_min_offset_need, current_ts_offset_need + 1)
+        if ts_min_offset_need == 0:
+            return
         for event in self._msprof_profile_data:
             if "ts" not in event.keys():
                 continue
             for hardware_process_name in self._hardware_process_list:
                 if event["pid"] == self._process_id[hardware_process_name]:
-                    event["ts"] = str(float(event["ts"]) + self._ts_min_offset)
+                    event["ts"] = str(float(event["ts"]) + ts_min_offset_need)
                     break
 
     def _merge_msprof_to_kineto(self) -> None:
-        for event in self._kineto_profile_data["traceEvents"]:
-            if event["name"] == "process_name":
-                self._process_id["python3"] = event["pid"]
-                break
-
         # to make sure cann timestamp align to kineto timestamp
         local_time_diff = (self._torch_time_diff - self._acl_time_diff) / 1000
 
@@ -257,12 +282,16 @@ class _AscendProfilerMerger:
             self._kineto_profile_data["traceEvents"].append(event)
 
     def _export_to_json(self) -> None:
+        # if generated json is too large, we will compress its output format
+        MAX_EVENTS_TO_COMPRESS = 100000
         with open(self._export_path, "w") as json_file:
-            json.dump(self._kineto_profile_data, json_file, indent=4)
+            if len(self._kineto_profile_data["traceEvents"]) > MAX_EVENTS_TO_COMPRESS:
+                json.dump(self._kineto_profile_data, json_file, separators=(",", ":"))
+            else:
+                json.dump(self._kineto_profile_data, json_file, indent=1)
 
     def start_merge(self) -> None:
-        self._calculate_ts_min_offset()
-        self._add_ts_offset_to_hardware()
+        self._adjust_HostToDevice_event_offset()
         self._merge_msprof_to_kineto()
         self._export_to_json()
 
