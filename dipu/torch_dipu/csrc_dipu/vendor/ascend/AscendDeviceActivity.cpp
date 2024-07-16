@@ -1,21 +1,11 @@
 // Copyright (c) 2024, DeepLink.
 #include "AscendDeviceActivity.h"
 
-#include <chrono>
-#include <cstdio>
-#include <cstdlib>
 #include <ctime>
 #include <dirent.h>
 #include <output_base.h>
 #include <sys/stat.h>
-#include <time_since_epoch.h>
 #include <unistd.h>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
-#include <c10/util/Exception.h>
-#include <torch/csrc/profiler/util.h>
 
 #include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/utils/Log.h"
@@ -94,21 +84,28 @@ int32_t AscendDeviceActivity::processActivities(
   struct timespec ts;
   struct timespec ty;
 
-  DIPU_CALLACLRT(aclrtSynchronizeDevice());
-  DIPU_CALLACLRT(aclprofStop(config_));
   DIPU_CALLACLRT(aclprofFinalize());
 
+  // clang-format off
   // the difference between torch realtime and monotonic_raw,
   // as well as the difference between aclprof realtime and monotonic_raw,
   // are statistically calculated to align the timestamps of aclprof and torch
   // for example: torch's time difference is 10, and aclprof's time difference
-  // is 3, we assume that monotonic_raw time is the correct baseline, then the
-  // time diff between torch and aclprof is 10 - 3 = 7 aclprof's time difference
-  // is in generated file by msprof tool: PROF_XXXX/host/end_info
+  // is 3, we assume that monotonic_raw time is the correct baseline, then,
+  // the time diff between torch and aclprof is 10 - 3 = 7 
+  // aclprof's time difference is in generated file by msprof tool: PROF_XXXX/host/end_info
+  // clang-format on
 
   clock_gettime(CLOCK_REALTIME, &tx);
   clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
   clock_gettime(CLOCK_REALTIME, &ty);
+
+  // clang-format off
+  // time interval between these two calculation(aclprof and torch) is the smaller the better
+  // and aclprof will generate its time difference in start_info and end_info
+  // the reason why I use aclprof end_info and put the calculation right after aclprofFinalize is that,
+  // after test, this is more precise and less stable than calculate at startTrace() and compare with start_info
+  // clang-format on
 
   const int s_to_ns_factor = 1000000000;
   auto time_x = tx.tv_sec * s_to_ns_factor + tx.tv_nsec;
@@ -198,6 +195,11 @@ void AscendDeviceActivity::stopTrace(
     return;
   }
 
+  DIPU_CALLACLRT(aclrtSynchronizeDevice());
+  DIPU_CALLACLRT(aclprofStop(config_));
+  DIPU_CALLACLRT(aclprofDestroyConfig(config_))
+
+  config_ = nullptr;
   enable_ = false;
 }
 

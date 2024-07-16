@@ -5,20 +5,9 @@
 #include <GenericTraceActivity.h>
 #include <IActivityProfiler.h>
 #include <acl/acl.h>
-#include <acl/acl_op.h>
-#include <acl/acl_op_compiler.h>
 #include <acl/acl_prof.h>
 #include <array>
-#include <cstdint>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <unordered_map>
-#include <utility>
 #include <vector>
-
-#include <csrc_dipu/runtime/device/profilerapis.h>
-#include <csrc_dipu/vendor/vendorapi.h>
 
 #include "basecommimpl.hpp"
 
