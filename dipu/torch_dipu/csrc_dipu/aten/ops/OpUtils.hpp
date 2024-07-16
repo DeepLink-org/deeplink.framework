@@ -254,5 +254,16 @@ inline bool is_scalar_on_cpu(const at::Tensor& t) {
   return t.defined() && t.is_cpu() && t.numel() == 1;
 }
 
+// This function is used to check if tensor is a scalar tensor by any means.
+inline bool is_scalar_tensor(const c10::optional<at::Tensor>& t) {
+  return t.has_value() && ((*t).unsafeGetTensorImpl()->is_wrapped_number() ||
+                           ((*t).is_cpu() && (*t).numel() == 1));
+}
+
+inline bool ignore_device_check(const c10::optional<at::Tensor>& t) {
+  return (kDipuVendorDeviceType == devapis::VendorDeviceType::CUDA ||
+          kDipuVendorDeviceType == devapis::VendorDeviceType::MUXI) &&
+         is_scalar_tensor(t);
+}
 }  // namespace native
 }  // namespace dipu

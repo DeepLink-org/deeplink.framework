@@ -40,7 +40,7 @@ class OpInferrerMeta {
   size_t ntensors() const { return inputs_.size(); }
 
   // Allocates the output based on the inferred attributes, use strides_ if set
-  at::Tensor malloc_output();
+  inline at::Tensor malloc_output();
 
   c10::SmallVector<c10::MaybeOwned<at::Tensor>, 4> inputs_;
   c10::DimVector shape_;
