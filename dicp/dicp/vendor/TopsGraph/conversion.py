@@ -107,7 +107,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
                                                          proxy.node.meta["val"].stride())
             dtype, device = proxy.node.meta["val"].dtype, proxy.node.meta["val"].device
             with proxy.node.meta["val"].fake_mode:
-                    fake_value = torch.empty(contiguous_shape, dtype=dtype, device=device)
+                fake_value = torch.empty(contiguous_shape, dtype=dtype, device=device)
             proxy.node.meta["val"] = fake_value
 
     def placeholder(self, target: "Target", args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
@@ -687,6 +687,7 @@ class AtenToTopsTransformer(SingleOpTransformer):
     def UpsampleNearest2d(self, x, output_size, scales_h=None, scales_w=None):
         return self.get_proxy(tops_op.UpsampleNearest2d, (x, output_size, scales_h, scales_w))
 
+
 # Patterns
 tops_patterns = PatternMatcherPass()
 tops_patterns_cls_list = []
@@ -740,7 +741,7 @@ if is_torch_210:
             softmax = Softmax(reshape, 3)
             expand = Expand(softmax, shape_1, dims)
             return Reshape(expand, shape_2)
-        
+
         @staticmethod
         def replacement(x):
             return Softmax(x, 2)
