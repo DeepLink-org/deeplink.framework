@@ -303,7 +303,7 @@ class GEStaticGraphExecutor(object):
         output_ptrs_c = (c_void_p * len(output_tensors))(*output_ptrs)
         context, ret = acl.rt.get_context()
         current_stream, ret = acl.rt.create_stream()
-        graph_manager.graph_manager.run((c_void_p)(context), self.graph_id, current_stream, input_ptrs_c,
+        graph_manager.graph_manager.run((c_void_p)(context), self.graph_id, (c_void_p)(current_stream), input_ptrs_c,
                                         output_ptrs_c, self.input_datasize_c, self.output_datasize_c)
         ret = acl.rt.synchronize_stream(current_stream)
         ret = acl.rt.destroy_stream(current_stream)
@@ -457,7 +457,7 @@ class GEDynamicGraphExecutor(object):
         output_ptrs_c = (c_void_p * len(output_tensors))(*output_ptrs)
         context, ret = acl.rt.get_context()
         current_stream, ret = acl.rt.create_stream()
-        graph_manager.graph_manager.run((c_void_p)(context),self.graph_id, current_stream, input_ptrs_c,
+        graph_manager.graph_manager.run((c_void_p)(context),self.graph_id, (c_void_p)(current_stream), input_ptrs_c,
                                         output_ptrs_c, input_datasize_c, output_datasize_c)
         ret = acl.rt.synchronize_stream(current_stream)
         ret = acl.rt.destroy_stream(current_stream)
