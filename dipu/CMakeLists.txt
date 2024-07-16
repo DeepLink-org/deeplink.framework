@@ -168,7 +168,10 @@ find_package(Torch REQUIRED)
 if(NOT Torch_VERSION IN_LIST DIPU_SUPPORT_TORCHS)
   message(FATAL_ERROR "Torch ${Torch_VERSION} is not in DIPU supported version ${DIPU_SUPPORT_TORCHS}")
 else()
-  message(STATUS "Found Torch: ${Torch_VERSION}")
+  string(REGEX REPLACE "^ERR[0-9]*([0-9][0-9])\$" "\\1" Torch_VERSION_MINOR "ERR00${Torch_VERSION_MINOR}")
+  string(REGEX REPLACE "^ERR[0-9]*([0-9][0-9])\$" "\\1" Torch_VERSION_PATCH "ERR00${Torch_VERSION_PATCH}")
+  set(DIPU_TORCH_VERSION "${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH}")
+  message(STATUS "DIPU_TORCH_VERSION: ${DIPU_TORCH_VERSION}")
 endif()
 
 # end torch find

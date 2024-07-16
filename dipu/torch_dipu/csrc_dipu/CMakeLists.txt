@@ -129,6 +129,7 @@ set(TORCH_DIPU_SOURCE
 
 add_library(torch_dipu SHARED ${TORCH_DIPU_SOURCE} ${GENERATED_KERNELS} ${VENDOR_FILES} ${VENDOR_OUTPUT_HEADER})
 target_include_directories(torch_dipu PUBLIC ..)
+target_compile_definitions(torch_dipu PUBLIC DIPU_TORCH_VERSION=${DIPU_TORCH_VERSION})
 
 # TODO(vendor) - replace those code with target_link_libraries.
 target_include_directories(torch_dipu SYSTEM PUBLIC ${VENDOR_INCLUDE_DIRS} ${VENDOR_DIST_DIR})

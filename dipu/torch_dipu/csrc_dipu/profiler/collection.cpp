@@ -22,8 +22,6 @@
 #include <torch/csrc/profiler/kineto_shim.h>
 #include <torch/csrc/profiler/orchestration/vulkan.h>
 
-#include "csrc_dipu/base/dependency.h"
-
 #include "profiler_python.h"
 
 namespace dipu {
