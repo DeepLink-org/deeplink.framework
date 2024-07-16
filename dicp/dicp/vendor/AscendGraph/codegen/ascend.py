@@ -205,7 +205,8 @@ class AscendCodegen(torch.fx.Interpreter):
                     info['data_type'] = 'INT32'
                 elif isinstance(output, torch.SymBool):
                     info['data_type'] = 'BOOL'
-                info['data_type'] = get_ascend_dtype(output.dtype)
+                else:
+                    info['data_type'] = get_ascend_dtype(output.dtype)
                 self.output_nodes.append(info)
         if len(self.assign_args) > 0:
             self.graph_output_names.extend(list(zip(*self.assign_args))[0])
