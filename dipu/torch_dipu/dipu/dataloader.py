@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader, Sampler, Dataset
+from torch_dipu import dipu
 
 from typing import Any, Callable, Iterable, TypeVar, Sequence, List, Optional, Union
 
@@ -26,6 +27,8 @@ _collate_fn_t = Callable[[List[T]], Any]
 # the CUDAHostAllocator can also obtain the device of the main thread and set as allocator's own device.
 # DIPU currently does not have such logic and supports this feature requires API similar to cuda's cuDevicePrimaryCtxGetState.
 class DIPUDataLoader(DataLoader):
+    UNSUPPORTED_PINMEMORY_VENDORS = ["DROPLET"]
+
     def __init__(
         self,
         dataset: Dataset[T_co],
@@ -44,9 +47,16 @@ class DIPUDataLoader(DataLoader):
         *,
         prefetch_factor: Optional[int] = None,
         persistent_workers: bool = False,
-        pin_memory_device: str = ""
+        pin_memory_device: str = "",
     ):
-        if pin_memory:
+        if dipu.vendor_type in self.UNSUPPORTED_PINMEMORY_VENDORS:
+            print(
+                f"[DIPU] warning: {dipu.vendor_type} does not support pin_memory, continuing with pin_memory=False\n",
+                flush=True,
+                end=None,
+            )
+            pin_memory = False
+        elif pin_memory:
             pin_memory_device = "cuda"
 
         super().__init__(

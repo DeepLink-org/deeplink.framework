@@ -650,10 +650,10 @@ def create_device_check_code(fun_config):
 
     for args in set(tensors):
         if not args.endswith("?"):
-            code += f'  TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
+            code += f'  TORCH_CHECK(({args}.defined() == false) || ({args}.device().type() == dipu::DIPU_DEVICE_TYPE || ignore_device_check({args})), __FILE__, ":", __LINE__, ": {op_name}: {args} should be on dipu");\n'
         else:
             args = args[0:-1]
-            code += f'  TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
+            code += f'  TORCH_CHECK(({args}.has_value() == false) || ({args}.value().defined() == false) || ({args}.value().device().type() == dipu::DIPU_DEVICE_TYPE || ignore_device_check({args})), __FILE__, ":", __LINE__, "{op_name}: {args} should be on dipu");\n'
 
     if len(tensors) > 0:
         code += "}"
