@@ -44,11 +44,18 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
         break;
       default:
         {
-           auto curStream = dipu::getCurrentDIPUStream();
-           auto newinfo = CopyParamsInfo(info, curStream);
-           copyNodirectDeviceHost(dst, src, non_blocking, newinfo);
-        } 
-    }
+          const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
+          auto curStream = dipu::getCurrentDIPUStream();
+          auto infoWithStream = CopyParamsInfo(info,curStream);
+
+          at::Tensor tmpSrc = src;
+          if (!infoWithStream.sameSize_) tmpSrc = src.expand_as(dst);
+
+          copyNodirectDeviceHost(dst, tmpSrc, non_blocking, infoWithStream);
+
+          tryRecordOrSyncStream(infoWithStream, dst, src, curStream, non_blocking, /* block_cpu_d2d = */ false, /* block_cpu_h2d = */ false);
+        }
+    } 
   }
 };
 
