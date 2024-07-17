@@ -195,22 +195,25 @@ class CopyParamsInfoBase {
     srcDevice_ = src.device().index();
     dstDevice_ = dst.device().index();
   }
-  
+
   explicit CopyParamsInfoBase(const at::Tensor& dst, const at::Tensor& src) {
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
-        "only Strided layout is supported");
+                "only Strided layout is supported");
     copyType_ = getCopyType(dst, src);
-    
+
     recomputeTensorsInfo(dst, src);
   }
 };
 
-class CopyParamsInfo: public CopyParamsInfoBase {
-public:
+class CopyParamsInfo : public CopyParamsInfoBase {
+ public:
   DIPUStream curStream_;
   explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
-                          const DIPUStream& curStream):CopyParamsInfoBase(dst,src),curStream_(curStream) {}
-  explicit CopyParamsInfo(const CopyParamsInfoBase& info,const DIPUStream& curStream):CopyParamsInfoBase(info),curStream_(curStream) {}
+                          const DIPUStream& curStream)
+      : CopyParamsInfoBase(dst, src), curStream_(curStream) {}
+  explicit CopyParamsInfo(const CopyParamsInfoBase& info,
+                          const DIPUStream& curStream)
+      : CopyParamsInfoBase(info), curStream_(curStream) {}
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
 };
 

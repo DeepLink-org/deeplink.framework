@@ -114,8 +114,8 @@ DIOPI_RT_API diopiError_t diopiGetTensorDeviceIndex(
   return diopiSuccess;
 }
 
-DIOPI_RT_API diopiError_t diopiGetCurrentDeviceIndex(
-    diopiDeviceIndex_t* pDevIndex) {
+DIOPI_RT_API diopiError_t
+diopiGetCurrentDeviceIndex(diopiDeviceIndex_t* pDevIndex) {
   *pDevIndex = dipu::devproxy::current_device();
   return diopiSuccess;
 }

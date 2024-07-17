@@ -25,37 +25,49 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
     if (info.copyType_ == DIPUCopyType::D2Self) {
       non_blocking = true;
     }
-    
+
     // Exit early if dst and src are views of the same data
     if ((dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
-      info.sameStride_ && info.sameDtype_)) {
+         info.sameStride_ && info.sameDtype_)) {
       return;
     }
-    
+
     if (native::dumpOpArgLevel() > 1) {
-      std::cout << "    DIPUCopyInplace.run:    dst:" << native::dumpArg(dst) << std::endl;
-      std::cout << "    DIPUCopyInplace.run::   src:" << native::dumpArg(src) << std::endl;
+      std::cout << "    DIPUCopyInplace.run:    dst:" << native::dumpArg(dst)
+                << std::endl;
+      std::cout << "    DIPUCopyInplace.run::   src:" << native::dumpArg(src)
+                << std::endl;
     }
-    
+
     switch (info.copyType_) {
       case DIPUCopyType::D2Self:
       case DIPUCopyType::D2OtherD:
         dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
         break;
-      default:
-        {
-          const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
-          auto curStream = dipu::getCurrentDIPUStream();
-          auto infoWithStream = CopyParamsInfo(info,curStream);
-
-          at::Tensor tmpSrc = src;
-          if (!infoWithStream.sameSize_) tmpSrc = src.expand_as(dst);
-
-          copyNodirectDeviceHost(dst, tmpSrc, non_blocking, infoWithStream);
-
-          tryRecordOrSyncStream(infoWithStream, dst, src, curStream, non_blocking, /* block_cpu_d2d = */ false, /* block_cpu_h2d = */ false);
+      default: {
+        at::Tensor tmpSrc = src;
+        const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
+        auto curStream = dipu::getCurrentDIPUStream();
+        auto infoWithStream = CopyParamsInfo(info, curStream);
+        if (!infoWithStream.sameSize_) {
+          tmpSrc = src.expand_as(dst);
+          infoWithStream.recomputeTensorsInfo(dst, tmpSrc);
         }
-    } 
+        if (info.directMemCopy_) {
+          directMemCopy(dst, tmpSrc, infoWithStream, non_blocking);
+          tryRecordOrSyncStream(infoWithStream, dst, src, curStream,
+                                non_blocking,
+                                /* block_cpu_d2d = */ false,
+                                /* block_cpu_h2d = */ false);
+          return;
+        }
+        copyNodirectDeviceHost(dst, src, non_blocking, infoWithStream);
+
+        tryRecordOrSyncStream(infoWithStream, dst, src, curStream, non_blocking,
+                              /* block_cpu_d2d = */ false,
+                              /* block_cpu_h2d = */ false);
+      }
+    }
   }
 };
 
