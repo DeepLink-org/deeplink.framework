@@ -33,7 +33,7 @@ function build_all() {
     echo "building dipu_lib:$(pwd)"
     echo "DIOPI_ROOT:${DIOPI_ROOT}"
     config_all_ascend_cmake 2>&1 | tee ./build1.log
-    cd build && make -j8 2>&1 | tee ./build1.log && cd ..
+    cd build && make -j32 2>&1 | tee ./build1.log && cd ..
 }
 
 case $1 in
