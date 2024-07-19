@@ -87,6 +87,7 @@
     at::native::sub_check(self, other);
 
     if (is_scalar_on_cpu(other)) {
+      at::native::alpha_check(self.scalar_type(), alpha);
       return dipu_sub_scalar(self, other.item(), alpha);
     }
 
@@ -96,6 +97,7 @@
       dipu_fill__scalar(selfTmp, self.item());
     }
 
+    at::native::alpha_check(selfTmp.scalar_type(), alpha);
     at::Tensor out = BinaryOpInferrer().infer_out(selfTmp, other);
 
   interface: diopiSub(ctx, out, selfTmp, other, alpha)
