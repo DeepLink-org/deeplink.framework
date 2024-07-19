@@ -90,7 +90,8 @@
 
     at::Tensor selfTmp = self;
     if (is_scalar_on_cpu(selfTmp)) {
-      selfTmp = selfTmp.to(other.device());
+      selfTmp = nodispatch::empty({1}, self.options().device(other.device()));
+      dipu_fill__scalar(selfTmp, self.item());
     }
 
     at::native::sub_check(selfTmp, other);
