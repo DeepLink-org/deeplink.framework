@@ -84,6 +84,8 @@
 - schema: "sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor"
   ins: [selfTmp]
   custom_code_at_the_beginning: |
+    at::native::sub_check(self, other);
+
     if (is_scalar_on_cpu(other)) {
       return dipu_sub_scalar(self, other.item(), alpha);
     }
@@ -94,7 +96,6 @@
       dipu_fill__scalar(selfTmp, self.item());
     }
 
-    at::native::sub_check(selfTmp, other);
     at::Tensor out = BinaryOpInferrer().infer_out(selfTmp, other);
 
   interface: diopiSub(ctx, out, selfTmp, other, alpha)
