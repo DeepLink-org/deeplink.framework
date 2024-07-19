@@ -129,6 +129,7 @@ set(TORCH_DIPU_SOURCE
 
 add_library(torch_dipu SHARED ${TORCH_DIPU_SOURCE} ${GENERATED_KERNELS} ${VENDOR_FILES} ${VENDOR_OUTPUT_HEADER})
 target_include_directories(torch_dipu PUBLIC ..)
+target_compile_definitions(torch_dipu PUBLIC DIPU_TORCH_VERSION=${DIPU_TORCH_VERSION})
 
 # TODO(vendor) - replace those code with target_link_libraries.
 target_include_directories(torch_dipu SYSTEM PUBLIC ${VENDOR_INCLUDE_DIRS} ${VENDOR_DIST_DIR})
@@ -166,12 +167,13 @@ Python3_add_library(torch_dipu_python SHARED ${TORCH_DIPU_PYBIND_SOURCE})
 # cause diopirt hidden, so temporarily use this target level setting. enhance in
 # future.
 set_target_properties(torch_dipu_python PROPERTIES CXX_VISIBILITY_PRESET hidden)
-target_link_libraries(torch_dipu_python PUBLIC torch_dipu PRIVATE kineto)
+target_link_libraries(torch_dipu_python PUBLIC torch_dipu torch kineto)
 target_include_directories(torch_dipu_python SYSTEM PRIVATE ..)
 
 #[[ Target: torch_dipu_cpython_extension ]]
 Python3_add_library(torch_dipu_cpython_extension SHARED stub.cpp)
 target_include_directories(torch_dipu_cpython_extension SYSTEM PRIVATE ..)
+target_link_directories(torch_dipu_cpython_extension PRIVATE "${PYTORCH_DIR}/torch/lib")
 target_link_libraries(torch_dipu_cpython_extension PUBLIC torch_dipu_python PRIVATE torch_python)
 target_compile_options(torch_dipu_cpython_extension PRIVATE -fstack-protector-all)
 set_target_properties(torch_dipu_cpython_extension PROPERTIES

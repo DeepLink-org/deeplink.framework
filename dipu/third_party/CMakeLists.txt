@@ -61,6 +61,7 @@ message(STATUS "Using DIOPI_LIBRARY_PATH='${DIOPI_LIBRARY_PATH}', DIOPI_INCLUDE_
 set(KINETO_BUILD_TESTS OFF CACHE INTERNAL "turn off tests")
 set(KINETO_USE_DEVICE_ACTIVITY ON CACHE INTERNAL "enable device activity")
 set(KINETO_COMPILED_WITH_CXX11_ABI "${DIPU_COMPILED_WITH_CXX11_ABI}" CACHE INTERNAL "pass through ABI settings")
+
 # KINETO_COMPILED_WITH_CXX11_ABI might be removed from libkineto as we are
-# using add_subdirectory instead of ExternalProject.
 add_subdirectory(kineto/libkineto SYSTEM)
+target_compile_definitions(kineto PRIVATE DIPU_TORCH_VERSION=${DIPU_TORCH_VERSION})

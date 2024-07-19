@@ -1,16 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(TorchDIPU LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# the default CMAKE_BUILD_TYPE is Release
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
-endif()
 
 option(ENABLE_LTO "Enable Link Time Optimization in Release build" ON)
 if(ENABLE_LTO AND CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -29,12 +19,16 @@ else()
   message(STATUS "IPO / LTO disabled")
 endif()
 
-option(TESTS "Whether to build unit tests" OFF)
-option(LIBS "Whether to build dipu lib, default on" ON)
-
-# use gcover
+option(DPIU_ENABLE_TEST "Whether to build unit tests" OFF)
+option(DPIU_ENABLE_LIB "Whether to build dipu lib, default on" ON)
 option(ENABLE_COVERAGE "Use gcov" OFF)
+
 message(STATUS ENABLE_COVERAGE=${ENABLE_COVERAGE})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 
 # device related
 set(DEVICE
@@ -102,7 +96,7 @@ add_compile_definitions(${DIPU_VENDOR_NAME_FLAG_DEF}=1)
 message(STATUS "Vendor name flag definition: " ${DIPU_VENDOR_NAME_FLAG_DEF})
 
 string(REGEX MATCH "[a-z0-9_]+" DIPU_GIT_HASH ${DIPU_GIT_HASH})
-execute_process(COMMAND sh -c "git status --porcelain | egrep '^(M| M)' | wc -l"
+execute_process(COMMAND "git status --porcelain | egrep '^(M| M)' | wc -l"
                 OUTPUT_VARIABLE DIPU_MODIFY_LEN)
 if(DIPU_MODIFY_LEN GREATER 0)
   set(DIPU_GIT_HASH ${DIPU_GIT_HASH}-dirty)
@@ -112,16 +106,13 @@ add_compile_definitions(DIPU_GIT_HASH="${DIPU_GIT_HASH}")
 
 # Automatically generate a list of supported diopi functions
 execute_process(
-  COMMAND
-    sh -c
-    "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ${CMAKE_CURRENT_SOURCE_DIR}/scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ${CMAKE_CURRENT_SOURCE_DIR}/SupportedDiopiFunctions.txt"
-)
+  COMMAND "grep -Po 'diopi[a-zA-Z0-9]+(?=\\()' ./scripts/autogen_diopi_wrapper/diopi_functions.yaml | sort -uf > ./SupportedDiopiFunctions.txt"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # abi_v, torch dir, abi flag, cmake path
 execute_process(
-COMMAND
-  sh -c
-    "python ${CMAKE_CURRENT_SOURCE_DIR}/detect_env.py"
+  COMMAND python detect_env.py
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
   OUTPUT_VARIABLE CHECK_TORCH_OUT
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "\n" ";" CHECK_TORCH_OUT_LIST "${CHECK_TORCH_OUT}")
@@ -157,16 +148,10 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${DIPU_COMPILED_WITH_CXX11_ABI}")
 message(STATUS "DIPU_COMPILED_WITH_CXX11_ABI:" ${DIPU_COMPILED_WITH_CXX11_ABI})
 
-execute_process(COMMAND sh -c "dirname $(find  $(dirname $(which python))/../ -name Python.h)"
-                OUTPUT_VARIABLE PYTHON_INCLUDE_DIR)
-message(STATUS "PYTHON_INCLUDE_DIR: " ${PYTHON_INCLUDE_DIR})
-
-# config
+# Import BaseFuncions
 include(cmake/BaseFuncions.cmake)
-_set_cpp_flags()
-
-# if add new version, please also update dipu/__init__.py torch_ver_XX
-list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
+# TODO: fix it.
+# _set_cpp_flags()
 
 # use muxi torch. if device is muxi and torch has 'cuda'(muxi).
 if (${DEVICE} IN_LIST DEVICE_MUXI AND DIPU_TORCH_HAS_CUDA)
@@ -175,30 +160,19 @@ if (${DEVICE} IN_LIST DEVICE_MUXI AND DIPU_TORCH_HAS_CUDA)
   add_compile_definitions(USE_MACA=1)
 endif()
 
+# if add new version, please also update dipu/__init__.py torch_ver_XX
+set(DIPU_SUPPORT_TORCHS "2.0.0;2.1.0;2.1.1")
+
 find_package(Torch REQUIRED)
 
-message(STATUS "Found Torch Version: ${Torch_VERSION}")
-if(NOT ${Torch_VERSION} IN_LIST DIPU_SUPPORT_TORCHS)
-  message(FATAL_ERROR "this torch version is not supported by DIPU ${DIPU_SUPPORT_TORCHS}")
+if(NOT Torch_VERSION IN_LIST DIPU_SUPPORT_TORCHS)
+  message(FATAL_ERROR "Torch ${Torch_VERSION} is not in DIPU supported version ${DIPU_SUPPORT_TORCHS}")
+else()
+  string(REGEX REPLACE "^ERR[0-9]*([0-9][0-9])\$" "\\1" Torch_VERSION_MINOR "ERR00${Torch_VERSION_MINOR}")
+  string(REGEX REPLACE "^ERR[0-9]*([0-9][0-9])\$" "\\1" Torch_VERSION_PATCH "ERR00${Torch_VERSION_PATCH}")
+  set(DIPU_TORCH_VERSION "${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH}")
+  message(STATUS "DIPU_TORCH_VERSION: ${DIPU_TORCH_VERSION}")
 endif()
-
-# message(STATUS "Torch TORCH_LIBRARY: ${TORCH_LIBRARY}")
-include_directories(SYSTEM ${TORCH_INCLUDE_DIRS})
-message(STATUS "Torch TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
-message(STATUS "Torch TORCH_CXX_FLAGS:  ${TORCH_CXX_FLAGS}")
-
-string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_MINOR "0000${Torch_VERSION_MINOR}")
-string(REGEX REPLACE "^.*(..)\$" "\\1" Torch_VERSION_PATCH "0000${Torch_VERSION_PATCH}")
-
-string(CONCAT Torch_VERSION ${Torch_VERSION_MAJOR}${Torch_VERSION_MINOR}${Torch_VERSION_PATCH})
-# expand to pattern XYYZZ by leading zero on minor and patch ver
-message(STATUS "change to dipu Torch Version: ${Torch_VERSION}")
-
-# add_compile_definitions(DIPU_TORCH${Torch_VERSION})
-add_compile_definitions(DIPU_TORCH_VERSION=${Torch_VERSION})
-
-link_directories(${PYTORCH_DIR}/torch/lib)
-set(DIPU_TORCH_VERSION ${Torch_VERSION})
 
 # end torch find
 
@@ -209,10 +183,10 @@ endif()
 
 add_subdirectory(third_party)
 
-if(LIBS)
+if(DPIU_ENABLE_LIB)
   add_subdirectory(torch_dipu/csrc_dipu)
 endif()
 
-if(TESTS)
+if(DPIU_ENABLE_TEST)
   add_subdirectory(tests/cpp)
 endif()
