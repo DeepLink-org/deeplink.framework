@@ -23,6 +23,7 @@ _original_pid = False
 torch_ver_200 = 20000
 torch_ver_210 = 20100
 torch_ver_211 = 20101
+torch_ver_220  = 20200
 from torch_dipu._C import get_dipu_torch_version
 
 _torch_ver_pattern = re.compile(r"^(\d+)\.(\d+)\.(\d+)\.*")

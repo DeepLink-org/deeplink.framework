@@ -1,10 +1,10 @@
 #include <GenericTraceActivity.h>
 #include <libkineto.h>
 #include <unordered_set>
+#include <variant>
 
 #include <c10/util/Exception.h>
 #include <c10/util/overloaded.h>
-#include <c10/util/variant.h>
 #include <torch/csrc/profiler/collection.h>
 #include <torch/csrc/profiler/data_flow.h>
 #include <torch/csrc/profiler/kineto_shim.h>
@@ -15,7 +15,7 @@
 namespace torch {
 namespace profiler {
 namespace impl {
-
+#if DIPU_TORCH_VERSION < 20200
 ApproximateClockToUnixTimeConverter::ApproximateClockToUnixTimeConverter()
     : start_times_(measurePairs()) {}
 
@@ -93,6 +93,7 @@ ApproximateClockToUnixTimeConverter::makeConverter() {
     return result;
   };
 }
+#endif
 
 namespace linux_perf {
 
@@ -323,11 +324,18 @@ void ActivityTraceWrapper::save(const std::string& path) {
 #endif  // USE_KINETO
 }
 
+#if DIPU_TORCH_VERSION >= 20200
+void addMetadata(libkineto::GenericTraceActivity* activity,
+                 const std::string& key, const std::string& value) {
+  activity->addMetadata(key, value);
+}
+#else
 void addMetadata(const activity_t* activity, const std::string& key,
                  const std::string& value) {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
   const_cast<activity_t*>(activity)->addMetadata(key, value);
 }
+#endif
 
 // NOLINTNEXTLINE(readability-const-return-type)
 const DeviceAndResource kineto_ids() {
@@ -403,7 +411,11 @@ void FlattenToUniformRepresentation(
     result->visit(c10::overloaded(
         [&](ExtraFields<EventType::TorchOp>& torch_op) {
           for (auto& i : torch_op.inputs_) {
+#if DIPU_TORCH_VERSION >= 20200
+            std::visit(raw_tensors, i);
+#else
             c10::visit(raw_tensors, i);
+#endif
           }
         },
         [&](ExtraFields<EventType::PyCall>& py_call) {

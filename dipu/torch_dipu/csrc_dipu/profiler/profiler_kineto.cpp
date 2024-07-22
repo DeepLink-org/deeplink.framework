@@ -2,14 +2,18 @@
 
 #include <algorithm>
 #include <libkineto.h>
+#include <time_since_epoch.h>
+#include <variant>
 
 #include <c10/macros/Export.h>
+#if DIPU_TORCH_VERSION >= 20200
+#include <c10/util/ApproximateClock.h>
+#endif
 #include <c10/util/C++17.h>
 #include <c10/util/Exception.h>
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/irange.h>
 #include <c10/util/overloaded.h>
-#include <c10/util/variant.h>
 #include <torch/csrc/autograd/profiler_kineto.h>
 #include <torch/csrc/profiler/api.h>
 #include <torch/csrc/profiler/collection.h>
@@ -25,24 +29,41 @@
 namespace dipu {
 namespace profile {
 
+#if DIPU_TORCH_VERSION >= 20200
+using c10::ApproximateClockToUnixTimeConverter;
+using c10::getApproximateTime;
+using std::holds_alternative;
+namespace variant = std;
+#else
+using c10::holds_alternative;
+using torch::profiler::impl::ApproximateClockToUnixTimeConverter;
+using torch::profiler::impl::getApproximateTime;
+namespace variant = c10;
+#endif
+
 namespace {
 inline int64_t getTimeUs() {
   auto constexpr scale = int64_t{1000};
+#if DIPU_TORCH_VERSION >= 20200
+  return c10::getTime() / scale;
+#else
   return torch::profiler::impl::getTime() / scale;
+#endif
 }
 
-const std::set<libkineto::ActivityType> kCpuTypes {
-  libkineto::ActivityType::CPU_OP, libkineto::ActivityType::CPU_INSTANT_EVENT,
-      libkineto::ActivityType::USER_ANNOTATION,
-      libkineto::ActivityType::EXTERNAL_CORRELATION,
+const std::set<libkineto::ActivityType> kCpuTypes{
+    libkineto::ActivityType::CPU_OP,
+    libkineto::ActivityType::CPU_INSTANT_EVENT,
+    libkineto::ActivityType::USER_ANNOTATION,
+    libkineto::ActivityType::EXTERNAL_CORRELATION,
 #if DIPU_TORCH_VERSION == 20000
-      libkineto::ActivityType::CUDA_RUNTIME,
+    libkineto::ActivityType::CUDA_RUNTIME,
 #else
-      libkineto::ActivityType::XPU_RUNTIME,
-      libkineto::ActivityType::CUDA_RUNTIME,
-      libkineto::ActivityType::CUDA_DRIVER,
+    libkineto::ActivityType::XPU_RUNTIME,
+    libkineto::ActivityType::CUDA_RUNTIME,
+    libkineto::ActivityType::CUDA_DRIVER,
 #endif
-      libkineto::ActivityType::PYTHON_FUNCTION,
+    libkineto::ActivityType::PYTHON_FUNCTION,
 };
 
 using torch::autograd::profiler::experimental_event_t;
@@ -85,19 +106,19 @@ auto parseArgData(const std::vector<op_input_t>& input_shapes,
   std::vector<c10::IValue> concrete_inputs_list;
 
   for (const auto& i : c10::irange(input_shapes.size())) {
-    c10::visit(c10::overloaded(
-                   [&](const TensorMetadata& t) {
-                     shapes[i] = t.sizes_;
-                     dtypes[i] = std::string(
-                         scalarTypeToTypeMeta(t.dtype_).name().data(),
-                         scalarTypeToTypeMeta(t.dtype_).name().size());
-                   },
-                   [&](const std::vector<TensorMetadata>&) {
-                     dtypes[i] = "TensorList";
-                   },
-                   [&](const c10::IValue& val) { dtypes[i] = "Scalar"; },
-                   [&](const auto&) {}),
-               input_shapes[i]);
+    variant::visit(c10::overloaded(
+                       [&](const TensorMetadata& t) {
+                         shapes[i] = t.sizes_;
+                         dtypes[i] = std::string(
+                             scalarTypeToTypeMeta(t.dtype_).name().data(),
+                             scalarTypeToTypeMeta(t.dtype_).name().size());
+                       },
+                       [&](const std::vector<TensorMetadata>&) {
+                         dtypes[i] = "TensorList";
+                       },
+                       [&](const c10::IValue& val) { dtypes[i] = "Scalar"; },
+                       [&](const auto&) {}),
+                   input_shapes[i]);
   }
 
   // If we recorded concrete inputs, then parse them
@@ -106,18 +127,18 @@ auto parseArgData(const std::vector<op_input_t>& input_shapes,
     concrete_inputs_list.resize(input_shapes.size());
 
     for (const auto& i : c10::irange(input_shapes.size())) {
-      c10::visit(
+      variant::visit(
           c10::overloaded(
               [&](const c10::IValue& val) { concrete_inputs_list[i] = val; },
               [&](const auto&) {}),
           input_shapes[i]);
-      c10::visit(c10::overloaded(
-                     [&](const c10::IValue& val) {
-                       concrete_inputs_list[i] = val;
-                       dtypes[i] = "ScalarList";
-                     },
-                     [&](const auto&) {}),
-                 concrete_inputs[i]);
+      variant::visit(c10::overloaded(
+                         [&](const c10::IValue& val) {
+                           concrete_inputs_list[i] = val;
+                           dtypes[i] = "ScalarList";
+                         },
+                         [&](const auto&) {}),
+                     concrete_inputs[i]);
     }
   }
 
@@ -127,7 +148,7 @@ auto parseArgData(const std::vector<op_input_t>& input_shapes,
 struct MetadataBase {
   explicit MetadataBase(const std::shared_ptr<Result>& result)
       : kineto_activity_{result->kineto_activity_} {
-    if (c10::holds_alternative<ExtraFields<EventType::Kineto>>(
+    if (holds_alternative<ExtraFields<EventType::Kineto>>(
             result->extra_fields_)) {
       // In order to add metadata we have to downcast from
       // `libkineto::ITraceActivity` to `libkineto::GenericTraceActivity`. We
@@ -144,7 +165,10 @@ struct MetadataBase {
 
   void addMetadata(const std::string& key, const std::string& value) {
     if (kineto_activity_ && !value.empty() && value != "\"\"") {
-      torch::profiler::impl::kineto::addMetadata(kineto_activity_, key, value);
+      torch::profiler::impl::kineto::addMetadata(
+          const_cast<torch::profiler::impl::kineto::activity_t*>(
+              kineto_activity_),
+          key, value);
     }
   }
 
@@ -301,8 +325,8 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
                          size_t total_reserved, c10::Device device) override {
     if (config_.profile_memory && !config_.disabled()) {
       record_queue_.getSubqueue()->emplace_allocation_event(
-          torch::profiler::impl::getApproximateTime(), ptr, alloc_size,
-          total_allocated, total_reserved, device.type(), device.index());
+          getApproximateTime(), ptr, alloc_size, total_allocated,
+          total_reserved, device.type(), device.index());
     }
   }
 
@@ -310,8 +334,8 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
                          size_t total_reserved, c10::Device device) override {
     if (config_.profile_memory && !config_.disabled()) {
       record_queue_.getSubqueue()->emplace_ooms_event(
-          torch::profiler::impl::getApproximateTime(), alloc_size,
-          total_allocated, total_reserved, device.type(), device.index());
+          getApproximateTime(), alloc_size, total_allocated, total_reserved,
+          device.type(), device.index());
     }
   }
 
@@ -414,7 +438,7 @@ struct DIPUKinetoThreadLocalState : public ProfilerStateBase {
   }
 
   uint64_t start_time_;
-  torch::profiler::impl::ApproximateClockToUnixTimeConverter clock_converter_;
+  ApproximateClockToUnixTimeConverter clock_converter_;
   DIPURecordQueue record_queue_;
   std::vector<KinetoEvent> kineto_events_;
   std::vector<experimental_event_t> event_tree_;
@@ -444,8 +468,7 @@ void onFunctionExit(const at::RecordFunction& fn,
   auto* kineto_ctx_ptr =
       static_cast<torch::profiler::impl::KinetoObserverContext*>(ctx_ptr);
   TORCH_INTERNAL_ASSERT(kineto_ctx_ptr != nullptr);
-  kineto_ctx_ptr->event_->end_time_ =
-      torch::profiler::impl::getApproximateTime();
+  kineto_ctx_ptr->event_->end_time_ = getApproximateTime();
   if (!config.experimental_config.performance_events.empty()) {
     state_ptr->record_queue_.getSubqueue()->disable_perf_profiler(
         *kineto_ctx_ptr->event_->counters_);

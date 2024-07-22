@@ -166,7 +166,7 @@ include(cmake/BaseFuncions.cmake)
 _set_cpp_flags()
 
 # if add new version, please also update dipu/__init__.py torch_ver_XX
-list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1")
+list(APPEND DIPU_SUPPORT_TORCHS "2.0.0" "2.1.0" "2.1.1" "2.2.0")
 
 # use muxi torch. if device is muxi and torch has 'cuda'(muxi).
 if (${DEVICE} IN_LIST DEVICE_MUXI AND DIPU_TORCH_HAS_CUDA)

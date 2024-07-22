@@ -9,10 +9,14 @@
 #include <queue>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include <ATen/Context.h>
 #include <ATen/record_function.h>
 #include <c10/core/ScalarTypeToTypeMeta.h>
+#if DIPU_TORCH_VERSION < 20200
+#include <c10/util/variant.h>
+#endif
 #include <c10/util/Exception.h>
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/hash.h>
@@ -31,7 +35,6 @@ constexpr bool kKinetoAvailable{true};
 
 using torch::profiler::perf_counters_t;
 using torch::profiler::impl::ActivityType;
-using torch::profiler::impl::approx_time_t;
 using torch::profiler::impl::ExtraFields;
 using torch::profiler::impl::KinetoObserverContext;
 using torch::profiler::impl::op_input_t;
@@ -47,6 +50,14 @@ using torch::profiler::impl::python_tracer::CompressedEvent;
 using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
 using trace_ptr_t =
     std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
+
+#if DIPU_TORCH_VERSION >= 20200
+using c10::getApproximateTime;
+using std::holds_alternative;
+#else
+using c10::holds_alternative;
+using torch::profiler::impl::getApproximateTime;
+#endif
 
 namespace {
 struct TagToIOType {
@@ -278,10 +289,9 @@ DIPUThreadLocalSubqueue::TorchOpStorage::EventBlock<T,
 template <class... Args>
 std::pair<KinetoObserverContext::Event*, uint64_t>
 DIPUThreadLocalSubqueue::TorchOpStorage::OpList::emplace_back(Args&&... args) {
-  maybe_grow();
-  *next_ = {std::forward<Args>(args)...};
-  auto corr_id = buffer_last_->correlation_id(next_);
-  return {next_++, corr_id};
+  auto event_ptr = AppendOnlyList::emplace_back(std::forward<Args>(args)...);
+  auto corr_id = buffer_last_->correlation_id(event_ptr);
+  return {event_ptr, corr_id};
 }
 
 uint64_t DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(
@@ -334,7 +344,7 @@ std::unique_ptr<KinetoObserverContext> DIPUThreadLocalSubqueue::begin_op(
   }
 
   auto out = std::make_unique<KinetoObserverContext>(event);
-  event->start_time_ = torch::profiler::impl::getApproximateTime();
+  event->start_time_ = getApproximateTime();
   event->allow_tf32_cublas_ = at::globalContext().allowTF32CuBLAS();
   if (!config_.experimental_config.performance_events.empty()) {
     const size_t n = config_.experimental_config.performance_events.size();
@@ -409,19 +419,29 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
   auto jit_module = StealOrDefault<decltype(jit_modules_)>(jit_modules_);
   auto extra_args = StealOrDefault<decltype(extra_args_)>(extra_args_);
   auto gpu_fallback = StealOrDefault<decltype(gpu_fallback_)>(gpu_fallback_);
+#if DIPU_TORCH_VERSION >= 20200
+  auto extra_meta = StealOrDefault<decltype(extra_meta_)>(extra_meta_);
+#endif
 
   for (auto event = op_events_.begin(); event != op_events_.end(); ++event) {
-    ExtraFields<torch::profiler::impl::EventType::TorchOp> e {
-      std::move(event->basic_fields_),
-          DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
-          time_converter(event->end_time_), input_shape_getter(),
+    ExtraFields<torch::profiler::impl::EventType::TorchOp> e{
+        std::move(event->basic_fields_),
+        DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
+        time_converter(event->end_time_),
+        input_shape_getter(),
 #if DIPU_TORCH_VERSION == 20000
 #else
-          concrete_input_getter(),
+        concrete_input_getter(),
 #endif
-          jit_stack(), jit_module(), extra_args(), gpu_fallback(),
-          event->allow_tf32_cublas_, std::move(event->counters_)
-    };
+        jit_stack(),
+        jit_module(),
+        extra_args(),
+#if DIPU_TORCH_VERSION >= 20200
+        extra_meta(),
+#endif
+        gpu_fallback(),
+        event->allow_tf32_cublas_,
+        std::move(event->counters_)};
 
     out.emplace_back(Result::create(time_converter(event->start_time_), tid,
                                     kineto_info, std::move(e)));
@@ -565,7 +585,7 @@ void passEventsToKineto(const std::vector<std::shared_ptr<Result>>& results,
   constexpr time_t kNsPerUs = 1000;
   for (const auto i : c10::irange(results.size())) {
     const auto& e = results[i];
-    const auto* activity = cpu_trace.addCPUActivity(
+    auto* activity = cpu_trace.addCPUActivity(
         e->name(), e->kinetoType(), e->kineto_info_, e->correlationID(),
         e->start_time_ns_ / kNsPerUs, e->endTimeNS() / kNsPerUs);
 
@@ -862,8 +882,7 @@ void push_event(std::shared_ptr<Result>& event,
   // not a Kineto op and will be handled normally.
   using op_fields = ExtraFields<torch::profiler::impl::EventType::TorchOp>;
 
-  if (c10::holds_alternative<
-          ExtraFields<torch::profiler::impl::EventType::Kineto>>(
+  if (holds_alternative<ExtraFields<torch::profiler::impl::EventType::Kineto>>(
           event->extra_fields_) &&
       event->finished_) {
     return;

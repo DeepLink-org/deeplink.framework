@@ -11,6 +11,9 @@
 
 #include <ATen/core/TensorBase.h>
 #include <c10/macros/Macros.h>
+#if DIPU_TORCH_VERSION >= 20200
+#include <c10/util/ApproximateClock.h>
+#endif
 #include <c10/util/C++17.h>
 #include <c10/util/Exception.h>
 #include <c10/util/Logging.h>
@@ -35,11 +38,20 @@ namespace py = pybind11;
 namespace dipu {
 namespace profile {
 
-using torch::profiler::impl::AppendOnlyList;
+#if DIPU_TORCH_VERSION >= 20200
+using c10::approx_time_t;
+using c10::getApproximateTime;
+using std::get;
+using std::visit;
+#else
+using c10::get;
+using c10::visit;
 using torch::profiler::impl::approx_time_t;
+using torch::profiler::impl::getApproximateTime;
+#endif
+using torch::profiler::impl::AppendOnlyList;
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;
-using torch::profiler::impl::getApproximateTime;
 using torch::profiler::impl::NNModuleInfo;
 using torch::profiler::impl::OptimizerInfo;
 using torch::profiler::impl::PyFrameState;
@@ -945,7 +957,7 @@ class PostProcess {
     const auto initial_size = out.size();
     auto pop = [](stack_t& stack, time_t t) {
       TORCH_INTERNAL_ASSERT(not stack.empty(), "Python replay stack is empty.");
-      c10::get<ExtraFields<E>>(stack.back()->extra_fields_).end_time_ns_ = t;
+      get<ExtraFields<E>>(stack.back()->extra_fields_).end_time_ns_ = t;
       stack.pop_back();
     };
 
@@ -980,7 +992,7 @@ class PostProcess {
     auto it = out.rbegin();
     for (C10_UNUSED auto _ : c10::irange(initial_size, out.size())) {
       const auto python_tid =
-          c10::get<ExtraFields<E>>((*it)->extra_fields_).python_tid_;
+          get<ExtraFields<E>>((*it)->extra_fields_).python_tid_;
       if ((*it)->start_tid_ == NoTID && SOFT_ASSERT(E == EventType::PyCall)) {
         const auto& tid_info =
             tid_map.insert({python_tid, {NoTID, DeviceAndResource()}})
@@ -1046,7 +1058,7 @@ std::vector<std::shared_ptr<Result>> DIPUPythonTracer::getEvents(
 
   PythonIDVisitor id_visitor;
   for (auto& i : out) {
-    c10::visit(id_visitor, i->extra_fields_);
+    visit(id_visitor, i->extra_fields_);
   }
 
   return out;
