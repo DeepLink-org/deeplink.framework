@@ -2633,6 +2633,27 @@
     return;
   interface: diopiMulInpScalar(ctx, self, other, alpha)
 
+- schema: _foreach_mul_.Tensor(Tensor(a!)[] self, Tensor other) -> ()
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    auto selfVec = self.vec();
+    for (size_t i = 0;i < self.size();i++) {
+      dipu_mul__tensor(selfVec[i], other);
+    }
+    return;
+  interface: diopiMulInp(ctx, self, other, alpha)
+
+- schema: _foreach_mul.Tensor(Tensor[] self, Tensor other) -> Tensor[]
+  dummy_call_diopi: True
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      out[i] = nodispatch::empty_like(self[i]);
+      dipu_mul_out(self[i], other, out[i]);
+    }
+    return out;
+  interface: diopiMul(ctx, out, self, other)
+
 - schema: _foreach_mul_.ScalarList(Tensor(a!)[] self, Scalar[] scalars) -> ()
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
