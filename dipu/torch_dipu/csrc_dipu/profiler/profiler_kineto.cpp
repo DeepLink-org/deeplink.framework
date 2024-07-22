@@ -51,19 +51,18 @@ inline int64_t getTimeUs() {
 #endif
 }
 
-const std::set<libkineto::ActivityType> kCpuTypes{
-    libkineto::ActivityType::CPU_OP,
-    libkineto::ActivityType::CPU_INSTANT_EVENT,
-    libkineto::ActivityType::USER_ANNOTATION,
-    libkineto::ActivityType::EXTERNAL_CORRELATION,
+const std::set<libkineto::ActivityType> kCpuTypes {
+  libkineto::ActivityType::CPU_OP, libkineto::ActivityType::CPU_INSTANT_EVENT,
+      libkineto::ActivityType::USER_ANNOTATION,
+      libkineto::ActivityType::EXTERNAL_CORRELATION,
 #if DIPU_TORCH_VERSION == 20000
-    libkineto::ActivityType::CUDA_RUNTIME,
+      libkineto::ActivityType::CUDA_RUNTIME,
 #else
-    libkineto::ActivityType::XPU_RUNTIME,
-    libkineto::ActivityType::CUDA_RUNTIME,
-    libkineto::ActivityType::CUDA_DRIVER,
+      libkineto::ActivityType::XPU_RUNTIME,
+      libkineto::ActivityType::CUDA_RUNTIME,
+      libkineto::ActivityType::CUDA_DRIVER,
 #endif
-    libkineto::ActivityType::PYTHON_FUNCTION,
+      libkineto::ActivityType::PYTHON_FUNCTION,
 };
 
 using torch::autograd::profiler::experimental_event_t;

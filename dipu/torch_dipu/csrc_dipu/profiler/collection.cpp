@@ -424,24 +424,20 @@ void DIPUThreadLocalSubqueue::TorchOpStorage::materialize(
 #endif
 
   for (auto event = op_events_.begin(); event != op_events_.end(); ++event) {
-    ExtraFields<torch::profiler::impl::EventType::TorchOp> e{
-        std::move(event->basic_fields_),
-        DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
-        time_converter(event->end_time_),
-        input_shape_getter(),
+    ExtraFields<torch::profiler::impl::EventType::TorchOp> e {
+      std::move(event->basic_fields_),
+          DIPUThreadLocalSubqueue::TorchOpStorage::OpList::correlationID(event),
+          time_converter(event->end_time_), input_shape_getter(),
 #if DIPU_TORCH_VERSION == 20000
 #else
-        concrete_input_getter(),
+          concrete_input_getter(),
 #endif
-        jit_stack(),
-        jit_module(),
-        extra_args(),
+          jit_stack(), jit_module(), extra_args(),
 #if DIPU_TORCH_VERSION >= 20200
-        extra_meta(),
+          extra_meta(),
 #endif
-        gpu_fallback(),
-        event->allow_tf32_cublas_,
-        std::move(event->counters_)};
+          gpu_fallback(), event->allow_tf32_cublas_, std::move(event->counters_)
+    };
 
     out.emplace_back(Result::create(time_converter(event->start_time_), tid,
                                     kineto_info, std::move(e)));
