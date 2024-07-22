@@ -168,9 +168,10 @@ inline void memCopy(const at::Tensor& dst, const at::Tensor& src,
   }
 }
 
-class CopyParamsInfoBase {
+class CopyParamsInfo {
  public:
   DIPUCopyType copyType_;
+  DIPUStream curStream_;
   // basic info
   // if cast needed
   bool sameDtype_ = false;
@@ -196,25 +197,26 @@ class CopyParamsInfoBase {
     dstDevice_ = dst.device().index();
   }
 
-  explicit CopyParamsInfoBase(const at::Tensor& dst, const at::Tensor& src) {
+  explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
+                          const DIPUStream& curStream)
+      : curStream_(curStream) {
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
                 "only Strided layout is supported");
     copyType_ = getCopyType(dst, src);
 
     recomputeTensorsInfo(dst, src);
   }
-};
+  explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
+                "only Strided layout is supported");
+    copyType_ = getCopyType(dst, src);
 
-class CopyParamsInfo : public CopyParamsInfoBase {
- public:
-  DIPUStream curStream_;
-  explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
-                          const DIPUStream& curStream)
-      : CopyParamsInfoBase(dst, src), curStream_(curStream) {}
-  explicit CopyParamsInfo(const CopyParamsInfoBase& info,
-                          const DIPUStream& curStream)
-      : CopyParamsInfoBase(info), curStream_(curStream) {}
+    recomputeTensorsInfo(dst, src);
+  }
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
+  void updateCurrentStream(const DIPUStream& curStream) {
+    curStream_ = curStream;
+  }
 };
 
 inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,

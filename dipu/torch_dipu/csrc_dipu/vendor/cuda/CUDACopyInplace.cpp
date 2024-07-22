@@ -21,7 +21,7 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
     if (dst.numel() == 0 || dst.is_same(src)) {
       return;
     }
-    auto info = CopyParamsInfoBase(dst, src);
+    auto info = CopyParamsInfo(dst, src);
     if (info.copyType_ == DIPUCopyType::D2Self) {
       non_blocking = true;
     }
@@ -45,25 +45,11 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
         dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
         break;
       default: {
-        at::Tensor tmpSrc = src;
         const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
         auto curStream = dipu::getCurrentDIPUStream();
-        auto infoWithStream = CopyParamsInfo(info, curStream);
-        if (!infoWithStream.sameSize_) {
-          tmpSrc = src.expand_as(dst);
-          infoWithStream.recomputeTensorsInfo(dst, tmpSrc);
-        }
-        if (info.directMemCopy_) {
-          directMemCopy(dst, tmpSrc, infoWithStream, non_blocking);
-          tryRecordOrSyncStream(infoWithStream, dst, src, curStream,
-                                non_blocking,
-                                /* block_cpu_d2d = */ false,
-                                /* block_cpu_h2d = */ false);
-          return;
-        }
-        copyNodirectDeviceHost(dst, src, non_blocking, infoWithStream);
-
-        tryRecordOrSyncStream(infoWithStream, dst, src, curStream, non_blocking,
+        info.updateCurrentStream(curStream);
+        copyAll(dst, src, non_blocking, info);
+        tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
                               /* block_cpu_d2d = */ false,
                               /* block_cpu_h2d = */ false);
       }
