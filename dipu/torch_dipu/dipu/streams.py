@@ -308,7 +308,7 @@ class Event(_C._DIPUEventBase, _EventBase, metaclass=CombinedEventMeta):
     streams.
 
     The underlying dipu events are lazily initialized when the event is first
-    recorded or exported to another process. After creation, only streams on theqyu
+    recorded or exported to another process. After creation, only streams on the
     same device may record the event. However, streams on any device can wait on
     the event.
 
