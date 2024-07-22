@@ -104,8 +104,11 @@ ascend:
     #   fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
     # mmpretrain
     - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext --no-pin-memory"
+      fallback_op_list: "convolution_backward_overrideable,convolution_overrideable"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet --no-pin-memory"
+      fallback_op_list: "convolution_backward_overrideable,convolution_overrideable"
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet --no-pin-memory"
+      fallback_op_list: "convolution_backward_overrideable,convolution_overrideable"
 
 kunlunxin:
     # mmpretrain
