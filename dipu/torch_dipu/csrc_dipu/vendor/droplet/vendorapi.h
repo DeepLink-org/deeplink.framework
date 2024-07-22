@@ -30,10 +30,8 @@ using deviceHandle_t = tangContext_t*;
 using diclComm_t = pcclComm_t;
 using commUniqueId = pcclUniqueId;
 #else   // USE_PCCL
-class pcclComm_t {};
-using diclComm_t = pcclComm_t*;
-class pcclUniqueId {};
-using commUniqueId = pcclUniqueId;
+using diclComm_t = uint32_t*;
+struct commUniqueId {};
 #endif  // USE_PCCL
 
 }  // namespace dipu
