@@ -283,3 +283,58 @@ jobs:
             || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt211 && exit 1 )
             """
           fi
+          
+
+  Build-Cuda-Pt222:
+    name: Build-dipu-cuda-pt222
+    runs-on: ${{ inputs.runner }}
+    env:
+      GETRUNNER: ${{ inputs.runner }}
+      DEEPLINK_PATH: ${{ inputs.deeplink_path }}
+      ENV_PATH: ${{ inputs.env_path }}
+      CUDA_PARTATION: "pat_dev"
+    steps:
+      - name: Build dipu
+        run: |
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            set -e
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB}
+            srun --job-name=${GITHUB_JOB} bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/${GITHUB_JOB}/dipu \
+            && source ${ENV_PATH}/dipu_env 2.2.2 \
+            && bash scripts/ci/nv/ci_nv_script.sh build_dipu " || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+          else
+            ssh SH1424 """
+              set -ex
+              cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER} && rm -rf ${GITHUB_JOB} && cp -R source ${GITHUB_JOB} && cd ${GITHUB_JOB}/dipu
+              source ${ENV_PATH}/dipu_env 2.2.2
+              srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:1 --cpus-per-task=5 --mem=16G --time=60 bash scripts/ci/nv/ci_nv_script.sh build_dipu \
+              || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf ${GITHUB_JOB} && exit 1 )
+              """
+          fi
+
+  Test-Cuda-Pt222:
+    name: Test-dipu-cuda-pt222
+    needs: [Build-Cuda-Pt222]
+    runs-on: ${{ inputs.runner }}
+    env:
+      GETRUNNER: ${{ inputs.runner }}
+      DEEPLINK_PATH: ${{ inputs.deeplink_path }}
+      ENV_PATH: ${{ inputs.env_path }}
+      CUDA_PARTATION: "pat_dev"
+    steps:
+      - name: Run-test
+        run: |
+          if [[ "${GETRUNNER}" == *sco* ]];then
+            set -e
+            srun --job-name=need_two_gpus bash -c "cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt222/dipu \
+            && source ${ENV_PATH}/dipu_env 2.2.2 \
+            && bash tests/run_nv_tests.sh" && cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt222
+          else
+            ssh SH1424 """
+            set -ex
+            cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/Build-Cuda-Pt222/dipu
+            source ${ENV_PATH}/dipu_env 2.2.2
+            srun --job-name=${GITHUB_RUN_NUMBER}_${GITHUB_JOB} --partition=${CUDA_PARTATION} --gres=gpu:2 --cpus-per-task=5 bash tests/run_nv_tests.sh \
+            || ( cd ${DEEPLINK_PATH}/${GITHUB_RUN_NUMBER}/ && rm -rf Build-Cuda-Pt222 && exit 1 )
+            """
+          fi
