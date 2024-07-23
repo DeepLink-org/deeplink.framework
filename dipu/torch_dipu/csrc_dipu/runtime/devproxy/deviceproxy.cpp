@@ -11,6 +11,7 @@
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
 #include "csrc_dipu/utils/env.hpp"
+#include "csrc_dipu/base/environ.hpp"
 
 namespace dipu {
 namespace devproxy {
