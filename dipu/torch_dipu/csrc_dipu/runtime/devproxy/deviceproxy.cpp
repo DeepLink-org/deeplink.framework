@@ -6,12 +6,12 @@
 
 #include <c10/util/Exception.h>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/core/DIPUEventPool.h"
 #include "csrc_dipu/runtime/core/allocator/allocator_metrics.h"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
 #include "csrc_dipu/utils/env.hpp"
-#include "csrc_dipu/base/environ.hpp"
 
 namespace dipu {
 namespace devproxy {

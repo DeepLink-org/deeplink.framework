@@ -10,6 +10,7 @@
 #include <c10/util/Exception.h>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/utils/env.hpp"
 #include <csrc_dipu/common.h>
@@ -17,8 +18,6 @@
 #include <csrc_dipu/utils/env.hpp>
 
 #include "basecommimpl.hpp"
-
-#include "csrc_dipu/base/environ.hpp"
 
 namespace dipu {
 

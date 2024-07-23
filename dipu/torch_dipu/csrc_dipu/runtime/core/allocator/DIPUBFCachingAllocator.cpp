@@ -7,12 +7,11 @@
 #include <utility>
 #include <vector>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/utils/env.hpp"
 
 #include "DIPUCachingAllocator.h"
 #include "DIPUSpinMutex.h"
-
-#include "csrc_dipu/base/environ.hpp"
 
 namespace dipu {
 

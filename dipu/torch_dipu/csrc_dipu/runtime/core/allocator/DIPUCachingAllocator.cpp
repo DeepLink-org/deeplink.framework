@@ -20,15 +20,14 @@
 #include "DIPUCachingDeviceAllocator.h"
 #include "DIPUCachingHostAllocator.h"
 
-#include "csrc_dipu/base/environ.hpp"
-
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::mutex DIPURawDeviceAllocator::mutex_;
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxAsyncResourcePoolLength = environ::maxAsyncResourcePoolLength();
+const size_t kMaxAsyncResourcePoolLength =
+    environ::maxAsyncResourcePoolLength();
 
 namespace {
 
