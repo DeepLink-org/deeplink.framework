@@ -86,24 +86,31 @@ T getEnvOrDefault(const char* env_var, U&& default_value,
 // applyDelayedRegister() is called.
 DIPU_ENV_VAR(immediateRegisterOp, "DIPU_IMMEDIATE_REGISTER_OP", bool, false);
 inline const std::string kTorchAllocatorName = "TORCH";
+
 // Determine the name of the host memory cache algorithm 
 // based on the current environment configuration.
 DIPU_ENV_VAR(hostMemCachingAlgorithm, "DIPU_HOST_MEMCACHING_ALGORITHM",
              std::string, kTorchAllocatorName);
+
 // Used to specify the name of the device memory cache algorithm.
 DIPU_ENV_VAR(deviceMemCachingAlgorithm, "DIPU_DEVICE_MEMCACHING_ALGORITHM",
              std::string, kTorchAllocatorName);
+
 // Used to configure and initialize an instance of an object "CachingAllocatorConfig".
 DIPU_ENV_VAR(torchAllocatorConf, "DIPU_TORCH_ALLOCATOR_CONF", std::string, "");
+
 // maxExtendSize is used to limit the maximum size of an extension 
 // in the memory allocation in function of "extend()".
 DIPU_ENV_VAR(maxExtendSize, "DIPU_MAX_EXTEND_SIZE", std::size_t, 1024);
+
 // Configure a value to limit the maximum length of the asynchronous resource pool 
 // to avoid resource leakage and optimize resource management.
 inline const std::size_t kDefaultMaxAsyncResourcePoolLength = 96;
 DIPU_ENV_VAR(maxAsyncResourcePoolLength, "DIPU_MAX_ASYNC_RESOURCE_POOL_LENGTH", std::size_t, kDefaultMaxAsyncResourcePoolLength);
+
 // Control whether to force the use of back-off mode for P2P copy operation between Ascend chips.
 DIPU_ENV_VAR(forceFallbackP2pCopybetweenascends, "DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", bool, false);
+
 // Configure a numerical value to control the device 's affinity settings 
 // on the CPU to optimize thread scheduling during concurrent execution.
 DIPU_ENV_VAR(affinityCpuAffinit, "DIPU_CPU_AFFINITY", std::size_t, 0);
