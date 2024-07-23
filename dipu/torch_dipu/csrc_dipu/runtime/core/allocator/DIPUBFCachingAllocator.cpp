@@ -154,7 +154,7 @@ class BFCachingAllocatorImpl {
       return kMinBlockSize;
     }
     int clz = __builtin_clzll(nbytes - 1);
-    return (1 << (sizeof(int64_t) - clz));
+    return (1LU << (sizeof(int64_t) - clz));
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
@@ -601,8 +601,8 @@ class BFCachingAllocator : public CacheAllocator {
                           deleteBFContext, device());
     DIPU_DEBUG_ALLOCATOR(
         4, "BFCachingAllocator: malloc "
-               << nbytes << ",requires " << origin_size << " nbytes, ptr:" << ptr
-               << ",device:" << device()
+               << nbytes << ",requires " << origin_size
+               << " nbytes, ptr:" << ptr << ",device:" << device()
                << ",async_mempool.size:" << async_mem_pool()->size());
     c10::reportMemoryUsageToProfiler(
         ptr, static_cast<int64_t>(nbytes), memory_allocated(),
