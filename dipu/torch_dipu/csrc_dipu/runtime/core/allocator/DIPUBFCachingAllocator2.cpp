@@ -1,5 +1,6 @@
 // Copyright (c) 2023, DeepLink.
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <stack>
@@ -14,10 +15,9 @@
 
 namespace dipu {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
-                              << 20U;
-
+inline size_t round_up_to_alignment(size_t nbytes, size_t alignment_size) {
+  return ((nbytes - 1) | (alignment_size - 1)) + 1;
+}
 class BFCachingAllocatorImpl {
  public:
   using allocate_fn_t = std::function<void*(size_t)>;
@@ -33,8 +33,10 @@ class BFCachingAllocatorImpl {
   static constexpr int kLogNumSubBins = 2;
   // Allocation parameters
   static constexpr size_t kMinAllocationSize = 512;
-  static constexpr size_t kMaxInternalFragmentation = 8U << 20U;  // 8MB
-  static constexpr size_t kMinExtendSize = 8U << 20U;             // 8MB
+  static constexpr size_t kSmallBlockSize = 2 << 20;
+  static constexpr size_t kMiddleBlockSize = 20 << 20;
+  static constexpr size_t kLargeBlockSize = 200 << 20;
+  static constexpr size_t kLargeAlignSize = 1024 << 20;
 
   size_t cachedBytes = 0;
   size_t allocatedBytes = 0;
@@ -67,8 +69,6 @@ class BFCachingAllocatorImpl {
     __uint128_t bits = 0;
     // Virtual chunks which are the heads of the bins
     std::array<int, static_cast<size_t>(kNumBigBins* kNumSubBins)> binHeads_{};
-    // The extending size next time
-    size_t currExtendSize_ = kMinExtendSize;
 
     explicit StreamSet(size_t id) : id(id) {}
 
@@ -140,7 +140,10 @@ class BFCachingAllocatorImpl {
   mutable mutex_t mut_;
 
   static size_t roundBytes(size_t nbytes) {
-    return ((nbytes - 1) | (kMinAllocationSize - 1)) + 1;
+    if (nbytes < kLargeBlockSize) {
+      return round_up_to_alignment(nbytes, kMinAllocationSize);
+    }
+    return round_up_to_alignment(nbytes, kSmallBlockSize);
   }
 
   int newChunk(void* ptr, size_t size, size_t stream) {
@@ -253,6 +256,22 @@ class BFCachingAllocatorImpl {
     }
   }
 
+  void shrink(StreamSetHandle& set, size_t nbytes) {
+    size_t releasedSize = 0;
+    for (int binHead : set->binHeads_) {
+      int k = chunks_[binHead].nextChunkInList;
+      while (k) {
+        if (chunks_[k].isMonoBlock()) {
+          releasedSize += chunks_[k].size;
+          releaseOnDevice(chunks_[k].ptr, chunks_[k].size);
+          removeChunkFromBin(k);
+          recycleIds_.push(k);
+        }
+        k = chunks_[k].nextChunkInList;
+      }
+    }
+  }
+
   int split(int id, size_t nbytes) {
     void* ptr = static_cast<char*>(chunks_[id].ptr) + nbytes;
     size_t const size = chunks_[id].size - nbytes;
@@ -293,20 +312,21 @@ class BFCachingAllocatorImpl {
 
   int extend(size_t nbytes, StreamSetHandle& set) {
     emptyCacheWithoutLock();
-    auto& extSize = set->currExtendSize_;
     bool increased = false;
-    while (extSize < nbytes && extSize < kMaxExtendSize) {
-      extSize *= 2;
-      increased = true;
+    size_t allocateSize = nbytes;
+    if (nbytes < kSmallBlockSize) {
+      allocateSize = kSmallBlockSize;
+    } else if (nbytes < kMiddleBlockSize) {
+      allocateSize = kMiddleBlockSize;
+    } else if (nbytes < kLargeBlockSize) {
+      allocateSize = round_up_to_alignment(nbytes, kMiddleBlockSize);
+    } else {
+      allocateSize = round_up_to_alignment(nbytes, kLargeAlignSize);
     }
 
-    size_t currBytes = std::max(nbytes, extSize);
+    size_t currBytes = std::max(nbytes, allocateSize);
     void* ptr = allocateOnDevice(currBytes);
-    if (ptr) {
-      if (!increased && extSize < kMaxExtendSize) {
-        extSize *= 2;
-      }
-    } else {
+    if (!ptr) {
       if (currBytes > nbytes) {
         currBytes = nbytes;
         ptr = allocateOnDevice(currBytes);
@@ -371,8 +391,17 @@ class BFCachingAllocatorImpl {
     }
 
     if (id) {
-      if (chunks_[id].size >= nbytes * 2 ||
-          chunks_[id].size >= nbytes + kMaxInternalFragmentation) {
+      size_t internlalMaxFragnmentSize = 0;
+      const size_t chunk_size = chunks_[id].size;
+      if (chunk_size < kSmallBlockSize) {
+        internlalMaxFragnmentSize = kMinAllocationSize;
+      } else if (chunk_size < kLargeAlignSize) {
+        internlalMaxFragnmentSize = kSmallBlockSize;
+      } else {
+        internlalMaxFragnmentSize = kLargeAlignSize;
+      }
+      if (chunk_size >= (nbytes << 1) ||
+          (chunk_size > (nbytes + internlalMaxFragnmentSize))) {
         id = split(id, nbytes);
       }
       chunks_[id].allocated = true;
@@ -526,7 +555,6 @@ class BFCachingAllocator : public CacheAllocator {
           allocator_->set_memory_allocated(allocator_->memory_allocated() -
                                            nbytes_);
         }
-        allocator_->restore();
       } else {
         DIPU_DEBUG_ALLOCATOR(8,
                              "BFCachingAllocator:~Context: destory tensor "
@@ -614,9 +642,9 @@ static void deleteBFContext(void* ptr) {
 
 // TODO(allocator) - Refactor it!
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
-DIPU_REGISTER_ALLOCATOR(BF, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator,
+DIPU_REGISTER_ALLOCATOR(BF2, DIPU_DEVICE_TYPE_MACRO, BFCachingAllocator,
                         OneStreamOneQueueAlgo, 0);
-DIPU_REGISTER_ALLOCATOR(BF, CPU, BFCachingAllocator, OneStreamOneQueueAlgo, 0);
+DIPU_REGISTER_ALLOCATOR(BF2, CPU, BFCachingAllocator, OneStreamOneQueueAlgo, 0);
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables,modernize-avoid-bind)
 
 }  // namespace dipu
