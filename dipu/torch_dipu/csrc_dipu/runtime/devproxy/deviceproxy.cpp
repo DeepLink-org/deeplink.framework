@@ -64,7 +64,8 @@ deviceId_t current_device() {
 }
 
 void setCpuAffinity(const int device) {
-  static int affinity = get_env_or_default("DIPU_CPU_AFFINITY", 0);
+  static int affinity = environ::affinityCpuAffinit();
+
   if (affinity < 0) {
     return;
   }

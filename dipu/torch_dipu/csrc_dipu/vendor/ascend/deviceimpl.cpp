@@ -32,7 +32,7 @@ using AscendDeviceId = int32_t;
 
 namespace {
 
-const bool forceFallbackP2PCopy = environ::forceFallbackAscendP2pCopy();
+const bool forceFallbackP2PCopy = environ::forceFallbackP2pCopybetweenascends();
 
 class NpuP2PInfo {
   enum class P2pStatus : int8_t {
