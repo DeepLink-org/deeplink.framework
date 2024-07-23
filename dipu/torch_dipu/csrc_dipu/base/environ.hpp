@@ -117,7 +117,7 @@ DIPU_ENV_VAR(forceFallbackP2pCopybetweenascends,
 
 // Configure a numerical value to control the device 's affinity settings
 // on the CPU to optimize thread scheduling during concurrent execution.
-DIPU_ENV_VAR(affinityCpuAffinit, "DIPU_CPU_AFFINITY", std::size_t, 0);
+DIPU_ENV_VAR(affinityCpuAffinit, "DIPU_CPU_AFFINITY", std::int, 0);
 
 #undef DIPU_ENV_VAR
 
