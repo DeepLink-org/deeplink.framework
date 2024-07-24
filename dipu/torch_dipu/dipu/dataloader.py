@@ -56,8 +56,6 @@ class DIPUDataLoader(DataLoader):
                 end=None,
             )
             pin_memory = False
-        elif pin_memory:
-            pin_memory_device = "cuda"
 
         super().__init__(
             dataset,

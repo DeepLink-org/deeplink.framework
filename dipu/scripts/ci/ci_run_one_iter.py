@@ -252,6 +252,12 @@ if __name__ == "__main__":
         )
 
         os.mkdir("one_iter_data")
+        try:
+            import dipu
+
+            print("0000 dipu is imported")
+        except Exception:
+            print("0000 dipu is not imported")
 
         p = Pool(max_parall)
         log_files = []
