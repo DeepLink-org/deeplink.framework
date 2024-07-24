@@ -259,6 +259,10 @@ if __name__ == "__main__":
         except Exception:
             print("0000 dipu is not imported")
 
+        import torch
+
+        print(f"torch cuda available : {torch.cuda.is_available()}")
+
         p = Pool(max_parall)
         log_files = []
         try:
