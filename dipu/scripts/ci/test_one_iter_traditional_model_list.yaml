@@ -103,7 +103,17 @@ ascend:
     # - model_cfg: "mmdetection detr/detr_r50_8xb2-150e_coco.py workdirs_detr"
     #   fallback_op_list: "fill_.Scalar,baddbmm.out,where.self,linear_backward,linear,uniform_,any.all_out,_foreach_addcdiv_.ScalarList,native_batch_norm_backward,convolution_overrideable"
     # mmpretrain
-    # - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
+    - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext"
+    - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet"
+    - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2"
+    - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
+    - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
+    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
+
+    # mmsegmentation
+    - model_cfg: "mmsegmentation deeplabv3/deeplabv3_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3"
+    - model_cfg: "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus"
+    - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet"
 
 kunlunxin:
     # mmpretrain
