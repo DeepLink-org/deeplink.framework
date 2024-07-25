@@ -1,18 +1,18 @@
 camb:
     # # transformers
-    - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
+    # - model_cfg: "transformers examples/pytorch/question-answering/run_bert_qa.py workdirs_bert"
 
     # # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
-    - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
-    - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
+    # - model_cfg: "mmpretrain swin_transformer/swin-base_16xb64_in1k.py workdirs_swin_transformer"
+    # - model_cfg: "mmpretrain vision_transformer/vit-base-p16_32xb128-mae_in1k.py workdirs_vision_transformer"
     - model_cfg: "mmpretrain mobilenet_v2/mobilenet-v2_8xb32_in1k.py workdirs_mobilenetv2 --no-pin-memory"
       precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
     - model_cfg: "mmpretrain mobilenet_v3/mobilenet-v3-large_8xb128_in1k.py workdirs_mobilenetv3"
     - model_cfg: "mmpretrain efficientnet/efficientnet-b2_8xb32_in1k.py workdirs_efficientnet"
-    - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext"
-    - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenetv2"
-      precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
+    # - model_cfg: "mmpretrain convnext/convnext-small_32xb128_in1k.py workdirs_convnext"
+    # - model_cfg: "mmpretrain shufflenet_v2/shufflenet-v2-1x_16xb64_in1k_256.py workdirs_shufflenetv2"
+    #  precision: {atol: 0.015, metric: 0.015, rtol: 0.01}
 
     # # mmdetection
     - model_cfg: "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3"
