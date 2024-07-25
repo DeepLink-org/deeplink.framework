@@ -9,9 +9,6 @@
 #include <ATen/Context.h>
 #include <c10/core/Device.h>
 #include <c10/core/TensorImpl.h>
-#if DIPU_TORCH_VERSION >= 20200
-#include <c10/util/ApproximateClock.h>
-#endif
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/strong_type.h>
 #include <torch/csrc/profiler/collection.h>
@@ -25,14 +22,10 @@
 #include <torch/csrc/profiler/util.h>
 #include <torch/csrc/utils/python_stub.h>
 
+#include "torch_version.h"
+
 namespace dipu {
 namespace profile {
-
-#if DIPU_TORCH_VERSION >= 20200
-using c10::approx_time_t;
-#else
-using torch::profiler::impl::approx_time_t;
-#endif
 
 // DIPUInputOutputEncoder
 // Stores each op_events' shapes and dtypes into a contiguous AppendOnlyList

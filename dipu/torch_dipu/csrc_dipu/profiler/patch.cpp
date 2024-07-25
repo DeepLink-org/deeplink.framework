@@ -1,7 +1,6 @@
 #include <GenericTraceActivity.h>
 #include <libkineto.h>
 #include <unordered_set>
-#include <variant>
 
 #include <c10/util/Exception.h>
 #include <c10/util/overloaded.h>
@@ -11,6 +10,8 @@
 #include <torch/csrc/profiler/perf-inl.h>
 #include <torch/csrc/profiler/perf.h>
 #include <torch/csrc/profiler/util.h>
+
+#include "torch_version.h"
 
 namespace torch {
 namespace profiler {
@@ -411,11 +412,7 @@ void FlattenToUniformRepresentation(
     result->visit(c10::overloaded(
         [&](ExtraFields<EventType::TorchOp>& torch_op) {
           for (auto& i : torch_op.inputs_) {
-#if DIPU_TORCH_VERSION >= 20200
-            std::visit(raw_tensors, i);
-#else
-            c10::visit(raw_tensors, i);
-#endif
+            dipu::profile::visit(raw_tensors, i);
           }
         },
         [&](ExtraFields<EventType::PyCall>& py_call) {

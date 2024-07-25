@@ -9,14 +9,10 @@
 #include <queue>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
 #include <ATen/Context.h>
 #include <ATen/record_function.h>
 #include <c10/core/ScalarTypeToTypeMeta.h>
-#if DIPU_TORCH_VERSION < 20200
-#include <c10/util/variant.h>
-#endif
 #include <c10/util/Exception.h>
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/hash.h>
@@ -50,14 +46,6 @@ using torch::profiler::impl::python_tracer::CompressedEvent;
 using result_ptr_t = std::shared_ptr<torch::profiler::impl::Result>;
 using trace_ptr_t =
     std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>;
-
-#if DIPU_TORCH_VERSION >= 20200
-using c10::getApproximateTime;
-using std::holds_alternative;
-#else
-using c10::holds_alternative;
-using torch::profiler::impl::getApproximateTime;
-#endif
 
 namespace {
 struct TagToIOType {

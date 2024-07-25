@@ -11,9 +11,6 @@
 
 #include <ATen/core/TensorBase.h>
 #include <c10/macros/Macros.h>
-#if DIPU_TORCH_VERSION >= 20200
-#include <c10/util/ApproximateClock.h>
-#endif
 #include <c10/util/C++17.h>
 #include <c10/util/Exception.h>
 #include <c10/util/Logging.h>
@@ -32,23 +29,13 @@
 #include <frameobject.h>
 
 #include "collection.h"
+#include "torch_version.h"
 
 namespace py = pybind11;
 
 namespace dipu {
 namespace profile {
 
-#if DIPU_TORCH_VERSION >= 20200
-using c10::approx_time_t;
-using c10::getApproximateTime;
-using std::get;
-using std::visit;
-#else
-using c10::get;
-using c10::visit;
-using torch::profiler::impl::approx_time_t;
-using torch::profiler::impl::getApproximateTime;
-#endif
 using torch::profiler::impl::AppendOnlyList;
 using torch::profiler::impl::EventType;
 using torch::profiler::impl::ExtraFields;

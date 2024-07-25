@@ -4,9 +4,6 @@
 #include <memory>
 #include <utility>
 
-#if DIPU_TORCH_VERSION >= 20200
-#include <c10/util/ApproximateClock.h>
-#endif
 #include <c10/util/Exception.h>
 #include <c10/util/string_view.h>
 #include <torch/csrc/profiler/util.h>
@@ -14,18 +11,11 @@
 #include "csrc_dipu/profiler/CorrelationIDManager.h"
 
 #include "ThreadUtil.h"
+#include "torch_version.h"
 
 namespace dipu {
 
 namespace profile {
-
-inline time_t torchGetTime() {
-#if DIPU_TORCH_VERSION >= 20200
-  return c10::getTime();
-#else
-  return torch::profiler::impl::getTime();
-#endif
-}
 
 static const int32_t DEFAULT_FLUSH_READY_INTERVAL = 1000;
 
