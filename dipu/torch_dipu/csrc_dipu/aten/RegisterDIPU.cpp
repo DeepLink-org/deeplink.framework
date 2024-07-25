@@ -405,6 +405,8 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
   m.impl("record_stream", TORCH_FN(wrapper_DIPU__record_stream));
 }
 
+#if !DIPU_VENDOR_NAME_MUXI
+
 DIPU_LIBRARY_IMPL(aten, BackendSelect, m) {
   c10::WarningUtils::WarningHandlerGuard guard(dipu::getIgnoreHandler());
   m.impl(TORCH_SELECTIVE_NAME("aten::is_pinned"),
@@ -420,5 +422,7 @@ DIPU_LIBRARY_IMPL(aten, CPU, m) {
   m.impl("empty.memory_format", TORCH_FN(wrapper_CPU_empty_memory_format));
   m.impl("empty_strided", TORCH_FN(wrapper_CPU_empty_strided));
 }
+
+#endif
 
 }  // end namespace at

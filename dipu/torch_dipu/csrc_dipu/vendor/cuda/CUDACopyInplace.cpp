@@ -26,6 +26,13 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
       non_blocking = true;
     }
 
+#if DIPU_VENDOR_NAME_MUXI
+    if (info.copyType_ == DIPUCopyType::D2H ||
+        info.copyType_ == DIPUCopyType::H2D) {
+      non_blocking = false;
+    }
+#endif
+
     // Exit early if dst and src are views of the same data
     if ((dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
          info.sameStride_ && info.sameDtype_)) {
