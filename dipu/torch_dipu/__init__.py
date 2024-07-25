@@ -11,6 +11,8 @@ mockcuda = (
     False if os.environ.get("DIPU_MOCK_CUDA", "True").lower() == "false" else True
 )
 
+print(f"1111 DIPU current path is : {os.path.realpath(__file__)}")
+
 import torch
 
 # use env to control?

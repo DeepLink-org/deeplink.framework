@@ -258,8 +258,8 @@ if __name__ == "__main__":
             print(torch_dipu.__file__)
 
             print("0000 dipu is imported")
-        except Exception:
-            print("0000 dipu is not imported")
+        except Exception as e:
+            print(f"0000 dipu is not imported, Exeption: {e}")
 
         import torch
 
