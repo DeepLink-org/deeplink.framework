@@ -198,17 +198,25 @@ class CopyParamsInfo {
   }
 
   explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
-                          const DIPUStream& curStream) {
-    // assume layout always = not suppport Sparse layout
+                          const DIPUStream& curStream)
+      : curStream_(curStream) {
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
                 "only Strided layout is supported");
     copyType_ = getCopyType(dst, src);
-    curStream_ = curStream;
 
     recomputeTensorsInfo(dst, src);
   }
+  explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
+                "only Strided layout is supported");
+    copyType_ = getCopyType(dst, src);
 
+    recomputeTensorsInfo(dst, src);
+  }
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
+  void updateCurrentStream(const DIPUStream& curStream) {
+    curStream_ = curStream;
+  }
 };
 
 inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,

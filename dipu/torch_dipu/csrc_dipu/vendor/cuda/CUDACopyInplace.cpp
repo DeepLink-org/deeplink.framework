@@ -15,25 +15,45 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
   CUDACopyInplace() = default;
   ~CUDACopyInplace() override = default;
 
-  // diopi-cuda copy use aten, so it can handle between-device case.
-  void copyNodirectBetweenDevices(at::Tensor& dst, const at::Tensor& src,
-                                  bool non_blocking,
-                                  CopyParamsInfo& info) override {
-    dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
-  }
+  void run(at::Tensor& dst, const at::Tensor& src, bool non_blocking) override {
+    TORCH_CHECK(dst.defined(), "dst is undefined");
+    TORCH_CHECK(src.defined(), "src is undefined");
+    if (dst.numel() == 0 || dst.is_same(src)) {
+      return;
+    }
+    auto info = CopyParamsInfo(dst, src);
+    if (info.copyType_ == DIPUCopyType::D2Self) {
+      non_blocking = true;
+    }
 
- protected:
-  void copyPostProcess(const at::Tensor& dst, const at::Tensor& src,
-                       bool non_blocking, const CopyParamsInfo& info,
-                       DIPUStream& curStream) override {
-    // 1. block_cpu_d2d=False on cuda, because we do not need sync stream when
-    // copy on two devices, just wait between stream
-    // 2. block_cpu_h2d=False on cuda, We do not need sync stream if cpu tensor
-    // is not pin memory which stay consistent with
-    // aten/src/ATen/native/cuda/Copy.cu.
-    tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
-                          /* block_cpu_d2d = */ false,
-                          /* block_cpu_h2d = */ false);
+    // Exit early if dst and src are views of the same data
+    if ((dst.is_alias_of(src) && dst.storage_offset() == src.storage_offset() &&
+         info.sameStride_ && info.sameDtype_)) {
+      return;
+    }
+
+    if (native::dumpOpArgLevel() > 1) {
+      std::cout << "    DIPUCopyInplace.run:    dst:" << native::dumpArg(dst)
+                << std::endl;
+      std::cout << "    DIPUCopyInplace.run::   src:" << native::dumpArg(src)
+                << std::endl;
+    }
+
+    switch (info.copyType_) {
+      case DIPUCopyType::D2Self:
+      case DIPUCopyType::D2OtherD:
+        dipu_wrap_diopi_copy_inp(dst, src, non_blocking);
+        break;
+      default: {
+        const DIPUGuard guard((!src.is_cpu()) ? src.device() : dst.device());
+        auto curStream = dipu::getCurrentDIPUStream();
+        info.updateCurrentStream(curStream);
+        copyAll(dst, src, non_blocking, info);
+        tryRecordOrSyncStream(info, dst, src, curStream, non_blocking,
+                              /* block_cpu_d2d = */ false,
+                              /* block_cpu_h2d = */ false);
+      }
+    }
   }
 };
 
