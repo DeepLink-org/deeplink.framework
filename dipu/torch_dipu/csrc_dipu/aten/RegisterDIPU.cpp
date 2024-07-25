@@ -407,12 +407,13 @@ DIPU_LIBRARY_IMPL(aten, DIPU_DEVICE_TYPE_MACRO, m) {
 
 /**
 when test EasyLLM using dipu + muxi pytorch, some mem related error happened
-(Invalid Address). seems dipu's cpu copy op or pin mem empty op has uncertain
-problems. so temporarily use this macro to disable dipu's related op and to use
-muxi native cpu empty op to bypass this issue.
+(Invalid Address). so temporarily use this macro to disable dipu's related op
+and to use muxi native cpu empty op to bypass this issue. see the doc below
+written by guochun1 for detail.
+https://aicarrier.feishu.cn/wiki/PXdYwcsjii9TJZk5AR1cG2bxnFd
 
-Warnning: This bypass not work if using dipu + torch_cpu which not contains
-'mx' pin mem/cpu-empty op.
+Warnning: Need check if this bypass works when using dipu + torch_cpu which not
+contains 'mx' pin mem/cpu-empty op.
 TODO: fandaoyi
 **/
 #if !DIPU_VENDOR_NAME_MUXI

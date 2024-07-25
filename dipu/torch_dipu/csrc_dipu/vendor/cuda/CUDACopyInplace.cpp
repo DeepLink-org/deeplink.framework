@@ -26,8 +26,7 @@ class CUDACopyInplace : public DIPUCopyInpOnDIOPI {
       non_blocking = true;
     }
 
-// Temporarily use synchronous copy on mx, see comment near RegisterDIPU.cpp
-// 'BackendSelect'
+// use synchronous copy on mx, see comment near RegisterDIPU.cpp 'BackendSelect'
 #if DIPU_VENDOR_NAME_MUXI
     if (info.copyType_ == DIPUCopyType::D2H ||
         info.copyType_ == DIPUCopyType::H2D) {
