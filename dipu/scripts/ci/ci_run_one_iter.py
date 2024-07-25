@@ -253,7 +253,9 @@ if __name__ == "__main__":
 
         os.mkdir("one_iter_data")
         try:
-            import dipu
+            import torch_dipu
+
+            print(torch_dipu.__file__)
 
             print("0000 dipu is imported")
         except Exception:
