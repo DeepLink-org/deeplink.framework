@@ -412,7 +412,7 @@ problems. so temporarily use this macro to disable dipu's related op and to use
 muxi native cpu empty op to bypass this issue.
 
 Warnning: This bypass not work if using dipu + torch_cpu which not contains
-'mx' device pin mem op.
+'mx' pin mem/cpu-empty op.
 TODO: fandaoyi
 **/
 #if !DIPU_VENDOR_NAME_MUXI
