@@ -123,6 +123,12 @@ class DIPUCUDAAllocatorProxy : public CUDAAllocator {
     DIPU_PATCH_CUDA_ALLOCATOR();
   }
 
+#if DIPU_TORCH_VERSION >= 20200
+  void attachAllocatorTraceTracker(AllocatorTraceTracker tracker) override {
+    DIPU_PATCH_CUDA_ALLOCATOR();
+  }
+#endif
+
   cudaError_t memcpyAsync(void* dst, int dstDevice, const void* src,
                           int srcDevice, size_t count, cudaStream_t stream,
                           bool p2p_enabled) override {

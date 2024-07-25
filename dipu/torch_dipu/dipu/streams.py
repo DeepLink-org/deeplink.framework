@@ -9,13 +9,67 @@ from .utils import _dummy_type
 from .device import _get_device_index, _lazy_init
 from .device import devicectx
 
+try:
+    from torch._streambase import _EventBase, _StreamBase
+except (ImportError, ModuleNotFoundError):
+    from abc import ABC, abstractmethod
+
+    class _StreamBase(ABC):
+        r"""Base stream class abstraction for multi backends Stream to herit from"""
+
+        @abstractmethod
+        def wait_event(self, event):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def wait_stream(self, stream):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def record_event(self, event=None):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def query(self):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def synchronize(self):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def __eq__(self, stream):
+            raise NotImplementedError()
+
+    class _EventBase(ABC):
+        r"""Base Event class abstraction for multi backends Event to herit from"""
+
+        @abstractmethod
+        def wait(self, stream=None):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def query(self):
+            raise NotImplementedError()
+
+        @abstractmethod
+        def synchronize(self):
+            raise NotImplementedError()
+
+
 if not hasattr(_C, "_DIPUStreamBase"):
     # Define dummy base classes
     torch._C.__dict__["_DIPUStreamBase"] = _dummy_type("_DIPUStreamBase")
     torch._C.__dict__["_DIPUEventBase"] = _dummy_type("_DIPUEventBase")
 
 
-class Stream(_C._DIPUStreamBase):
+# add CombinedStreamMeta to avoid following error:
+# TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+class CombinedStreamMeta(_C._DIPUEventBase.__class__, _StreamBase.__class__, type):
+    pass
+
+
+class Stream(_C._DIPUStreamBase, _StreamBase, metaclass=CombinedStreamMeta):
     r"""Wrapper around a dipu stream.
 
     A dipu stream is a linear sequence of execution that belongs to a specific
@@ -33,11 +87,10 @@ class Stream(_C._DIPUStreamBase):
     def __init__(self, device=None, priority=0, **kwargs):
         # setting device manager is expensive, so we avoid it unless necessary
         if device is None or ("stream_id" in kwargs and "device_index" in kwargs):
-            super(Stream, self).__init__(priority=priority, **kwargs)
-        else:
-            with devicectx(device):
-                super(Stream, self).__init__(priority=priority, **kwargs)
-        return
+            super().__init__(priority=priority, **kwargs)
+            return
+        with devicectx(device):
+            super().__init__(priority=priority, **kwargs)
 
     def wait_event(self, event):
         r"""Makes all future work submitted to the stream wait for an event.
@@ -88,7 +141,7 @@ class Stream(_C._DIPUStreamBase):
         Returns:
             A boolean indicating if all kernels in this stream are completed.
         """
-        return super(Stream, self).query()
+        return super().query()
 
     def synchronize(self):
         r"""Wait for all the kernels in this stream to complete.
@@ -96,7 +149,7 @@ class Stream(_C._DIPUStreamBase):
         .. note:: This is a wrapper around ``dipuStreamSynchronize()``: see
            `dipu Stream documentation`_ for more info.
         """
-        super(Stream, self).synchronize()
+        super().synchronize()
 
     @property
     def _as_parameter_(self):
@@ -104,7 +157,7 @@ class Stream(_C._DIPUStreamBase):
 
     def __eq__(self, o):
         if isinstance(o, Stream):
-            return super(Stream, self).__eq__(o)
+            return self.__eq__(o)
         return False
 
     def __hash__(self):
@@ -243,7 +296,11 @@ def stream(stream) -> StreamContext:
     return StreamContext(stream)
 
 
-class Event(_C._DIPUEventBase):
+class CombinedEventMeta(_C._DIPUEventBase.__class__, _EventBase.__class__, type):
+    pass
+
+
+class Event(_C._DIPUEventBase, _EventBase, metaclass=CombinedEventMeta):
     r"""Wrapper around a dipu event.
 
     dipu events are synchronization markers that can be used to monitor the
@@ -265,8 +322,10 @@ class Event(_C._DIPUEventBase):
     """
 
     def __init__(self, enable_timing=False, blocking=False, interprocess=False):
-        return super(Event, self).__init__(
-            enable_timing=enable_timing, blocking=blocking, interprocess=interprocess
+        return super().__init__(
+            enable_timing=enable_timing,
+            blocking=blocking,
+            interprocess=interprocess,
         )
 
     def record(self, stream=None):
@@ -277,7 +336,7 @@ class Event(_C._DIPUEventBase):
         """
         if stream is None:
             stream = current_stream()
-        super(Event, self).record(stream)
+        super().record(stream)
 
     def wait(self, stream=None):
         r"""Makes all future work submitted to the given stream wait for this
@@ -287,7 +346,7 @@ class Event(_C._DIPUEventBase):
         """
         if stream is None:
             stream = current_stream()
-        super(Event, self).wait(stream)
+        super().wait(stream)
 
     def query(self):
         r"""Checks if all work currently captured by event has completed.
@@ -296,13 +355,13 @@ class Event(_C._DIPUEventBase):
             A boolean indicating if all work currently captured by event has
             completed.
         """
-        return super(Event, self).query()
+        return super().query()
 
     def elapsed_time(self, end_event):
         r"""Returns the time elapsed in milliseconds after the event was
         recorded and before the end_event was recorded.
         """
-        return super(Event, self).elapsed_time(end_event)
+        return super().elapsed_time(end_event)
 
     def synchronize(self):
         r"""Waits for the event to complete.
@@ -313,7 +372,7 @@ class Event(_C._DIPUEventBase):
          .. note:: This is a wrapper around ``dipuEventSynchronize()``: see
             `dipu Event documentation`_ for more info.
         """
-        super(Event, self).synchronize()
+        super().synchronize()
 
     @property
     def _as_parameter_(self):

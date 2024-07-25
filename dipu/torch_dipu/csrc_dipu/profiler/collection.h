@@ -11,7 +11,6 @@
 #include <c10/core/TensorImpl.h>
 #include <c10/util/flat_hash_map.h>
 #include <c10/util/strong_type.h>
-#include <c10/util/variant.h>
 #include <torch/csrc/profiler/collection.h>
 #include <torch/csrc/profiler/containers.h>
 #include <torch/csrc/profiler/data_flow.h>
@@ -22,6 +21,8 @@
 #include <torch/csrc/profiler/stubs/base.h>
 #include <torch/csrc/profiler/util.h>
 #include <torch/csrc/utils/python_stub.h>
+
+#include "torch_version.h"
 
 namespace dipu {
 namespace profile {
@@ -132,8 +133,7 @@ class DIPUThreadLocalSubqueue {
     // NB: This is a destructive operation.
     void materialize(
         std::vector<std::shared_ptr<torch::profiler::impl::Result>>& out,
-        const std::function<time_t(torch::profiler::impl::approx_time_t)>&
-            time_converter,
+        const std::function<time_t(approx_time_t)>& time_converter,
         uint64_t tid,
         const torch::profiler::impl::kineto::DeviceAndResource& kineto_info);
 
@@ -175,6 +175,11 @@ class DIPUThreadLocalSubqueue {
                                           BlockSize>
         extra_args_;
 
+#if DIPU_TORCH_VERSION >= 20200
+    torch::profiler::impl::AppendOnlyList<torch::profiler::impl::extra_meta_t,
+                                          BlockSize>
+        extra_meta_;
+#endif
     // ProfilerState::KINETO_GPU_FALLBACK
     torch::profiler::impl::AppendOnlyList<torch::profiler::impl::FallbackPair,
                                           BlockSize>
@@ -209,8 +214,7 @@ class DIPUThreadLocalSubqueue {
 
   // with_stack (Python)
   torch::profiler::impl::AppendOnlyList<
-      std::pair<torch::profiler::impl::python_tracer::TraceKey,
-                torch::profiler::impl::approx_time_t>,
+      std::pair<torch::profiler::impl::python_tracer::TraceKey, approx_time_t>,
       BlockSize>
       py_calls_;
 };
@@ -228,8 +232,7 @@ class DIPURecordQueue {
   std::pair<
       std::vector<std::shared_ptr<torch::profiler::impl::Result>>,
       std::unique_ptr<torch::profiler::impl::kineto::ActivityTraceWrapper>>
-  getRecords(std::function<time_t(torch::profiler::impl::approx_time_t)>
-                 time_converter,
+  getRecords(std::function<time_t(approx_time_t)> time_converter,
              uint64_t start_time_us, uint64_t end_time_us);
 
  private:

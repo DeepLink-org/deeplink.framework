@@ -52,6 +52,11 @@ DISABLED_TESTS_CUDA = {
         "test_group_convTranspose_empty",
         "test_convTranspose_empty",
     },
+    # test_reductions.py
+    "TestReductionsDIPU": {
+        "test_ref_large_input_1D",
+        "test_ref_large_input_64bit_indexing",
+    },
 }
 
 # merge cuda disable with mlu
