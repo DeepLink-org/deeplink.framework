@@ -412,7 +412,7 @@ and to use muxi native cpu empty op to bypass this issue. see the doc below
 written by guochun1 for detail.
 https://aicarrier.feishu.cn/wiki/PXdYwcsjii9TJZk5AR1cG2bxnFd
 
-Warnning: Need check if this bypass works when using dipu + torch_cpu which not
+Warnning: Need check if this bypass works/needed when using dipu + torch_cpu which not
 contains 'mx' pin mem/cpu-empty op.
 TODO: fandaoyi
 **/
