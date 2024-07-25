@@ -2583,6 +2583,7 @@
 
 - schema: _foreach_add_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
   dummy_call_diopi: True
+  device: [all, -cuda, -muxi]
   custom_code_at_the_beginning: |
     auto selfVec = self.vec();
     for (size_t i = 0;i < self.size();i++) {
@@ -2591,8 +2592,21 @@
     return;
   interface: diopiAddInpScalar(ctx, self, other, alpha)
 
+- schema: _foreach_add_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+    std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+    std::transform(self.begin(), self.end(), selfHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+    });
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+  interface: diopiForeachaddInpScalar(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
+
 - schema: _foreach_add.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
   dummy_call_diopi: True
+  device: [all, -cuda, -muxi]
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
@@ -2624,7 +2638,21 @@
   interface: diopiMul(ctx, out, self, other)
 
 - schema: _foreach_mul_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+    std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+    std::transform(self.begin(), self.end(), selfHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+    });
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+
+  interface: diopiForeachmulInpScalar(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
+
+- schema: _foreach_mul_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
   dummy_call_diopi: True
+  device: [all, -cuda, -muxi]
   custom_code_at_the_beginning: |
     auto selfVec = self.vec();
     for (size_t i = 0;i < self.size();i++) {
@@ -2633,7 +2661,34 @@
     return;
   interface: diopiMulInpScalar(ctx, self, other, alpha)
 
+- schema: _foreach_mul.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
+  dummy_call_diopi: True
+  device: [all, -cuda, -muxi]
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = nodispatch::empty(in.sizes(), in.options());
+      dipu_mul_scalar_out(self.at(i), scalar, out[i]);
+    }
+    return out;
+  interface: diopiMulScalar(ctx, out, self, other)
+
 - schema: _foreach_mul_.Tensor(Tensor(a!)[] self, Tensor other) -> ()
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+   std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+    std::transform(self.begin(), self.end(), selfHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+    });
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+
+  interface: diopiForeachmulInpTensor(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), other)
+
+- schema: _foreach_mul_.Tensor(Tensor(a!)[] self, Tensor other) -> ()
+  device: [all, -cuda, -muxi]
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     auto selfVec = self.vec();
@@ -2644,6 +2699,7 @@
   interface: diopiMulInp(ctx, self, other, alpha)
 
 - schema: _foreach_mul.Tensor(Tensor[] self, Tensor other) -> Tensor[]
+  device: [all, -cuda, -muxi]
   dummy_call_diopi: True
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> out(self.size());
@@ -2663,18 +2719,6 @@
     }
     return;
   interface: diopiMulInpScalar(ctx, self, other, alpha)
-
-- schema: _foreach_mul.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
-  dummy_call_diopi: True
-  custom_code_at_the_beginning: |
-    std::vector<at::Tensor> out(self.size());
-    for (size_t i = 0;i < self.size();i++) {
-      auto& in = self[i];
-      out[i] = nodispatch::empty(in.sizes(), in.options());
-      dipu_mul_scalar_out(self.at(i), scalar, out[i]);
-    }
-    return out;
-  interface: diopiMulScalar(ctx, out, self, other)
 
 - schema: _foreach_mul.ScalarList(Tensor[] self, Scalar[] scalars) -> Tensor[]
   dummy_call_diopi: True
@@ -2850,6 +2894,7 @@
 
 - schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
   dummy_call_diopi: True
+  device: [all, -cuda, -muxi]
   custom_code_at_the_beginning: |
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
@@ -2859,6 +2904,32 @@
     }
     return out;
   interface: diopiNorm(ctx, out, self, p, dimDiopiSize);
+
+- schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = nodispatch::empty({}, in.options());
+    }
+
+    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+    std::transform(out.begin(), out.end(), outHandles.begin(), [](at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(t);
+    });
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+
+    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
+    // NOTE: const_cast here is safe according to pytorch's source code
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+    std::transform(self.begin(), self.end(), selfHandles.begin(), [](const at::Tensor& t){
+        return dipu::diopi_helper::toDiopiTensorHandle(t);
+    });
+    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+  interface: diopiForeachnormScalar(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), ord)
 
 - schema: _foreach_lerp_.Scalar(Tensor(a!)[] self, Tensor[] tensors1, Scalar weight) -> ()
   dummy_call_diopi: True
