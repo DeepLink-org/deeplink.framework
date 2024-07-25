@@ -107,6 +107,13 @@ def apply_torch_function_patch():
 # temp solution, need redesign storage
 def apply_temp_patch():
     def script_wrapper(obj, *args, **kwargs):
+        functions_name = (
+            obj.__name__ if hasattr(obj, "__name__") else obj.__class__.__name__
+        )
+        print(
+            f"[DIPU] dipu not supporting jit, so torch.jit.script({functions_name}) returns {functions_name} itself"
+        )
+
         return obj
 
     torch.jit.script = script_wrapper
