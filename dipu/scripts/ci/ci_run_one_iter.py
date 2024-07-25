@@ -123,8 +123,10 @@ def process_one_iter(log_file, clear_log, model_info: dict) -> None:
             cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 python {train_path}"
             cmd_cp_one_iter = ""
         else:
-            cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
-            cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+            cmd_run_one_iter = f"bash SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+            cmd_cp_one_iter = f"bash SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
+            # cmd_run_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=40 sh SMART/tools/one_iter_tool/run_one_iter.sh {train_path} {config_path} {work_dir} {opt_arg}"
+            # cmd_cp_one_iter = f"srun --job-name={job_name} --partition={partition}  --gres={gpu_requests} --time=30 sh SMART/tools/one_iter_tool/compare_one_iter.sh {package_name} {atol} {rtol} {metric}"
     elif device == "ascend":
         if "infer" in p2 and "infer" in p3:
             cmd_run_one_iter = f"python {train_path}"
@@ -252,6 +254,8 @@ if __name__ == "__main__":
         )
 
         os.mkdir("one_iter_data")
+        import traceback
+
         try:
             import torch_dipu
 
@@ -260,6 +264,7 @@ if __name__ == "__main__":
             print("0000 dipu is imported")
         except Exception as e:
             print(f"0000 dipu is not imported, Exeption: {e}")
+            traceback.print_exc()
 
         import torch
 
