@@ -6,10 +6,8 @@
 
 namespace dipu {
 
-void getEventFromPool(deviceEvent_t& event);
-
-void restoreEventToPool(deviceEvent_t& event);
-
-void releaseAllEvent();
+void event_pool_acquire(int index, deviceEvent_t& event);
+void event_pool_release(int index, deviceEvent_t& event);
+void event_pool_clear();
 
 }  // namespace dipu

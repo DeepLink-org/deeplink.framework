@@ -1,102 +1,81 @@
 #include "DIPUEventPool.h"
 
+#include <array>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <mutex>
 
-namespace dipu {
+#include "csrc_dipu/base/utility.h"
+#include "csrc_dipu/runtime/device/deviceapis.h"
 
-template <typename T>
-class EventPool final {
- protected:
-  std::deque<T> event_pool_;
-  unsigned int allocate_num_ = 0;
+namespace {
 
-  std::function<void(T&)> allocator_;
-  std::function<void(T&)> deleter_;
-  using mutex_t = std::recursive_mutex;
-  mutex_t event_mutex_;
+class EventPool {
+  std::deque<dipu::deviceEvent_t> pool;
+  std::recursive_mutex mutex;
 
  public:
-  EventPool(const std::function<void(T&)>& allocator,
-            const std::function<void(T&)>& deleter)
-      : allocator_(allocator), deleter_(deleter) {}
-
-  EventPool(const EventPool&) = delete;
-  EventPool(EventPool&&) = delete;
-  EventPool& operator=(const EventPool&) = delete;
-  EventPool& operator=(EventPool&&) = delete;
-
-  ~EventPool() = default;
-
-  void release() {
-    std::lock_guard<mutex_t> _(event_mutex_);
-    for (auto& event : event_pool_) {
-      deleter_(event);
-      allocate_num_--;
-    }
-    event_pool_.clear();
-  }
-
-  void get(T& event) {
-    bool need_allocator = false;
+  void acquire(dipu::deviceEvent_t& event) {
     {
-      std::lock_guard<mutex_t> _(event_mutex_);
-      if (event_pool_.empty()) {
-        need_allocator = true;
-      } else {
-        event = event_pool_.back();
-        event_pool_.pop_back();
+      std::scoped_lock _(mutex);
+      if (!pool.empty()) {
+        event = pool.back();
+        pool.pop_back();
+        return;
       }
     }
-    if (need_allocator) {
-      allocator_(event);
-    }
+
+    dipu::devapis::createEvent(&event);
   }
 
-  void restore(T& event) {
-    std::lock_guard<mutex_t> _(event_mutex_);
-    event_pool_.emplace_back(event);
+  void release(dipu::deviceEvent_t& event) {
+    std::scoped_lock _(mutex);
+    pool.emplace_back(event);
+  }
+
+  void clear() {  // should it called inside destructor?
+    std::scoped_lock _(mutex);
+    for (auto& event : pool) {
+      dipu::devapis::destroyEvent(event);
+    }
+    pool.clear();
   }
 };
 
-EventPool<deviceEvent_t>* getEventPool() {
-  const int index = devproxy::current_device();
-// GlobalEventPool for different cards , construct when really needed
-#define dispatch_event_pool(device_id)                               \
-  if (index == (device_id)) {                                        \
-    static EventPool<deviceEvent_t> gDIPUEventPool(                  \
-        [](deviceEvent_t& event) { devapis::createEvent(&event); },  \
-        [](deviceEvent_t& event) { devapis::destroyEvent(event); }); \
-    return &gDIPUEventPool;                                          \
+struct EventPoolHolder {
+  template <std::size_t I>
+  inline static auto& value() {
+    auto static instance = EventPool();
+    return instance;
   }
+};
 
-  dispatch_event_pool(0);
-  dispatch_event_pool(1);
-  dispatch_event_pool(2);
-  dispatch_event_pool(3);
-  dispatch_event_pool(4);
-  dispatch_event_pool(5);
-  dispatch_event_pool(6);
-  dispatch_event_pool(7);
-  dispatch_event_pool(8);
-  dispatch_event_pool(9);
-  dispatch_event_pool(10);
-  dispatch_event_pool(11);
-  dispatch_event_pool(12);
-  dispatch_event_pool(13);
-  dispatch_event_pool(14);
-  dispatch_event_pool(15);
-  TORCH_CHECK(false, "support up to 16 cards");
+auto constexpr max_card_number = 16;
+using EventPoolHolderArray =
+    dipu::static_function_array<EventPoolHolder, max_card_number>;
+
+auto event_pool(int index) -> EventPool& {
+  TORCH_CHECK(0 <= index and index < max_card_number, "support up to 16 cards");
+  return EventPoolHolderArray::value[index]();
 }
 
-void getEventFromPool(deviceEvent_t& event) { getEventPool()->get(event); }
+}  // namespace
 
-void restoreEventToPool(deviceEvent_t& event) {
-  getEventPool()->restore(event);
+namespace dipu {
+
+void event_pool_acquire(int index, deviceEvent_t& event) {
+  event_pool(index).acquire(event);
 }
 
-void releaseAllEvent() { getEventPool()->release(); }
+void event_pool_release(int index, deviceEvent_t& event) {
+  event_pool(index).release(event);
+}
+
+void event_pool_clear() {
+  for (auto& pool : EventPoolHolderArray::value) {
+    pool().clear();
+  }
+}
 
 }  // namespace dipu
