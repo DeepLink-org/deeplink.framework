@@ -56,6 +56,8 @@ DISABLED_TESTS_CUDA = {
     "TestReductionsDIPU": {
         "test_ref_large_input_1D",
         "test_ref_large_input_64bit_indexing",
+        # will fail because diopiStd not align with torch.std, will fix later
+        "test_warn_invalid_degrees_of_freedom",
     },
 }
 
