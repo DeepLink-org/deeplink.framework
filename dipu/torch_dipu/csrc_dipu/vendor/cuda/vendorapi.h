@@ -11,6 +11,22 @@
 
 namespace dipu {
 
+#define DIPU_DRIVER_CHECK(EXPR)                       \
+  do {                                                \
+    CUresult __err = EXPR;                            \
+    if (__err != ::CUDA_SUCCESS) {                      \
+      const char* err_str;                            \
+      CUresult get_error_str_err C10_UNUSED =         \
+          cuGetErrorString(__err, &err_str);          \
+      if (get_error_str_err != ::CUDA_SUCCESS) {        \
+        AT_ERROR("CUDA driver error: unknown error"); \
+      } else {                                        \
+        AT_ERROR("CUDA driver error: ", err_str);     \
+      }                                               \
+    }                                                 \
+  } while (0)
+
+
 #define DIPU_CALLCUDA(Expr)                                              \
   {                                                                      \
     cudaError_t ret = Expr;                                              \
