@@ -95,6 +95,7 @@ diopiFlip
 diopiFloor
 diopiFloorInp
 diopiForeachaddInpScalar
+diopiForeachaddScalar
 diopiForeachmulInpScalar
 diopiForeachmulInpTensor
 diopiForeachnormScalar
