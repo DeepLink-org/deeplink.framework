@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <utility>
 
+#include <c10/core/Stream.h>
+
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 #include "DIPUGuard.h"
@@ -11,49 +13,60 @@
 
 namespace dipu {
 /*
- * DIPUEvents are movable not copyable wrappers around DIPU's events.
- * DIPUEvents are constructed lazily when first recorded.
+ * DIPUEvent is a movable non-copyable wrapper around DIPU's events.
+ * DIPUEvent is lazily constructed while "record".
  */
 class DIPU_API DIPUEvent {
+  deviceEvent_t event_{nullptr};
+  c10::DeviceIndex device_index_{-1};
+  c10::StreamId last_recorded_stream_id_{-1};
+
  public:
-  // Constructors
-  DIPUEvent() = default;
-
-  // dipu do not support IpcEventHandle until now
-
-  ~DIPUEvent() { release(); }
-
   DIPUEvent(const DIPUEvent&) = delete;
   DIPUEvent& operator=(const DIPUEvent&) = delete;
 
-  DIPUEvent(DIPUEvent&& other) noexcept { moveHelper(other); }
+  constexpr DIPUEvent() noexcept = default;
+  constexpr DIPUEvent(DIPUEvent&& other) noexcept
+      : event_(other.event_),
+        device_index_(other.device_index_),
+        last_recorded_stream_id_(other.last_recorded_stream_id_) {
+    other.unsafe_reset();
+  }
 
-  DIPUEvent& operator=(DIPUEvent&& other) noexcept {
-    if (this != &other) {
-      release();
-      moveHelper(other);
+  DIPUEvent& operator=(DIPUEvent&& other) noexcept(false /* release_event */) {
+    if (this != std::addressof(other)) {
+      release_event();
+      event_ = other.event_;
+      device_index_ = other.device_index_;
+      last_recorded_stream_id_ = other.last_recorded_stream_id_;
+      other.unsafe_reset();
     }
     return *this;
   }
 
-  explicit operator deviceEvent_t() const { return rawevent(); }
+  ~DIPUEvent() { release_event(); }
 
-  // aclrtEvent do not support Less than operator until now
+  deviceEvent_t device_event() const noexcept { return event_; }
+
+  c10::DeviceIndex device_index() const noexcept { return device_index_; }
+
+  // Return the ID of the most recent recoreded stream.
+  //
+  // Note: no event-stream relation guaranteed. It means the fetched stream ID
+  // may be invalid (-1) or out-dated.
+  c10::StreamId last_recorded_stream_id() const noexcept {
+    return last_recorded_stream_id_;
+  }
 
   c10::optional<at::Device> device() const {
-    if (isCreated()) {
+    if (initialized()) {
       return at::Device(dipu::DIPU_DEVICE_TYPE, device_index_);
     }
     return {};
   }
 
-  bool isCreated() const { return event_ != nullptr; }
-  c10::DeviceIndex device_index() const { return device_index_; }
-  c10::StreamId stream_id() const { return stream_id_; }
-  deviceEvent_t rawevent() const { return event_; }
-
   bool query() const {
-    if (!isCreated()) {
+    if (!initialized()) {  // unlikely
       return true;
     }
 
@@ -63,26 +76,22 @@ class DIPU_API DIPUEvent {
 
   void record() { record(getCurrentDIPUStream()); }
 
-  void recordOnce(const DIPUStream& stream) {
-    if (-1 == stream_id_) {
-      record(stream);
-    }
-  }
-
   void record(const DIPUStream& stream) {
-    if (!isCreated()) {
-      createEvent(stream.device_index());
+    if (!initialized()) {
+      create_event(stream.device_index());
     }
+
     TORCH_CHECK(device_index_ == stream.device_index(), "Event device ",
                 device_index_, " does not match recording stream's device ",
                 stream.device_index(), ".");
+
+    last_recorded_stream_id_ = stream.id();
     DIPUGuard guard(device_index_);
     devproxy::recordEvent(event_, stream.rawstream());
-    stream_id_ = stream.id();
   }
 
   void wait(const DIPUStream& stream) {
-    if (isCreated()) {
+    if (initialized()) {  // likely
       DIPUGuard guard(stream.device_index());
       devproxy::streamWaitEvent(stream.rawstream(), event_);
     }
@@ -90,45 +99,40 @@ class DIPU_API DIPUEvent {
 
   float elapsed_time(const DIPUEvent& other) const {
     TORCH_CHECK(
-        isCreated() && other.isCreated(),
+        initialized() && other.initialized(),
         "Both events must be recorded before calculating elapsed time.");
-    float time_ms = 0;
+
+    auto time_ms = 0.F;
     devproxy::eventElapsedTime(&time_ms, event_, other.event_);
     return time_ms;
   }
 
   void synchronize() const {
-    if (isCreated()) {
+    if (initialized()) {  // likely
       devproxy::waitEvent(event_);
     }
   }
 
+  // aclrtEvent do not support Less than operator until now
   // dipu do not support IpcEventHandle until now
 
  private:
-  c10::DeviceIndex device_index_ = -1;
-  c10::StreamId stream_id_ = -1;
-  deviceEvent_t event_ = nullptr;
+  bool initialized() const noexcept { return event_ != nullptr; }
 
-  void createEvent(c10::DeviceIndex device_index) {
+  void unsafe_reset() noexcept { event_ = nullptr; }
+
+  void create_event(c10::DeviceIndex device_index) {
     device_index_ = device_index;
     DIPUGuard guard(device_index_);
     devproxy::createEvent(&event_);
   }
 
-  void release() {
-    if (isCreated()) {
+  void release_event() {
+    if (initialized()) {
       DIPUGuard guard(device_index_);
       devproxy::destroyEvent(event_);
       event_ = nullptr;
     }
-  }
-
-  void moveHelper(DIPUEvent& other) {
-    device_index_ = other.device_index_;
-    stream_id_ = other.stream_id_;
-    event_ = other.event_;
-    other.event_ = nullptr;
   }
 };
 
