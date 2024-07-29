@@ -1,5 +1,7 @@
 // Copyright (c) 2024, DeepLink.
 
+#include <vector>
+
 #include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 #include "csrc_dipu/vendor/ascend/basecommimpl.hpp"
@@ -8,7 +10,8 @@ namespace dipu {
 
 class AscendExpandableSegment : public ExpandableSegment {
  public:
-  AscendExpandableSegment(int device, deviceStream_t stream, size_t size)
+  AscendExpandableSegment(int device, deviceStream_t stream, size_t size,
+                          std::vector<int> peers)
       : device_(device),
         stream_(stream),
         // 2MB for small pool, 20MB for large pool
@@ -81,6 +84,7 @@ class AscendExpandableSegment : public ExpandableSegment {
 
   char* ptr() const override { return static_cast<char*>(ptr_); }
   size_t size() const override { return max_handles_ * segment_size_; }
+  void addPeer(int device) override {}
 
  public:
   ~AscendExpandableSegment() noexcept override {
@@ -154,8 +158,9 @@ class AscendExpandableSegment : public ExpandableSegment {
 
 ExpandableSegment* vendorCreateExpandableSegment(int device,
                                                  deviceStream_t stream,
-                                                 size_t size) {
-  return new AscendExpandableSegment(device, stream, size);
+                                                 size_t size,
+                                                 std::vector<int> peers) {
+  return new AscendExpandableSegment(device, stream, size, std::move(peers));
 }
 
 }  // namespace dipu
