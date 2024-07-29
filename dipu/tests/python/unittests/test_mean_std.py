@@ -60,6 +60,14 @@ class TestMeanStd(TestCase):
                 rtol=1e-3,
             )
         )
+        self.assertTrue(
+            torch.allclose(
+                torch.std(self.a, dim=-1, correction=20).cpu(),
+                torch.std(self.a.cpu(), dim=-1, correction=20),
+                atol=1e-3,
+                rtol=1e-3
+            )
+        )
 
 
 if __name__ == "__main__":
