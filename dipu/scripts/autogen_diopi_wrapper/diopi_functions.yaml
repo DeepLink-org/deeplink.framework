@@ -2615,6 +2615,7 @@
   torch_ver: ["20000"]
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
+    // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
     std::vector<at::Tensor> out(self.size());
     for (size_t i = 0;i < self.size();i++) {
       out[i] = nodispatch::empty(self[i].sizes(), self[i].options());
@@ -2667,6 +2668,23 @@
   interface: diopiMulInpScalar(ctx, self, other, alpha)
 
 - schema: _foreach_mul.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
+  torch_ver: ["20000",]
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+    // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = nodispatch::empty({}, in.options());
+    }
+
+    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
+    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
+    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
+    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+  interface:  diopiForeachmulScalar(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
+
+- schema: _foreach_mul.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
   dummy_call_diopi: True
   device: [all, -cuda, -muxi]
   custom_code_at_the_beginning: |
@@ -2697,6 +2715,23 @@
     }
     return;
   interface: diopiMulInp(ctx, self, other, alpha)
+
+- schema: _foreach_mul.Tensor(Tensor[] self, Tensor other) -> Tensor[]
+  torch_ver: ["20000",]
+  device: [cuda, muxi]
+  custom_code_at_the_beginning: |
+    // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
+    std::vector<at::Tensor> out(self.size());
+    for (size_t i = 0;i < self.size();i++) {
+      auto& in = self[i];
+      out[i] = nodispatch::empty({}, in.options());
+    }
+
+    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
+    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
+    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
+    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+  interface:  diopiForeachmulTensor(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), other)
 
 - schema: _foreach_mul.Tensor(Tensor[] self, Tensor other) -> Tensor[]
   device: [all, -cuda, -muxi]
