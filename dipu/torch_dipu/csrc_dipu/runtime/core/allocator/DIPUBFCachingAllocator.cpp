@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/utils/env.hpp"
 
 #include "DIPUCachingAllocator.h"
@@ -15,8 +16,7 @@
 namespace dipu {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-const size_t kMaxExtendSize = get_env_or_default("DIPU_MAX_EXTEND_SIZE", 1024)
-                              << 20U;
+const size_t kMaxExtendSize = environ::maxExtendSize() << 20U;
 
 class BFCachingAllocatorImpl {
  public:
