@@ -11,7 +11,7 @@ namespace dipu {
 class CUDAExpandableSegment : public ExpandableSegment {
  public:
   CUDAExpandableSegment(int device, deviceStream_t stream, size_t size,
-                          std::vector<int> peers)
+                        std::vector<int> peers)
       : device_(device),
         stream_(stream),
         // 2MB for small pool, 20MB for large pool

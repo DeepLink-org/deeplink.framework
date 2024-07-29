@@ -129,7 +129,8 @@ inline ExpandableSegment* createExpandableSegment(int device,
                                                   size_t size,
                                                   std::vector<int> peers) {
   if (vendorCreateExpandableSegment) {
-    return vendorCreateExpandableSegment(device, stream, size, peers);
+    return vendorCreateExpandableSegment(device, stream, size,
+                                         std::move(peers));
   }
   TORCH_CHECK(false, "not support expandable segment");
 }

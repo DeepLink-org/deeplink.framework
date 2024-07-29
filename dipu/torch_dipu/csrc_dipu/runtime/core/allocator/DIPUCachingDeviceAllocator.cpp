@@ -1065,10 +1065,9 @@ class DeviceCachingAllocator {
   }
 
   void addPeerAccess(int dev_to_access) {
-    if (std::find(
-            devices_with_peer_access_.begin(),
-            devices_with_peer_access_.end(),
-            dev_to_access) != devices_with_peer_access_.end()) {
+    if (std::find(devices_with_peer_access_.begin(),
+                  devices_with_peer_access_.end(),
+                  dev_to_access) != devices_with_peer_access_.end()) {
       return;
     }
     devices_with_peer_access_.push_back(dev_to_access);
@@ -1126,8 +1125,8 @@ class DeviceCachingAllocator {
       }
     }
     auto segment_size = pool->is_small ? kSmallBuffer : kLargeBuffer;
-    expandable_segments_.emplace_back(
-        createExpandableSegment(device, stream, segment_size, devices_with_peer_access_));
+    expandable_segments_.emplace_back(createExpandableSegment(
+        device, stream, segment_size, devices_with_peer_access_));
 
     ExpandableSegment* es = expandable_segments_.back();
     Block* candidate = new Block(device, stream, es->size(), pool, es->ptr());
