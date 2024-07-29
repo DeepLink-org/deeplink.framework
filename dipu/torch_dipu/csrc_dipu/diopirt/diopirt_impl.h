@@ -37,6 +37,8 @@ at::Tensor* fromDiopiTensorHandle(::diopiTensorHandle_t tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(const at::Tensor* tensor);
 ::diopiConstTensorHandle_t toDiopiTensorHandle(
     const c10::optional<at::Tensor>& tensor);
+void toDiopiTensorHandleVector(std::vector<diopiTensorHandle_t>& result, at::TensorList tensors);
+void toDiopiTensorHandleVector(std::vector<diopiConstTensorHandle_t>& result, at::TensorList tensors);
 
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator& generator);
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(
