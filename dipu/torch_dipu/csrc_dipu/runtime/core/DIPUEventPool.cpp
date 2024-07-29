@@ -52,12 +52,10 @@ struct EventPoolHolder {
 };
 
 auto constexpr max_card_number = 16;
-using EventPoolHolderArray =
-    dipu::static_function_array<EventPoolHolder, max_card_number>;
 
 auto event_pool(int index) -> EventPool& {
   TORCH_CHECK(0 <= index and index < max_card_number, "support up to 16 cards");
-  return EventPoolHolderArray::value[index]();
+  return dipu::static_value_array<EventPoolHolder, max_card_number>[index]();
 }
 
 }  // namespace
@@ -73,8 +71,8 @@ void event_pool_release(int index, deviceEvent_t& event) {
 }
 
 void event_pool_clear() {
-  for (auto& pool : EventPoolHolderArray::value) {
-    pool().clear();
+  for (auto& h : dipu::static_value_array<EventPoolHolder, max_card_number>) {
+    h().clear();
   }
 }
 

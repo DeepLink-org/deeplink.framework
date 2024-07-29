@@ -236,9 +236,9 @@ template <class AllocatorImpl, class AsyncMemPoolImpl>
 c10::Allocator* get_allocator(int index, c10::Allocator* raw_allocator) {
   auto constexpr max_card_number = 16;
   TORCH_CHECK(0 <= index and index < max_card_number, "support up to 16 cards");
-  return dipu::static_function_array<
-      AllocatorHolder<AllocatorImpl, AsyncMemPoolImpl>,
-      max_card_number>::value[index](raw_allocator);
+  return dipu::static_value_array<
+      AllocatorHolder<AllocatorImpl, AsyncMemPoolImpl>, max_card_number>[index](
+      raw_allocator);
 }
 
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator,          \
