@@ -57,7 +57,15 @@ class DIPUDataLoader(DataLoader):
             )
             pin_memory = False
         elif pin_memory:
-            pin_memory_device = "cuda"
+            import os
+
+            mockcuda = (
+                False
+                if os.environ.get("DIPU_MOCK_CUDA", "True").lower() == "false"
+                else True
+            )
+            if mockcuda == True:
+                pin_memory_device = "cuda"
 
         super().__init__(
             dataset,

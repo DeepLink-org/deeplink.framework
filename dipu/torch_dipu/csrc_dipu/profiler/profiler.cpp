@@ -11,6 +11,7 @@
 #include "csrc_dipu/profiler/CorrelationIDManager.h"
 
 #include "ThreadUtil.h"
+#include "torch_version.h"
 
 namespace dipu {
 
@@ -43,7 +44,7 @@ class StreamTimeOffsetTracker final {
 
  public:
   explicit StreamTimeOffsetTracker(deviceStream_t stream)
-      : stream_(stream), beginOffset_(torch::profiler::impl::getTime()) {
+      : stream_(stream), beginOffset_(torchGetTime()) {
     devproxy::recordEvent(begin_.get(), stream_);
     devproxy::waitEvent(begin_.get());
   }
@@ -56,7 +57,7 @@ class StreamTimeOffsetTracker final {
     dipu::devproxy::recordEvent(end.get(), stream_);
     dipu::devproxy::waitEvent(end.get());
     dipu::devproxy::eventElapsedTime(&time, begin_.get(), end.get());
-    size_t endOffset = torch::profiler::impl::getTime();
+    size_t endOffset = torchGetTime();
     ratio_ = static_cast<float>(endOffset - beginOffset_) / time;
   }
 
@@ -284,7 +285,7 @@ RecordCreator::RecordCreator(string_t name, size_t opId,
   if (isEnable()) {
     name_ = std::move(name);
     opId_ = opId;
-    begin_ = torch::profiler::impl::getTime();
+    begin_ = torchGetTime();
     end_ = false;
     linkCorrelationId_ = linkCorrelationId;
   }
@@ -293,8 +294,7 @@ RecordCreator::RecordCreator(string_t name, size_t opId,
 void RecordCreator::end() noexcept {
   if (!end_) {
     RecordsImpl::get().addRecord(
-        Record{name_, opId_, begin_,
-               static_cast<size_t>(torch::profiler::impl::getTime()),
+        Record{name_, opId_, begin_, static_cast<size_t>(torchGetTime()),
                static_cast<size_t>(libkineto::processId()),
                static_cast<size_t>(libkineto::systemThreadId()), false,
                linkCorrelationId_});

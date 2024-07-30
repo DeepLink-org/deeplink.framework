@@ -35,8 +35,8 @@ case $1 in
         build_diopi_lib_dyn
     ;;
     "build_dipu_only")
-        # "-DWITH_DIOPI_LIBRARY=DISABLE"
-        builddipu "-DWITH_DIOPI_LIBRARY=${DIOPI_DYN_ROOT}"
+        # build_dipu  "-DWITH_DIOPI_LIBRARY=DISABLE"
+        build_dipu "-DWITH_DIOPI_LIBRARY=${DIOPI_DYN_ROOT}"
     ;;
     *)
         echo "[ERROR] Incorrect option: $1" && exit 1 ;;

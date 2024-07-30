@@ -116,8 +116,8 @@ class AsyncResourcePoolImpl<T, device_type, OneStreamOneQueueAlgo>
     } else {
       auto resource = new Resource(t, events.size());
       for (DIPUEvent& event : events) {
-        queues_with_events[event.stream_id()].emplace(resource,
-                                                      std::move(event));
+        queues_with_events[event.last_recorded_stream_id()].emplace(
+            resource, std::move(event));
       }
       events.clear();
     }
