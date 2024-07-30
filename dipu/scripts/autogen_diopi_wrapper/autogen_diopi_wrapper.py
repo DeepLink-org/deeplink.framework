@@ -1206,20 +1206,22 @@ def main():
         supported_torch_ver_list = merged_fun_config.get("torch_ver", None)
         cur_torch_ver = merged_fun_config.get("current_torch_ver", None)
 
-        if supported_torch_ver_list == None:
-            compatible_with_cur_torch_ver = True
-        else:
-            compatible_with_cur_torch_ver = False
+        if supported_torch_ver_list != None:
+            exclude_torch_ver_list = []
+            include_torch_ver_list = []
+            all_include = False
             for supported_torch_ver in supported_torch_ver_list:
-                if cur_torch_ver == supported_torch_ver:
-                    compatible_with_cur_torch_ver = True
-                elif (
-                    supported_torch_ver.startswith(">=")
-                    and cur_torch_ver >= supported_torch_ver[2:]
-                ):
-                    compatible_with_cur_torch_ver = True
-        if compatible_with_cur_torch_ver == False:
-            continue
+                if supported_torch_ver.startswith("-"):
+                    exclude_torch_ver_list.append(supported_torch_ver[1:])
+                elif supported_torch_ver == "all":
+                    all_include = True
+                else:
+                    include_torch_ver_list.append(supported_torch_ver)
+
+            if (cur_torch_ver in exclude_torch_ver_list) or (
+                all_include == False and (cur_torch_ver not in include_torch_ver_list)
+            ):
+                continue
 
         fun_code, register_code = functions_code_gen(merged_fun_config)
 

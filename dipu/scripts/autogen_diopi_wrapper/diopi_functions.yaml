@@ -860,7 +860,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
-  torch_ver: [">=20100"]
+  torch_ver: [all, "-20000"]
   custom_code_at_the_beginning: |
     c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
@@ -868,7 +868,7 @@
   interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
-  torch_ver: [">=20100"]
+  torch_ver: [all, "-20000"]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
   interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr)
