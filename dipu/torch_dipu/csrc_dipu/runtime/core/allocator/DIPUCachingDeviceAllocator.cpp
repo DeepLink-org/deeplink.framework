@@ -40,7 +40,9 @@
 // Our changes:
 //    1. use dipu runtime api to replace CUDA API.
 //    2. make ExpandableSegment to an interface class, vendor should implement
-//    it if want to support expandable segments.
+//    it if want to support expandable segments. If
+//    vendorCreateExpandableSegment is not implemented, the allocator will never
+//    use expandable segments.
 //    3. remove EventPool class, DIPU already supports it.
 // ----------------------------------------------------------------------------
 namespace dipu::allocator {
@@ -476,6 +478,13 @@ void CachingAllocatorConfig::parseArgs(const char* env) {
           i < config.size() && (config[i] == "True" || config[i] == "False"),
           "Expected a single True/False argument for expandable_segments");
       m_expandable_segments = (config[i] == "True");
+      if (m_expandable_segments && !vendorCreateExpandableSegment) {
+        DIPU_LOGW(
+            "expandable_segments is set to True, but no implementation of "
+            "vendorCreateExpandableSegment is found. Hence ignoring the "
+            "setting.");
+        m_expandable_segments = false;
+      }
     } else {
       TORCH_CHECK(false, "Unrecognized CachingAllocator option: ", config[i]);
     }
@@ -2020,10 +2029,10 @@ class NativeCachingAllocator : public DeviceAllocator {
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-NativeCachingAllocator native_caching_allocator;
-REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, &native_caching_allocator);
+NativeCachingAllocator* native_caching_allocator = new NativeCachingAllocator();
+REGISTER_ALLOCATOR(dipu::DIPU_DEVICE_TYPE, native_caching_allocator);
 
-void local_raw_delete(void* ptr) { native_caching_allocator.free(ptr); }
+void local_raw_delete(void* ptr) { native_caching_allocator->free(ptr); }
 
 // General caching allocator utilities
 void setAllocatorSettings(const std::string& env) {
@@ -2058,7 +2067,7 @@ std::string format_size(uint64_t size) {
 
 struct BackendStaticInitializer {
   BackendStaticInitializer() {
-    allocator.store(&native_caching_allocator);
+    allocator.store(native_caching_allocator);
     init(devproxy::getDeviceCount());
   }
 };

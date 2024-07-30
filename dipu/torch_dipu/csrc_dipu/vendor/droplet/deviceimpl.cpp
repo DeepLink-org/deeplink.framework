@@ -163,6 +163,7 @@ OpStatus mallocDevice(void** p, size_t nbytes, bool throwExcepion) {
       ::tangGetLastError(); /* reset internal error state*/
       throw std::runtime_error("alloc failed in dipu");
     } else if (r == ::tangErrorMemoryAllocation) {
+      ::tangGetLastError();
       return OpStatus::ERR_NOMEM;
     } else {
       return OpStatus::ERR_UNKNOWN;

@@ -99,7 +99,7 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/} # Extract the tag name
           echo $TAG
           bash /mnt/cache/share/platform/dep/Deploy_DIPU_trigger.sh "$TAG"
-          
+
   Build-Camb:
     name: Build-dipu-camb
     needs: [Runs-On-Nv-Step1]
@@ -125,7 +125,7 @@ jobs:
     needs: [Build-Camb]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 1
+      MLU_REQUESTS: 4 
     steps:
       - name: Run-test
         run: |
@@ -210,7 +210,7 @@ jobs:
     needs: [Build-Camb-Pt211]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 1
+      MLU_REQUESTS: 4
     steps:
       - name: Run-test
         run: |
@@ -307,7 +307,7 @@ jobs:
     needs: [Build-Camb-Latest-Target]
     runs-on: github-poc-ci
     env:
-      MLU_REQUESTS: 1
+      MLU_REQUESTS: 4
     steps:
       - name: Run-test
         run: |

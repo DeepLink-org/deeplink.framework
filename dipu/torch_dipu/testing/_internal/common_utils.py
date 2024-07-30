@@ -69,6 +69,13 @@ def skipOn(vendor: str, reason: str):
     return unittest.skipIf(torch_dipu.dipu.vendor_type == vendor, reason)
 
 
+def skipIfDevcieCountLessThan(number_of_devices_required):
+    return unittest.skipIf(
+        torch_dipu.dipu.device_count() < number_of_devices_required,
+        f"available device are less than {number_of_devices_required}",
+    )
+
+
 @overload
 def onlyOn(vendor: str): ...
 

@@ -7,6 +7,7 @@
 
 #include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/profiler/profiler.h"
+#include "csrc_dipu/runtime/devproxy/deviceproxy.h"
 
 namespace diopihelper = dipu::diopi_helper;
 using dipu::profile::RecordBlockCreator;
@@ -113,6 +114,11 @@ DIOPI_RT_API diopiError_t diopiGetTensorDeviceIndex(
   return diopiSuccess;
 }
 
+DIOPI_RT_API diopiError_t
+diopiGetCurrentDeviceIndex(diopiDeviceIndex_t* pDevIndex) {
+  *pDevIndex = dipu::devproxy::current_device();
+  return diopiSuccess;
+}
 DIOPI_RT_API diopiError_t diopiGetStream(diopiContextHandle_t ctx,
                                          diopiStreamHandle_t* stream) {
   *stream = ctx->stream;

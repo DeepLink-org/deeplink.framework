@@ -198,17 +198,25 @@ class CopyParamsInfo {
   }
 
   explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src,
-                          const DIPUStream& curStream) {
-    // assume layout always = not suppport Sparse layout
+                          const DIPUStream& curStream)
+      : curStream_(curStream) {
     TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
                 "only Strided layout is supported");
     copyType_ = getCopyType(dst, src);
-    curStream_ = curStream;
 
     recomputeTensorsInfo(dst, src);
   }
+  explicit CopyParamsInfo(const at::Tensor& dst, const at::Tensor& src) {
+    TORCH_CHECK(dst.options().layout() == c10::Layout::Strided,
+                "only Strided layout is supported");
+    copyType_ = getCopyType(dst, src);
 
+    recomputeTensorsInfo(dst, src);
+  }
   void updateCopyType(DIPUCopyType copyType) { copyType_ = copyType; }
+  void updateCurrentStream(const DIPUStream& curStream) {
+    curStream_ = curStream;
+  }
 };
 
 inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,
@@ -217,9 +225,10 @@ inline void doSrcStreamWaitDstStream(const CopyParamsInfo& info,
   DIPUEvent dstEvent;
   dstEvent.record(dipu::getCurrentDIPUStream(info.dstDevice_));
   dstGuard.set_index(info.srcDevice_);
-  dstEvent.wait(info.curStream_);
   if (block_cpu) {
     dstEvent.synchronize();
+  } else {
+    dstEvent.wait(info.curStream_);
   }
 }
 
@@ -228,9 +237,10 @@ inline void doDstStreamWaitSrcStream(const CopyParamsInfo& info,
   DIPUEvent srcEvent;
   srcEvent.record(info.curStream_);
   DIPUGuard dstGuard(info.dstDevice_);
-  srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
   if (block_cpu) {
     srcEvent.synchronize();
+  } else {
+    srcEvent.wait(dipu::getCurrentDIPUStream(info.dstDevice_));
   }
 }
 

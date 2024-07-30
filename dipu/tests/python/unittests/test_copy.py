@@ -2,7 +2,12 @@
 import itertools
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests, skipOn
+from torch_dipu.testing._internal.common_utils import (
+    TestCase,
+    run_tests,
+    skipOn,
+    skipIfDevcieCountLessThan,
+)
 
 
 class TestCopy(TestCase):
@@ -79,9 +84,12 @@ class TestCopy(TestCase):
         dst1.copy_(src)
         self.assertEqual(dst1.cpu(), src.cpu())
 
+    @skipIfDevcieCountLessThan(2)
     def test_d2d_peer_copy_(self):
         if torch.cuda.device_count() < 2:
-            return
+            assert (
+                False
+            ), "At least two cards are required for copying between multiple cards"
         dst = torch.rand((6400, 4000), device="cuda:0")
         src = torch.rand((6400, 4000), device="cuda:1")
         dst.copy_(src)
@@ -96,9 +104,12 @@ class TestCopy(TestCase):
         self.assertEqual(dst.device.index, 1)
         self.assertEqual(src.device.index, 0)
 
+    @skipIfDevcieCountLessThan(2)
     def test_d2d_peer_copy_no_contiguous(self):
         if torch.cuda.device_count() < 2:
-            return
+            assert (
+                False
+            ), "At least two cards are required for copying between multiple cards"
         src = torch.rand((6400, 9900), device="cuda:1")[::2, ::3]
         dst = src.to("cuda:0")
         self.assertEqual(dst.cpu(), src.cpu())
