@@ -116,6 +116,7 @@ set(TORCH_DIPU_SOURCE
   runtime/core/allocator/DIPURawAllocator.cpp
   runtime/core/allocator/DIPUCachingAllocator.cpp
   runtime/core/allocator/DIPUBFCachingAllocator.cpp
+  runtime/core/allocator/DIPUBFCachingAllocator2.cpp
   runtime/core/allocator/DIPUBSCachingAllocator.cpp
   runtime/core/allocator/DIPUCachingHostAllocator.cpp
   runtime/core/allocator/DIPUCachingDeviceAllocator.cpp
