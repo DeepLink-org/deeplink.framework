@@ -1,7 +1,7 @@
 # Copyright (c) 2023, DeepLink.
 import torch
 import torch_dipu
-from torch_dipu.testing._internal.common_utils import TestCase, run_tests
+from torch_dipu.testing._internal.common_utils import TestCase, run_tests, skipOn
 
 
 class TestMeanStd(TestCase):
@@ -60,6 +60,9 @@ class TestMeanStd(TestCase):
                 rtol=1e-3,
             )
         )
+
+    @skipOn("MLU", "camb does not support this type")
+    def test_std_correction(self):
         self.assertTrue(
             torch.allclose(
                 torch.std(self.a, dim=-1, correction=20).cpu(),
