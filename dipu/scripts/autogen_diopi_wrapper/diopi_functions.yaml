@@ -1317,6 +1317,11 @@
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
   interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
 
+
+# - schema: _fused_adamw_(Tensor(a!)[] self, Tensor(b!)[] grads, Tensor(c!)[] exp_avgs, Tensor(d!)[] exp_avg_sqs, Tensor(e!)[] max_exp_avg_sqs, Tensor[] state_steps, *, float lr, float beta1, float beta2, float weight_decay, float eps, bool amsgrad, bool maximize, Tensor? grad_scale=None, Tensor? found_inf=None) -> ()
+#   interface: diopiAdamW(ctx, self, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, lr, beta1, beta2, eps, weight_decay, state_steps, amsgrad)
+
+
 - schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
   custom_code_at_the_beginning: |
     const auto self_dtype = at::native::to(self, dtype);
