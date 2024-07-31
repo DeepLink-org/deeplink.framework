@@ -1,5 +1,6 @@
 diopiAbs
 diopiAbsInp
+diopiAdamW
 diopiAdaptiveAvgPool2d
 diopiAdaptiveAvgPool2dBackward
 diopiAdd
