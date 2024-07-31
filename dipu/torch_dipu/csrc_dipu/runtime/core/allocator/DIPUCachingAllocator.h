@@ -5,6 +5,7 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
+#include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/base/utility.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
@@ -215,7 +216,10 @@ struct RawAllocator<at::DeviceType::CPU> {
 };
 
 template <typename AllocatorImpl, class AsyncMemPoolImpl>
-struct AllocatorHolder {
+struct StaticAllocatorArray
+    : dipu::static_value_array<
+          StaticAllocatorArray<AllocatorImpl, AsyncMemPoolImpl>,
+          dipu::kMaxDeviceNumber> {
   template <std::size_t I>
   inline static c10::Allocator* value(c10::Allocator* raw_allocator) {
     // Construct when really needed
@@ -232,13 +236,11 @@ struct AllocatorHolder {
   }
 };
 
-template <class AllocatorImpl, class AsyncMemPoolImpl>
+template <class Allocator, class MemPool>
 c10::Allocator* get_allocator(int index, c10::Allocator* raw_allocator) {
-  auto constexpr max_card_number = 16;
-  TORCH_CHECK(0 <= index and index < max_card_number, "support up to 16 cards");
-  return dipu::static_value_array<
-      AllocatorHolder<AllocatorImpl, AsyncMemPoolImpl>, max_card_number>[index](
-      raw_allocator);
+  TORCH_CHECK(0 <= index and index < dipu::kMaxDeviceNumber,
+              "device index out of range");
+  return StaticAllocatorArray<Allocator, MemPool>::get(index, raw_allocator);
 }
 
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator,          \

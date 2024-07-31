@@ -1,11 +1,9 @@
 #include "DIPUEventPool.h"
 
-#include <array>
 #include <deque>
-#include <functional>
-#include <iostream>
 #include <mutex>
 
+#include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/base/utility.h"
 #include "csrc_dipu/runtime/device/deviceapis.h"
 
@@ -43,7 +41,8 @@ class EventPool {
   }
 };
 
-struct EventPoolHolder {
+struct StaticEventPoolArray
+    : dipu::static_value_array<StaticEventPoolArray, dipu::kMaxDeviceNumber> {
   template <std::size_t I>
   inline static auto& value() {
     auto static instance = EventPool();
@@ -51,11 +50,10 @@ struct EventPoolHolder {
   }
 };
 
-auto constexpr max_card_number = 16;
-
 auto event_pool(int index) -> EventPool& {
-  TORCH_CHECK(0 <= index and index < max_card_number, "support up to 16 cards");
-  return dipu::static_value_array<EventPoolHolder, max_card_number>[index]();
+  TORCH_CHECK(0 <= index and index < dipu::kMaxDeviceNumber,
+              "device index out of range");
+  return StaticEventPoolArray::get(index);
 }
 
 }  // namespace
@@ -71,8 +69,8 @@ void event_pool_release(int index, deviceEvent_t& event) {
 }
 
 void event_pool_clear() {
-  for (auto& h : dipu::static_value_array<EventPoolHolder, max_card_number>) {
-    h().clear();
+  for (auto& getter : StaticEventPoolArray::array()) {
+    getter().clear();
   }
 }
 
