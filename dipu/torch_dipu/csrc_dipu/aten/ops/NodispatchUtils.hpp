@@ -138,18 +138,14 @@ inline std::vector<at::Tensor> empty_tensorlist_like(at::TensorList& self,
                                                      bool same_size = true) {
   std::vector<at::Tensor> result(self.size());
   if (same_size) {
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
     std::transform(self.begin(), self.end(), result.begin(),
                    [](const at::Tensor& t) {
                      return nodispatch::empty(t.sizes(), t.options());
                    });
-    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
   } else {
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
     std::transform(
         self.begin(), self.end(), result.begin(),
         [](const at::Tensor& t) { return nodispatch::empty({}, t.options()); });
-    // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
   }
   return result;
 }
