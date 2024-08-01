@@ -80,9 +80,7 @@ at::Generator createDIPUGenerator(at::DeviceIndex device_index) {
  */
 DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
     : c10::GeneratorImpl{at::Device(dipu::DIPU_DEVICE_TYPE, device_index),
-                         at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)},
-      offset_(0),
-      state_need_reset_(true) {}
+                         at::DispatchKeySet(dipu::DIPU_DISPATCH_KEY)} {}
 
 /**
  * Sets the seed to be used by MTGP
@@ -91,6 +89,7 @@ DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
  */
 void DIPUGeneratorImpl::set_current_seed(uint64_t seed) {
   seed_ = seed;
+  offset_ = 0;
   state_need_reset_ = true;
 }
 
@@ -137,6 +136,7 @@ DIPUGeneratorImpl* DIPUGeneratorImpl::clone_impl() const {
       createDIPUGenerator(this->device().index()).unsafeReleaseGeneratorImpl());
   TORCH_CHECK(gen != nullptr);
   gen->set_current_seed(this->seed_);
+  gen->set_offset(offset_);
   auto state = this->state_;
   const auto& state_clone = state.clone();
   gen->set_state(*state_clone.getIntrusivePtr());

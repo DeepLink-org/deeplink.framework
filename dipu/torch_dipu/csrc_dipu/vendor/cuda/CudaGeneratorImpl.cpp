@@ -27,6 +27,23 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
         state_size == total_size || state_size == total_size - offset_size,
         "RNG state is wrong size");
 
+    // 1. set seed and offset
+    bool no_philox_seed = false;
+    if (state_size == total_size - offset_size) {
+      no_philox_seed = true;
+    }
+
+    uint64_t input_seed;
+    auto new_rng_state = state.data_dtype_initialized<uint8_t>();
+    memcpy(&input_seed, new_rng_state, seed_size);
+    this->set_current_seed(input_seed);
+    int64_t philox_offset = 0;
+    if (!no_philox_seed) {
+      memcpy(&philox_offset, new_rng_state + seed_size, offset_size);
+    }
+    this->set_offset(static_cast<uint64_t>(philox_offset));
+
+    // 2. set field state_
     at::Tensor state_tmp(
         state.shallow_copy_and_detach(state.version_counter(), true));
     state_ = state_tmp;
@@ -44,7 +61,7 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
       // THCGenerator struct was an array of curandStateMtgp32s.
       memset(rng_state, -1, states_size);
       uint64_t current_seed = this->current_seed();
-      int64_t offset = 0;
+      int64_t offset = this->get_offset();
       memcpy(rng_state + states_size, &current_seed, seed_size);
       memcpy(rng_state + states_size + seed_size, &offset, offset_size);
       state_need_reset_ = false;
