@@ -48,13 +48,21 @@ c10::intrusive_ptr<Work> reduce_dipu_(
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> broadcast_dipu_(
     at::TensorList tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t root_rank,
-    int64_t root_tensor, int64_t timeout) {
+    int64_t root_tensor,
+#if DIPU_TORCH_VERSION >= 20200
+    bool asyncOp,
+#endif
+    int64_t timeout) {
   auto tensor_vec = tensors.vec();
-  auto work =
-      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-          ->broadcast(tensor_vec,
-                      BroadcastOptions{root_rank, root_tensor,
-                                       std::chrono::milliseconds(timeout)});
+#if DIPU_TORCH_VERSION >= 20200
+  BroadcastOptions options = {root_rank, root_tensor,
+                              std::chrono::milliseconds(timeout), asyncOp};
+#else
+  BroadcastOptions options = {root_rank, root_tensor,
+                              std::chrono::milliseconds(timeout)};
+#endif
+  auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+                  ->broadcast(tensor_vec, options);
   return {std::move(tensor_vec), std::move(work)};
 }
 
@@ -101,14 +109,28 @@ allgather_dipu_(const std::vector<std::vector<at::Tensor>>& output_tensors,
 }
 
 // refer to distributed/c10d/Ops.cpp
+#if DIPU_TORCH_VERSION >= 20200
+std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
+    at::Tensor& output_tensor, at::Tensor& input_tensor,
+    const c10::intrusive_ptr<ProcessGroup>& process_group, bool asyncOp,
+    int64_t timeout) {
+  auto work =
+      process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
+          ->_allgather_base(
+              output_tensor, input_tensor,
+              AllgatherOptions{std::chrono::milliseconds(timeout), asyncOp});
+
+  return {output_tensor, std::move(work)};
+}
+#else
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _allgather_base_dipu_(
     at::Tensor& output_tensor, at::Tensor& input_tensor,
     const c10::intrusive_ptr<ProcessGroup>& process_group) {
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
                   ->_allgather_base(output_tensor, input_tensor);
-
   return {output_tensor, std::move(work)};
 }
+#endif
 
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
 reduce_scatter_dipu_(const at::TensorList& output_tensors,
@@ -133,13 +155,20 @@ reduce_scatter_dipu_(const at::TensorList& output_tensors,
 std::tuple<at::Tensor, c10::intrusive_ptr<Work>> _reduce_scatter_base_dipu_(
     at::Tensor& output_tensor, at::Tensor& input_tensor,
     const c10::intrusive_ptr<ProcessGroup>& process_group,
-    const c10::intrusive_ptr<ReduceOp>& reduce_op, int64_t timeout) {
+    const c10::intrusive_ptr<ReduceOp>& reduce_op,
+#if DIPU_TORCH_VERSION >= 20200
+    bool asyncOp,
+#endif
+    int64_t timeout) {
+#if DIPU_TORCH_VERSION >= 20200
+  ReduceScatterOptions options = {*reduce_op,
+                                  std::chrono::milliseconds(timeout), asyncOp};
+#else
+  ReduceScatterOptions options = {*reduce_op,
+                                  std::chrono::milliseconds(timeout)};
+#endif
   auto work = process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
-                  ->_reduce_scatter_base(
-                      output_tensor, input_tensor,
-                      ReduceScatterOptions{*reduce_op,
-                                           std::chrono::milliseconds(timeout)});
-
+                  ->_reduce_scatter_base(output_tensor, input_tensor, options);
   return {output_tensor, std::move(work)};
 }
 
@@ -162,8 +191,17 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
     const at::TensorList& output_tensors,
     const std::vector<std::vector<at::Tensor>>& input_tensors,
     const c10::intrusive_ptr<ProcessGroup>& process_group, int64_t root_rank,
+#if DIPU_TORCH_VERSION >= 20200
+    bool asyncOp,
+#endif
     int64_t timeout) {
   auto output_tensors_vec = output_tensors.vec();
+#if DIPU_TORCH_VERSION >= 20200
+  ScatterOptions options = {root_rank, std::chrono::milliseconds(timeout),
+                            asyncOp};
+#else
+  ScatterOptions options = {root_rank, std::chrono::milliseconds(timeout)};
+#endif
   auto work =
       process_group->getBackend(dipu::DIPU_DEVICE_TYPE)
           ->scatter(
@@ -171,7 +209,7 @@ std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>> scatter_dipu_(
               // ?
               // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
               const_cast<std::vector<std::vector<at::Tensor>>&>(input_tensors),
-              ScatterOptions{root_rank, std::chrono::milliseconds(timeout)});
+              options);
 
   return {std::move(output_tensors_vec), std::move(work)};
 }
