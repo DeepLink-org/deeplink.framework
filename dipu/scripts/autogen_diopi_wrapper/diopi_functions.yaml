@@ -2595,8 +2595,7 @@
 - schema: _foreach_add_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
-    std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+    auto selfHandles = dipu::diopi_helper::toDiopiTensorHandleVector(self);
   interface: diopiForeachaddInpScalar(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
 
 - schema: _foreach_add.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
@@ -2616,15 +2615,9 @@
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
     // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
-    std::vector<at::Tensor> out(self.size());
-    for (size_t i = 0;i < self.size();i++) {
-      out[i] = nodispatch::empty(self[i].sizes(), self[i].options());
-    }
-
-    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
-    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+    std::vector<at::Tensor> out = nodispatch::empty_tensorlist_like(self);
+    auto outHandles = dipu::diopi_helper::toDiopiTensorHandleVector(out);
+    auto selfHandles = dipu::diopi_helper::toDiopiConstTensorHandleVector(self);
   interface: diopiForeachaddScalar(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
 
 - schema: _foreach_mul_.List(Tensor(a!)[] self, Tensor[] other) -> ()
@@ -2651,9 +2644,7 @@
 - schema: _foreach_mul_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
-    std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
-
+    auto selfHandles = dipu::diopi_helper::toDiopiTensorHandleVector(self);
   interface: diopiForeachmulInpScalar(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
 
 - schema: _foreach_mul_.Scalar(Tensor(a!)[] self, Scalar scalar) -> ()
@@ -2672,16 +2663,9 @@
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
     // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
-    std::vector<at::Tensor> out(self.size());
-    for (size_t i = 0;i < self.size();i++) {
-      auto& in = self[i];
-      out[i] = nodispatch::empty({}, in.options());
-    }
-
-    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
-    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+    std::vector<at::Tensor> out = nodispatch::empty_tensorlist_like(self);
+    auto outHandles = dipu::diopi_helper::toDiopiTensorHandleVector(out);
+    auto selfHandles = dipu::diopi_helper::toDiopiConstTensorHandleVector(self);
   interface:  diopiForeachmulScalar(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), scalar)
 
 - schema: _foreach_mul.Scalar(Tensor[] self, Scalar scalar) -> Tensor[]
@@ -2700,8 +2684,7 @@
 - schema: _foreach_mul_.Tensor(Tensor(a!)[] self, Tensor other) -> ()
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
-   std::vector<diopiTensorHandle_t> selfHandles(self.size(), nullptr);
-   dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);    
+   auto selfHandles = dipu::diopi_helper::toDiopiTensorHandleVector(self);    
 
   interface: diopiForeachmulInpTensor(ctx, selfHandles.data(), static_cast<int64_t>(self.size()), other)
 
@@ -2721,16 +2704,9 @@
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
     // This version of code is slower than those autogened from torch, so only used in torch version 20000 where no proper code is generated
-    std::vector<at::Tensor> out(self.size());
-    for (size_t i = 0;i < self.size();i++) {
-      auto& in = self[i];
-      out[i] = nodispatch::empty({}, in.options());
-    }
-
-    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
-    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+    std::vector<at::Tensor> out = nodispatch::empty_tensorlist_like(self);
+    auto outHandles = dipu::diopi_helper::toDiopiTensorHandleVector(out);
+    auto selfHandles = dipu::diopi_helper::toDiopiConstTensorHandleVector(self);
   interface:  diopiForeachmulTensor(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), other)
 
 - schema: _foreach_mul.Tensor(Tensor[] self, Tensor other) -> Tensor[]
@@ -2943,16 +2919,9 @@
 - schema: _foreach_norm.Scalar(Tensor[] self, Scalar ord=2) -> Tensor[]
   device: [cuda, muxi]
   custom_code_at_the_beginning: |
-    std::vector<at::Tensor> out(self.size());
-    for (size_t i = 0;i < self.size();i++) {
-      auto& in = self[i];
-      out[i] = nodispatch::empty({}, in.options());
-    }
-
-    std::vector<diopiTensorHandle_t> outHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(outHandles, out);
-    std::vector<diopiConstTensorHandle_t> selfHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(selfHandles, self);
+    std::vector<at::Tensor> out = nodispatch::empty_tensorlist_like(self, false);
+    auto outHandles = dipu::diopi_helper::toDiopiTensorHandleVector(out);
+    auto selfHandles = dipu::diopi_helper::toDiopiConstTensorHandleVector(self);
   interface: diopiForeachnormScalar(ctx, outHandles.data(), selfHandles.data(), static_cast<int64_t>(self.size()), ord)
 
 - schema: _foreach_lerp_.Scalar(Tensor(a!)[] self, Tensor[] tensors1, Scalar weight) -> ()
@@ -3005,8 +2974,7 @@
 - schema: _amp_foreach_non_finite_check_and_unscale_(at::TensorList self, Tensor(b!) found_inf, Tensor inv_scale) -> ()
   custom_fallback: True
   custom_code_at_the_beginning: |
-    std::vector<diopiTensorHandle_t> diopiTensorHandles(self.size(), nullptr);
-    dipu::diopi_helper::toDiopiTensorHandleVector(diopiTensorHandles, self);
+    auto diopiTensorHandles = dipu::diopi_helper::toDiopiTensorHandleVector(self);
   interface: diopiAmpForeachNonFiniteCheckAndUnscaleInp(ctx, diopiTensorHandles.data(), static_cast<int64_t>(self.size()), found_inf, inv_scale)
 
 - schema: _amp_update_scale_(Tensor(a!) self, Tensor(b!) growth_tracker, Tensor found_inf, float scale_growth_factor, float scale_backoff_factor, int growth_interval) -> Tensor(a!)
