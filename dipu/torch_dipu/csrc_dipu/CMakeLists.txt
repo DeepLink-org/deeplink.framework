@@ -50,6 +50,11 @@ set(AUTOGEN_DIOPI_WRAPPER_DIR "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapp
 set(AUTOGEN_CODE_SH "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_wrapped_code.sh")
 set(AUTOGEN_CODE_REMOVE_CHECK False)
 
+option(AUTOGEN_CHECK_CODE "Whether to generate check code for AutoGenedKernels" ON)
+if(NOT AUTOGEN_CHECK_CODE)
+  set(AUTOGEN_CODE_REMOVE_CHECK True)
+endif()
+
 # The following parameters are used to auto_generated code.
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
 set(GENERATED_KERNELS_VENDOR "${PROJECT_SOURCE_DIR}/third_party/DIOPI/impl/${UsedVendor}/convert_config.yaml")
