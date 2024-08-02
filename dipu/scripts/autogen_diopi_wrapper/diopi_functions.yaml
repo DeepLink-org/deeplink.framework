@@ -838,32 +838,40 @@
   custom_code_at_the_beginning: |
     c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
-    bool unbiased = correction.value_or(1) == 1;
+    ::diopiScalar_t correctionDiopiScalar;
+    const ::diopiScalar_t* correctionDiopiScalarPtr = nullptr;
+    if (correction.has_value()) {
+        correctionDiopiScalar = dipu::diopi_helper::toDiopiScalar(correction.value());
+        correctionDiopiScalarPtr = &correctionDiopiScalar;
+    }
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+  interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, int? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
   torch_ver: ["20000",]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-    bool unbiased = correction.value_or(1) == 1;
-  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+    ::diopiScalar_t correctionDiopiScalar;
+    const ::diopiScalar_t* correctionDiopiScalarPtr = nullptr;
+    if (correction.has_value()) {
+        correctionDiopiScalar = dipu::diopi_helper::toDiopiScalar(correction.value());
+        correctionDiopiScalarPtr = &correctionDiopiScalar;
+    }
+  interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr);
 
 - schema: "std.correction(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False) -> Tensor"
-  torch_ver: ["20100", "20101", "20202"]
+  torch_ver: [all, "-20000"]
   custom_code_at_the_beginning: |
     c10::DimVector output_shape = infer_reduce_op_shape(self.sizes(), dim.value_or(c10::DimVector()), keepdim);
     auto out = nodispatch::empty(output_shape, self.options());
-    bool unbiased = correction.value_or(1).toLong() == 1;
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+  interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr);
 
 - schema: "std.correction_out(Tensor self, int[1]? dim=None, *, Scalar? correction=None, bool keepdim=False, Tensor(a!) out) -> Tensor(a!)"
-  torch_ver: ["20100", "20101", "20202"]
+  torch_ver: [all, "-20000"]
   custom_code_at_the_beginning: |
     ::diopiSize_t diopi_size = toDiopiSize(dim);
-    bool unbiased = correction.value_or(1).toLong() == 1;
-  interface: diopiStd(ctx, out, self, diopi_size, unbiased);
+  interface: diopiStd(ctx, out, self, diopi_size, correctionDiopiScalarPtr)
 
 - schema: "linear_backward(Tensor input, Tensor grad_output, Tensor weight, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
   device: [all, -cuda, -muxi, -ascend]
