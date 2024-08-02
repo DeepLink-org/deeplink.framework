@@ -33,8 +33,12 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
       no_philox_seed = true;
     }
 
-    uint64_t input_seed;
+    uint64_t input_seed = 0;
+#if DIPU_TORCH_VERSION == 20000
+    auto new_rng_state = state.data<uint8_t>();
+#else
     auto new_rng_state = state.data_dtype_initialized<uint8_t>();
+#endif
     memcpy(&input_seed, new_rng_state, seed_size);
     this->set_current_seed(input_seed);
     int64_t philox_offset = 0;
@@ -43,7 +47,7 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
     }
     this->set_offset(static_cast<uint64_t>(philox_offset));
 
-    // 2. set field state_
+    // 2. set state
     at::Tensor state_tmp(
         state.shallow_copy_and_detach(state.version_counter(), true));
     state_ = state_tmp;
