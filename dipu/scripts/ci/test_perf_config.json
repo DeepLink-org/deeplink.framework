@@ -1,0 +1,20 @@
+{
+    "cuda": {
+        "name": "cuda",
+        "tasks": [
+            {
+                "name": "llama2_7B",
+                "partition": "pat_rd",
+                "gpu_requests": "gpu:8",
+                "script": "run_llama_finetune_perf.py",
+                "filter": "'train_runtime': \\d+(\\.\\d+)?[,]",
+                "relative_workdir": "./alpaca-lora",
+                "op_args": "--base_model /mnt/lustrenew/share_data/PAT/datasets/llama2/7B/"
+            }   
+        ]
+    },
+    "sco": {
+    },
+    "camb": {
+    }
+}

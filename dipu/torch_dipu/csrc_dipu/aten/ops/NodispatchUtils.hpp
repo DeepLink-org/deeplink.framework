@@ -134,6 +134,21 @@ inline at::Tensor empty_like(
                                                                 memory_format));
 }
 
+inline std::vector<at::Tensor> empty_tensorlist_like(at::TensorList& self,
+                                                     bool same_size = true) {
+  std::vector<at::Tensor> result(self.size());
+  if (same_size) {
+    std::transform(self.begin(), self.end(), result.begin(),
+                   [](const at::Tensor& t) {
+                     return nodispatch::empty(t.sizes(), t.options());
+                   });
+  } else {
+    std::transform(
+        self.begin(), self.end(), result.begin(),
+        [](const at::Tensor& t) { return nodispatch::empty({}, t.options()); });
+  }
+  return result;
+}
 }  // namespace nodispatch
 }  // namespace native
 }  // namespace dipu
