@@ -26,11 +26,17 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
 // not match the order elsewhere. we will change to keep the order from
 // oldest-compatiable to latest vesion.
 #if DIPU_TORCH_VERSION == 20100 || DIPU_TORCH_VERSION == 20101
-  void set_offset(uint64_t offset) override { offset_ = offset; }
+  void set_offset(uint64_t offset) override {
+    offset_ = offset;
+    state_need_reset_ = true;
+  }
   uint64_t get_offset() const override { return offset_; }
 
 #else  // # temp solution, default use torch2.0.0
-  virtual void set_offset(uint64_t offset) { offset_ = offset; }
+  virtual void set_offset(uint64_t offset) {
+    offset_ = offset;
+    state_need_reset_ = true;
+  }
   virtual uint64_t get_offset() const { return offset_; }
 
 #endif
@@ -40,10 +46,10 @@ class DIPUGeneratorImpl : public c10::GeneratorImpl {
   virtual void update_state() const = 0;
 
   DIPUGeneratorImpl* clone_impl() const override;
-  volatile uint64_t offset_;
+  volatile uint64_t offset_ = 0;
   uint64_t seed_ = c10::default_rng_seed_val;
   mutable at::Tensor state_;
-  mutable bool state_need_reset_;
+  mutable bool state_need_reset_ = true;
 };
 
 at::Generator& getDefaultDIPUGenerator(at::DeviceIndex device_index = -1);
