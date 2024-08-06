@@ -1203,10 +1203,25 @@ def main():
                 continue
 
         # filter torch version
-        in_torch_vers = merged_fun_config.get("torch_ver", None)
+        supported_torch_ver_list = merged_fun_config.get("torch_ver", None)
         cur_torch_ver = merged_fun_config.get("current_torch_ver", None)
-        if in_torch_vers is not None and cur_torch_ver not in in_torch_vers:
-            continue
+
+        if supported_torch_ver_list != None:
+            exclude_torch_ver_list = []
+            include_torch_ver_list = []
+            all_include = False
+            for supported_torch_ver in supported_torch_ver_list:
+                if supported_torch_ver.startswith("-"):
+                    exclude_torch_ver_list.append(supported_torch_ver[1:])
+                elif supported_torch_ver == "all":
+                    all_include = True
+                else:
+                    include_torch_ver_list.append(supported_torch_ver)
+
+            if (cur_torch_ver in exclude_torch_ver_list) or (
+                all_include == False and (cur_torch_ver not in include_torch_ver_list)
+            ):
+                continue
 
         fun_code, register_code = functions_code_gen(merged_fun_config)
 

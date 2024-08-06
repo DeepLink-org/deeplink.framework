@@ -33,6 +33,30 @@ at::Tensor* fromDiopiTensorHandle(::diopiTensorHandle_t tensor) {
   return toDiopiTensorHandle(tensor.value());
 }
 
+std::vector<diopiTensorHandle_t> toDiopiTensorHandleVector(
+    at::TensorList tensors) {
+  std::vector<diopiTensorHandle_t> result(tensors.size());
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+  std::transform(tensors.begin(), tensors.end(), result.begin(),
+                 [](const at::Tensor& t) {
+                   return toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+                 });
+  // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+  return result;
+}
+
+std::vector<diopiConstTensorHandle_t> toDiopiConstTensorHandleVector(
+    at::TensorList tensors) {
+  std::vector<diopiConstTensorHandle_t> result(tensors.size());
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+  std::transform(tensors.begin(), tensors.end(), result.begin(),
+                 [](const at::Tensor& t) {
+                   return toDiopiTensorHandle(const_cast<at::Tensor&>(t));
+                 });
+  // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+  return result;
+}
+
 ::diopiGeneratorHandle_t toDiopiGeneratorHandle(at::Generator& generator) {
   return generator.defined()
              ? reinterpret_cast<::diopiGeneratorHandle_t>(&generator)
