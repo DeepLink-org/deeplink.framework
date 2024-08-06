@@ -111,6 +111,9 @@ ascend:
     - model_cfg: "mmsegmentation deeplabv3plus/deeplabv3plus_r50-d8_4xb2-40k_cityscapes-512x1024.py workdirs_deeplabv3plus"
     - model_cfg: "mmsegmentation unet/unet-s5-d16_fcn_4xb4-160k_cityscapes-512x1024.py workdirs_unet"
 
+    # mmdetection
+    - model_cfg: "mmdetection yolo/yolov3_d53_8xb8-320-273e_coco.py workdirs_yolov3"
+
 kunlunxin:
     # mmpretrain
     - model_cfg: "mmpretrain resnet/resnet50_8xb32_in1k.py workdirs_resnet"
