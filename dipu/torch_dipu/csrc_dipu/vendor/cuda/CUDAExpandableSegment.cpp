@@ -4,7 +4,7 @@
 
 #include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
-#include "csrc_dipu/vendor/cuda/basecommimpl.hpp"
+#include "csrc_dipu/vendor/cuda/basecuda.hpp"
 
 namespace dipu {
 
