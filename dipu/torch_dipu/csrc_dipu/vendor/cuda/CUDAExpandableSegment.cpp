@@ -8,6 +8,10 @@
 
 namespace dipu {
 
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.1 c10/cuda/CUDACachingAllocator.cpp
+// ----------------------------------------------------------------------------
+
 class CUDAExpandableSegment : public ExpandableSegment {
  public:
   CUDAExpandableSegment(int device, deviceStream_t stream, size_t size,
