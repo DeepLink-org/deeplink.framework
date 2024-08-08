@@ -48,12 +48,6 @@ endif()
 # Auto generated code.
 set(AUTOGEN_DIOPI_WRAPPER_DIR "${PROJECT_SOURCE_DIR}/scripts/autogen_diopi_wrapper")
 set(AUTOGEN_CODE_SH "${AUTOGEN_DIOPI_WRAPPER_DIR}/autogen_wrapped_code.sh")
-set(AUTOGEN_CODE_REMOVE_CHECK False)
-
-option(AUTOGEN_CHECK_CODE "Whether to generate check code for AutoGenedKernels" ON)
-if(NOT AUTOGEN_CHECK_CODE)
-  set(AUTOGEN_CODE_REMOVE_CHECK True)
-endif()
 
 # The following parameters are used to auto_generated code.
 set(GENERATED_KERNELS "${CMAKE_CURRENT_SOURCE_DIR}/aten/ops/AutoGenedKernels.cpp")
@@ -74,7 +68,7 @@ endif()
 
 add_custom_command(
   OUTPUT "${GENERATED_KERNELS}"
-  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS} ${GENERATE_DEVICE_GUARD} ${AUTOGEN_CODE_REMOVE_CHECK}"
+  COMMAND bash -c "${AUTOGEN_CODE_SH} ${UsedVendor} ${Torch_VERSION} ${GENERATED_KERNELS_SCRIPT} ${GENERATED_KERNELS_CONFIG} ${GENERATED_KERNELS} ${GENERATE_DEVICE_GUARD} ${ENABLE_DIPU_EXTRA_FEATURE}"
   COMMENT "Generating ${GENERATED_KERNELS}$<$<BOOL:${GENERATED_KERNELS_VENDOR}>: with ${GENERATED_KERNELS_VENDOR}>"
   DEPENDS
     "${GENERATED_KERNELS_SCRIPT}"

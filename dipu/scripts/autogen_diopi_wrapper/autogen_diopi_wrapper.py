@@ -633,8 +633,8 @@ if ($arg_name.has_value()) {
 
 
 def create_device_check_code(fun_config):
-    remove_check_code = fun_config.get("remove_check_code", False) == True
-    if remove_check_code:
+    remove_extra_code = fun_config.get("enable_dipu_extra_feature", True) != True
+    if remove_extra_code:
         return ""
     code = ""
     tensors = get_function_inputs_from_schema(fun_config["schema"]) + fun_config.get(
@@ -734,7 +734,7 @@ autocompare_template = CodeTemplate(autocompare_template_content)
 
 
 def functions_code_gen(fun_config):
-    remove_check_code = fun_config.get("remove_check_code", False) == True
+    remove_extra_code = fun_config.get("enable_dipu_extra_feature", True) != True
     if "interface" in fun_config:
         diopi_fun_call_code = fun_config["interface"] + ";"
     else:
@@ -830,14 +830,14 @@ def functions_code_gen(fun_config):
         )
 
     if fun_config.get("print_func_call_info", False) == True:
-        if not remove_check_code:
+        if not remove_extra_code:
             fun_config["custom_code_at_the_beginning"] = (
                 create_code_to_print_fun_call_info_from_schema(fun_config)
                 + fun_config.get("custom_code_at_the_beginning", "")
             )
 
     if fun_config.get("print_op_args", False) == True:
-        if not remove_check_code:
+        if not remove_extra_code:
             fun_config["custom_code_before_call_diopi"] = fun_config.get(
                 "custom_code_before_call_diopi", ""
             ) + create_print_op_args_code(fun_config)
@@ -878,17 +878,15 @@ def functions_code_gen(fun_config):
     record_code_after_call_diopi = ""
     synchronizeIfEnable_code = ""
 
-    if not remove_check_code:
-        record_code_before_call_diopi += (
-            'dipu::profile::RecordBlockCreator dipuRecorder(R"({0})");\n'.format(
-                interface_name
-            )
-        )
+    if not remove_extra_code:
+        record_code_before_call_diopi += f"""dipu::profile::RecordBlockCreator dipuRecorder(R"({interface_name})");\n"""
         record_code_after_call_diopi += "dipuRecorder.end();\n"
-        record_code_after_call_diopi += 'TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"({0})", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());\n'.format(
-            diopi_fun_call_code
-        )
+
         synchronizeIfEnable_code += "synchronizeIfEnable();\n"
+
+    record_code_after_call_diopi += 'TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"({0})", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());\n'.format(
+        diopi_fun_call_code
+    )
 
     fbody = fun_template.substitute(
         comment=[fun_config["schema"]],
@@ -1176,8 +1174,8 @@ def parse_args():
         help="fun config for all ops",
     )  # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
     parser.add_argument(
-        "--remove_check_code",
-        default=False,
+        "--enable_dipu_extra_feature",
+        default=True,
         type=boolean_string,
         help="whether generate code that prints function call information and check the result",
     )
