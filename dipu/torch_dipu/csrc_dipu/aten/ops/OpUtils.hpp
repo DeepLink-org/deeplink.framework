@@ -97,9 +97,17 @@ inline void tensor_copy_host_to_device(at::Tensor& out, const at::Tensor& in,
                                        DIPUStream stream) {
   if (out.is_cuda() && in.is_cpu()) {
     stream.synchronize();
-    dipu::devapis::memCopyH2D(out.storage().nbytes(), out.data_ptr(),
-                              in.data_ptr());
+
+    if (out.sizes() != in.sizes()) {
+      auto device = out.options().device();
+      auto option = in.options().device(device);
+      out = at::empty_strided(in.sizes(), in.strides(), option);
+    }
+
+    auto size = out.storage().nbytes();
+    dipu::devapis::memCopyH2D(size, out.data_ptr(), in.data_ptr());
   }
+  // else may generate a warning or throw exception?
 }
 
 inline std::vector<at::Tensor> tensor_array_to_vector(
