@@ -1,28 +1,33 @@
 // Copyright (c) 2024, DeepLink.
-
+#include <iostream>
 #include <vector>
 
 #include "csrc_dipu/runtime/core/allocator/ExpandableSegment.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
-#include "csrc_dipu/vendor/ascend/basecommimpl.hpp"
+#include "csrc_dipu/vendor/cuda/basecuda.hpp"
 
 namespace dipu {
 
-class AscendExpandableSegment : public ExpandableSegment {
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.1 c10/cuda/CUDACachingAllocator.cpp
+// ----------------------------------------------------------------------------
+
+class CUDAExpandableSegment : public ExpandableSegment {
  public:
-  AscendExpandableSegment(int device, deviceStream_t stream, size_t size,
-                          std::vector<int> peers)
+  CUDAExpandableSegment(int device, deviceStream_t stream, size_t size,
+                        std::vector<int> peers)
       : device_(device),
         stream_(stream),
         // 2MB for small pool, 20MB for large pool
-        segment_size_(size) {
+        segment_size_(size),
+        peers_(std::move(peers)) {
     devapis::DIPUDeviceProperties prop = devproxy::getDeviceProperties(device_);
     // we allocate enough address space for 1 1/8 the total memory on the GPU.
     // This allows for some cases where we have to unmap pages earlier in the
     // segment to put them at the end.
     max_handles_ = numSegments(prop.totalGlobalMem + prop.totalGlobalMem / 8);
-    DIPU_CALLACLRT(aclrtReserveMemAddress(&ptr_, segment_size_ * max_handles_,
-                                          0ULL, nullptr, 1ULL));
+    DIPU_DRIVER_CHECK(cuMemAddressReserve(&ptr_, segment_size_ * max_handles_,
+                                          0ULL, 0, 0ULL));
   }
   // begin must be aligned to segment_size_.
   // returns the actual range mapped, which may be
@@ -40,31 +45,32 @@ class AscendExpandableSegment : public ExpandableSegment {
     }
     for (auto i : c10::irange(begin, end)) {
       TORCH_INTERNAL_ASSERT(!handles_.at(i));
-      aclrtDrvMemHandle handle = nullptr;
-      aclrtPhysicalMemProp prop = {};
-      prop.handleType = ACL_MEM_HANDLE_TYPE_NONE;
-      prop.allocationType = ACL_MEM_ALLOCATION_TYPE_PINNED;
-      prop.memAttr = ACL_HBM_MEM_HUGE;
-      prop.location.type = ACL_MEM_LOCATION_TYPE_DEVICE;
+      CUmemGenericAllocationHandle handle = 0;
+      CUmemAllocationProp prop = {};
+      prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
+      prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
       prop.location.id = device_;
-      prop.reserve = 0;
-      auto status = aclrtMallocPhysical(&handle, segment_size_, &prop, 0);
-      if (status == ACL_ERROR_RT_MEMORY_ALLOCATION) {
+      auto status = cuMemCreate(&handle, segment_size_, &prop, 0);
+      if (status == CUDA_ERROR_OUT_OF_MEMORY) {
         for (auto j : c10::irange(begin, i)) {
           auto h = handles_.at(j).value();
           handles_.at(j) = c10::nullopt;
-          DIPU_CALLACLRT(aclrtFreePhysical(h));
+          DIPU_DRIVER_CHECK(cuMemRelease(h));
         }
         trimHandles();
         return rangeFromHandles(begin, begin);
       }
-      DIPU_CALLACLRT(status);
+      DIPU_DRIVER_CHECK(status);
       handles_.at(i) = handle;
     }
 
     for (auto i : c10::irange(begin, end)) {
-      DIPU_CALLACLRT(aclrtMapMem(ptr_ + i * segment_size_, segment_size_, 0,
+      DIPU_DRIVER_CHECK(cuMemMap(ptr_ + i * segment_size_, segment_size_, 0,
                                  handles_.at(i).value(), 0ULL));
+    }
+    setAccess(device_, begin, end);
+    for (auto p : peers_) {
+      setAccess(p, begin, end);
     }
     return rangeFromHandles(begin, end);
   }
@@ -82,18 +88,31 @@ class AscendExpandableSegment : public ExpandableSegment {
     return rangeFromHandles(begin, end);
   }
 
-  char* ptr() const override { return static_cast<char*>(ptr_); }
+  char* ptr() const { return (char*)ptr_; }
   size_t size() const override { return max_handles_ * segment_size_; }
-  void addPeer(int device) override {}
+  void addPeer(int device) override {
+    peers_.push_back(device);
+    forEachAllocatedRange(
+        [&](size_t begin, size_t end) { setAccess(device, begin, end); });
+  }
 
  public:
-  ~AscendExpandableSegment() noexcept override {
+  ~CUDAExpandableSegment() noexcept override {
     forEachAllocatedRange(
         [&](size_t begin, size_t end) { unmapHandles(begin, end); });
-    DIPU_CALLACLRT(aclrtReleaseMemAddress(ptr_));
+    DIPU_DRIVER_CHECK(cuMemAddressFree(ptr_, segment_size_ * max_handles_));
   }
 
  private:
+  void setAccess(int device, size_t begin, size_t end) {
+    CUmemAccessDesc desc;
+    desc.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+    desc.location.id = device;
+    desc.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+    DIPU_DRIVER_CHECK(cuMemSetAccess(ptr_ + begin * segment_size_,
+                                     (end - begin) * segment_size_, &desc, 1));
+  }
+
   void unmapHandles(size_t begin, size_t end) {
     // note: unlike cudaFree, MemUnmap and MemRelease do
     // not appear to synchronize in all cases, so we have to wait for the
@@ -104,10 +123,11 @@ class AscendExpandableSegment : public ExpandableSegment {
     // Locking order must be GIL -> Allocator Lock
     devproxy::syncStream(stream_);
     for (auto i : c10::irange(begin, end)) {
-      aclrtDrvMemHandle h = handles_.at(i).value();
+      // aclrtDrvMemHandle h = handles_.at(i).value();
+      CUmemGenericAllocationHandle h = handles_.at(i).value();
       handles_.at(i) = c10::nullopt;
-      DIPU_CALLACLRT(aclrtUnmapMem(ptr_ + segment_size_ * i));
-      DIPU_CALLACLRT(aclrtFreePhysical(h));
+      DIPU_DRIVER_CHECK(cuMemUnmap(ptr_ + segment_size_ * i, segment_size_));
+      DIPU_DRIVER_CHECK(cuMemRelease(h));
     }
     trimHandles();
   }
@@ -150,17 +170,20 @@ class AscendExpandableSegment : public ExpandableSegment {
 
   int device_;
   deviceStream_t stream_;
-  void* ptr_{};
-  size_t max_handles_{};
+  CUdeviceptr ptr_{};
+  size_t max_handles_;
   size_t segment_size_;
-  std::vector<c10::optional<aclrtDrvMemHandle>> handles_;
+  std::vector<c10::optional<CUmemGenericAllocationHandle>> handles_;
+  // devices on which this memory should be mapped in addition
+  // to the device where the physical memory lives (device_).
+  std::vector<int> peers_;
 };
 
 ExpandableSegment* vendorCreateExpandableSegment(int device,
                                                  deviceStream_t stream,
                                                  size_t size,
                                                  std::vector<int> peers) {
-  return new AscendExpandableSegment(device, stream, size, std::move(peers));
+  return new CUDAExpandableSegment(device, stream, size, peers);
 }
 
 }  // namespace dipu

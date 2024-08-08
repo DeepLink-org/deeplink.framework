@@ -526,6 +526,7 @@ class DeviceCachingAllocator {
 
   // all live expandable segments
   std::vector<ExpandableSegment*> expandable_segments_;
+  std::vector<int> devices_with_peer_access_;
 
   bool set_fraction = false;
 
@@ -1112,8 +1113,8 @@ class DeviceCachingAllocator {
       }
     }
     auto segment_size = pool->is_small ? kSmallBuffer : kLargeBuffer;
-    expandable_segments_.emplace_back(
-        createExpandableSegment(device, stream, segment_size));
+    expandable_segments_.emplace_back(createExpandableSegment(
+        device, stream, segment_size, devices_with_peer_access_));
 
     ExpandableSegment* es = expandable_segments_.back();
     Block* candidate = new Block(device, stream, es->size(), pool, es->ptr());
