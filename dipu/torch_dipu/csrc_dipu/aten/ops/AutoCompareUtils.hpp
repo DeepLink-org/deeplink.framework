@@ -81,7 +81,7 @@ inline std::string allclose_autocompare(const at::Tensor& tensor_cpu,
       constexpr double tolerance_absolute = 1e-4;
       constexpr double tolerance_relative = 1e-5;
       const at::Tensor& tensor_cpu_from_device =
-          toCpuTensorWithoutDiopiCopy(tensor_device);
+          tensor_clone_to_host(tensor_device);
       bool passed = at::allclose(tensor_cpu, tensor_cpu_from_device,
                                  tolerance_absolute, tolerance_relative, true);
       if (passed) {

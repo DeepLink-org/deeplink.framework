@@ -44,7 +44,6 @@ diopiBitwiseOrInp
 diopiBitwiseOrInpScalar
 diopiBitwiseOrScalar
 diopiBmm
-diopiCastDtype
 diopiCat
 diopiCdist
 diopiCdistBackward
