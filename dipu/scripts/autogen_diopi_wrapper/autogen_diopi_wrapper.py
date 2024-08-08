@@ -633,9 +633,6 @@ if ($arg_name.has_value()) {
 
 
 def create_device_check_code(fun_config):
-    remove_extra_code = fun_config.get("enable_dipu_extra_feature", True) != True
-    if remove_extra_code:
-        return ""
     code = ""
     tensors = get_function_inputs_from_schema(fun_config["schema"]) + fun_config.get(
         "ins", []
@@ -829,19 +826,6 @@ def functions_code_gen(fun_config):
             diopi_fun_call_code,
         )
 
-    if fun_config.get("print_func_call_info", False) == True:
-        if not remove_extra_code:
-            fun_config["custom_code_at_the_beginning"] = (
-                create_code_to_print_fun_call_info_from_schema(fun_config)
-                + fun_config.get("custom_code_at_the_beginning", "")
-            )
-
-    if fun_config.get("print_op_args", False) == True:
-        if not remove_extra_code:
-            fun_config["custom_code_before_call_diopi"] = fun_config.get(
-                "custom_code_before_call_diopi", ""
-            ) + create_print_op_args_code(fun_config)
-
     if fun_config.get("use_diopi_adapter", False) == True:
         diopi_fun_call_code = "diopiadaptor::" + diopi_fun_call_code
     else:
@@ -870,39 +854,53 @@ def functions_code_gen(fun_config):
         "custom_code_at_the_beginning", fun_config.get("custom_code", "")
     )
     # strip all whitespace and divide code to different lines.
+    print_fun_call_info = ""
     custom_code_at_the_beginning = re.sub(";\s*$", ";\n", custom_code_at_the_beginning)
 
     interface_name = re.sub(R".*::(.*?)\(.*", R"\1", diopi_fun_call_code)
 
+    record_creator = ""
+    print_op_args = ""
+    device_check_code = ""
     record_code_before_call_diopi = ""
     record_code_after_call_diopi = ""
+    check_after_call_diopi = 'TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"({0})", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());\n'.format(
+        diopi_fun_call_code
+    )
     synchronizeIfEnable_code = ""
 
     if not remove_extra_code:
+        if fun_config.get("print_func_call_info", False) == True:
+            print_fun_call_info += create_code_to_print_fun_call_info_from_schema(
+                fun_config
+            )
+        if fun_config.get("print_op_args", False) == True:
+            print_op_args += create_print_op_args_code(fun_config)
+        record_creator += "dipu::profile::RecordBlockCreator _(__FUNCTION__);\n"
+        device_check_code += create_device_check_code(fun_config)
         record_code_before_call_diopi += f"""dipu::profile::RecordBlockCreator dipuRecorder(R"({interface_name})");\n"""
         record_code_after_call_diopi += "dipuRecorder.end();\n"
-
         synchronizeIfEnable_code += "synchronizeIfEnable();\n"
-
-    record_code_after_call_diopi += 'TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"({0})", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());\n'.format(
-        diopi_fun_call_code
-    )
 
     fbody = fun_template.substitute(
         comment=[fun_config["schema"]],
         cppsignautre=[create_cpp_signature_from_schema(fun_config["schema"])],
+        print_fun_call_info=[print_fun_call_info],
         custom_code_at_the_beginning=[custom_code_at_the_beginning],
+        record_creator=[record_creator],
         device_guard_code=[create_device_guard_code(fun_config)],
         input_process_code=[input_process_code],
         attrs_process_code=[attrs_process_code],
         output_process_code=[output_process_code],
-        device_check_code=[create_device_check_code(fun_config)],
+        device_check_code=[device_check_code],
         custom_code_before_call_diopi=[
             fun_config.get("custom_code_before_call_diopi", "").replace("; ", ";\n")
         ],
+        print_op_args=[print_op_args],
         record_code_before_call_diopi=[record_code_before_call_diopi],
         diopi_fun_call_code=[diopi_fun_call_code],
         record_code_after_call_diopi=[record_code_after_call_diopi],
+        check_after_call_diopi=[check_after_call_diopi],
         custom_code_before_return=[
             fun_config.get("custom_code_before_return", "").replace("; ", ";\n")
         ],

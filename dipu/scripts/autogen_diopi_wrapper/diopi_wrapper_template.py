@@ -102,7 +102,11 @@ diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
   $device_guard_code
-  dipu::profile::RecordBlockCreator _(__FUNCTION__);
+
+  $print_fun_call_info
+
+  $record_creator
+
   $custom_code_at_the_beginning
 
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
@@ -118,11 +122,15 @@ $cppsignautre {
 
   $custom_code_before_call_diopi
 
+  $print_op_args
+
   $record_code_before_call_diopi
 
   ::diopiError_t ret = $diopi_fun_call_code
 
   $record_code_after_call_diopi
+
+  $check_after_call_diopi
 
   $custom_code_before_return
 
