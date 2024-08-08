@@ -405,7 +405,7 @@ def generate_code_fallback_to_cpu(config: dict) -> str:
     maybe_fallback = (
         config.get("enable_fallback_cpu", True)
         and config.get("enable_autocompare", True)
-        and config.get("register_op", True)
+        and config.get("register_operator", True)
     )
     if not maybe_fallback:
         return ""
@@ -1091,8 +1091,8 @@ def functions_code_gen(fun_config):
         fun_name = wrapper_fun_name
 
     if fun_config.get("enable_autocompare", True) and fun_config.get(
-        "register_op", True
-    ) in [True, "True"]:
+        "register_operator", True
+    ):
         auto_compare_fun_name = fun_name + "_autocompare"
         autocompare_code = autocompare_template.substitute(
             cppsignautre=[
@@ -1130,7 +1130,7 @@ def functions_code_gen(fun_config):
     register_body = ""
     if fun_config.get("custom_fallback", False) in ["False", False] and fun_config.get(
         "enable_autocompare", True
-    ) in ["True", True]:
+    ):
         register_body = (
             op_no_customfallback_with_autocompare_register_template.substitute(
                 register_name=[get_op_name_from_schema(fun_config["schema"])],
@@ -1147,7 +1147,7 @@ def functions_code_gen(fun_config):
     elif fun_config.get("custom_fallback", False) in [
         "False",
         False,
-    ] and fun_config.get("enable_autocompare", True):
+    ] and not fun_config.get("enable_autocompare", True):
         register_body = (
             op_no_customfallback_no_autocompare_register_template.substitute(
                 register_name=[get_op_name_from_schema(fun_config["schema"])],
@@ -1162,7 +1162,7 @@ def functions_code_gen(fun_config):
     # case3: custom_fallback=True and autocompare not disabled
     elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
         "enable_autocompare", True
-    ) in ["True", True]:
+    ):
         register_body = (
             op_with_customfallback_with_autocompare_register_template.substitute(
                 register_name=[get_op_name_from_schema(fun_config["schema"])],
@@ -1183,9 +1183,10 @@ def functions_code_gen(fun_config):
             )
         )
     # case4: custom_fallback=True and autocompare disabled
-    elif fun_config.get("custom_fallback", False) in ["True", True] and fun_config.get(
-        "enable_autocompare", True
-    ) in ["disable"]:
+    elif fun_config.get("custom_fallback", False) in [
+        "True",
+        True,
+    ] and not fun_config.get("enable_autocompare", True):
         register_body = (
             op_with_customfallback_no_autocompare_register_template.substitute(
                 register_name=[get_op_name_from_schema(fun_config["schema"])],
@@ -1282,7 +1283,7 @@ def parse_args():
         type=json.loads,
         default=dict(),
         help="fun config for all ops",
-    )  # --fun_config_dict '{"register_op": "False", "dummy_call_diopi":"True"}'
+    )  # --fun_config_dict '{"register_operator": "false", "dummy_call_diopi":"True"}'
 
     args = parser.parse_args()
     return args
@@ -1364,7 +1365,7 @@ def main():
         fun_code = memory_format_converter.convert(fun_code, fun_config)
 
         functions_code += fun_code
-        if merged_fun_config.get("register_op", True) in [True, "True"]:
+        if merged_fun_config.get("register_operator", True):
             if merged_fun_config.get("autograd", False) == True:
                 autograd_op_register_code += register_code
             op_register_code += register_code

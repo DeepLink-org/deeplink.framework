@@ -6,13 +6,13 @@
   enable_autocompare: false
   # When return value is ::diopiForceFallbackToCPU, it trys to fallback to CPU.
   #
-  # Automatically disable when 'enable_autocompare' is false or 'register_op' is false.
+  # Automatically disable when 'enable_autocompare' is false or 'register_operator' is false.
   enable_fallback_cpu: false
   # op gen only on these torch version. use it only if op has different signature on different torch.
   # if it's only different on implementation , please use compile macro DIPU_TORCHXXX.
   # torch version number, 5 in total: {X-major}{XX-minor}{XX-patch}
   torch_ver: ["20000",]
-  register_op: False # Whether generate register code for this op, default value is True
+  register_operator: false # Whether generate register code for this op, default value is True
   print_func_call_info: False # whether generate code that prints function call information
   print_op_args: True # whether generate code that prints op args
   dummy_call_diopi: False # Does not generate code that actually calls the diopi function, default value is False
@@ -597,14 +597,14 @@
   interface: diopiAddmm(&context, out, self, mat1, mat2, beta, alpha)
 
 - schema: "cross_entropy_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  register_op: False
+  register_operator: false
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor out = nodispatch::empty_like(self);
   interface: diopiCrossEntropyLossBackward(ctx, out, grad_output, self, target, weight, reductionDiopi, ignore_index.expect_int(), label_smoothing)
 
 - schema: "cross_entropy_loss(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean, SymInt ignore_index=-100, float label_smoothing=0.0) -> Tensor"
-  register_op: False
+  register_operator: false
   custom_code_at_the_beginning: |
     const int64_t ignore_index_int = ignore_index.expect_int();
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -669,7 +669,7 @@
   interface: diopiConvolution2dBackward(ctx, grad_input, grad_weight, grad_bias, grad_output, input, weight, bias_sizes_ptr, stride, padding, dilation, groups);
 
 - schema: "convolution_transpose_backward(Tensor grad_output, Tensor input, Tensor weight, int[] bias_sizes, int[] stride, int[] padding, int[] dilation, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)"
-  register_op: False
+  register_operator: false
   size_attr: [stride, padding, dilation, bias_sizes, output_padding]
   custom_code_at_the_beginning: |
     at::Tensor grad_input;
@@ -930,7 +930,7 @@
 
 - schema: "max_pool2d_backward(Tensor grad_output, Tensor input, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor? indices=None) -> Tensor"
   device: [topsrider]
-  register_op: False
+  register_operator: false
   size_attr: [kernel_size, stride, padding, dilation]
   custom_code_at_the_beginning: |
     auto out = nodispatch::empty(input.sizes(), grad_output.options());
@@ -1065,7 +1065,7 @@
   interface: diopiThresholdBackward(ctx, grad_input, grad_output, self, &threshold)
 
 - schema: "transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)"
-  register_op: False
+  register_operator: false
   custom_code_at_the_beginning: |
     c10::DimVector output_size(self.sizes().cbegin(), self.sizes().cend());
     c10::DimVector output_stride(self.strides().cbegin(), self.strides().cend());
@@ -1967,7 +1967,7 @@
 - schema: "ctc_loss_tensor_backward(Tensor grad_output, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
   enable_autocompare: false
-  register_op: False
+  register_operator: false
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
     at::Tensor grad_input = nodispatch::empty_like(log_probs);
@@ -2063,7 +2063,7 @@
 - schema: "ctc_loss_intlist_backward(Tensor grad_output, Tensor log_probs, Tensor targets, int[] input_lengths, int[] target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction=Mean, bool zero_infinity=False) -> Tensor grad_input"
   device: [camb]
   enable_autocompare: false
-  register_op: False
+  register_operator: false
   ins: [input_lengths_tensor, target_lengths_tensor]
   custom_code_at_the_beginning: |
     const auto reductionDiopi = static_cast<::diopiReduction_t>(reduction);
@@ -2958,7 +2958,7 @@
 # a diopi func wrapper.
 - schema: wrap_diopi_copy_inp(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)
   generate_device_guard: False
-  register_op: False
+  register_operator: false
   no_device_check_args: [self, src]
   interface: diopiCopyInp(ctx, src, self)
 
