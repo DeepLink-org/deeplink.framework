@@ -95,19 +95,19 @@ inline at::Tensor tensor_reference_or_clone_to_host(
 
 inline void tensor_copy_host_to_device(at::Tensor& out, const at::Tensor& in,
                                        DIPUStream stream) {
-  if (out.is_cuda() && in.is_cpu()) {
-    stream.synchronize();
+  TORCH_CHECK(in.is_cpu(), "in should be cpu tensor");
+  TORCH_CHECK(!out.is_cpu(), "out should not be cpu tensor");
 
-    if (out.sizes() != in.sizes()) {
-      auto device = out.options().device();
-      auto option = in.options().device(device);
-      out = at::empty_strided(in.sizes(), in.strides(), option);
-    }
+  stream.synchronize();
 
-    auto size = out.storage().nbytes();
-    dipu::devapis::memCopyH2D(size, out.data_ptr(), in.data_ptr());
+  if (out.sizes() != in.sizes()) {
+    auto device = out.options().device();
+    auto option = in.options().device(device);
+    out = at::empty_strided(in.sizes(), in.strides(), option);
   }
-  // else may generate a warning or throw exception?
+
+  auto size = out.storage().nbytes();
+  dipu::devapis::memCopyH2D(size, out.data_ptr(), in.data_ptr());
 }
 
 inline std::vector<at::Tensor> tensor_array_to_vector(
