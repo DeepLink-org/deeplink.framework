@@ -172,9 +172,15 @@ bool isStreamEmpty(deviceStream_t stream) {
 //  device event related
 // =====================
 
-void createEvent(deviceEvent_t* event) { return getEventFromPool(*event); }
+void createEvent(deviceEvent_t* event) {
+  auto index = current_device();
+  return event_pool_acquire(index, *event);
+}
 
-void destroyEvent(deviceEvent_t event) { return restoreEventToPool(event); }
+void destroyEvent(deviceEvent_t event) {
+  auto index = current_device();
+  return event_pool_release(index, event);
+}
 
 void waitEvent(deviceEvent_t event) { return devapis::waitEvent(event); }
 

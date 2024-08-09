@@ -52,7 +52,7 @@ void releaseAllResourcesImpl() {
   called = true;
   releaseAllGenerator();
   releaseAllDeviceMem();
-  releaseAllEvent();
+  event_pool_clear();
   devproxy::finalizeVendor();
 }
 
