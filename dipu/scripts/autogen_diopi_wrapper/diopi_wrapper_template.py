@@ -101,7 +101,11 @@ diopi_wrapper_function_template_content = """
 //  $comment
 $cppsignautre {
   $device_guard_code
-  dipu::profile::RecordBlockCreator _(__FUNCTION__);
+
+  $print_fun_call_info
+
+  $record_creator
+
   $custom_code_at_the_beginning
 
   ::diopiContext context(dipu::getCurrentDIPUStream().rawstream());
@@ -117,17 +121,21 @@ $cppsignautre {
 
   $custom_code_before_call_diopi
 
-  dipu::profile::RecordBlockCreator dipuRecorder(R"($interface_name)");
-  ::diopiError_t ret = $diopi_fun_call_code
-  dipuRecorder.end();
+  $print_op_args
 
+  $record_code_before_call_diopi
+
+  ::diopiError_t ret = $diopi_fun_call_code
+
+  $record_code_after_call_diopi
+  
   $force_fallback_code
 
-  TORCH_CHECK(ret == ::diopiSuccess, __FILE__, ":", __LINE__, R"($diopi_fun_call_code)", " error, error code is ", ret, "error message is ", diopiGetLastErrorString());
+  $check_after_call_diopi
 
   $custom_code_before_return
 
-  synchronizeIfEnable();
+  $synchronizeIfEnable_code
 
   $return_code
 }

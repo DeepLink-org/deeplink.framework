@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include <c10/util/Exception.h>
 
@@ -115,18 +116,21 @@ class ExpandableSegment {
   virtual ~ExpandableSegment() = default;
   virtual SegmentRange map(SegmentRange range) = 0;
   virtual SegmentRange unmap(SegmentRange range) = 0;
+  virtual void addPeer(int) = 0;
   virtual char* ptr() const = 0;
   virtual size_t size() const = 0;
 };
 
 DIPU_WEAK ExpandableSegment* vendorCreateExpandableSegment(
-    int device, deviceStream_t stream, size_t size);
+    int device, deviceStream_t stream, size_t size, std::vector<int> peers);
 
 inline ExpandableSegment* createExpandableSegment(int device,
                                                   deviceStream_t stream,
-                                                  size_t size) {
+                                                  size_t size,
+                                                  std::vector<int> peers) {
   if (vendorCreateExpandableSegment) {
-    return vendorCreateExpandableSegment(device, stream, size);
+    return vendorCreateExpandableSegment(device, stream, size,
+                                         std::move(peers));
   }
   TORCH_CHECK(false, "not support expandable segment");
 }

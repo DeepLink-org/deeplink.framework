@@ -31,6 +31,7 @@ endif()
 
 option(TESTS "Whether to build unit tests" OFF)
 option(LIBS "Whether to build dipu lib, default on" ON)
+option(ENABLE_DIPU_EXTRA_FEATURE "Whether to generate extra code for AutoGenedKernels" ON)
 
 # use gcover
 option(ENABLE_COVERAGE "Use gcov" OFF)

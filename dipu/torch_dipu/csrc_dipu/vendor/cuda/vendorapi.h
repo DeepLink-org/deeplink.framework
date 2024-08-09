@@ -11,6 +11,29 @@
 
 namespace dipu {
 
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.1 c10/cuda/driver_api.h begin
+// ----------------------------------------------------------------------------
+
+#define DIPU_DRIVER_CHECK(EXPR)                       \
+  do {                                                \
+    CUresult __err = EXPR;                            \
+    if (__err != ::CUDA_SUCCESS) {                    \
+      const char* err_str;                            \
+      CUresult get_error_str_err C10_UNUSED =         \
+          cuGetErrorString(__err, &err_str);          \
+      if (get_error_str_err != ::CUDA_SUCCESS) {      \
+        AT_ERROR("CUDA driver error: unknown error"); \
+      } else {                                        \
+        AT_ERROR("CUDA driver error: ", err_str);     \
+      }                                               \
+    }                                                 \
+  } while (0)
+
+// ----------------------------------------------------------------------------
+// Code from pytorch2.1.1 c10/cuda/driver_api.h end
+// ----------------------------------------------------------------------------
+
 #define DIPU_CALLCUDA(Expr)                                              \
   {                                                                      \
     cudaError_t ret = Expr;                                              \
