@@ -35,19 +35,90 @@ namespace dipu {
 namespace native {
 
 // avoid infinite recursion when dumpArg() before calling diopiCopy()
-inline at::Tensor toCpuTensorWithoutDiopiCopy(const at::Tensor& in) {
+inline at::Tensor tensor_clone_to_host(const at::Tensor& in) {
   if (in.is_cpu()) {
     return in;
   }
 
-  at::Tensor out = at::empty_strided(in.sizes(), in.strides(),
-                                     in.options().device(c10::Device("cpu")));
+  auto opt = in.options().device(c10::Device("cpu"));
+  auto out = at::empty_strided(in.sizes(), in.strides(), opt);
   if (in.nbytes() > 0) {
     dipu::getCurrentDIPUStream().synchronize();
     dipu::devapis::memCopyD2H(out.storage().nbytes(), out.data_ptr(),
                               in.data_ptr());
   }
   return out;
+}
+
+inline c10::optional<at::Tensor> tensor_clone_to_host(
+    const c10::optional<at::Tensor>& in) {
+  if (in) {
+    if (auto& tensor = in.value(); tensor.defined()) {
+      return c10::make_optional<at::Tensor>(tensor_clone_to_host(tensor));
+    }
+  }
+  return c10::nullopt;
+}
+
+inline c10::List<c10::optional<at::Tensor>> tensor_clone_to_host(
+    const c10::List<c10::optional<at::Tensor>>& in /* Tensor?[] */) {
+  auto out = c10::List<c10::optional<at::Tensor>>();
+  out.reserve(in.size());
+  for (auto const& tensor : in) {
+    out.push_back(tensor_clone_to_host(tensor));
+  }
+  return out;
+}
+
+template <typename R>
+inline auto tensor_clone_to_host(const R& in)
+    -> decltype(in.begin(), in.end(), std::vector<at::Tensor>()) {
+  auto out = std::vector<at::Tensor>();
+  out.reserve(in.size());
+  for (auto const& tensor : in) {
+    out.push_back(tensor_clone_to_host(tensor));
+  }
+  return out;
+}
+
+inline at::Tensor tensor_reference_or_clone_to_host(
+    at::Tensor const& in,
+    std::initializer_list<std::pair<at::Tensor const&, at::Tensor const&>>
+        device_host_tensor_pairs) {
+  for (auto const& [device, host] : device_host_tensor_pairs) {
+    if (in.is_same(device)) {
+      return host;
+    }
+  }
+  return tensor_clone_to_host(in);
+}
+
+inline void tensor_copy_host_to_device(at::Tensor& out, const at::Tensor& in,
+                                       DIPUStream stream) {
+  TORCH_CHECK(in.is_cpu(), "in should be cpu tensor");
+  TORCH_CHECK(!out.is_cpu(), "out should not be cpu tensor");
+
+  stream.synchronize();
+
+  if (out.sizes() != in.sizes()) {
+    auto device = out.options().device();
+    auto option = in.options().device(device);
+    out = at::empty_strided(in.sizes(), in.strides(), option);
+  }
+
+  auto size = out.storage().nbytes();
+  dipu::devapis::memCopyH2D(size, out.data_ptr(), in.data_ptr());
+}
+
+inline std::vector<at::Tensor> tensor_array_to_vector(
+    at::ArrayRef<at::Tensor> in) {
+  return in.vec();
+}
+
+// Warning: it returns reference, thus decltype(auto) is required to avoid copy.
+inline std::vector<at::Tensor>& tensor_array_to_vector(
+    std::vector<at::Tensor>& in) {
+  return in;
 }
 
 inline bool checkTensorDevice() {
@@ -135,7 +206,7 @@ inline std::string dumpArg(const at::Tensor& tensor) {
            << ", storage_data_ptr: " << tensor.storage().data_ptr().get()
            << ", storage_offset: " << tensor.storage_offset();
     if (dumpOpArgLevel() > 2) {
-      stream << '\n' << toCpuTensorWithoutDiopiCopy(tensor);
+      stream << '\n' << tensor_clone_to_host(tensor);
     }
   } else {
     stream << "undefined";

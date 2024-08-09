@@ -11,48 +11,47 @@ diopi_wrapper_file_template_content = """// autogened file
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <type_traits>
 
-#include <ATen/ExpandUtils.h>
-#include <ATen/Functions.h>
-#include <ATen/ExpandUtils.h>
-#include <ATen/Tensor.h>
 #include <ATen/core/ATen_fwd.h>
 #include <ATen/core/Generator.h>
 #include <ATen/core/LegacyTypeDispatch.h>
 #include <ATen/core/List.h>
 #include <ATen/core/TensorBody.h>
-#include <ATen/native/ReduceOpsUtils.h>
+#include <ATen/ExpandUtils.h>
+#include <ATen/Functions.h>
 #include <ATen/native/BinaryOps.h>
-#include <ATen/ops/empty.h>
+#include <ATen/native/ReduceOpsUtils.h>
 #include <ATen/ops/empty_like.h>
+#include <ATen/ops/empty.h>
 #include <ATen/ops/scalar_tensor.h>
 #include <ATen/ops/to_native.h>
 #include <ATen/ops/zeros.h>
+#include <ATen/Tensor.h>
 #include <c10/core/MemoryFormat.h>
 #include <c10/core/ScalarType.h>
 #include <c10/core/SymInt.h>
 #include <c10/core/SymIntArrayRef.h>
+#include <c10/util/accumulate.h>
 #include <c10/util/ArrayRef.h>
 #include <c10/util/Exception.h>
 #include <c10/util/Optional.h>
 #include <c10/util/SmallVector.h>
-#include <c10/util/accumulate.h>
 #include <c10/util/string_view.h>
 #include <torch/csrc/autograd/custom_function.h>
 #include <torch/csrc/autograd/generated/variable_factories.h>
 #include <torch/types.h>
-#include <type_traits>
 
 #include <diopi/diopirt.h>
 #include <diopi/functions.h>
 
-#include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/aten/ops/AutoCompareUtils.hpp"
 #include "csrc_dipu/aten/ops/DIPUCopy.hpp"
-#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
-#include "csrc_dipu/aten/ops/OpUtils.hpp"
 #include "csrc_dipu/aten/ops/DIPUOpInferrer.h"
+#include "csrc_dipu/aten/ops/NodispatchUtils.hpp"
 #include "csrc_dipu/aten/ops/OpRegexMatch.hpp"
+#include "csrc_dipu/aten/ops/OpUtils.hpp"
+#include "csrc_dipu/aten/RegisterDIPU.hpp"
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/diopirt/diopirt_impl.h"
 #include "csrc_dipu/profiler/profiler.h"
@@ -129,6 +128,8 @@ $cppsignautre {
   ::diopiError_t ret = $diopi_fun_call_code
 
   $record_code_after_call_diopi
+  
+  $force_fallback_code
 
   $check_after_call_diopi
 
