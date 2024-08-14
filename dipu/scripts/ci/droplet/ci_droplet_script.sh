@@ -8,7 +8,7 @@ function config_dipu_droplet_cmake() {
     mkdir -p build && cd ./build && rm -rf ./*
     echo "config_dipu_nv_cmake PYTORCH_DIR: ${PYTORCH_DIR}"
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
-    cmake ../  -DCMAKE_BUILD_TYPE=Debug \
+    cmake ../  -DCMAKE_BUILD_TYPE=Release \
      -DDEVICE=${DIPU_DEVICE} -DPYTORCH_DIR=${PYTORCH_DIR} \
      -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}
       # -DCMAKE_C_FLAGS_DEBUG="-g -O0" \
@@ -23,7 +23,7 @@ function config_all_droplet_cmake() {
     echo "config_dipu_nv_cmake PYTHON_INCLUDE_DIR: ${PYTHON_INCLUDE_DIR}"
 
     args=(
-        "-DCMAKE_BUILD_TYPE=Debug"
+        "-DCMAKE_BUILD_TYPE=Release"
         "-DDEVICE=${DIPU_DEVICE}"
         "-DPYTORCH_DIR=${PYTORCH_DIR}"
         "-DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR}" )
@@ -34,9 +34,7 @@ function config_all_droplet_cmake() {
 
 function build_diopi_lib() {
     echo "开始编译DIOPI..."
-    cd third_party/DIOPI/
-    git checkout .
-    cd impl
+    cd third_party/DIOPI/impl
     which cmake
     sh scripts/build_impl.sh clean
     #TODO: need to change if droplet decides to be exposed as shared lib
