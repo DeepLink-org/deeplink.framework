@@ -39,11 +39,12 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
 #else
     auto new_rng_state = state.data_dtype_initialized<uint8_t>();
 #endif
-    memcpy(&input_seed, new_rng_state, seed_size);
+    memcpy(&input_seed, new_rng_state + states_size, seed_size);
     this->set_current_seed(input_seed);
     int64_t philox_offset = 0;
     if (!no_philox_seed) {
-      memcpy(&philox_offset, new_rng_state + seed_size, offset_size);
+      memcpy(&philox_offset, new_rng_state + states_size + seed_size,
+             offset_size);
     }
     this->set_offset(static_cast<uint64_t>(philox_offset));
 
