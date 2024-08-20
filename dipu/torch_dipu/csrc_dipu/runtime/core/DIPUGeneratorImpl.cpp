@@ -89,7 +89,7 @@ DIPUGeneratorImpl::DIPUGeneratorImpl(at::DeviceIndex device_index)
  */
 void DIPUGeneratorImpl::set_current_seed(uint64_t seed) {
   seed_ = seed;
-  offset_ = 0;
+  set_offset(0);
   state_need_reset_ = true;
 }
 

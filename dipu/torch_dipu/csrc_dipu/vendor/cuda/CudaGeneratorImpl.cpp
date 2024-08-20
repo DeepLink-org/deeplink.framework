@@ -72,6 +72,11 @@ class CUDAGeneratorImpl : public dipu::DIPUGeneratorImpl {
       state_need_reset_ = false;
     }
   }
+
+  void set_offset(uint64_t offset) override {
+    TORCH_CHECK(offset % 4 == 0, "offset must be a multiple of 4");
+    DIPUGeneratorImpl::set_offset(offset);
+  }
 };
 
 // NOLINTNEXTLINE(readability-const-return-type)
