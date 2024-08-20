@@ -195,15 +195,12 @@ ProcessGroupDICL::WorkDICL::getFuture() {
 float ProcessGroupDICL::WorkDICL::getDuration() const {
   // return 0.0;
   TORCH_CHECK(timingEnabled_, "getDuration only works if timing was enabled")
-  TORCH_CHECK(
-      diclStartEvents_->size() == 1,
-      "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK(
-      diclEndEvents_->size() == 1,
-      "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK(
-      (*diclEndEvents_)[0].query(),
-      "getDuration can only be called after work is succeeded.")
+  TORCH_CHECK(diclStartEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK(diclEndEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK((*diclEndEvents_)[0].query(),
+              "getDuration can only be called after work is succeeded.")
   return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
 }
 

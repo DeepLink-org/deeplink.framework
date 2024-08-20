@@ -88,8 +88,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
           workStartTime_(std::chrono::steady_clock::now()) {
       workEvents_.resize(diclComms_.size());
       const char* timingVar = std::getenv("DIPU_DICL_ENABLE_TIMING");
-      if(timingVar != nullptr)
-        timingEnabled_ = true;
+      if (timingVar != nullptr) timingEnabled_ = true;
 
       if (timingEnabled_) {
         diclStartEvents_ = std::make_shared<std::vector<DIPUEvent>>();
@@ -180,22 +179,21 @@ class DIPU_API ProcessGroupDICL : public Backend {
     bool timingEnabled_;
   };
 
-class PyWorkDICL : public WorkDICL {
+  class PyWorkDICL : public WorkDICL {
    public:
     PyWorkDICL() = default;
 
     bool wait(std::chrono::milliseconds timeout = kNoTimeout) override {
-      PYBIND11_OVERRIDE(
-          bool, /* Return type */
-          WorkDICL, /* Parent class */
-          wait, /* Name of function in C++ */
-          timeout);
+      PYBIND11_OVERRIDE(bool,     /* Return type */
+                        WorkDICL, /* Parent class */
+                        wait,     /* Name of function in C++ */
+                        timeout);
     }
 
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override {
       pybind11::gil_scoped_acquire gil;
-      auto override =
-          pybind11::get_override(static_cast<const WorkDICL*>(this), "get_future");
+      auto override = pybind11::get_override(static_cast<const WorkDICL*>(this),
+                                             "get_future");
 
       if (override) {
         pybind11::object o = override();
@@ -206,7 +204,6 @@ class PyWorkDICL : public WorkDICL {
 
       return WorkDICL::getFuture();
     }
-
   };
 
   struct DIPU_API Options : Backend::Options {
