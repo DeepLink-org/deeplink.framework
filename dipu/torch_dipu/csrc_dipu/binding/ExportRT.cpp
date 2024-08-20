@@ -249,6 +249,29 @@ void exportCommunicator(py::module& m) {
         return kBackendDefaultTimeout;
       });
 
+  py::class_<ProcessGroupDICL::WorkDICL, 
+            c10::intrusive_ptr<ProcessGroupDICL::WorkDICL>,
+            ProcessGroupDICL::PyWorkDICL>(m, "WorkDICL")
+      .def(py::init([](std::vector<std::shared_ptr<DICLComm>>& comms, bool blockingWait,
+                        std::chrono::milliseconds opTimeout) {
+             return ProcessGroupDICL::WorkDICL(comms, blockingWait, opTimeout);
+           }),
+           py::arg("comms"), py::arg("blockingWait"), py::arg("opTimeout"),
+           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "_get_duration",
+          &ProcessGroupDICL::WorkDICL::getDuration,
+          py::call_guard<py::gil_scoped_release>(),
+          R"(
+              Returns:
+                  Duration of the corresponding collective communication.
+
+              .. warning ::
+                  This API works for DICL backend for now and must set
+                  DIPU_ENABLE_TIMING environment variable.
+            )"
+      );
+
   // py::object mdist = py::module::import("torch.distributed");
   // py::object register_backend =
   // mdist.attr("Backend").attr("register_backend"); The first parameter is the
