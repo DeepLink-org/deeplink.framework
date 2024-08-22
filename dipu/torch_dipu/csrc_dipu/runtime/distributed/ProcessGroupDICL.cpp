@@ -23,6 +23,7 @@
 #include "csrc_dipu/runtime/core/DIPUStream.h"
 #include "csrc_dipu/runtime/core/allocator/DIPUCachingAllocator.h"
 #include "csrc_dipu/runtime/devproxy/diclproxy.h"
+#include "csrc_dipu/utils/Log.h"
 #include "csrc_dipu/utils/helpfunc.hpp"
 #include <csrc_dipu/vendor/vendorapi.h>
 
@@ -192,18 +193,6 @@ ProcessGroupDICL::WorkDICL::getFuture() {
   return future_;
 }
 
-float ProcessGroupDICL::WorkDICL::getDuration() const {
-  // return 0.0;
-  TORCH_CHECK(timingEnabled_, "getDuration only works if timing was enabled")
-  TORCH_CHECK(diclStartEvents_->size() == 1,
-              "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK(diclEndEvents_->size() == 1,
-              "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK((*diclEndEvents_)[0].query(),
-              "getDuration can only be called after work is succeeded.")
-  return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
-}
-
 // end WorkDICL
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
@@ -225,9 +214,48 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
     throw std::runtime_error("Invalid value for environment variable: " +
                              std::string(DICL_BLOCKING_WAIT));
   }
+
+  char* timingVar = getenv("DIPU_DICL_ENABLE_TIMING");
+  if (timingVar != nullptr) timingEnabled_ = true;
+
+  // For now, only works for single device per ProcessGroup.
+  int devicePerProcessGroup = 1;
+  if (timingEnabled_) {
+    diclStartEvents_ = std::make_shared<std::vector<DIPUEvent>>();
+    diclStartEvents_->reserve(devicePerProcessGroup);
+    diclEndEvents_ = std::make_shared<std::vector<DIPUEvent>>();
+    diclEndEvents_->reserve(devicePerProcessGroup);
+    for (uint32_t i = 0; i < devicePerProcessGroup; ++i) {
+      diclStartEvents_->emplace_back(DIPUEvent());
+      diclEndEvents_->emplace_back(DIPUEvent());
+    }
+
+    char* frequencyVar = getenv("DIPU_DICL_PRINT_FREQUENCY");
+    if (frequencyVar != nullptr) printFrequency_ = std::stoi(frequencyVar);
+
+    printCount_ = printFrequency_;
+  }
 }
 
 ProcessGroupDICL::~ProcessGroupDICL() = default;
+
+float ProcessGroupDICL::getDuration() const {
+  TORCH_CHECK(timingEnabled_, "getDuration only works if timing was enabled")
+  TORCH_CHECK(diclStartEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK(diclEndEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK((*diclEndEvents_)[0].query(),
+              "getDuration can only be called after work is succeeded.")
+  return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
+}
+
+void ProcessGroupDICL::printInfo() const {
+  TORCH_CHECK(printCount_ == 0, "Print count hasn't reached 0 yet.")
+  std::ostringstream oss;
+  oss << "Rank " << rank_ << " duration = " << getDuration() << std::endl;
+  DIPU_LOG_INFO << oss.str();
+}
 
 void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
                                          const std::string& storeKey,
@@ -454,11 +482,14 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(
       diclComms, blockingWait_, opTimeout_);
 
-  if (work->timingEnabled_) {
-    for (const auto i : c10::irange(inputs.size())) {
-      DIPUStream& diclStream = diclComms[i]->diclStream_;
-      (*work->diclStartEvents_)[i].record(diclStream);
+  if (timingEnabled_ && opType == OpType::ALLREDUCE) {
+    if (printCount_ == printFrequency_) {
+      for (const auto i : c10::irange(inputs.size())) {
+        DIPUStream& diclStream = diclComms[i]->diclStream_;
+        (*diclStartEvents_)[i].record(diclStream);
+      }
     }
+    printCount_--;
   }
 
   OptionalDIPUGuard dipuGuard;
@@ -486,13 +517,6 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
 
   post(diclComms);
 
-  if (work->timingEnabled_) {
-    for (const auto i : c10::irange(inputs.size())) {
-      DIPUStream& diclStream = diclComms[i]->diclStream_;
-      (*work->diclEndEvents_)[i].record(diclStream);
-    }
-  }
-
   work->record();
 
   work->outputs_ = std::make_shared<std::vector<at::Tensor>>(outputs);
@@ -505,6 +529,22 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
         c10::ListType::create(c10::TensorType::get()), devices);
     work->future_->markCompleted(at::IValue(*work->outputs_));
   }
+
+  if (timingEnabled_ && opType == OpType::ALLREDUCE) {
+    if (printCount_ == 0) {
+      for (const auto i : c10::irange(inputs.size())) {
+        DIPUStream& diclStream = diclComms[i]->diclStream_;
+        (*diclEndEvents_)[i].record(diclStream);
+      }
+      for (const auto i : c10::irange(inputs.size())) {
+        DIPUStream& diclStream = diclComms[i]->diclStream_;
+        (*diclEndEvents_)[i].synchronize();
+      }
+      printInfo();
+      printCount_ = printFrequency_;
+    }
+  }
+
   return work;
 }
 

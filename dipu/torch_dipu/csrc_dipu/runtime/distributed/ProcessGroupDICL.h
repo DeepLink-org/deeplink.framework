@@ -11,7 +11,6 @@
 #include <torch/csrc/distributed/c10d/Store.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/csrc/distributed/c10d/Work.hpp>
-#include <torch/csrc/jit/python/pybind_utils.h>
 
 #include "csrc_dipu/base/basedef.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
@@ -87,29 +86,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
           opTimeout_(opTimeout),
           workStartTime_(std::chrono::steady_clock::now()) {
       workEvents_.resize(diclComms_.size());
-      const char* timingVar = std::getenv("DIPU_DICL_ENABLE_TIMING");
-      if (timingVar != nullptr) timingEnabled_ = true;
-
-      if (timingEnabled_) {
-        diclStartEvents_ = std::make_shared<std::vector<DIPUEvent>>();
-        diclStartEvents_->reserve(diclComms_.size());
-        diclEndEvents_ = std::make_shared<std::vector<DIPUEvent>>();
-        diclEndEvents_->reserve(diclComms_.size());
-        for (uint32_t i = 0; i < diclComms_.size(); ++i) {
-          diclStartEvents_->emplace_back(DIPUEvent());
-          diclEndEvents_->emplace_back(DIPUEvent());
-        }
-      }
-    }
-
-    WorkDICL(const WorkDICL& w)
-        : diclComms_(w.diclComms_),
-          blockingWait_(w.blockingWait_),
-          opTimeout_(w.opTimeout_),
-          workStartTime_(w.workStartTime_),
-          diclStartEvents_(w.diclStartEvents_),
-          diclEndEvents_(w.diclEndEvents_) {
-      workEvents_.resize(w.workEvents_.size());
     }
 
     ~WorkDICL() override = default;
@@ -135,8 +111,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
 
-    float getDuration() const;
-
    protected:
     // Store a reference to DICL collective's outputs, used by result and to
     // give a more descriptive message when representing the Work as a string.
@@ -150,15 +124,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
     // The DIPU events used to sync DICL work on comm stream
     std::vector<DIPUEvent> workEvents_;
-
-    // The start DIPU events of DICL operator tracking this work item on
-    // multiple DIPU devices. These start DIPU events are needed by desync
-    // debugging if enabled.
-    std::shared_ptr<std::vector<DIPUEvent>> diclStartEvents_;
-
-    // The end DIPU events of DICL operator tracking this work item on
-    // multiple DIPU devices.
-    std::shared_ptr<std::vector<DIPUEvent>> diclEndEvents_;
 
     // Just checks whether DIPU execution has completed, without modifying
     // exception_ptr.
@@ -177,33 +142,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
    private:
     friend class ProcessGroupDICL;
     bool timingEnabled_;
-  };
-
-  class PyWorkDICL : public WorkDICL {
-   public:
-    PyWorkDICL() = default;
-
-    bool wait(std::chrono::milliseconds timeout = kNoTimeout) override {
-      PYBIND11_OVERRIDE(bool,     /* Return type */
-                        WorkDICL, /* Parent class */
-                        wait,     /* Name of function in C++ */
-                        timeout);
-    }
-
-    c10::intrusive_ptr<c10::ivalue::Future> getFuture() override {
-      pybind11::gil_scoped_acquire gil;
-      auto override = pybind11::get_override(static_cast<const WorkDICL*>(this),
-                                             "get_future");
-
-      if (override) {
-        pybind11::object o = override();
-        auto futWrapper =
-            o.cast<std::shared_ptr<torch::jit::PythonFutureWrapper>>();
-        return futWrapper->fut;
-      }
-
-      return WorkDICL::getFuture();
-    }
   };
 
   struct DIPU_API Options : Backend::Options {
@@ -373,6 +311,25 @@ class DIPU_API ProcessGroupDICL : public Backend {
   bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
+
+  // The start DIPU events of DICL operator tracking this work item on
+  // multiple DIPU devices. These start DIPU events are needed by desync
+  // debugging if enabled.
+  std::shared_ptr<std::vector<DIPUEvent>> diclStartEvents_;
+
+  // The end DIPU events of DICL operator tracking this work item on
+  // multiple DIPU devices.
+  std::shared_ptr<std::vector<DIPUEvent>> diclEndEvents_;
+
+  float getDuration() const;
+
+  void printInfo() const;
+
+  int printFrequency_ = 100;
+
+  int printCount_;
+
+  bool timingEnabled_ = false;
 };
 
 namespace dicl_hook {
