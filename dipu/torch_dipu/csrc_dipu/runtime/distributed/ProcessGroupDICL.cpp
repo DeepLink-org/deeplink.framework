@@ -253,7 +253,8 @@ float ProcessGroupDICL::getDuration() const {
 void ProcessGroupDICL::printInfo() const {
   TORCH_CHECK(printCount_ == 0, "Print count hasn't reached 0 yet.")
   std::ostringstream oss;
-  oss << "Rank " << rank_ << " duration = " << getDuration() << std::endl;
+  oss << "Rank " << rank_ << " duration = " << getDuration() / printFrequency_
+      << std::endl;
   DIPU_LOG_INFO << oss.str();
 }
 
