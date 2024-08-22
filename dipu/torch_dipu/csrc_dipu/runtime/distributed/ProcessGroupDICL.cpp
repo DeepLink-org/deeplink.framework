@@ -250,11 +250,11 @@ float ProcessGroupDICL::getDuration() const {
   return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
 }
 
-void ProcessGroupDICL::printInfo() const {
+void ProcessGroupDICL::printInfo(int deviceID) const {
   TORCH_CHECK(printCount_ == 0, "Print count hasn't reached 0 yet.")
   std::ostringstream oss;
-  oss << "Rank " << rank_ << " duration = " << getDuration() / printFrequency_
-      << std::endl;
+  oss << "Rank " << rank_ << ": deviceId = " << deviceID
+      << " duration = " << getDuration() / printFrequency_ << std::endl;
   DIPU_LOG_INFO << oss.str();
 }
 
@@ -541,7 +541,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
         DIPUStream& diclStream = diclComms[i]->diclStream_;
         (*diclEndEvents_)[i].synchronize();
       }
-      printInfo();
+      printInfo(static_cast<int>(diclComms[0]->diclStream_.device_index()));
       printCount_ = printFrequency_;
     }
   }

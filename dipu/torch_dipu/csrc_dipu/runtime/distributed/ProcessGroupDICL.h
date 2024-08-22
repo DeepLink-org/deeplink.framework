@@ -323,7 +323,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   float getDuration() const;
 
-  void printInfo() const;
+  void printInfo(int deviceID) const;
 
   int printFrequency_ = 100;
 
