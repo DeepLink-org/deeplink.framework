@@ -531,6 +531,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
     if (printCount_ == 0) {
       printInfo(static_cast<int>(diclComms[0]->diclStream_.device_index()));
       printCount_ = printFrequency_;
+      totalDuration_ = 0;
     }
   }
 
