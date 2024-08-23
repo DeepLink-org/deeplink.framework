@@ -193,6 +193,16 @@ ProcessGroupDICL::WorkDICL::getFuture() {
   return future_;
 }
 
+float ProcessGroupDICL::WorkDICL::getDuration() const {
+  TORCH_CHECK(diclStartEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK(diclEndEvents_->size() == 1,
+              "getDuration only works for single device per ProcessGroup.");
+  TORCH_CHECK((*diclEndEvents_)[0].query(),
+              "getDuration can only be called after work is succeeded.")
+  return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
+}
+
 // end WorkDICL
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
@@ -218,18 +228,7 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
   char* timingVar = getenv("DIPU_DICL_ENABLE_TIMING");
   if (timingVar != nullptr) timingEnabled_ = true;
 
-  // For now, only works for single device per ProcessGroup.
-  int devicePerProcessGroup = 1;
   if (timingEnabled_) {
-    diclStartEvents_ = std::make_shared<std::vector<DIPUEvent>>();
-    diclStartEvents_->reserve(devicePerProcessGroup);
-    diclEndEvents_ = std::make_shared<std::vector<DIPUEvent>>();
-    diclEndEvents_->reserve(devicePerProcessGroup);
-    for (uint32_t i = 0; i < devicePerProcessGroup; ++i) {
-      diclStartEvents_->emplace_back(DIPUEvent());
-      diclEndEvents_->emplace_back(DIPUEvent());
-    }
-
     char* frequencyVar = getenv("DIPU_DICL_PRINT_FREQUENCY");
     if (frequencyVar != nullptr) printFrequency_ = std::stoi(frequencyVar);
 
@@ -239,22 +238,12 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
 
 ProcessGroupDICL::~ProcessGroupDICL() = default;
 
-float ProcessGroupDICL::getDuration() const {
-  TORCH_CHECK(timingEnabled_, "getDuration only works if timing was enabled")
-  TORCH_CHECK(diclStartEvents_->size() == 1,
-              "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK(diclEndEvents_->size() == 1,
-              "getDuration only works for single device per ProcessGroup.");
-  TORCH_CHECK((*diclEndEvents_)[0].query(),
-              "getDuration can only be called after work is succeeded.")
-  return (*diclStartEvents_)[0].elapsed_time((*diclEndEvents_)[0]);
-}
-
 void ProcessGroupDICL::printInfo(int deviceID) const {
   TORCH_CHECK(printCount_ == 0, "Print count hasn't reached 0 yet.")
   std::ostringstream oss;
-  oss << "Rank " << rank_ << ": deviceId = " << deviceID
-      << " duration = " << getDuration() / printFrequency_ << std::endl;
+  oss << "Rank " << rank_ << ":  deviceId = " << deviceID
+      << ", Average duration = " << totalDuration_ / printFrequency_
+      << std::endl;
   DIPU_LOG_INFO << oss.str();
 }
 
@@ -484,13 +473,11 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
       diclComms, blockingWait_, opTimeout_);
 
   if (timingEnabled_ && opType == OpType::ALLREDUCE) {
-    if (printCount_ == printFrequency_) {
-      for (const auto i : c10::irange(inputs.size())) {
-        DIPUStream& diclStream = diclComms[i]->diclStream_;
-        (*diclStartEvents_)[i].record(diclStream);
-      }
-    }
     printCount_--;
+    for (const auto i : c10::irange(inputs.size())) {
+      DIPUStream& diclStream = diclComms[i]->diclStream_;
+      (*work->diclStartEvents_)[i].record(diclStream);
+    }
   }
 
   OptionalDIPUGuard dipuGuard;
@@ -532,15 +519,16 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   }
 
   if (timingEnabled_ && opType == OpType::ALLREDUCE) {
+    for (const auto i : c10::irange(inputs.size())) {
+      DIPUStream& diclStream = diclComms[i]->diclStream_;
+      (*work->diclEndEvents_)[i].record(diclStream);
+    }
+    for (const auto i : c10::irange(inputs.size())) {
+      DIPUStream& diclStream = diclComms[i]->diclStream_;
+      (*work->diclEndEvents_)[i].synchronize();
+    }
+    totalDuration_ += work->getDuration();
     if (printCount_ == 0) {
-      for (const auto i : c10::irange(inputs.size())) {
-        DIPUStream& diclStream = diclComms[i]->diclStream_;
-        (*diclEndEvents_)[i].record(diclStream);
-      }
-      for (const auto i : c10::irange(inputs.size())) {
-        DIPUStream& diclStream = diclComms[i]->diclStream_;
-        (*diclEndEvents_)[i].synchronize();
-      }
       printInfo(static_cast<int>(diclComms[0]->diclStream_.device_index()));
       printCount_ = printFrequency_;
     }

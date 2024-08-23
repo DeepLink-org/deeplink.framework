@@ -86,6 +86,18 @@ class DIPU_API ProcessGroupDICL : public Backend {
           opTimeout_(opTimeout),
           workStartTime_(std::chrono::steady_clock::now()) {
       workEvents_.resize(diclComms_.size());
+
+      const char* timingVar = std::getenv("DIPU_DICL_ENABLE_TIMING");
+      if (timingVar != nullptr) {
+        diclStartEvents_ = std::make_shared<std::vector<DIPUEvent>>();
+        diclStartEvents_->reserve(diclComms_.size());
+        diclEndEvents_ = std::make_shared<std::vector<DIPUEvent>>();
+        diclEndEvents_->reserve(diclComms_.size());
+        for (uint32_t i = 0; i < diclComms_.size(); ++i) {
+          diclStartEvents_->emplace_back(DIPUEvent());
+          diclEndEvents_->emplace_back(DIPUEvent());
+        }
+      }
     }
 
     ~WorkDICL() override = default;
@@ -111,6 +123,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
 
+    float getDuration() const;
+
    protected:
     // Store a reference to DICL collective's outputs, used by result and to
     // give a more descriptive message when representing the Work as a string.
@@ -124,6 +138,15 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
     // The DIPU events used to sync DICL work on comm stream
     std::vector<DIPUEvent> workEvents_;
+
+    // The start DIPU events of DICL operator tracking this work item on
+    // multiple DIPU devices. These start DIPU events are needed by desync
+    // debugging if enabled.
+    std::shared_ptr<std::vector<DIPUEvent>> diclStartEvents_;
+
+    // The end DIPU events of DICL operator tracking this work item on
+    // multiple DIPU devices.
+    std::shared_ptr<std::vector<DIPUEvent>> diclEndEvents_;
 
     // Just checks whether DIPU execution has completed, without modifying
     // exception_ptr.
@@ -141,7 +164,6 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
    private:
     friend class ProcessGroupDICL;
-    bool timingEnabled_;
   };
 
   struct DIPU_API Options : Backend::Options {
@@ -312,22 +334,13 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 
-  // The start DIPU events of DICL operator tracking this work item on
-  // multiple DIPU devices. These start DIPU events are needed by desync
-  // debugging if enabled.
-  std::shared_ptr<std::vector<DIPUEvent>> diclStartEvents_;
-
-  // The end DIPU events of DICL operator tracking this work item on
-  // multiple DIPU devices.
-  std::shared_ptr<std::vector<DIPUEvent>> diclEndEvents_;
-
-  float getDuration() const;
-
   void printInfo(int deviceID) const;
 
   int printFrequency_ = 100;
 
   int printCount_;
+
+  float totalDuration_ = 0.;
 
   bool timingEnabled_ = false;
 };
