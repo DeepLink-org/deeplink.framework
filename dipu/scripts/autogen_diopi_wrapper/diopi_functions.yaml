@@ -1317,9 +1317,41 @@
     ::diopiConstTensorHandle_t self_dtype_diopi = dipu::diopi_helper::toDiopiTensorHandle(self_dtype);
   interface: diopiProd(ctx, out, self_dtype_diopi, nullptr)
 
-
-# - schema: _fused_adamw_(Tensor(a!)[] self, Tensor(b!)[] grads, Tensor(c!)[] exp_avgs, Tensor(d!)[] exp_avg_sqs, Tensor(e!)[] max_exp_avg_sqs, Tensor[] state_steps, *, float lr, float beta1, float beta2, float weight_decay, float eps, bool amsgrad, bool maximize, Tensor? grad_scale=None, Tensor? found_inf=None) -> ()
-#   interface: diopiAdamW(ctx, self, grads, exp_avgs, exp_avg_sqs, max_exp_avg_sqs, lr, beta1, beta2, eps, weight_decay, state_steps, amsgrad)
+- schema: "_fused_adamw_(Tensor(a!)[] self, Tensor(b!)[] grads, Tensor(c!)[] exp_avgs, Tensor(d!)[] exp_avg_sqs, Tensor(e!)[] max_exp_avg_sqs, Tensor[] state_steps, *, float lr, float beta1, float beta2, float weight_decay, float eps, bool amsgrad, bool maximize, Tensor? grad_scale=None, Tensor? found_inf=None) -> ()"
+  custom_code_at_the_beginning: |
+    std::vector<diopiTensorHandle_t> diopiTensorHandles_self(self.size());
+    for(size_t i=0; i < self.size(); ++i){
+      diopiConstTensorHandle_t const_handle = dipu::diopi_helper::toDiopiTensorHandle(self.at(i));
+      diopiTensorHandle_t handle = const_cast<diopiTensorHandle_t>(const_handle);
+      diopiTensorHandles_self[i] = handle;
+    }
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles_grads(grads.size());
+    for(size_t i=0; i < grads.size(); ++i){
+      diopiTensorHandles_grads[i] = dipu::diopi_helper::toDiopiTensorHandle(grads.at(i));
+    }
+    std::vector<diopiTensorHandle_t> diopiTensorHandles_exp_avgs(exp_avgs.size());
+    for(size_t i=0; i < exp_avgs.size(); ++i){
+      diopiConstTensorHandle_t const_handle = dipu::diopi_helper::toDiopiTensorHandle(exp_avgs.at(i));
+      diopiTensorHandle_t handle = const_cast<diopiTensorHandle_t>(const_handle);
+      diopiTensorHandles_exp_avgs[i] = handle;
+    }
+    std::vector<diopiTensorHandle_t> diopiTensorHandles_exp_avg_sqs(exp_avg_sqs.size());
+    for(size_t i=0; i < exp_avg_sqs.size(); ++i){
+      diopiConstTensorHandle_t const_handle = dipu::diopi_helper::toDiopiTensorHandle(exp_avg_sqs.at(i));
+      diopiTensorHandle_t handle = const_cast<diopiTensorHandle_t>(const_handle);
+      diopiTensorHandles_exp_avg_sqs[i] = handle;
+    }
+    std::vector<diopiTensorHandle_t> diopiTensorHandles_max_exp_avg_sqs(max_exp_avg_sqs.size());
+    for(size_t i=0; i < max_exp_avg_sqs.size(); ++i){
+      diopiConstTensorHandle_t const_handle = dipu::diopi_helper::toDiopiTensorHandle(max_exp_avg_sqs.at(i));
+      diopiTensorHandle_t handle = const_cast<diopiTensorHandle_t>(const_handle);
+      diopiTensorHandles_max_exp_avg_sqs[i] = handle;
+    }
+    std::vector<diopiConstTensorHandle_t> diopiTensorHandles_state_steps(state_steps.size(), nullptr);
+    for(size_t i=0; i < state_steps.size(); ++i){
+      diopiTensorHandles_state_steps[i] = dipu::diopi_helper::toDiopiTensorHandle(state_steps.at(i));
+    }
+  interface: diopiAdamW(ctx, diopiTensorHandles_self.data(), diopiTensorHandles_grads.data(), diopiTensorHandles_exp_avgs.data(), diopiTensorHandles_exp_avg_sqs.data(), diopiTensorHandles_max_exp_avg_sqs.data(), diopiTensorHandles_state_steps.data(), static_cast<int64_t>(self.size()), lr, beta1, beta2, eps, weight_decay, amsgrad, maximize)
 
 
 - schema: prod.int_out(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)
