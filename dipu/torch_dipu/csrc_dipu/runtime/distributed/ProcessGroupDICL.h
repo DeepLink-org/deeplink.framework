@@ -342,7 +342,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   bool timingEnabled_ = false;
 
-  commUniqueId* diclID_;
+  std::vector<uint8_t> uniqueidVec_;
 };
 
 namespace dicl_hook {

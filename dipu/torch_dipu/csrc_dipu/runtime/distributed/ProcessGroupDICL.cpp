@@ -243,9 +243,8 @@ void ProcessGroupDICL::printInfo(float duration, int deviceID) const {
   std::ostringstream oss;
   oss << "PG uniqueId = ";
   for (int i = 0; i < 16; ++i) {
-      oss << static_cast<int>(diclID_->internal[i]);
+      oss << static_cast<int>(uniqueidVec_[i]);
   }
-  // oss << "PG uniqueId = " << diclID_->internal << ", rank =" << rank_ 
   oss << ", rank =" << rank_ 
       << ", deviceId = " << deviceID
       << ", duration = " << duration << std::endl;
@@ -273,6 +272,7 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
     auto vec = std::vector<uint8_t>(reinterpret_cast<uint8_t*>(uniqueId),
                                     reinterpret_cast<uint8_t*>(uniqueId) +
                                         devapis::DICL_UNIQUE_ID_BYTES_SIZE);
+    uniqueidVec_ = vec;
     store_->set(storeKey, vec);
   } else {
     auto vec = store_->get(storeKey);
@@ -281,6 +281,7 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
           "Unexpected DICL unique ID length received "
           "from the store");
     }
+    uniqueidVec_ = vec;
     std::memcpy(uniqueId, vec.data(), vec.size());
   }
 }
@@ -315,7 +316,6 @@ std::vector<std::shared_ptr<DICLComm>>& ProcessGroupDICL::getDICLComms(
                              ? localCommsKey
                              : std::to_string(diclCommCounter_++);
   broadcastUniqueID(&diclID, bcastKey, commsRank);
-  diclID_ = &diclID;
 
   OptionalDIPUGuard dipuGuard;
 
