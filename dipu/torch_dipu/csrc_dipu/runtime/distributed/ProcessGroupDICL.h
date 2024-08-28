@@ -334,15 +334,15 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 
-  void printInfo(int deviceID) const;
+  void printInfo(float duration, int deviceID) const;
 
-  int printFrequency_ = 100;
+  int samplingInterval_ = 100;
 
-  int printCount_;
-
-  float totalDuration_ = 0.;
+  int samplingCount_;
 
   bool timingEnabled_ = false;
+
+  commUniqueId* diclID_;
 };
 
 namespace dicl_hook {
