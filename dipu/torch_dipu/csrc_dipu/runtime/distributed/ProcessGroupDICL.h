@@ -334,7 +334,7 @@ class DIPU_API ProcessGroupDICL : public Backend {
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
 
-  void printInfo(float duration, int deviceID) const;
+  void printInfo(float duration, int comm_size, int deviceID) const;
 
   int samplingInterval_ = 100;
 

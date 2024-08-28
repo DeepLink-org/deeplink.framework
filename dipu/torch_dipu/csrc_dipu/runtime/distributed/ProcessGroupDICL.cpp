@@ -238,15 +238,16 @@ ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
 
 ProcessGroupDICL::~ProcessGroupDICL() = default;
 
-void ProcessGroupDICL::printInfo(float duration, int deviceID) const {
+void ProcessGroupDICL::printInfo(float duration, int comm_size,
+                                 int deviceID) const {
   TORCH_CHECK(samplingCount_ == 0, "Print count hasn't reached 0 yet.")
   std::ostringstream oss;
   oss << "PG uniqueId = ";
   for (int i = 0; i < 16; ++i) {
-      oss << static_cast<int>(uniqueidVec_[i]);
+    oss << static_cast<int>(uniqueidVec_[i]);
   }
-  oss << ", rank =" << rank_ 
-      << ", deviceId = " << deviceID
+  oss << ", rank =" << rank_ << ", deviceId = " << deviceID
+      << " comm_size = " << comm_size << " bytes "
       << ", duration = " << duration << std::endl;
   DIPU_LOG_INFO << oss.str();
 }
@@ -535,6 +536,7 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
     }
     if (samplingCount_ == 0) {
       printInfo(work->getDuration(),
+                inputs[0].element_size() * inputs[0].numel(),
                 static_cast<int>(diclComms[0]->diclStream_.device_index()));
       samplingCount_ = samplingInterval_;
     }
