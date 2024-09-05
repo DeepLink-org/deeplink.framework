@@ -12,7 +12,7 @@
 
 
 template <const char* workspaceApi, typename... Args>
-int callPcclImpl(Args... args) {
+void callPcclImpl(Args... args) {
     static const auto workspaceSizeFuncAddr = getOpApiFuncAddr(workspaceApi);
     using WorkspaceSizeFunc = int (*)(Args...);
     static WorkspaceSizeFunc workspaceSizeFunc = reinterpret_cast<WorkspaceSizeFunc>(workspaceSizeFuncAddr);
@@ -22,7 +22,7 @@ int callPcclImpl(Args... args) {
             std::string("[") + workspaceApi + "]'s return value is not equal to PCCL_SUCCESS. pcclStatus is " + std::to_string(workspaceStatus)
         );
     }
-    return workspaceStatus;
+    return ;
 }
 
 #define DIPU_PCCL_IMPL(NAME, ...) \
@@ -41,15 +41,36 @@ std::map<std::string, void*> fn;
 
 namespace {
 
-using diclCommValue_t = std::remove_pointer_t<pcclComm_t>;
-constexpr diclCommValue_t kMagicComm = 0x5043434C;  // "PCCL"
+static const std::map<pcclDataType_t, at::ScalarType> toScalarType = {
+    {pcclInt8, at::kChar},
+    {pcclUint8, at::kByte},
+    {pcclFloat, at::kFloat},
+    // TODO: PCCL not support double now
+    // {pcclDouble, at::kDouble},
+    {pcclInt32, at::kInt},
+    {pcclInt64, at::kLong},
+    {pcclHalf, at::kHalf},
+    {pcclUint8, at::kBool},
+    {pcclBfloat16, at::kBFloat16},
+};
 
-pcclComm_t createDiclComm() { return new diclCommValue_t(kMagicComm); }
+at::ScalarType PcclDataTypeToScalarType(pcclDataType_t pccl_data_type) {
+    auto p = toScalarType.find(pccl_data_type);
+    if (p == toScalarType.end()) {
+        throw std::runtime_error("Not supported pcclDataType_t: " + std::to_string(pccl_data_type));
+    }
+    return p->second;
+}
 
-void destroyDiclComm(pcclComm_t comm) { delete comm; }
+// using diclCommValue_t = std::remove_pointer_t<pcclComm_t>;
+// const diclCommValue_t kMagicComm = 0x5043434C;  // "PCCL"
+//
+// pcclComm_t createDiclComm() { return new diclCommValue_t(kMagicComm); }
+//
+// void destroyDiclComm(pcclComm_t comm) { delete comm; }
 
 void checkCommOrThrow(pcclComm_t comm) {
-  if (comm == nullptr || *comm != kMagicComm) {
+  if (comm == nullptr) {
     throw std::runtime_error("Invalid comm.");
   }
 }
@@ -71,20 +92,15 @@ void checkRankOrThrow(int rank) {
   }
 }
 
-void singleDeviceMemcpy(deviceStream_t stream, void* dst, const void* src,
+void singleDeviceMemcpy(dipu::deviceStream_t stream, void* dst, const void* src,
                         size_t nbytes) {
-  auto device = devproxy::current_device();
-  devproxy::memCopyD2DAsync(stream, nbytes, device, dst, device, src);
+  auto device = dipu::devproxy::current_device();
+  dipu::devproxy::memCopyD2DAsync(stream, nbytes, device, dst, device, src);
 }
 
 }  // namespace
 
 
-void checkCommOrThrow(pcclComm_t comm) {
-  if (comm == nullptr || *comm != kMagicComm) {
-    throw std::runtime_error("Invalid comm.");
-  }
-}
 
 
   DIPU_PCCL_IMPL(pcclGetUniqueId, (pcclUniqueId*, uniqueId)) {
@@ -97,7 +113,7 @@ void checkCommOrThrow(pcclComm_t comm) {
     DIPU_LOGW(
         "PCCL is not enabled. DIPU will simulate single GPU "
         "communication using memcpy.");
-    *comm = createDiclComm();
+    // *comm = createDiclComm();
     return pcclSuccess;
   }
 
@@ -107,7 +123,7 @@ void checkCommOrThrow(pcclComm_t comm) {
 
   DIPU_PCCL_IMPL(pcclCommDestroy, (pcclComm_t, comm)) {
     checkCommOrThrow(comm);
-    destroyDiclComm(comm);   
+    // destroyDiclComm(comm);   
     return pcclSuccess;
   }
 
@@ -118,8 +134,23 @@ void checkCommOrThrow(pcclComm_t comm) {
     checkCommOrThrow(comm);
     return pcclSuccess;
   }
-const char*  pcclGetErrorString(pcclResult_t result);
-const char* pcclGetLastError(pcclComm_t comm);
+
+const char* pcclGetErrorString(pcclResult_t result){
+  // Not Fallback
+  static const char* apiName = "pcclGetErrorString";
+  static const auto funcptr = getOpApiFuncAddr(apiName);
+  using func = const char*(*)(pcclResult_t);
+  return reinterpret_cast<func>(funcptr)(result);
+}
+
+const char* pcclGetLastError(pcclComm_t comm){
+  // Not Fallback
+  static const char* apiName = "pcclGetLastError";
+  static const auto funcptr = getOpApiFuncAddr(apiName);
+  using func = const char*(*)(pcclComm_t);
+  return reinterpret_cast<func>(funcptr)(comm);
+}
+
 
   DIPU_PCCL_IMPL(pcclCommCount, (const pcclComm_t, comm), (int*, count)) {
     return pcclSuccess;
@@ -145,7 +176,7 @@ const char* pcclGetLastError(pcclComm_t comm);
     checkRankOrThrow(root);
     if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
-                         count * at::elementSize(datatype));
+                         count * at::elementSize(PcclDataTypeToScalarType(datatype)));
     }
     return pcclSuccess;
   }
@@ -154,15 +185,15 @@ const char* pcclGetLastError(pcclComm_t comm);
     checkCommOrThrow(comm);
     if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
-                         count * at::elementSize(datatype));
+                         count * at::elementSize(PcclDataTypeToScalarType(datatype)));
     }
     return pcclSuccess;
   }
 
   DIPU_PCCL_IMPL(pcclReduceScatter, (const void*, sendbuff), (void*, recvbuff), (size_t, recvcount), (pcclDataType_t, datatype), (pcclRedOp_t, op), (pcclComm_t, comm), (tangStream_t, stream)) {
     if(sendbuff != recvbuff){
-      singleDeviceMemcpy(stream, recvBuf, sendBuf,
-                   recvCount * at::elementSize(datatype));
+      singleDeviceMemcpy(stream, recvbuff, sendbuff,
+                   recvcount * at::elementSize(PcclDataTypeToScalarType(datatype)));
     }
     return pcclSuccess;
   }
@@ -171,15 +202,15 @@ const char* pcclGetLastError(pcclComm_t comm);
     checkCommOrThrow(comm);
     if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
-                       count * at::elementSize(datatype));
+                       count * at::elementSize(PcclDataTypeToScalarType(datatype)));
     }
     return pcclSuccess;
   }
   DIPU_PCCL_IMPL(pcclAllGather, (const void*, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
     if(sendbuff != recvbuff){
-      singleDeviceMemcpy(stream, recvBuf, sendBuf,
-                         count * at::elementSize(datatype));
+      singleDeviceMemcpy(stream, recvbuff, sendbuff,
+                         count * at::elementSize(PcclDataTypeToScalarType(datatype)));
     }
     return pcclSuccess;
   }
