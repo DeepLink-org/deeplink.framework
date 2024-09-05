@@ -3,14 +3,14 @@
 #include <type_traits>
 
 #include <c10/core/ScalarType.h>
+#include <torch/csrc/distributed/c10d/Types.hpp>
 
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/runtime/devproxy/deviceproxy.h"
-#include "pccl.h"
-#include <torch/csrc/distributed/c10d/Types.hpp>
-
 #include <csrc_dipu/common.h>
 #include <csrc_dipu/runtime/device/diclapis.h>
+#include "vendorapi.h"
+#include "pccl.h"
 
 namespace dipu {
 

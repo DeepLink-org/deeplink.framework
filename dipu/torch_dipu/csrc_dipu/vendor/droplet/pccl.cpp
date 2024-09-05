@@ -89,8 +89,10 @@ void checkRankOrThrow(int rank) {
 
 void singleDeviceMemcpy(dipu::deviceStream_t stream, void* dst, const void* src,
                         size_t nbytes) {
-  auto device = dipu::devproxy::current_device();
-  dipu::devproxy::memCopyD2DAsync(stream, nbytes, device, dst, device, src);
+    if(dst != src){
+      auto device = dipu::devproxy::current_device();
+      dipu::devproxy::memCopyD2DAsync(stream, nbytes, device, dst, device, src);
+  }
 }
 
 }  // namespace
@@ -143,44 +145,34 @@ const char* pcclGetLastError(pcclComm_t comm){
   DIPU_PCCL_IMPL(pcclReduce, (const void*, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (pcclRedOp_t, op), (int, root), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
     checkRankOrThrow(root);
-    if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
                          count * at::elementSize(PcclDataTypeToScalarType(datatype)));
-    }
     return pcclSuccess;
   }
 
   DIPU_PCCL_IMPL(pcclAllReduce, (const void*, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (pcclRedOp_t, op), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
-    if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
                          count * at::elementSize(PcclDataTypeToScalarType(datatype)));
-    }
-    return pcclSuccess;
+  return pcclSuccess;
   }
 
   DIPU_PCCL_IMPL(pcclReduceScatter, (const void*, sendbuff), (void*, recvbuff), (size_t, recvcount), (pcclDataType_t, datatype), (pcclRedOp_t, op), (pcclComm_t, comm), (tangStream_t, stream)) {
-    if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
                    recvcount * at::elementSize(PcclDataTypeToScalarType(datatype)));
-    }
     return pcclSuccess;
   }
 
   DIPU_PCCL_IMPL(pcclBroadcast, (const void *, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (int, root), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
-    if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
                        count * at::elementSize(PcclDataTypeToScalarType(datatype)));
-    }
     return pcclSuccess;
   }
   DIPU_PCCL_IMPL(pcclAllGather, (const void*, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
-    if(sendbuff != recvbuff){
       singleDeviceMemcpy(stream, recvbuff, sendbuff,
                          count * at::elementSize(PcclDataTypeToScalarType(datatype)));
-    }
     return pcclSuccess;
   }
   DIPU_PCCL_IMPL(pcclSend, (const void*, sendbuff), (size_t, count), (pcclDataType_t, datatype), (int, peer), (pcclComm_t, comm), (tangStream_t, stream)) {
