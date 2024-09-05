@@ -11,9 +11,10 @@
 #include <csrc_dipu/runtime/device/diclapis.h>
 
 
+namespace {
 template <const char* workspaceApi, typename... Args>
 void callPcclImpl(Args... args) {
-    static const auto workspaceSizeFuncAddr = getOpApiFuncAddr(workspaceApi);
+    static const auto workspaceSizeFuncAddr = getCommPcclFuncAddr(workspaceApi);
     using WorkspaceSizeFunc = int (*)(Args...);
     static WorkspaceSizeFunc workspaceSizeFunc = reinterpret_cast<WorkspaceSizeFunc>(workspaceSizeFuncAddr);
     auto workspaceStatus = workspaceSizeFunc(args...);
@@ -25,21 +26,20 @@ void callPcclImpl(Args... args) {
 }
 
 #define DIPU_PCCL_IMPL(NAME, ...) \
-  pcclResult_t NAME(TYPE_PARAM(__VA_ARGS__)) { \
+  pcclResult_t NAME(DIPU_TYPE_PARAM(__VA_ARGS__)) { \
     static constexpr const char fstr[] = #NAME; \
-    callPcclImpl<fstr>(PARAM(__VA_ARGS__)); \
+    callPcclImpl<fstr>(DIPU_PARAM(__VA_ARGS__)); \
     return pcclSuccess; \
   } \
-  static pcclResult_t CONCAT(my__, NAME)(TYPE_PARAM(__VA_ARGS__)); \
+  static pcclResult_t CONCAT(my__, NAME)(DIPU_TYPE_PARAM(__VA_ARGS__)); \
   static const int CONCAT(n_, NAME) = []() { \
     fn[#NAME] = reinterpret_cast<void*>(CONCAT(my__, NAME)); \
     return 0; \
   }(); \
-  pcclResult_t CONCAT(my__, NAME)(TYPE_PARAM(__VA_ARGS__))
+  pcclResult_t CONCAT(my__, NAME)(DIPU_TYPE_PARAM(__VA_ARGS__))
 
 std::map<std::string, void*> fn;
 
-namespace {
 
 static const std::map<pcclDataType_t, at::ScalarType> toScalarType = {
     {pcclInt8, at::kChar},
@@ -62,13 +62,6 @@ at::ScalarType PcclDataTypeToScalarType(pcclDataType_t pccl_data_type) {
     return p->second;
 }
 
-// using diclCommValue_t = std::remove_pointer_t<pcclComm_t>;
-// const diclCommValue_t kMagicComm = 0x5043434C;  // "PCCL"
-//
-// pcclComm_t createDiclComm() { return new diclCommValue_t(kMagicComm); }
-//
-// void destroyDiclComm(pcclComm_t comm) { delete comm; }
-// magic comm address
 static const pcclComm_t kMagicComm = reinterpret_cast<pcclComm_t>(0x5043434C);
 
 void checkCommOrThrow(pcclComm_t comm) {
@@ -119,19 +112,12 @@ void singleDeviceMemcpy(dipu::deviceStream_t stream, void* dst, const void* src,
     return pcclSuccess;
   }
 
-  DIPU_PCCL_IMPL(pcclCommInitAll, (pcclComm_t*, comms), (int, ndev), (const int*, devlist)) {
-    return pcclSuccess;
-  }
-
   DIPU_PCCL_IMPL(pcclCommDestroy, (pcclComm_t, comm)) {
     checkCommOrThrow(comm);
     // destroyDiclComm(comm);   
     return pcclSuccess;
   }
 
-  DIPU_PCCL_IMPL(pcclCommAbort, (pcclComm_t, comm)) {
-    return pcclSuccess;
-  }
   DIPU_PCCL_IMPL(pcclCommGetAsyncError, (pcclComm_t, comm), (pcclResult_t*, asyncError)) {
     checkCommOrThrow(comm);
     return pcclSuccess;
@@ -140,7 +126,7 @@ void singleDeviceMemcpy(dipu::deviceStream_t stream, void* dst, const void* src,
 const char* pcclGetErrorString(pcclResult_t result){
   // Not Fallback
   static const char* apiName = "pcclGetErrorString";
-  static const auto funcptr = getOpApiFuncAddr(apiName);
+  static const auto funcptr = getCommPcclFuncAddr(apiName);
   using func = const char*(*)(pcclResult_t);
   return reinterpret_cast<func>(funcptr)(result);
 }
@@ -148,30 +134,11 @@ const char* pcclGetErrorString(pcclResult_t result){
 const char* pcclGetLastError(pcclComm_t comm){
   // Not Fallback
   static const char* apiName = "pcclGetLastError";
-  static const auto funcptr = getOpApiFuncAddr(apiName);
+  static const auto funcptr = getCommPcclFuncAddr(apiName);
   using func = const char*(*)(pcclComm_t);
   return reinterpret_cast<func>(funcptr)(comm);
 }
 
-
-  DIPU_PCCL_IMPL(pcclCommCount, (const pcclComm_t, comm), (int*, count)) {
-    return pcclSuccess;
-  }
-
-  DIPU_PCCL_IMPL(pcclCommCuDevice, (const pcclComm_t, comm), (int*, device)) {
-    return pcclSuccess;
-  }
-
-
-
-
-  DIPU_PCCL_IMPL(pcclCommUserRank, (const pcclComm_t, comm), (int*, rank)) {
-    return pcclSuccess;
-  }
-
-  DIPU_PCCL_IMPL(pcclGetVersion, (int*, version)) {
-    return pcclSuccess;
-  }
 
   DIPU_PCCL_IMPL(pcclReduce, (const void*, sendbuff), (void*, recvbuff), (size_t, count), (pcclDataType_t, datatype), (pcclRedOp_t, op), (int, root), (pcclComm_t, comm), (tangStream_t, stream)) {
     checkCommOrThrow(comm);
@@ -224,9 +191,4 @@ const char* pcclGetLastError(pcclComm_t comm){
     throwNotSupportedError();
     return pcclInvalidUsage;
   }
-  DIPU_PCCL_IMPL(pcclGroupStart, (void)) {
-    return pcclSuccess;
-  }
-  DIPU_PCCL_IMPL(pcclGroupEnd, (void)) {
-    return pcclSuccess;
-  }
+
