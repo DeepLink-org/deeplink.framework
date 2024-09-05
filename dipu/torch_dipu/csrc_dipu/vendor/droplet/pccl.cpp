@@ -22,13 +22,13 @@ void callPcclImpl(Args... args) {
             std::string("[") + workspaceApi + "]'s return value is not equal to PCCL_SUCCESS. pcclStatus is " + std::to_string(workspaceStatus)
         );
     }
-    return ;
 }
 
 #define DIPU_PCCL_IMPL(NAME, ...) \
   pcclResult_t NAME(TYPE_PARAM(__VA_ARGS__)) { \
     static constexpr const char fstr[] = #NAME; \
     callPcclImpl<fstr>(PARAM(__VA_ARGS__)); \
+    return pcclSuccess; \
   } \
   static pcclResult_t CONCAT(my__, NAME)(TYPE_PARAM(__VA_ARGS__)); \
   static const int CONCAT(n_, NAME) = []() { \
