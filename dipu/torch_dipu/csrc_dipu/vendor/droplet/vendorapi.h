@@ -3,9 +3,7 @@
 
 #include <c10/util/Exception.h>
 #include "csrc_dipu/vendor/droplet/pccl.h"
-#ifdef USE_PCCL
-#include <pccl.h>
-#endif  // USE_PCCL
+#include "pccl.h"
 #include <tang_runtime.h>
 
 #include <csrc_dipu/common.h>
