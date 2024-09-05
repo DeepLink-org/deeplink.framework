@@ -68,9 +68,11 @@ at::ScalarType PcclDataTypeToScalarType(pcclDataType_t pccl_data_type) {
 // pcclComm_t createDiclComm() { return new diclCommValue_t(kMagicComm); }
 //
 // void destroyDiclComm(pcclComm_t comm) { delete comm; }
+// magic comm address
+static const pcclComm_t kMagicComm = reinterpret_cast<pcclComm_t>(0x5043434C);
 
 void checkCommOrThrow(pcclComm_t comm) {
-  if (comm == nullptr) {
+  if (comm == nullptr || comm!=kMagicComm) {
     throw std::runtime_error("Invalid comm.");
   }
 }
@@ -113,7 +115,7 @@ void singleDeviceMemcpy(dipu::deviceStream_t stream, void* dst, const void* src,
     DIPU_LOGW(
         "PCCL is not enabled. DIPU will simulate single GPU "
         "communication using memcpy.");
-    // *comm = createDiclComm();
+        *comm = kMagicComm;
     return pcclSuccess;
   }
 
