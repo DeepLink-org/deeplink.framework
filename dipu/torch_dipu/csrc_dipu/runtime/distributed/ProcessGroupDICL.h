@@ -5,6 +5,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 #include <c10/core/Device.h>
 #include <torch/csrc/distributed/c10d/Backend.hpp>
@@ -39,6 +40,10 @@ using c10d::Work;
 // non-blocking.
 constexpr const char* DICL_BLOCKING_WAIT = "DICL_BLOCKING_WAIT";
 constexpr int64_t diclSyncBusyWaitMillis = 30;
+
+void dumpInfo(std::string& path);
+
+class WorkStore;
 
 /**
  * ProcessGroupDICL implements DICLbindings for c10d.
@@ -310,6 +315,8 @@ class DIPU_API ProcessGroupDICL : public Backend {
   bool blockingWait_ = false;
 
   std::chrono::milliseconds opTimeout_ = kBackendDefaultTimeout;
+
+  std::shared_ptr<WorkStore> pWstore_;
 };
 
 namespace dicl_hook {

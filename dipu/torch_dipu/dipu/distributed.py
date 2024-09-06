@@ -1,4 +1,5 @@
 from datetime import timedelta
+import os
 
 import torch
 from torch import distributed as dist
@@ -112,6 +113,8 @@ def _wrap_new_group(
     ranks = list(set(ranks))  # dedup
     return _raw_new_group(ranks, timeout, backend, pg_options)
 
+def _wrap_dump_info(path):
+    _C.dump_info(path)
 
 def apply_dist_patch():
     dist.get_backend = _wrap_get_backend
@@ -123,3 +126,5 @@ def apply_dist_patch():
 
     if dipu.get_dipu_torch_version() == dipu.torch_ver_200:
         dist.new_group = _wrap_new_group
+
+    dist.dump_info = _wrap_dump_info

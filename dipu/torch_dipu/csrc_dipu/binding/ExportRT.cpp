@@ -249,6 +249,8 @@ void exportCommunicator(py::module& m) {
         return kBackendDefaultTimeout;
       });
 
+  m.def("dump_info", dumpInfo);
+
   // py::object mdist = py::module::import("torch.distributed");
   // py::object register_backend =
   // mdist.attr("Backend").attr("register_backend"); The first parameter is the

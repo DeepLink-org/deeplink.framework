@@ -3,6 +3,8 @@
 
 #include <utility>
 #include <vector>
+#include <mutex>
+#include <fstream>
 
 #include <ATen/core/TensorBody.h>
 #include <ATen/ops/cat.h>
@@ -120,6 +122,71 @@ void checkGatherScatterRootRank(
 
 }  // anonymous namespace
 
+// start WorkStore
+
+class WorkStore {
+  struct WorkInfo {
+    DIPUEvent startEvent_;
+    DIPUEvent endEvent_;
+    int rank_;
+    int comm_size_;
+  };
+public:
+  void setUid(const std::vector<uint8_t>& uidVec) {
+    uniqueidVec_ = uidVec;
+  }
+
+  size_t recordStart(const DIPUStream& stream, int rank, int comm_size) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    info_vec_.push_back(WorkInfo());
+    size_t index = info_vec_.size() - 1;
+    info_vec_[index].startEvent_.record(stream);
+    info_vec_[index].rank_ = rank;
+    info_vec_[index].comm_size_ = comm_size;
+
+    return index;
+  }
+
+  void recordEnd(const DIPUStream& stream, size_t index) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    info_vec_[index].endEvent_.record(stream);
+  }
+
+  void dump(std::string& path){
+    for(auto& wi: info_vec_) {
+      wi.startEvent_.synchronize();
+      wi.endEvent_.synchronize();
+      float duration = wi.startEvent_.elapsed_time(wi.endEvent_);
+      std::ostringstream oss;
+      oss << "PG uniqueId = ";
+      for (int i = 0; i < 32; ++i) {
+        oss << static_cast<int>(uniqueidVec_[i]);
+      }
+      oss << ", comm_size = " << wi.comm_size_ << ", duration = " << duration << std::endl;
+      std::string filePath = path + "/rank_" + std::to_string(wi.rank_);
+      std::ofstream outFile(filePath, std::ios::app);
+      outFile << oss.str();
+    }
+
+    info_vec_.clear();
+  }
+
+private:
+  std::vector<WorkInfo> info_vec_;
+  std::mutex mtx_;
+  std::vector<uint8_t> uniqueidVec_;
+};
+
+// end WorkStore
+
+std::vector<std::shared_ptr<WorkStore>> global_stores;
+
+void dumpInfo(std::string& path) {
+  for(auto p: global_stores) {
+    p->dump(path);
+  }
+}
+
 // start WorkDICL
 
 // currently DICL do not support error check
@@ -196,7 +263,8 @@ ProcessGroupDICL::WorkDICL::getFuture() {
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
                                    int rank, int size)
-    : c10d::Backend(rank, size), store_(store) {
+    : c10d::Backend(rank, size), store_(store), pWstore_(std::make_shared<WorkStore>()) {
+  global_stores.push_back(pWstore_);
   char* blockingWait = getenv(DICL_BLOCKING_WAIT);
   try {
     if (blockingWait != nullptr) {
@@ -238,6 +306,7 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
     auto vec = std::vector<uint8_t>(reinterpret_cast<uint8_t*>(uniqueId),
                                     reinterpret_cast<uint8_t*>(uniqueId) +
                                         devapis::DICL_UNIQUE_ID_BYTES_SIZE);
+    pWstore_->setUid(vec);
     store_->set(storeKey, vec);
   } else {
     auto vec = store_->get(storeKey);
@@ -246,6 +315,7 @@ void ProcessGroupDICL::broadcastUniqueID(commUniqueId* uniqueId,
           "Unexpected DICL unique ID length received "
           "from the store");
     }
+    pWstore_->setUid(vec);
     std::memcpy(uniqueId, vec.data(), vec.size());
   }
 }
@@ -442,6 +512,12 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   auto work = c10::make_intrusive<ProcessGroupDICL::WorkDICL>(
       diclComms, blockingWait_, opTimeout_);
 
+  size_t eventIndex;
+  if (opType == OpType::ALLREDUCE) {
+    eventIndex = pWstore_->recordStart(diclComms[0]->diclStream_,
+                    this->rank_, inputs[0].element_size() * inputs[0].numel());
+  }
+
   OptionalDIPUGuard dipuGuard;
   pre(diclComms);
 
@@ -466,6 +542,11 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
   }
 
   post(diclComms);
+
+  if (opType == OpType::ALLREDUCE) {
+    pWstore_->recordEnd(diclComms[0]->diclStream_, eventIndex);
+  }
+
   work->record();
 
   work->outputs_ = std::make_shared<std::vector<at::Tensor>>(outputs);
