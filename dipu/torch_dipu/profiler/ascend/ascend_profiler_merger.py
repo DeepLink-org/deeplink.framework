@@ -214,7 +214,7 @@ class _AscendProfilerMerger:
         # msprof_cann_x_event is sorted by timestamp beforehand,
         # and what we need to do is binary search for the event whose time interval contain this timestamp
         # and move start flow event HostToDevice's timestamp to the cann event's begin timestamp
-        def find_wrap_acl_event(ts: Decimal) -> Decimal:
+        def find_wrap_acl_event(ts: float) -> float:
             if len(self._msprof_cann_x_event) == 0:
                 return ts
             l = 0
@@ -240,7 +240,7 @@ class _AscendProfilerMerger:
             if not event["name"].startswith("HostToDevice"):
                 continue
             if event["pid"] == self._process_id["CANN"]:
-                event["ts"] = str(find_wrap_acl_event(Decimal(event["ts"])))
+                event["ts"] = find_wrap_acl_event(float(event["ts"]))
                 flow_start_dict[event["id"]] = event["ts"]
             elif event["pid"] == self._process_id["Ascend Hardware"]:
                 flow_end_dict[event["id"]] = event["ts"]
@@ -261,13 +261,12 @@ class _AscendProfilerMerger:
                 ts_min_offset_need = max(ts_min_offset_need, current_ts_offset_need + 1)
         if ts_min_offset_need == 0:
             return
-        ts_min_offset_need = Decimal(ts_min_offset_need)
         for event in self._msprof_profile_data:
             if "ts" not in event.keys():
                 continue
             for hardware_process_name in self._hardware_process_list:
                 if event["pid"] == self._process_id[hardware_process_name]:
-                    event["ts"] = str(Decimal(event["ts"]) + ts_min_offset_need)
+                    event["ts"] = str(float(event["ts"]) + ts_min_offset_need)
                     break
 
     def _merge_msprof_to_kineto(self) -> None:
