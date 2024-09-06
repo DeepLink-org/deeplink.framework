@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 from typing import Union
+from decimal import Decimal
 
 
 class _PathManager:
@@ -191,7 +192,7 @@ class _AscendProfilerMerger:
             self._msprof_profile_data.append(event)
             if event["ph"] == "X" and event["pid"] == self._process_id["CANN"]:
                 self._msprof_cann_x_event.append(
-                    (float(event["ts"]), float(event["ts"]) + float(event["dur"]))
+                    (Decimal(event["ts"]), Decimal(event["ts"]) + Decimal(event["dur"]))
                 )
 
     def _merge_msprof_profile_data(self, input_msprof_data: list) -> None:
@@ -213,7 +214,7 @@ class _AscendProfilerMerger:
         # msprof_cann_x_event is sorted by timestamp beforehand,
         # and what we need to do is binary search for the event whose time interval contain this timestamp
         # and move start flow event HostToDevice's timestamp to the cann event's begin timestamp
-        def find_wrap_acl_event(ts: float) -> float:
+        def find_wrap_acl_event(ts: Decimal) -> Decimal:
             if len(self._msprof_cann_x_event) == 0:
                 return ts
             l = 0
@@ -239,7 +240,7 @@ class _AscendProfilerMerger:
             if not event["name"].startswith("HostToDevice"):
                 continue
             if event["pid"] == self._process_id["CANN"]:
-                event["ts"] = find_wrap_acl_event(float(event["ts"]))
+                event["ts"] = str(find_wrap_acl_event(Decimal(event["ts"])))
                 flow_start_dict[event["id"]] = event["ts"]
             elif event["pid"] == self._process_id["Ascend Hardware"]:
                 flow_end_dict[event["id"]] = event["ts"]
@@ -260,17 +261,18 @@ class _AscendProfilerMerger:
                 ts_min_offset_need = max(ts_min_offset_need, current_ts_offset_need + 1)
         if ts_min_offset_need == 0:
             return
+        ts_min_offset_need = Decimal(ts_min_offset_need)
         for event in self._msprof_profile_data:
             if "ts" not in event.keys():
                 continue
             for hardware_process_name in self._hardware_process_list:
                 if event["pid"] == self._process_id[hardware_process_name]:
-                    event["ts"] = str(float(event["ts"]) + ts_min_offset_need)
+                    event["ts"] = str(Decimal(event["ts"]) + ts_min_offset_need)
                     break
 
     def _merge_msprof_to_kineto(self) -> None:
         # to make sure cann timestamp align to kineto timestamp
-        local_time_diff = (self._torch_time_diff - self._acl_time_diff) / 1000
+        local_time_diff = Decimal((self._torch_time_diff - self._acl_time_diff) / 1000)
 
         for event in self._msprof_profile_data:
             if event["pid"] == self._process_id["CANN"]:
@@ -278,7 +280,7 @@ class _AscendProfilerMerger:
             if event["name"] == "process_sort_index":
                 event["args"]["sort_index"] += self._python3_sort_idx
             if "ts" in event.keys():
-                event["ts"] = str(float(event["ts"]) + local_time_diff)
+                event["ts"] = str(Decimal(event["ts"]) + local_time_diff)
             self._kineto_profile_data["traceEvents"].append(event)
 
     def _export_to_json(self) -> None:
