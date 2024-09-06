@@ -214,7 +214,7 @@ class _AscendProfilerMerger:
         # msprof_cann_x_event is sorted by timestamp beforehand,
         # and what we need to do is binary search for the event whose time interval contain this timestamp
         # and move start flow event HostToDevice's timestamp to the cann event's begin timestamp
-        def find_wrap_acl_event(ts: float) -> float:
+        def find_wrap_acl_event(ts: float) -> Union[float, Decimal]:
             if len(self._msprof_cann_x_event) == 0:
                 return ts
             l = 0
