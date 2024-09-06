@@ -2,10 +2,10 @@
 #pragma once
 
 #include <chrono>
+#include <queue>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <queue>
 
 #include <c10/core/Device.h>
 #include <torch/csrc/distributed/c10d/Backend.hpp>

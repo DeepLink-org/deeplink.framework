@@ -113,8 +113,10 @@ def _wrap_new_group(
     ranks = list(set(ranks))  # dedup
     return _raw_new_group(ranks, timeout, backend, pg_options)
 
+
 def _wrap_dump_info(path):
     _C.dump_info(path)
+
 
 def apply_dist_patch():
     dist.get_backend = _wrap_get_backend

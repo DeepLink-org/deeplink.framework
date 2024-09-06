@@ -1,10 +1,10 @@
 // Copyright (c) 2023, DeepLink.
 #include "ProcessGroupDICL.h"
 
+#include <fstream>
+#include <mutex>
 #include <utility>
 #include <vector>
-#include <mutex>
-#include <fstream>
 
 #include <ATen/core/TensorBody.h>
 #include <ATen/ops/cat.h>
@@ -131,10 +131,9 @@ class WorkStore {
     int rank_;
     int comm_size_;
   };
-public:
-  void setUid(const std::vector<uint8_t>& uidVec) {
-    uniqueidVec_ = uidVec;
-  }
+
+ public:
+  void setUid(const std::vector<uint8_t>& uidVec) { uniqueidVec_ = uidVec; }
 
   size_t recordStart(const DIPUStream& stream, int rank, int comm_size) {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -152,8 +151,8 @@ public:
     info_vec_[index].endEvent_.record(stream);
   }
 
-  void dump(std::string& path){
-    for(auto& wi: info_vec_) {
+  void dump(std::string& path) {
+    for (auto& wi : info_vec_) {
       wi.startEvent_.synchronize();
       wi.endEvent_.synchronize();
       float duration = wi.startEvent_.elapsed_time(wi.endEvent_);
@@ -162,7 +161,8 @@ public:
       for (int i = 0; i < 32; ++i) {
         oss << static_cast<int>(uniqueidVec_[i]);
       }
-      oss << ", comm_size = " << wi.comm_size_ << ", duration = " << duration << std::endl;
+      oss << ", comm_size = " << wi.comm_size_ << ", duration = " << duration
+          << std::endl;
       std::string filePath = path + "/rank_" + std::to_string(wi.rank_);
       std::ofstream outFile(filePath, std::ios::app);
       outFile << oss.str();
@@ -171,7 +171,7 @@ public:
     info_vec_.clear();
   }
 
-private:
+ private:
   std::vector<WorkInfo> info_vec_;
   std::mutex mtx_;
   std::vector<uint8_t> uniqueidVec_;
@@ -182,7 +182,7 @@ private:
 std::vector<std::shared_ptr<WorkStore>> global_stores;
 
 void dumpInfo(std::string& path) {
-  for(auto p: global_stores) {
+  for (auto p : global_stores) {
     p->dump(path);
   }
 }
@@ -263,7 +263,9 @@ ProcessGroupDICL::WorkDICL::getFuture() {
 
 ProcessGroupDICL::ProcessGroupDICL(const c10::intrusive_ptr<Store>& store,
                                    int rank, int size)
-    : c10d::Backend(rank, size), store_(store), pWstore_(std::make_shared<WorkStore>()) {
+    : c10d::Backend(rank, size),
+      store_(store),
+      pWstore_(std::make_shared<WorkStore>()) {
   global_stores.push_back(pWstore_);
   char* blockingWait = getenv(DICL_BLOCKING_WAIT);
   try {
@@ -514,8 +516,9 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::doComm(
 
   size_t eventIndex;
   if (opType == OpType::ALLREDUCE) {
-    eventIndex = pWstore_->recordStart(diclComms[0]->diclStream_,
-                    this->rank_, inputs[0].element_size() * inputs[0].numel());
+    eventIndex =
+        pWstore_->recordStart(diclComms[0]->diclStream_, this->rank_,
+                              inputs[0].element_size() * inputs[0].numel());
   }
 
   OptionalDIPUGuard dipuGuard;
