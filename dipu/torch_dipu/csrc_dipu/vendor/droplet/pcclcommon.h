@@ -23,12 +23,22 @@ inline void* getCommPcclLibHandler(const char* libName) {
 }
 
 inline void* getCommPcclFuncAddr(const char* apiName) {
-    constexpr const char kOpApiLibName[] = "libpccl.so";
-    static void* opApiHandler = getCommPcclLibHandler(kOpApiLibName);
-    if (opApiHandler == nullptr) {
+    constexpr const char pcclLibName[] = "libpccl.so";
+    constexpr const char pcclLibDependName[] = "libtangrt_shared.so";
+    static void* pcclDependHandler = dlopen(pcclLibDependName, RTLD_LAZY | RTLD_GLOBAL);
+    if(pcclDependHandler == nullptr){
+  throw std::runtime_error(
+    "Error: Failed to load libpccl.so. The required library 'libtangrt_shared.so' is missing.\n"
+    "Please ensure that 'libtangrt_shared.so' is installed and its path is included in the LD_LIBRARY_PATH environment variable.\n"
+    "Example: export LD_LIBRARY_PATH=/path/to/lib:$LD_LIBRARY_PATH"
+  );
+  }
+    static void* pcclHandler = getCommPcclLibHandler(pcclLibName);
+    if (pcclHandler == nullptr) {
+        std::cerr << "Fallback " << apiName << " will be called" << std::endl;
         return nullptr;
     }
-    return getCommPcclFuncAddrInLib(opApiHandler, kOpApiLibName, apiName);
+    return getCommPcclFuncAddrInLib(pcclHandler, pcclLibName, apiName);
 }
 
 #define EXPAND(x) x
