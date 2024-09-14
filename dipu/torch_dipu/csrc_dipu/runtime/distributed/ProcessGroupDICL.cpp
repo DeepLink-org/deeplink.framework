@@ -401,6 +401,15 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
   return flattened;
 }
 
+bool check_same_size(const std::vector<at::Tensor>& input_tensors) {
+  for (const auto& input_tensor : input_tensors) {
+    if (!input_tensors[0].is_same_size(input_tensor)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 template <bool RecordDest, typename Dest, typename Src>
 void copyInCommStream(std::shared_ptr<DICLComm>& diclComm, const Dest& dest,
                       const Src& src, int nums) {
@@ -684,38 +693,71 @@ std::string_view ProcessGroupDICL::getCommName(
 c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
     std::vector<std::vector<at::Tensor>>& outputs,
     std::vector<at::Tensor>& inputs, const AllgatherOptions& opts) {
-  checkDeviceTensors(inputs);
-  // output = input * ranks, no inplace. every ranks use both in&out.
-  auto outputFlattened =
-      flatten_for_scatter_gather(outputs, inputs, this->size_);
+  auto inputTensor = inputs.back();
+  auto outputs_ = outputs.back();
+  bool same_size = check_same_size(outputs_);
+  if (same_size) {
+    checkDeviceTensors(inputs);
+    // output = input * ranks, no inplace. every ranks use both in&out.
+    auto outputFlattened =
+        flatten_for_scatter_gather(outputs, inputs, this->size_);
 
-  auto work = collective(
-      inputs, outputFlattened,
-      [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
-          DIPUStream& stream) {
-        RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
-        profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
-                                      static_cast<int>(stream.id()));
+    auto work = collective(
+        inputs, outputFlattened,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          RECORD_FUNCTION("DiclAllgather", std::vector<c10::IValue>({input}));
+          profile::RecordBlockCreator _("DiclAllgather", stream.rawstream(),
+                                        static_cast<int>(stream.id()));
 
-        return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
-                                       static_cast<size_t>(input.numel()),
-                                       input.scalar_type(), comm,
-                                       stream.rawstream());
-      },
-      [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
-      [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
-        // Copy the flattened output tensors to the outputs.
-        for (size_t i = 0; i < outputs.size(); ++i) {
-          // warnning & todo:: copy in comm stream,
-          // record dest tensor outputs, because src tensor outputFlattened
-          // already recorded in collective.
-          copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
-                                 static_cast<int>(outputs[i].size()));
-          // copyInCurrentStream(diclComms[i], outputs[i], outputFlattened[i]);
-        }
-      },
-      OpType::ALLGATHER);
-  return work;
+          return devproxy::diclAllGather(input.data_ptr(), output.data_ptr(),
+                                         static_cast<size_t>(input.numel()),
+                                         input.scalar_type(), comm,
+                                         stream.rawstream());
+        },
+        [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {},
+        [&](std::vector<std::shared_ptr<DICLComm>>& diclComms) {
+          // Copy the flattened output tensors to the outputs.
+          for (size_t i = 0; i < outputs.size(); ++i) {
+            // warnning & todo:: copy in comm stream,
+            // record dest tensor outputs, because src tensor outputFlattened
+            // already recorded in collective.
+            copyInCommStream<true>(diclComms[i], outputs[i], outputFlattened[i],
+                                   static_cast<int>(outputs[i].size()));
+            // copyInCurrentStream(diclComms[i], outputs[i],
+            // outputFlattened[i]);
+          }
+        },
+        OpType::ALLGATHER);
+    return work;
+  } else {
+    const auto num_reduces = outputs_.size();
+    return collective(
+        inputs, outputs_,
+        [&](at::Tensor& input, at::Tensor& output, diclComm_t comm,
+            DIPUStream& stream) {
+          for (const int i : c10::irange(num_reduces)) {
+            auto& opt = outputs_[i];
+            auto& ipt = (i == this->rank_) ? inputTensor : opt;
+            auto broadcastOpts = BroadcastOptions{
+                static_cast<int64_t>(i), static_cast<int64_t>(0), opts.timeout};
+            if (opt.numel() != ipt.numel()) {
+              throw std::runtime_error(
+                  "Tensor input and output of _broadcast_oop must have the "
+                  "same number of elements ");
+            }
+            RECORD_FUNCTION("DiclBroadcast", std::vector<c10::IValue>({ipt}));
+            profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
+                                          static_cast<int>(stream.id()));
+            const auto root = broadcastOpts.rootRank + broadcastOpts.rootTensor;
+            devproxy::diclBroadcast(ipt.data_ptr(), opt.data_ptr(),
+                                    static_cast<size_t>(ipt.numel()),
+                                    ipt.scalar_type(), static_cast<int>(root),
+                                    comm, stream.rawstream());
+          }
+        },
+        OpType::BROADCAST);
+  }
 }
 
 c10::intrusive_ptr<Work> ProcessGroupDICL::_allgather_base(
