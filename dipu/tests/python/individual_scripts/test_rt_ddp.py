@@ -610,6 +610,28 @@ def test_allgather(rank, world_size, port, seed):
 
     for i in range(len(gathered_tensors)):
         assert torch.allclose(gathered_tensors[i], expected_tensors[i])
+
+    device = torch.device(f"cuda:{rank}")
+    t = torch.rand((rank + 1, rank + 1), dtype=torch.float16, device=device)
+    shapes = []
+    for i in range(world_size):
+        shapes.append((i + 2, i + 2))
+    gathered_t = [
+        torch.empty(shapes[i], dtype=torch.float16, device=device)
+        for i in range(world_size)
+    ]
+
+    try:
+        dist.all_gather(gathered_t, t)
+    except RuntimeError as e:
+        expected_error_message = "Tensor input and output of broadcast must have the same number of elements "
+        if str(e) == expected_error_message:
+            print(
+                "Correct exception raised with expected error message in test_allgather."
+            )
+        else:
+            print(f"Incorrect error message: {str(e)}")
+
     cleanup()
 
 
