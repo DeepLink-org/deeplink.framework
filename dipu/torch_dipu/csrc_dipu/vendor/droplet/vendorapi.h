@@ -1,11 +1,12 @@
 #pragma once
 #include <cstdio>
 
-#include <c10/util/Exception.h>
-#include "csrc_dipu/vendor/droplet/pccl.h"
 #include "pccl.h"
 #include <tang_runtime.h>
 
+#include <c10/util/Exception.h>
+
+#include "csrc_dipu/vendor/droplet/pccl.h"
 #include <csrc_dipu/common.h>
 
 namespace dipu {
