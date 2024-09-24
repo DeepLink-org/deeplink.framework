@@ -745,25 +745,29 @@ c10::intrusive_ptr<Work> ProcessGroupDICL::allgather(
           DIPUStream& stream) {
         for (const auto i : c10::irange(num_broadcasts)) {
           auto& outTensor = outputs_[i];
-          auto& inTensor = (i == this->rank_) ? inputTensor : outTensor;
-          RECORD_FUNCTION("DiclBroadcast",
-                          std::vector<c10::IValue>({inTensor}));
-          profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
-                                        static_cast<int>(stream.id()));
           const auto root = static_cast<int64_t>(i);
           // Just for the convenience of calling collective, it is necessary to
           // record the output elements of different devices, and the work logic
           // is correct.
-          if (outTensor.has_storage() &&
-              (!inTensor.has_storage() ||
-               inTensor.storage().data_ptr().get() !=
-                   outTensor.storage().data_ptr().get())) {
-            dipu::recordStream(outTensor, stream);
-          }
+          dipu::recordStream(outTensor, stream);
+          auto& inTensor = i == this->rank_ ? inputTensor : outTensor;
+          RECORD_FUNCTION("DiclBroadcast",
+                          std::vector<c10::IValue>({inTensor}));
+          profile::RecordBlockCreator _("DiclBroadcast", stream.rawstream(),
+                                        static_cast<int>(stream.id()));
           devproxy::diclBroadcast(
               inTensor.data_ptr(), outTensor.data_ptr(),
               static_cast<size_t>(inTensor.numel()), inTensor.scalar_type(),
               static_cast<int>(root), comm, stream.rawstream());
+#if DIPU_VENDOR_NAME_ASCEND
+          if (i == this->rank_) {
+            devproxy::memCopyD2DAsync(
+                stream.rawstream(),
+                static_cast<size_t>(inTensor.numel()) *
+                    static_cast<size_t>(inTensor.element_size()),
+                i, outTensor.data_ptr(), i, inTensor.data_ptr());
+          }
+#endif
         }
       },
       OpType::BROADCAST);
