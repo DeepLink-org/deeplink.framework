@@ -189,9 +189,11 @@ class TestFusedAdamW(TestCase):
                 ),
             )
 
+    @onlyOn("CUDA")
     def test_adamw_fp16_(self):
         self.adamw_(torch.float16)
 
+    @onlyOn("CUDA")
     def test_adamw_fp32_(self):
         self.adamw_(torch.float32)
 
