@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
+from utils.random_shape import ShapeGenerator
 
 
 def debugat(rank=0):
@@ -473,12 +474,13 @@ def demo_model_parallel(rank, world_size, port):
     cleanup()
 
 
-def run_demo(demo_fn, world_size, port):
+def run_demo(demo_fn, world_size, port, *args):
     mp.spawn(
         demo_fn,
         args=(
             world_size,
             port,
+            *args,
         ),
         nprocs=world_size,
         join=True,
@@ -582,6 +584,57 @@ def test_get_comm_name(rank, world_size, port):
         cleanup()
 
 
+def test_allgather(rank, world_size, port, seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    import torch_dipu
+
+    print(f"test allgather on rank {rank} ws: {world_size}")
+    setup(rank, world_size, port)
+    shape_gen = ShapeGenerator(seed=seed)
+
+    gathered_tensors = []
+    expected_tensors = []
+    for i in range(world_size):
+        shape = shape_gen.random_shape(
+            (1, 100000),
+            (1, 4),
+        )
+        device = torch.device(f"cuda:{rank}")
+        tensor = torch.rand(size=shape, dtype=torch.float16)
+        tensor = tensor.to(device)
+        gathered_tensors.append(torch.empty_like(tensor))
+        expected_tensors.append(tensor)
+    tensor_to_gather = expected_tensors[rank]
+    dist.all_gather(gathered_tensors, tensor_to_gather)
+
+    for i in range(len(gathered_tensors)):
+        assert torch.allclose(gathered_tensors[i], expected_tensors[i])
+
+    device = torch.device(f"cuda:{rank}")
+    t = torch.rand((rank + 1, rank + 1), dtype=torch.float16, device=device)
+    shapes = []
+    for i in range(world_size):
+        shapes.append((i + 2, i + 2))
+    gathered_t = [
+        torch.empty(shapes[i], dtype=torch.float16, device=device)
+        for i in range(world_size)
+    ]
+
+    try:
+        dist.all_gather(gathered_t, t)
+    except RuntimeError as e:
+        expected_error_message = "Tensor input and output of broadcast must have the same number of elements "
+        if str(e) == expected_error_message:
+            print(
+                "Correct exception raised with expected error message in test_allgather."
+            )
+        else:
+            print(f"Incorrect error message: {str(e)}")
+
+    cleanup()
+
+
 if __name__ == "__main__":
     port = random.randint(10000, 60000)
     # get device_count without "import torch_dipu"
@@ -618,6 +671,8 @@ if __name__ == "__main__":
         run_demo(demo_model_parallel, world_size, port)
 
         run_demo(test_special_group_stuck, world_size, port)
+
+        run_demo(test_allgather, world_size, port, random.randint(0, 10000))
 
     # need 4 card to run
     if world_size >= 4:
