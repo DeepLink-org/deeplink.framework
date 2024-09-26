@@ -5,6 +5,8 @@
 #include <c10/core/Device.h>
 #include <c10/util/flat_hash_map.h>
 
+#include "csrc_dipu/base/basedef.h"
+#include "csrc_dipu/base/utility.h"
 #include "csrc_dipu/runtime/core/DIPUEvent.h"
 
 #include "DIPUAsyncResourcePool.h"
@@ -213,48 +215,33 @@ struct RawAllocator<at::DeviceType::CPU> {
   using type = DIPURawHostAllocator;
 };
 
-template <typename AllocatorImpl, class AsyncMemPoolImpl, int device_id>
-c10::Allocator* get_allocator_impl(c10::Allocator* raw_allocator) {
-  // Construct when really needed
-  // async_mem_pool is used when cache_allocator being destructed so it should
-  // be destructed after cache_allocator
-  static AsyncMemPoolImpl async_mem_pool;
-  static AllocatorImpl cache_allocator;
-  static int n = [&]() {
-    cache_allocator.set_raw_allocator(raw_allocator);
-    cache_allocator.set_async_mem_pool(&async_mem_pool);
-    return 0;
-  }();
-  return &cache_allocator;
-}
-
-template <class AllocatorImpl, class AsyncMemPoolImpl>
-c10::Allocator* get_allocator(int device_id, c10::Allocator* raw_allocator) {
-#define DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(id)                       \
-  if (device_id == (id)) {                                          \
-    return get_allocator_impl<AllocatorImpl, AsyncMemPoolImpl, id>( \
-        raw_allocator);                                             \
+template <typename AllocatorImpl, class AsyncMemPoolImpl>
+struct StaticAllocatorArray
+    : dipu::static_value_array<
+          StaticAllocatorArray<AllocatorImpl, AsyncMemPoolImpl>,
+          dipu::kMaxDeviceNumber> {
+  template <std::size_t I>
+  inline static c10::Allocator* value(c10::Allocator* raw_allocator) {
+    // Construct when really needed
+    // async_mem_pool is used when cache_allocator being destructed so it should
+    // be destructed after cache_allocator
+    static AsyncMemPoolImpl async_mem_pool;
+    static AllocatorImpl cache_allocator;
+    static int n = [&]() {
+      cache_allocator.set_raw_allocator(raw_allocator);
+      cache_allocator.set_async_mem_pool(&async_mem_pool);
+      return 0;
+    }();
+    return &cache_allocator;
   }
+};
 
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(0);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(1);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(2);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(3);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(4);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(5);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(6);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(7);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(8);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(9);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(10);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(11);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(12);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(13);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(14);
-  DIPU_ALLOCATOR_DISPATCH_DEVICE_ID(15);
-  TORCH_CHECK(false, "support up to 16 cards");
+template <class Allocator, class MemPool>
+c10::Allocator* get_allocator(int index, c10::Allocator* raw_allocator) {
+  TORCH_CHECK(0 <= index and index < dipu::kMaxDeviceNumber,
+              "device index out of range");
+  return StaticAllocatorArray<Allocator, MemPool>::get(index, raw_allocator);
 }
-#undef DIPU_ALLOCATOR_DISPATCH_DEVICE_ID
 
 #define DIPU_REGISTER_ALLOCATOR(name, device_type, CachingAllocator,          \
                                 algorithm, priority)                          \
