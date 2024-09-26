@@ -207,6 +207,9 @@ builder::Op enflame::UpsampleNearest2d(
     std::shared_ptr<builder::Builder> hlir_builder, builder::Op input,
     std::vector<int64_t> output_size, float scales_h, float scales_w,
     bool is_clast) {
+  if (!is_clast) {
+    input = builder::Transpose(input, {0, 2, 3, 1});
+  }
   auto input_shape = input.GetType().GetShape();
   std::vector<int64_t> roi_values(input_shape.size(), 0);
   for (size_t i = 0; i < input_shape.size(); ++i) {
@@ -221,11 +224,7 @@ builder::Op enflame::UpsampleNearest2d(
     // input op layout is HNWC, convert scales form [scales_h, scales_w] to
     // [1, scales_h, scales_w, 1]
     std::vector<float> temp(4, 1.0);
-    if (is_clast) {
-      temp[1] = scales_h, temp[2] = scales_w;
-    } else {
-      temp[2] = scales_h, temp[3] = scales_w;
-    }
+    temp[1] = scales_h, temp[2] = scales_w;
     scales_op =
         builder::Const(hlir_builder, static_cast<void*>(temp.data()),
                        builder::Type({4}, builder::PrimitiveType::F32()));
@@ -240,8 +239,20 @@ builder::Op enflame::UpsampleNearest2d(
         hlir_builder, static_cast<void*>(input_shape.data()),
         builder::Type({input_shape.size()}, builder::PrimitiveType::S64()));
   }
-  builder::Op resize = builder::Resize(input, roi_op, scales_op, sizes_op, 0, 1,
-                                       false, 3, 0.0, -0.75);
+  int64_t method = 0;
+  int64_t coordinate_transformation_mode = 1;
+  bool exclude_outside = false;
+  std::experimental::optional<int64_t> nearest_mode = 3;
+  std::experimental::optional<float> extrapolation_value = 0.0;
+  std::experimental::optional<float> cubic_coeff_a = -0.75;
+
+  builder::Op resize =
+      builder::Resize(input, roi_op, scales_op, sizes_op, method,
+                      coordinate_transformation_mode, exclude_outside,
+                      nearest_mode, extrapolation_value, cubic_coeff_a);
+  if (!is_clast) {
+    resize = builder::Transpose(resize, {0, 3, 1, 2});
+  }
   return resize;
 }
 
