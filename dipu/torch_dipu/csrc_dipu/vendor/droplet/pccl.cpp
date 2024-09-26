@@ -26,15 +26,6 @@
 #include <csrc_dipu/runtime/device/diclapis.h>
 
 namespace {
-template <const char* PcclFuncName, typename ReturnType, typename... Args>
-ReturnType callPcclImpl(Args... args) {
-  static const auto functionAddress = getCommPcclFuncAddr(PcclFuncName);
-  using PcclFuncType = ReturnType (*)(Args...);
-  static PcclFuncType pcclFunc =
-      reinterpret_cast<PcclFuncType>(functionAddress);
-  auto pcclCallReturn = pcclFunc(args...);
-  return pcclCallReturn;
-}
 
 #define DIPU_PCCL_IMPL(NAME, RETURN, ...)                                     \
   RETURN NAME(DIPU_TYPE_PARAM(__VA_ARGS__)) {                                 \
@@ -54,6 +45,17 @@ ReturnType callPcclImpl(Args... args) {
   DIPU_PCCL_IMPL(NAME, const char*, __VA_ARGS__)
 
 std::map<std::string, void*> g_pccl_function_map;
+
+template <const char* PcclFuncName, typename ReturnType, typename... Args>
+ReturnType callPcclImpl(Args... args) {
+  static const auto functionAddress = getCommPcclFuncAddr(PcclFuncName);
+  using PcclFuncType = ReturnType (*)(Args...);
+  static PcclFuncType pcclFunc = reinterpret_cast<PcclFuncType>(
+      functionAddress != nullptr ? functionAddress
+                                 : g_pccl_function_map[PcclFuncName]);
+  auto pcclCallReturn = pcclFunc(args...);
+  return pcclCallReturn;
+}
 
 static const std::map<pcclDataType_t, at::ScalarType> toScalarType = {
     {pcclInt8, at::kChar},
