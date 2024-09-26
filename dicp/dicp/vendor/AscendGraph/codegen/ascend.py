@@ -1609,15 +1609,20 @@ class AscendOverrides:
         return op.to_node()
 
     @staticmethod
-    def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, kv_head_num, head_num, dim, input_layout="BSH"):
+    def IncreFlashAttention(name, q, k_list, v_list, kv_input_num, head_num, kv_head_num, dim, input_layout="BSH", block_table=None, seq_lengths=None, block_size=128):
         op = OP(name, "IncreFlashAttention")
         op.set_input("query", q)
         op.set_dynamic_input("key", kv_input_num, k_list)
         op.set_dynamic_input("value", kv_input_num, v_list)
         op.set_attr_int("num_heads", head_num)
-        op.set_attr_float("scale_value", float(1 / math.sqrt(dim)))
+        if not block_table:
+            op.set_attr_float("scale_value", float(1 / math.sqrt(dim)))
         op.set_attr_int("num_key_value_heads", kv_head_num)
         op.set_attr_str("input_layout", input_layout)
+        if block_table:
+            op.set_input("block_table", block_table)
+            op.set_input("actual_seq_lengths", seq_lengths)
+            op.set_attr_int("block_size", block_size)
         return op.to_node()
 
     @staticmethod
