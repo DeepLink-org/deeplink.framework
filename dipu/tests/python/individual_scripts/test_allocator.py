@@ -82,6 +82,7 @@ if __name__ == "__main__":
             (
                 {"args": (MAX_ALLOCATE, 1, "TORCH", 0)},
                 {"args": (MAX_ALLOCATE, 1, "BF", 0)},
+                {"args": (MAX_ALLOCATE, 1, "BF2", 0)},
                 {"args": (MAX_ALLOCATE, 1, "BS", 0)},
                 {"args": (MAX_ALLOCATE, 1, "RAW", 0)},
                 {"args": (MAX_ALLOCATE, 17919, "BF", 3, False)},
