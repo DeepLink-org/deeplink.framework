@@ -19,8 +19,8 @@ inline void* getCommPcclLibHandler(const char* libName) {
   auto handler = dlopen(libName, RTLD_LAZY);
   if (handler == nullptr) {
     std::cerr << "Warning: " << __FILE__ << ":" << __LINE__ << " "
-              << __FUNCTION__ << " dlopen " << libName
-              << " failed, error:" << dlerror() << std::endl;
+              << __FUNCTION__ << " dlopen " << libName << " failed"
+              << std::endl;
   }
   return handler;
 }

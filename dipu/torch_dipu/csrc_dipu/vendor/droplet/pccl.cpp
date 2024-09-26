@@ -70,19 +70,15 @@ static const std::map<pcclDataType_t, at::ScalarType> toScalarType = {
 
 at::ScalarType PcclDataTypeToScalarType(pcclDataType_t pccl_data_type) {
   auto p = toScalarType.find(pccl_data_type);
-  if (p == toScalarType.end()) {
-    TORCH_CHECK(false, "Not supported pcclDataType_t: " +
-                           std::to_string(pccl_data_type));
-  }
+  TORCH_CHECK(p != toScalarType.end(), "Not supported pcclDataType_t: " +
+                                           std::to_string(pccl_data_type));
   return p->second;
 }
 
 static const pcclComm_t kMagicComm = reinterpret_cast<pcclComm_t>(0x5043434C);
 
 void checkCommOrThrow(pcclComm_t comm) {
-  if (comm == nullptr || comm != kMagicComm) {
-    TORCH_CHECK(false, "Invalid comm.");
-  }
+  TORCH_CHECK(comm != nullptr && comm == kMagicComm, "Invalid comm.");
 }
 
 [[noreturn]] void throwNotSupportedError() {
