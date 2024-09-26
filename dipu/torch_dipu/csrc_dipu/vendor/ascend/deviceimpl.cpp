@@ -10,6 +10,7 @@
 #include <c10/util/Exception.h>
 #include <torch/csrc/distributed/c10d/Work.hpp>
 
+#include "csrc_dipu/base/environ.hpp"
 #include "csrc_dipu/runtime/device/basedef.h"
 #include "csrc_dipu/utils/env.hpp"
 #include <csrc_dipu/common.h>
@@ -30,8 +31,7 @@ using AscendDeviceId = int32_t;
 
 namespace {
 
-const bool forceFallbackP2PCopy =
-    get_env_or_default("DIPU_FORCE_FALLBACK_ASCEND_P2P_COPY", false);
+const bool forceFallbackP2PCopy = environ::forceFallbackP2pCopybetweenascends();
 
 class NpuP2PInfo {
   enum class P2pStatus : int8_t {
